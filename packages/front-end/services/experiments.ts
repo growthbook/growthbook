@@ -19,7 +19,7 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { ago, getValidDate } from "shared/dates";
-import { getTempRolloutStaleReason } from "shared/util";
+import { getTempRolloutStaleReason, pValueFormatter } from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
@@ -507,14 +507,7 @@ export function getHealthSortOrder(
   return state ? HEALTH_SORT_ORDER[state] : 0;
 }
 
-export function pValueFormatter(pValue: number, digits: number = 3): string {
-  if (typeof pValue !== "number") {
-    return "";
-  }
-  return pValue < Math.pow(10, -digits)
-    ? `<0.${"0".repeat(digits - 1)}1`
-    : pValue.toFixed(digits);
-}
+export { pValueFormatter };
 
 export function useExperimentSearch({
   allExperiments,

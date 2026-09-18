@@ -77,6 +77,19 @@ export function parseEnvInt(
 }
 
 /**
+ * Formats a p-value for display, collapsing anything below the smallest
+ * representable value at `digits` precision to `<0.001`-style text.
+ */
+export function pValueFormatter(pValue: number, digits: number = 3): string {
+  if (typeof pValue !== "number") {
+    return "";
+  }
+  return pValue < Math.pow(10, -digits)
+    ? `<0.${"0".repeat(digits - 1)}1`
+    : pValue.toFixed(digits);
+}
+
+/**
  * Display arbitrary table / query cell values for UI:
  * - `null` / `undefined` → empty string
  * - booleans → `"true"` / `"false"`

@@ -20,14 +20,14 @@ const org = {
   settings: { environments: [{ id: "production" }, { id: "dev" }] },
 } as unknown as OrganizationInterface;
 
-function makeContext(): ReqContextClass {
+function makeContext(premium = true): ReqContextClass {
   const context = new ReqContextClass({
     org,
     auditUser: { type: "api_key", apiKey: "key_engineer" },
     role: "engineer",
     req: { query: {}, headers: {}, body: {} } as unknown as Request,
   });
-  context.hasPremiumFeature = () => true;
+  context.hasPremiumFeature = () => premium;
   return context;
 }
 
@@ -557,6 +557,449 @@ describe("feature rule write contracts", () => {
         expect(res.status).toBe(400);
       });
     });
+  });
+
+  // A stored rule can still name an environment that was since deleted. The
+  // v2 read model drops it, so a GET posted back unchanged is accepted while a
+  // newly introduced unknown id is still rejected.
+  describe("v2 bulk update with a stale stored environment", () => {
+    beforeEach(async () => {
+      await insertFeature("flag_stale_env", [
+        {
+          id: "fr_stale_env",
+          type: "force",
+          value: "true",
+          description: "",
+          enabled: true,
+          condition: "",
+          savedGroups: [],
+          allEnvironments: false,
+          environments: ["gone_env", "production"],
+        },
+      ]);
+      await insertDraftRevision("flag_stale_env");
+    });
+
+    it("reads back without the deleted environment and round-trips", async () => {
+      const got = await request(app)
+        .get("/api/v2/features/flag_stale_env")
+        .set("Authorization", "Bearer foo");
+      expect(got.status).toBe(200);
+      expect(got.body.feature.rules[0].environments).toEqual(["production"]);
+
+      const echoed = await request(app)
+        .post("/api/v2/features/flag_stale_env")
+        .send({ rules: got.body.feature.rules })
+        .set("Authorization", "Bearer foo");
+      expect(echoed.body.message).toBeUndefined();
+      expect(echoed.status).toBe(200);
+    });
+
+    it("still rejects a newly introduced unknown environment", async () => {
+      const res = await request(app)
+        .post("/api/v2/features/flag_stale_env")
+        .send({
+          rules: [
+            {
+              type: "force",
+              value: "true",
+              allEnvironments: false,
+              environments: ["prodution"],
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/Invalid environment: "prodution"/);
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // Deleting a project scrubs feature.project and targetingProjects but not
+  // rule scopes, so a stored rule can still name a gone project. An unchanged
+  // scope is not re-checked on update; a newly introduced unknown id is.
+  describe("bulk update with a stale rule project scope", () => {
+    const stale = {
+      id: "fr_stale_prj",
+      type: "force",
+      value: "true",
+      description: "",
+      enabled: true,
+      condition: "",
+      savedGroups: [],
+      allEnvironments: true,
+      allProjects: false,
+      projects: ["prj_gone"],
+    };
+    beforeEach(async () => {
+      await insertFeature("flag_stale_prj", [stale]);
+      await insertDraftRevision("flag_stale_prj");
+    });
+
+    it("v2: echoes the GET back unchanged", async () => {
+      const got = await request(app)
+        .get("/api/v2/features/flag_stale_prj")
+        .set("Authorization", "Bearer foo");
+      expect(got.body.feature.rules[0].projects).toEqual(["prj_gone"]);
+      const res = await request(app)
+        .post("/api/v2/features/flag_stale_prj")
+        .send({ rules: got.body.feature.rules })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+
+    it("v2: still rejects a changed scope naming an unknown project", async () => {
+      const res = await request(app)
+        .post("/api/v2/features/flag_stale_prj")
+        .send({
+          rules: [{ ...stale, projects: ["prj_gone", "prj_missing"] }],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/prj_missing/);
+      expect(res.status).toBe(400);
+    });
+
+    it("v1: echoes the GET back unchanged", async () => {
+      const got = await request(app)
+        .get("/api/v1/features/flag_stale_prj")
+        .set("Authorization", "Bearer foo");
+      const rules = got.body.feature.environments.production.rules;
+      expect(rules[0].projects).toEqual(["prj_gone"]);
+      const res = await request(app)
+        .post("/api/v1/features/flag_stale_prj")
+        .send({ environments: { production: { enabled: true, rules } } })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  // v1 posts a lone sibling back with its id stemmed; the stored counterpart
+  // must still be found so an unchanged stale scope is not re-checked.
+  describe("v1 partial post-back of a suffixed sibling rule", () => {
+    const sibling = (env: string, projects: string[]) => ({
+      id: `fr_x__${env}`,
+      type: "force",
+      value: "true",
+      description: "",
+      enabled: true,
+      condition: "",
+      savedGroups: [],
+      allEnvironments: false,
+      environments: [env],
+      allProjects: false,
+      projects,
+    });
+
+    it("echoes one environment's rules back unchanged", async () => {
+      await insertFeature("flag_sib", [
+        sibling("production", ["prj_gone"]),
+        sibling("dev", []),
+      ]);
+      await insertDraftRevision("flag_sib");
+      const got = await request(app)
+        .get("/api/v1/features/flag_sib")
+        .set("Authorization", "Bearer foo");
+      const rules = got.body.feature.environments.production.rules;
+      expect(rules).toHaveLength(1);
+      const res = await request(app)
+        .post("/api/v1/features/flag_sib")
+        .send({ environments: { production: { enabled: true, rules } } })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("revision GET → bulk POST", () => {
+    it("a draft rule scoped to a deleted environment reads back filtered and echoes", async () => {
+      const stale = {
+        id: "fr_rev_stale",
+        type: "force",
+        value: "true",
+        description: "",
+        enabled: true,
+        condition: "",
+        savedGroups: [],
+        allEnvironments: false,
+        environments: ["gone_env", "production"],
+      };
+      await insertFeature("flag_rev_stale", [stale]);
+      await insertDraftRevision("flag_rev_stale", [stale]);
+      const got = await request(app)
+        .get("/api/v2/features/flag_rev_stale/revisions/2")
+        .set("Authorization", "Bearer foo");
+      expect(got.body.revision.rules[0].environments).toEqual(["production"]);
+      const res = await request(app)
+        .post("/api/v2/features/flag_rev_stale")
+        .send({ rules: got.body.revision.rules })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("experiment-ref rules on bulk writes", () => {
+    const expRef = (experimentId: string, id?: string) => ({
+      ...(id && { id }),
+      type: "experiment-ref",
+      experimentId,
+      variations: [
+        { variationId: "v0", value: "false" },
+        { variationId: "v1", value: "true" },
+      ],
+      allEnvironments: true,
+    });
+
+    it("v2 create rejects a rule pointing at an experiment that does not exist", async () => {
+      const res = await request(app)
+        .post("/api/v2/features")
+        .send({
+          id: "flag_expref",
+          owner: "reftest",
+          valueType: "boolean",
+          defaultValue: "false",
+          rules: [expRef("exp_missing")],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(
+        /Could not find experiment "exp_missing"/,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("v2 update echoes a rule whose experiment has since been deleted, but rejects a new unknown one", async () => {
+      const stale = {
+        id: "fr_expref",
+        type: "experiment-ref",
+        experimentId: "exp_gone",
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+        description: "",
+        enabled: true,
+        condition: "",
+        savedGroups: [],
+        allEnvironments: true,
+      };
+      await insertFeature("flag_stale_exp", [stale]);
+      await insertDraftRevision("flag_stale_exp");
+      const got = await request(app)
+        .get("/api/v2/features/flag_stale_exp")
+        .set("Authorization", "Bearer foo");
+      let res = await request(app)
+        .post("/api/v2/features/flag_stale_exp")
+        .send({ rules: got.body.feature.rules })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+      res = await request(app)
+        .post("/api/v2/features/flag_stale_exp")
+        .send({ rules: [expRef("exp_other_missing", "fr_expref")] })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/exp_other_missing/);
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("duplicate rule ids in one payload", () => {
+    it("v2 bulk rejects a repeated id", async () => {
+      const res = await request(app)
+        .post("/api/v2/features")
+        .send({
+          id: "flag_dupe",
+          owner: "reftest",
+          valueType: "boolean",
+          defaultValue: "false",
+          rules: [
+            { ...forceRule({}), id: "fr_dupe" },
+            { ...forceRule({ value: "false" }), id: "fr_dupe" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/Duplicate rule ID\(s\): fr_dupe/);
+      expect(res.status).toBe(400);
+    });
+
+    it("v1 bulk rejects a repeated id within one environment but allows siblings across environments", async () => {
+      const rule = { id: "fr_sib", type: "force", value: "true" };
+      let res = await request(app)
+        .post("/api/v1/features")
+        .send({
+          id: "flag_v1_dupe",
+          owner: "reftest",
+          valueType: "boolean",
+          defaultValue: "false",
+          environments: { production: { enabled: true, rules: [rule, rule] } },
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/in environment "production": fr_sib/);
+      expect(res.status).toBe(400);
+      res = await request(app)
+        .post("/api/v1/features")
+        .send({
+          id: "flag_v1_sib",
+          owner: "reftest",
+          valueType: "boolean",
+          defaultValue: "false",
+          environments: {
+            production: { enabled: true, rules: [rule] },
+            dev: { enabled: true, rules: [rule] },
+          },
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  // Only newly introduced scheduling is plan-gated. An org that has dropped
+  // below Pro can still edit or clear the schedules it already has.
+  describe("scheduling plan gate", () => {
+    const FLAG_SCHED = "flag_sched";
+    const legacyScheduleRules = [
+      { timestamp: "2030-01-01T00:00:00.000Z", enabled: true },
+      { timestamp: null, enabled: false },
+    ];
+    const scheduled = {
+      ...forceRule({ id: "fr_sched", description: "", enabled: true }),
+      scheduleRules: legacyScheduleRules,
+      scheduleType: "schedule",
+    };
+    const plain = forceRule({ id: "fr_plain", description: "", enabled: true });
+    const schedule = { startDate: "2031-01-01T00:00:00.000Z" };
+    const v2Echo = (rule: Record<string, unknown>) => ({
+      id: rule.id,
+      type: "force",
+      value: "true",
+      allEnvironments: true,
+      scheduleRules: rule.scheduleRules,
+    });
+    const v1Env = (rules: Record<string, unknown>[]) => ({
+      environments: { production: { enabled: true, rules } },
+    });
+    const send = (method: "post" | "put", path: string, body: unknown) => {
+      const agent = request(app);
+      return agent[method](`/api/${path}`)
+        .send(body)
+        .set("Authorization", "Bearer foo");
+    };
+    const RULES_V2 = `v2/features/${FLAG_SCHED}/revisions/2/rules`;
+    const RULES_V1 = `v1/features/${FLAG_SCHED}/revisions/2/rules`;
+
+    beforeEach(async () => {
+      setReqContext(makeContext(false));
+      await insertFeature(FLAG_SCHED, [scheduled, plain]);
+      await insertDraftRevision(FLAG_SCHED, [scheduled, plain]);
+    });
+
+    it.each([
+      [
+        "v2 add with the schedule shorthand",
+        () => send("post", RULES_V2, { rule: forceRule({}), schedule }),
+      ],
+      [
+        "v1 add with legacy scheduleRules",
+        () =>
+          send("post", RULES_V1, {
+            environment: "production",
+            rule: {
+              type: "force",
+              value: "true",
+              scheduleRules: legacyScheduleRules,
+            },
+          }),
+      ],
+      [
+        "v2 patch scheduling an unscheduled rule",
+        () => send("put", `${RULES_V2}/fr_plain`, { rule: {}, schedule }),
+      ],
+      [
+        "v2 bulk scheduling an unscheduled rule",
+        () =>
+          send("post", `v2/features/${FLAG_SCHED}`, {
+            rules: [v2Echo({ ...plain, scheduleRules: legacyScheduleRules })],
+          }),
+      ],
+      [
+        "v1 bulk scheduling an unscheduled rule",
+        () =>
+          send(
+            "post",
+            `v1/features/${FLAG_SCHED}`,
+            v1Env([
+              {
+                id: "fr_plain",
+                type: "force",
+                value: "true",
+                scheduleRules: legacyScheduleRules,
+              },
+            ]),
+          ),
+      ],
+    ])(
+      "refuses newly introduced scheduling without the plan feature: %s",
+      async (_label, go) => {
+        const res = await go();
+        expect(res.body.message).toMatch(/Pro/);
+        expect(res.status).toBe(403);
+      },
+    );
+
+    it.each([
+      [
+        "v1 patch editing an existing schedule",
+        () =>
+          send("put", `${RULES_V1}/fr_sched`, {
+            environment: "production",
+            rule: {},
+            schedule,
+          }),
+      ],
+      [
+        "v2 patch editing an existing schedule",
+        () => send("put", `${RULES_V2}/fr_sched`, { rule: {}, schedule }),
+      ],
+      [
+        "v1 patch clearing an existing schedule",
+        () =>
+          send("put", `${RULES_V1}/fr_sched`, {
+            environment: "production",
+            rule: { scheduleRules: [] },
+          }),
+      ],
+      [
+        "v2 bulk echoing an existing schedule",
+        () =>
+          send("post", `v2/features/${FLAG_SCHED}`, {
+            rules: [v2Echo(scheduled), v2Echo(plain)],
+          }),
+      ],
+      [
+        "v1 bulk echoing an existing schedule",
+        () =>
+          send(
+            "post",
+            `v1/features/${FLAG_SCHED}`,
+            v1Env([
+              {
+                id: "fr_sched",
+                type: "force",
+                value: "true",
+                scheduleRules: legacyScheduleRules,
+              },
+            ]),
+          ),
+      ],
+    ])(
+      "lets a downgraded org modify or remove an existing schedule: %s",
+      async (_label, go) => {
+        const res = await go();
+        expect(res.body.message).toBeUndefined();
+        expect(res.status).toBe(200);
+      },
+    );
   });
 
   describe("v2 bulk (POST /api/v2/features)", () => {

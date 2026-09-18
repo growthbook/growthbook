@@ -55,6 +55,7 @@ import {
 import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
+import { resolveAgentInternalHref } from "./agentLinkUtils";
 
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
@@ -62,6 +63,12 @@ const CALL_API_LABEL = "Calling GrowthBook API…";
 const ASK_USER_LABEL = "Asking you a question…";
 const LOAD_SKILL_LABEL = "Loading skill…";
 const WAIT_LABEL = "Waiting…";
+
+function resolveAgentPanelInternalHref(href: string): string | null {
+  const currentOrigin =
+    typeof window === "undefined" ? null : window.location.origin;
+  return resolveAgentInternalHref(href, currentOrigin);
+}
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
@@ -220,43 +227,34 @@ export default function AgentPanel({
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  // Relative links in agent replies navigate the underlying page in-app
-  // (the panel stays open) instead of opening a new tab.
-  const navigateInApp = useCallback((href: string) => {
-    void routerRef.current?.push(href);
-  }, []);
-
   const { mutate } = useSWRConfig();
-  const { apiCall } = useAuth();
+  const { orgId } = useAuth();
 
-  /** Every cached dashboard is stale once the agent has written one. */
+  /**
+   * Every cached dashboard in THIS org is stale once the agent has written one.
+   * useApi keys are `<orgId>::<path>`, so the prefix keeps orgs the user visited
+   * earlier in the session out of the revalidation.
+   */
   const mutateDashboards = useCallback(
     () =>
-      mutate((key) => typeof key === "string" && key.includes("::/dashboards")),
-    [mutate],
+      mutate(
+        (key) =>
+          typeof key === "string" && key.startsWith(`${orgId}::/dashboards`),
+      ),
+    [mutate, orgId],
   );
 
-  /** Refresh caches after a dashboard write; a new one is opened by the link in the reply. */
+  /**
+   * A dashboard write only needs the caches dropped: the PUT already ran the
+   * charts it affected (and a metadata-only edit has none to run), so calling
+   * the refresh endpoint here would re-run those warehouse queries.
+   */
   const handleDashboardWrite = useCallback(
     (event: { type: string; data: Record<string, unknown> }) => {
-      const write = dashboardWriteFromEvent(event);
-      if (!write) return;
-
-      if (write.kind === "created") {
-        void mutateDashboards();
-        return;
-      }
-
-      void (async () => {
-        try {
-          await apiCall(`/dashboards/${write.id}/refresh`, { method: "POST" });
-        } catch {
-          // The edit landed; its Update button can retry the refresh.
-        }
-        await mutateDashboards();
-      })();
+      if (!dashboardWriteFromEvent(event)) return;
+      void mutateDashboards();
     },
-    [apiCall, mutateDashboards],
+    [mutateDashboards],
   );
 
   const handleAgentSSEEvent = useCallback(
@@ -295,8 +293,13 @@ export default function AgentPanel({
     (data: unknown) => {
       syncFromConversation(data);
       loadFeedbackFromConversation(data);
+      // Switching conversations aborts the live stream while the server keeps
+      // going, so a dashboard write can land with nobody listening for its
+      // event. Resyncing a conversation is the first moment we could have
+      // missed one, so drop the caches then too.
+      void mutateDashboards();
     },
-    [syncFromConversation, loadFeedbackFromConversation],
+    [syncFromConversation, loadFeedbackFromConversation, mutateDashboards],
   );
 
   const {
@@ -572,7 +575,6 @@ export default function AgentPanel({
             <PersistedTurn
               key={idx}
               turn={turn}
-              onInternalLinkClick={navigateInApp}
               toolDetailsOpenRef={toolDetailsOpenRef}
               feedbackMap={feedbackMap}
               onFeedbackSubmit={handleFeedbackSubmit}
@@ -594,7 +596,6 @@ export default function AgentPanel({
               <ActiveTurnItemRow
                 item={item}
                 displayedTextMap={displayedTextMap}
-                onInternalLinkClick={navigateInApp}
                 toolDetailsOpenRef={toolDetailsOpenRef}
               />
             );
@@ -700,12 +701,10 @@ function activeItemsToSteps(
 function ActiveTurnItemRow({
   item,
   displayedTextMap,
-  onInternalLinkClick,
   toolDetailsOpenRef,
 }: {
   item: ActiveTurnItem;
   displayedTextMap: Map<string, string>;
-  onInternalLinkClick?: (href: string) => void;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
 }) {
   if (item.kind === "tool-status") {
@@ -746,7 +745,7 @@ function ActiveTurnItemRow({
     if (!displayed) return null;
     return (
       <AssistantBubble>
-        <Markdown onInternalLinkClick={onInternalLinkClick}>
+        <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
           {displayed}
         </Markdown>
       </AssistantBubble>
@@ -765,14 +764,12 @@ function ActiveTurnItemRow({
  */
 function PersistedTurn({
   turn,
-  onInternalLinkClick,
   toolDetailsOpenRef,
   feedbackMap,
   onFeedbackSubmit,
   feedbackTrackingEventName,
 }: {
   turn: MessageTurn;
-  onInternalLinkClick?: (href: string) => void;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
   feedbackMap: Record<string, FeedbackState>;
   onFeedbackSubmit: (
@@ -842,7 +839,7 @@ function PersistedTurn({
 
       {hasReply && (
         <AssistantBubble>
-          <Markdown onInternalLinkClick={onInternalLinkClick}>
+          <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
             {replyContent}
           </Markdown>
         </AssistantBubble>

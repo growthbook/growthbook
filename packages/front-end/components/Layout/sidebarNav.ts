@@ -105,12 +105,18 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Explore",
         href: "/product-analytics/explore",
-        path: /^product-analytics\/explore(\/(?!funnel|sql).*)?$/,
+        path: /^product-analytics\/explore(\/(?!funnel|journey|sql).*)?$/,
       },
       {
         name: "Funnels",
         href: "/product-analytics/explore/funnel",
         path: /^product-analytics\/explore\/funnel/,
+      },
+      {
+        name: "User Journeys",
+        href: "/product-analytics/explore/journey",
+        path: /^product-analytics\/explore\/journey/,
+        beta: true,
       },
       {
         name: "SQL Explorer",
@@ -263,6 +269,13 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageOrgSettings(),
       },
       {
+        name: "Projects",
+        href: "/projects",
+        path: /^project/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canViewProjectsPage(),
+      },
+      {
         name: "Members",
         href: "/settings/team",
         path: /^settings\/team/,
@@ -275,13 +288,6 @@ export const navlinks: SidebarLinkProps[] = [
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canCreateAndUpdateTag() ||
           permissionsUtils.canDeleteTag(),
-      },
-      {
-        name: "Projects",
-        href: "/projects",
-        path: /^project/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewProjectsPage(),
       },
       {
         name: "Custom Fields",

@@ -15,6 +15,10 @@ import {
   getHealthSettings,
 } from "shared/enterprise";
 import { ExperimentAnalysisSummary } from "shared/validators";
+import {
+  getExperimentSRMValue,
+  getExperimentVariationUnitsFromHealth,
+} from "shared/health";
 import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
@@ -282,14 +286,31 @@ export const notifyMultipleExposures = async ({
   );
 };
 
+const getSrmVariationBalance = (
+  experiment: ExperimentInterface,
+  snapshot: ExperimentSnapshotInterface,
+) => {
+  const units = getExperimentVariationUnitsFromHealth(snapshot);
+  if (!units?.length) return undefined;
+  const weights =
+    experiment.phases[experiment.phases.length - 1]?.variationWeights ?? [];
+  return experiment.variations.map((v, i) => ({
+    name: v.name,
+    users: units[i] ?? 0,
+    weight: weights[i] ?? 0,
+  }));
+};
+
 export const notifySrm = async ({
   context,
   experiment,
+  snapshot,
   currentStatus,
   healthSettings,
 }: {
   context: Context;
   experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
   currentStatus: ExperimentResultStatusData;
   healthSettings: ExperimentHealthSettings;
 }) => {
@@ -304,6 +325,8 @@ export const notifySrm = async ({
     dispatch: async () => {
       if (!triggered) return;
 
+      const pValue = getExperimentSRMValue(snapshot);
+      const variations = getSrmVariationBalance(experiment, snapshot);
       await dispatchEvent({
         context,
         experiment,
@@ -314,6 +337,8 @@ export const notifySrm = async ({
             experimentId: experiment.id,
             experimentName: experiment.name,
             threshold: healthSettings.srmThreshold,
+            ...(pValue !== undefined ? { pValue } : {}),
+            ...(variations ? { variations } : {}),
           },
         },
       });
@@ -843,6 +868,7 @@ export const notifyExperimentChange = async ({
     const triggeredSrm = await notifySrm({
       context,
       experiment,
+      snapshot,
       currentStatus,
       healthSettings,
     });

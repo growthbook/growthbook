@@ -8,6 +8,7 @@ import {
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
+  testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -175,6 +176,15 @@ router.post(
     body: testFactFilterPropsValidator,
   }),
   factTableController.postFactFilterTest,
+);
+
+router.post(
+  "/fact-tables/:id/test-row-filters",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: testRowFiltersPropsValidator,
+  }),
+  factTableController.postRowFiltersTest,
 );
 
 router.delete(

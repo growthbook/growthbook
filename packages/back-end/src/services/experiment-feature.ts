@@ -526,6 +526,8 @@ export async function publishPendingFeatureDraftsForExperiment(
           status: revision.status,
           hasCoveringApproval: approval.hasCoveringApproval,
           requiredTeamsSatisfied: approval.requiredApproverTeams.satisfied,
+          requiredProjectApproversSatisfied:
+            approval.requiredProjectApprovers.satisfied,
         },
         "Cannot auto-publish pending feature draft: approval requirements not met",
       );
@@ -763,6 +765,8 @@ export async function publishPendingFeatureDraftsForContextualBandit(
           status: revision.status,
           hasCoveringApproval: approval.hasCoveringApproval,
           requiredTeamsSatisfied: approval.requiredApproverTeams.satisfied,
+          requiredProjectApproversSatisfied:
+            approval.requiredProjectApprovers.satisfied,
         },
         "Cannot auto-publish pending feature draft: approval requirements not met",
       );
