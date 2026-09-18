@@ -1355,8 +1355,10 @@ export function featureMetadataEnvelope(
     description: feature.description ?? "",
     owner: feature.owner ?? "",
     project: feature.project ?? "",
-    targetingAllProjects: feature.targetingAllProjects,
-    targetingProjects: feature.targetingProjects,
+    // Persist defaults so a stored snapshot cannot inherit a later expansion
+    // of live targeting when the revision is edited or published.
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags ?? [],
     neverStale: feature.neverStale,
     customFields: feature.customFields,

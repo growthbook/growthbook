@@ -23,7 +23,11 @@ import {
   assertFeatureValuesValid,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { normalizeRampPlanForceValues } from "back-end/src/services/rampSchedule";
+import {
+  applyPatchToRule,
+  normalizeRampPlanForceValues,
+} from "back-end/src/services/rampSchedule";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { configCheckedRuleValues } from "back-end/src/services/configValidation";
 import {
@@ -311,7 +315,13 @@ export function collectRampPlanPatches(
 type RuleScope = Pick<
   RampPatchTargetingInput,
   "allEnvironments" | "environments" | "prerequisites" | "hashAttribute"
-> & { id?: string; type?: string };
+> &
+  Partial<
+    Pick<
+      FeatureRule,
+      "id" | "condition" | "savedGroups" | "allProjects" | "projects"
+    >
+  > & { type?: FeatureRule["type"] };
 
 // One patch and where it lands: the flag whose rule it targets, and that
 // rule's current environment scope when the caller could resolve it.
@@ -491,6 +501,36 @@ export async function validateRampPlanPatches(
     );
 
     for (const { patch, changed, feature, rule } of checked) {
+      if (feature) {
+        // Only targeting is judged here, so the rule's type does not matter.
+        const target: FeatureRule = {
+          description: "",
+          value: "",
+          ...rule,
+          type: "force",
+          id: rule?.id ?? patch.ruleId ?? "ramp-schedule-patch",
+          allEnvironments: rule?.allEnvironments ?? false,
+          environments: rule?.environments ?? undefined,
+          prerequisites: rule?.prerequisites ?? undefined,
+        };
+        const storedRule = (feature.rules ?? []).find(
+          (r) => r.id === target.id,
+        );
+        const priorPlans = storedPatches.filter(
+          (p) => !p.ruleId || stemRuleId(p.ruleId) === stemRuleId(target.id),
+        );
+        await assertFeatureSavedGroupScope(
+          context,
+          { ...feature, rules: [applyPatchToRule(target, patch)] },
+          [
+            feature,
+            ...priorPlans.map((p) => ({
+              ...feature,
+              rules: [applyPatchToRule(storedRule ?? target, p)],
+            })),
+          ],
+        );
+      }
       // A scope change carries the rule's existing gates into new
       // environments: walk with those, with the target rule removed from the
       // stored graph so they count as new edges.

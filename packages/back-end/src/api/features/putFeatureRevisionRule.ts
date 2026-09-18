@@ -1,5 +1,4 @@
 import isEqual from "lodash/isEqual";
-import pick from "lodash/pick";
 import {
   getRuleAttributeScopeProjectIds,
   ruleAppliesToEnv,
@@ -218,16 +217,14 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   await validateRampPlanPatches(
     req.context,
     rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
-      ...pick(
-        await stagedRule(
-          req.context,
-          feature,
-          req.params.version,
-          req.params.ruleId,
-        ),
-        ["id", "type", "hashAttribute"],
-      ),
-      ...pick(patch, ["type", "hashAttribute"]),
+      ...(await stagedRule(
+        req.context,
+        feature,
+        req.params.version,
+        req.params.ruleId,
+      )),
+      ...patch,
+      id: req.params.ruleId,
       environments: [environment],
     }),
   );

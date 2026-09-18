@@ -109,6 +109,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 // Pull in mocked module references AFTER the mock declarations.
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { validateRampPlanPatches } from "back-end/src/api/features/validations";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   createRevision,
   getRevision,
@@ -1870,6 +1871,67 @@ describe("featureEntityHandler.applyActions", () => {
     environments: [],
     auditUser: { type: "system" },
   } as never;
+
+  it.each([false, true])(
+    "preserves persisted targeting only on restoration (forward=%s)",
+    async (forward) => {
+      const live = { ...makeFeature(), project: "b" } as FeatureInterface;
+      mockGetFeature.mockResolvedValue(live);
+      const strictContext = {
+        org: { id: ORG_ID, settings: { enforceSavedGroupProjectScope: true } },
+        environments: [],
+        scanContextOverride: {
+          models: {
+            savedGroups: {
+              getAllWithoutValues: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: "old-group", type: "list", projects: ["a"] },
+                ]),
+            },
+          },
+        },
+      } as unknown as Parameters<typeof featureEntityHandler.applyActions>[0];
+      mockCreateRevision.mockImplementationOnce(
+        async ({ context, feature, changes, savedGroupScopeBaseline }) => {
+          await assertFeatureSavedGroupScope(
+            context,
+            { ...feature, rules: changes.rules ?? feature.rules },
+            savedGroupScopeBaseline
+              ? [feature, savedGroupScopeBaseline]
+              : feature,
+          );
+          return makeRevision() as never;
+        },
+      );
+      const action = featureEntityHandler.applyActions(
+        strictContext,
+        FEATURE_ID,
+        [
+          {
+            targetType: "feature-rule",
+            targetId: TARGET_ID,
+            patch: {
+              ruleId: RULE_ID,
+              savedGroups: [{ match: "all", ids: ["old-group"] }],
+            },
+          },
+        ],
+        {
+          stepLabel: forward ? "Advance" : "Rollback",
+          user: { type: "system" },
+          judgeTargeting: forward,
+        },
+      );
+      if (forward) {
+        await expect(action).rejects.toThrow("not available");
+        expect(mockPublishRevision).not.toHaveBeenCalled();
+      } else {
+        await expect(action).resolves.toBeUndefined();
+        expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
 
   it("calls publishRevision with sparse-patched rules", async () => {
     const actions = [
