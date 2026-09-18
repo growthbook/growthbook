@@ -3,7 +3,6 @@ import {
   PiCalendar,
   PiChartBar,
   PiChartLine,
-  PiCircle,
   PiDivide,
   PiFunnel,
   PiHash,
@@ -160,8 +159,7 @@ export default function MetricTypeSelect({
                 >
                   <span className={styles.option}>
                     <span className={styles.icon} aria-hidden="true">
-                      <Icon size={20} className={styles.optionIcon} />
-                      <PiCircle size={16} className={styles.selectedIcon} />
+                      <Icon size={20} />
                     </span>
                     <span className={styles.copy}>
                       <Flex as="span" align="center" gap="2">

@@ -17,8 +17,6 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Avatar from "@/ui/Avatar";
 import TextField from "@/ui/TextField";
-import Text from "@/ui/Text";
-import { Select, SelectItem } from "@/ui/Select";
 import {
   RowFilterInput,
   SampleRowsButton,
@@ -39,6 +37,8 @@ function FunnelStepInput({
   index,
   factTableOptions,
   disableFactTableSelector,
+  inheritTable,
+  setInheritTable,
   updateStep,
   removeStep,
 }: {
@@ -46,12 +46,13 @@ function FunnelStepInput({
   index: number;
   factTableOptions: { label: string; value: string }[];
   disableFactTableSelector: boolean;
+  inheritTable: boolean;
+  setInheritTable: (inherit: boolean) => void;
   updateStep: (index: number, updates: Partial<FunnelStep>) => void;
   removeStep: (index: number) => void;
 }) {
   const { getFactTableById } = useDefinitions();
   const { factTable: fullFactTable } = useFullFactTable(step.factTableId);
-  const factTable = getFactTableById(step.factTableId);
 
   const setConversionWindow = (update: Partial<ConversionWindow> | null) => {
     if (update === null) {
@@ -107,35 +108,16 @@ function FunnelStepInput({
 
       <Flex>
         <Box width="100%">
-          {index > 0 && factTable ? (
-            <Flex align="center" gap="2" wrap="wrap" mb="3">
-              <Text color="text-mid">Fact table:</Text>
-              <Select
-                aria-label={`Step ${index + 1} fact table`}
-                variant="ghost"
-                style={{ fontWeight: 600 }}
-                value={step.factTableId}
-                setValue={(factTableId) => {
-                  const newFactTable = getFactTableById(factTableId);
-                  if (!newFactTable) return;
-                  updateStep(index, {
-                    factTableId,
-                    rowFilters: getInitialInlineFilters(newFactTable, []),
-                  });
-                }}
-              >
-                {factTableOptions.map(({ value, label }) => (
-                  <SelectItem key={value} value={value}>
-                    {getFactTableById(value)?.name || label}
-                  </SelectItem>
-                ))}
-              </Select>
-              <OfficialBadge
-                managedBy={factTable.managedBy}
-                type="fact table"
+          {index > 0 && (
+            <Box mb="3">
+              <Checkbox
+                label="Keep fact table from previous step"
+                value={inheritTable}
+                setValue={(checked) => setInheritTable(checked === true)}
               />
-            </Flex>
-          ) : (
+            </Box>
+          )}
+          {!inheritTable && (
             <SelectField
               size="small"
               label="Fact Table"
@@ -168,7 +150,7 @@ function FunnelStepInput({
                   rowFilters: getInitialInlineFilters(newFactTable, []),
                 });
               }}
-              placeholder="Select..."
+              placeholder="Select a fact table"
               required
             />
           )}
@@ -270,18 +252,34 @@ export default function FunnelStepsInput({
   initialFactTable?: string;
   allowChangingDatasource?: boolean;
 }) {
-  const { factTables, getFactTableById, getDatasourceById } = useDefinitions();
+  const { factTables, getFactTableById } = useDefinitions();
   const overriddenTables = useRef(
     new Set(
       value.steps.flatMap((step, index) =>
         index > 0 &&
         step.factTableId &&
-        step.factTableId !== value.steps[0]?.factTableId
+        step.factTableId !== value.steps[index - 1]?.factTableId
           ? [index]
           : [],
       ),
     ),
   );
+
+  const initializedFilterTables = useRef<string[]>([]);
+  useEffect(() => {
+    let changed = false;
+    const steps = value.steps.map((step, index) => {
+      const table = getFactTableById(step.factTableId);
+      if (!table || initializedFilterTables.current[index] === table.id)
+        return step;
+      initializedFilterTables.current[index] = table.id;
+      const rowFilters = getInitialInlineFilters(table, step.rowFilters);
+      if (rowFilters.length === (step.rowFilters?.length ?? 0)) return step;
+      changed = true;
+      return { ...step, rowFilters };
+    });
+    if (changed) setValue({ ...value, steps });
+  }, [value, getFactTableById, setValue]);
 
   // Only callers that synchronize datasource from steps can choose across sources.
   const committedFactTable = value.steps
@@ -317,9 +315,14 @@ export default function FunnelStepsInput({
     )
     .filter((t) => isProjectListValidForProject(t.projects, project))
     .map((t) => ({
-      label: `${t.name} (${getDatasourceById(t.datasource)?.name || t.datasource})`,
+      label: t.name,
       value: t.id,
     }));
+
+  const initialFilters = (id: string) => {
+    const table = getFactTableById(id);
+    return table ? getInitialInlineFilters(table) : [];
+  };
 
   const updateStep = (index: number, updates: Partial<FunnelStep>) => {
     const result = updateFunnelSteps(
@@ -327,6 +330,7 @@ export default function FunnelStepsInput({
       index,
       updates,
       overriddenTables.current,
+      initialFilters,
     );
     overriddenTables.current = result.overriddenTables;
     setValue({ ...value, steps: result.steps });
@@ -339,34 +343,32 @@ export default function FunnelStepsInput({
         .map((i) => (i > index ? i - 1 : i)),
     );
     overriddenTables.current.delete(0);
-    const newPrimaryTable =
-      index === 0 ? getFactTableById(value.steps[1]?.factTableId ?? "") : null;
+    const steps = value.steps
+      .map((step, i) => ({ step, originalIndex: i }))
+      .filter(({ originalIndex }) => originalIndex !== index)
+      .map(({ step, originalIndex }, i) => ({
+        ...step,
+        name:
+          step.name === `Step ${originalIndex + 1}`
+            ? `Step ${i + 1}`
+            : step.name,
+      }));
     setValue({
       ...value,
-      steps: value.steps
-        .map((step, i) => ({ step, originalIndex: i }))
-        .filter(({ originalIndex }) => originalIndex !== index)
-        .map(({ step, originalIndex }, i) => ({
-          ...step,
-          name:
-            step.name === `Step ${originalIndex + 1}`
-              ? `Step ${i + 1}`
-              : step.name,
-          ...(newPrimaryTable &&
-            i > 0 &&
-            !overriddenTables.current.has(i) &&
-            step.factTableId !== newPrimaryTable.id && {
-              factTableId: newPrimaryTable.id,
-              rowFilters: getInitialInlineFilters(newPrimaryTable, []),
-            }),
-        })),
+      steps: updateFunnelSteps(
+        steps,
+        0,
+        {},
+        overriddenTables.current,
+        initialFilters,
+      ).steps,
     });
   };
 
   const addStep = () => {
-    const firstFactTableId =
-      value.steps[0]?.factTableId || initialFactTable || "";
-    const firstFactTable = getFactTableById(firstFactTableId);
+    const previousFactTableId =
+      value.steps.at(-1)?.factTableId || initialFactTable || "";
+    const previousFactTable = getFactTableById(previousFactTableId);
 
     setValue({
       ...value,
@@ -374,9 +376,9 @@ export default function FunnelStepsInput({
         ...value.steps,
         {
           name: `Step ${value.steps.length + 1}`,
-          factTableId: firstFactTableId,
-          rowFilters: firstFactTable
-            ? getInitialInlineFilters(firstFactTable)
+          factTableId: previousFactTableId,
+          rowFilters: previousFactTable
+            ? getInitialInlineFilters(previousFactTable)
             : [],
           optional: false,
         },
@@ -394,6 +396,12 @@ export default function FunnelStepsInput({
           factTableOptions={factTableOptions}
           // When created from a fact table, step 1 stays anchored to it.
           disableFactTableSelector={i === 0 && !!initialFactTable}
+          inheritTable={i > 0 && !overriddenTables.current.has(i)}
+          setInheritTable={(inherit) => {
+            if (inherit) overriddenTables.current.delete(i);
+            else overriddenTables.current.add(i);
+            updateStep(i, {});
+          }}
           updateStep={updateStep}
           removeStep={removeStep}
         />
