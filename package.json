@@ -146,7 +146,8 @@
       "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",
       "agenda@5.0.0": "patches/agenda@5.0.0.patch",
       "@ephys/zod-to-ts@2.3.2": "patches/@ephys__zod-to-ts@2.3.2.patch",
-      "snowflake-sdk@2.4.3": "patches/snowflake-sdk@2.4.3.patch"
+      "snowflake-sdk@2.4.3": "patches/snowflake-sdk@2.4.3.patch",
+      "teeny-request@10.1.0": "patches/teeny-request@10.1.0.patch"
     },
     "onlyBuiltDependencies": [
       "@datadog/native-appsec",

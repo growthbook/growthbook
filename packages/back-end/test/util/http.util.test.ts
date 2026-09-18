@@ -10,7 +10,7 @@ jest.mock("node-fetch");
 let mockUseProxy = false;
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
-  WEBHOOK_PROXY: "http://smokescreen.test:4750",
+  WEBHOOK_PROXY: "http://egress-proxy.test:4750",
   get USE_PROXY() {
     return mockUseProxy;
   },
@@ -75,7 +75,7 @@ describe("getAuthProxyForUrl", () => {
     mockUseProxy = true;
     try {
       expect(getAuthProxyForUrl("https://acme.okta.com/oauth2/v1/keys")).toBe(
-        "http://smokescreen.test:4750",
+        "http://egress-proxy.test:4750",
       );
     } finally {
       mockUseProxy = false;
@@ -89,6 +89,6 @@ describe("getAuthProxyForUrl", () => {
     "https://deploy.vercel.com/keys",
     "https://10.0.0.5/keys",
   ])("keeps the proxy for %s", (url) => {
-    expect(getAuthProxyForUrl(url)).toBe("http://smokescreen.test:4750");
+    expect(getAuthProxyForUrl(url)).toBe("http://egress-proxy.test:4750");
   });
 });

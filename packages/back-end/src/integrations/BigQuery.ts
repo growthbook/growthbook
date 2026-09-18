@@ -28,6 +28,7 @@ import {
   getFactTableTypeFromBigQueryType,
   sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import SqlIntegration from "./SqlIntegration";
 import { bigQueryDialect } from "./dialects/bigquery";
 
@@ -46,12 +47,13 @@ export default class BigQuery extends SqlIntegration {
   }
 
   private getClient() {
-    // If pull credentials from env or the metadata server
+    // Pull credentials from the environment or metadata server.
     if (!IS_CLOUD && this.params.authType === "auto") {
-      return new bq.BigQuery();
+      return createBigQueryClient({ apiEndpoint: this.params.apiEndpoint });
     }
 
-    return new bq.BigQuery({
+    return createBigQueryClient({
+      apiEndpoint: this.params.apiEndpoint,
       projectId: this.params.projectId,
       credentials: {
         client_email: this.params.clientEmail,
