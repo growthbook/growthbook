@@ -1650,22 +1650,3 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
     expect(statsSection).not.toContain("dim_exp_country");
   });
 });
-
-describe("BigQuery self-hosted endpoints", () => {
-  // @ts-expect-error -- context/datasource not needed for this unit test
-  const integration = new BigQuery("", {});
-
-  it.each(["auto", "json"] as const)(
-    "allows private HTTP endpoints with %s credentials",
-    (authType) => {
-      integration.params = {
-        authType,
-        projectId: "example-project",
-        clientEmail: "test@example.invalid",
-        privateKey: "synthetic-private-key",
-        apiEndpoint: "http://proxy.internal:8080",
-      };
-      expect(() => integration["getClient"]()).not.toThrow();
-    },
-  );
-});

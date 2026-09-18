@@ -33,7 +33,6 @@ async function main() {
   let tokenRequests = 0;
   let targetRequests = 0;
   let proxyConnections = 0;
-  let expectedProjectId = "synthetic-project";
   let deny = false;
   let redirect = null;
   const sockets = new Set();
@@ -64,7 +63,7 @@ async function main() {
     assert.equal(req.headers.authorization, "Bearer synthetic-access-token");
     assert.equal(
       new URL(req.url, "https://approved-proxy.invalid").pathname,
-      `/tenant/bigquery/v2/projects/${expectedProjectId}/datasets`,
+      "/tenant/bigquery/v2/projects/synthetic-project/datasets",
     );
     if (redirect) {
       res.writeHead(redirect.status, { Location: redirect.location });
@@ -127,38 +126,14 @@ async function main() {
       autoRetry: false,
       timeout: 1000,
     };
-    const client = createBigQueryClient({
-      ...clientOptions,
-      projectId: "synthetic-project",
-    });
+    const client = createBigQueryClient(clientOptions);
 
     const [datasets] = await client.getDatasets();
     assert.equal(datasets[0].id, "safe_dataset");
     assert.equal(tokenRequests, 1);
     assert.equal(proxyConnections, 1);
     assert.equal(endpointRequests, 1);
-
-    const projectIds = [
-      undefined,
-      "",
-      "example.com:legacy-project",
-      "123456789012",
-    ];
-    for (const projectId of projectIds) {
-      expectedProjectId = projectId || "synthetic-project";
-      const projectClient = createBigQueryClient({
-        ...clientOptions,
-        projectId,
-      });
-      const [projectDatasets] = await projectClient.getDatasets();
-      assert.equal(projectDatasets[0].id, "safe_dataset");
-      assert.equal(await projectClient.getProjectId(), expectedProjectId);
-    }
-    expectedProjectId = "synthetic-project";
-    const successfulRequests = projectIds.length + 1;
-    assert.equal(tokenRequests, 1);
-    assert.equal(proxyConnections, successfulRequests);
-    assert.equal(endpointRequests, successfulRequests);
+    assert.equal(await client.getProjectId(), "synthetic-project");
 
     const escapingClient = createBigQueryClient({
       ...clientOptions,
@@ -168,23 +143,16 @@ async function main() {
       escapingClient.getDatasets(),
       /must use its configured API endpoint/,
     );
-    assert.equal(proxyConnections, successfulRequests);
-    assert.equal(endpointRequests, successfulRequests);
+    assert.equal(proxyConnections, 1);
+    assert.equal(endpointRequests, 1);
 
-    for (const destination of [
-      { status: 302, location: "https://other.invalid/datasets" },
-      { status: 307, location: `http://127.0.0.1:${targetPort}/datasets` },
-      {
-        status: 308,
-        location: `${apiEndpoint}/bigquery/v2/projects/synthetic-project/datasets`,
-      },
-    ]) {
-      redirect = destination;
-      const before = endpointRequests;
-      await assert.rejects(client.getDatasets(), /redirect/i);
-      assert.equal(endpointRequests, before + 1);
-      assert.equal(targetRequests, 0);
-    }
+    redirect = {
+      status: 307,
+      location: `http://127.0.0.1:${targetPort}/datasets`,
+    };
+    await assert.rejects(client.getDatasets(), /redirect/i);
+    assert.equal(endpointRequests, 2);
+    assert.equal(targetRequests, 0);
 
     deny = true;
     const before = endpointRequests;

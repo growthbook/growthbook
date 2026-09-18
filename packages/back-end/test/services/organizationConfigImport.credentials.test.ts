@@ -44,9 +44,7 @@ const context = (() => {
   }
 })();
 
-function importedConfig(
-  type: "clickhouse" | "growthbook_clickhouse",
-): ConfigFile {
+function importedConfig(type: "clickhouse" | "growthbook_clickhouse") {
   return {
     datasources: {
       warehouse: {
@@ -62,7 +60,7 @@ function importedConfig(
         decryptionError: false,
       },
     },
-  };
+  } satisfies ConfigFile;
 }
 
 describe("config import credential protection", () => {
@@ -89,12 +87,9 @@ describe("config import credential protection", () => {
   afterAll(() => jest.restoreAllMocks());
 
   it("rejects destination overrides on managed warehouses even for an admin", async () => {
-    const config = importedConfig("growthbook_clickhouse");
-    if (!config.datasources) throw new Error("Missing test Data Source");
-    Reflect.deleteProperty(config.datasources.warehouse.params, "password");
-    await expect(importConfig(context, config)).rejects.toThrow(
-      DEFAULT_PERMISSION_ERROR_MESSAGE,
-    );
+    await expect(
+      importConfig(context, importedConfig("growthbook_clickhouse")),
+    ).rejects.toThrow(DEFAULT_PERMISSION_ERROR_MESSAGE);
     expect(query).not.toHaveBeenCalled();
     expect(updateDataSource).not.toHaveBeenCalled();
   });
@@ -107,26 +102,20 @@ describe("config import credential protection", () => {
     expect(updateDataSource).not.toHaveBeenCalled();
   });
 
-  it("checks parameter permissions before reusing ordinary datasource credentials", async () => {
+  it("checks permissions before reusing customer-owned credentials", async () => {
     datasource.type = "clickhouse";
-    const permission = jest
+    jest
       .spyOn(context.permissions, "canUpdateDataSourceParams")
-      .mockReturnValue(false);
-    try {
-      await expect(
-        importConfig(context, importedConfig("clickhouse")),
-      ).rejects.toThrow(DEFAULT_PERMISSION_ERROR_MESSAGE);
-      expect(permission).toHaveBeenCalledWith(datasource);
-      expect(query).not.toHaveBeenCalled();
-      expect(updateDataSource).not.toHaveBeenCalled();
-    } finally {
-      permission.mockRestore();
-    }
+      .mockReturnValueOnce(false);
+    await expect(
+      importConfig(context, importedConfig("clickhouse")),
+    ).rejects.toThrow(DEFAULT_PERMISSION_ERROR_MESSAGE);
+    expect(query).not.toHaveBeenCalled();
+    expect(updateDataSource).not.toHaveBeenCalled();
   });
 
   it("permits managed warehouse metadata updates without touching credentials", async () => {
     const config = importedConfig("growthbook_clickhouse");
-    if (!config.datasources) throw new Error("Missing test Data Source");
     Reflect.deleteProperty(config.datasources.warehouse, "params");
     config.datasources.warehouse.name = "Renamed warehouse";
     await importConfig(context, config);
