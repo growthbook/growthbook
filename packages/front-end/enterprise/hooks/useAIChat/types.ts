@@ -47,6 +47,9 @@ export interface UseAIChatOptions {
   /** Labels shown while the model is still streaming a tool's arguments. */
   toolPreparingLabels?: Record<string, string>;
 
+  /** Reveal complete Markdown links atomically instead of exposing raw URLs. */
+  pauseIncompleteMarkdownLinks?: boolean;
+
   /**
    * Called for every parsed SSE event. Use this to react to domain-specific
    * events and manage your own artifact state.

@@ -29,6 +29,7 @@ import {
   UserBubble,
   ErrorBubble,
   ToolStatusIcon,
+  InlineLinkLoadingIndicator,
 } from "@/enterprise/components/AIChat/AIChatPrimitives";
 import CollapsedSteps, {
   type CollapsedStepItem,
@@ -42,6 +43,7 @@ import {
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
 import { useAutoScroll } from "@/enterprise/components/AIChat/useAutoScroll";
+import { isWaitingForMarkdownLink } from "@/enterprise/hooks/useAIChat/useTypewriter";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import { extractExplorationResultData } from "@/enterprise/hooks/useAIChat/extractExplorationResultData";
 import ExplorationBubble, {
@@ -350,6 +352,7 @@ export default function AgentPanel({
     buildRequestBody,
     toolStatusLabels: TOOL_STATUS_LABELS,
     toolPreparingLabels: TOOL_PREPARING_LABELS,
+    pauseIncompleteMarkdownLinks: true,
     getConversationEndpoint: (cid) => `/agent/chat/${cid}`,
     getCancelEndpoint: (cid) => `/agent/chat/${cid}/cancel`,
     onSSEEvent: handleAgentSSEEvent,
@@ -389,17 +392,15 @@ export default function AgentPanel({
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
 
-  const { collapsedItems, visibleItems } = useCollapsibleActiveTurnItems(
-    activeTurnItems,
-    displayedTextMap,
-    {
+  const { collapsedItems, visibleItems, fadingTextIds } =
+    useCollapsibleActiveTurnItems(activeTurnItems, displayedTextMap, {
+      fadeSupersededText: true,
       isPinned: (item) =>
         item.kind === "tool-status" &&
         item.status === "done" &&
         !!item.toolResultData &&
         chartDataFromRecord(item.toolResultData) !== null,
-    },
-  );
+    });
 
   // Focus the composer after a short delay so any layout transition settles
   // first. Used on new chat, conversation select, and turn end — opening the
@@ -766,13 +767,12 @@ export default function AgentPanel({
             />
           ))}
 
-          {/* Active turn — completed work is grouped while the current status
-              updates in place. */}
-          {(collapsedActiveSteps.length > 0 || activeStatus) && (
+          {/* Keep completed work, visible results, and the current status in a
+              stable order throughout the active turn. */}
+          {collapsedActiveSteps.length > 0 && (
             <CollapsedSteps
               count={collapsedActiveSteps.length}
               items={collapsedActiveSteps}
-              active={activeStatus}
             />
           )}
 
@@ -787,11 +787,22 @@ export default function AgentPanel({
             );
             const key = item.kind === "tool-status" ? item.toolCallId : item.id;
             return (
-              <div key={key} className={aiChatStyles.activeTurnItemWrapper}>
+              <div
+                key={key}
+                className={`${aiChatStyles.activeTurnItemWrapper}${
+                  item.kind === "text" && fadingTextIds.has(item.id)
+                    ? ` ${aiChatStyles.collapsingItem}`
+                    : ""
+                }`}
+              >
                 {rendered}
               </div>
             );
           })}
+
+          {activeStatus && (
+            <CollapsedSteps count={0} items={[]} active={activeStatus} />
+          )}
 
           {error && <ErrorBubble>{error}</ErrorBubble>}
 
@@ -921,12 +932,22 @@ function ActiveTurnItemRow({
   }
   if (item.kind === "text") {
     const displayed = displayedTextMap.get(item.id) ?? item.content;
-    if (!displayed) return null;
+    const waitingForLink = isWaitingForMarkdownLink(
+      item.content,
+      displayed.length,
+    );
+    if (!displayed && !waitingForLink) return null;
     return (
       <AssistantBubble>
-        <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
+        <Markdown
+          resolveInternalHref={resolveAgentPanelInternalHref}
+          className={
+            waitingForLink ? aiChatStyles.streamingMarkdown : undefined
+          }
+        >
           {displayed}
         </Markdown>
+        {waitingForLink && <InlineLinkLoadingIndicator />}
       </AssistantBubble>
     );
   }

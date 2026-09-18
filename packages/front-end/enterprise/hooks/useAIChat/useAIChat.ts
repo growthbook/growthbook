@@ -27,6 +27,7 @@ export function useAIChat({
   buildRequestBody,
   toolStatusLabels = {},
   toolPreparingLabels = {},
+  pauseIncompleteMarkdownLinks = false,
   onSSEEvent,
   conversationStorageKey,
   getConversationEndpoint,
@@ -111,8 +112,10 @@ export function useAIChat({
   // Active items state helper
   // ---------------------------------------------------------------------------
 
-  const { displayedTextMap, clearDisplayedText } =
-    useTypewriter(activeTurnItemsRef);
+  const { displayedTextMap, clearDisplayedText } = useTypewriter(
+    activeTurnItemsRef,
+    pauseIncompleteMarkdownLinks,
+  );
 
   const setActive = useCallback(
     (items: ActiveTurnItem[]) => {

@@ -88,6 +88,18 @@ export function ThinkingBubble({ label }: { label: string }) {
   );
 }
 
+export function InlineLinkLoadingIndicator() {
+  return (
+    <span
+      className={`${aiChatStyles.spinIcon} ${aiChatStyles.inlineLinkLoading}`}
+      role="status"
+      aria-label="Loading link"
+    >
+      <PiCircleNotch size={12} />
+    </span>
+  );
+}
+
 export function AIAnalystLabel({
   label = "AI Analyst",
   mb = "1",

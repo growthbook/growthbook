@@ -56,13 +56,11 @@ describe("general agent system prompt", () => {
     expect(prompt).not.toContain("`feature-flags/references/flag-targeting`");
   });
 
-  it("reserves plain text for the final response", () => {
+  it("asks for a concise final response", () => {
     const prompt = _buildGeneralAgentSystemPrompt();
 
-    expect(prompt).toContain(
-      "Never emit plain text before or between tool calls",
-    );
-    expect(prompt).toContain("Only when no more tool calls are");
+    expect(prompt).toContain("End with ONE short plain-text markdown message");
+    expect(prompt).toContain("reference specific numbers from the API");
   });
 });
 

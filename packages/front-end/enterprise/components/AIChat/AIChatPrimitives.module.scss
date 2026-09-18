@@ -34,6 +34,19 @@
   flex-shrink: 0;
 }
 
+.streamingMarkdown {
+  display: inline;
+
+  > p:last-child {
+    display: inline;
+  }
+}
+
+.inlineLinkLoading {
+  margin-inline-start: 5px;
+  vertical-align: -1px;
+}
+
 .bubble {
   overflow-wrap: anywhere;
 
@@ -163,9 +176,47 @@
   }
 }
 
+@keyframes gb-ai-collapse-out {
+  from {
+    grid-template-rows: minmax(0, 1fr);
+    margin-bottom: 0;
+  }
+  to {
+    grid-template-rows: minmax(0, 0fr);
+    margin-bottom: calc(-1 * var(--space-3));
+  }
+}
+
+@keyframes gb-ai-slide-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
 .activeTurnItemWrapper {
   display: flex;
   flex-direction: column;
+}
+
+.collapsingItem {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  animation: gb-ai-collapse-out 1200ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: grid-template-rows, margin-bottom;
+  pointer-events: none;
+
+  > * {
+    min-height: 0;
+    overflow: hidden;
+    animation: gb-ai-slide-up 1200ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    will-change: opacity, transform;
+  }
 }
 
 .agentActivity {
@@ -233,11 +284,20 @@
 @media (prefers-reduced-motion: reduce) {
   .spinIcon,
   .streamingDot,
-  .statusText {
+  .statusText,
+  .collapsingItem {
+    animation: none;
+  }
+
+  .collapsingItem > * {
     animation: none;
   }
 
   .activityCaret {
     transition: none;
+  }
+
+  .collapsingItem {
+    display: none;
   }
 }
