@@ -82,12 +82,19 @@ function RatioPart({
   }
 
   return (
-    <Frame p="3" mb="0">
+    <Frame px="3" py="3" mb="0">
       <Text weight="semibold" size="sm" mb="2" as="div">
         {label}
       </Text>
       <Flex direction="column" gap="2">
         {before}
+        {factTable && (
+          <RowFilterInput
+            factTable={factTable}
+            value={value.rowFilters || []}
+            setValue={(rowFilters) => onChange({ ...value, rowFilters })}
+          />
+        )}
         <Flex gap="2" align="end" wrap="wrap">
           <ShapeSelect
             label="Aggregation"
@@ -109,13 +116,6 @@ function RatioPart({
             onChange={(column) => onChange({ ...value, column })}
           />
         </Flex>
-        {factTable && (
-          <RowFilterInput
-            factTable={factTable}
-            value={value.rowFilters || []}
-            setValue={(rowFilters) => onChange({ ...value, rowFilters })}
-          />
-        )}
       </Flex>
     </Frame>
   );
@@ -123,8 +123,7 @@ function RatioPart({
 
 // Ratio parts (spec): a Box per part, Shape (both sides also offer "Unique
 // users") + Column, denominator additionally offers a fact table override
-// when its shape isn't "users", and Row filters per part - unlike every
-// other type, which shares one Row filters section after the type block.
+// when its shape isn't "users", with Row filters directly after each table.
 export default function RatioFields({
   numeratorFactTableSelect,
   numerator,
@@ -182,6 +181,7 @@ export default function RatioFields({
               <Text color="text-mid">Fact table:</Text>
               <Select
                 aria-label="Denominator fact table"
+                placeholder="Select a fact table"
                 variant="ghost"
                 style={{ fontWeight: 600 }}
                 value={denominator.factTableId}

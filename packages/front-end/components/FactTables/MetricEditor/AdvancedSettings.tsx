@@ -4,7 +4,6 @@ import { Flex, Grid } from "@radix-ui/themes";
 import {
   FactTableDefinition,
   MetricCappingSettings,
-  MetricWindowSettings,
 } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -23,7 +22,6 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import { DataListItem } from "@/ui/DataList";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";
 import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
@@ -32,19 +30,7 @@ import {
   FormMetricType,
   windowOk,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
-
-function windowProse(windowSettings: MetricWindowSettings): string {
-  const afterExposure = windowSettings.delayValue
-    ? " plus the metric delay"
-    : "";
-  if (windowSettings.type === "conversion") {
-    return `Conversion — within ${windowSettings.windowValue} ${windowSettings.windowUnit} of first exposure${afterExposure}.`;
-  }
-  if (windowSettings.type === "lookback") {
-    return `Lookback — latest ${windowSettings.windowValue} ${windowSettings.windowUnit} of the experiment.`;
-  }
-  return `Disabled — includes all data after first exposure${afterExposure}.`;
-}
+import styles from "./AdvancedSettings.module.scss";
 
 function cappingSummary(
   cappingSettings: MetricCappingSettings,
@@ -117,9 +103,6 @@ export default function AdvancedSettings({
       ? form.watch("regressionAdjustmentDays")
       : orgSettings.regressionAdjustmentDays;
     const items: DataListItem[] = [
-      ...(windowOk(formType)
-        ? [{ label: "Metric window", value: windowProse(windowSettings) }]
-        : []),
       ...(showsAutoSlices && factTable
         ? [
             {
@@ -201,13 +184,13 @@ export default function AdvancedSettings({
     ];
 
     return (
-      <Frame px="4" py="3">
+      <Frame px="4" py="3" mb="0">
         <details open>
           <summary style={{ cursor: "pointer" }}>
             <Text weight="semibold">Advanced settings</Text>
           </summary>
           <Text as="div" size="sm" color="text-mid" mt="1">
-            Metric window, decision framework, thresholds, priors, CUPED
+            Metric delay, decision framework, thresholds, priors, CUPED
           </Text>
           <Grid
             asChild
@@ -242,28 +225,40 @@ export default function AdvancedSettings({
   }
 
   return (
-    <Frame>
+    <Frame px="4" py="4" mb="0">
       <details>
         <summary style={{ cursor: "pointer" }}>
           <Text weight="semibold">Advanced settings</Text>
         </summary>
         <Flex direction="column" gap="3" mt="3">
           <Tabs defaultValue="analysis">
-            <TabsList mb="4" aria-label="Advanced settings">
+            <TabsList mb="3" aria-label="Advanced settings">
               <TabsTrigger value="analysis">Analysis settings</TabsTrigger>
               <TabsTrigger value="display">Display settings</TabsTrigger>
             </TabsList>
             <TabsContent value="analysis" forceMount>
-              <Flex direction="column" gap="4">
+              <Flex direction="column" gap="3">
                 {
                   <>
                     {windowOk(formType) && (
-                      <Frame mb="0">
+                      <Frame
+                        px="3"
+                        pt="3"
+                        pb="3"
+                        mb="0"
+                        className={styles.setting}
+                      >
                         <MetricDelaySettings form={form} />
                       </Frame>
                     )}
                     {cappingOk(formType) && (
-                      <Frame mb="0">
+                      <Frame
+                        px="3"
+                        pt="3"
+                        pb="3"
+                        mb="0"
+                        className={styles.setting}
+                      >
                         <MetricCappingSettingsForm
                           form={form}
                           datasourceType={datasource?.type}
@@ -271,7 +266,13 @@ export default function AdvancedSettings({
                         />
                       </Frame>
                     )}
-                    <Frame mb="0">
+                    <Frame
+                      px="3"
+                      pt="3"
+                      pb="3"
+                      mb="0"
+                      className={styles.setting}
+                    >
                       <Field
                         label={
                           <>
@@ -295,7 +296,13 @@ export default function AdvancedSettings({
                         {...form.register("targetMDE", { valueAsNumber: true })}
                       />
                     </Frame>
-                    <Frame mb="0">
+                    <Frame
+                      px="3"
+                      pt="3"
+                      pb="3"
+                      mb="0"
+                      className={styles.setting}
+                    >
                       <MetricPriorSettingsForm
                         priorSettings={priorSettings}
                         setPriorSettings={(v) =>
@@ -305,7 +312,13 @@ export default function AdvancedSettings({
                       />
                     </Frame>
                     {formType !== "quantile" && (
-                      <Frame mb="0">
+                      <Frame
+                        px="3"
+                        pt="3"
+                        pb="3"
+                        mb="0"
+                        className={styles.setting}
+                      >
                         <PremiumTooltip commercialFeature="regression-adjustment">
                           <Text weight="semibold" as="div" mb="1">
                             Regression adjustment (CUPED)
@@ -347,9 +360,6 @@ export default function AdvancedSettings({
                     )}
                   </>
                 }
-                {windowOk(formType) && (
-                  <MetricWindowSettingsForm form={form} type={metricType} />
-                )}
                 {showsGoalAndSlices && (
                   <>
                     <Select
@@ -392,10 +402,16 @@ export default function AdvancedSettings({
               </Flex>
             </TabsContent>
             <TabsContent value="display" forceMount>
-              <Flex direction="column" gap="4">
+              <Flex direction="column" gap="3">
                 {
                   <>
-                    <Frame mb="0">
+                    <Frame
+                      px="3"
+                      pt="3"
+                      pb="3"
+                      mb="0"
+                      className={styles.setting}
+                    >
                       <Field
                         label={
                           <>
@@ -417,7 +433,13 @@ export default function AdvancedSettings({
                         })}
                       />
                     </Frame>
-                    <Frame mb="0">
+                    <Frame
+                      px="3"
+                      pt="3"
+                      pb="3"
+                      mb="0"
+                      className={styles.setting}
+                    >
                       <Field
                         label={
                           <>
@@ -443,7 +465,13 @@ export default function AdvancedSettings({
                         })}
                       />
                     </Frame>
-                    <Frame mb="0">
+                    <Frame
+                      px="3"
+                      pt="3"
+                      pb="3"
+                      mb="0"
+                      className={styles.setting}
+                    >
                       <Field
                         label={
                           <>

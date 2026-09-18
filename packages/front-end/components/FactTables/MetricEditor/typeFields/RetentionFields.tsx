@@ -6,7 +6,7 @@ import {
 import RadioGroup from "@/ui/RadioGroup";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
-import Switch from "@/ui/Switch";
+import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import {
   onRetentionDelayOrModeChange,
@@ -56,6 +56,7 @@ export default function RetentionFields({
   if (!canEdit) {
     return (
       <Flex direction="column" gap="3">
+        <Text weight="semibold">Retention Period</Text>
         <Text as="div">{retentionWindowProse(windowSettings)}</Text>
         {hasThreshold && (
           <ThresholdBasisRow
@@ -71,6 +72,7 @@ export default function RetentionFields({
 
   return (
     <Flex direction="column" gap="3">
+      <Text weight="semibold">Retention Period</Text>
       <Flex gap="2" align="center" wrap="wrap">
         <RadioGroup
           value={mode}
@@ -141,10 +143,10 @@ export default function RetentionFields({
         <Text size="sm">after exposure</Text>
       </Flex>
 
-      <Switch
+      <Checkbox
         label="Require a minimum amount (Threshold)"
         value={hasThreshold}
-        onChange={(checked) =>
+        setValue={(checked) =>
           onThresholdChange(
             checked
               ? { aggregateFilterColumn: "$$count", aggregateFilter: "" }
