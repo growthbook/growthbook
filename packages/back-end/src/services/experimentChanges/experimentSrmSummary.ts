@@ -1,13 +1,12 @@
 import type { ExperimentWarningNotificationPayload } from "shared/validators";
 import { formatInteger, pValueFormatter } from "shared/util";
+import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
 import type { CardTable } from "back-end/src/services/notificationCards/types";
 
 export type SrmPayload = Extract<
   ExperimentWarningNotificationPayload,
   { type: "srm" }
 >;
-
-export const SRM_LABEL = "Health Alert - SRM Detected";
 
 const percentFormatter = new Intl.NumberFormat("en-US", {
   style: "percent",
@@ -49,13 +48,14 @@ export function buildSrmBalanceTable(data: SrmPayload): CardTable | null {
   };
 }
 
-// "Health Alert - SRM Detected. Traffic isn't splitting as configured
-// (p-value: <0.001, threshold 0.001). Control: 6,213 units (62.1%, expected
-// 50%); One-page checkout: 3,787 units (37.9%, expected 50%)."
-export function getSrmText(data: SrmPayload): string {
+// Label/value pairs for the text message, mirroring the card's balance table:
+// the test result, then one line per variation. Values are card markdown.
+export function getSrmFields(
+  data: SrmPayload,
+): { label: string; value: string }[] {
   const evidence = [
     data.pValue !== undefined
-      ? `p-value: ${pValueFormatter(data.pValue)}`
+      ? `p-value ${pValueFormatter(data.pValue)}`
       : undefined,
     `threshold ${data.threshold}`,
   ]
@@ -64,14 +64,14 @@ export function getSrmText(data: SrmPayload): string {
   const balance = balanceRows(data)
     .map(
       (r) =>
-        `${r.name}: ${r.units} units (${r.actual}, expected ${r.expected})`,
+        `${escapeInlineMarkdown(r.name)}: ${r.units} units (${r.actual}, expected ${r.expected})`,
     )
-    .join("; ");
+    .join("\n");
   return [
-    `${SRM_LABEL}.`,
-    `Traffic isn't splitting as configured (${evidence}).`,
-    balance ? `${balance}.` : undefined,
-  ]
-    .filter(Boolean)
-    .join(" ");
+    {
+      label: "Traffic split",
+      value: `Traffic isn't splitting as configured (${evidence}).`,
+    },
+    ...(balance ? [{ label: "Variations", value: balance }] : []),
+  ];
 }

@@ -20,6 +20,7 @@ import { ExperimentAnalysisSummary } from "shared/validators";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   getExperimentSRMValue,
+  getExperimentTotalUnitsFromHealth,
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
 import { StatsEngine } from "shared/types/stats";
@@ -44,6 +45,7 @@ import {
 } from "back-end/src/services/experimentChanges/experimentStoppedResults";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { getOwnerEmail } from "back-end/src/services/owner";
 import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
 import {
   getEnvironmentIdsFromOrg,
@@ -76,11 +78,22 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
+  // Every experiment payload carries the owner so deliveries can name them
+  // without reading the experiment back. Each payload schema declares the
+  // optional field; the cast is only because `T` is generic here.
+  const ownerEmail = await getOwnerEmail(experiment.owner, context);
+  const payload = ownerEmail
+    ? ({
+        ...data,
+        object: { ...(data.object as object), ownerEmail },
+      } as CreateEventData<"experiment", T>)
+    : data;
+
   await createEvent({
     context,
     object: "experiment",
     event,
-    data,
+    data: payload,
     objectId: experiment.id,
     projects: experiment.project ? [experiment.project] : [],
     environments: changedEnvs,
@@ -173,6 +186,25 @@ const getExperimentDurationDays = (
     1,
     daysBetween(start, getSafeDate(phase?.dateEnded) ?? new Date()),
   );
+};
+
+// Units exposed in the latest phase per its latest successful snapshot;
+// undefined before one has run. A failed read costs the count, not the alert.
+const getExperimentTotalUsers = async (
+  context: Context,
+  experiment: ExperimentInterface,
+): Promise<number | undefined> => {
+  try {
+    const snapshot = await getLatestSuccessfulSnapshot({
+      context,
+      experiment: experiment.id,
+      phase: experiment.phases.length - 1,
+    });
+    return snapshot ? getExperimentTotalUnitsFromHealth(snapshot) : undefined;
+  } catch (error) {
+    logger.warn(error, "Failed to read experiment units for notification");
+    return undefined;
+  }
 };
 
 export const notifyExperimentStopped = async ({
@@ -299,6 +331,8 @@ export const notifyExperimentEndingSoon = async ({
     triggered,
     dispatch: async () => {
       if (!endsAt) return;
+      const durationDays = getExperimentDurationDays(experiment);
+      const totalUsers = await getExperimentTotalUsers(context, experiment);
       await dispatchEvent({
         context,
         experiment,
@@ -310,6 +344,8 @@ export const notifyExperimentEndingSoon = async ({
             experimentName: experiment.name,
             endsAt: endsAt.toISOString(),
             daysRemaining,
+            ...(durationDays !== undefined ? { durationDays } : {}),
+            ...(totalUsers !== undefined ? { totalUsers } : {}),
           },
         },
       });
@@ -337,6 +373,7 @@ export const notifyExperimentStale = async ({
     type: "stale",
     triggered,
     dispatch: async () => {
+      const totalUsers = await getExperimentTotalUsers(context, experiment);
       await dispatchEvent({
         context,
         experiment,
@@ -347,6 +384,7 @@ export const notifyExperimentStale = async ({
             experimentId: experiment.id,
             experimentName: experiment.name,
             daysRunning,
+            ...(totalUsers !== undefined ? { totalUsers } : {}),
             reason:
               "This experiment has been running for a long time. Review whether it should ship, roll back, or be extended.",
           },
@@ -1116,7 +1154,7 @@ export const notifyDecision = async ({
     })();
 
     if (currentStatus.status !== lastStatus?.status) {
-      dispatchEvent({
+      await dispatchEvent({
         context,
         experiment,
         event: `decision.${eventType}`,

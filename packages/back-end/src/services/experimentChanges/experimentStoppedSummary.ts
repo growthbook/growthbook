@@ -1,11 +1,9 @@
 import type { ExperimentStoppedNotificationPayload } from "shared/validators";
 import type { StatsEngine } from "shared/types/stats";
 import { formatPercentChange, pValueFormatter } from "shared/util";
-import {
-  escapeInlineMarkdown,
-  markdownToPlainText,
-} from "back-end/src/services/notificationCards/markdown";
+import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
 import { confidenceLabel } from "back-end/src/services/notificationCards/statLabel";
+import { EXPERIMENT_EVENT_LABELS } from "./experimentEventLabels";
 
 type Results = NonNullable<ExperimentStoppedNotificationPayload["results"]>;
 type GoalMetric = NonNullable<
@@ -24,9 +22,9 @@ export const RESULT_LABEL: Record<Results, string> = {
 export function getExperimentStoppedLabel(
   data: ExperimentStoppedNotificationPayload,
 ): string {
-  if (!data.results) return "Experiment Stopped";
+  if (!data.results) return EXPERIMENT_EVENT_LABELS.stopped;
   const result = data.results === "won" ? "Winner" : RESULT_LABEL[data.results];
-  return `Experiment Stopped - ${result}`;
+  return `${EXPERIMENT_EVENT_LABELS.stopped} - ${result}`;
 }
 
 export const formatLift = formatPercentChange;
@@ -73,13 +71,14 @@ export function getExperimentStoppedOutcome(
   return variations.length === 1 ? variations[0] : undefined;
 }
 
-// "Variation *X*" - the name in italics, with any markdown characters in the
-// name kept literal.
+// "*X*" - the variation name in italics, with any markdown characters in the
+// name kept literal. No "Variation" prefix: default names are already
+// "Variation 1", "Variation 2", so it would double up.
 export const variationMarkdown = (name: string): string =>
-  `Variation *${escapeInlineMarkdown(name)}*`;
+  `*${escapeInlineMarkdown(name)}*`;
 
-// Markdown conclusion: "Variation *X* won. <reason>". Undefined when there is
-// nothing to say.
+// Markdown conclusion: "*X* won. <reason>". Undefined when there is nothing
+// to say.
 export function getExperimentStoppedConclusion(
   data: ExperimentStoppedNotificationPayload,
 ): string | undefined {
@@ -94,7 +93,7 @@ export function getExperimentStoppedConclusion(
   return text || undefined;
 }
 
-// "Variation *X*" for the variation a temporary rollout is serving.
+// "*X*" for the variation a temporary rollout is serving.
 export function getExperimentStoppedRollout(
   data: ExperimentStoppedNotificationPayload,
 ): string | undefined {
@@ -103,29 +102,39 @@ export function getExperimentStoppedRollout(
     : undefined;
 }
 
-// "Experiment Stopped - Winner. Variation X won. <reason> Temporary rollout:
-// Variation X. Checkout conversion: +6.1% (Chance to win: 99.1%)."
-export function getExperimentStoppedText(
+// "Checkout conversion: +6.1% (Chance to win: 99.1%)" for the variation worth
+// calling out, as card markdown. Undefined without a lift to report.
+export function getExperimentStoppedGoalLine(
   data: ExperimentStoppedNotificationPayload,
-): string {
+): string | undefined {
+  const goal = data.goalMetric;
+  const outcome = getExperimentStoppedOutcome(data);
+  if (!goal || !outcome || outcome.uplift === undefined) return undefined;
+  const confidence = formatConfidence(goal.statsEngine, outcome);
+  return `${escapeInlineMarkdown(goal.metricName)}: ${formatLift(
+    outcome.uplift,
+  )}${confidence ? ` (${confidence})` : ""}`;
+}
+
+// Label/value pairs for the text message, in the card's order: the conclusion
+// (or the bare result when there is nothing to say), the temporary rollout,
+// and the goal metric's headline.
+export function getExperimentStoppedTextFields(
+  data: ExperimentStoppedNotificationPayload,
+): { label: string; value: string }[] {
   const conclusion = getExperimentStoppedConclusion(data);
   const rollout = getExperimentStoppedRollout(data);
-  const outcome = getExperimentStoppedOutcome(data);
-  const goal = data.goalMetric;
-  const confidence =
-    goal && outcome ? formatConfidence(goal.statsEngine, outcome) : undefined;
-  const lift =
-    goal && outcome && outcome.uplift !== undefined
-      ? `${goal.metricName}: ${formatLift(outcome.uplift)}${
-          confidence ? ` (${confidence})` : ""
-        }.`
-      : undefined;
-  return [
-    `${getExperimentStoppedLabel(data)}.`,
-    conclusion ? markdownToPlainText(conclusion) : undefined,
-    rollout ? `Temporary rollout: ${markdownToPlainText(rollout)}.` : undefined,
-    lift,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const goal = getExperimentStoppedGoalLine(data);
+  const fields = [
+    conclusion
+      ? { label: "Conclusion", value: conclusion }
+      : data.results
+        ? { label: "Result", value: RESULT_LABEL[data.results] }
+        : undefined,
+    rollout ? { label: "Temporary rollout", value: rollout } : undefined,
+    goal ? { label: "Goal metric", value: goal } : undefined,
+  ].filter((f): f is { label: string; value: string } => f !== undefined);
+  return fields.length
+    ? fields
+    : [{ label: "Result", value: "Stopped without a recorded outcome" }];
 }

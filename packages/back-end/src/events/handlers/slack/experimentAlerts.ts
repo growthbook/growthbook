@@ -1,8 +1,16 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
-import { getExperimentStartedText } from "back-end/src/services/experimentChanges/experimentStartedSummary";
-import { getExperimentStoppedText } from "back-end/src/services/experimentChanges/experimentStoppedSummary";
-import { getExperimentUrl } from "back-end/src/util/appUrls";
-import { buildAlertMessage } from "./alertMessage";
+import { EXPERIMENT_EVENT_LABELS } from "back-end/src/services/experimentChanges/experimentEventLabels";
+import { getExperimentStartedFields } from "back-end/src/services/experimentChanges/experimentStartedSummary";
+import {
+  getExperimentStoppedLabel,
+  getExperimentStoppedTextFields,
+} from "back-end/src/services/experimentChanges/experimentStoppedSummary";
+import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
+import type { AlertField } from "./alertMessage";
+import {
+  type ExperimentRun,
+  buildExperimentAlertMessage,
+} from "./experimentAlertMessage";
 import type { SlackMessage } from "./slack-event-handler-utils";
 
 type AlertName =
@@ -15,32 +23,86 @@ type AlertName =
 
 type AlertEvent = Extract<NotificationEvent, { event: AlertName }>;
 
-export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
+const percent = (w: number) => `${(w * 100).toFixed(1)}%`;
+
+// One message shape for the lifecycle alerts; each event supplies its label,
+// fields, and whatever of the run it recorded.
+export function buildExperimentAlertMessageForEvent(
+  event: AlertEvent,
+): SlackMessage {
   const object = event.data.object;
-  let detail: string;
+  let label: string;
+  let fields: AlertField[];
+  let run: ExperimentRun = {};
   switch (event.event) {
     case "experiment.status.started":
-      detail = getExperimentStartedText(event.data.object);
+      label = EXPERIMENT_EVENT_LABELS.started;
+      fields = getExperimentStartedFields(event.data.object);
       break;
-    case "experiment.status.stopped":
-      detail = getExperimentStoppedText(event.data.object);
+    case "experiment.status.stopped": {
+      const { durationDays, totalUsers } = event.data.object;
+      label = getExperimentStoppedLabel(event.data.object);
+      fields = getExperimentStoppedTextFields(event.data.object);
+      run = { durationDays, units: totalUsers };
       break;
-    case "experiment.status.endingSoon":
-      detail = `Scheduled to end soon at ${event.data.object.endsAt}.`;
+    }
+    case "experiment.status.endingSoon": {
+      const { durationDays, totalUsers } = event.data.object;
+      label = EXPERIMENT_EVENT_LABELS.endingSoon;
+      fields = [
+        {
+          label: "Scheduled end",
+          value: escapeInlineMarkdown(event.data.object.endsAt),
+        },
+      ];
+      run = { durationDays, units: totalUsers };
       break;
-    case "experiment.status.stale":
-      detail = `Running for ${event.data.object.daysRunning} days. Review whether to stop or extend it.`;
+    }
+    case "experiment.status.stale": {
+      const { daysRunning, totalUsers } = event.data.object;
+      label = EXPERIMENT_EVENT_LABELS.stale;
+      fields = [
+        {
+          label: "Next step",
+          value: "Review whether to ship, roll back, or extend it.",
+        },
+      ];
+      // The footer carries the duration, so the field needn't repeat it.
+      run = { durationDays: daysRunning, units: totalUsers };
       break;
+    }
     case "experiment.guardrailFailed":
-      detail = `Failing guardrails: ${event.data.object.failedMetrics.map((m) => `${m.name} (${m.variationName})`).join(", ")}.`;
+      label = EXPERIMENT_EVENT_LABELS.guardrailFailed;
+      fields = [
+        {
+          label: "Failing guardrails",
+          value: event.data.object.failedMetrics
+            .map(
+              (m) =>
+                `${escapeInlineMarkdown(m.name)} (${escapeInlineMarkdown(m.variationName)})`,
+            )
+            .join(", "),
+        },
+      ];
       break;
     case "experiment.bandit.weightsChanged":
-      detail = `Bandit allocation changed from ${event.data.object.currentWeights.map((w) => `${(w * 100).toFixed(1)}%`).join(" / ")} to ${event.data.object.updatedWeights.map((w) => `${(w * 100).toFixed(1)}%`).join(" / ")}.`;
+      label = EXPERIMENT_EVENT_LABELS.banditWeightsChanged;
+      fields = [
+        {
+          label: "Allocation",
+          value: `${event.data.object.currentWeights.map(percent).join(" / ")} → ${event.data.object.updatedWeights.map(percent).join(" / ")}`,
+        },
+      ];
       break;
   }
-  return buildAlertMessage({
-    name: object.experimentName,
-    detail,
-    url: getExperimentUrl(object.experimentId),
+  return buildExperimentAlertMessage({
+    experiment: {
+      id: object.experimentId,
+      name: object.experimentName,
+      ownerEmail: object.ownerEmail,
+    },
+    label,
+    fields,
+    ...run,
   });
 }

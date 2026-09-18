@@ -48,9 +48,14 @@ it("announces creation with the holdout ID, scope, and Slack link", async () => 
     { event: "holdout.created", data: event.data } as NotificationEvent,
     "event",
   );
-  expect(message?.text).toBe(`${holdout.name}: Holdout created.`);
+  expect(message?.text).toBe(`${holdout.name} - Holdout Created.`);
+  // Title, then the footer: nothing else to say about a creation.
+  expect(message?.blocks.map((b) => b.type)).toEqual(["section", "context"]);
   expect(message?.blocks[1]).toMatchObject({
-    elements: [{ url: expect.stringContaining("/holdout/hld%2F1") }],
+    type: "context",
+    elements: [
+      { type: "mrkdwn", text: expect.stringContaining("/holdout/hld%2F1|") },
+    ],
   });
 });
 
@@ -88,11 +93,19 @@ it("reports only newly linked items, with holdout scope and a Slack holdout link
     "event",
   );
   expect(message?.text).toContain(
-    "Linked Feature Flags: checkout. Linked experiments: exp1.",
+    "Holdout Linkage Added. Linked Feature Flags: checkout. Linked experiments: exp1.",
   );
-  expect(message?.blocks[0]).toMatchObject({ text: { type: "plain_text" } });
   expect(message?.blocks[1]).toMatchObject({
-    elements: [{ url: expect.stringContaining("/holdout/hld%2F1") }],
+    text: {
+      type: "mrkdwn",
+      text: "*Linked Feature Flags*\ncheckout\n\n*Linked experiments*\nexp1",
+    },
+  });
+  expect(message?.blocks[2]).toMatchObject({
+    type: "context",
+    elements: [
+      { type: "mrkdwn", text: expect.stringContaining("/holdout/hld%2F1|") },
+    ],
   });
 });
 
@@ -136,7 +149,7 @@ it.each([
     "event",
   );
   expect(message?.text).toContain(
-    `Status changed from ${previousStatus.replace("analysis-period", "analysis period")} to ${currentStatus.replace("analysis-period", "analysis period")}.`,
+    `Holdout Status Changed. Status: ${previousStatus.replace("analysis-period", "analysis period")} → ${currentStatus.replace("analysis-period", "analysis period")}.`,
   );
 });
 

@@ -4,6 +4,7 @@
 // a variation name in italics. User-authored text that lands inside it -
 // variation names, metric names, stop reasons - is escaped so a `*` or `_` in
 // a name stays literal on the card and survives the trip back to plain text.
+import { escapeSlackMrkdwn } from "back-end/src/util/slack.util";
 
 export type MdRun = {
   text: string;
@@ -71,5 +72,19 @@ export function parseInlineMarkdown(input: string): MdRun[] {
 export function markdownToPlainText(markdown: string): string {
   return parseInlineMarkdown(markdown)
     .map((r) => r.text)
+    .join("");
+}
+
+// Slack mrkdwn for text deliveries: bold is *x*, italic _x_, code `x`. Run
+// text is escaped so user-authored names cannot inject links or mentions.
+export function markdownToSlackMrkdwn(markdown: string): string {
+  return parseInlineMarkdown(markdown)
+    .map((r) => {
+      const text = escapeSlackMrkdwn(r.text);
+      if (r.code) return `\`${text}\``;
+      if (r.bold) return `*${text}*`;
+      if (r.italic) return `_${text}_`;
+      return text;
+    })
     .join("");
 }

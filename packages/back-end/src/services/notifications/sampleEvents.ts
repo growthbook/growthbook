@@ -477,6 +477,7 @@ const sampleEvents = {
       object: {
         type: "srm",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         threshold: 0.001,
         // A 62/38 split on a 50/50 phase: clearly beyond the threshold.
@@ -497,6 +498,7 @@ const sampleEvents = {
         type: "started",
         experimentId: "exp_checkout_cta",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         phaseName: "Main",
         goalMetricNames: ["Checkout starts", "Revenue per visitor"],
         linkedFeatureCount: 1,
@@ -513,6 +515,7 @@ const sampleEvents = {
         type: "stopped",
         experimentId: "exp_checkout_cta",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         results: "won",
         enableTemporaryRollout: true,
         releasedVariationName: "Treatment",
@@ -557,6 +560,7 @@ const sampleEvents = {
     data: {
       object: {
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         variationId: "var_treatment",
         variationName: "Treatment",
@@ -575,6 +579,7 @@ const sampleEvents = {
       object: {
         source: "analysis",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         decisionDescription: "The treatment is above the decision threshold.",
       },
@@ -587,6 +592,7 @@ const sampleEvents = {
       object: {
         source: "analysis",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         decisionDescription: "The treatment is underperforming the baseline.",
       },
@@ -599,6 +605,7 @@ const sampleEvents = {
       object: {
         source: "analysis",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         decisionDescription:
           "The result reached power but needs stakeholder review.",

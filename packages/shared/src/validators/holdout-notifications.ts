@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { holdoutStage } from "../util/holdouts";
+import { ownerEmailField } from "./owner-field";
 
 const holdoutNotification = z.object({
   holdoutId: z.string(),
   holdoutName: z.string(),
+  ownerEmail: ownerEmailField,
 });
 
 export const holdoutCreatedNotificationPayload = holdoutNotification.strict();

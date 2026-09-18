@@ -1,11 +1,29 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
-import type { CardSection } from "back-end/src/services/notificationCards/types";
+import type {
+  CardResults,
+  CardSection,
+} from "back-end/src/services/notificationCards/types";
 
 jest.mock("back-end/src/services/notificationCards/cardStyles", () => ({
   renderCard: jest.fn(),
 }));
+
+// The results section, wherever the producer placed it (top level or in a column).
+const resultsIn = (sections: CardSection[]): CardResults | undefined => {
+  for (const section of sections) {
+    if (section.kind === "results") return section.results;
+    if (section.kind === "columns") {
+      const nested = resultsIn([...section.left, ...section.right]);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+};
+
+const lastRenderedResults = () =>
+  resultsIn(jest.mocked(renderCard).mock.calls[0][0].sections);
 
 const notification = (
   event: string,
@@ -35,7 +53,6 @@ describe("renderNotificationCard", () => {
       altText: "Checkout - Health Alert - SRM Detected",
       objectUrl: expect.stringMatching(/^https?:\/\/.+\/experiment\/exp-1$/),
       objectName: "Checkout",
-      eventLabel: "Health Alert - SRM Detected",
     });
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -124,7 +141,6 @@ describe("renderNotificationCard", () => {
       ),
     ).resolves.toMatchObject({
       altText: "Checkout - Experiment Started",
-      eventLabel: "Experiment Started",
       objectName: "Checkout",
     });
     expect(renderCard).toHaveBeenCalledWith(
@@ -225,41 +241,85 @@ describe("renderNotificationCard", () => {
         icon: "trophy",
         banner: "Experiment Stopped - Winner",
         footer: "20,000 units - 21 days",
+        // A conclusion puts the card in two columns: prose left, results right.
         sections: [
           {
-            kind: "callout",
-            callout: {
-              label: "Conclusion",
-              markdown: "Variation *Treatment* won.",
-            },
-          },
-          {
-            kind: "results",
-            results: {
-              sectionLabel: "Goal metric",
-              title: "Conversion",
-              statLabel: "Chance to win",
-              changeLabel: "Lift",
-              axis: { domain: [-20, 20], labels: ["-20%", "0", "+20%"] },
-              rows: [
-                expect.objectContaining({
-                  v: "Treatment",
-                  i: 1,
-                  stat: "98.0%",
-                  sig: true,
-                  chg: "+10%",
-                  dir: "up",
-                  good: true,
-                  vio: { c: 10, s: 2 },
-                  interval: "95% Credible Interval [+6%, +14%]",
-                }),
-              ],
-            },
+            kind: "columns",
+            left: [
+              {
+                kind: "callout",
+                callout: {
+                  label: "Conclusion",
+                  markdown: "*Treatment* won.",
+                },
+              },
+            ],
+            right: [
+              {
+                kind: "results",
+                results: {
+                  sectionLabel: "Goal metric",
+                  title: "Conversion",
+                  statLabel: "Chance to win",
+                  changeLabel: "Lift",
+                  intervalLabel: "95% Credible Interval",
+                  axis: { domain: [-20, 20], labels: ["-20%", "0", "+20%"] },
+                  rows: [
+                    expect.objectContaining({
+                      v: "Treatment",
+                      i: 1,
+                      stat: "98.0%",
+                      sig: true,
+                      chg: "+10%",
+                      dir: "up",
+                      good: true,
+                      vio: { c: 10, s: 2 },
+                      interval: "[+6%, +14%]",
+                    }),
+                  ],
+                },
+              },
+            ],
           },
         ],
       }),
       "light",
     );
+  });
+
+  it("caps the rows of a many-armed test and keeps the winner among them", async () => {
+    const variation = (i: number) => ({
+      variationId: `v${i}`,
+      variationName: `Arm ${i}`,
+      variationIndex: i,
+      value: 0.05,
+      uplift: 0.01 * i,
+      chanceToWin: 0.5,
+    });
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "won",
+        enableTemporaryRollout: false,
+        winningVariationName: "Arm 6",
+        winningVariationIndex: 6,
+        goalMetric: {
+          metricId: "m1",
+          metricName: "Conversion",
+          snapshotId: "snp-1",
+          statsEngine: "bayesian",
+          differenceType: "relative",
+          control: { variationId: "v0", variationName: "Control", value: 0.05 },
+          variations: [1, 2, 3, 4, 5, 6].map(variation),
+        },
+      }),
+      "light",
+    );
+    const results = lastRenderedResults();
+    expect(results?.rows.map((r) => r.i)).toEqual([1, 2, 3, 6]);
+    expect(results?.note).toBe("+2 more variations");
   });
 
   it("reports a stop result and temporary rollout from the payload", async () => {
@@ -282,7 +342,7 @@ describe("renderNotificationCard", () => {
             kind: "fields",
             fields: [
               { label: "Result", value: "Inconclusive" },
-              { label: "Temporary rollout", value: "Variation *Control*" },
+              { label: "Temporary rollout", value: "*Control*" },
             ],
           },
         ],
@@ -337,6 +397,7 @@ describe("renderNotificationCard", () => {
             kind: "results",
             results: expect.objectContaining({
               statLabel: "p-value",
+              intervalLabel: "90% Confidence Interval",
               rows: [
                 expect.objectContaining({
                   stat: "<0.001",
@@ -344,7 +405,7 @@ describe("renderNotificationCard", () => {
                   chg: "-8%",
                   dir: "down",
                   good: false,
-                  interval: "90% Confidence Interval [-12%, -4%]",
+                  interval: "[-12%, -4%]",
                 }),
               ],
             }),
@@ -386,23 +447,7 @@ describe("renderNotificationCard", () => {
       }),
       "light",
     );
-    expect(renderCard).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sections: expect.arrayContaining([
-          {
-            kind: "results",
-            results: expect.objectContaining({
-              rows: [
-                expect.objectContaining({
-                  interval: "Confidence Interval [-12%, -4%]",
-                }),
-              ],
-            }),
-          },
-        ]),
-      }),
-      "light",
-    );
+    expect(lastRenderedResults()?.intervalLabel).toBe("Confidence Interval");
   });
 
   it("widens the results axis when a lift runs past the default range", async () => {
@@ -485,19 +530,9 @@ describe("renderNotificationCard", () => {
       }),
       "dark",
     );
-    expect(renderCard).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sections: expect.arrayContaining([
-          {
-            kind: "results",
-            results: expect.objectContaining({
-              rows: [expect.objectContaining({ dir: "down", good: true })],
-            }),
-          },
-        ]),
-      }),
-      "dark",
-    );
+    expect(lastRenderedResults()?.rows).toEqual([
+      expect.objectContaining({ dir: "down", good: true }),
+    ]);
   });
 
   it("shows a dash instead of a fabricated lift when the payload has no estimate", async () => {
@@ -528,12 +563,7 @@ describe("renderNotificationCard", () => {
       }),
       "dark",
     );
-    const [card] = jest.mocked(renderCard).mock.calls[0];
-    const results = card.sections.find(
-      (s): s is Extract<CardSection, { kind: "results" }> =>
-        s.kind === "results",
-    );
-    expect(results?.results.rows).toEqual([
+    expect(lastRenderedResults()?.rows).toEqual([
       { v: "Treatment", i: 1, sig: false, stat: "50.0%" },
     ]);
   });
@@ -562,7 +592,7 @@ describe("renderNotificationCard", () => {
               { label: "Result", value: "Won" },
               {
                 label: "Temporary rollout",
-                value: "Variation *2\\*\\_fast\\_\\**",
+                value: "*2\\*\\_fast\\_\\**",
               },
               { label: "Reason", value: "\\*Ship it\\*" },
             ],

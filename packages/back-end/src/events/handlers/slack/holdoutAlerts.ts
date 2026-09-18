@@ -1,6 +1,7 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
-import { buildAlertMessage } from "./alertMessage";
+import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
+import { type AlertField, buildAlertMessage } from "./alertMessage";
 import type { SlackMessage } from "./slack-event-handler-utils";
 
 type HoldoutAlert = Extract<
@@ -13,32 +14,55 @@ type HoldoutAlert = Extract<
   }
 >;
 
+const stage = (s: string) => s.replace("analysis-period", "analysis period");
+
 export function buildHoldoutAlertMessage(event: HoldoutAlert): SlackMessage {
   const object = event.data.object;
-  let detail: string;
+  let label: string;
+  let fields: AlertField[];
   switch (event.event) {
     case "holdout.created":
-      detail = "Holdout created.";
+      label = "Holdout Created";
+      fields = [];
       break;
     case "holdout.status.changed":
-      detail = `Status changed from ${event.data.object.previousStatus.replace("analysis-period", "analysis period")} to ${event.data.object.currentStatus.replace("analysis-period", "analysis period")}.`;
+      label = "Holdout Status Changed";
+      fields = [
+        {
+          label: "Status",
+          value: `${stage(event.data.object.previousStatus)} → ${stage(event.data.object.currentStatus)}`,
+        },
+      ];
       break;
     case "holdout.config.newLinkage": {
       const { featureIds, experimentIds } = event.data.object;
-      detail = [
+      label = "Holdout Linkage Added";
+      fields = [
         ...(featureIds.length
-          ? [`Linked Feature Flags: ${featureIds.join(", ")}.`]
+          ? [
+              {
+                label: "Linked Feature Flags",
+                value: featureIds.map(escapeInlineMarkdown).join(", "),
+              },
+            ]
           : []),
         ...(experimentIds.length
-          ? [`Linked experiments: ${experimentIds.join(", ")}.`]
+          ? [
+              {
+                label: "Linked experiments",
+                value: experimentIds.map(escapeInlineMarkdown).join(", "),
+              },
+            ]
           : []),
-      ].join(" ");
+      ];
       break;
     }
   }
   return buildAlertMessage({
     name: object.holdoutName,
-    detail,
+    label,
+    fields,
     url: `${APP_ORIGIN}/holdout/${encodeURIComponent(object.holdoutId)}`,
+    ownerEmail: object.ownerEmail,
   });
 }

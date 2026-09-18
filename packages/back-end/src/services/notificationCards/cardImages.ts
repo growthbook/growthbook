@@ -205,11 +205,30 @@ const HUE: Record<CardTone, Hue> = {
 const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 
 const CARD_WIDTH = 1000;
-// Results rows: [circle, name, stat, interval, change].
-const RESULT_LAYOUT = {
-  cols: [36, 200, 120, "flex", 120] as const,
+// Two-column cards: the narrow left column's width; the right takes the rest.
+const LEFT_COLUMN_WIDTH = 340;
+
+// Results-table metrics. Rows are kept short on purpose: chat clients fit the
+// PNG to a landscape box, so every extra pixel of height shrinks all the text.
+type ResultLayout = {
+  cols: readonly [number, number, number, "flex", number]; // circle, name, stat, interval, change
+  gap: number;
+  pad: string;
+  headPad: string;
+  circle: number;
+  name: number;
+  stat: number;
+  chg: number;
+  head: number;
+  vioW: number;
+  vioH: number;
+  axis: number;
+  ci: number;
+};
+const RESULT_LAYOUT: ResultLayout = {
+  cols: [36, 200, 120, "flex", 120],
   gap: 14,
-  pad: "16px 28px",
+  pad: "10px 28px",
   headPad: "9px 28px",
   circle: 24,
   name: 18,
@@ -217,10 +236,29 @@ const RESULT_LAYOUT = {
   chg: 20,
   head: 12,
   vioW: 380,
-  vioH: 56,
+  vioH: 40,
   axis: 11,
   ci: 12.5,
-} as const;
+};
+// Fits the right column of a two-column card.
+const RESULT_LAYOUT_NARROW: ResultLayout = {
+  cols: [28, 136, 104, "flex", 84],
+  gap: 12,
+  pad: "10px 28px",
+  headPad: "9px 28px",
+  circle: 22,
+  name: 16,
+  stat: 18,
+  chg: 18,
+  head: 11,
+  vioW: 200,
+  vioH: 40,
+  axis: 10,
+  ci: 11.5,
+};
+type Density = "full" | "narrow";
+const resultLayoutFor = (density: Density): ResultLayout =>
+  density === "narrow" ? RESULT_LAYOUT_NARROW : RESULT_LAYOUT;
 
 // ---------------------------------------------------------------------------
 // Element helpers (Satori "without JSX" object form).
@@ -520,6 +558,7 @@ function pctCell(
 
 // A results-table row built from fixed-width flex cells (Satori has no grid).
 function gridRow(
+  layout: ResultLayout,
   cells: (El | null)[],
   opts: {
     padding?: string;
@@ -534,15 +573,15 @@ function gridRow(
       display: "flex",
       flexDirection: "row",
       alignItems: "center",
-      gap: RESULT_LAYOUT.gap,
-      padding: opts.padding ?? RESULT_LAYOUT.pad,
+      gap: layout.gap,
+      padding: opts.padding ?? layout.pad,
       ...(opts.borderBottom ? { borderBottom: opts.borderBottom } : {}),
       ...(opts.backgroundColor
         ? { backgroundColor: opts.backgroundColor }
         : {}),
       ...(opts.opacity !== undefined ? { opacity: opts.opacity } : {}),
     },
-    RESULT_LAYOUT.cols.map((w, i) => {
+    layout.cols.map((w, i) => {
       // name + interval left-aligned; stat + change right-aligned.
       const align = i === 2 || i === 4 ? "flex-end" : "flex-start";
       return el(
@@ -570,41 +609,53 @@ function metricNameEl(name: string): El {
   });
 }
 
-function colHeader(results: CardResults): El {
-  // The number-circle and interval cells are intentionally label-less.
-  const labels = ["", "", results.statLabel, "", results.changeLabel];
-  return el(
+// Column header. The number-circle cell is label-less; the interval cell names
+// the interval and shows the shared axis ticks once, instead of on every row.
+function colHeader(results: CardResults, layout: ResultLayout): El {
+  const label = (s: string) =>
+    txt(s, {
+      fontSize: layout.head,
+      fontWeight: 600,
+      letterSpacing: "0.05em",
+      textTransform: "uppercase",
+      color: P.subtle,
+    });
+  const intervalHeader = el(
     "div",
     {
       display: "flex",
-      flexDirection: "row",
+      flexDirection: "column",
       alignItems: "center",
-      gap: RESULT_LAYOUT.gap,
-      padding: RESULT_LAYOUT.headPad,
-      backgroundColor: P.zebra,
+      gap: 4,
+      width: layout.vioW,
     },
-    RESULT_LAYOUT.cols.map((w, i) => {
-      const align = i === 2 || i === 4 ? "flex-end" : "flex-start";
-      return el(
-        "div",
-        {
-          display: "flex",
-          justifyContent: align,
-          ...(w === "flex" ? { flexGrow: 1 } : { width: w }),
-        },
-        labels[i]
-          ? [
-              txt(labels[i]!, {
-                fontSize: RESULT_LAYOUT.head,
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                color: P.subtle,
-              }),
-            ]
-          : [],
-      );
-    }),
+    [
+      results.intervalLabel ? label(results.intervalLabel) : null,
+      results.axis
+        ? el(
+            "div",
+            {
+              display: "flex",
+              justifyContent: "space-between",
+              width: layout.vioW,
+            },
+            results.axis.labels.map((tick) =>
+              txt(tick, { fontSize: layout.axis, color: P.subtle }, true),
+            ),
+          )
+        : null,
+    ],
+  );
+  return gridRow(
+    layout,
+    [
+      null,
+      null,
+      label(results.statLabel),
+      intervalHeader,
+      label(results.changeLabel),
+    ],
+    { padding: layout.headPad, backgroundColor: P.zebra },
   );
 }
 
@@ -625,48 +676,29 @@ function statColor(r: CardResultRow): string {
 
 // One row's result. Means are intentionally omitted: the row is the stat, the
 // distribution, and the change.
-function resultRowEl(r: CardResultRow, axis: CardResults["axis"]): El {
+function resultRowEl(
+  r: CardResultRow,
+  axis: CardResults["axis"],
+  layout: ResultLayout,
+): El {
   const intervalCell = el(
     "div",
     { display: "flex", flexDirection: "column", gap: 2 },
     [
       r.vio && axis
         ? svgImg(
-            violinSvg(
-              RESULT_LAYOUT.vioW,
-              RESULT_LAYOUT.vioH,
-              axis.domain,
-              r.vio,
-            ),
-            RESULT_LAYOUT.vioW,
-            RESULT_LAYOUT.vioH,
-          )
-        : null,
-      // Axis labels (moved out of the SVG so resvg needs no fonts).
-      axis
-        ? el(
-            "div",
-            {
-              display: "flex",
-              justifyContent: "space-between",
-              width: RESULT_LAYOUT.vioW,
-            },
-            axis.labels.map((label) =>
-              txt(
-                label,
-                { fontSize: RESULT_LAYOUT.axis, color: P.subtle },
-                true,
-              ),
-            ),
+            violinSvg(layout.vioW, layout.vioH, axis.domain, r.vio),
+            layout.vioW,
+            layout.vioH,
           )
         : null,
       r.interval
         ? txt(
             r.interval,
             {
-              fontSize: RESULT_LAYOUT.ci,
+              fontSize: layout.ci,
               color: P.subtle,
-              width: RESULT_LAYOUT.vioW,
+              width: layout.vioW,
               justifyContent: "center",
             },
             true,
@@ -676,23 +708,24 @@ function resultRowEl(r: CardResultRow, axis: CardResults["axis"]): El {
   );
 
   return gridRow(
+    layout,
     [
-      RESULT_LAYOUT.circle ? vnumCircle(r.i, RESULT_LAYOUT.circle) : null,
+      vnumCircle(r.i, layout.circle),
       txt(r.v, {
-        fontSize: RESULT_LAYOUT.name,
+        fontSize: layout.name,
         fontWeight: 500,
         color: P.text,
       }),
       txt(
         r.stat ?? "—",
-        { fontSize: RESULT_LAYOUT.stat, fontWeight: 600, color: statColor(r) },
+        { fontSize: layout.stat, fontWeight: 600, color: statColor(r) },
         true,
       ),
       intervalCell,
       // Same significance rule as the stat cell: muted unless significant.
       r.chg && r.dir
-        ? pctCell(r.chg, r.dir, RESULT_LAYOUT.chg, statColor(r))
-        : txt("—", { fontSize: RESULT_LAYOUT.chg, color: P.subtle }, true),
+        ? pctCell(r.chg, r.dir, layout.chg, statColor(r))
+        : txt("—", { fontSize: layout.chg, color: P.subtle }, true),
     ],
     { borderBottom: `1px solid ${P.borderSub}`, opacity: r.muted ? 0.55 : 1 },
   );
@@ -745,19 +778,60 @@ function standardFooterEl(card: CardIdentity): El {
   );
 }
 
-// Title above the header, one numbered row per variation.
-function resultsEl(results: CardResults): El {
+// Title above the header, one numbered row per variation. In a column the
+// section label and title share a line to save height.
+function resultsEl(results: CardResults, density: Density): El {
+  const layout = resultLayoutFor(density);
+  const heading =
+    density === "narrow"
+      ? [
+          el(
+            "div",
+            {
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "baseline",
+              gap: 12,
+              padding: "16px 28px 10px",
+            },
+            [
+              txt(results.sectionLabel, {
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: P.subtle,
+              }),
+              txt(results.title, {
+                fontSize: 20,
+                fontWeight: 500,
+                color: P.text,
+              }),
+            ],
+          ),
+        ]
+      : [sectionLabel(results.sectionLabel), metricNameEl(results.title)];
   return el("div", { display: "flex", flexDirection: "column", flexGrow: 1 }, [
-    sectionLabel(results.sectionLabel),
-    metricNameEl(results.title),
-    colHeader(results),
-    ...results.rows.map((r) => resultRowEl(r, results.axis)),
+    ...heading,
+    colHeader(results, layout),
+    ...results.rows.map((r) => resultRowEl(r, results.axis, layout)),
+    ...(results.note
+      ? [
+          txt(results.note, {
+            fontSize: 13,
+            color: P.subtle,
+            padding: "10px 28px 0",
+          }),
+        ]
+      : []),
   ]);
 }
 
 // The main learning, featured near the top: soft tone-colored background, a
-// caps label, then the prose.
-function calloutEl(callout: CardCallout, hue: Hue): El {
+// caps label, then the prose. Inside a column it fills the column's height
+// and leaves the divider to the column itself.
+function calloutEl(callout: CardCallout, hue: Hue, density: Density): El {
+  const fontSize = density === "narrow" ? 18 : 20;
   const block = (label: string, markdown: string, first: boolean) => [
     txt(label, {
       fontSize: 12,
@@ -768,7 +842,7 @@ function calloutEl(callout: CardCallout, hue: Hue): El {
       marginBottom: 6,
       ...(first ? {} : { marginTop: 16 }),
     }),
-    renderMarkdown(markdown, { ...PROSE_STYLE, fontSize: 20, lineHeight: 1.4 }),
+    renderMarkdown(markdown, { ...PROSE_STYLE, fontSize, lineHeight: 1.4 }),
   ];
   return el(
     "div",
@@ -777,7 +851,9 @@ function calloutEl(callout: CardCallout, hue: Hue): El {
       flexDirection: "column",
       padding: "18px 28px 20px",
       backgroundColor: SOFT[hue],
-      borderBottom: `1px solid ${P.border}`,
+      ...(density === "narrow"
+        ? { flexGrow: 1 }
+        : { borderBottom: `1px solid ${P.border}` }),
     },
     [
       ...block(callout.label, callout.markdown, true),
@@ -904,16 +980,49 @@ function insetSection(children: El[]): El {
   );
 }
 
-function sectionEl(section: CardSection, hue: Hue): El {
+// A narrow left column beside a wide right one, each a stack of sections.
+function columnsEl(left: CardSection[], right: CardSection[], hue: Hue): El {
+  const column = (sections: CardSection[], style: Record<string, unknown>) =>
+    el(
+      "div",
+      { display: "flex", flexDirection: "column", ...style },
+      sections.map((s) => sectionEl(s, hue, "narrow")),
+    );
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "stretch",
+      flexGrow: 1,
+    },
+    [
+      column(left, {
+        width: LEFT_COLUMN_WIDTH,
+        flexShrink: 0,
+        borderRight: `1px solid ${P.border}`,
+      }),
+      column(right, { flexGrow: 1, minWidth: 0 }),
+    ],
+  );
+}
+
+function sectionEl(
+  section: CardSection,
+  hue: Hue,
+  density: Density = "full",
+): El {
   switch (section.kind) {
     case "fields":
       return insetSection(section.fields.map(fieldEl));
     case "table":
       return insetSection([tableEl(section.table)]);
     case "callout":
-      return calloutEl(section.callout, hue);
+      return calloutEl(section.callout, hue, density);
     case "results":
-      return resultsEl(section.results);
+      return resultsEl(section.results, density);
+    case "columns":
+      return columnsEl(section.left, section.right, hue);
     default: {
       const exhaustive: never = section;
       throw new Error(

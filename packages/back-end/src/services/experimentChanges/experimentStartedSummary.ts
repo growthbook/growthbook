@@ -1,10 +1,5 @@
 import type { ExperimentStartedNotificationPayload } from "shared/validators";
-import {
-  escapeInlineMarkdown,
-  markdownToPlainText,
-} from "back-end/src/services/notificationCards/markdown";
-
-export const EXPERIMENT_STARTED_LABEL = "Experiment Started";
+import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
 
 const MAX_GOAL_METRIC_NAMES = 3;
 
@@ -49,7 +44,7 @@ export function getExperimentStartedGoalMetrics(
 }
 
 // Label/value pairs shared by the card body and the Slack text, in the same
-// order on both. Values are card markdown; text channels flatten them.
+// order on both. Values are card markdown; text channels convert them.
 export function getExperimentStartedFields(
   data: ExperimentStartedNotificationPayload,
 ): { label: string; value: string }[] {
@@ -61,17 +56,4 @@ export function getExperimentStartedFields(
       ? [{ label: "Linked changes", value: linkedChanges }]
       : []),
   ];
-}
-
-// Sentence form for text channels: "Experiment Started. Goal metrics: A, B.
-// Linked changes: 2 Feature Flags."
-export function getExperimentStartedText(
-  data: ExperimentStartedNotificationPayload,
-): string {
-  return [
-    `${EXPERIMENT_STARTED_LABEL}.`,
-    ...getExperimentStartedFields(data).map(
-      (f) => `${f.label}: ${markdownToPlainText(f.value)}.`,
-    ),
-  ].join(" ");
 }

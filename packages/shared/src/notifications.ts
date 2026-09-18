@@ -230,12 +230,13 @@ export const notificationEventMetadata = {
   "experiment.status.endingSoon": {
     label: "Ending soon",
     description:
-      "Triggered when a running experiment is nearing its scheduled end date.",
+      "Triggered when a running experiment is within 3 days of its scheduled end date.",
   },
   "experiment.status.stale": {
     label: "Running a long time",
     description:
       "Triggered when a running experiment has been active for a long time without a decision.",
+    subtitle: "The experiment has been running for longer than 90 days.",
   },
   "experiment.guardrailFailed": {
     label: "Guardrail failing",
@@ -243,7 +244,7 @@ export const notificationEventMetadata = {
       "Triggered when a running experiment has a failing guardrail metric.",
   },
   "experiment.bandit.weightsChanged": {
-    label: "Bandit reallocated",
+    label: "Bandit weights changed",
     description:
       "Triggered when a multi-armed bandit materially changes variation weights.",
   },

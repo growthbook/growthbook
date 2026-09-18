@@ -1,6 +1,7 @@
 import type { EventWebHookInterface } from "shared/types/event-webhook";
 import type { EventInterface } from "shared/types/events/event";
 import { parseNotificationSettings } from "shared/validators";
+import type { KnownBlock } from "@slack/types";
 import { sendEventWebhook } from "back-end/src/events/handlers/webhooks/sendEventWebhook";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EventWebHookResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
@@ -13,8 +14,11 @@ import {
   renderNotificationCard,
   RenderedNotificationCard,
 } from "back-end/src/services/notificationCards/renderNotificationCard";
+import {
+  alertFooterBlock,
+  alertFooterText,
+} from "back-end/src/events/handlers/slack/alertMessage";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
-import { escapeSlackMrkdwn } from "back-end/src/util/slack.util";
 import {
   isSlackWorkspacePlaceholderUrl,
   postSlackMessageResult,
@@ -115,28 +119,44 @@ export async function deliverSlackMessage({
 
   const card = await getCard();
   if (card) {
-    const caption = [
-      messagePrefix,
-      `<${card.objectUrl}|${escapeSlackMrkdwn(card.objectName)}> - ${escapeSlackMrkdwn(card.eventLabel)}`,
-    ]
+    // The image carries the event, units, and days itself; the share message
+    // is the same small footer text messages get, minus the counts.
+    const footer = {
+      name: card.objectName,
+      url: card.objectUrl,
+      ownerEmail: card.ownerEmail,
+    };
+    const text = [messagePrefix, alertFooterText(footer)]
       .filter(Boolean)
       .join("\n");
+    const blocks: KnownBlock[] = [
+      ...(messagePrefix
+        ? [
+            {
+              type: "section" as const,
+              text: {
+                type: "plain_text" as const,
+                text: messagePrefix,
+                emoji: false,
+              },
+            },
+          ]
+        : []),
+      alertFooterBlock(footer),
+    ];
     const fileId = await uploadSlackImageFile({
       token: botToken,
       png: card.png,
       filename: "notification-card.png",
       title: card.altText,
       channelId,
-      initialComment: caption,
+      blocks,
+      initialComment: text,
     });
     if (fileId) {
       return {
-        result: {
-          result: "success",
-          statusCode: 200,
-          responseBody: fileId,
-        },
-        payload: { text: caption },
+        result: { result: "success", statusCode: 200, responseBody: fileId },
+        payload: { text, blocks },
         deliveredAs: "card",
       };
     }

@@ -36,6 +36,7 @@ import {
   determineNextDate,
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
+import { getOwnerEmail } from "back-end/src/services/owner";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
@@ -72,6 +73,11 @@ import {
 } from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  notifyExperimentCreated,
+  notifyExperimentStatusTransition,
+  notifyExperimentBanditWeightsTransition,
+} from "back-end/src/services/experimentNotifications";
 import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -1407,6 +1413,20 @@ const findExperiment = async ({
 
 // region Events
 
+// The event payload: the API shape plus the owner's email when it resolves,
+// so deliveries can name the owner without reading the experiment back.
+const toExperimentEventPayload = async (
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) => {
+  const apiExperiment = await toExperimentApiInterface(
+    context,
+    experiment as ExperimentInterfaceExcludingHoldouts,
+  );
+  const ownerEmail = await getOwnerEmail(apiExperiment.owner, context);
+  return ownerEmail ? { ...apiExperiment, ownerEmail } : apiExperiment;
+};
+
 /**
  * @param context
  * @param experiment
@@ -1418,10 +1438,7 @@ export const logExperimentCreated = async (
 ) => {
   if (experiment.type === "holdout") return;
 
-  const apiExperiment = await toExperimentApiInterface(
-    context,
-    experiment as ExperimentInterfaceExcludingHoldouts,
-  );
+  const apiExperiment = await toExperimentEventPayload(context, experiment);
 
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
@@ -1460,17 +1477,9 @@ export const logExperimentUpdated = async ({
 }) => {
   if (current.type === "holdout") return;
 
-  const previousApiExperimentPromise = toExperimentApiInterface(
-    context,
-    previous as ExperimentInterfaceExcludingHoldouts,
-  );
-  const currentApiExperimentPromise = toExperimentApiInterface(
-    context,
-    current as ExperimentInterfaceExcludingHoldouts,
-  );
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
-    previousApiExperimentPromise,
-    currentApiExperimentPromise,
+    toExperimentEventPayload(context, previous),
+    toExperimentEventPayload(context, current),
   ]);
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
@@ -2004,10 +2013,7 @@ export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  const apiExperiment = await toExperimentApiInterface(
-    context,
-    experiment as ExperimentInterfaceExcludingHoldouts,
-  );
+  const apiExperiment = await toExperimentEventPayload(context, experiment);
 
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
@@ -2356,12 +2362,6 @@ const hasChangesForSDKPayloadRefresh = (
   return !isEqual(oldChanges, newChanges);
 };
 
-// Loaded on use: the notifications service imports this model, and a static
-// import here closes a module cycle that reaches SdkConnectionModel before it
-// has initialized.
-const loadExperimentNotifications = () =>
-  import("back-end/src/services/experimentNotifications");
-
 const onExperimentCreate = async ({
   context,
   experiment,
@@ -2373,13 +2373,9 @@ const onExperimentCreate = async ({
 
   // Off the request path: the alert reads snapshots and metrics and writes an
   // event, none of which the caller waits on.
-  loadExperimentNotifications()
-    .then(({ notifyExperimentCreated }) =>
-      notifyExperimentCreated({ context, experiment }),
-    )
-    .catch((error: unknown) =>
-      logger.error(error, "Failed to notify experiment creation"),
-    );
+  notifyExperimentCreated({ context, experiment }).catch((error: unknown) =>
+    logger.error(error, "Failed to notify experiment creation"),
+  );
 
   if (context.org.isVercelIntegration)
     await createVercelExperimentationItemFromExperiment({
@@ -2408,35 +2404,20 @@ const onExperimentUpdate = async ({
   // Alerts run off the request path, after the SDK payload refresh below is
   // queued: a stop or start must reach SDKs before Slack hears about it.
   const notifyAlerts = () => {
-    loadExperimentNotifications()
-      .then((notifications) =>
-        Promise.all([
-          notifications
-            .notifyExperimentStatusTransition({
-              context,
-              previous: oldExperiment,
-              experiment: newExperiment,
-            })
-            .catch((error: unknown) =>
-              logger.error(
-                error,
-                "Failed to notify experiment status transition",
-              ),
-            ),
-          notifications
-            .notifyExperimentBanditWeightsTransition({
-              context,
-              previous: oldExperiment,
-              experiment: newExperiment,
-            })
-            .catch((error: unknown) =>
-              logger.error(error, "Failed to notify bandit allocation change"),
-            ),
-        ]),
-      )
-      .catch((error: unknown) =>
-        logger.error(error, "Failed to load experiment notifications"),
-      );
+    notifyExperimentStatusTransition({
+      context,
+      previous: oldExperiment,
+      experiment: newExperiment,
+    }).catch((error: unknown) =>
+      logger.error(error, "Failed to notify experiment status transition"),
+    );
+    notifyExperimentBanditWeightsTransition({
+      context,
+      previous: oldExperiment,
+      experiment: newExperiment,
+    }).catch((error: unknown) =>
+      logger.error(error, "Failed to notify bandit allocation change"),
+    );
   };
 
   if (

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
+import { ownerEmailField } from "./owner-field";
 import { experimentResultsType } from "./experiments";
 
 export const experimentStartedNotificationPayload = z
@@ -7,6 +8,7 @@ export const experimentStartedNotificationPayload = z
     type: z.literal("started"),
     experimentId: z.string(),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     phaseName: z.string().optional(),
     // Expanded goal metric names (metric groups resolved), in experiment order.
     goalMetricNames: z.array(z.string()).optional(),
@@ -68,6 +70,7 @@ export const experimentStoppedNotificationPayload = z
     type: z.literal("stopped"),
     experimentId: z.string(),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     results: z.enum(experimentResultsType).optional(),
     releasedVariationName: z.string().optional(),
     enableTemporaryRollout: z.boolean(),
@@ -87,8 +90,13 @@ export const experimentEndingSoonNotificationPayload = z
     type: z.literal("ending-soon"),
     experimentId: z.string(),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     endsAt: z.string(),
     daysRemaining: z.number(),
+    // The run so far: whole days of the current phase, and units exposed per
+    // the latest successful snapshot (absent before one has run).
+    durationDays: z.number().int().nonnegative().optional(),
+    totalUsers: z.number().optional(),
   })
   .strict();
 
@@ -97,7 +105,11 @@ export const experimentStaleNotificationPayload = z
     type: z.literal("stale"),
     experimentId: z.string(),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     daysRunning: z.number(),
+    // Units exposed per the latest successful snapshot (absent before one
+    // has run). `daysRunning` is the duration.
+    totalUsers: z.number().optional(),
     reason: z.string(),
   })
   .strict();
@@ -107,6 +119,7 @@ export const experimentGuardrailFailedNotificationPayload = z
     type: z.literal("guardrail-failed"),
     experimentId: z.string(),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     failedMetrics: z.array(
       z
         .object({
@@ -124,6 +137,7 @@ export const experimentBanditChangedNotificationPayload = z
     type: z.literal("bandit-weights-changed"),
     experimentId: z.string(),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     currentWeights: z.array(z.number()),
     updatedWeights: z.array(z.number()),
   })

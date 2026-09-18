@@ -31,13 +31,28 @@ import {
   getFilterDataForNotificationEvent,
 } from "back-end/src/events/handlers/utils";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
-import { getExperimentUrl } from "back-end/src/util/appUrls";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
-import { getSrmText } from "back-end/src/services/experimentChanges/experimentSrmSummary";
-import { buildAlertMessage } from "./alertMessage";
+import {
+  EXPERIMENT_DECISION_LABELS,
+  EXPERIMENT_EVENT_LABELS,
+  EXPERIMENT_WARNING_LABELS,
+  SCHEDULED_STATUS_UPDATE_LABELS,
+  type ExperimentDecision,
+} from "back-end/src/services/experimentChanges/experimentEventLabels";
+import {
+  getSrmFields,
+  getSrmTotalUnits,
+} from "back-end/src/services/experimentChanges/experimentSrmSummary";
+import { variationMarkdown } from "back-end/src/services/experimentChanges/experimentStoppedSummary";
+import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
+import type { AlertField } from "./alertMessage";
+import {
+  type ExperimentIdentity,
+  buildExperimentAlertMessage,
+} from "./experimentAlertMessage";
 import { buildHoldoutAlertMessage } from "./holdoutAlerts";
-import { buildExperimentAlertMessage } from "./experimentAlerts";
+import { buildExperimentAlertMessageForEvent } from "./experimentAlerts";
 
 // region Filtering
 
@@ -111,7 +126,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "experiment.status.stale":
     case "experiment.guardrailFailed":
     case "experiment.bandit.weightsChanged":
-      return buildExperimentAlertMessage(event);
+      return buildExperimentAlertMessageForEvent(event);
 
     case "holdout.created":
     case "holdout.status.changed":
@@ -133,18 +148,27 @@ export const getSlackMessageForNotificationEvent = async (
 
     case "experiment.deleted":
       return await buildSlackMessageForExperimentDeletedEvent(
-        event.data.object.name,
+        event.data.object,
         stored,
       );
 
     case "experiment.decision.ship":
-      return buildSlackMessageForExperimentShipEvent(event.data.object);
+      return buildSlackMessageForExperimentDecisionEvent(
+        event.data.object,
+        "ship",
+      );
 
     case "experiment.decision.rollback":
-      return buildSlackMessageForExperimentRollbackEvent(event.data.object);
+      return buildSlackMessageForExperimentDecisionEvent(
+        event.data.object,
+        "rollback",
+      );
 
     case "experiment.decision.review":
-      return buildSlackMessageForExperimentReviewEvent(event.data.object);
+      return buildSlackMessageForExperimentDecisionEvent(
+        event.data.object,
+        "review",
+      );
 
     case "webhook.test":
       return buildSlackMessageForWebhookTestEvent(event.data.object.webhookId);
@@ -346,7 +370,7 @@ export const getSlackMessageForLegacyNotificationEvent = async (
 
     case "experiment.deleted":
       return await buildSlackMessageForExperimentDeletedEvent(
-        event.data.previous.name,
+        event.data.previous,
         stored,
       );
 
@@ -1397,45 +1421,28 @@ const buildSlackMessageForConfigRevisionEvent = (
 
 // region Event-specific messages -> Experiment
 
-export const getExperimentUrlFormatted = (experimentId: string): string =>
-  `\n• <${getExperimentUrl(experimentId)}|View Experiment>`;
-
-export const getExperimentUrlAndNameFormatted = (
-  experimentId: string,
-  experimentName: string,
-): string => `<${getExperimentUrl(experimentId)}|${experimentName}>`;
-
-const buildSlackMessageForExperimentCreatedEvent = (
-  { id: experimentId, name: experimentName }: { id: string; name: string },
-  event: StoredEvent,
-): SlackMessage => {
+// "Created by Jane (jane@x.com)" or "Created automatically" for system changes.
+const actorField = (verb: string, event: StoredEvent): AlertField => {
   const eventUser = getEventUserFormatted(event.data.user);
-  const isUnknownUser = eventUser === "an unknown user";
-  const text = `The experiment ${experimentName} has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
-
-  return {
-    text,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            `The experiment *${experimentName}* has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
-            getExperimentUrlFormatted(experimentId) +
-            getEventUrlFormatted(event.id),
-        },
-      },
-    ],
-  };
+  return eventUser === "an unknown user"
+    ? { label: verb, value: "Automatically" }
+    : { label: `${verb} by`, value: escapeInlineMarkdown(eventUser) };
 };
 
+const buildSlackMessageForExperimentCreatedEvent = (
+  experiment: ExperimentIdentity,
+  event: StoredEvent,
+): SlackMessage =>
+  buildExperimentAlertMessage({
+    experiment,
+    label: EXPERIMENT_EVENT_LABELS.created,
+    fields: [actorField("Created", event)],
+  });
+
 const buildSlackMessageForExperimentUpdatedEvent = (
-  { id: experimentId, name: experimentName }: { id: string; name: string },
+  experiment: ExperimentIdentity,
   event: StoredEvent,
 ): SlackMessage => {
-  const eventUser = getEventUserFormatted(event.data.user);
-
   let changeBlocks: KnownBlock[] = [];
 
   // Check if we have changes (diff) to format
@@ -1615,9 +1622,6 @@ const buildSlackMessageForExperimentUpdatedEvent = (
     changeBlocks = formattedDiff.blocks;
   }
 
-  const isUnknownUser = eventUser === "an unknown user";
-  const text = `The experiment ${experimentName} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
-
   // If no change blocks, show a fallback message
   if (changeBlocks.length === 0) {
     changeBlocks = [
@@ -1631,22 +1635,12 @@ const buildSlackMessageForExperimentUpdatedEvent = (
     ];
   }
 
-  return {
-    text,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            `The experiment *${experimentName}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
-            getExperimentUrlFormatted(experimentId) +
-            getEventUrlFormatted(event.id),
-        },
-      },
-      ...changeBlocks,
-    ],
-  };
+  return buildExperimentAlertMessage({
+    experiment,
+    label: EXPERIMENT_EVENT_LABELS.updated,
+    fields: [actorField("Updated", event)],
+    blocks: changeBlocks,
+  });
 };
 
 const buildSlackMessageForWebhookTestEvent = (
@@ -1665,33 +1659,20 @@ const buildSlackMessageForWebhookTestEvent = (
 });
 
 const buildSlackMessageForExperimentDeletedEvent = (
-  experimentName: string,
+  experiment: ExperimentIdentity,
   event: StoredEvent,
-): SlackMessage => {
-  const eventUser = getEventUserFormatted(event.data.user);
-  const isUnknownUser = eventUser === "an unknown user";
-  const text = `The experiment ${experimentName} has been deleted ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
-
-  return {
-    text,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            `The experiment *${experimentName}* has been deleted ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
-            getEventUrlFormatted(event.id),
-        },
-      },
-    ],
-  };
-};
+): SlackMessage =>
+  buildExperimentAlertMessage({
+    experiment,
+    label: EXPERIMENT_EVENT_LABELS.deleted,
+    fields: [actorField("Deleted", event)],
+  });
 
 const buildSlackMessageForExperimentInfoSignificanceEvent = ({
   metricName,
   experimentName,
   experimentId,
+  ownerEmail,
   variationName,
   statsEngine,
   criticalValue,
@@ -1707,127 +1688,125 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
     return formatNumber("#0.%", v * 100);
   };
 
-  const text = ({
-    metricName,
-    variationName,
-    experimentName,
-  }: {
-    metricName: string;
-    variationName: string;
-    experimentName: string;
-  }) => {
-    if (statsEngine === "frequentist") {
-      return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is ${
-        winning ? "beating" : "losing to"
-      } the baseline and has reached statistical significance (p-value = ${criticalValue.toFixed(
-        3,
-      )}).`;
-    }
-    return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} has ${
-      winning ? "reached a" : "dropped to a"
-    } ${percentFormatter(criticalValue)} chance to beat the baseline.`;
-  };
+  const variation = `*${escapeInlineMarkdown(variationName)}*`;
+  const detail =
+    statsEngine === "frequentist"
+      ? `${variation} is ${
+          winning ? "beating" : "losing to"
+        } the baseline and has reached statistical significance (p-value = ${criticalValue.toFixed(
+          3,
+        )}).`
+      : `${variation} has ${
+          winning ? "reached a" : "dropped to a"
+        } ${percentFormatter(criticalValue)} chance to beat the baseline.`;
 
-  return {
-    text: text({ metricName, experimentName, variationName }),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: text({
-            metricName: `*${metricName}*`,
-            experimentName: getExperimentUrlAndNameFormatted(
-              experimentId,
-              experimentName,
-            ),
-            variationName: `*${variationName}*`,
-          }),
-        },
-      },
-    ],
-  };
+  return buildExperimentAlertMessage({
+    experiment: { id: experimentId, name: experimentName, ownerEmail },
+    label: EXPERIMENT_EVENT_LABELS.significance,
+    // Labels are plain text (escaped for Slack, not parsed as markdown).
+    fields: [{ label: metricName, value: detail }],
+  });
 };
 
 const buildSlackMessageForExperimentScheduledStatusUpdateEvent = (
   data: ExperimentInfoScheduledStatusUpdatePayload,
 ): SlackMessage => {
-  const shippedVariation = data.shippedVariationName ?? data.shippedVariationId;
-  const recommendedVariation =
+  const shippedName = data.shippedVariationName ?? data.shippedVariationId;
+  const recommended =
     data.recommendedVariationName ?? data.recommendedVariationId;
 
-  const text = (experimentName: string): string => {
-    switch (data.action) {
-      case "started":
-        return `Experiment ${experimentName} was automatically started as scheduled.`;
-      case "stopped":
-        if (data.shipped && shippedVariation) {
-          return data.forced
-            ? `Experiment ${experimentName} reached its scheduled end date with no clear winner; the pre-selected variation "${shippedVariation}" was shipped.`
-            : `Experiment ${experimentName} reached its scheduled end date and the winning variation "${shippedVariation}" was automatically shipped.`;
-        }
-        return `Experiment ${experimentName} was automatically stopped at its scheduled end date. No variation was shipped.`;
-      case "kept-running":
-        return recommendedVariation
-          ? `Experiment ${experimentName} reached its scheduled end date and was kept running. Recommended variation to ship: "${recommendedVariation}".`
-          : `Experiment ${experimentName} reached its scheduled end date and was kept running. There is no clear winner yet.`;
-      default: {
-        const exhaustiveCheck: never = data.action;
-        return exhaustiveCheck;
+  let detail: string;
+  switch (data.action) {
+    case "started":
+      detail = "Started automatically at its scheduled start date.";
+      break;
+    case "stopped":
+      if (data.shipped && shippedName) {
+        const shipped = variationMarkdown(shippedName);
+        detail = data.forced
+          ? `Reached its scheduled end date with no clear winner; the pre-selected variation ${shipped} was shipped.`
+          : `Reached its scheduled end date and the winning variation ${shipped} was automatically shipped.`;
+      } else {
+        detail =
+          "Stopped automatically at its scheduled end date. No variation was shipped.";
       }
+      break;
+    case "kept-running":
+      detail = recommended
+        ? `Reached its scheduled end date and was kept running. Recommended variation to ship: ${variationMarkdown(recommended)}.`
+        : "Reached its scheduled end date and was kept running. There is no clear winner yet.";
+      break;
+    default: {
+      const exhaustiveCheck: never = data.action;
+      return exhaustiveCheck;
     }
-  };
+  }
 
-  return {
-    text: text(data.experimentName),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            text(`*${data.experimentName}*`) +
-            getExperimentUrlFormatted(data.experimentId),
-        },
-      },
-    ],
-  };
+  return buildExperimentAlertMessage({
+    experiment: {
+      id: data.experimentId,
+      name: data.experimentName,
+      ownerEmail: data.ownerEmail,
+    },
+    label: SCHEDULED_STATUS_UPDATE_LABELS[data.action],
+    fields: [{ label: "Scheduled update", value: detail }],
+  });
 };
 
 const buildSlackMessageForExperimentWarningEvent = (
   data: ExperimentWarningNotificationPayload,
 ): SlackMessage => {
   let invalidData: never;
-  let detail: string;
+  let fields: AlertField[];
 
   switch (data.type) {
     case "auto-update":
-      detail = data.success
-        ? "Automatic updates were turned off after a failed refresh."
-        : "Automatic updates could not be turned off after a failed refresh and remain on.";
+      fields = [
+        {
+          label: "Details",
+          value: data.success
+            ? "Automatic updates were turned off after a failed refresh."
+            : "Automatic updates could not be turned off after a failed refresh and remain on.",
+        },
+      ];
       break;
 
     case "multiple-exposures": {
       const numberFormatter = (v: number) => formatNumber("#,##0.", v);
       const percentFormatter = (v: number) => formatNumber("#0.%", v * 100);
-      detail = `${numberFormatter(data.usersCount)} users (${percentFormatter(
-        data.percent,
-      )}) saw multiple variations and were automatically removed from results.`;
+      fields = [
+        {
+          label: "Details",
+          value: `${numberFormatter(data.usersCount)} users (${percentFormatter(
+            data.percent,
+          )}) saw multiple variations and were automatically removed from results.`,
+        },
+      ];
       break;
     }
 
     case "srm":
-      detail = getSrmText(data);
+      fields = getSrmFields(data);
       break;
 
     case "no-data":
-      detail =
-        "No data yet. The most recent update ran successfully but returned no results. Make sure your experiment is tracking properly.";
+      fields = [
+        {
+          label: "Details",
+          value:
+            "The most recent update ran successfully but returned no results. Make sure your experiment is tracking properly.",
+        },
+      ];
       break;
 
     case "underpowered":
-      detail =
-        "Underpowered. Statistical power is below the configured threshold. Consider increasing traffic, using a more sensitive metric, or accepting a larger minimum detectable effect.";
+      fields = [
+        {
+          label: "Details",
+          value:
+            "Statistical power is below the configured threshold. Consider increasing traffic, using a more sensitive metric, or accepting a larger minimum detectable effect.",
+        },
+      ];
       break;
 
     case "scheduled-status-update-failed": {
@@ -1836,7 +1815,12 @@ const buildSlackMessageForExperimentWarningEvent = (
       const tail = data.willRetry
         ? `Will retry (attempt ${data.attempts} of ${data.maxAttempts}).`
         : `Giving up after ${data.attempts} attempts; the schedule has been cleared and the experiment will not ${action} automatically.`;
-      detail = `Scheduled ${action} failed: ${data.reason}. ${tail}`;
+      fields = [
+        {
+          label: `Scheduled ${action}`,
+          value: `${escapeInlineMarkdown(data.reason)}. ${tail}`,
+        },
+      ];
       break;
     }
 
@@ -1847,7 +1831,12 @@ const buildSlackMessageForExperimentWarningEvent = (
         "no-queries": "no queries were generated",
         unknown: "an unexpected error occurred",
       }[data.cause];
-      detail = `Results failed to update because ${cause}.`;
+      fields = [
+        {
+          label: "Details",
+          value: `Results failed to update because ${cause}.`,
+        },
+      ];
       break;
     }
 
@@ -1856,81 +1845,42 @@ const buildSlackMessageForExperimentWarningEvent = (
       throw `Invalid data: ${invalidData}`;
   }
 
-  return buildAlertMessage({
-    name: data.experimentName,
-    detail,
-    url: getExperimentUrl(data.experimentId),
+  // The SRM payload records the run so far; other warnings carry no counts.
+  const units = data.type === "srm" ? getSrmTotalUnits(data) : undefined;
+  const durationDays = data.type === "srm" ? data.durationDays : undefined;
+  return buildExperimentAlertMessage({
+    experiment: {
+      id: data.experimentId,
+      name: data.experimentName,
+      ownerEmail: data.ownerEmail,
+    },
+    label: EXPERIMENT_WARNING_LABELS[data.type],
+    fields,
+    ...(durationDays !== undefined ? { durationDays } : {}),
+    ...(units !== undefined ? { units } : {}),
   });
 };
 
-const buildSlackMessageForExperimentShipEvent = (
+const buildSlackMessageForExperimentDecisionEvent = (
   data: ExperimentDecisionNotificationPayload,
-): SlackMessage => {
-  const text = (experimentName: string, description?: string) =>
-    `Experiment ${experimentName} has reached the "Ship now" status.${
-      description ? ` ${description}` : ""
-    }`;
-  return {
-    text: text(data.experimentName, data.decisionDescription),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            text(`*${data.experimentName}*`, data.decisionDescription) +
-            getExperimentUrlFormatted(data.experimentId),
-        },
-      },
-    ],
-  };
-};
-
-const buildSlackMessageForExperimentRollbackEvent = (
-  data: ExperimentDecisionNotificationPayload,
-): SlackMessage => {
-  const text = (experimentName: string, description?: string) =>
-    `Experiment ${experimentName} has reached the "Roll back now" status.${
-      description ? ` ${description}` : ""
-    }`;
-  return {
-    text: text(data.experimentName, data.decisionDescription),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            text(`*${data.experimentName}*`, data.decisionDescription) +
-            getExperimentUrlFormatted(data.experimentId),
-        },
-      },
-    ],
-  };
-};
-
-const buildSlackMessageForExperimentReviewEvent = (
-  data: ExperimentDecisionNotificationPayload,
-): SlackMessage => {
-  const text = (experimentName: string, description?: string) =>
-    `Experiment ${experimentName} has reached the "Ready for review" status.${
-      description ? ` ${description}` : ""
-    }`;
-  return {
-    text: text(data.experimentName, data.decisionDescription),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            text(`*${data.experimentName}*`, data.decisionDescription) +
-            getExperimentUrlFormatted(data.experimentId),
-        },
-      },
-    ],
-  };
-};
+  decision: ExperimentDecision,
+): SlackMessage =>
+  buildExperimentAlertMessage({
+    experiment: {
+      id: data.experimentId,
+      name: data.experimentName,
+      ownerEmail: data.ownerEmail,
+    },
+    label: EXPERIMENT_DECISION_LABELS[decision],
+    fields: data.decisionDescription
+      ? [
+          {
+            label: "Recommendation",
+            value: escapeInlineMarkdown(data.decisionDescription),
+          },
+        ]
+      : [],
+  });
 
 // endregion Event-specific messages -> Experiment
 

@@ -25,6 +25,7 @@ import type {
   CardIcon,
   CardResultRow,
   CardResults,
+  CardSection,
   CardTone,
   NotificationCardProducer,
 } from "back-end/src/services/notificationCards/types";
@@ -91,12 +92,7 @@ function goalRows(
         ? { vio: { c: upliftPct, s: Math.max(0.3, v.upliftStddev * 100) } }
         : {}),
       ...(v.ci
-        ? {
-            interval: `${intervalLabel(
-              goalMetric.statsEngine,
-              goalMetric.pValueThreshold,
-            )} [${formatLift(v.ci[0])}, ${formatLift(v.ci[1])}]`,
-          }
+        ? { interval: `[${formatLift(v.ci[0])}, ${formatLift(v.ci[1])}]` }
         : {}),
     };
   });
@@ -184,22 +180,58 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
     };
   }
   const callout = getExperimentStoppedCallout(data);
+  const { rows, note } = capRows(
+    goalRows(data.goalMetric),
+    data.winningVariationIndex,
+  );
+  const results: CardSection = {
+    kind: "results",
+    results: {
+      sectionLabel: "Goal metric",
+      title: data.goalMetric.metricName,
+      statLabel: confidenceLabel(data.goalMetric.statsEngine),
+      changeLabel: "Lift",
+      intervalLabel: intervalLabel(
+        data.goalMetric.statsEngine,
+        data.goalMetric.pValueThreshold,
+      ),
+      rows,
+      ...(note ? { note } : {}),
+      axis: goalAxis(data.goalMetric),
+    },
+  };
+  // With a conclusion, the card grows sideways: prose on the left, results on
+  // the right, so a tall table does not shrink the whole image in chat.
   return {
     ...identity,
-    sections: [
-      ...(callout ? [{ kind: "callout" as const, callout }] : []),
-      {
-        kind: "results",
-        results: {
-          sectionLabel: "Goal metric",
-          title: data.goalMetric.metricName,
-          statLabel: confidenceLabel(data.goalMetric.statsEngine),
-          changeLabel: "Lift",
-          rows: goalRows(data.goalMetric),
-          axis: goalAxis(data.goalMetric),
-        },
-      },
-    ],
+    sections: callout
+      ? [
+          {
+            kind: "columns",
+            left: [{ kind: "callout", callout }],
+            right: [results],
+          },
+        ]
+      : [results],
+  };
+}
+
+// Rows beyond this are summarized in a note so a many-armed test stays a
+// readable height. The winning variation is always among the rows shown.
+const MAX_RESULT_ROWS = 4;
+
+function capRows(
+  rows: CardResultRow[],
+  winnerIndex: number | undefined,
+): { rows: CardResultRow[]; note?: string } {
+  if (rows.length <= MAX_RESULT_ROWS) return { rows };
+  const shown = rows.slice(0, MAX_RESULT_ROWS);
+  const winner = rows.find((r) => r.i === winnerIndex);
+  if (winner && !shown.includes(winner)) shown[MAX_RESULT_ROWS - 1] = winner;
+  const hidden = rows.length - shown.length;
+  return {
+    rows: shown,
+    note: `+${hidden} more variation${hidden === 1 ? "" : "s"}`,
   };
 }
 

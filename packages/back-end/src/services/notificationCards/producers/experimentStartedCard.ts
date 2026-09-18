@@ -1,9 +1,7 @@
 import { experimentStartedNotificationPayload } from "shared/validators";
 import { getExperimentUrl } from "back-end/src/util/appUrls";
-import {
-  EXPERIMENT_STARTED_LABEL,
-  getExperimentStartedFields,
-} from "back-end/src/services/experimentChanges/experimentStartedSummary";
+import { EXPERIMENT_EVENT_LABELS } from "back-end/src/services/experimentChanges/experimentEventLabels";
+import { getExperimentStartedFields } from "back-end/src/services/experimentChanges/experimentStartedSummary";
 import type { NotificationCardProducer } from "back-end/src/services/notificationCards/types";
 
 // Built from the immutable start payload: goal metrics and linked changes as
@@ -18,7 +16,7 @@ export const buildExperimentStartedCard: NotificationCardProducer = (event) => {
     tone: "info",
     icon: "play",
     name: data.experimentName,
-    banner: EXPERIMENT_STARTED_LABEL,
+    banner: EXPERIMENT_EVENT_LABELS.started,
     url: getExperimentUrl(data.experimentId),
     sections: [{ kind: "fields", fields: getExperimentStartedFields(data) }],
   };

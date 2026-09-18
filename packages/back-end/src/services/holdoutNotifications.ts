@@ -2,7 +2,26 @@ import type { HoldoutInterface } from "shared/validators";
 import { getEnabledHoldoutEnvironments, HoldoutStage } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import { createEvent } from "back-end/src/models/EventModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getOwnerEmail } from "back-end/src/services/owner";
 import { logger } from "back-end/src/util/logger";
+
+// The fields every holdout payload opens with. The owner lives on the
+// holdout's backing experiment; failing to read it must not cost the event.
+async function holdoutIdentity(context: Context, holdout: HoldoutInterface) {
+  let ownerEmail: string | undefined;
+  try {
+    const experiment = await getExperimentById(context, holdout.experimentId);
+    ownerEmail = await getOwnerEmail(experiment?.owner, context);
+  } catch (error) {
+    logger.warn(error, "Failed to resolve holdout owner for notification");
+  }
+  return {
+    holdoutId: holdout.id,
+    holdoutName: holdout.name,
+    ...(ownerEmail ? { ownerEmail } : {}),
+  };
+}
 
 export async function notifyHoldoutCreated({
   context,
@@ -17,7 +36,7 @@ export async function notifyHoldoutCreated({
       object: "holdout",
       objectId: holdout.id,
       event: "created",
-      data: { object: { holdoutId: holdout.id, holdoutName: holdout.name } },
+      data: { object: await holdoutIdentity(context, holdout) },
       projects: holdout.projects,
       tags: [],
       environments: getEnabledHoldoutEnvironments(holdout.environmentSettings),
@@ -48,8 +67,7 @@ export async function notifyHoldoutStatusChanged({
       event: "status.changed",
       data: {
         object: {
-          holdoutId: holdout.id,
-          holdoutName: holdout.name,
+          ...(await holdoutIdentity(context, holdout)),
           previousStatus,
           currentStatus,
         },
@@ -89,8 +107,7 @@ export async function notifyHoldoutNewLinkage({
       event: "config.newLinkage",
       data: {
         object: {
-          holdoutId: holdout.id,
-          holdoutName: holdout.name,
+          ...(await holdoutIdentity(context, holdout)),
           featureIds,
           experimentIds,
         },

@@ -9,7 +9,7 @@ import {
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
-import { getExperimentVariationUnitsFromHealth } from "shared/health";
+import { getExperimentTotalUnitsFromHealth } from "shared/health";
 import cloneDeep from "lodash/cloneDeep";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
@@ -176,10 +176,7 @@ export async function getStoppedGoalMetricResults(
     }
     if (!captured.length) return undefined;
 
-    const units = getExperimentVariationUnitsFromHealth(snapshot);
-    const totalUsers = units?.length
-      ? units.reduce((sum, n) => sum + n, 0)
-      : undefined;
+    const totalUsers = getExperimentTotalUnitsFromHealth(snapshot);
 
     return {
       totalUsers,

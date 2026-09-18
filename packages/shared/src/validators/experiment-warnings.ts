@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ownerEmailField } from "./owner-field";
 import { queryRunnerFailureCause } from "./queries";
 
 export const autoUpdateFailed = z
@@ -6,6 +7,7 @@ export const autoUpdateFailed = z
     type: z.literal("auto-update"),
     success: z.boolean(),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     experimentId: z.string(),
   })
   .strict();
@@ -14,6 +16,7 @@ export const multipleExposures = z
   .object({
     type: z.literal("multiple-exposures"),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     experimentId: z.string(),
     usersCount: z.number(),
     percent: z.number(),
@@ -33,6 +36,7 @@ export const srm = z
   .object({
     type: z.literal("srm"),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     experimentId: z.string(),
     threshold: z.number(),
     // Evidence captured at emission time. Absent on events emitted before
@@ -48,6 +52,7 @@ export const noData = z
   .object({
     type: z.literal("no-data"),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     experimentId: z.string(),
   })
   .strict();
@@ -56,6 +61,7 @@ export const scheduledStatusUpdateFailed = z
   .object({
     type: z.literal("scheduled-status-update-failed"),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     experimentId: z.string(),
     // "start" | "stop" — which scheduled transition failed.
     scheduledStatusUpdateType: z.enum(["start", "stop"]),
@@ -71,6 +77,7 @@ export const underpowered = z
   .object({
     type: z.literal("underpowered"),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     experimentId: z.string(),
   })
   .strict();
@@ -80,6 +87,7 @@ export const updateFailed = z
     type: z.literal("update-failed"),
     experimentId: z.string(),
     experimentName: z.string(),
+    ownerEmail: ownerEmailField,
     cause: queryRunnerFailureCause.exclude(["cancelled"]),
   })
   .strict();

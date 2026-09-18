@@ -1,5 +1,6 @@
 import { buildNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
+import type { CardSection } from "back-end/src/services/notificationCards/types";
 import { notificationCardSamples } from "./notificationCard.fixtures";
 
 const isPng = (png: Buffer) =>
@@ -19,11 +20,16 @@ describe("notification card rendering", () => {
       const card = buildNotificationCard(event);
       expect(card).not.toBeNull();
       if (!card) throw new Error("Missing event sample card");
-      for (const section of card.data.sections) {
-        if (section.kind === "results") {
-          expect(section.results.rows.length).toBeGreaterThan(0);
+      const walk = (sections: CardSection[]) => {
+        for (const section of sections) {
+          if (section.kind === "results") {
+            expect(section.results.rows.length).toBeGreaterThan(0);
+          } else if (section.kind === "columns") {
+            walk([...section.left, ...section.right]);
+          }
         }
-      }
+      };
+      walk(card.data.sections);
       for (const format of ["light", "dark"] as const) {
         const png = await renderCard(card.data, format);
         expect(isPng(png)).toBe(true);

@@ -37,7 +37,6 @@ jest.mock(
             png: Buffer.from("png"),
             objectUrl: "https://example.com/experiment",
             objectName: "Test",
-            eventLabel: "Warning",
             altText: "Warning",
           }
         : null,
@@ -159,7 +158,6 @@ it("picks up new image producers without a preview-specific event gate", async (
     png: Buffer.from("png"),
     objectUrl: "https://example.com/experiment",
     objectName: "Test",
-    eventLabel: "Significance",
     altText: "Significance",
   };
   jest.mocked(renderNotificationCard).mockResolvedValueOnce(card);
@@ -222,9 +220,18 @@ it("test sends share the production image delivery path", async () => {
       cardFormat: "light",
     }),
   ).toEqual({ deliveredAs: "card" });
+  // The test prefix rides above the footer in the share message's blocks.
   expect(uploadSlackImageFile).toHaveBeenCalledWith(
     expect.objectContaining({
       channelId: "C1",
+      blocks: [
+        expect.objectContaining({
+          text: expect.objectContaining({
+            text: expect.stringContaining("Test notification — sample data"),
+          }),
+        }),
+        expect.objectContaining({ type: "context" }),
+      ],
       initialComment: expect.stringContaining(
         "Test notification — sample data",
       ),

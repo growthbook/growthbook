@@ -15,6 +15,10 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   setExperimentNotificationState: jest.fn(),
 }));
 jest.mock("back-end/src/models/EventModel", () => ({ createEvent: jest.fn() }));
+// Reminders read the latest snapshot for the footer's unit count.
+jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  getLatestSuccessfulSnapshot: jest.fn().mockResolvedValue(null),
+}));
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgId: jest.fn(),
   getEnvironmentIdsFromOrg: jest.fn(() => []),

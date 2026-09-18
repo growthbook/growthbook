@@ -2,21 +2,7 @@ import { z } from "zod";
 
 export const notificationCardFormats = ["light", "dark"] as const;
 
-// Settings saved before the single card layout named the old variants.
-const LEGACY_CARD_FORMATS: Record<
-  string,
-  (typeof notificationCardFormats)[number]
-> = {
-  compact: "light",
-  detailed: "light",
-  "compact-dark": "dark",
-};
-
-export const notificationCardFormatSchema = z.preprocess(
-  (value) =>
-    typeof value === "string" ? (LEGACY_CARD_FORMATS[value] ?? value) : value,
-  z.enum(notificationCardFormats),
-);
+export const notificationCardFormatSchema = z.enum(notificationCardFormats);
 export type NotificationCardFormat = z.infer<
   typeof notificationCardFormatSchema
 >;

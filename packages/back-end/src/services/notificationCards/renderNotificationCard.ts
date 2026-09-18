@@ -28,12 +28,20 @@ export function buildNotificationCard(
 ): NotificationCard | null {
   const data = PRODUCERS[event.event]?.(event);
   if (!data) return null;
+  const object: unknown = event.data.object;
+  const ownerEmail =
+    typeof object === "object" &&
+    object !== null &&
+    "ownerEmail" in object &&
+    typeof object.ownerEmail === "string"
+      ? object.ownerEmail
+      : undefined;
   return {
     data,
     altText: `${data.name} - ${data.banner}`,
     objectUrl: data.url,
     objectName: data.name,
-    eventLabel: data.banner,
+    ...(ownerEmail ? { ownerEmail } : {}),
   };
 }
 

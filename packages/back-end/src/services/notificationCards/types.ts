@@ -1,14 +1,16 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 
-// A card plus the plain-text metadata deliveries need, all derived from the
-// card data in buildNotificationCard.
+// A card plus the plain-text metadata deliveries need, derived from the card
+// data and the event in buildNotificationCard.
 export interface NotificationCard {
   data: CardData;
   // Plain text: file title / alt text.
   altText: string;
   objectUrl: string;
   objectName: string;
-  eventLabel: string;
+  // For the caption's "Owner:" part; absent on events recorded before the
+  // owner was captured.
+  ownerEmail?: string;
 }
 
 // Producers turn an immutable event payload into card data.
@@ -70,8 +72,8 @@ export interface CardResultRow {
   // Distribution drawn against the section's axis: center and spread, in the
   // same units as the axis domain.
   vio?: { c: number; s: number };
-  // Caption under the distribution, already formatted and named by the
-  // producer: "95% Credible Interval [+6%, +14%]".
+  // Interval bounds under the distribution, already formatted: "[+6%, +14%]".
+  // Named once for the table by `CardResults.intervalLabel`.
   interval?: string;
   // Significance of `stat`. Colors the stat and change together with `good`;
   // an unknown significance renders muted.
@@ -85,7 +87,10 @@ export interface CardResults {
   title: string; // what the rows measure, e.g. the metric name
   statLabel: string; // column header for `stat`; the producer names the stat
   changeLabel: string; // column header for `chg`, e.g. "Lift"
+  intervalLabel?: string; // column header for `interval`, e.g. "95% Credible Interval"
   rows: CardResultRow[];
+  // Line under the rows, e.g. "+2 more variations" when the producer capped them.
+  note?: string;
   // One axis shared by every row's distribution, so the rows read against each
   // other: the numeric domain `vio` is measured in, plus the labels to print
   // at its minimum, zero, and maximum. Omitted when no row has a distribution.
@@ -98,7 +103,10 @@ export type CardSection =
   | { kind: "fields"; fields: CardField[] }
   | { kind: "table"; table: CardTable }
   | { kind: "callout"; callout: CardCallout }
-  | { kind: "results"; results: CardResults };
+  | { kind: "results"; results: CardResults }
+  // Side by side, so a card grows sideways instead of down: chat clients fit
+  // images to a landscape box and shrink tall ones. The left column is narrow.
+  | { kind: "columns"; left: CardSection[]; right: CardSection[] };
 
 export interface CardData extends CardIdentity {
   sections: CardSection[];

@@ -1,7 +1,7 @@
 import { srm } from "shared/validators";
 import { getExperimentUrl } from "back-end/src/util/appUrls";
+import { EXPERIMENT_WARNING_LABELS } from "back-end/src/services/experimentChanges/experimentEventLabels";
 import {
-  SRM_LABEL,
   buildSrmBalanceTable,
   getSrmTotalUnits,
 } from "back-end/src/services/experimentChanges/experimentSrmSummary";
@@ -23,7 +23,7 @@ export const buildExperimentSrmCard: NotificationCardProducer = (event) => {
     tone: "warning",
     icon: "warn",
     name: experimentName,
-    banner: SRM_LABEL,
+    banner: EXPERIMENT_WARNING_LABELS.srm,
     url: getExperimentUrl(experimentId),
     ...(footer ? { footer } : {}),
     sections: table ? [{ kind: "table", table }] : [],
