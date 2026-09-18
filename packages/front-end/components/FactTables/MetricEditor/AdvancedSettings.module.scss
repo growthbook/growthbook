@@ -1,0 +1,5 @@
+.setting > :last-child,
+.setting :global(.form-group):last-child,
+.setting :global(.appbox):last-child {
+  margin-bottom: 0;
+}

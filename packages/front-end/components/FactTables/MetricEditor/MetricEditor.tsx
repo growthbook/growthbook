@@ -2,7 +2,10 @@ import { useRef, useState, useEffect } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef } from "shared/types/fact-table";
-import { CreateFactMetricFormProps } from "@/services/metrics";
+import {
+  CreateFactMetricFormProps,
+  getInitialInlineFilters,
+} from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
@@ -13,6 +16,7 @@ import Link from "@/ui/Link";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
+import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
 import Field from "@/components/Forms/Field";
 import DataList from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -44,6 +48,7 @@ import {
   onShapeChange,
   shapeForValueType,
   UnrepresentableReason,
+  windowOk,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 
 const UNREPRESENTABLE_REASON_COPY: Record<UnrepresentableReason, string> = {
@@ -86,6 +91,23 @@ export default function MetricEditor({
     !!denominator?.factTableId &&
       denominator.factTableId !== numerator.factTableId,
   );
+  const initializedFilterTables = useRef({ numerator: "", denominator: "" });
+  useEffect(() => {
+    if (!canEdit || metricType === "funnel") return;
+    for (const field of ["numerator", "denominator"] as const) {
+      const ref = field === "numerator" ? numerator : denominator;
+      if (field === "denominator" && metricType !== "ratio") continue;
+      const table = getFactTableById(ref?.factTableId ?? "");
+      if (!ref || !table || initializedFilterTables.current[field] === table.id)
+        continue;
+      initializedFilterTables.current[field] = table.id;
+      const rowFilters = getInitialInlineFilters(table, ref.rowFilters);
+      if (rowFilters.length !== (ref.rowFilters?.length ?? 0)) {
+        form.setValue(field, { ...ref, rowFilters });
+      }
+    }
+  }, [canEdit, metricType, numerator, denominator, getFactTableById, form]);
+  const windowSettings = form.watch("windowSettings");
   const quantileSettings = form.watch("quantileSettings");
   const funnelSettings = form.watch("funnelSettings");
   const datasourceId = form.watch("datasource");
@@ -232,7 +254,7 @@ export default function MetricEditor({
   return (
     <Grid columns={{ initial: "1", md: "2fr 1fr" }} gap="4">
       <Flex direction="column" gap="4">
-        <Frame>
+        <Frame px="4" py="4" mb="0">
           {!canEdit && (
             <Heading as="h4" size="sm" mb="3">
               Metric Type
@@ -280,7 +302,8 @@ export default function MetricEditor({
             </Callout>
           )}
 
-        <Frame>
+        <Frame px="4" py="4" mb="0">
+
           <Heading as="h4" size="sm" mb="1">
             Definition
           </Heading>
@@ -299,13 +322,13 @@ export default function MetricEditor({
             {canEdit && !isFunnel && (
               <Select
                 label="Fact table"
+                placeholder="Select a fact table"
                 value={primaryFactTableId}
                 setValue={changeFactTable}
               >
                 {availableFactTables.map((ft) => (
                   <SelectItem key={ft.id} value={ft.id}>
-                    {ft.name} (
-                    {getDatasourceById(ft.datasource)?.name || ft.datasource})
+                    {ft.name}
                   </SelectItem>
                 ))}
               </Select>
@@ -322,6 +345,23 @@ export default function MetricEditor({
               />
             )}
 
+            {!isRatioOrFunnel &&
+              (canEdit ? (
+                factTable && (
+                  <RowFilterInput
+                    factTable={factTable}
+                    value={numerator.rowFilters || []}
+                    setValue={(rowFilters) =>
+                      form.setValue("numerator", { ...numerator, rowFilters })
+                    }
+                  />
+                )
+              ) : (
+                <FilterSummary
+                  rowFilters={numerator.rowFilters || []}
+                  factTable={factTable}
+                />
+              ))}
             {formType === "threshold" && (
               <ThresholdBasisRow
                 value={thresholdValue}
@@ -428,27 +468,29 @@ export default function MetricEditor({
                 />
               ))}
 
-            {!isRatioOrFunnel &&
+            {windowOk(formType) &&
               (canEdit ? (
-                factTable && (
-                  <RowFilterInput
-                    factTable={factTable}
-                    value={numerator.rowFilters || []}
-                    setValue={(rowFilters) =>
-                      form.setValue("numerator", { ...numerator, rowFilters })
-                    }
-                  />
-                )
+                <MetricWindowSettingsForm
+                  form={form}
+                  type={metricType}
+                  autoFocus={false}
+                />
               ) : (
-                <FilterSummary
-                  rowFilters={numerator.rowFilters || []}
-                  factTable={factTable}
+                <DataList
+                  data={[
+                    {
+                      label: "Metric window",
+                      value: windowSettings.type
+                        ? `${windowSettings.type === "conversion" ? "Conversion" : "Lookback"}: ${windowSettings.windowValue} ${windowSettings.windowUnit}`
+                        : "None",
+                    },
+                  ]}
                 />
               ))}
           </Flex>
         </Frame>
 
-        <Frame>
+        <Frame px="4" py="4" mb="0">
           <Flex align="center" gap="1" mb="1">
             <Heading as="h4" size="sm" mb="0">
               Basics
@@ -464,6 +506,7 @@ export default function MetricEditor({
             <Flex direction="column" gap="3">
               <TextField
                 label="Name"
+                autoFocus
                 value={form.watch("name")}
                 onChange={(e) => form.setValue("name", e.target.value)}
                 required
