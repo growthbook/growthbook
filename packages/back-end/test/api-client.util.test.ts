@@ -29,6 +29,12 @@ describe("parseApiClient", () => {
       client: "cli",
       clientVersion: "0.2.5",
     });
+    // It interpolates npm_package_version, which is only set when the CLI runs
+    // via an npm script — so most real traffic from it looks like this.
+    expect(parseApiClient("growthbook-cli/undefined")).toEqual({
+      client: "cli",
+      clientVersion: "undefined",
+    });
   });
 
   it("identifies CLI releases that predate the User-Agent override", () => {
@@ -72,6 +78,10 @@ describe("parseApiClient", () => {
 
   it("does not match a product token embedded mid-string", () => {
     expect(parseApiClient("evil growthbook-cli/9.9.9").client).toBe("other");
+  });
+
+  it("keeps a versionless product token out of the first-party buckets", () => {
+    expect(parseApiClient("growthbook-cli/").client).toBe("other");
   });
 });
 
