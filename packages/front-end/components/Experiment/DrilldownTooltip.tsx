@@ -31,7 +31,7 @@ interface DrilldownTooltipProps {
  */
 export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
   const { triggerProps, close, renderTooltip } = useHoverTooltip({
-    delayMs: 1500,
+    delayMs: 800,
     enabled,
     positioning: "cursor",
   });
