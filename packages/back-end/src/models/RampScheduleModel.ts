@@ -644,7 +644,9 @@ export class RampScheduleModel extends BaseClass {
       rampPatchEntriesForTargets,
       validateRampPlanPatches,
     } = await import("back-end/src/api/features/validations");
-    if (!collectRampPlanActions(updates).length) return;
+    if (!["startActions", "steps", "endActions"].some((k) => k in updates)) {
+      return;
+    }
     const actions = collectRampPlanActions(mergedRampPlan(updates, schedule));
     const featureIds = [
       ...new Set(

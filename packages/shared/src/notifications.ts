@@ -109,7 +109,7 @@ export const notificationEventMetadata = {
   "feature.rampSchedule.actions.stepHeld": {
     label: "Ramp step held by a health check",
     description:
-      "Triggered when a monitored ramp step is held by a health check (SRM, multiple exposures, no traffic, a guardrail metric that failed to compute, an unhealthy signal metric). Sent once per distinct reason per step; `reason` says why",
+      "Triggered when a monitored ramp step is held by a health check (SRM, multiple exposures, no traffic, a guardrail metric that failed to compute, an unhealthy signal metric). Sent once per check per step; `reason` says why",
     preview: true,
   },
   "feature.rampSchedule.actions.paused": {

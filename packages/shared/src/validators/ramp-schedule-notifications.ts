@@ -58,7 +58,7 @@ export type RampScheduleRolledBackPayload = z.infer<
 
 // A monitored step is held by a health check (SRM, multiple exposures, no
 // traffic, a guardrail that failed to compute, an unhealthy signal metric).
-// Sent once per distinct reason per step, not on every evaluation.
+// Sent once per check per step, not on every evaluation.
 export const rampScheduleStepHeldPayload = rampScheduleBaseNotificationPayload
   .extend({ reason: z.string() })
   .strict();

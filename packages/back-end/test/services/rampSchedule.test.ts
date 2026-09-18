@@ -1,4 +1,3 @@
-import omit from "lodash/omit";
 /**
  * Tests for rampSchedule.ts
  *
@@ -15,6 +14,7 @@ import omit from "lodash/omit";
  *   rollbackToStep and jumpAheadToStep apply the effective accumulated patch so that
  *   arriving at step N from any direction yields the same rule state.
  */
+import omit from "lodash/omit";
 
 import type {
   RampScheduleInterface,
@@ -4450,6 +4450,45 @@ describe("startReadyScheduleNow", () => {
 
     const [eventArgs] = mockCreateEvent.mock.calls[0];
     expect(eventArgs.objectId).toBe(schedule.id);
+  });
+
+  it("a first step the engine refuses pauses the schedule with the reason and rethrows", async () => {
+    const { ctx, schedule, updateById } = makeStartNowCtx({
+      steps: [
+        {
+          interval: 60,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+    });
+    (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
+      new Error("step refused"),
+    );
+
+    await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
+      "step refused",
+    );
+    expect(updateById).toHaveBeenCalledWith(
+      schedule.id,
+      expect.objectContaining({
+        status: "paused",
+        eventHistory: expect.arrayContaining([
+          expect.objectContaining({
+            type: "error-paused",
+            reason: "step refused",
+          }),
+        ]),
+      }),
+    );
+    expect(mockCreateEvent.mock.calls.map(([e]) => e.event)).toContain(
+      "rampSchedule.actions.errorPaused",
+    );
   });
 
   it("an error-pause records the reason on the schedule and dispatches rampSchedule.actions.errorPaused", async () => {

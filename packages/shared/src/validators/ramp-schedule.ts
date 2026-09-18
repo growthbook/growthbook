@@ -248,9 +248,18 @@ export const rampScheduleValidator = baseSchema
     nextProcessAt: z.date().nullish(),
     elapsedMs: z.number().int().nullish(),
     // The health-check hold last reported for the current step, so the
-    // evaluator notifies once per distinct reason instead of on every tick.
+    // evaluator notifies once per check instead of on every tick.
     healthHold: z
-      .object({ stepIndex: z.number().int(), reason: z.string() })
+      .object({
+        stepIndex: z.number().int(),
+        kind: z.enum([
+          "srm",
+          "multipleExposures",
+          "noTraffic",
+          "guardrailCompute",
+          "signalMetric",
+        ]),
+      })
       .nullish(),
 
     lockdownConfig: lockdownConfigSchema.optional(),

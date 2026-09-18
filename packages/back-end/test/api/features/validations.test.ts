@@ -716,15 +716,12 @@ describe("validateRampPlanPatches", () => {
       run([{ coverage: 0.5 }], feature, { type: "force" }),
     ).rejects.toThrow(/The rule is a force rule with no hash attribute/);
     // The start anchor's hash attribute or one left on the rule satisfies it;
-    // full coverage and rollouts never needed one.
+    // a rollout never needed one.
     await expect(
       run([{ coverage: 0.5 }, { hashAttribute: "id" }], feature, forceRule),
     ).resolves.toBeUndefined();
     await expect(
       run([{ coverage: 0.5 }], feature, { ...forceRule, hashAttribute: "id" }),
-    ).resolves.toBeUndefined();
-    await expect(
-      run([{ coverage: 1 }], feature, forceRule),
     ).resolves.toBeUndefined();
     await expect(
       run([{ coverage: 0.5 }], feature, {

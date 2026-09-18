@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   FeatureRule,
@@ -67,23 +68,29 @@ export async function setRuleRampSchedule(
   // orphan one; for an existing draft, below, once its rule and pending action
   // are known.
   // `live` is the schedule this plan updates, if any: what the body omits
-  // stays as stored there.
+  // stays as stored there, and a startState is dropped once the anchor can no
+  // longer change (see the warning below).
   const checkPatches = async (
     rule: FeatureRule | undefined,
     live: RampScheduleInterface | undefined,
     stored: unknown[],
-  ) =>
-    validateRampPlanPatches(
+  ) => {
+    const anchorEditable =
+      !live || live.status === "pending" || live.status === "ready";
+    const plan = await withTemplatePlan(
+      context,
+      anchorEditable ? scheduleInput : omit(scheduleInput, "startState"),
+    );
+    await validateRampPlanPatches(
       context,
       rampPatchEntries(
-        collectRampPlanPatches(
-          mergedRampPlan(await withTemplatePlan(context, scheduleInput), live),
-        ),
+        collectRampPlanPatches(mergedRampPlan(plan, live)),
         feature,
         rule,
       ),
       { stored },
     );
+  };
   if (params.version === "new") {
     const liveRule = resolveRampTarget(
       { ruleId, environment: environment ?? null },

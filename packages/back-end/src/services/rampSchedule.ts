@@ -700,8 +700,8 @@ export function applyPatchToRule(
     coverage?: number;
   };
   const hashAttribute = patch.hashAttribute || identity.hashAttribute;
-  const partialCoverage =
-    (patch.coverage ?? null) !== null && (patch.coverage as number) < 1;
+  const coverage = patch.coverage ?? null;
+  const partialCoverage = coverage !== null && coverage < 1;
   if (
     updated.type === "force" &&
     hashAttribute &&
@@ -719,14 +719,11 @@ export function applyPatchToRule(
   if (updated.type === "rollout") {
     if (patch.hashAttribute) identity.hashAttribute = patch.hashAttribute;
     if (patch.seed) identity.seed = patch.seed;
-    if ((patch.hashVersion ?? null) !== null) {
-      identity.hashVersion = patch.hashVersion as 1 | 2;
-    }
+    const hashVersion = patch.hashVersion ?? null;
+    if (hashVersion !== null) identity.hashVersion = hashVersion;
     // A promoted rule's start anchor carries no coverage; replaying it means
     // full coverage, not a rollout with none.
-    if ("coverage" in patch && (patch.coverage ?? null) === null) {
-      identity.coverage = 1;
-    }
+    if ("coverage" in patch && coverage === null) identity.coverage = 1;
   }
   return updated;
 }
@@ -1925,15 +1922,6 @@ export async function resumeSchedule(
     schedule.id,
     resumeUpdates,
   );
-
-  // Chain through any time-due steps (nextStepAt <= now). Steps with no
-  // interval (approval gates, instant steps) have nextStepAt=null and are not
-  // traversed here — the agenda re-picks them via nextProcessAt.
-  await heartbeat?.();
-  await advanceUntilBlocked(ctx, updated, now);
-  updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
-
-  await syncLinkedSafeRolloutForRampState(ctx, updated);
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.resumed", {
     object: {
       rampScheduleId: updated.id,
@@ -1943,6 +1931,15 @@ export async function resumeSchedule(
       status: updated.status,
     },
   });
+
+  // Chain through any time-due steps (nextStepAt <= now). Steps with no
+  // interval (approval gates, instant steps) have nextStepAt=null and are not
+  // traversed here — the agenda re-picks them via nextProcessAt.
+  await heartbeat?.();
+  await advanceUntilBlocked(ctx, updated, now);
+  updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
+
+  await syncLinkedSafeRolloutForRampState(ctx, updated);
 
   return updated;
 }
@@ -2301,6 +2298,28 @@ export async function errorPauseRampSchedule(
   });
 }
 
+// Advance out of a start; a first step the engine refuses (a stored plan a
+// rule write would now reject) must not leave the schedule running for the
+// poller to retry, so it is paused here with the reason before rethrowing.
+async function advanceOrErrorPause(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  now: Date,
+): Promise<void> {
+  try {
+    await advanceUntilBlocked(ctx, schedule, now);
+  } catch (e) {
+    if (!isTransientRampError(e)) {
+      await errorPauseRampSchedule(
+        ctx,
+        schedule.id,
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+    throw e;
+  }
+}
+
 export async function startSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2330,20 +2349,7 @@ export async function startSchedule(
   await applyRampStartActions(ctx, current);
   current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
   await heartbeat?.();
-  try {
-    await advanceUntilBlocked(ctx, current, now);
-  } catch (e) {
-    // A first step the engine refuses (a stored plan a rule write would now
-    // reject) must not leave the schedule running for the poller to retry.
-    if (!isTransientRampError(e)) {
-      await errorPauseRampSchedule(
-        ctx,
-        schedule.id,
-        e instanceof Error ? e.message : String(e),
-      );
-    }
-    throw e;
-  }
+  await advanceOrErrorPause(ctx, current, now);
   current = (await ctx.models.rampSchedules.getById(schedule.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
 
@@ -2682,7 +2688,7 @@ export async function onActivatingRevisionPublished(
 
     // Always advance — for 0-step schedules this is the entry point to the
     // auto-complete check; for multi-step ramps it fires due steps.
-    await advanceUntilBlocked(ctx, current, now);
+    await advanceOrErrorPause(ctx, current, now);
     current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
     await syncLinkedSafeRolloutForRampState(ctx, current);
 
@@ -2827,7 +2833,7 @@ async function startReadyScheduleNowLocked(
 
   await applyRampStartActions(ctx, current);
   current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
-  await advanceUntilBlocked(ctx, current, now);
+  await advanceOrErrorPause(ctx, current, now);
   current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
 
