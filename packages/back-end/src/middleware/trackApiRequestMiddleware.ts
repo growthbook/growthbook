@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { OAuthClientInterface } from "shared/validators";
 import { ApiRequestLocals } from "back-end/types/api";
 import { getOAuthClientById } from "back-end/src/models/OAuthClientModel";
 import {
@@ -50,7 +51,16 @@ async function getOAuthClientName(
   const cached = oauthClientNames.get(clientId);
   if (cached !== undefined) return cached || undefined;
 
-  const client = await getOAuthClientById(clientId);
+  // Enrichment must never cost us the event, so a failed lookup goes
+  // uncached — the next request retries rather than pinning an empty name.
+  let client: OAuthClientInterface | null;
+  try {
+    client = await getOAuthClientById(clientId);
+  } catch (err) {
+    logger.warn({ err, clientId }, "Failed to look up OAuth client name");
+    return undefined;
+  }
+
   // Registered by the client itself, so treat it as untrusted text.
   const name = (client?.clientName || "").slice(
     0,
@@ -112,8 +122,9 @@ async function logApiRequest(
  * `/api/v1` and `/api/v2` traffic is invisible in telemetry — the only record
  * is a `lastUsed` stamp on the key.
  *
- * Mount after authentication (it needs the org) but before the rate limiter, so
- * throttled requests are counted too.
+ * Mount above authentication and the rate limiter so the requests they reject
+ * are counted too. The org is only read once the response finishes, and a
+ * request whose org never resolved is dropped rather than logged unattributed.
  */
 export default function trackApiRequestMiddleware(
   req: ApiRequest,

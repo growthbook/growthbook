@@ -104,10 +104,10 @@ router.get("/v1/openapi.yaml", (req, res) => {
   res.send(openapiSpec);
 });
 
-router.use(authenticateApiRequestMiddleware as RequestHandler);
-
-// Telemetry. Above the rate limiter so throttled requests are counted too.
+// Telemetry. Above auth and the rate limiter, so rejections count too once an org has resolved.
 router.use(trackApiRequestMiddleware as RequestHandler);
+
+router.use(authenticateApiRequestMiddleware as RequestHandler);
 
 // Add API user to Sentry if configured
 if (SENTRY_DSN) {
