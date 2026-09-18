@@ -26,6 +26,8 @@ export function useAIChat({
   endpoint,
   buildRequestBody,
   toolStatusLabels = {},
+  toolPreparingLabels = {},
+  pauseIncompleteMarkdownLinks = false,
   onSSEEvent,
   conversationStorageKey,
   getConversationEndpoint,
@@ -59,7 +61,7 @@ export function useAIChat({
   const [loading, setLoading] = useState(false);
   /** True only while fetching historical messages for a conversation (not AI generation). */
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
-  /** True only while this tab is actively reading an SSE stream from `sendMessage`. */
+  /** True while this tab owns the request started by `sendMessage`. */
   const [isLocalStream, setIsLocalStream] = useState(false);
   const [waitingForNextStep, setWaitingForNextStep] = useState(false);
   const [isRemoteStream, setIsRemoteStream] = useState(false);
@@ -83,6 +85,8 @@ export function useAIChat({
   onConversationLoadedRef.current = onConversationLoaded;
   const toolStatusLabelsRef = useRef(toolStatusLabels);
   toolStatusLabelsRef.current = toolStatusLabels;
+  const toolPreparingLabelsRef = useRef(toolPreparingLabels);
+  toolPreparingLabelsRef.current = toolPreparingLabels;
   const onSSEEventRef = useRef(onSSEEvent);
   onSSEEventRef.current = onSSEEvent;
   const onStreamAcceptedRef = useRef(onStreamAccepted);
@@ -108,8 +112,10 @@ export function useAIChat({
   // Active items state helper
   // ---------------------------------------------------------------------------
 
-  const { displayedTextMap, clearDisplayedText } =
-    useTypewriter(activeTurnItemsRef);
+  const { displayedTextMap, clearDisplayedText } = useTypewriter(
+    activeTurnItemsRef,
+    pauseIncompleteMarkdownLinks,
+  );
 
   const setActive = useCallback(
     (items: ActiveTurnItem[]) => {
@@ -394,8 +400,8 @@ export function useAIChat({
           return;
         }
 
-        onStreamAcceptedRef.current?.();
         setIsLocalStream(true);
+        onStreamAcceptedRef.current?.();
 
         const reader = response.body?.getReader();
         if (!reader) {
@@ -423,6 +429,7 @@ export function useAIChat({
               activeTurnItemsRef.current,
               toolStatusLabelsRef.current,
               nextId,
+              toolPreparingLabelsRef.current,
             );
             if (result.activeTurnItems) setActive(result.activeTurnItems);
             if (result.waitingForNextStep !== undefined)

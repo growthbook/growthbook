@@ -146,6 +146,56 @@ function getOpenAIProviderOptions(model: AIModel) {
   };
 }
 
+function withAnthropicCacheBreakpoint(
+  messages: ModelMessage[],
+): ModelMessage[] {
+  const lastMessageIndex = messages.length - 1;
+
+  return messages.map((message, index) => {
+    if (message.role === "system") return message;
+
+    const currentProviderOptions = message.providerOptions ?? {};
+    const currentAnthropic = currentProviderOptions.anthropic;
+    const anthropicWithoutCache =
+      currentAnthropic &&
+      typeof currentAnthropic === "object" &&
+      !Array.isArray(currentAnthropic)
+        ? Object.fromEntries(
+            Object.entries(currentAnthropic).filter(
+              ([key]) => key !== "cacheControl",
+            ),
+          )
+        : {};
+    const providerOptionsWithoutAnthropic = Object.fromEntries(
+      Object.entries(currentProviderOptions).filter(
+        ([provider]) => provider !== "anthropic",
+      ),
+    );
+    const providerOptions = {
+      ...providerOptionsWithoutAnthropic,
+      ...(Object.keys(anthropicWithoutCache).length > 0
+        ? { anthropic: anthropicWithoutCache }
+        : {}),
+      ...(index === lastMessageIndex
+        ? {
+            anthropic: {
+              ...anthropicWithoutCache,
+              cacheControl: { type: "ephemeral" as const },
+            },
+          }
+        : {}),
+    };
+
+    return {
+      ...message,
+      providerOptions:
+        Object.keys(providerOptions).length > 0 ? providerOptions : undefined,
+    } as ModelMessage;
+  });
+}
+
+export const _withAnthropicCacheBreakpoint = withAnthropicCacheBreakpoint;
+
 /**
  * The docs say OpenAI might not always return token usage info in rare edge cases.
  * So this is a fallback, so we can keep track of token usage on cloud regardless.
@@ -512,11 +562,23 @@ export const streamingChatCompletion = async ({
   let terminalUsage: TerminalUsage | undefined;
   let streamErrored = false;
 
+  const systemMessage: ModelMessage = {
+    role: "system",
+    content: system,
+    ...(getProviderFromModel(model) === "anthropic"
+      ? {
+          providerOptions: {
+            anthropic: { cacheControl: { type: "ephemeral" } },
+          },
+        }
+      : {}),
+  };
+
   const result = streamText({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
-    system,
-    messages,
+    messages: [systemMessage, ...messages],
     ...getOpenAIProviderOptions(model),
+    maxOutputTokens: 8000,
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
@@ -527,8 +589,20 @@ export const streamingChatCompletion = async ({
           // Same force-a-final-answer guard parsePrompt uses: a model that
           // keeps calling tools until it exhausts maxSteps otherwise ends ON
           // a tool call, and the stream closes having emitted no text at all.
-          prepareStep: ({ stepNumber }: { stepNumber: number }) =>
-            stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
+          prepareStep: ({
+            stepNumber,
+            messages: stepMessages,
+          }: {
+            stepNumber: number;
+            messages: ModelMessage[];
+          }) => ({
+            ...(getProviderFromModel(model) === "anthropic"
+              ? { messages: withAnthropicCacheBreakpoint(stepMessages) }
+              : {}),
+            ...(stepNumber >= maxSteps - 1
+              ? { toolChoice: "none" as const }
+              : {}),
+          }),
         }
       : {}),
     ...(abortSignal ? { abortSignal } : {}),
