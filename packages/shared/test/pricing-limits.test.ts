@@ -118,13 +118,19 @@ describe("isLimitsFlagDisabled", () => {
 });
 
 describe("shouldStampOrgLimits", () => {
+  it.each([null, undefined])(
+    "stamps the defaults when the flag is missing (%p)",
+    (raw) => {
+      expect(shouldStampOrgLimits(raw)).toBe(true);
+      expect(resolveOrgLimitsConfig(raw)).toEqual(FREE_ORG_LIMITS);
+    },
+  );
+
   it.each([
-    ["null", null],
-    ["undefined", undefined],
-    ["a string", "not-a-config"],
-    ["a number", 42],
-    ["an array", []],
-  ])("does not stamp when the flag served %s", (_label, raw) => {
+    { label: "a string", raw: "not-a-config" },
+    { label: "a number", raw: 42 },
+    { label: "an array", raw: [] },
+  ])("does not stamp when the flag served $label", ({ raw }) => {
     expect(shouldStampOrgLimits(raw)).toBe(false);
   });
 

@@ -15,9 +15,9 @@ export function isLimitsFlagDisabled(raw: unknown): boolean {
   );
 }
 
-// A stamp permanently opts an org into plan limits, so a missing value (flag
-// off, SDK init failed, eval errored) must not be read as "limits apply".
+// A missing flag uses defaults; an explicitly disabled flag opts out.
 export function shouldStampOrgLimits(raw: unknown): boolean {
+  if ((raw ?? null) === null) return true;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
   return !isLimitsFlagDisabled(raw);
 }
