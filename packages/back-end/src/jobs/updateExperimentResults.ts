@@ -254,7 +254,10 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
         ignoreSnapshot: currentSnapshot,
       });
     } catch (err) {
-      logger.error(err, "Failed to notify auto-update failure: " + experimentId);
+      logger.error(
+        err,
+        "Failed to notify auto-update failure: " + experimentId,
+      );
     }
   }
 };
