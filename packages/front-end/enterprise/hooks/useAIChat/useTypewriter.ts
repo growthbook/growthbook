@@ -38,12 +38,54 @@ function findClosingLinkParenthesis(
   return null;
 }
 
-function getIncompleteMarkdownLinkStart(content: string): number | null {
-  const linkStartPattern = /!?\[[^\]\n]*\]\(/g;
+function findMarkdownLinkStarts(
+  content: string,
+): Array<{ syntaxStart: number; destinationStart: number }> {
+  const starts: Array<{ syntaxStart: number; destinationStart: number }> = [];
 
-  for (const match of content.matchAll(linkStartPattern)) {
-    const syntaxStart = match.index;
-    const destinationStart = syntaxStart + match[0].length;
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === "\\") {
+      i++;
+      continue;
+    }
+
+    const isImage = content[i] === "!" && content[i + 1] === "[";
+    if (content[i] !== "[" && !isImage) continue;
+
+    const syntaxStart = i;
+    const labelStart = isImage ? i + 1 : i;
+    let nestedBrackets = 0;
+
+    for (let j = labelStart + 1; j < content.length; j++) {
+      if (content[j] === "\\") {
+        j++;
+        continue;
+      }
+      if (content[j] === "\n") break;
+      if (content[j] === "[") {
+        nestedBrackets++;
+        continue;
+      }
+      if (content[j] !== "]") continue;
+      if (nestedBrackets > 0) {
+        nestedBrackets--;
+        continue;
+      }
+      if (content[j + 1] === "(") {
+        starts.push({ syntaxStart, destinationStart: j + 2 });
+        i = j + 1;
+      }
+      break;
+    }
+  }
+
+  return starts;
+}
+
+function getIncompleteMarkdownLinkStart(content: string): number | null {
+  for (const { syntaxStart, destinationStart } of findMarkdownLinkStarts(
+    content,
+  )) {
     if (findClosingLinkParenthesis(content, destinationStart) === null) {
       return syntaxStart;
     }
@@ -69,13 +111,11 @@ export function adjustRevealLengthForMarkdownLinks(
   revealedLength: number,
   proposedLength: number,
 ): number {
-  const linkStartPattern = /!?\[[^\]\n]*\]\(/g;
-
-  for (const match of content.matchAll(linkStartPattern)) {
-    const syntaxStart = match.index;
+  for (const { syntaxStart, destinationStart } of findMarkdownLinkStarts(
+    content,
+  )) {
     if (syntaxStart >= proposedLength) break;
 
-    const destinationStart = syntaxStart + match[0].length;
     const closingParenthesis = findClosingLinkParenthesis(
       content,
       destinationStart,

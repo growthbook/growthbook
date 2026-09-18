@@ -46,6 +46,24 @@ describe("adjustRevealLengthForMarkdownLinks", () => {
     );
   });
 
+  it("pauses links with escaped closing brackets in their labels", () => {
+    const content =
+      "See [see \\] details](https://example.com/a/very/long/path";
+
+    expect(adjustRevealLengthForMarkdownLinks(content, 0, content.length)).toBe(
+      4,
+    );
+  });
+
+  it("pauses links with nested brackets in their labels", () => {
+    const content =
+      "See [the [detailed] results](https://example.com/a/very/long/path";
+
+    expect(adjustRevealLengthForMarkdownLinks(content, 0, content.length)).toBe(
+      4,
+    );
+  });
+
   it("continues normally after a complete link has been revealed", () => {
     const content = "See [results](https://example.com/123) for details";
 
