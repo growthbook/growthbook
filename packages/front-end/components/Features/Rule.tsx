@@ -575,6 +575,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       // the step.
       if (
         rule.type === "force" &&
+        !("hashAttribute" in rule && rule.hashAttribute) &&
         rampPlanLacksHashAttribute(rampSchedule, rule.id)
       ) {
         ruleTags.push(
