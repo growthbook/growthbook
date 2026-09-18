@@ -139,6 +139,8 @@ export const eventSchemas: eventSchema[] = [
         label: "Project ID",
         defaultValue: "",
         type: "text",
+        helpText:
+          "Required for automatic metric generation. Find it in your Amplitude organization settings under project settings.",
       },
     ],
   },
@@ -323,6 +325,44 @@ export const eventSchemas: eventSchema[] = [
     logo: "/images/3rd-party-logos/clevertap.png",
     popular: false,
     helpLink: "https://docs.clevertap.com/docs/export",
+  },
+  {
+    value: "langfuse",
+    label: "Langfuse",
+    types: ["clickhouse"],
+    logo: "/images/3rd-party-logos/langfuse.png",
+    popular: false,
+    beta: true,
+    helpLink: "https://docs.growthbook.io/event-trackers/langfuse",
+    options: [
+      {
+        name: "projectId",
+        label: "Langfuse project id",
+        defaultValue: "",
+        type: "text",
+        helpText:
+          "Found in Langfuse under Project Settings. Leave blank to include every project in the database.",
+      },
+    ],
+  },
+  {
+    value: "phoenix",
+    label: "Arize Phoenix",
+    types: ["postgres"],
+    logo: "/images/3rd-party-logos/phoenix.png",
+    popular: false,
+    beta: true,
+    helpLink: "https://docs.growthbook.io/event-trackers/phoenix",
+    options: [
+      {
+        name: "projectName",
+        label: "Phoenix project name",
+        defaultValue: "default",
+        type: "text",
+        helpText:
+          "The Phoenix project your traces are sent to. Leave blank to include every project.",
+      },
+    ],
   },
 ];
 

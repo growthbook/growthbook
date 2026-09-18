@@ -1,0 +1,78 @@
+---
+title: Setting Up Langfuse as an Event Tracker
+description: Tag Langfuse traces with GrowthBook assignments, connect the Langfuse ClickHouse database, and use latency, cost, token, and eval-score data as experiment metrics.
+sidebarTitle: Langfuse
+slug: langfuse
+---
+
+import DefaultInstructions from '/snippets/event-trackers/_default-event-instructions.mdx'
+
+# Langfuse Event Tracker Setup
+
+<Note>
+**Beta**
+
+The Langfuse event tracker is in beta. It queries Langfuse's own ClickHouse database, which is not a stable API; re-validate the generated SQL after upgrading Langfuse.
+
+</Note>
+
+[Langfuse](https://langfuse.com) is an open-source LLM observability tool. With this tracker, GrowthBook assigns the prompt or model variation and computes results, while Langfuse keeps recording what the model did and how well it scored. The end-to-end walkthrough, including prompt placement patterns and bandits, is in [Experimenting on LLM Features](/integrations/llm-tracing).
+
+## Exposure Tracking
+
+There is no separate exposure event. Instead, each Langfuse trace is tagged with the GrowthBook assignment in the form `gb:<experimentKey>:<variationKey>`, and the exposure query reads those tags straight from the `traces` table.
+
+In JavaScript, the [`tracing` plugin](/lib/js#tracing) collects these tags for you. Attach them, together with the user id, at the top of the traced request:
+
+```ts
+import { GrowthBook } from "@growthbook/growthbook";
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+import { startActiveObservation, propagateAttributes } from "@langfuse/tracing";
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: { id: userId },
+  plugins: [tracingPlugin()],
+});
+await gb.init();
+
+const promptLabel = gb.getFeatureValue("support-prompt", "production");
+
+await startActiveObservation("support-reply", async () => {
+  await propagateAttributes({ userId, tags: getTracingTags(gb) }, async () => {
+    // ... fetch the prompt by label and call the model
+  });
+});
+```
+
+Two things must hold for the join to work:
+
+- The Langfuse `userId` (and `sessionId`, if used) must equal the value of the GrowthBook attribute the experiment hashes on.
+- Experiment and variation keys must not contain `:`.
+
+Evaluate flags before starting the trace so the tags exist when it is created. For Python and plain OpenTelemetry examples, see [Stamping the trace](/integrations/llm-tracing#stamping-the-trace).
+
+## Integrating with Langfuse Data
+
+This tracker works with self-hosted Langfuse v3, which stores traces in ClickHouse.
+
+- Connection type: **ClickHouse**, pointed at the Langfuse ClickHouse database that holds the `traces`, `observations`, and `scores` tables. Use a read-only ClickHouse user.
+- Option `Langfuse project id` — found in Langfuse under Project Settings. Leave blank to include every project in the database.
+
+When you connect, GrowthBook generates:
+
+- Identifier types `user_id`, `session_id`, and `trace_id`, with an exposure query for each and an identifier join between `user_id` and `session_id`. Exposure queries expose `trace_name`, `release`, and `version` as experiment dimensions.
+- Fact table `Langfuse Traces` (one row per trace) with the metric **Traces per user**.
+- Fact table `Langfuse Observations` (one row per generation, span, or event, with `latency_ms`, `time_to_first_token_ms`, token counts, `total_cost`, `model`, `prompt_name`, and `prompt_version`). Filters **LLM Generations** and **Errors**. Metrics **LLM calls per user**, **LLM cost per user**, **LLM error rate**, **p95 LLM latency**, and **Tokens per LLM call**.
+- Fact table `Langfuse Scores` (one row per eval score, annotation, or piece of user feedback). `score_name` is an inline-filter column, so create a mean metric on `score_value` filtered by the score name to get, for example, average helpfulness. No score metrics are generated because score names are user-defined.
+
+Caveats specific to Langfuse:
+
+- **Langfuse Cloud** does not expose ClickHouse. Use Langfuse's [blob storage export](https://langfuse.com/docs/api-and-data-platform/features/blob-storage-export-fields) into your own warehouse and adapt the fact table SQL; the exported `observations` rows already include `user_id`, `session_id`, `tags`, `latency`, `total_cost`, and `usage_details`.
+- **Langfuse v4** collapses these tables into a single `events` table. The generated SQL targets the v3 schema.
+- The fact tables use `FINAL` to deduplicate ReplacingMergeTree rows. On very large installs replace it with `ORDER BY event_ts DESC LIMIT 1 BY id`.
+- The `environment` column is omitted because older installs lack it; add it to the SQL by hand if you want it.
+- Changing the project id later in the data source settings does not rewrite SQL that was already generated.
+
+<DefaultInstructions eventTracker="Langfuse" slug="langfuse" />

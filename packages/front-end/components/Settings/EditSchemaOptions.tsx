@@ -1,7 +1,19 @@
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  SchemaFormat,
+} from "shared/types/datasource";
 import { ChangeEventHandler } from "react";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
+import { eventSchemas } from "@/services/eventSchema";
+
+// Only schemas whose options feed generated resources (fact tables, metrics)
+// are editable after creation. Options that only shape the initial SQL
+// (e.g. Segment's exposure table name) are baked in at creation time.
+const EDITABLE_OPTION_SCHEMAS: SchemaFormat[] = [
+  "amplitude",
+  "langfuse",
+  "phoenix",
+];
 
 export interface Props {
   datasource: Partial<DataSourceInterfaceWithParams>;
@@ -33,25 +45,30 @@ export default function EditSchemaOptions({
     setSchemaOptions({ [e.target.name]: e.target.value });
   };
 
-  if (datasource.settings?.schemaFormat === "amplitude") {
-    return (
-      <div>
-        <label>
-          Amplitude Project ID{" "}
-          <Tooltip body="This is required if you want to use our automatic metric generation. You can find this in your Amplitude account by going to your organizational settings and locating your project settings." />
-        </label>
-        <Field
-          size="legacy"
-          type="text"
-          className="form-control"
-          name="projectId"
-          value={datasource.settings?.schemaOptions?.projectId || ""}
-          onChange={onParamChange}
-          placeholder="123456"
-        />
-      </div>
-    );
+  const schemaFormat = datasource.settings?.schemaFormat;
+  if (!schemaFormat || !EDITABLE_OPTION_SCHEMAS.includes(schemaFormat)) {
+    return null;
+  }
+  const schema = eventSchemas.find((s) => s.value === schemaFormat);
+  if (!schema?.options?.length) {
+    return null;
   }
 
-  return null;
+  return (
+    <div>
+      {schema.options.map(({ name, label, type, helpText }) => (
+        <Field
+          key={name}
+          size="legacy"
+          type={type}
+          className="form-control"
+          name={name}
+          label={label}
+          helpText={helpText}
+          value={String(datasource.settings?.schemaOptions?.[name] ?? "")}
+          onChange={onParamChange}
+        />
+      ))}
+    </div>
+  );
 }

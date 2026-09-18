@@ -1,0 +1,359 @@
+---
+title: Experimenting on LLM Features
+sidebarTitle: LLM Tracing (Langfuse, Phoenix)
+description: Run A/B tests and bandits on prompts, models, and agent behavior by tagging Langfuse or Arize Phoenix traces with GrowthBook assignments and analyzing the tracing data as metrics.
+---
+
+<Note>
+**Beta**
+
+The Langfuse and Arize Phoenix event trackers are in beta. They read directly from each tool's own database, and those schemas are not stable APIs. See [Caveats](#caveats) before relying on the generated SQL in production.
+
+</Note>
+
+GrowthBook decides which prompt, model, or agent configuration a user gets and computes statistically valid results. Langfuse or Arize Phoenix record what the model actually did (latency, cost, tokens, errors) and how good it was (eval scores, annotations, user feedback). This guide connects the two so that every metric your tracing tool already collects can be an experiment metric or a bandit reward in GrowthBook.
+
+## Why combine them
+
+Tracing tools are built for observability, not for experimentation. Langfuse's own [A/B testing guide](https://langfuse.com/docs/prompt-management/features/a-b-testing), for example, picks a prompt label with `Math.random()` and compares the two groups by eye in the Langfuse UI. That is fine for a quick look, but it gives you no consistent assignment (the same user can get a different prompt on every request), no targeting, no traffic control, and no answer to "is this difference real?".
+
+GrowthBook adds the pieces a tracing tool leaves out:
+
+- **Deterministic assignment.** The same user (or session, or request) always gets the same variation, hashed on an attribute you choose.
+- **Targeting and rollout.** Limit the test to a segment, ramp traffic, or stop it from the GrowthBook UI without a deploy.
+- **Statistics.** Frequentist or Bayesian results, sequential testing, CUPED, and guardrails on top of the tracing data.
+- **Bandits.** Let GrowthBook shift traffic toward the winning prompt automatically, using an eval score or cost as the reward.
+
+The tracing tool keeps doing what it is good at: recording every trace and scoring outputs. Nothing about your instrumentation changes other than one extra tag.
+
+## How it fits together
+
+### The tag contract
+
+The only link between GrowthBook and the trace is a tag on the trace of the form:
+
+```text
+gb:<experimentKey>:<variationKey>
+```
+
+For example `gb:support-prompt:prod-b`. The [`tracing` plugin](/lib/js#tracing) in the JavaScript SDK builds these tags for you every time an experiment is evaluated; you attach them to the trace with your tracing SDK. The generated exposure queries in GrowthBook then split the tag on `:` to recover the experiment and variation for each trace.
+
+Two rules follow from that:
+
+- Experiment keys and variation keys must not contain `:`. The plugin skips any assignment whose keys contain the separator, so such experiments would silently record no exposures.
+- Evaluate your flags and attach the tags **at the top of the traced request**, before any child spans are created. The exposure query reads tags from the trace (Langfuse) or the root span (Phoenix); tags set only on a nested span are not seen.
+
+### Identifiers must match
+
+GrowthBook joins exposures to metrics on an identifier, so the id your tracing SDK records must be exactly the value GrowthBook hashed on:
+
+- The tracer's user id (Langfuse `userId`, OpenInference `user.id`) must equal the value of the experiment's hash attribute (labelled **Assign variation by attribute** on a feature rule, or **Hashing attribute** on the experiment page). If GrowthBook hashes on `attributes.id`, pass that same value as the user id.
+- The tracer's session id (Langfuse `sessionId`, OpenInference `session.id`) must likewise equal the GrowthBook attribute you hash on when you experiment per session.
+
+### Choosing the unit of randomization
+
+Both trackers give the data source three identifier types. Pick the one that matches what you are testing:
+
+- `user_id` — one variation per user across all of their requests. Use this when you care about user-level outcomes (retention, thumbs-up rate per user, total cost per user).
+- `session_id` — one variation per conversation. Useful for chat products where a whole session should get a consistent prompt but different sessions of the same user can differ.
+- `trace_id` — a fresh assignment for every request. To use this, set a GrowthBook attribute to the trace id (for example `attributes: { trace_id: traceId }`) and hash the experiment on that attribute. This gives you the most statistical power for per-request metrics like latency, cost, and eval scores, at the cost of inconsistency across requests for the same user.
+
+The generated identity join lets you assign on `user_id` and still use `session_id`-keyed metrics (or the reverse).
+
+## Where the prompt lives
+
+There are two common ways to wire the variation to an actual prompt. Both work with the tag contract above.
+
+### Pattern A: the prompt lives in the tracing tool
+
+The GrowthBook flag returns a Langfuse prompt **label** (or a Phoenix prompt **tag**), and the app fetches the prompt by that label. Prompt engineers keep iterating on the prompt text in the tracing tool; GrowthBook only decides which label each user gets.
+
+```ts
+const promptLabel = gb.getFeatureValue("support-prompt", "production"); // "prod-a" | "prod-b"
+const prompt = await langfuse.prompt.get("support-reply", { label: promptLabel });
+```
+
+Best when the prompt is edited often by people who do not deploy code, and when you want the prompt version recorded on each observation (Langfuse does this automatically when you link the prompt to the generation).
+
+### Pattern B: the prompt lives in GrowthBook
+
+A JSON feature flag holds the whole configuration, and the variations differ in that JSON:
+
+```json
+{
+  "model": "gpt-4o-mini",
+  "temperature": 0.2,
+  "systemPrompt": "You are a concise support agent..."
+}
+```
+
+```ts
+const cfg = gb.getFeatureValue("support-agent-config", defaultConfig);
+const reply = await llm.chat({ model: cfg.model, temperature: cfg.temperature, system: cfg.systemPrompt, ... });
+```
+
+Best when you want to test model or parameter changes alongside prompt text, or when the team already manages prompts as code. You can use the [JSON schema validation](/features/json-schema-validation) on the flag to keep variations well-formed.
+
+## Stamping the trace
+
+Install the `tracing` plugin, then hand its tags to your tracing SDK at the top of each traced request. The plugin works in the browser, in Node.js, and with the multi-user `GrowthBookClient`.
+
+### JavaScript with Langfuse
+
+Requires the Langfuse JavaScript SDK v4 or later (`@langfuse/tracing`).
+
+```ts
+import { GrowthBook } from "@growthbook/growthbook";
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+import { startActiveObservation, propagateAttributes } from "@langfuse/tracing";
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: { id: userId },
+  plugins: [tracingPlugin()],
+});
+await gb.init();
+
+// Evaluate flags first so the tags exist before the trace is created
+const promptLabel = gb.getFeatureValue("support-prompt", "production"); // e.g. "prod-a" | "prod-b"
+
+await startActiveObservation("support-reply", async () => {
+  // userId here must equal the GrowthBook hash attribute value
+  await propagateAttributes({ userId, tags: getTracingTags(gb) }, async () => {
+    const prompt = await langfuse.prompt.get("support-reply", { label: promptLabel });
+    // ... call the model; child observations inherit userId and tags
+  });
+});
+```
+
+Pass `sessionId` alongside `userId` if you also experiment or measure per session.
+
+### JavaScript with Arize Phoenix (OpenInference)
+
+Phoenix reads OpenInference context attributes. `@arizeai/phoenix-otel` exports `setUser`, `setSession`, and `setTags` helpers that write them onto the active OpenTelemetry context.
+
+```ts
+import { context } from "@opentelemetry/api";
+import { setTags, setUser } from "@arizeai/phoenix-otel";
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: { id: userId },
+  plugins: [tracingPlugin()],
+});
+await gb.init();
+const promptTag = gb.getFeatureValue("support-prompt", "production");
+
+const ctx = setTags(setUser(context.active(), { userId }), getTracingTags(gb));
+await context.with(ctx, async () => {
+  // Spans started inside here (including the root span) carry user.id and tag.tags
+  await tracer.startActiveSpan("support-reply", async (span) => {
+    // ... call the model
+    span.end();
+  });
+});
+```
+
+Wrap with `setSession(ctx, { sessionId })` as well when you want a session id on the trace.
+
+### Plain OpenTelemetry
+
+If you are not using either vendor SDK, or want the assignment as a span attribute instead of a tag, use the plugin's `onAssignment` hook. It fires once per unique experiment assignment.
+
+```ts
+import { trace } from "@opentelemetry/api";
+import { tracingPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  // ...
+  plugins: [
+    tracingPlugin({
+      onAssignment: (a) => {
+        trace
+          .getActiveSpan()
+          ?.setAttribute("growthbook.experiment." + a.experimentKey, a.variationKey);
+        // a.tag is the "gb:<experimentKey>:<variationKey>" string if you
+        // prefer to push it into a tags list
+      },
+    }),
+  ],
+});
+```
+
+The generated exposure queries look for the `gb:` tag, so if you rely on span attributes instead you will need to edit the exposure SQL to read your attribute.
+
+### Server-side Node.js with `GrowthBookClient`
+
+Pass the plugin in the client options. The shared client has no assignments of its own, so the plugin re-runs for each `createScopedInstance()` and every scoped instance keeps its own tag set.
+
+```ts
+import { GrowthBookClient } from "@growthbook/growthbook";
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+
+const gbClient = new GrowthBookClient({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [tracingPlugin()],
+});
+await gbClient.init();
+
+app.post("/chat", async (req, res) => {
+  const scoped = gbClient.createScopedInstance({ attributes: { id: req.user.id } });
+  const promptLabel = scoped.getFeatureValue("support-prompt", "production");
+
+  await startActiveObservation("support-reply", async () => {
+    await propagateAttributes(
+      { userId: req.user.id, tags: getTracingTags(scoped) },
+      async () => {
+        // ... call the model
+      },
+    );
+  });
+});
+```
+
+### Python
+
+The Python SDK does not have a tracing plugin yet, so build the tag by hand in the `on_experiment_viewed` callback. The callback receives `experiment`, `result`, and `user_context` as keyword arguments; `experiment.key` and `result.key` are the two parts of the tag.
+
+```python
+from growthbook import GrowthBook
+
+tags: list[str] = []
+
+def on_experiment_viewed(experiment, result, user_context):
+    if ":" in experiment.key or ":" in result.key:
+        return  # the exposure SQL splits on ":", so skip unsafe keys
+    tags.append(f"gb:{experiment.key}:{result.key}")
+
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes={"id": user_id},
+    on_experiment_viewed=on_experiment_viewed,
+)
+gb.load_features()
+
+prompt_label = gb.get_feature_value("support-prompt", "production")
+```
+
+Then propagate the tags with your tracing SDK. With Langfuse (Python SDK v3):
+
+```python
+from langfuse import get_client, propagate_attributes
+
+langfuse = get_client()
+
+with langfuse.start_as_current_observation(name="support-reply"):
+    with propagate_attributes(user_id=user_id, tags=tags):
+        prompt = langfuse.get_prompt("support-reply", label=prompt_label)
+        # ... call the model
+```
+
+With Phoenix (OpenInference):
+
+```python
+from openinference.instrumentation import using_attributes
+
+with using_attributes(user_id=user_id, tags=tags):
+    with tracer.start_as_current_span("support-reply"):
+        # ... call the model
+```
+
+Keep the `tags` list scoped to one request (for example on the request object) rather than module-level, so assignments from one user do not leak onto another user's trace. For the multi-user `GrowthBookClient`, the same callback works; use `user_context.attributes` to find the right per-request list.
+
+## Connecting the data source
+
+Once traces carry the tag, add the tracing tool's database as a GrowthBook data source. On the **Add data source** screen, pick the event tracker and GrowthBook generates the exposure queries, identifier types, fact tables, filters, and starter metrics for you.
+
+### Langfuse
+
+Works with self-hosted Langfuse v3, which stores traces in ClickHouse.
+
+1. Choose the **Langfuse** event tracker (marked Beta).
+2. Connection type is **ClickHouse**. Point it at the Langfuse ClickHouse database (the one with `traces`, `observations`, and `scores` tables). Create a read-only ClickHouse user for GrowthBook.
+3. Option `Langfuse project id` — found in Langfuse under Project Settings. Leave blank to include every project in the database, which is what a single-project self-host usually wants.
+
+Full tracker reference: [Langfuse event tracker](/event-trackers/langfuse).
+
+### Arize Phoenix
+
+Works with Phoenix backed by Postgres (the default for a self-hosted or Docker deployment).
+
+1. Choose the **Arize Phoenix** event tracker (marked Beta).
+2. Connection type is **Postgres**. Point it at Phoenix's Postgres database with a read-only role.
+3. Option `Phoenix project name` — the Phoenix project your traces are sent to. Defaults to `default`. Leave blank to include every project.
+
+Full tracker reference: [Arize Phoenix event tracker](/event-trackers/phoenix).
+
+### What gets created
+
+For either tracker the wizard generates:
+
+- **Identifier types** `user_id`, `session_id`, and `trace_id`.
+- **Exposure queries** for each identifier type, parsing the `gb:` tag. Langfuse exposures expose `trace_name`, `release`, and `version` as experiment dimensions; Phoenix exposures expose `trace_name`.
+- **An identifier join** between `user_id` and `session_id`.
+- **Three fact tables** with filters and six starter metrics.
+
+Langfuse fact tables:
+
+- `Langfuse Traces` — one row per trace. Columns include `trace_id`, `user_id`, `session_id`, `timestamp`, `trace_name`, `release`, `version`, `tag_count`. Metric: **Traces per user**.
+- `Langfuse Observations` — one row per observation (generation, span, or event). Columns include `observation_type`, `observation_name`, `model`, `level`, `latency_ms`, `time_to_first_token_ms`, `input_tokens`, `output_tokens`, `total_tokens`, `total_cost`, `prompt_name`, `prompt_version`. Filters: **LLM Generations** (`observation_type = 'GENERATION'`) and **Errors** (`level = 'ERROR'`). Metrics: **LLM calls per user**, **LLM cost per user**, **LLM error rate**, **p95 LLM latency**, **Tokens per LLM call**.
+- `Langfuse Scores` — one row per score (evals, annotations, user feedback). Columns include `score_name`, `score_value`, `score_string_value`, `score_data_type`, `score_source`, `trace_name`. No filters or metrics are generated; see below.
+
+Phoenix fact tables:
+
+- `Phoenix Traces` — one row per trace. Columns include `trace_id`, `user_id`, `session_id`, `timestamp`, `trace_name`, `status_code`, `latency_ms`, `input_tokens`, `output_tokens`. Filter: **Errors** (`status_code = 'ERROR'`). Metric: **Traces per user**.
+- `Phoenix Spans` — one row per span. Columns include `span_name`, `span_kind`, `status_code`, `model`, `latency_ms`, `input_tokens`, `output_tokens`, `total_tokens`, `total_cost`. Filters: **LLM Spans** (`span_kind = 'LLM'`) and **Errors** (`status_code = 'ERROR'`). Metrics: **LLM calls per user**, **LLM cost per user**, **LLM error rate**, **p95 LLM latency**, **Tokens per LLM call**.
+- `Phoenix Annotations` — one row per span annotation (LLM evals, code checks, human feedback). Columns include `annotation_name`, `annotation_label`, `annotation_score`, `annotator_kind`, `span_name`, `trace_name`. Filter: **LLM Evals** (`annotator_kind = 'LLM'`). No metrics are generated; see below.
+
+The six starter metrics:
+
+- **Traces per user** — mean number of traces (requests) per unit.
+- **LLM calls per user** — mean number of model calls per unit.
+- **LLM cost per user** — mean of `total_cost` across model calls per unit.
+- **LLM error rate** — ratio of model calls that errored to all model calls.
+- **p95 LLM latency** — 95th percentile of `latency_ms` across model calls (event-level quantile).
+- **Tokens per LLM call** — ratio of `total_tokens` to model calls.
+
+Every generated metric and fact table is ordinary SQL you can edit. See [Metrics and Fact Tables](/app/metrics) for how they work.
+
+### Adding eval-score metrics
+
+Score and annotation names are defined by you (`helpfulness`, `toxicity`, `thumbs_up`, ...), so GrowthBook cannot generate metrics for them in advance. Instead, `score_name` (Langfuse) and `annotation_name` (Phoenix) are set up as inline-filter columns, which makes a new score metric a two-minute job:
+
+1. Go to **Metrics** and create a new fact metric on the `Langfuse Scores` or `Phoenix Annotations` fact table.
+2. Choose the metric type. For an average score use a **Mean** metric on `score_value` (Langfuse) or `annotation_score` (Phoenix). For a "share of traces marked good" use a **Proportion** metric.
+3. Add a row filter on `score_name` (or `annotation_name`) equal to the score you want, for example `helpfulness`.
+
+Repeat for each score. A metric on user feedback (thumbs up/down) is built the same way, since Langfuse stores feedback as scores and Phoenix as annotations with a `HUMAN` annotator kind.
+
+## Running the experiment
+
+From here it is a normal GrowthBook experiment:
+
+1. Create a feature flag (string flag for Pattern A, JSON flag for Pattern B) and add an **Experiment** rule with your variations. Set **Assign variation by attribute** to the attribute that matches the id you send to the tracer.
+2. Open the linked experiment, pick the data source you just created, and choose the assignment query whose identifier matches the attribute (`user_id`, `session_id`, or `trace_id`).
+3. Add goal metrics (an eval score, thumbs-up rate) and guardrails (**LLM cost per user**, **p95 LLM latency**, **LLM error rate**).
+4. Start the experiment. Results update on the usual schedule.
+
+See [Experiment Configuration](/app/experiment-configuration) and [Experiment Results](/app/experiment-results) for the details, and consider a small [pre-launch checklist](/app/pre-launch-checklist) run before you ramp.
+
+## Contextual bandits
+
+Nothing extra is needed to run a [bandit](/bandits/overview) or [contextual bandit](/bandits/contextual) on an LLM feature. Any of the generated metrics, or an eval-score metric you added, can be the decision metric (reward): for example, maximize average `helpfulness` while GrowthBook shifts traffic toward the prompt that scores best, or minimize **LLM cost per user** across several model choices. Because the tag is stamped on every trace regardless of how the variation was chosen, exposure and reward data flow through the same tables.
+
+## Caveats
+
+These trackers are in beta and read from databases that were not designed as public interfaces.
+
+- **Langfuse's ClickHouse schema is not a stable API.** Langfuse v4 moves traces, observations, and scores into a single `events` table. Re-validate the generated SQL after any Langfuse upgrade; the generated fact tables target the v3 `traces`, `observations`, and `scores` tables.
+- **Langfuse Cloud has no ClickHouse access.** Use Langfuse's scheduled [blob storage export](https://langfuse.com/docs/api-and-data-platform/features/blob-storage-export-fields) (Parquet or JSONL to S3, GCS, or Azure) into your own warehouse, connect that warehouse as a custom data source, and adapt the fact table SQL. The exported `observations` rows already carry `user_id`, `session_id`, `tags`, `metadata`, `latency`, `total_cost`, and `usage_details`, so the joins back to `traces` are not needed there.
+- **`FINAL` on large Langfuse installs.** The Langfuse fact tables use `FINAL` to deduplicate ReplacingMergeTree rows. On very large tables, replace it with `ORDER BY event_ts DESC LIMIT 1 BY id` for better performance.
+- **Langfuse `environment` column.** It is omitted from the generated SQL because older installs lack it. Add it to the fact table SQL by hand if you want to slice by environment.
+- **Phoenix's Postgres schema is likewise unversioned.** The `span_costs` table only exists on newer Phoenix versions; on older installs remove the `LEFT JOIN ... span_costs` and the `total_cost` column from the `Phoenix Spans` fact table. `trace_annotations` are not included yet, only `span_annotations`.
+- **Phoenix tags arrive in two shapes.** The Python SDK writes `tag.tags` as a JSON array and the JavaScript SDK writes it as a JSON-encoded string. The generated SQL normalizes both, so no action is needed, but keep this in mind if you write your own queries.
+- **Editing the tracker option later** (in the data source settings) only changes the stored option. It does not rewrite SQL that has already been generated. Regenerate the resources or edit the existing SQL by hand.
