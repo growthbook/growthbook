@@ -7,7 +7,11 @@ import {
 } from "shared/types/integrations";
 import { LegacyMetricAnalysis, MetricInterface } from "shared/types/metric";
 import { Queries, QueryStatus } from "shared/types/query";
-import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
+import {
+  METRIC_COLLECTION,
+  getMetricById,
+  updateMetric,
+} from "back-end/src/models/MetricModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class LegacyMetricAnalysisQueryRunner extends QueryRunner<
@@ -15,6 +19,8 @@ export class LegacyMetricAnalysisQueryRunner extends QueryRunner<
   MetricValueParams,
   LegacyMetricAnalysis
 > {
+  protected readonly modelCollectionName = METRIC_COLLECTION;
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunMetricQueries(
       this.integration.datasource,

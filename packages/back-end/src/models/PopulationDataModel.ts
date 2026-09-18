@@ -2,9 +2,11 @@ import { PopulationDataInterface } from "shared/types/population-data";
 import { populationDataInterfaceValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
+export const COLLECTION_NAME = "populationdata";
+
 const BaseClass = MakeModelClass({
   schema: populationDataInterfaceValidator,
-  collectionName: "populationdata",
+  collectionName: COLLECTION_NAME,
   idPrefix: "popdat_",
   auditLog: {
     entity: "populationData",
