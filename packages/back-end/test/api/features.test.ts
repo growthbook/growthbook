@@ -15,7 +15,6 @@ import {
   getApiFeatureObj,
   createInterfaceEnvSettingsFromApiEnvSettings,
   updateInterfaceEnvSettingsFromApiEnvSettings,
-  getNextScheduledUpdate,
   addIdsToFlatRules,
   buildFeatureRulesFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -48,7 +47,6 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
   getSavedGroupMap: jest.fn().mockResolvedValue(new Map()),
-  getNextScheduledUpdate: jest.fn(),
   addIdsToRules: jest.fn(),
   addIdsToFlatRules: jest.fn(),
   inheritStoredRolloutSeeds: jest.fn(),
@@ -155,7 +153,6 @@ describe("features API", () => {
     (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
     (getSavedGroupMap as jest.Mock).mockResolvedValue(savedGroupMap);
     (getExperimentMapForFeature as jest.Mock).mockResolvedValue(new Map());
-    (getNextScheduledUpdate as jest.Mock).mockReturnValue(null);
 
     (getRevision as jest.Mock).mockImplementation(({ version }) =>
       version !== undefined
@@ -480,7 +477,8 @@ describe("features API", () => {
         .send({ description: "new description" });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
+      expect(createAndPublishRevision).toHaveBeenCalled();
+      expect(updateFeature).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -512,7 +510,8 @@ describe("features API", () => {
         .send({ description: "new description", customFields: {} });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
+      expect(createAndPublishRevision).toHaveBeenCalled();
+      expect(updateFeature).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -549,7 +548,7 @@ describe("features API", () => {
       expect(response.body.message).toContain(
         'Custom field "Owning Team" is required.',
       );
-      expect(updateFeature).not.toHaveBeenCalled();
+      expect(createAndPublishRevision).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
     });
 
@@ -582,7 +581,8 @@ describe("features API", () => {
         .send({ description: "new description", project: "project" });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
+      expect(createAndPublishRevision).toHaveBeenCalled();
+      expect(updateFeature).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -624,7 +624,7 @@ describe("features API", () => {
       expect(response.body.message).toContain(
         'Custom field "Owning Team" is required.',
       );
-      expect(updateFeature).not.toHaveBeenCalled();
+      expect(createAndPublishRevision).not.toHaveBeenCalled();
     });
 
     it("revalidates and rejects when changing project and customFields payload is changed", async () => {
@@ -671,102 +671,44 @@ describe("features API", () => {
       expect(response.body.message).toContain(
         'Custom field "Owning Team" is required.',
       );
-      expect(updateFeature).not.toHaveBeenCalled();
+      expect(createAndPublishRevision).not.toHaveBeenCalled();
     });
   });
 
   // ---------------------------------------------------------------------------
-  // nextScheduledUpdate
+  // One write per request: the revision landing
   // ---------------------------------------------------------------------------
 
-  describe("nextScheduledUpdate", () => {
-    it("writes nextScheduledUpdate when scheduleRules are updated via API", async () => {
+  describe("direct feature writes", () => {
+    it("answers a request that changes nothing from the feature as read, with no write", async () => {
       defaultContext({
-        permissions: defaultPermissions({
-          canBypassFlagApprovalChecks: () => true,
-        }),
-        hasPremiumFeature: () => true,
         getProjects: async () => [{ id: "project_1" }],
       });
-
-      const startTs = "2026-02-20T08:00:00.000Z";
-      const endTs = "2026-02-25T08:00:00.000Z";
-      const nextScheduledUpdate = new Date(startTs);
-      const updatedEnvironmentSettings = {
-        production: {
-          enabled: true,
-          rules: [
-            {
-              id: "fr_test",
-              type: "force",
-              description: "scheduled force",
-              condition: "",
-              value: "true",
-              enabled: true,
-              savedGroups: [],
-              scheduleRules: [
-                { enabled: true, timestamp: startTs },
-                { enabled: false, timestamp: endTs },
-              ],
-            },
-          ],
-        },
-      };
 
       const existingFeature = makeFeature({
         project: "project_1",
         version: 10,
         environmentSettings: { production: { enabled: true, rules: [] } },
       });
-
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
       (
         updateInterfaceEnvSettingsFromApiEnvSettings as jest.Mock
-      ).mockReturnValue(updatedEnvironmentSettings);
-      (getNextScheduledUpdate as jest.Mock).mockReturnValue(
-        nextScheduledUpdate,
-      );
-      (createAndPublishRevision as jest.Mock).mockResolvedValue({
-        revision: makeRevisionDoc(11, existingFeature.id),
-        updatedFeature: { ...existingFeature, version: 11 },
-      });
+      ).mockReturnValue(existingFeature.environmentSettings);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
         .send({
-          environments: {
-            production: {
-              enabled: true,
-              rules: [
-                {
-                  id: "fr_test",
-                  type: "force",
-                  description: "scheduled force",
-                  condition: "",
-                  value: "true",
-                  enabled: true,
-                  scheduleRules: [
-                    { enabled: true, timestamp: startTs },
-                    { enabled: false, timestamp: endTs },
-                  ],
-                },
-              ],
-            },
-          },
+          defaultValue: existingFeature.defaultValue,
+          environments: { production: { enabled: true, rules: [] } },
         });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        expect.objectContaining({
-          environmentSettings: updatedEnvironmentSettings,
-          nextScheduledUpdate,
-        }),
-      );
+      expect(createAndPublishRevision).not.toHaveBeenCalled();
+      expect(updateFeature).not.toHaveBeenCalled();
+      expect(response.body.feature.feature.version).toBe(10);
     });
 
-    it("does not modify nextScheduledUpdate if there are no environment updates", async () => {
+    it("lands a change through the revision only and answers with the landed feature", async () => {
       defaultContext({
         getProjects: async () => [{ id: "project_1" }, { id: "project_2" }],
       });
@@ -774,40 +716,40 @@ describe("features API", () => {
       const existingFeature = makeFeature({
         project: "project_1",
         version: 10,
-        environmentSettings: {
-          production: {
-            enabled: true,
-            rules: [
-              {
-                id: "fr_schedule",
-                type: "force",
-                condition: "",
-                value: "true",
-                savedGroups: [],
-                scheduleRules: [
-                  { enabled: true, timestamp: "2026-02-20T08:00:00.000Z" },
-                ],
-              },
-            ],
-          },
-        },
+      });
+      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      const landedFeature = {
+        ...existingFeature,
+        project: "project_2",
+        version: 11,
+      };
+      (createAndPublishRevision as jest.Mock).mockResolvedValue({
+        revision: makeRevisionDoc(11, existingFeature.id),
+        updatedFeature: landedFeature,
       });
 
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (getNextScheduledUpdate as jest.Mock).mockImplementation((envSettings) =>
-        envSettings ? new Date("2026-02-20T08:00:00.000Z") : null,
-      );
-
-      const originalVersion = existingFeature.version;
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
         .send({ project: "project_2" });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
-      const updateFeatureCall = (updateFeature as jest.Mock).mock.calls[0];
-      const updatesArg = updateFeatureCall[2];
-      expect(updatesArg).toEqual({ version: originalVersion + 1 });
+      expect(createAndPublishRevision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: expect.objectContaining({
+            metadata: expect.objectContaining({ project: "project_2" }),
+          }),
+        }),
+      );
+      expect(updateFeature).not.toHaveBeenCalled();
+      expect(response.body.feature.feature.version).toBe(11);
+      expect(response.body.feature.feature.project).toBe("project_2");
+      const details = JSON.parse(
+        auditMock.mock.calls.find(
+          ([entry]) => entry.event === "feature.update",
+        )[0].details,
+      );
+      expect(details.pre.version).toBe(10);
+      expect(details.post.version).toBe(11);
     });
   });
 
