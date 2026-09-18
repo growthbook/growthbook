@@ -80,11 +80,6 @@ export default function ContextualBanditRefSummary({
     );
   }
 
-  const variationWeights = cb.variations.map(
-    (v) =>
-      cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ?? 0,
-  );
-
   return (
     <Box>
       {cb.status === "draft" && !isDraft && (
@@ -156,7 +151,6 @@ export default function ContextualBanditRefSummary({
               const ruleVariation = rule.variations.find(
                 (rv) => rv.variationId === v.id,
               );
-              const weight = variationWeights[i];
               return (
                 <TableRow
                   key={v.id}
@@ -192,18 +186,6 @@ export default function ContextualBanditRefSummary({
                       })()
                     ) : (
                       <em>not set</em>
-                    )}
-                  </TableCell>
-                  <TableCell
-                    style={{
-                      color: "var(--color-text-mid)",
-                      textAlign: "right",
-                    }}
-                  >
-                    {weight != null ? (
-                      percentFormatter.format(weight)
-                    ) : (
-                      <em>—</em>
                     )}
                   </TableCell>
                 </TableRow>
