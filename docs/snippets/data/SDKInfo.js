@@ -394,7 +394,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "2.4.0",
+    version: "3.1.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -409,6 +409,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v3.1.0",
       },
       {
         remoteEval: "≥ v2.3.0",
@@ -450,7 +453,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.9",
+    version: "0.5.1",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -470,6 +473,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v0.5.0",
       },
       {
         trackingPlugin: "≥ v0.2.8",
@@ -511,7 +517,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.2.1",
+    version: "0.2.2",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -566,7 +572,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.10.10",
+    version: "0.11.0",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -735,7 +741,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "7.6.0",
+    version: "8.0.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -750,6 +756,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v8.0.0",
+      },
+      {
+        trackingPlugin: "≥ v7.8.0",
       },
       {
         caseInsensitiveMembership: "≥ v7.1.1",
@@ -788,7 +800,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.2.0",
+    version: "1.2.3",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -803,6 +815,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v1.2.3",
       },
       {
         namespacesV2: "≥ v1.1.4",

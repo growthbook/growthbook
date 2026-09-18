@@ -1,5 +1,8 @@
 import type { ContextualBanditSnapshot } from "shared/types/stats";
-import { buildContextualBanditResultsView } from "../src/experiments/contextual-bandit-results";
+import {
+  buildContextualBanditResultsView,
+  resolveSnapshotVariations,
+} from "../src/experiments/contextual-bandit-results";
 
 const variations = [
   { id: "v0", name: "Control" },
@@ -68,8 +71,17 @@ const snapshot: ContextualBanditSnapshot = {
     },
   ],
   sse_trajectory: [
-    { numSplits: 0, totalSse: 200, ssePerVariation: [120, 80] },
-    { numSplits: 1, totalSse: 150, ssePerVariation: [90, 60] },
+    { numSplits: 0, totalSse: 200 },
+    {
+      numSplits: 1,
+      totalSse: 150,
+      split: {
+        leafClauses: [],
+        attribute: "country",
+        leftLevels: ["CA", "US"],
+        rightLevels: ["MX"],
+      },
+    },
   ],
 };
 
@@ -115,11 +127,21 @@ describe("buildContextualBanditResultsView", () => {
     expect(leaf.variations.map((v) => v.mean)).toEqual([0.121, 0.149]);
   });
 
-  it("exposes the total-SSE trajectory root-first", () => {
+  it("exposes the total-SSE trajectory root-first, passing through split metadata", () => {
     expect(view.sseTrajectory).toEqual([
       { numSplits: 0, totalSse: 200 },
-      { numSplits: 1, totalSse: 150 },
+      {
+        numSplits: 1,
+        totalSse: 150,
+        split: {
+          leafClauses: [],
+          attribute: "country",
+          leftLevels: ["CA", "US"],
+          rightLevels: ["MX"],
+        },
+      },
     ]);
+    expect(view.sseTrajectory[0].split).toBeUndefined();
   });
 
   it("defaults sseTrajectory to an empty array when absent", () => {
@@ -167,6 +189,15 @@ describe("buildContextualBanditResultsView", () => {
     );
   });
 
+  it("computes population-weighted overall means per variation", () => {
+    // Population per context: US=970, CA=590, MX=210 (total 1770).
+    // v0: (970*0.118 + 590*0.126 + 210*0.2) / 1770 = 0.1303955...
+    // v1: (970*0.151 + 590*0.146 + 210*0.18) / 1770 = 0.1527740...
+    const overall = view.overall.variations;
+    expect(overall[0].mean).toBeCloseTo(0.1303955, 6);
+    expect(overall[1].mean).toBeCloseTo(0.152774, 6);
+  });
+
   it("throws when a leaf is missing updatedWeights (no best-arm fallback)", () => {
     expect(() =>
       buildContextualBanditResultsView(
@@ -203,5 +234,79 @@ describe("buildContextualBanditResultsView", () => {
     );
     expect(empty.leaves).toEqual([]);
     expect(empty.overall.variations.map((v) => v.users)).toEqual([0, 0]);
+  });
+});
+
+describe("resolveSnapshotVariations", () => {
+  it("returns frozen ids in order with names resolved from current variations", () => {
+    const resolved = resolveSnapshotVariations(
+      ["v0", "v1", "v2"],
+      [
+        { id: "v0", name: "Control" },
+        { id: "v1", name: "Treatment" },
+        { id: "v2", name: "Third" },
+      ],
+    );
+    expect(resolved).toEqual([
+      { id: "v0", name: "Control" },
+      { id: "v1", name: "Treatment" },
+      { id: "v2", name: "Third" },
+    ]);
+  });
+
+  it("keeps frozen order when the current list has been reordered", () => {
+    const resolved = resolveSnapshotVariations(
+      ["v0", "v1", "v2"],
+      [
+        { id: "v2", name: "Third" },
+        { id: "v0", name: "Control" },
+        { id: "v1", name: "Treatment" },
+      ],
+    );
+    expect(resolved.map((v) => v.id)).toEqual(["v0", "v1", "v2"]);
+    expect(resolved.map((v) => v.name)).toEqual([
+      "Control",
+      "Treatment",
+      "Third",
+    ]);
+  });
+
+  it("preserves a deactivated arm's name from current tombstoned variations", () => {
+    const resolved = resolveSnapshotVariations(
+      ["v0", "v1", "v2", "v3", "v4"],
+      [
+        { id: "v0", name: "Control" },
+        { id: "v1", name: "One" },
+        { id: "v2", name: "Two" },
+        { id: "v3", name: "Three" },
+        { id: "v5", name: "Five" },
+        { id: "v6", name: "Six" },
+        { id: "v4", name: "Four" },
+      ],
+    );
+    expect(resolved).toEqual([
+      { id: "v0", name: "Control" },
+      { id: "v1", name: "One" },
+      { id: "v2", name: "Two" },
+      { id: "v3", name: "Three" },
+      { id: "v4", name: "Four" },
+    ]);
+  });
+
+  it("leaves name undefined when an id is not in the current list", () => {
+    const resolved = resolveSnapshotVariations(
+      ["v0", "vGone"],
+      [{ id: "v0", name: "Control" }],
+    );
+    expect(resolved).toEqual([
+      { id: "v0", name: "Control" },
+      { id: "vGone", name: undefined },
+    ]);
+  });
+
+  it("returns an empty list for empty frozen ids", () => {
+    expect(
+      resolveSnapshotVariations([], [{ id: "v0", name: "Control" }]),
+    ).toEqual([]);
   });
 });

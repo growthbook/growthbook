@@ -7,6 +7,7 @@ import {
 import {
   filterEnvironmentsByFeature,
   getReviewSetting,
+  getRevertTargetArchived,
   getRulesForEnvironment,
 } from "shared/util";
 import {
@@ -129,7 +130,12 @@ export default function RevertModal({
 
   const diffs = useFeatureRevisionDiff({
     current: featureToFeatureRevisionDiffInput(feature),
-    draft: targetRevisionForAction,
+    // The archived state the revert restores, so a target that predates archived
+    // snapshots previews the unarchive the server will perform.
+    draft: {
+      ...targetRevisionForAction,
+      archived: getRevertTargetArchived(targetRevisionForAction),
+    },
   });
 
   const environmentIds = environments.map((e) => e.id);
@@ -226,7 +232,6 @@ export default function RevertModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header="Revert"

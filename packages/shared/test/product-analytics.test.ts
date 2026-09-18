@@ -23,6 +23,7 @@ describe("productAnalytics", () => {
       `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
     evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
     dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
+    concatStrings: (parts) => parts.join(" || "),
     percentileApprox: (col, quantile) =>
       `APPROX_PERCENTILE(${col}, ${quantile})`,
     hllReaggregate: (col) => `HLL_MERGE(${col})`,
@@ -35,6 +36,7 @@ describe("productAnalytics", () => {
       `'${d.toISOString().substring(0, 10)} 00:00:00'`,
     formatDialect: "bigquery",
     castToFloat: (col) => `CAST(${col} AS FLOAT)`,
+    castToString: (col) => `CAST(${col} AS STRING)`,
   };
 
   const factTableMap = new Map<string, FactTableInterface>([
@@ -247,6 +249,65 @@ describe("productAnalytics", () => {
       } as FactMetricInterface,
     ],
   ]);
+
+  it("quotes SQL dataset timestamp columns using Snowflake's uppercase identifier fold", () => {
+    const snowflakeHelpers: SqlDialect = {
+      ...helpers,
+      identifierQuote: '"',
+      unquotedIdentifierFold: "upper",
+    };
+    const config: ExplorationConfig = {
+      type: "sql",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: null,
+          dateGranularity: "day",
+        },
+      ],
+      dataset: {
+        type: "sql",
+        sql: "SELECT EVENT_NAME, TIMESTAMP, GEO_COUNTRY FROM events",
+        timestampColumn: "timestamp",
+        columnTypes: {
+          event_name: "string",
+          timestamp: "date",
+          geo_country: "string",
+        },
+        values: [
+          {
+            name: "rows",
+            type: "sql",
+            rowFilters: [],
+            valueType: "count",
+            unit: null,
+            valueColumn: null,
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      factTableMap,
+      metricMap,
+      snowflakeHelpers,
+      datasource,
+    );
+
+    expect(sql).toContain('"TIMESTAMP"');
+    expect(sql).not.toMatch(/"timestamp"/);
+  });
 
   it("generates SQL for fact tables", () => {
     const config: ExplorationConfig = {
@@ -1535,5 +1596,49 @@ describe("productAnalytics", () => {
     // column — a bare `revenue_vc` does not exist in the warehouse.
     expect(sql).toContain("(amount * qty)");
     expect(sql).not.toContain("revenue_vc");
+  });
+
+  it("throws when a data_source dataset has no timestamp column", () => {
+    const config: ExplorationConfig = {
+      type: "data_source",
+      datasource: "ds_1",
+      chartType: "bar",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [],
+      dataset: {
+        type: "data_source",
+        table: "orders",
+        path: "orders",
+        timestampColumn: "",
+        columnTypes: { id: "string" },
+        values: [
+          {
+            name: "count",
+            type: "data_source",
+            rowFilters: [],
+            valueType: "count",
+            unit: null,
+            valueColumn: null,
+          },
+        ],
+      },
+    };
+
+    expect(() =>
+      generateProductAnalyticsSQL(
+        config,
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      ),
+    ).toThrow("Timestamp column is required");
   });
 });

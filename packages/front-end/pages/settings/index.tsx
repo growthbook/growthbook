@@ -171,6 +171,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       disablePrecomputedDimensions:
         settings.disablePrecomputedDimensions ?? true,
       useStickyBucketing: false,
+      stickyBucketingOnByDefault: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
       codeRefsBranchesToFilter: [],
@@ -209,11 +210,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireRegisteredAttributes,
       ),
       aiEnabled: settings.aiEnabled ?? false,
+      aiAskDataEnabled: settings.aiAskDataEnabled ?? false,
       // Seeding a model on Cloud would persist it on the next save of any
       // setting, silently taking the org off the managed default.
       defaultAIModel:
         settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
+      sttModel: settings.sttModel,
       visualEditorAIModel: settings.visualEditorAIModel,
       visualEditorImageModel: settings.visualEditorImageModel || "",
       visualEditorAIContext: settings.visualEditorAIContext || "",
@@ -276,13 +279,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
     sparseJSONRulesByDefault: form.watch("sparseJSONRulesByDefault"),
     defaultDataSource: form.watch("defaultDataSource"),
     useStickyBucketing: form.watch("useStickyBucketing"),
+    stickyBucketingOnByDefault: form.watch("stickyBucketingOnByDefault"),
     useFallbackAttributes: form.watch("useFallbackAttributes"),
     codeReferencesEnabled: form.watch("codeReferencesEnabled"),
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
+    aiAskDataEnabled: form.watch("aiAskDataEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
+    sttModel: form.watch("sttModel") || undefined,
     visualEditorAIModel: form.watch("visualEditorAIModel"),
     visualEditorImageModel: form.watch("visualEditorImageModel"),
     visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,

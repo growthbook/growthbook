@@ -15,7 +15,7 @@ import {
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { expandMetricGroups } from "shared/experiments";
-import { isRampScheduleServing } from "shared/util";
+import { isRampScheduleServing, pValueFormatter } from "shared/util";
 import Badge from "@/ui/Badge";
 import Button, { Size as ButtonSize } from "@/ui/Button";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
@@ -126,10 +126,6 @@ function buildDummySignalData({
       },
     } as unknown as SafeRolloutInterface,
   };
-}
-
-function formatPValue(value: number): string {
-  return value < 0.001 ? "<0.001" : value.toFixed(3);
 }
 
 function getHoldStatusPrefix(rampSchedule: RampScheduleInterface): string {
@@ -305,7 +301,7 @@ function computeSignals(
       signals.push("srm");
       actions["srm"] = (mc?.srmAction as SignalAction) ?? "hold";
       details["srm"] =
-        `SRM p-value ${formatPValue(srmPValue)} is below threshold ${srmThreshold}`;
+        `SRM p-value ${pValueFormatter(srmPValue)} is below threshold ${srmThreshold}`;
     }
   }
 

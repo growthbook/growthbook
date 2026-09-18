@@ -20,6 +20,7 @@ const helpers: SqlDialect = {
   dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
   dateDiff: (a, b) => `datediff(day, ${a}, ${b})`,
   dateDiffMs: (a, b) => `(EXTRACT(EPOCH FROM (${b} - ${a})) * 1000)`,
+  concatStrings: (parts) => parts.join(" || "),
   addIntervalSeconds: (col, sign, amount) =>
     `${col} ${sign} INTERVAL '${amount} seconds'`,
   percentileApprox: (col, q) => `APPROX_PERCENTILE(${col}, ${q})`,
@@ -43,6 +44,7 @@ const helpers: SqlDialect = {
     const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
     return `(SELECT MIN(t) FROM unnest(${col}) AS t ${where})`;
   },
+  arrayConcatAgg: (col) => `ARRAY_CONCAT_AGG(${col})`,
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
   ifElse: (c, t, f) => `(CASE WHEN ${c} THEN ${t} ELSE ${f} END)`,
   getDataType: () => "VARCHAR",

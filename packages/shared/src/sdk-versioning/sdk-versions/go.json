@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.5.1"
+    },
+    {
+      "version": "0.5.0",
+      "capabilities": ["contextualBandits"]
+    },
+    {
+      "version": "0.4.0"
+    },
+    {
+      "version": "0.3.0"
+    },
+    {
       "version": "0.2.9"
     },
     {

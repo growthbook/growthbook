@@ -383,23 +383,21 @@ describe("putFeatureRule baseline guard", () => {
     const { res, captured } = resSpy();
 
     const collection = mongoose.connection.collection("featurerevisions");
-    const realFindOne = collection.findOne.bind(collection);
-    let raced = false;
+    const realFindOneAndUpdate = collection.findOneAndUpdate.bind(collection);
+    let intercepted = false;
+    // Interposed on the guarded write, not the read before it: a one-shot spy
+    // on findOne is consumable by any in-flight read.
     jest
-      .spyOn(mongoose.connection.collection("featurerevisions"), "findOne")
+      .spyOn(collection, "findOneAndUpdate")
       .mockImplementation(async (...args: unknown[]) => {
-        const doc = await (
-          realFindOne as (...a: unknown[]) => Promise<unknown>
-        )(...args);
-        // Once our copy has been read, let someone else write.
-        if (!raced) {
-          raced = true;
-          await collection.updateOne(
-            { organization: ORG_ID, featureId: FEATURE_ID, version: 2 },
-            { $set: { rules: [theirLateEdit], dateUpdated: new Date() } },
-          );
-        }
-        return doc;
+        intercepted = true;
+        await collection.updateOne(
+          { organization: ORG_ID, featureId: FEATURE_ID, version: 2 },
+          { $set: { rules: [theirLateEdit], dateUpdated: new Date() } },
+        );
+        return (realFindOneAndUpdate as (...a: unknown[]) => Promise<unknown>)(
+          ...args,
+        );
       });
 
     try {
@@ -415,6 +413,8 @@ describe("putFeatureRule baseline guard", () => {
       jest.restoreAllMocks();
     }
 
+    // Fails loudly if the guarded write moves off findOneAndUpdate.
+    expect(intercepted).toBe(true);
     expect(captured.status).toBe(409);
     const draft = await storedRevision(2);
     expect(draft?.rules?.[0]?.value).toBe("landed-first");

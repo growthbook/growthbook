@@ -29,6 +29,8 @@ import {
   columnsHaveAutoSlices,
   columnsNeedDetection,
   validateAggregatedFactTableSettings,
+  validateColumnMappingTargets,
+  validateNewUserIdColumnKeys,
   validateVirtualColumnProps,
 } from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
@@ -259,6 +261,24 @@ export const postBulkImportFacts = createApiRequestHandler(
             ? mergeUpsertColumns(existing.columns, data.columns).columns
             : existing.columns;
 
+          if (updateData.userIdColumns) {
+            const datasource = dataSourceMap.get(existing.datasource);
+            if (!datasource) {
+              throw new Error("Could not find datasource");
+            }
+            validateNewUserIdColumnKeys({
+              datasource,
+              userIdColumns: updateData.userIdColumns,
+              existingUserIdColumns: existing.userIdColumns,
+            });
+          }
+          validateColumnMappingTargets({
+            columns: nextColumns,
+            timestampColumn: updateData.timestampColumn,
+            userIdColumns: updateData.userIdColumns,
+            existing,
+          });
+
           let counted = false;
           if (!dryRun && updateData.columns) {
             await upsertColumns({
@@ -316,13 +336,25 @@ export const postBulkImportFacts = createApiRequestHandler(
             req.context.permissions.throwPermissionError();
           }
 
-          if (!dataSourceMap.has(factTable.datasource)) {
+          const datasource = dataSourceMap.get(factTable.datasource);
+          if (!datasource) {
             throw new Error("Could not find datasource");
           }
 
           if (factTable.userIdTypes) {
             validateUserIdTypes(factTable.datasource, factTable.userIdTypes);
           }
+          if (factTable.userIdColumns) {
+            validateNewUserIdColumnKeys({
+              datasource,
+              userIdColumns: factTable.userIdColumns,
+            });
+          }
+          validateColumnMappingTargets({
+            columns: mergeUpsertColumns([], factTable.columns ?? []).columns,
+            timestampColumn: factTable.timestampColumn,
+            userIdColumns: factTable.userIdColumns,
+          });
 
           factTable.columnRefreshPending =
             !factTable.columns?.length ||

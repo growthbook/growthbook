@@ -7,6 +7,7 @@ import { FactMetricInterface, FactTableMap } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
 import { transformProductAnalyticsRowsToResult } from "shared/enterprise";
 import { UpdateProps } from "shared/types/base-model";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
@@ -20,24 +21,11 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
 
   checkPermissions(): boolean {
     const datasetType = this.model.config?.dataset?.type;
-
-    // Funnels read from fact tables (same backing data the fact-table
-    // explorer uses), so the metric/fact-query permission gate applies.
-    if (
-      datasetType === "metric" ||
-      datasetType === "fact_table" ||
-      datasetType === "funnel"
-    ) {
-      return this.context.permissions.canRunMetricAnalysisQueries(
-        this.integration.datasource,
-      );
-    }
-    // If custom SQL is being explored
-    else {
-      return this.context.permissions.canRunSqlExplorerQueries(
-        this.integration.datasource,
-      );
-    }
+    if (!datasetType) return false;
+    return this.context.permissions.canRunProductAnalyticsExplorationQueries(
+      this.integration.datasource,
+      datasetType,
+    );
   }
 
   async startQueries(
@@ -80,6 +68,13 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
     const rows = query.result as Record<string, unknown>[];
     if (!rows) {
       throw new Error("Product analytics exploration query result not found");
+    }
+    if (this.model.config.chartType === "rawTable") {
+      return {
+        rows: [],
+        rawRows: rows.slice(0, SQL_ROW_LIMIT),
+        truncated: rows.length > SQL_ROW_LIMIT,
+      };
     }
     const { orderedMetricIds } = (
       this.integration as SqlIntegration

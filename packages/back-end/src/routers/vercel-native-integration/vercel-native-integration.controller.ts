@@ -34,6 +34,7 @@ import {
   updateSdkConnectionsRemoveManagedBy,
 } from "back-end/src/models/SdkConnectionModel";
 import {
+  PendingSSOConnectionCookie,
   SSOConnectionIdCookie,
   setIdTokenCookie,
 } from "back-end/src/util/cookie";
@@ -93,7 +94,7 @@ function getProBillingPlan(perSeatCost: number): BillingPlan {
     details: [
       { label: "Feature Flags & Evaluations", value: "Unlimited" },
       { label: "Experiments", value: "Unlimited" },
-      { label: "Projects", value: "Unlimited" },
+      { label: "Projects", value: "Limit 3" },
       { label: "Seats", value: `$${perSeatCost}/seat/month` },
       {
         label: "Advanced Flags",
@@ -794,6 +795,7 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   });
 
   SSOConnectionIdCookie.setValue(`vercel:${installationId}`, req, res);
+  PendingSSOConnectionCookie.setValue("", req, res);
   setIdTokenCookie(token, req, res);
 
   res.send({

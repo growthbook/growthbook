@@ -1,4 +1,6 @@
 import {
+  AI_PROVIDER_STT_MODEL_MAP,
+  resolveDefaultSTTModel,
   formatAIRateLimitRetryMessage,
   getAIModelSettingsUsingProvider,
   getProviderForAIModel,
@@ -15,7 +17,9 @@ describe("getProviderForAIModel", () => {
     expect(getProviderForAIModel("text", "claude-sonnet-4-6")).toBe(
       "anthropic",
     );
-    expect(getProviderForAIModel("text", "mistral-small")).toBe("mistral");
+    expect(getProviderForAIModel("text", "mistral-small-latest")).toBe(
+      "mistral",
+    );
   });
 
   it("resolves embedding models from their own registry", () => {
@@ -39,11 +43,28 @@ describe("getProviderForAIModel", () => {
     ).toBe("google");
   });
 
+  it("resolves transcription models from their own registry", () => {
+    expect(getProviderForAIModel("stt", "grok-stt-1.0")).toBe("xai");
+    expect(getProviderForAIModel("stt", "gpt-transcribe")).toBe("openai");
+    expect(getProviderForAIModel("stt", "voxtral-mini-latest")).toBe("mistral");
+    expect(getProviderForAIModel("text", "grok-stt-1.0")).toBeNull();
+    expect(getProviderForAIModel("stt", "grok-4.6")).toBeNull();
+  });
+
+  it("has no transcription model for Anthropic or Google", () => {
+    for (const model of Object.values(AI_PROVIDER_STT_MODEL_MAP).flat()) {
+      expect(["anthropic", "google"]).not.toContain(
+        getProviderForAIModel("stt", model),
+      );
+    }
+  });
+
   it("returns null for an unknown id rather than throwing", () => {
     // Read off saved org settings, so a stale value must not throw.
     expect(getProviderForAIModel("text", "not-a-model")).toBeNull();
     expect(getProviderForAIModel("embedding", "not-a-model")).toBeNull();
     expect(getProviderForAIModel("image", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("stt", "not-a-model")).toBeNull();
     expect(getProviderForAIModel("text", "")).toBeNull();
   });
 });
@@ -211,6 +232,17 @@ describe("getAIModelSettingsUsingProvider", () => {
     expect(getAIModelSettingsUsingProvider(settings, "mistral")).toEqual([]);
   });
 
+  it("finds the dictation setting", () => {
+    expect(
+      getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "xai").map(
+        (s) => s.key,
+      ),
+    ).toEqual(["sttModel"]);
+    expect(
+      getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "openai"),
+    ).toEqual([]);
+  });
+
   it("catches the legacy openAIDefaultModel field", () => {
     expect(
       getAIModelSettingsUsingProvider(
@@ -227,5 +259,32 @@ describe("getAIModelSettingsUsingProvider", () => {
         "openai",
       ),
     ).toEqual([]);
+  });
+});
+
+describe("resolveDefaultSTTModel", () => {
+  it("prefers gpt-transcribe", () => {
+    expect(resolveDefaultSTTModel(["openai", "xai", "mistral"])).toBe(
+      "gpt-transcribe",
+    );
+  });
+
+  it("falls through in order when OpenAI has no key", () => {
+    expect(resolveDefaultSTTModel(["xai", "mistral"])).toBe("grok-stt-1.0");
+    expect(resolveDefaultSTTModel(["mistral"])).toBe("voxtral-mini-latest");
+  });
+
+  it("serves a Cloud org with no keys of its own", () => {
+    // Anthropic alone is the one combination that yields nothing.
+    expect(resolveDefaultSTTModel(["anthropic", "openai"])).toBe(
+      "gpt-transcribe",
+    );
+    expect(resolveDefaultSTTModel(["anthropic", "xai"])).toBe("grok-stt-1.0");
+    expect(resolveDefaultSTTModel(["anthropic"])).toBeNull();
+  });
+
+  it("returns null when no provider serves transcription", () => {
+    expect(resolveDefaultSTTModel(["anthropic", "google"])).toBeNull();
+    expect(resolveDefaultSTTModel([])).toBeNull();
   });
 });

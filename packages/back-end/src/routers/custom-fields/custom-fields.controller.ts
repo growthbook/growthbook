@@ -40,6 +40,7 @@ export const postCustomField = async (
     defaultValue,
     type,
     values,
+    creatable,
     required,
     projects,
     sections,
@@ -62,6 +63,7 @@ export const postCustomField = async (
     defaultValue,
     type,
     values,
+    creatable,
     required,
     projects,
     sections: sections?.length ? sections : [...ALL_SECTIONS],
@@ -149,6 +151,7 @@ type PutCustomFieldRequest = AuthRequest<
     placeholder: string;
     defaultValue?: boolean | string;
     values?: string;
+    creatable?: boolean;
     required: boolean;
     projects?: string[];
     sections?: CustomFieldSection[];
@@ -179,6 +182,7 @@ export const putCustomField = async (
     placeholder,
     defaultValue,
     values,
+    creatable,
     required,
     projects,
     sections,
@@ -209,6 +213,7 @@ export const putCustomField = async (
       placeholder,
       defaultValue,
       values,
+      ...(creatable !== undefined && { creatable }),
       required,
       projects,
       sections: sections ?? existingField.sections ?? [...ALL_SECTIONS],

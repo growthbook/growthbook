@@ -445,11 +445,8 @@ export function buildPatch(
     out.environments = allEnvironments ? undefined : (patch.environments ?? []);
   }
   if (patch.force !== undefined) {
-    try {
-      out.force = JSON.parse(patch.force);
-    } catch {
-      out.force = patch.force;
-    }
+    // Rule values are stored as strings; send the value field's text as-is.
+    out.force = patch.force;
   }
   return out;
 }
@@ -2478,7 +2475,8 @@ export default function RampScheduleSection({
                 </Flex>
 
                 {!isReadOnlyView &&
-                  (step.holdConditions?.requiresApproval ||
+                  ((step.triggerType !== "approval" &&
+                    step.holdConditions?.requiresApproval) ||
                     (step.monitored &&
                       (step.holdConditions?.minSampleSize ?? null) !==
                         null)) && (

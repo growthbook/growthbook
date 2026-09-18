@@ -243,7 +243,7 @@ Triggered when a feature is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {
@@ -2177,6 +2177,7 @@ Triggered when an experiment is created
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
+            attributeScopeAllProjects?: boolean | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
             customFields?: Record<string, any> | undefined;
@@ -2447,6 +2448,7 @@ Triggered when an experiment is updated
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
+            attributeScopeAllProjects?: boolean | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
             customFields?: Record<string, any> | undefined;
@@ -2678,6 +2680,7 @@ Triggered when an experiment is updated
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
+            attributeScopeAllProjects?: boolean | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
             customFields?: Record<string, any> | undefined;
@@ -2717,7 +2720,7 @@ Triggered when an experiment is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {
@@ -2953,6 +2956,7 @@ Triggered when an experiment is deleted
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
+            attributeScopeAllProjects?: boolean | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
             customFields?: Record<string, any> | undefined;
@@ -3044,6 +3048,12 @@ Triggered when a warning condition is detected on an experiment
             experimentName: string;
             experimentId: string;
             threshold: number;
+            pValue?: number | undefined;
+            variations?: {
+                name: string;
+                users: number;
+                weight: number;
+            }[] | undefined;
         } | {
             type: "no-data";
             experimentName: string;
@@ -3438,7 +3448,7 @@ Triggered when a saved group is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {
@@ -5511,7 +5521,7 @@ Triggered when a constant is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {
@@ -7731,7 +7741,7 @@ Triggered when a config is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {

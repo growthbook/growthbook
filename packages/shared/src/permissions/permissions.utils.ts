@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import {
   Permission,
   UserPermissions,
@@ -104,6 +105,66 @@ export function areProjectRolesValid(
     return false;
   }
   return projectRoles.every((p) => isRoleValid(p.role, org));
+}
+
+// The role-bearing fields of a team, as the model and the REST bodies carry them.
+export type TeamAuthority = {
+  role: string;
+  additionalRoles?: unknown[];
+  projectRoles?: ProjectMemberRole[];
+  managedByIdp?: boolean;
+  managedBy?: unknown;
+};
+
+// A team that grants nothing outside its project roles, so every bit of
+// authority on it is authority a Project Admin could already hand out to a
+// member directly.
+export function isProjectScopedTeam(team: TeamAuthority): boolean {
+  return (
+    team.role === "noaccess" &&
+    !team.additionalRoles?.length &&
+    !team.managedByIdp &&
+    !team.managedBy
+  );
+}
+
+export function teamProjects(team: TeamAuthority): string[] {
+  return (team.projectRoles ?? []).map((rule) => rule.project);
+}
+
+// Stored records omit empty optional fields while request bodies spell them
+// out, so an absent list, an empty list, and an undefined key all read alike.
+export function sameRoleValue(a: unknown, b: unknown): boolean {
+  return isEqual(emptyAsAbsent(a), emptyAsAbsent(b));
+}
+
+function emptyAsAbsent(value: unknown): unknown {
+  if (value === undefined || value === null) return undefined;
+  if (Array.isArray(value)) {
+    return value.length ? value.map(emptyAsAbsent) : undefined;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .map(([key, v]) => [key, emptyAsAbsent(v)] as const)
+      .filter(([, v]) => v !== undefined);
+    return Object.fromEntries(entries);
+  }
+  return value;
+}
+
+// Projects whose rule differs between two project-role lists: added, removed,
+// or changed.
+export function changedProjectRoleProjects(
+  before: ProjectMemberRole[] | undefined,
+  after: ProjectMemberRole[] | undefined,
+): string[] {
+  const byProject = (rules: ProjectMemberRole[] | undefined) =>
+    new Map((rules ?? []).map((rule) => [rule.project, rule]));
+  const previous = byProject(before);
+  const next = byProject(after);
+  return [...new Set([...previous.keys(), ...next.keys()])].filter(
+    (project) => !sameRoleValue(previous.get(project), next.get(project)),
+  );
 }
 
 export function getDefaultRole(

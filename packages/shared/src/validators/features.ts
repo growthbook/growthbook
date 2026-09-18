@@ -10,6 +10,8 @@ import {
   apiPaginationFieldsValidator,
   publishOverrideBodyFields,
   publishBypassedGatesField,
+  readOnlyEcho,
+  storedOnlyEcho,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import {
@@ -479,19 +481,25 @@ export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 // real-time on the live ramp schedule.
 // API variant: targetType/targetId are inferred from the top-level ruleId
 // at publish time.
-const revisionApiRampStepAction = z.object({
-  targetType: z.literal("feature-rule").optional(),
-  targetId: z.string().optional(),
-  patch: featureRulePatch.partial({ ruleId: true }),
-});
+// Strict: a rule field placed on the step or action instead of inside `patch`
+// would otherwise be dropped and the step stored with nothing to apply.
+const revisionApiRampStepAction = z
+  .object({
+    targetType: z.literal("feature-rule").optional(),
+    targetId: z.string().optional(),
+    patch: featureRulePatch.partial({ ruleId: true }).strict(),
+  })
+  .strict();
 
-const revisionApiRampStep = z.object({
-  interval: z.number().positive().nullable(),
-  actions: z.array(revisionApiRampStepAction).optional(),
-  approvalNotes: z.string().nullish(),
-  monitored: z.boolean().optional(),
-  holdConditions: stepHoldConditions.optional(),
-});
+const revisionApiRampStep = z
+  .object({
+    interval: z.number().positive().nullable(),
+    actions: z.array(revisionApiRampStepAction).optional(),
+    approvalNotes: z.string().nullish(),
+    monitored: z.boolean().optional(),
+    holdConditions: stepHoldConditions.strict().optional(),
+  })
+  .strict();
 
 // Stored type — requires targetType/targetId in actions.
 export const revisionRampCreateAction = z.object({
@@ -1373,15 +1381,19 @@ export type ApiFeatureWithRevisions = z.infer<
 // These are DIFFERENT from the response schema rules -- they have different
 // required/optional fields and don't use allOf/intersection with base rule.
 
-const postFeatureSavedGroupTargeting = z.object({
-  matchType: z.enum(["all", "any", "none"]),
-  savedGroups: z.array(z.string()),
-});
+const postFeatureSavedGroupTargeting = z
+  .object({
+    matchType: z.enum(["all", "any", "none"]),
+    savedGroups: z.array(z.string()),
+  })
+  .strict();
 
-const postFeaturePrerequisite = z.object({
-  id: z.string().describe("Feature ID"),
-  condition: z.string(),
-});
+const postFeaturePrerequisite = z
+  .object({
+    id: z.string().describe("Feature ID"),
+    condition: z.string(),
+  })
+  .strict();
 
 const postSparseRuleField = z
   .boolean()
@@ -1407,6 +1419,12 @@ const postFeatureRuleProjectScopeShape = {
     .optional(),
 };
 
+// Present on GET responses only; anything else unknown is rejected.
+const v1RuleReadOnlyEcho = {
+  rampScheduleId: readOnlyEcho,
+  scheduleType: readOnlyEcho,
+};
+
 const v1RuleSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
   savedGroupTargeting: z
@@ -1418,69 +1436,88 @@ const v1RuleSavedGroupInput = {
     .meta({ deprecated: true }),
 };
 
-const postFeatureForceRule = z.object({
-  ...postFeatureRuleProjectScopeShape,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  condition: z.string().describe("Applied to everyone by default.").optional(),
-  ...v1RuleSavedGroupInput,
-  prerequisites: z.array(apiRevisionPrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRuleValidator).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().describe("Enabled by default").optional(),
-  type: z.literal("force"),
-  value: z.string(),
-  sparse: postSparseRuleField,
-});
+const postFeatureForceRule = z
+  .object({
+    ...postFeatureRuleProjectScopeShape,
+    ...v1RuleReadOnlyEcho,
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    condition: z
+      .string()
+      .describe("Applied to everyone by default.")
+      .optional(),
+    ...v1RuleSavedGroupInput,
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().describe("Enabled by default").optional(),
+    type: z.literal("force"),
+    value: z.string(),
+    sparse: postSparseRuleField,
+  })
+  .strict();
 
-const postFeatureRolloutRule = z.object({
-  ...postFeatureRuleProjectScopeShape,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  condition: z.string().describe("Applied to everyone by default.").optional(),
-  ...v1RuleSavedGroupInput,
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRuleValidator).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().describe("Enabled by default").optional(),
-  type: z.literal("rollout"),
-  value: z.string(),
-  sparse: postSparseRuleField,
-  coverage: z
-    .number()
-    .describe(
-      "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
+const postFeatureRolloutRule = z
+  .object({
+    ...postFeatureRuleProjectScopeShape,
+    ...v1RuleReadOnlyEcho,
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    condition: z
+      .string()
+      .describe("Applied to everyone by default.")
+      .optional(),
+    ...v1RuleSavedGroupInput,
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().describe("Enabled by default").optional(),
+    type: z.literal("rollout"),
+    value: z.string(),
+    sparse: postSparseRuleField,
+    coverage: z
+      .number()
+      .describe(
+        "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
+      ),
+    hashAttribute: z.string(),
+    seed: z.string().optional(),
+    hashVersion: z
+      .union([z.literal(1), z.literal(2)])
+      .describe(
+        "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
+      )
+      .optional(),
+  })
+  .strict();
+
+const postFeatureExperimentRefRule = z
+  .object({
+    ...postFeatureRuleProjectScopeShape,
+    ...v1RuleReadOnlyEcho,
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().describe("Enabled by default").optional(),
+    type: z.literal("experiment-ref"),
+    condition: z.string().optional(),
+    ...v1RuleSavedGroupInput,
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    variations: z.array(
+      z
+        .object({
+          value: z.string(),
+          variationId: z.string(),
+        })
+        .strict(),
     ),
-  hashAttribute: z.string(),
-  seed: z.string().optional(),
-  hashVersion: z
-    .union([z.literal(1), z.literal(2)])
-    .describe(
-      "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
-    )
-    .optional(),
-});
+    experimentId: z.string(),
+    sparse: postSparseRuleField,
+  })
+  .strict();
 
-const postFeatureExperimentRefRule = z.object({
+const postFeatureExperimentRuleFields = {
   ...postFeatureRuleProjectScopeShape,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().describe("Enabled by default").optional(),
-  type: z.literal("experiment-ref"),
-  condition: z.string().optional(),
+  ...v1RuleReadOnlyEcho,
   ...v1RuleSavedGroupInput,
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRuleValidator).optional(),
-  variations: z.array(
-    z.object({
-      value: z.string(),
-      variationId: z.string(),
-    }),
-  ),
-  experimentId: z.string(),
-  sparse: postSparseRuleField,
-});
-
-const postFeatureExperimentRule = z.object({
-  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string(),
   id: z.string().optional(),
@@ -1500,7 +1537,7 @@ const postFeatureExperimentRule = z.object({
     })
     .optional(),
   coverage: z.number().optional(),
-  prerequisites: z.array(apiRevisionPrerequisite).optional(),
+  prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   values: z
     .array(
@@ -1524,7 +1561,17 @@ const postFeatureExperimentRule = z.object({
     )
     .optional()
     .meta({ deprecated: true }),
-});
+};
+
+// Legacy inline experiment rules are not curated: whatever the stored schema
+// declares beyond the write fields is accepted and ignored, so a GET (which
+// spreads the stored rule) posts back, while misspelled keys are still rejected.
+const postFeatureExperimentRule = z
+  .object({
+    ...postFeatureExperimentRuleFields,
+    ...storedOnlyEcho(experimentRule.shape, postFeatureExperimentRuleFields),
+  })
+  .strict();
 
 const postFeatureRule = z.union([
   postFeatureForceRule,
@@ -1595,13 +1642,13 @@ const postFeatureBody = z
     targetingAllProjects: z
       .boolean()
       .describe(
-        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Requires the `targetFeatures` permission (FlagsTarget policy) unscoped to any project. Governance stays with `project`.",
       )
       .optional(),
     targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project. Governance stays with `project`.",
       )
       .optional(),
     valueType: z
@@ -1623,7 +1670,7 @@ const postFeatureBody = z
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
-        "A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.",
+        'Settings for each environment, keyed by environment ID. Any environment you leave out is enabled or disabled per that environment\'s "Default state for new features" setting.',
       )
       .optional(),
     prerequisites: z
@@ -1637,6 +1684,12 @@ const postFeatureBody = z
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
+    comment: z
+      .string()
+      .describe(
+        "Comment to record on the feature's initial revision. Defaults to an empty comment.",
+      )
+      .optional(),
     ...publishOverrideBodyFields,
   })
   .strict();
@@ -1654,13 +1707,13 @@ const updateFeatureBody = z
     targetingAllProjects: z
       .boolean()
       .describe(
-        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Requires the `targetFeatures` permission (FlagsTarget policy) unscoped to any project. Governance stays with `project`.",
       )
       .optional(),
     targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project. Governance stays with `project`.",
       )
       .optional(),
     owner: ownerInputField.optional(),
@@ -1678,7 +1731,12 @@ const updateFeatureBody = z
         "List of associated tags. Will override tags completely with submitted list",
       )
       .optional(),
-    environments: z.record(z.string(), postFeatureEnvironment).optional(),
+    environments: z
+      .record(z.string(), postFeatureEnvironment)
+      .describe(
+        "Settings for each environment, keyed by environment ID. Any environment you leave out keeps its current settings.",
+      )
+      .optional(),
     prerequisites: z
       .array(z.string())
       .describe("Feature IDs. Each feature must evaluate to `true`")
@@ -1702,6 +1760,12 @@ const updateFeatureBody = z
       .nullable()
       .describe(
         "Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.\n",
+      )
+      .optional(),
+    comment: z
+      .string()
+      .describe(
+        'Comment to record on the revision this update publishes, when it publishes one. Defaults to "Created via REST API".',
       )
       .optional(),
     ...publishOverrideBodyFields,
@@ -1840,6 +1904,12 @@ export const toggleFeatureValidator = {
   bodySchema: z
     .object({
       reason: z.string().optional(),
+      comment: z
+        .string()
+        .describe(
+          'Comment to record on the revision this toggle publishes, when it changes any environment. Defaults to "Created via REST API". (`reason` is recorded in the audit log only.)',
+        )
+        .optional(),
       environments: z.record(
         z.string(),
         z.union([
@@ -1893,7 +1963,7 @@ export const revertFeatureValidator = {
   }),
   summary: "Revert a feature to a specific revision",
   description:
-    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nRestores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
+    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nRestores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, or restoring an archived state would archive a flag that live flags or experiments still depend on, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "revertFeature",
@@ -1966,11 +2036,13 @@ export const getFeatureStaleValidator = {
                 "abandoned-draft",
                 "toggled-off",
                 "active-experiment",
+                "temp-rollout",
+                "old-temp-rollout",
                 "has-rules",
               ])
               .nullable()
               .describe(
-                "Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`. Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).\n",
+                "Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`, `temp-rollout` (a rule serves a recently stopped experiment's released variation). Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`, `old-temp-rollout` (the environment only serves the released variation of an experiment stopped more than 30 days ago). Null when non-stale with no single cause (see staleByEnv).\n",
               ),
             neverStale: z
               .boolean()
@@ -1991,6 +2063,8 @@ export const getFeatureStaleValidator = {
                       "abandoned-draft",
                       "toggled-off",
                       "active-experiment",
+                      "temp-rollout",
+                      "old-temp-rollout",
                       "has-rules",
                       "recently-updated",
                       "active-draft",
@@ -2004,6 +2078,12 @@ export const getFeatureStaleValidator = {
                     .string()
                     .describe(
                       "The deterministic value this feature evaluates to in this environment. Uses the same raw string encoding as `feature.defaultValue`. Only present when the value is deterministic or the environment is toggled off.\n",
+                    )
+                    .optional(),
+                  tempRollout: z
+                    .enum(["temp-rollout", "old-temp-rollout"])
+                    .describe(
+                      "Present when a reachable rule still serves a stopped experiment's released variation (a temporary rollout that can be cleaned up). `old-temp-rollout` once the experiment has been stopped for more than 30 days.\n",
                     )
                     .optional(),
                 }),

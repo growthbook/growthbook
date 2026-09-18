@@ -1,4 +1,4 @@
-import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
+import { sendEventWebhook } from "back-end/src/events/handlers/webhooks/sendEventWebhook";
 import { getEventWebHookSignatureForPayload } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { secretsReplacer } from "back-end/src/util/secrets";
@@ -25,7 +25,7 @@ describe("EventWebHookNotifier", () => {
       stringBody: "the response body",
     });
 
-    const result = await EventWebHookNotifier.sendDataToWebHook({
+    const result = await sendEventWebhook({
       payload: "the payload",
       eventWebHook: {
         url: "http://foo.com/bla",
@@ -66,7 +66,7 @@ describe("EventWebHookNotifier", () => {
       stringBody: "the failed response body",
     });
 
-    const result = await EventWebHookNotifier.sendDataToWebHook({
+    const result = await sendEventWebhook({
       payload: "the payload",
       eventWebHook: {
         url: "http://foo.com/bla",
@@ -103,7 +103,7 @@ describe("EventWebHookNotifier", () => {
       stringBody: "the response body",
     });
 
-    const result = await EventWebHookNotifier.sendDataToWebHook({
+    const result = await sendEventWebhook({
       payload: "the payload",
       eventWebHook: {
         url: "http://foo.com/bla",
@@ -140,7 +140,7 @@ describe("EventWebHookNotifier", () => {
       stringBody: "the response body",
     });
 
-    const result = await EventWebHookNotifier.sendDataToWebHook({
+    const result = await sendEventWebhook({
       payload: "the payload",
       eventWebHook: {
         url: "http://foo.com/bla",
@@ -179,7 +179,7 @@ describe("EventWebHookNotifier", () => {
       stringBody: "the response body",
     });
 
-    const result = await EventWebHookNotifier.sendDataToWebHook({
+    const result = await sendEventWebhook({
       payload: "the payload",
       eventWebHook: {
         url: "http://foo.com/bla?secret={{secret}}",
@@ -217,7 +217,7 @@ describe("EventWebHookNotifier", () => {
       stringBody: "the response body",
     });
 
-    const result = await EventWebHookNotifier.sendDataToWebHook({
+    const result = await sendEventWebhook({
       payload: "the payload",
       eventWebHook: {
         url: "http://foo.com/bla?secret={{secret}}",

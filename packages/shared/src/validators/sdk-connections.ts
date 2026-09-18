@@ -49,6 +49,7 @@ export const apiSdkConnectionValidator = namedSchema(
       hashSecureAttributes: z.boolean().optional(),
       remoteEvalEnabled: z.boolean().optional(),
       savedGroupReferencesEnabled: z.boolean().optional(),
+      includeReferencedPrerequisites: z.boolean().optional(),
     })
     .strict(),
 );
@@ -86,6 +87,12 @@ const postSdkConnectionBody = z
     hashSecureAttributes: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    includeReferencedPrerequisites: z
+      .boolean()
+      .optional()
+      .describe(
+        "Carry prerequisite Feature Flags into this payload even when they target other Projects. Defaults to true for new connections.",
+      ),
   })
   .strict();
 

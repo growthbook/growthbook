@@ -1,103 +1,50 @@
 import React, { useState } from "react";
 import { CustomHookInterface } from "shared/validators";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { useAuth } from "@/services/auth";
+import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { isCloud } from "@/services/env";
-import CustomHookModal, {
-  hookTypes,
-} from "@/components/CustomHooks/CustomHookModal";
-import CompareCustomHookEventsModal from "@/components/Features/CompareCustomHookEventsModal";
-import CustomHookCodeModal from "@/components/CustomHooks/CustomHookCodeModal";
-import Table, {
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableColumnHeader,
-  TableCell,
-} from "@/ui/Table";
-import Badge from "@/ui/Badge";
+import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
+import CustomHooksTable from "@/components/CustomHooks/CustomHooksTable";
 import Link from "@/ui/Link";
 
-// Feature- and config-scoped hooks render identical tables, differing only in
-// their labels and the entity link target.
+// Feature- and config-scoped hooks are managed from their entity's Validation
+// tab; here they are listed with a link to that entity plus history/revert.
 function EntityScopedHooksSection({
   title,
   description,
   entityLabel,
   entityHref,
   hooks,
-  onViewCode,
-  onHistory,
+  mutate,
 }: {
   title: string;
   description: string;
   entityLabel: string;
   entityHref: (hook: CustomHookInterface) => string;
   hooks: CustomHookInterface[];
-  onViewCode: (hook: CustomHookInterface) => void;
-  onHistory: (hook: CustomHookInterface) => void;
+  mutate: () => void;
 }) {
   if (!hooks.length) return null;
   return (
     <div className="mt-5">
       <h2>{title}</h2>
       <p className="text-muted">{description}</p>
-      <Table variant="list" stickyHeader roundedCorners>
-        <TableHeader>
-          <TableRow>
-            <TableColumnHeader>Name</TableColumnHeader>
-            <TableColumnHeader>Type</TableColumnHeader>
-            <TableColumnHeader>{entityLabel}</TableColumnHeader>
-            <TableColumnHeader style={{ width: 50 }} />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {hooks.map((hook) => (
-            <TableRow key={hook.id}>
-              <TableCell>
-                <Link onClick={() => onViewCode(hook)}>{hook.name}</Link>
-                {!hook.enabled ? (
-                  <Badge color="gray" label="Disabled" ml="2" />
-                ) : null}
-              </TableCell>
-              <TableCell>{hookTypes[hook.hook]?.label ?? hook.hook}</TableCell>
-              <TableCell>
-                <Link href={entityHref(hook)}>{hook.entityId}</Link>
-              </TableCell>
-              <TableCell>
-                <DropdownMenu
-                  variant="soft"
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="1"
-                      highContrast
-                    >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                  menuPlacement="end"
-                >
-                  <DropdownMenuItem onClick={() => onHistory(hook)}>
-                    History &amp; revert
-                  </DropdownMenuItem>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <CustomHooksTable
+        hooks={hooks}
+        column={{
+          header: entityLabel,
+          render: (hook) => (
+            <Link href={entityHref(hook)}>{hook.entityId}</Link>
+          ),
+        }}
+        canManage={() => false}
+        canRevert={() => true}
+        mutate={mutate}
+      />
     </div>
   );
 }
@@ -106,14 +53,6 @@ export default function CustomHooksPage() {
   const [modalData, setModalData] = useState<null | true | CustomHookInterface>(
     null,
   );
-  const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
-    null,
-  );
-  const [historyHook, setHistoryHook] = useState<CustomHookInterface | null>(
-    null,
-  );
-
-  const { apiCall } = useAuth();
 
   const { data, error, mutate } = useApi<{
     customHooks: CustomHookInterface[];
@@ -148,20 +87,6 @@ export default function CustomHooksPage() {
           current={modalData === true ? undefined : modalData}
           close={() => setModalData(null)}
           onSave={() => mutate()}
-        />
-      )}
-      {viewCodeHook && (
-        <CustomHookCodeModal
-          hook={viewCodeHook}
-          close={() => setViewCodeHook(null)}
-        />
-      )}
-      {historyHook && (
-        <CompareCustomHookEventsModal
-          hook={historyHook}
-          canRevert={!historyHook.entityType}
-          onClose={() => setHistoryHook(null)}
-          onRevert={() => mutate()}
         />
       )}
 
@@ -203,96 +128,21 @@ export default function CustomHooksPage() {
                 No global or project-scoped hooks yet.
               </Callout>
             ) : (
-              <Table variant="list" stickyHeader roundedCorners>
-                <TableHeader>
-                  <TableRow>
-                    <TableColumnHeader>Name</TableColumnHeader>
-                    <TableColumnHeader>Type</TableColumnHeader>
-                    <TableColumnHeader>Projects</TableColumnHeader>
-                    <TableColumnHeader style={{ width: 50 }} />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {hooks.map((hook) => (
-                    <TableRow key={hook.id}>
-                      <TableCell>
-                        <Link onClick={() => setViewCodeHook(hook)}>
-                          {hook.name}
-                        </Link>
-                        {!hook.enabled ? (
-                          <Badge color="gray" label="Disabled" ml="2" />
-                        ) : null}
-                      </TableCell>
-                      <TableCell>
-                        {hookTypes[hook.hook]?.label ?? hook.hook}
-                      </TableCell>
-                      <TableCell>
-                        {hook.projects.length ? (
-                          hook.projects.join(", ")
-                        ) : (
-                          <em>All Projects</em>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu
-                          variant="soft"
-                          trigger={
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              radius="full"
-                              size="1"
-                              highContrast
-                            >
-                              <BsThreeDotsVertical size={16} />
-                            </IconButton>
-                          }
-                          menuPlacement="end"
-                        >
-                          <DropdownMenuItem onClick={() => setModalData(hook)}>
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setHistoryHook(hook)}
-                          >
-                            History &amp; revert
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={async () => {
-                              await apiCall(`/custom-hooks/${hook.id}`, {
-                                method: "PUT",
-                                body: JSON.stringify({
-                                  enabled: !hook.enabled,
-                                }),
-                              });
-                              await mutate();
-                            }}
-                          >
-                            {hook.enabled ? "Disable" : "Enable"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            color="red"
-                            confirmation={{
-                              submit: async () => {
-                                await apiCall(`/custom-hooks/${hook.id}`, {
-                                  method: "DELETE",
-                                });
-                                await mutate();
-                              },
-                              confirmationTitle: "Delete custom hook",
-                              cta: "Delete",
-                              getConfirmationContent: async () =>
-                                "Are you sure? This action cannot be undone.",
-                            }}
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <CustomHooksTable
+                hooks={hooks}
+                column={{
+                  header: "Projects",
+                  render: (hook) =>
+                    hook.projects.length ? (
+                      hook.projects.join(", ")
+                    ) : (
+                      <em>All Projects</em>
+                    ),
+                }}
+                canManage={() => true}
+                onEdit={setModalData}
+                mutate={mutate}
+              />
             )}
           </div>
 
@@ -302,8 +152,7 @@ export default function CustomHooksPage() {
             entityLabel="Feature"
             entityHref={(hook) => `/features/${hook.entityId}#validation`}
             hooks={featureHooks}
-            onViewCode={setViewCodeHook}
-            onHistory={setHistoryHook}
+            mutate={mutate}
           />
 
           <EntityScopedHooksSection
@@ -312,8 +161,7 @@ export default function CustomHooksPage() {
             entityLabel="Config"
             entityHref={(hook) => `/configs/${hook.entityId}#validation`}
             hooks={configHooks}
-            onViewCode={setViewCodeHook}
-            onHistory={setHistoryHook}
+            mutate={mutate}
           />
 
           {experimentHooks.length > 0 && (
@@ -324,63 +172,23 @@ export default function CustomHooksPage() {
                 are now managed as global hooks above; you can remove any
                 leftover scoped hooks here.
               </p>
-              <Table variant="list" stickyHeader roundedCorners>
-                <TableHeader>
-                  <TableRow>
-                    <TableColumnHeader>Name</TableColumnHeader>
-                    <TableColumnHeader>Type</TableColumnHeader>
-                    <TableColumnHeader>Experiment</TableColumnHeader>
-                    <TableColumnHeader style={{ width: 50 }} />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {experimentHooks.map((hook) => (
-                    <TableRow key={hook.id}>
-                      <TableCell>
-                        {hook.name}
-                        {!hook.enabled ? (
-                          <Badge color="gray" label="Disabled" />
-                        ) : null}
-                      </TableCell>
-                      <TableCell>
-                        {hookTypes[hook.hook]?.label ?? hook.hook}
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/experiment/${hook.entityId}`}>
-                          {hook.entityId}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <MoreMenu iconButtonSize="1">
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setViewCodeHook(hook);
-                            }}
-                          >
-                            Preview Code
-                          </a>
-                          <DeleteButton
-                            useRadix={false}
-                            useIcon={false}
-                            text="Delete"
-                            displayName="custom hook"
-                            onClick={async () => {
-                              await apiCall(`/custom-hooks/${hook.id}`, {
-                                method: "DELETE",
-                              });
-                              await mutate();
-                            }}
-                            className="dropdown-item text-danger"
-                          />
-                        </MoreMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <CustomHooksTable
+                hooks={experimentHooks}
+                column={{
+                  header: "Experiment",
+                  render: (hook) => (
+                    <Link href={`/experiment/${hook.entityId}`}>
+                      {hook.entityId}
+                    </Link>
+                  ),
+                }}
+                canManage={() => true}
+                // TODO: experiment-scoped hooks are cleanup-only until they
+                // are managed from the experiment page again; restore
+                // Enable/Disable (and Edit via onEdit) here when that lands.
+                canToggle={() => false}
+                mutate={mutate}
+              />
             </div>
           )}
         </>
