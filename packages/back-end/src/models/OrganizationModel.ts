@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
+import {
+  NEW_ORG_DEFAULT_CONFIDENCE_LEVEL,
+  OWNER_JOB_TITLES,
+  USAGE_INTENTS,
+} from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import {
   DemographicData,
@@ -222,6 +226,7 @@ export async function createOrganization({
     id: uniqid("org_"),
     dateCreated: new Date(),
     settings: {
+      confidenceLevel: NEW_ORG_DEFAULT_CONFIDENCE_LEVEL,
       environments: [
         {
           id: "production",

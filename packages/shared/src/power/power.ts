@@ -867,7 +867,9 @@ export function calculateCutpoint(
   priorMeanDGP: number,
   marginalVarianceTauHat: number,
 ): number {
-  const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
+  // One-sided critical value to match the stats-engine chance-to-win decision
+  // rule, i.e. an alpha-level cutoff on each tail rather than a two-sided alpha/2 split.
+  const zStar = normal.quantile(1.0 - alpha, 0, 1);
   const upperSign = upper ? 1 : -1;
   const properInt = proper ? 1 : 0;
   const numerator =
