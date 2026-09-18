@@ -245,6 +245,8 @@ export const rowFilterOperators = [
   "not_in",
   "contains",
   "not_contains",
+  "matches_pattern",
+  "not_matches_pattern",
   "starts_with",
   "ends_with",
   "is_null",
@@ -527,6 +529,12 @@ export const updateFactFilterPropsValidator = z
 export const testFactFilterPropsValidator = z
   .object({
     value: z.string(),
+  })
+  .strict();
+
+export const testRowFiltersPropsValidator = z
+  .object({
+    rowFilters: z.array(rowFilterValidator),
   })
   .strict();
 

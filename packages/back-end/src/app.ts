@@ -1043,7 +1043,7 @@ app.post(
 app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
 app.get("/features/status", featuresController.getFeaturesStatus);
 app.get("/features/draft-states", featuresController.getFeatureDraftStates);
-app.get("/features/stale", featuresController.getFeaturesStaleStates);
+app.get("/features/health", featuresController.getFeaturesHealth);
 app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.get("/features/content-search", featuresController.getFeatureContentSearch);
 app.get(
@@ -1051,10 +1051,6 @@ app.get(
   featuresController.getFeatureDependencyIndex,
 );
 app.get("/features/ramp-states", featuresController.getFeatureRampStates);
-app.get(
-  "/features/experiment-states",
-  featuresController.getFeatureExperimentStates,
-);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,

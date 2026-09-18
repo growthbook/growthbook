@@ -40,6 +40,9 @@ type Definitions = {
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
   projects: ProjectInterface[];
+  // Ids of projects whose "Allow targeting from other Projects" is off,
+  // including projects the viewer cannot read.
+  targetingOptOutProjectIds: string[];
   savedGroups: SavedGroupForDefinitions[];
   constants: ConstantWithoutValue[];
   _constantsIncludingArchived: ConstantWithoutValue[];
@@ -108,6 +111,7 @@ const defaultValue: DefinitionContextValue = {
   metricGroups: [],
   customFields: [],
   projects: [],
+  targetingOptOutProjectIds: [],
   factTables: [],
   _factTablesIncludingArchived: [],
   factMetrics: [],
@@ -395,6 +399,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       metricGroups: metricGroups,
       customFields: data.customFields,
       projects: data.projects,
+      targetingOptOutProjectIds: data.targetingOptOutProjectIds ?? [],
       project: filteredProject,
       factTables: activeFactTables,
       _factTablesIncludingArchived: allFactTables,
