@@ -372,7 +372,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showDeleteRuleModal, setShowDeleteRuleModal] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
-    const [rampApproveError, setRampApproveError] = useState("");
+    const [rampActionError, setRampActionError] = useState("");
     useApprovalTimerTick(rampSchedule);
     const rollbackToStart = async (reason = "rolled back to start") => {
       if (!rampSchedule) return;
@@ -735,7 +735,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             variant="solid"
             loading={rampApproveLoading}
             onClick={async () => {
-              setRampApproveError("");
+              setRampActionError("");
               setRampApproveLoading(true);
               try {
                 await apiCall(
@@ -744,7 +744,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 );
                 await mutate();
               } catch (e) {
-                setRampApproveError(e instanceof Error ? e.message : String(e));
+                setRampActionError(e instanceof Error ? e.message : String(e));
               } finally {
                 setRampApproveLoading(false);
               }
@@ -961,28 +961,49 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   <RampMonitoringCTAs
                     rampSchedule={rampSchedule}
                     onRollback={async (reason?: string) => {
-                      await apiCall(
-                        `/ramp-schedule/${rampSchedule.id}/actions/rollback`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify(reason ? { reason } : {}),
-                        },
-                      );
-                      await mutate();
+                      setRampActionError("");
+                      try {
+                        await apiCall(
+                          `/ramp-schedule/${rampSchedule.id}/actions/rollback`,
+                          {
+                            method: "POST",
+                            body: JSON.stringify(reason ? { reason } : {}),
+                          },
+                        );
+                        await mutate();
+                      } catch (e) {
+                        setRampActionError(
+                          e instanceof Error ? e.message : String(e),
+                        );
+                      }
                     }}
                     onAdvance={async () => {
-                      await apiCall(
-                        `/ramp-schedule/${rampSchedule.id}/actions/advance`,
-                        { method: "POST" },
-                      );
-                      await mutate();
+                      setRampActionError("");
+                      try {
+                        await apiCall(
+                          `/ramp-schedule/${rampSchedule.id}/actions/advance`,
+                          { method: "POST" },
+                        );
+                        await mutate();
+                      } catch (e) {
+                        setRampActionError(
+                          e instanceof Error ? e.message : String(e),
+                        );
+                      }
                     }}
                     onApproveStep={async () => {
-                      await apiCall(
-                        `/ramp-schedule/${rampSchedule.id}/actions/approve-step`,
-                        { method: "POST" },
-                      );
-                      await mutate();
+                      setRampActionError("");
+                      try {
+                        await apiCall(
+                          `/ramp-schedule/${rampSchedule.id}/actions/approve-step`,
+                          { method: "POST" },
+                        );
+                        await mutate();
+                      } catch (e) {
+                        setRampActionError(
+                          e instanceof Error ? e.message : String(e),
+                        );
+                      }
                     }}
                   />
                 )}
@@ -1816,7 +1837,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     {formatSimpleScheduleLabel(rampSchedule)}
                   </Text>
                 )}
-                {rampApproveError && (
+                {rampActionError && (
                   <Callout
                     status="error"
                     mb="2"
@@ -1825,13 +1846,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         size="sm"
                         variant="ghost"
                         color="inherit"
-                        onClick={() => setRampApproveError("")}
+                        onClick={() => setRampActionError("")}
                       >
                         Dismiss
                       </Button>
                     }
                   >
-                    {rampApproveError}
+                    {rampActionError}
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&

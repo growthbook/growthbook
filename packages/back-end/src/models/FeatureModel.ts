@@ -47,6 +47,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
@@ -941,6 +943,8 @@ export async function createFeature(
     linkedExperiments,
   });
 
+  await assertFeatureSavedGroupScope(context, data);
+
   if (Array.isArray(featureToCreate.rules)) {
     const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
       featureToCreate.rules as FeatureRule[],
@@ -1371,6 +1375,11 @@ export async function updateFeature(
     // set-then-fetch, so its `dateUpdated` may already be a rival's, and
     // reading ownership from it says "still ours" at the moment it isn't.
     onStamped?: (stamp: Date) => void;
+    // Internal failed-write recovery only; a user-requested revert must still
+    // satisfy the current Saved Group scope.
+    isCompensation?: boolean;
+    // Preserve references already accepted in the draft being landed.
+    savedGroupScopeRevision?: FeatureRevisionInterface;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
@@ -1409,6 +1418,21 @@ export async function updateFeature(
   // `bulkPublishApplying` (not the correlation token) so genuine post-commit
   // writes — ramp activation etc., NOT covered by the plan gates — still run.
   if (!context.bulkPublishApplying) {
+    if (!options?.isCompensation) {
+      await assertFeatureSavedGroupScope(
+        context,
+        projected,
+        options?.savedGroupScopeRevision
+          ? [
+              feature,
+              featureForSavedGroupValidation(
+                feature,
+                options.savedGroupScopeRevision,
+              ),
+            ]
+          : feature,
+      );
+    }
     await runValidateFeatureHooks({
       context,
       feature: projected,
@@ -2153,7 +2177,11 @@ export async function applyRevisionChanges(
   // Every branch below is a landing, so its FIRST write is guarded on the
   // pre-image `feature` — same rule as the generic entities' guarded landings:
   // two publishes computed from the same read must not both apply.
-  const guard = { casOnDateUpdated: feature.dateUpdated, onStamped };
+  const guard = {
+    casOnDateUpdated: feature.dateUpdated,
+    onStamped,
+    savedGroupScopeRevision: revision,
+  };
 
   if (!hasChanges) {
     return await updateFeature(context, feature, changes, guard);
@@ -3692,6 +3720,10 @@ export async function prevalidatePublishRevision({
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
+  await assertFeatureSavedGroupScope(context, proposedFeature, [
+    feature,
+    featureForSavedGroupValidation(feature, revision),
+  ]);
   if (skipValidation) return;
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),
@@ -3797,6 +3829,7 @@ async function restorePublishedFeatureDoc(
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
         onStamped,
+        isCompensation: true,
       });
       return;
     } catch (e) {
