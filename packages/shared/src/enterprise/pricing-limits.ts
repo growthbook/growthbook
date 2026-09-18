@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { OrgLimits } from "./license-consts";
-import { FREE_ORG_LIMITS } from "./entitlements";
+import { FREE_ORG_LIMITS, PAID_PLAN_LIMITS_START_DATE } from "./entitlements";
 
 // Value shape: { "enabled": true, ...OrgLimits }. Per-plan values are served
 // with targeting rules on the accountPlan attribute.
@@ -15,8 +15,18 @@ export function isLimitsFlagDisabled(raw: unknown): boolean {
   );
 }
 
-// A missing flag uses defaults; an explicitly disabled flag opts out.
-export function shouldStampOrgLimits(raw: unknown): boolean {
+// Only eligible signup dates can use flag values or fallback defaults.
+export function shouldStampOrgLimits(
+  org: { dateCreated: Date | string },
+  raw: unknown,
+): boolean {
+  const dateCreated = new Date(org.dateCreated);
+  if (
+    isNaN(dateCreated.getTime()) ||
+    dateCreated < PAID_PLAN_LIMITS_START_DATE
+  ) {
+    return false;
+  }
   if ((raw ?? null) === null) return true;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
   return !isLimitsFlagDisabled(raw);

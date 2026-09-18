@@ -1,6 +1,5 @@
 import {
   DEFAULT_ORG_LIMITS,
-  FREE_ORG_LIMITS,
   OrgLimits,
   OrgLimitsAccessor,
   PRICING_PHASE_1_FLAG_KEY,
@@ -21,17 +20,19 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 
 // Limits stamped onto a newly created org. Cloud reads the flag; self-hosted
 // always uses the hardcoded defaults.
-export async function getStampedOrgLimits(): Promise<OrgLimits | undefined> {
-  if (!IS_CLOUD) return { ...FREE_ORG_LIMITS };
+export async function getStampedOrgLimits(
+  org: Pick<OrganizationInterface, "dateCreated">,
+): Promise<OrgLimits | undefined> {
+  let raw: unknown = null;
+  if (IS_CLOUD) {
+    // Bounded by the client's 3s init timeout so startup can use configured values.
+    await initializeGrowthBookClient();
+    raw = getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
+      attributes: {},
+    }).value;
+  }
 
-  // Bounded by the client's 3s init timeout — orgs created right after boot
-  // still stamp from the configured flag instead of the hardcoded defaults.
-  await initializeGrowthBookClient();
-  const raw = getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
-    attributes: {},
-  }).value;
-
-  if (!shouldStampOrgLimits(raw)) return undefined;
+  if (!shouldStampOrgLimits(org, raw)) return undefined;
 
   return resolveOrgLimitsConfig(raw);
 }
