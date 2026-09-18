@@ -46,7 +46,7 @@ it("keeps explicit overrides after the primary matches them and changes again", 
   expect(changedAgain.steps.map((step) => step.factTableId)).toEqual([
     "c",
     "b",
-    "c",
+    "b",
   ]);
 });
 
@@ -84,6 +84,38 @@ it("keeps an explicit selection even when changed back to the primary table", ()
   expect(changed.steps.map((step) => step.factTableId)).toEqual([
     "c",
     "a",
-    "c",
+    "a",
   ]);
+});
+
+it("resumes inheritance when relinked, resetting filters to table defaults", () => {
+  const changed = updateFunnelSteps(steps, 1, { factTableId: "b" }, new Set());
+  expect(changed.steps.map((s) => s.factTableId)).toEqual(["a", "b", "b"]);
+  const filters = [{ column: "event", operator: "=" as const, values: [""] }];
+  const linked = updateFunnelSteps(
+    changed.steps,
+    1,
+    {},
+    new Set(),
+    () => filters,
+  );
+  expect(linked.steps.map((s) => s.factTableId)).toEqual(["a", "a", "a"]);
+  expect(linked.steps[2].rowFilters).toEqual(filters);
+});
+
+it("keeps an unlinked table independent even before it is changed", () => {
+  const result = updateFunnelSteps(
+    steps,
+    0,
+    { factTableId: "b" },
+    new Set([1]),
+  );
+  expect(result.steps.map((s) => s.factTableId)).toEqual(["b", "a", "a"]);
+});
+
+it("inherits from the new preceding step when an override is removed", () => {
+  const changed = updateFunnelSteps(steps, 1, { factTableId: "b" }, new Set());
+  const remaining = changed.steps.filter((step, index) => index !== 1);
+  const result = updateFunnelSteps(remaining, 0, {}, new Set());
+  expect(result.steps.map((step) => step.factTableId)).toEqual(["a", "a"]);
 });

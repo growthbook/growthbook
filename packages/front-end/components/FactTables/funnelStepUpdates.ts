@@ -5,31 +5,22 @@ export function updateFunnelSteps(
   index: number,
   updates: Partial<FunnelStep>,
   overriddenTables: ReadonlySet<number>,
+  initialFilters: (id: string) => FunnelStep["rowFilters"] = () => [],
 ) {
-  const tableChanged =
-    updates.factTableId !== undefined &&
-    updates.factTableId !== steps[index].factTableId;
   const overrides = new Set(overriddenTables);
-  if (index > 0 && tableChanged) overrides.add(index);
-
-  return {
-    overriddenTables: overrides,
-    steps: steps.map((step, i) => {
-      if (i === index) return { ...step, ...updates };
-      if (
-        index === 0 &&
-        tableChanged &&
-        updates.factTableId !== undefined &&
-        !overrides.has(i) &&
-        step.factTableId !== updates.factTableId
-      ) {
-        return {
-          ...step,
-          factTableId: updates.factTableId,
-          rowFilters: updates.rowFilters ?? [],
-        };
-      }
-      return step;
-    }),
-  };
+  if (index > 0 && updates.factTableId !== undefined) overrides.add(index);
+  const next = steps.map((step, i) =>
+    i === index ? { ...step, ...updates } : step,
+  );
+  for (let i = 1; i < next.length; i++) {
+    const factTableId = next[i - 1].factTableId;
+    if (!overrides.has(i) && next[i].factTableId !== factTableId) {
+      next[i] = {
+        ...next[i],
+        factTableId,
+        rowFilters: initialFilters(factTableId),
+      };
+    }
+  }
+  return { overriddenTables: overrides, steps: next };
 }

@@ -1,6 +1,7 @@
 import { FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import DataList from "@/ui/DataList";
+import Callout from "@/ui/Callout";
 import {
   aggregationForShape,
   columnsForShape,
@@ -8,8 +9,6 @@ import {
   RatioShape,
 } from "./metricFormTranslation";
 
-// columnsFor(shape, factTable).length === 0 means omit the field, not
-// disable it (spec) - the null return is what makes that possible.
 // hasCountDistinctHLL is required, not defaulted: forgetting it would
 // silently offer "Count distinct" columns on a datasource that can't run it.
 export default function ColumnSelect({
@@ -45,7 +44,25 @@ export default function ColumnSelect({
   }
 
   const columns = columnsForShape(shape, factTable, hasCountDistinctHLL);
-  if (columns.length === 0) return null;
+  if (columns.length === 0) {
+    if (
+      !factTable ||
+      shape === "count" ||
+      shape === "days" ||
+      shape === "users"
+    ) {
+      return null;
+    }
+    return (
+      <Callout status="info" size="sm">
+        {shape === "distinct" && !hasCountDistinctHLL
+          ? "Count distinct is not supported by this data source. Choose a different metric type or a fact table from a supported data source."
+          : shape === "distinct"
+            ? "No eligible string columns in this fact table. Count distinct requires a string column. Choose a different fact table or metric type."
+            : "No eligible numeric columns in this fact table. This aggregation requires a numeric column. Choose a different fact table or metric type."}
+      </Callout>
+    );
+  }
 
   return (
     <Select label={label} value={value} setValue={onChange}>

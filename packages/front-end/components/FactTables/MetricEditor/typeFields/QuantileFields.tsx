@@ -121,7 +121,7 @@ export default function QuantileFields({
       <Flex gap="2" align="end" wrap="wrap">
         {scope === "unit" && (
           <ShapeSelect
-            label="Aggregation"
+            label="Per-User Aggregation"
             value={shape}
             shapes={SHAPES}
             factTable={factTable}
