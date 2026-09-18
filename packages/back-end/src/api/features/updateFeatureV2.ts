@@ -51,11 +51,6 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
-import { logger } from "back-end/src/util/logger";
-import {
-  dispatchFeatureRevisionEvent,
-  getPublishedRevisionForEvents,
-} from "back-end/src/services/featureRevisionEvents";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
 import {
@@ -536,25 +531,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     Object.assign(feature, updatedFeatureFromRevision);
     updates.version = revision.version;
 
-    // See updateFeature: this path lands a live revision, so it owes the same
-    // `revision.published` webhook the dedicated publish endpoints emit.
-
-    // Immediately after the revision commits, not at the end of the handler — see
-    // updateFeature. Best-effort: a failed notification must not fail a committed write.
-    try {
-      await dispatchFeatureRevisionEvent(
-        req.context,
-        feature,
-        await getPublishedRevisionForEvents(req.context, feature, revision),
-        "revision.published",
-        {},
-      );
-    } catch (e) {
-      logger.error(
-        e,
-        `Failed to dispatch revision.published for feature ${feature.id}`,
-      );
-    }
     if (bypassedApproval) {
       bypassedGates.push({
         type: "approval-required",

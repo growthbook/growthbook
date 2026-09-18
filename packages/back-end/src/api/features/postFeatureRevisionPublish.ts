@@ -283,23 +283,18 @@ export async function publishFeatureRevision(
     }),
   });
 
-  // Re-read so the event carries the published status; falls back to the
-  // in-memory revision instead of failing the already-committed publish.
+  // Re-read so the response and the event carry the published status; falls
+  // back to the in-memory revision instead of failing the already-committed
+  // publish.
   const finalRevision = await getPublishedRevisionForEvents(
     req.context,
     updatedFeature,
     revision,
   );
 
-  await dispatchFeatureRevisionEvent(
-    req.context,
-    updatedFeature,
-    finalRevision,
-    "revision.published",
-    {},
-  );
-  // A revert that lands is ALSO a publish, so it owes both events — same rule
-  // as the generic engine and the direct revert doors.
+  // A revert that lands is ALSO a publish, so beside the `revision.published`
+  // the landing dispatched it owes the reverted event — same rule as the
+  // generic engine and the direct revert doors.
   const restRevertedTo = draftRevertedFromVersion(finalRevision);
   if (restRevertedTo !== undefined) {
     await dispatchFeatureRevisionEvent(
