@@ -27,7 +27,6 @@ import {
   PiCaretCircleRight,
   PiCaretCircleDown,
   PiFunnelSimple,
-  PiArrowsOut,
 } from "react-icons/pi";
 import {
   expandMetricGroups,
@@ -48,7 +47,6 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { ReplacedMetricWarning } from "@/components/Metrics/MetricReplacement";
-import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -548,34 +546,6 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-function MetricDrilldownButton({ row }: { row: ExperimentTableRow }) {
-  const drilldownContext = useMetricDrilldownContext();
-  if (!drilldownContext || row.labelOnly) return null;
-  const open = (e: {
-    preventDefault: () => void;
-    stopPropagation: () => void;
-  }) => {
-    e.preventDefault();
-    e.stopPropagation();
-    drilldownContext.openDrilldown(row);
-  };
-  return (
-    <span
-      role="button"
-      tabIndex={0}
-      aria-label="Open metric drilldown"
-      className={styles.metricDrilldownDetails}
-      onClick={open}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") open(e);
-      }}
-    >
-      <PiArrowsOut size={13} />
-      <span className={styles.metricDrilldownDetailsText}>Details</span>
-    </span>
-  );
-}
-
 export function getRenderLabelColumn({
   expandedMetrics,
   toggleExpandedMetric,
@@ -821,7 +791,6 @@ export function getRenderLabelColumn({
                         disableTooltip={false}
                         leftGap={false}
                       />
-                      {row ? <MetricDrilldownButton row={row} /> : null}
                       <PiArrowSquareOut
                         className={styles.metricExternalLinkIcon}
                         size={14}
@@ -844,7 +813,6 @@ export function getRenderLabelColumn({
                       disableTooltip={false}
                       leftGap={false}
                     />
-                    {row ? <MetricDrilldownButton row={row} /> : null}
                     <PiArrowSquareOut
                       className={styles.metricExternalLinkIcon}
                       size={14}
