@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import { useCallback } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiChatCircleDots, PiClockCounterClockwise } from "react-icons/pi";
 import { datetime, formatShortAgo } from "shared/dates";
@@ -6,6 +6,7 @@ import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
 import {
   DropdownMenu,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
@@ -85,7 +86,7 @@ export default function AgentChatHistory({
         </Flex>
       ) : (
         groups.map((group, groupIdx) => (
-          <React.Fragment key={group.label}>
+          <DropdownMenuGroup key={group.label}>
             <DropdownMenuLabel
               textSize="sm"
               style={{
@@ -111,7 +112,7 @@ export default function AgentChatHistory({
                 onSelect={onSelect}
               />
             ))}
-          </React.Fragment>
+          </DropdownMenuGroup>
         ))
       )}
     </DropdownMenu>

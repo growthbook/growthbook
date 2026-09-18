@@ -364,7 +364,6 @@ export function useAIChat({
       const controller = new AbortController();
       abortControllerRef.current = controller;
       userCancelledRef.current = false;
-      setIsLocalStream(true);
 
       let streamCompletedOk = false;
       const sendStartMs = Date.now();
@@ -401,6 +400,7 @@ export function useAIChat({
           return;
         }
 
+        setIsLocalStream(true);
         onStreamAcceptedRef.current?.();
 
         const reader = response.body?.getReader();

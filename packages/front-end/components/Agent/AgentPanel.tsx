@@ -4,7 +4,6 @@ import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   PiArrowsInSimple,
   PiArrowsOutSimple,
-  PiCaretRight,
   PiChartLine,
   PiChartLineUp,
   PiFlag,
@@ -17,6 +16,7 @@ import { useSWRConfig } from "swr";
 import type { AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -622,9 +622,9 @@ export default function AgentPanel({
           >
             <PiSparkle size={16} color="var(--violet-11)" />
           </Flex>
-          <Text size="md" weight="semibold">
+          <Heading as="h2" size="xs">
             AI Assistant
-          </Text>
+          </Heading>
         </Flex>
         <Flex align="center" gap="3">
           <AgentChatHistory
@@ -702,7 +702,7 @@ export default function AgentPanel({
                       Hey there! 👋
                     </Text>
                     <Text size="md" color="text-mid">
-                      I&apos;m your AI analyst. I have access to your
+                      I&apos;m your AI Assistant. I have access to your
                       experiments, Feature Flags, metrics, and database schemas.
                       Let me know what you&apos;d like to build or explore
                       today!
@@ -710,9 +710,9 @@ export default function AgentPanel({
                   </Flex>
                 </Box>
                 <Flex direction="column" gap="2">
-                  <Text size="sm" weight="semibold" color="text-low">
+                  <Heading as="h3" size="xs" color="text-low">
                     Suggestions
-                  </Text>
+                  </Heading>
                   <Grid columns={expanded ? "2" : "1"} gap="2">
                     {STARTER_PROMPTS.map(({ prompt, Icon }) => (
                       <Button
@@ -739,13 +739,7 @@ export default function AgentPanel({
                         onClick={() => handleStarterPrompt(prompt)}
                         className={aiChatStyles.suggestedPrompt}
                       >
-                        <span className={aiChatStyles.suggestedPromptText}>
-                          {prompt}
-                        </span>
-                        <PiCaretRight
-                          className={aiChatStyles.suggestedPromptCaret}
-                          aria-hidden
-                        />
+                        {prompt}
                       </Button>
                     ))}
                   </Grid>

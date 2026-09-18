@@ -61,40 +61,11 @@
   min-height: 48px;
   justify-content: flex-start;
   padding: 8px 10px;
-  background: var(--gray-a2);
-  border: 0;
   border-radius: var(--radius-3);
-  box-shadow: inset 0 0 0 1px var(--gray-a4);
   color: var(--color-text-high);
   column-gap: 12px;
-
-  > span:last-child {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    flex: 1;
-    gap: 12px;
-    min-width: 0;
-    font-size: var(--font-size-2);
-    font-weight: 400;
-    text-align: left;
-  }
-
-  &:hover {
-    background: var(--gray-a3);
-    box-shadow: inset 0 0 0 1px var(--gray-a5);
-  }
-}
-
-.suggestedPromptText {
-  min-width: 0;
-  line-height: 1.35;
   white-space: normal;
-}
-
-.suggestedPromptCaret {
-  flex-shrink: 0;
-  color: var(--gray-a9);
+  text-align: left;
 }
 
 .deleteButton {

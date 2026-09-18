@@ -20,11 +20,10 @@ const GROUP_ORDER: ConversationGroupLabel[] = [
   "Older",
 ];
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function startOfLocalDay(ts: number): number {
+function startOfLocalDay(ts: number, daysAgo = 0): number {
   const d = new Date(ts);
   d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - daysAgo);
   return d.getTime();
 }
 
@@ -34,9 +33,9 @@ export function getConversationGroupLabel(
 ): ConversationGroupLabel {
   const todayStart = startOfLocalDay(now);
   if (createdAt >= todayStart) return "Today";
-  if (createdAt >= todayStart - DAY_MS) return "Yesterday";
-  if (createdAt >= todayStart - 7 * DAY_MS) return "Previous 7 days";
-  if (createdAt >= todayStart - 30 * DAY_MS) return "Previous 30 days";
+  if (createdAt >= startOfLocalDay(now, 1)) return "Yesterday";
+  if (createdAt >= startOfLocalDay(now, 7)) return "Previous 7 days";
+  if (createdAt >= startOfLocalDay(now, 30)) return "Previous 30 days";
   return "Older";
 }
 

@@ -45,6 +45,31 @@ describe("getConversationGroupLabel", () => {
     );
     expect(getConversationGroupLabel(NOW - 31 * DAY, NOW)).toBe("Older");
   });
+
+  it("uses calendar-day boundaries across daylight-saving changes", () => {
+    const originalTimezone = process.env.TZ;
+    process.env.TZ = "America/New_York";
+
+    try {
+      const afterSpringForward = new Date(2026, 2, 9, 12).getTime();
+      const saturdayBefore = new Date(2026, 2, 7, 23, 30).getTime();
+      expect(
+        getConversationGroupLabel(saturdayBefore, afterSpringForward),
+      ).toBe("Previous 7 days");
+
+      const afterFallBack = new Date(2026, 10, 2, 12).getTime();
+      const sundayStart = new Date(2026, 10, 1, 0, 30).getTime();
+      expect(getConversationGroupLabel(sundayStart, afterFallBack)).toBe(
+        "Yesterday",
+      );
+    } finally {
+      if (originalTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTimezone;
+      }
+    }
+  });
 });
 
 describe("groupConversationsByRecency", () => {
