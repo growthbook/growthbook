@@ -27,6 +27,8 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
+            // Gate builds during stack rebases; do not reconcile other PRs' previews.
+            // Existing previews live until closure; new tips build on their next PR event.
             // Always allow closed PRs through to preview cleanup.
             if (context.payload.action === "closed") return true;
 
