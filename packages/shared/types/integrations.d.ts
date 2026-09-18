@@ -587,7 +587,15 @@ type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
  * Deliberately not shaped like `ExposureQuery`, so an unresolved query can't
  * be passed where a resolved one is expected.
  */
-export type ResolvedExposureQuery = { query: string; identifierType: string };
+export type ResolvedExposureQuery = {
+  query: string;
+  identifierType: string;
+  // Column-role mappings (see ExposureQuery); unset roles resolve by canonical name.
+  userIdColumns?: Record<string, string>;
+  timestampColumn?: string;
+  experimentIdColumn?: string;
+  variationIdColumn?: string;
+};
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;

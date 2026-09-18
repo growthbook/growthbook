@@ -1,4 +1,10 @@
 import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+} from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -77,7 +83,7 @@ export function getExperimentUnitsQuery(
   const startDate: Date = unitsSettings.startDate;
   const endDate: Date = getExperimentEndDate(unitsSettings, 0);
 
-  const timestampColumn = "e.timestamp";
+  const timestampColumn = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
   const timestampDateTimeColumn = dialect.castUserDateCol(timestampColumn);
   const overrideConversionWindows =
     unitsSettings.attributionModel === "experimentDuration" ||
@@ -143,8 +149,10 @@ export function getExperimentUnitsQuery(
     __experimentExposures AS (
       -- Viewed Experiment
       SELECT
-        e.${baseIdType} as ${baseIdType}
-        , ${dialect.castToString("e.variation_id")} as variation
+        e.${getExposureQueryIdentifierColumn(exposureQuery, baseIdType)} as ${baseIdType}
+        , ${dialect.castToString(
+          `e.${getExposureQueryVariationIdColumn(exposureQuery)}`,
+        )} as variation
         , ${timestampDateTimeColumn} as timestamp
         ${contextualExposureSelectCols}
         ${experimentDimensions
@@ -162,7 +170,9 @@ export function getExperimentUnitsQuery(
       FROM
           __rawExperiment e
       WHERE
-          e.experiment_id = '${unitsSettings.experimentId}'
+          e.${getExposureQueryExperimentIdColumn(
+            exposureQuery,
+          )} = '${unitsSettings.experimentId}'
           AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate
