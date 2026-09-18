@@ -11,6 +11,7 @@ const MIMETYPES: Record<string, string> = {
   "image/jpeg": "jpeg",
   "image/gif": "gif",
   "image/webp": "webp",
+  "image/svg+xml": "svg",
 };
 
 const SIGNED_EXPIRY_MINUTES = 15;
@@ -21,7 +22,16 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 const bodySchema = z
   .object({
-    contentType: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
+    // SVG is accepted: the Visual Editor is operated by trusted org members
+    // against their own sites. The asset is stored and referenced as an
+    // <img src>, which does not execute scripts.
+    contentType: z.enum([
+      "image/png",
+      "image/jpeg",
+      "image/gif",
+      "image/webp",
+      "image/svg+xml",
+    ]),
     visualChangesetId: z.string(),
   })
   .strict();
