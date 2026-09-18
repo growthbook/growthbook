@@ -461,6 +461,169 @@ describe("createV2SavedGroupsOperatorHandler", () => {
   });
 });
 
+describe("referencesV2 finalizeCondition", () => {
+  const groupMap: GroupMap = new Map([
+    ["list_country", { type: "list", attributeKey: "country", values: ["US"] }],
+    ["list_id", { type: "list", attributeKey: "id", values: ["u_1"] }],
+    [
+      "cond_1",
+      { type: "condition", condition: JSON.stringify({ browser: "chrome" }) },
+    ],
+  ]);
+
+  const finalize = (condition: Record<string, unknown>) => {
+    getSavedGroupPayloadStrategy({
+      capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+      savedGroupReferencesEnabled: true,
+      groupMap,
+    }).finalizeCondition(condition);
+    return condition;
+  };
+
+  it("rewrites a lone $inGroup into a $savedGroup reference", () => {
+    expect(finalize({ country: { $inGroup: "list_country" } })).toEqual({
+      $savedGroup: "list_country",
+    });
+  });
+
+  it("rewrites a lone $notInGroup into a negated reference", () => {
+    expect(finalize({ country: { $notInGroup: "list_country" } })).toEqual({
+      $not: { $savedGroup: "list_country" },
+    });
+  });
+
+  it("ANDs the reference with the rest of the attribute's operators", () => {
+    expect(
+      finalize({ country: { $inGroup: "list_country", $ne: "CA" } }),
+    ).toEqual({
+      $and: [{ country: { $ne: "CA" } }, { $savedGroup: "list_country" }],
+    });
+  });
+
+  it("ANDs the reference with sibling attribute targeting", () => {
+    expect(
+      finalize({ country: { $inGroup: "list_country" }, plan: "pro" }),
+    ).toEqual({
+      $and: [{ plan: "pro" }, { $savedGroup: "list_country" }],
+    });
+  });
+
+  it("merges into an existing $and", () => {
+    expect(
+      finalize({
+        $and: [{ plan: "pro" }],
+        country: { $inGroup: "list_country" },
+      }),
+    ).toEqual({
+      $and: [{ plan: "pro" }, { $savedGroup: "list_country" }],
+    });
+  });
+
+  it("ANDs several groups at the same level", () => {
+    expect(
+      finalize({
+        country: { $inGroup: "list_country" },
+        id: { $notInGroup: "list_id" },
+      }),
+    ).toEqual({
+      $and: [
+        { $savedGroup: "list_country" },
+        { $not: { $savedGroup: "list_id" } },
+      ],
+    });
+  });
+
+  it("rewrites inside $or and $not", () => {
+    expect(
+      finalize({
+        $or: [
+          { country: { $inGroup: "list_country" } },
+          { $not: { id: { $inGroup: "list_id" } } },
+        ],
+      }),
+    ).toEqual({
+      $or: [
+        { $savedGroup: "list_country" },
+        { $not: { $savedGroup: "list_id" } },
+      ],
+    });
+  });
+
+  it("still reaches a nested group after restructuring a sibling", () => {
+    // Rewriting `country` rebuilds the object, which must not strand the
+    // $inGroup inside the $or that follows it
+    expect(
+      finalize({
+        country: { $inGroup: "list_country" },
+        $or: [{ id: { $inGroup: "list_id" } }],
+      }),
+    ).toEqual({
+      $and: [
+        { $or: [{ $savedGroup: "list_id" }] },
+        { $savedGroup: "list_country" },
+      ],
+    });
+  });
+
+  it("leaves a group on a different attribute alone", () => {
+    // $savedGroup would check `country`, so the two differ
+    expect(finalize({ id: { $inGroup: "list_country" } })).toEqual({
+      id: { $inGroup: "list_country" },
+    });
+  });
+
+  it("leaves a Condition Group alone, since it has no attribute", () => {
+    expect(finalize({ country: { $inGroup: "cond_1" } })).toEqual({
+      country: { $inGroup: "cond_1" },
+    });
+  });
+
+  it("leaves an unknown group alone", () => {
+    expect(finalize({ country: { $inGroup: "nope" } })).toEqual({
+      country: { $inGroup: "nope" },
+    });
+  });
+
+  it("leaves a condition with no saved groups untouched", () => {
+    expect(finalize({ country: "US", age: { $gt: 18 } })).toEqual({
+      country: "US",
+      age: { $gt: 18 },
+    });
+  });
+
+  it("walks a parentConditions array without disturbing its entries", () => {
+    const parentConditions = [
+      {
+        id: "parent",
+        gate: true,
+        condition: { country: { $inGroup: "list_country" } },
+      },
+    ];
+    getSavedGroupPayloadStrategy({
+      capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+      savedGroupReferencesEnabled: true,
+      groupMap,
+    }).finalizeCondition(parentConditions);
+    expect(parentConditions).toEqual([
+      {
+        id: "parent",
+        gate: true,
+        condition: { $savedGroup: "list_country" },
+      },
+    ]);
+  });
+
+  it("does nothing under v1, which sends $inGroup as its own form", () => {
+    const condition = { country: { $inGroup: "list_country" } };
+    getSavedGroupPayloadStrategy({
+      capabilities: ["savedGroupReferences"],
+      savedGroupReferencesEnabled: true,
+      groupMap,
+    }).finalizeCondition(condition);
+    expect(condition).toEqual({ country: { $inGroup: "list_country" } });
+  });
+});
+
 describe("findAllReferencedSavedGroupIds", () => {
   const groupMap: GroupMap = new Map([
     ["list_1", { type: "list", attributeKey: "country", values: ["US"] }],
@@ -565,6 +728,11 @@ describe("buildV2SavedGroupsPayload", () => {
       type: "condition",
       condition: JSON.stringify({ $savedGroups: ["cond_1", "list_1"] }),
     }),
+    savedGroup({
+      id: "cond_legacy",
+      type: "condition",
+      condition: JSON.stringify({ country: { $inGroup: "list_1" } }),
+    }),
     savedGroup({ id: "cond_bad", type: "condition", condition: "{not json" }),
   ];
   const groupMap: GroupMap = new Map(groups.map((g) => [g.id, g]));
@@ -592,6 +760,14 @@ describe("buildV2SavedGroupsPayload", () => {
     });
     // $savedGroups must never reach the payload
     expect(JSON.stringify(defs)).not.toContain("$savedGroups");
+  });
+
+  it("rewrites a nested $inGroup into $savedGroup", () => {
+    const defs = buildV2SavedGroupsPayload(groups, org, groupMap);
+    expect(defs["cond_legacy"]).toEqual({
+      type: "condition",
+      condition: { $savedGroup: "list_1" },
+    });
   });
 
   it("omits a list group with no attributeKey", () => {

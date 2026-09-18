@@ -656,6 +656,7 @@ const SavedGroupForm: FC<{
           <LargeSavedGroupPerformanceWarning
             type="condition"
             {...largeSavedGroupSupport}
+            openUpgradeModal={() => setUpgradeModal(true)}
           />
           <div className="form-group">
             Updating this group will automatically update any associated

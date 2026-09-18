@@ -11,11 +11,9 @@ type NotCondition = {
   $not: ConditionInterface;
 };
 /**
- * A reference to one saved group, resolved against the payload's `savedGroups`.
- * Top level like `$and` and `$or`, not scoped to an attribute.
- *
- * The authoring operator `$savedGroups` (plural, an array) never reaches an
- * SDK, so it has no type here on purpose.
+ * A reference to one saved group. Top level like `$and`, not scoped to an
+ * attribute. The plural authoring operator `$savedGroups` never reaches an
+ * SDK, so it has no type here.
  */
 type SavedGroupCondition = {
   $savedGroup: string;

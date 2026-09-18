@@ -101,88 +101,88 @@ export function walkSavedGroups(
     // If nothing to add, return early
     if (!newConditions.length) return;
 
-    // Combine existing condition with new conditions using AND
-    const and: unknown[] = [];
-
-    // Add existing conditions (if any) to a new object within $and
-    const existingCond: Record<string, unknown> = {};
-    for (const k in object) {
-      // Existing $and - flatten into the new $and array
-      if (k === "$and") {
-        // Valid $and - array of condition
-        if (Array.isArray(object["$and"])) {
-          object["$and"].forEach((cond: unknown) => {
-            and.push(cond);
-          });
-        }
-        // Invalid $and - not an array, keep as-is
-        else {
-          and.push({ $and: object["$and"] });
-        }
-      }
-      // Otherwise, add to existingCond
-      else {
-        existingCond[k] = object[k];
-      }
-    }
-    if (Object.keys(existingCond).length > 0) {
-      and.push(existingCond);
-    }
-
-    // Add all new conditions from saved groups
-    newConditions.forEach((cond) => {
-      // Sanity check - this should never be false
-      if (cond && typeof cond === "object") {
-        and.push(cond);
-      }
-    });
-
-    // Remove invalid entries and flatten into final AND
-    const finalAnd: Record<string, unknown>[] = [];
-    and.forEach((cond: unknown) => {
-      // Skip conditions that are not objects or empty
-      if (!cond || typeof cond !== "object" || Object.keys(cond).length === 0) {
-        return;
-      }
-
-      // Object with a single key "$and"
-      // Flatten into top-level $and
-      if (
-        Object.keys(cond).length === 1 &&
-        "$and" in cond &&
-        Array.isArray(cond["$and"])
-      ) {
-        cond["$and"].forEach((nestedCond: unknown) => {
-          if (
-            nestedCond &&
-            typeof nestedCond === "object" &&
-            Object.keys(nestedCond).length > 0
-          ) {
-            finalAnd.push(nestedCond as Record<string, unknown>);
-          }
-        });
-      }
-      // Otherwise, keep the condition as-is
-      else {
-        finalAnd.push(cond as Record<string, unknown>);
-      }
-    });
-
-    // Remove all existing keys from object
-    for (const k in object) {
-      delete object[k];
-    }
-
-    // If $and has only one condition, flatten it and add each key directly
-    if (finalAnd.length === 1) {
-      const singleCond = finalAnd[0];
-      for (const k in singleCond) {
-        object[k] = singleCond[k];
-      }
-    }
-    // Otherwise set $and to the combined conditions
-    else {
-      object["$and"] = finalAnd;
-    }
+    andConditionsInto(object, newConditions);
   };
+}
+
+/**
+ * Replaces `object` with an AND of what it already held and the conditions
+ * given. An existing `$and` is flattened in, and the wrapper is dropped when
+ * one condition is left. For example:
+ *
+ *   object          {"country": "US"}
+ *   newConditions   [{"$savedGroup": "grp_beta"}]
+ *     ->  {"$and": [{"country": "US"}, {"$savedGroup": "grp_beta"}]}
+ */
+export function andConditionsInto(
+  object: Record<string, unknown>,
+  newConditions: unknown[],
+) {
+  const and: unknown[] = [];
+
+  // Everything the object already held becomes one more member of the AND. An
+  // existing $and is flattened in rather than nested; a malformed one is left
+  // whole so it is not silently reinterpreted.
+  const existingCond: Record<string, unknown> = {};
+  for (const k in object) {
+    if (k === "$and") {
+      if (Array.isArray(object["$and"])) {
+        object["$and"].forEach((cond: unknown) => {
+          and.push(cond);
+        });
+      } else {
+        and.push({ $and: object["$and"] });
+      }
+    } else {
+      existingCond[k] = object[k];
+    }
+  }
+  if (Object.keys(existingCond).length > 0) {
+    and.push(existingCond);
+  }
+
+  newConditions.forEach((cond) => {
+    if (cond && typeof cond === "object") {
+      and.push(cond);
+    }
+  });
+
+  const finalAnd: Record<string, unknown>[] = [];
+  and.forEach((cond: unknown) => {
+    if (!cond || typeof cond !== "object" || Object.keys(cond).length === 0) {
+      return;
+    }
+
+    // A member that is itself just an $and flattens into this one
+    if (
+      Object.keys(cond).length === 1 &&
+      "$and" in cond &&
+      Array.isArray(cond["$and"])
+    ) {
+      cond["$and"].forEach((nestedCond: unknown) => {
+        if (
+          nestedCond &&
+          typeof nestedCond === "object" &&
+          Object.keys(nestedCond).length > 0
+        ) {
+          finalAnd.push(nestedCond as Record<string, unknown>);
+        }
+      });
+    } else {
+      finalAnd.push(cond as Record<string, unknown>);
+    }
+  });
+
+  for (const k in object) {
+    delete object[k];
+  }
+
+  if (finalAnd.length === 1) {
+    const singleCond = finalAnd[0];
+    for (const k in singleCond) {
+      object[k] = singleCond[k];
+    }
+  } else {
+    object["$and"] = finalAnd;
+  }
 }

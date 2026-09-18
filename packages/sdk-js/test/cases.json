@@ -11745,7 +11745,7 @@
         }
       ],
       [
-        "$inGroup cannot resolve a typed entry",
+        "$inGroup resolves a typed list entry",
         {
           "id": {
             "$inGroup": "grp_list"
@@ -11754,7 +11754,7 @@
         {
           "id": "u_1"
         },
-        false,
+        true,
         {
           "grp_list": {
             "type": "list",
@@ -11770,7 +11770,48 @@
         }
       ],
       [
-        "$notInGroup cannot resolve a typed entry, and fails closed rather than passing everyone",
+        "$inGroup uses the attribute it sits on, not the one in the entry",
+        {
+          "backup_id": {
+            "$inGroup": "grp_list"
+          }
+        },
+        {
+          "id": "u_9",
+          "backup_id": "u_1"
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          }
+        }
+      ],
+      [
+        "$inGroup matches nobody for a typed condition entry",
+        {
+          "id": {
+            "$inGroup": "grp_cond"
+          }
+        },
+        {
+          "id": "u_1",
+          "plan": "pro"
+        },
+        false,
+        {
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "$notInGroup resolves a typed list entry and fails for a member",
         {
           "id": {
             "$notInGroup": "grp_list"
@@ -11789,7 +11830,7 @@
         }
       ],
       [
-        "$notInGroup fails closed for a typed entry even when the user is not a member",
+        "$notInGroup resolves a typed list entry and passes for a non-member",
         {
           "id": {
             "$notInGroup": "grp_list"
@@ -11798,13 +11839,82 @@
         {
           "id": "u_9"
         },
-        false,
+        true,
         {
           "grp_list": {
             "type": "list",
             "attributeKey": "id",
             "values": ["u_1", "u_2"]
           }
+        }
+      ],
+      [
+        "$notInGroup fails closed for a typed condition entry rather than passing everyone",
+        {
+          "id": {
+            "$notInGroup": "grp_cond"
+          }
+        },
+        {
+          "id": "u_1",
+          "plan": "free"
+        },
+        false,
+        {
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "$notInGroup fails closed for a group type added after the SDK was built",
+        {
+          "id": {
+            "$notInGroup": "grp_future"
+          }
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_future": {
+            "type": "somethingNew",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "$notInGroup fails closed for a malformed entry rather than passing everyone",
+        {
+          "id": {
+            "$notInGroup": "grp_bad"
+          }
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_bad": null
+        }
+      ],
+      [
+        "$inGroup matches nobody for a malformed entry",
+        {
+          "id": {
+            "$inGroup": "grp_bad"
+          }
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_bad": null
         }
       ],
       [

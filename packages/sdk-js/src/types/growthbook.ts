@@ -616,26 +616,15 @@ export interface StickyAssignmentsDocument {
   assignments: StickyAssignments;
 }
 
-/**
- * The v1 shape of a saved group: the values in an ID list. Kept under this name
- * because it is part of this package's public API. New code should use
- * SavedGroupsPayload.
- */
+/** The v1 shape: an ID list's values. New code should use SavedGroupsPayload. */
 export type SavedGroupsValues = Record<string, (string | number)[]>;
 
-/**
- * The savedGroupReferencesV2 shape of one saved group. Covers every kind of
- * group, not just ID lists. A `type` this SDK does not know must match nobody
- * rather than throw, since the payload can be newer than the SDK.
- */
+/** The savedGroupReferencesV2 shape of one saved group, of any type. */
 export type SavedGroupPayloadEntry =
   | { type: "list"; attributeKey: string; values: (string | number)[] }
   | { type: "condition"; condition: ConditionInterface };
 
-/**
- * The `savedGroups` field as it arrives in a payload. Entries use either shape
- * above. Check each entry rather than assuming they all match.
- */
+/** The `savedGroups` payload field. Entries may use either shape above. */
 export type SavedGroupsPayload = Record<
   string,
   (string | number)[] | SavedGroupPayloadEntry

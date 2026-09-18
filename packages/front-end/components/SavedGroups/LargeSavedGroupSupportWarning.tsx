@@ -1,4 +1,7 @@
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  getSDKCapabilityVersion,
+} from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React from "react";
 import { Box } from "@radix-ui/themes";
@@ -16,6 +19,15 @@ interface LargeSavedGroupSupport {
   // v2 support implies v1 support.
   unsupportedConnectionsV2: SDKConnectionInterface[];
   connections: SDKConnectionInterface[];
+}
+
+/** True when every language on the Connection has a version with v2 support. */
+function canSupportV2(conn: SDKConnectionInterface): boolean {
+  const languages = conn.languages || [];
+  if (!languages.length) return false;
+  return languages.every(
+    (lang) => !!getSDKCapabilityVersion(lang, "savedGroupReferencesV2"),
+  );
 }
 
 export function useLargeSavedGroupSupport(
@@ -40,9 +52,12 @@ export function useLargeSavedGroupSupport(
     ) {
       unsupportedConnections.push(conn);
     }
+    // A language with no version supporting the capability has nothing to
+    // upgrade to, so there is nothing useful to say about it
     if (
-      !capabilities.includes("savedGroupReferencesV2") ||
-      !conn.savedGroupReferencesEnabled
+      (!capabilities.includes("savedGroupReferencesV2") ||
+        !conn.savedGroupReferencesEnabled) &&
+      canSupportV2(conn)
     ) {
       unsupportedConnectionsV2.push(conn);
     }
@@ -105,14 +120,14 @@ export default function LargeSavedGroupPerformanceWarning({
 
   const action =
     needsSettingOn && needsUpgrade
-      ? 'Enable "Pass Saved Groups by reference" on your SDK Connections, and upgrade the SDK versions that do not support it yet, to improve performance.'
+      ? 'Tip: upgrade your SDKs and enable "Pass Saved Groups by reference" to improve performance.'
       : needsUpgrade
-        ? "Upgrade your SDK versions to improve performance."
-        : 'Enable "Pass Saved Groups by reference" on your SDK Connections to improve performance.';
+        ? "Tip: upgrade your SDKs to improve performance."
+        : 'Tip: enable "Pass Saved Groups by reference" on your SDK Connections to improve performance.';
 
   return (
     <Callout
-      status="warning"
+      status="info"
       mb="4"
       size="sm"
       dismissible={true}
@@ -125,7 +140,7 @@ export default function LargeSavedGroupPerformanceWarning({
       <Box as="span">
         <Text mr="2">
           {action}
-          {isCondition
+          {isCondition && needsUpgrade
             ? " Condition Groups need a newer SDK version than ID Lists do."
             : ""}
         </Text>

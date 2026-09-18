@@ -359,12 +359,9 @@ export function generateHoldoutsPayload({
   savedGroupReferencesEnabled?: boolean;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
 }): Record<string, FeatureDefinition> {
-  // Holdout conditions share the payload's savedGroups map, so they must use
-  // the same format as every other feature. An $inGroup in a v2 payload would
-  // quietly match nobody, because the map holds typed entries and $inGroup
-  // expects plain value arrays. No organization is passed here, so inlining is
-  // not available. Without references, getFeatureDefinitionsResponse inlines
-  // the operators later.
+  // Holdouts share the payload's savedGroups map, so they need the same format
+  // as every other feature. No organization is passed here, so inlining is not
+  // available; getFeatureDefinitionsResponse handles that later.
   const savedGroupStrategy =
     providedSavedGroupStrategy ??
     getSavedGroupPayloadStrategy({
@@ -3394,11 +3391,14 @@ any {
   }
 }
 
+/** Operators whose value is a saved group id, not an attribute value. */
+const SAVED_GROUP_ID_OPERATORS = ["$inGroup", "$notInGroup", "$savedGroup"];
+
 function shouldHash(attribute: SDKAttribute, operator?: string) {
   return !!(
     attribute?.datatype &&
     ["secureString", "secureString[]"].includes(attribute?.datatype ?? "") &&
-    (!operator || !["$inGroup", "$notInGroup"].includes(operator))
+    (!operator || !SAVED_GROUP_ID_OPERATORS.includes(operator))
   );
 }
 

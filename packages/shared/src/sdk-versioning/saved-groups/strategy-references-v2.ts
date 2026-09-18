@@ -16,7 +16,11 @@ import {
 } from "../../util";
 import { SDKCapability } from "../types";
 import { SavedGroupPayloadStrategy } from "./types";
-import { NestedGroupRenderer, walkSavedGroups } from "./walk";
+import {
+  andConditionsInto,
+  NestedGroupRenderer,
+  walkSavedGroups,
+} from "./walk";
 
 // The capability an SDK needs before we send a group of this type by
 // reference. Keyed by SavedGroupType, so adding a new type without gating it
@@ -93,6 +97,70 @@ export function createV2SavedGroupsOperatorHandler(
   return walkSavedGroups(groupMap, createV2NestedCondition);
 }
 
+/** The v1 operators, and whether each one means "in the group". */
+const LEGACY_OPERATOR_INCLUDES = {
+  $inGroup: true,
+  $notInGroup: false,
+} as const;
+
+/**
+ * Rewrites `$inGroup` and `$notInGroup` into `$savedGroup` references, in
+ * place. For example:
+ *
+ *   {"id": {"$inGroup": "grp_beta"}, "country": "US"}
+ *     ->  {"$and": [{"country": "US"}, {"$savedGroup": "grp_beta"}]}
+ *
+ * Only an ID List on that same attribute is rewritten, since that is the one
+ * case where the two forms mean the same thing.
+ */
+export function rewriteLegacySavedGroupOperators(
+  node: unknown,
+  groupMap: GroupMap,
+): void {
+  if (Array.isArray(node)) {
+    node.forEach((child) => rewriteLegacySavedGroupOperators(child, groupMap));
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+
+  const object = node as Record<string, unknown>;
+
+  // Children first. Rewriting this object rebuilds its keys, which would put
+  // an unvisited sibling out of reach.
+  Object.values(object).forEach((child) =>
+    rewriteLegacySavedGroupOperators(child, groupMap),
+  );
+
+  const references: ConditionInterface[] = [];
+
+  for (const [field, value] of Object.entries(object)) {
+    // These operators always sit under an attribute name
+    if (field.startsWith("$")) continue;
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+
+    const operators = value as Record<string, unknown>;
+
+    for (const [operator, include] of Object.entries(
+      LEGACY_OPERATOR_INCLUDES,
+    )) {
+      const groupId = operators[operator];
+      if (typeof groupId !== "string") continue;
+
+      // A group on another attribute, or a Condition Group, would not mean
+      // the same thing as a reference
+      const group = groupMap.get(groupId);
+      if (group?.type !== "list" || group.attributeKey !== field) continue;
+
+      delete operators[operator];
+      references.push(createGroupReference(groupId, include));
+    }
+
+    if (!Object.keys(operators).length) delete object[field];
+  }
+
+  if (references.length) andConditionsInto(object, references);
+}
+
 /** Builds the `savedGroups` field of a savedGroupReferencesV2 payload. */
 export function buildV2SavedGroupsPayload(
   savedGroups: SavedGroupInterface[],
@@ -137,6 +205,7 @@ function buildV2PayloadEntry(
         // Rewrite any `$savedGroups` inside this condition into `$savedGroup`,
         // so the stored form never reaches an SDK.
         recursiveWalk(condition, createV2SavedGroupsOperatorHandler(groupMap));
+        rewriteLegacySavedGroupOperators(condition, groupMap);
         return { type: "condition", condition };
       } catch (e) {
         return null;
@@ -164,7 +233,8 @@ export function createReferencesV2Strategy(
     },
     createSavedGroupsOperatorHandler: () =>
       createV2SavedGroupsOperatorHandler(groupMap),
-    finalizeCondition: () => undefined,
+    finalizeCondition: (condition) =>
+      rewriteLegacySavedGroupOperators(condition, groupMap),
     buildSavedGroupsPayload: (usedSavedGroups) =>
       organization
         ? buildV2SavedGroupsPayload(

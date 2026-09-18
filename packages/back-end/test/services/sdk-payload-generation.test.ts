@@ -151,7 +151,7 @@ function basicMatrixData(): SDKPayloadRawData {
     groupName: "G1",
     type: "list",
     values: ["a", "b"],
-    attributeKey: "x",
+    attributeKey: "id",
   } as SavedGroupInterface;
   const groupMap: GroupMap = new Map([
     [
@@ -159,7 +159,7 @@ function basicMatrixData(): SDKPayloadRawData {
       {
         id: "sg1",
         type: "list",
-        attributeKey: "x",
+        attributeKey: "id",
         useEmptyListGroup: false,
         values: ["a", "b"],
       },
@@ -281,6 +281,22 @@ CONNECTION_PRESETS.push({
   name: "savedGroupReferences + savedGroupReferencesEnabled true",
   connection: {
     capabilities: ["savedGroupReferences", "bucketingV2"],
+    environment: "production",
+    projects: ["p1"],
+    savedGroupReferencesEnabled: true,
+    includeRuleIds: false,
+    includeExperimentNames: false,
+  },
+});
+
+CONNECTION_PRESETS.push({
+  name: "savedGroupReferencesV2 + savedGroupReferencesEnabled true",
+  connection: {
+    capabilities: [
+      "savedGroupReferences",
+      "savedGroupReferencesV2",
+      "bucketingV2",
+    ],
     environment: "production",
     projects: ["p1"],
     savedGroupReferencesEnabled: true,
@@ -419,7 +435,9 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
       const forceRule = rules.find(
         (r) =>
           r.id === "r1" ||
-          (r.condition as Record<string, unknown>)?.browser === F1_FINGERPRINT,
+          // The fingerprint is unique, and v2 nests the browser check inside
+          // an $and, so match anywhere in the condition
+          JSON.stringify(r.condition ?? null).includes(F1_FINGERPRINT),
       );
 
       if (!expRefRule) {
@@ -466,7 +484,23 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
       }
 
       const cond = forceRule.condition as Record<string, unknown>;
-      if (hasSavedGroupRefs) {
+      if (
+        hasSavedGroupRefs &&
+        connection.capabilities.includes("savedGroupReferencesV2")
+      ) {
+        // The rule is stored with $inGroup, which v2 rewrites
+        expect(cond).not.toHaveProperty("id");
+        expect(cond.$and).toEqual([
+          { browser: F1_FINGERPRINT },
+          { $savedGroup: "sg1" },
+        ]);
+        expect(JSON.stringify(out.features)).not.toContain("$inGroup");
+        expect(out.savedGroups?.sg1).toEqual({
+          type: "list",
+          attributeKey: "id",
+          values: ["a", "b"],
+        });
+      } else if (hasSavedGroupRefs) {
         expect(cond).toHaveProperty("id");
         expect((cond.id as Record<string, unknown>).$inGroup).toBe("sg1");
         expect(out.savedGroups).toHaveProperty("sg1");
@@ -2327,5 +2361,53 @@ describe("getApiFeatureObj savedGroupFormat", () => {
 
   it("defaults to v1 when the caller does not pin a format", () => {
     expect(definitionFor()).toEqual(definitionFor("v1"));
+  });
+
+  // The condition builder writes $inGroup, so stored rules still hold it
+  const legacyFeature = {
+    ...feature,
+    environmentSettings: {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            id: "r1",
+            type: "force",
+            value: "on",
+            description: "",
+            enabled: true,
+            condition: JSON.stringify({
+              id: { $inGroup: "grp_list" },
+              country: "US",
+            }),
+          },
+        ],
+      },
+    },
+  } as unknown as FeatureInterface;
+
+  const legacyDefinitionFor = (savedGroupFormat?: "v1" | "v2") =>
+    getApiFeatureObj({
+      feature: legacyFeature,
+      organization,
+      groupMap,
+      experimentMap: new Map(),
+      revision: null,
+      safeRolloutMap: new Map(),
+      savedGroupFormat,
+    }).environments.production.definition;
+
+  it("keeps a stored $inGroup as it is under v1", () => {
+    expect(JSON.parse(legacyDefinitionFor("v1") || "{}").rules[0]).toEqual({
+      condition: { id: { $inGroup: "grp_list" }, country: "US" },
+      force: "on",
+    });
+  });
+
+  it("rewrites a stored $inGroup into a reference under v2", () => {
+    expect(JSON.parse(legacyDefinitionFor("v2") || "{}").rules[0]).toEqual({
+      condition: { $and: [{ country: "US" }, { $savedGroup: "grp_list" }] },
+      force: "on",
+    });
   });
 });

@@ -19,8 +19,7 @@ export function evalCondition(
   condition: ConditionInterface,
   // Must be included for `condition` to correctly evaluate group Operators
   savedGroups?: SavedGroupsPayload,
-  // Saved groups already being resolved on this branch. Stops a group that
-  // references itself, directly or through others, from recursing forever.
+  // Group ids already being resolved, to stop cycles
   visited?: Set<string>,
 ): boolean {
   savedGroups = savedGroups || {};
@@ -58,25 +57,17 @@ export function evalCondition(
   return true;
 }
 
-/**
- * Resolves a `$savedGroup` reference against the payload's saved groups.
- *
- * Returns false for anything it does not understand: a non-string id, an id
- * that is not in the payload, an entry in the older bare-array form, or a
- * `type` this SDK version does not know. A payload can be newer than the SDK
- * reading it, so an unknown shape must match nobody rather than throw.
- */
+/** Resolves a `$savedGroup` reference. Anything unrecognized matches nobody. */
 function evalSavedGroup(
   obj: TestedObj,
-
-  id: any,
+  id: unknown,
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
 ): boolean {
   if (typeof id !== "string" || visited.has(id)) return false;
 
   const entry = savedGroups[id];
-  // Absent, or the v1 bare array, which this operator cannot resolve
+  // Absent, or a v1 bare array
   if (!entry || Array.isArray(entry) || typeof entry !== "object") return false;
 
   const next = new Set(visited).add(id);
@@ -232,21 +223,29 @@ function isIn(
   return expected.includes(actual);
 }
 
-// $inGroup can only resolve a legacy value-array entry. A savedGroupReferencesV2
-// payload holds objects instead, and indexing one as an array throws, so treat
-// anything that isn't an array as matching nothing.
-// True for a savedGroupReferencesV2 entry, which `$inGroup`/`$notInGroup`
-// cannot resolve. Absent ids are not typed entries and keep their own handling.
-function isTypedSavedGroupEntry(
+/**
+ * Gets the array of values from a saved group. This can either be the legacy bare array
+ * format, or it can pull the array from the v2 "type: list" format.
+ */
+function getSavedGroupArrayValues(
   entry: SavedGroupsPayload[string] | undefined,
-): boolean {
-  return !!entry && !Array.isArray(entry) && typeof entry === "object";
-}
+): Array<string | number> | null {
+  // An unknown id has always behaved like an empty list. A present but
+  // malformed entry has not, and must not, since $notInGroup would pass
+  // everyone.
+  if (entry === undefined) return [];
 
-function asLegacyValuesArray(
-  entry: SavedGroupsPayload[string] | undefined,
-): Array<string | number> {
-  return Array.isArray(entry) ? entry : [];
+  if (Array.isArray(entry)) return entry;
+
+  // These operators take their attribute from the condition they sit on, so
+  // only the entry's values are needed
+  if (entry && typeof entry === "object" && entry.type === "list") {
+    return Array.isArray(entry.values) ? entry.values : null;
+  }
+
+  // A condition group, a malformed entry, or a type added after this SDK was
+  // built
+  return null;
 }
 
 function isInAll(
@@ -320,14 +319,15 @@ function evalOperatorCondition(
     case "$ini":
       if (!Array.isArray(expected)) return false;
       return isIn(actual, expected, true);
-    case "$inGroup":
-      return isIn(actual, asLegacyValuesArray(savedGroups[expected]));
-    case "$notInGroup":
-      // A typed entry cannot be read by this operator. Treating it as an empty
-      // list would make every user pass an exclusion rule, so fail closed.
-      // An absent id still passes, which is the documented behaviour.
-      if (isTypedSavedGroupEntry(savedGroups[expected])) return false;
-      return !isIn(actual, asLegacyValuesArray(savedGroups[expected]));
+    case "$inGroup": {
+      const values = getSavedGroupArrayValues(savedGroups[expected]);
+      return values === null ? false : isIn(actual, values);
+    }
+    case "$notInGroup": {
+      // No values means matching nobody. An empty list would pass everyone.
+      const values = getSavedGroupArrayValues(savedGroups[expected]);
+      return values === null ? false : !isIn(actual, values);
+    }
     case "$nin":
       if (!Array.isArray(expected)) return false;
       return !isIn(actual, expected);

@@ -701,6 +701,23 @@ describe("Hashing secureString types", () => {
       },
     });
   });
+
+  it("never hashes a saved group id, whatever operator names it", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const condition: any = hashStrings({
+      obj: {
+        id: { $inGroup: "grp_1" },
+        $and: [{ $savedGroup: "grp_2" }, { $not: { $savedGroup: "grp_3" } }],
+      },
+      salt: secureAttributeSalt,
+      attributes,
+    });
+
+    expect(condition).toEqual({
+      id: { $inGroup: "grp_1" },
+      $and: [{ $savedGroup: "grp_2" }, { $not: { $savedGroup: "grp_3" } }],
+    });
+  });
 });
 
 describe("Scheduled Rules", () => {
