@@ -33,13 +33,10 @@ export function planTierFor(plan: AccountPlan): LimitedPlanTier | null {
   return null;
 }
 
-// Orgs that signed up earlier bought Pro when it still included custom
-// environments and uncapped projects, so a paid plan must never revoke those.
-// Free is deliberately unaffected — those limits predate the pro tier.
+// Preserve pre-rollout Pro entitlements without changing Free limits.
 export const PAID_PLAN_LIMITS_START_DATE = new Date("2026-09-12T00:00:00.000Z");
 
-// The epoch fallback makes a missing or unparseable date grandfather the org:
-// never revoke on data we can't read.
+// Unknown signup dates keep grandfathered access.
 function signedUpBeforePaidPlanLimits(
   dateCreated?: Date | string | null,
 ): boolean {
@@ -62,8 +59,6 @@ function planAllows(
   return accountFeatures[effectivePlan].has(feature);
 }
 
-// Free plans read the org's own snapshot; paid plans read the license's, then
-// their tier's.
 function resolve({
   effectivePlan,
   orgLimits,

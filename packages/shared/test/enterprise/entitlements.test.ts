@@ -88,8 +88,8 @@ describe("makeOrgLimits", () => {
         const limits = accessorFor({
           effectivePlan,
           orgLimits: FREE_LIMITS,
-          licenseLimits: { maxProjects: 999 }, // should be ignored on free plans
-          planLimits: PRO_ORG_LIMITS, // free never reads the live per-plan config
+          licenseLimits: { maxProjects: 999 },
+          planLimits: PRO_ORG_LIMITS,
           orgDateCreated: undefined,
         });
         expect(limits.getMaxProjects()).toBe(1);
