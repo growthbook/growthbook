@@ -2,7 +2,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
 // TODO form type
-export function MetricWindowSettingsForm({ form, type }) {
+export function MetricWindowSettingsForm({ form, type, autoFocus = true }) {
   const windowSettingsFields = (
     <>
       <div className="col-auto">
@@ -17,7 +17,7 @@ export function MetricWindowSettingsForm({ form, type }) {
           step={1}
           style={{ width: 70 }}
           required
-          autoFocus
+          autoFocus={autoFocus}
         />
       </div>
       <div className="col-auto">
