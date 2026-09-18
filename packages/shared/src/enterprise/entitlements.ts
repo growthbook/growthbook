@@ -32,10 +32,9 @@ export function planTierFor(plan: AccountPlan): LimitedPlanTier | null {
   return null;
 }
 
-// #6805 made Pro subject to plan limits. Orgs that signed up earlier bought Pro
-// under terms that included custom environments and uncapped projects, so a paid
-// plan must never revoke those. Free limits shipped in #6325 and are unaffected:
-// a pre-cutoff org stays limited on Free, and upgrading can only ever add.
+// Orgs that signed up earlier bought Pro when it still included custom
+// environments and uncapped projects, so a paid plan must never revoke those.
+// Free is deliberately unaffected — those limits predate the pro tier.
 export const PAID_PLAN_LIMITS_START_DATE = new Date("2026-09-12T00:00:00.000Z");
 
 // An unknown signup date grandfathers the org: never revoke on missing data.

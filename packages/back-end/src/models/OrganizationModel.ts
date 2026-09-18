@@ -274,8 +274,7 @@ export async function createOrganization({
     isVercelIntegration,
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
     // Cloud stamps from the pricing-phase-1-limits flag; self-hosted uses defaults
-    // so the limits for future orgs can be tuned without a deploy. An unstamped
-    // org is grandfathered, so no stamp is better than a wrong one.
+    // so the limits for future orgs can be tuned without a deploy.
     ...(stampedLimits ? { limits: stampedLimits } : {}),
   });
   return toInterface(doc);
