@@ -432,6 +432,10 @@ const startExperimentIncrementalRefreshQueries = async (
   const resolvedExposureQuery = {
     query: exposureQuery.query,
     userIdType: exposureUserIdType,
+    userIdColumns: exposureQuery.userIdColumns,
+    timestampColumn: exposureQuery.timestampColumn,
+    experimentIdColumn: exposureQuery.experimentIdColumn,
+    variationIdColumn: exposureQuery.variationIdColumn,
   };
 
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(

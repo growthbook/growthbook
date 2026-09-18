@@ -190,6 +190,16 @@ export interface ExposureQuery {
   managedBy?: "" | "api";
   /** Projects this query is scoped to. Empty = all of the data source's projects; when set, a subset of them. */
   projects?: string[];
+  /**
+   * Column-role mappings for SQL that doesn't alias its columns to the canonical
+   * role names. An unset role resolves by canonical name (`experiment_id`,
+   * `variation_id`, `timestamp`, and each identifier type's own name) — the
+   * pre-mapping behavior. `userIdColumns` stores only remapped identifier types.
+   */
+  userIdColumns?: Record<string, string>;
+  timestampColumn?: string;
+  experimentIdColumn?: string;
+  variationIdColumn?: string;
 }
 
 export interface FeatureUsageQuery {

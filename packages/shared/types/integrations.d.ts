@@ -340,7 +340,7 @@ export type ColumnTopValuesResponseRow = {
 
 export interface ExperimentUnitsQuerySettings {
   experimentId: string;
-  exposureQuery: { query: string; userIdType: string };
+  exposureQuery: ResolvedExposureQuery;
   startDate: Date;
   endDate: Date;
   skipPartialData: boolean;
@@ -575,7 +575,15 @@ export interface IncrementalRefreshStatisticsQueryParams {
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 
-export type ResolvedExposureQuery = { query: string; userIdType: string };
+export type ResolvedExposureQuery = {
+  query: string;
+  userIdType: string;
+  // Column-role mappings (see ExposureQuery); unset roles resolve by canonical name.
+  userIdColumns?: Record<string, string>;
+  timestampColumn?: string;
+  experimentIdColumn?: string;
+  variationIdColumn?: string;
+};
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;
