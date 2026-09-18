@@ -212,7 +212,7 @@ export type SafeRolloutSnapshotAnalysisSettings = z.infer<
 const safeRolloutSnapshotAnalysisObject = z.object({
   settings: safeRolloutSnapshotAnalysisSettingsValidator,
   dateCreated: z.date(),
-  status: z.enum(["running", "success", "error"]),
+  status: z.enum(["running", "success", "partial", "error"]),
   error: z.string().optional(),
   results: z.array(safeRolloutReportResultDimensionObject),
 });
@@ -232,7 +232,7 @@ export const safeRolloutSnapshotInterface = z
     runStarted: z.date(),
     dimension: z.string().optional(),
     error: z.string().optional(),
-    status: z.enum(["running", "success", "error"]),
+    status: z.enum(["running", "success", "partial-success", "error"]),
     settings: safeRolloutSnapshotSettings,
     triggeredBy: z.enum(["manual", "schedule"]),
     queries: z.array(queryPointerValidator),

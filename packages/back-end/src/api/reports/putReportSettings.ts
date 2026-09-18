@@ -1,4 +1,5 @@
 import { putReportSettingsValidator } from "shared/validators";
+import { snapshotHasResults } from "shared/util";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getValidDate } from "shared/dates";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
@@ -166,7 +167,7 @@ export const putReportSettings = createApiRequestHandler(
     req.context,
   );
 
-  if (snapshot?.status === "success" && experiment) {
+  if (snapshot && snapshotHasResults(snapshot.status) && experiment) {
     const metricsById = await getMetricMapForExperiment(
       req.context,
       experiment,

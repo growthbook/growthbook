@@ -1254,6 +1254,100 @@ describe("ExperimentSnapshotModel", () => {
       ).toBe(30);
     });
 
+    it("rolls a completed snapshot up to partial-success for a partial ad-hoc analysis", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_partial_ad_hoc_analysis");
+      const relativeSettings = makeAnalysisSettings({
+        differenceType: "relative",
+      });
+      const scaledSettings = makeAnalysisSettings({
+        differenceType: "scaled",
+      });
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [makeAnalysis({ settings: relativeSettings, value: 10 })],
+        },
+      });
+
+      await addOrUpdateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis: makeAnalysis({
+          settings: scaledSettings,
+          value: 20,
+          status: "partial",
+        }),
+      });
+
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.status).toBe("partial-success");
+      expect(
+        result?.analyses.find((a) => a.settings.differenceType === "scaled")
+          ?.status,
+      ).toBe("partial");
+    });
+
+    it("keeps partial-success when a partial analysis is recomputed cleanly", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric(
+        "snp_recomputed_partial_analysis",
+      );
+      const settings = makeAnalysisSettings();
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "partial-success",
+          analyses: [makeAnalysis({ settings, value: 10, status: "partial" })],
+        },
+      });
+
+      await updateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis: makeAnalysis({ settings, value: 20 }),
+      });
+
+      // The writer cannot prove sibling analyses are clean from its stale read,
+      // so recovery to success is left to the query runner's rollup.
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.status).toBe("partial-success");
+      expect(result?.analyses[0].status).toBe("success");
+    });
+
+    it("leaves a running snapshot's status to its query runner", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_running_partial_analysis");
+      const settings = makeAnalysisSettings();
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "running",
+          analyses: [makeAnalysis({ settings, value: 10, status: "running" })],
+        },
+      });
+
+      await updateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis: makeAnalysis({ settings, value: 20, status: "partial" }),
+      });
+
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.status).toBe("running");
+      expect(result?.analyses[0].status).toBe("partial");
+    });
+
     it("skips chunk rewrites for a new empty running analysis", async () => {
       const context = getSnapshotUpdateContext();
       const snapshot = makeSnapshotWithMetric("snp_new_empty_analysis");

@@ -1,4 +1,5 @@
 import { postReportRefreshValidator } from "shared/validators";
+import { snapshotHasResults } from "shared/util";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
@@ -73,7 +74,7 @@ export const postReportRefresh = createApiRequestHandler(
       req.context,
     );
 
-    if (newSnapshot.status === "success" && experiment) {
+    if (snapshotHasResults(newSnapshot.status) && experiment) {
       const results = toSnapshotApiInterface(
         experiment,
         newSnapshot,

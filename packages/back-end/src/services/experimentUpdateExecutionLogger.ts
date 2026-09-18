@@ -1,5 +1,6 @@
 import { DataSourceInterface } from "shared/types/datasource";
 import {
+  ExperimentSnapshotStatus,
   SnapshotQueryRunnerKind,
   SnapshotTriggeredBy,
   SnapshotType,
@@ -133,7 +134,7 @@ export class ExperimentUpdateExecutionLogger {
       snapshotStatus,
       error,
     }: {
-      snapshotStatus: "running" | "success" | "error";
+      snapshotStatus: ExperimentSnapshotStatus;
       error?: string;
     },
   ): void {

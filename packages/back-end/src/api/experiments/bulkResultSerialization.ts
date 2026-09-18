@@ -1,6 +1,6 @@
 import { isEqual } from "lodash";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { isDefined } from "shared/util";
+import { analysisHasResults, isDefined } from "shared/util";
 import {
   ExperimentMetricInterface,
   getFunnelStepMetric,
@@ -140,7 +140,7 @@ function getDifferenceTypeVariants(
     .map((differenceType) =>
       analyses.find(
         (a) =>
-          a.status === "success" &&
+          analysisHasResults(a.status) &&
           isEqual(a.settings, { ...baseAnalysis.settings, differenceType }),
       ),
     )
@@ -262,7 +262,8 @@ export function toExperimentSnapshotBulkResultsApiInterface(
   metricsById: Map<string, ExperimentMetricInterface>,
 ): ApiExperimentBulkResult[] {
   const defaultAnalysis = snapshot.analyses[0];
-  if (!defaultAnalysis || defaultAnalysis.status !== "success") return [];
+  if (!defaultAnalysis || !analysisHasResults(defaultAnalysis.status))
+    return [];
 
   const phase = experiment.phases[snapshot.phase];
 
@@ -294,7 +295,7 @@ export function toExperimentSnapshotBulkResultsApiInterface(
     if (dimensionId === defaultDimensionId) continue;
     const dimensionBaseAnalysis = snapshot.analyses.find(
       (a) =>
-        a.status === "success" &&
+        analysisHasResults(a.status) &&
         isEqual(a.settings, {
           ...defaultAnalysis.settings,
           dimensions: [dimensionId],
