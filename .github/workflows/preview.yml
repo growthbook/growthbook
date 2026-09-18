@@ -12,6 +12,11 @@ on:
       - ".dockerignore"
     types: [opened, reopened, closed, synchronize]
 
+# Cancel outdated revisions of the same PR, including runs waiting for Depot.
+concurrency:
+  group: pr-${{ github.event.number }}
+  cancel-in-progress: true
+
 jobs:
   preview:
     if: >-
@@ -23,9 +28,11 @@ jobs:
       id-token: write
     outputs:
       url: ${{ steps.deploy.outputs.url }}
+    # Shared with production and branch builds using the same Depot project.
     concurrency:
-      group: pr-${{ github.event.number }}
-      cancel-in-progress: true
+      group: depot-vmp2ssvj9r
+      queue: max
+      cancel-in-progress: false
     environment:
       name: preview
       url: ${{ steps.deploy.outputs.url }}
