@@ -2,21 +2,45 @@ name: PR Preview Environment
 
 on:
   pull_request:
-    branches:
-      - main
     paths:
       - "packages/**"
       - "!**.md"
       - "pnpm-lock.yaml"
       - "Dockerfile"
       - ".dockerignore"
+      - ".github/workflows/preview.yml"
     types: [opened, reopened, closed, synchronize]
 
 jobs:
-  preview:
+  check-stack:
     if: >-
       github.repository == 'growthbook/growthbook' &&
       github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      should-preview: ${{ steps.stack.outputs.result }}
+    steps:
+      - name: Check whether this PR is the stack tip
+        id: stack
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Always allow closed PRs through to preview cleanup.
+            if (context.payload.action === "closed") return true;
+
+            const { data } = await github.rest.pulls.list({
+              ...context.repo,
+              state: "open",
+              base: context.payload.pull_request.head.ref,
+              per_page: 1,
+            });
+            return data.length === 0;
+
+  preview:
+    needs: check-stack
+    if: needs.check-stack.outputs.should-preview == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
