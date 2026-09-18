@@ -3,6 +3,7 @@ import {
   planTierFor,
   FREE_ORG_LIMITS,
   PRO_ORG_LIMITS,
+  PAID_PLAN_LIMITS_START_DATE,
 } from "shared/enterprise";
 import type { AccountPlan, OrgLimits } from "shared/enterprise";
 
@@ -14,22 +15,28 @@ const LICENSE_LIMITS: OrgLimits = {
   roleManagement: false,
 };
 
+const AFTER_CUTOFF = new Date(PAID_PLAN_LIMITS_START_DATE.getTime() + 1);
+const BEFORE_CUTOFF = new Date(PAID_PLAN_LIMITS_START_DATE.getTime() - 1);
+
 function accessorFor({
   effectivePlan,
   orgLimits,
   licenseLimits,
   planLimits,
+  orgDateCreated = AFTER_CUTOFF,
 }: {
   effectivePlan: AccountPlan;
   orgLimits?: OrgLimits;
   licenseLimits?: OrgLimits;
   planLimits?: OrgLimits;
+  orgDateCreated?: Date | string;
 }) {
   return makeOrgLimits({
     effectivePlan,
     orgLimits,
     licenseLimits,
     planLimits,
+    orgDateCreated,
   });
 }
 
@@ -127,6 +134,68 @@ describe("makeOrgLimits", () => {
         licenseLimits: LICENSE_LIMITS,
       });
       expect(limits.orgSupportsRoles()).toBe(true);
+    });
+  });
+
+  describe("orgs that signed up before paid plan limits shipped", () => {
+    it.each<AccountPlan>(["pro", "pro_sso"])(
+      "keeps a stamped org unrestricted on plan=%s",
+      (effectivePlan) => {
+        const limits = accessorFor({
+          effectivePlan,
+          orgLimits: FREE_LIMITS,
+          planLimits: PRO_ORG_LIMITS,
+          orgDateCreated: BEFORE_CUTOFF,
+        });
+        expect(limits.getMaxProjects()).toBeNull();
+        expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(true);
+        expect(limits.orgSupportsRoles()).toBe(true);
+      },
+    );
+
+    it.each<AccountPlan>(["oss", "starter"])(
+      "still enforces free limits on plan=%s, which #6325 shipped correctly",
+      (effectivePlan) => {
+        const limits = accessorFor({
+          effectivePlan,
+          orgLimits: FREE_LIMITS,
+          orgDateCreated: BEFORE_CUTOFF,
+        });
+        expect(limits.getMaxProjects()).toBe(1);
+        expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(false);
+        expect(limits.orgSupportsRoles()).toBe(false);
+      },
+    );
+
+    it("accepts an ISO string signup date", () => {
+      const limits = accessorFor({
+        effectivePlan: "pro",
+        orgLimits: FREE_LIMITS,
+        orgDateCreated: BEFORE_CUTOFF.toISOString(),
+      });
+      expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(true);
+    });
+
+    it.each<Date | string | undefined>([undefined, "not-a-date"])(
+      "grandfathers rather than revokes when the signup date is %p",
+      (orgDateCreated) => {
+        const limits = makeOrgLimits({
+          effectivePlan: "pro",
+          orgLimits: FREE_LIMITS,
+          orgDateCreated,
+        });
+        expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(true);
+      },
+    );
+
+    it("lets an explicit license snapshot override the grandfathering", () => {
+      const limits = accessorFor({
+        effectivePlan: "pro",
+        orgLimits: FREE_LIMITS,
+        licenseLimits: LICENSE_LIMITS,
+        orgDateCreated: BEFORE_CUTOFF,
+      });
+      expect(limits.getMaxProjects()).toBe(7);
     });
   });
 

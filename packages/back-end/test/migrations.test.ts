@@ -25,7 +25,6 @@ import {
   LegacyFeatureInterface,
 } from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
-import { ORG_LIMITS_STAMP_VALID_FROM } from "shared/enterprise";
 import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
@@ -2268,51 +2267,6 @@ describe("Organization Migration", () => {
           },
         ],
       },
-    });
-  });
-
-  describe("org limits stamp", () => {
-    const stampedOrg = (dateCreated: Date): OrganizationInterface =>
-      ({
-        id: "org_sktwi1id9l7z9xkjb",
-        name: "Test Org",
-        ownerEmail: "test@test.com",
-        url: "https://test.com",
-        dateCreated,
-        invites: [],
-        members: [],
-        settings: {},
-        limits: {
-          maxProjects: 1,
-          customEnvironments: false,
-          roleManagement: false,
-        },
-      }) as OrganizationInterface;
-
-    it("drops a stamp written before the rollout date", () => {
-      const org = upgradeOrganizationDoc(
-        stampedOrg(new Date(ORG_LIMITS_STAMP_VALID_FROM.getTime() - 1)),
-      );
-      expect(org.limits).toBeUndefined();
-    });
-
-    it("keeps a stamp written on or after the rollout date", () => {
-      const org = upgradeOrganizationDoc(
-        stampedOrg(new Date(ORG_LIMITS_STAMP_VALID_FROM.getTime())),
-      );
-      expect(org.limits).toEqual({
-        maxProjects: 1,
-        customEnvironments: false,
-        roleManagement: false,
-      });
-    });
-
-    it("leaves an unstamped org alone", () => {
-      const doc = stampedOrg(
-        new Date(ORG_LIMITS_STAMP_VALID_FROM.getTime() - 1),
-      );
-      delete doc.limits;
-      expect(upgradeOrganizationDoc(doc).limits).toBeUndefined();
     });
   });
 });

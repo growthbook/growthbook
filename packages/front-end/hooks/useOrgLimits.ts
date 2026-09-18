@@ -36,12 +36,14 @@ export default function useOrgLimits(): OrgLimitsAccessor {
     return makeOrgLimits({
       effectivePlan: effectiveAccountPlan || "oss",
       orgLimits: organization?.limits,
+      orgDateCreated: organization?.dateCreated,
       licenseLimits: license?.limits,
       planLimits,
     });
   }, [
     effectiveAccountPlan,
     organization?.limits,
+    organization?.dateCreated,
     license?.limits,
     limitsDisabled,
     flagValue,
