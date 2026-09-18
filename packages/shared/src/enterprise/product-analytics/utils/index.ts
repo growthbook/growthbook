@@ -1,10 +1,36 @@
-import type { FactMetricInterface } from "shared/types/fact-table";
+import type {
+  FactMetricInterface,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import type {
   ExplorationConfig,
   ExplorationDataset,
   ProductAnalyticsResultRow,
   ShowAs,
 } from "../../../validators/product-analytics";
+
+/**
+ * Narrows an already-classified warehouse column type to the smaller set an
+ * exploration dataset can hold. `json`, `binary` and the undetected `""` have
+ * no exploration equivalent.
+ */
+export function mapColumnTypeToExplorationType(
+  datatype: FactTableColumnType | undefined,
+): "string" | "number" | "date" | "boolean" | "other" {
+  switch (datatype) {
+    case "string":
+    case "number":
+    case "date":
+    case "boolean":
+      return datatype;
+    case "json":
+    case "binary":
+    case "other":
+    case "":
+    case undefined:
+      return "other";
+  }
+}
 
 export function mapDatabaseTypeToEnum(
   dbType: string,

@@ -143,6 +143,7 @@ import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
+  holdoutLinkageOwner,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
@@ -929,6 +930,7 @@ export async function getFeatureRuleEnvironmentsByIds(
 export async function createFeature(
   context: ReqContext | ApiReqContext,
   data: FeatureInterface,
+  { comment }: { comment?: string } = {},
 ) {
   const { org } = context;
 
@@ -985,6 +987,8 @@ export async function createFeature(
     toInterface(feature, context),
     context.auditUser,
     getEnvironmentIdsFromOrg(org),
+    undefined,
+    comment,
   );
 
   if (linkedExperiments.length > 0) {
@@ -2443,6 +2447,8 @@ export async function applyHoldoutSideEffects(
 
 export type HoldoutExperimentLinkagePlan = {
   holdoutId: string;
+  // The feature whose publish produced this plan; owns the linkage event.
+  featureId: string;
   toLink: string[];
   toUnlink: string[];
   // "" is the clear sentinel `updateExperiment` expects.
@@ -2559,7 +2565,13 @@ async function planLinkageForHoldout(
     }),
   );
 
-  return { holdoutId, toLink, toUnlink, prevExperimentHoldoutIds };
+  return {
+    holdoutId,
+    featureId: feature.id,
+    toLink,
+    toUnlink,
+    prevExperimentHoldoutIds,
+  };
 }
 
 // `holdoutId` is a scalar last-writer-wins field, so `expectedPrior` turns the
@@ -2649,6 +2661,7 @@ export async function applyHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => applied.has(id)),
+    { eventOwner: holdoutPlanEventOwner(plan) },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
@@ -2722,12 +2735,23 @@ export async function reverseHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toUnlink.filter((id) => reverted.has(id)),
+    { notifyNewLinkage: false },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => reverted.has(id)),
   );
+  // With this plan's linkage put back, the landing must not announce it. An
+  // empty `reverted` means another owner holds the linkage now, and the event
+  // still describes what is live.
+  if (reverted.size) {
+    context.bulkPublishRestoredEntities?.add(holdoutPlanEventOwner(plan));
+  }
 }
+
+// Owner of the deferred linkage event for a plan's writes; see holdoutLinkageOwner.
+const holdoutPlanEventOwner = (plan: HoldoutExperimentLinkagePlan): string =>
+  holdoutLinkageOwner(plan.holdoutId, entityKey("feature", plan.featureId));
 
 // The linkage a holdout transition is about to write, captured before the forward
 // pass so its rewind can restore the pre-publish state instead of re-deriving it
@@ -2791,10 +2815,23 @@ export async function rewindHoldoutLinkage(
     // entry sitting there now. The comparison happens inside the model's own
     // read-modify-write, so it isn't check-then-act; the restore half below
     // declines on the same reasoning.
-    await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
-      featureId: pre.featureId,
-      expectFeatureEntry: pre.addedFeatureEntry,
-    });
+    const removed = await context.models.holdout.removeLinkageFromHoldout(
+      pre.newHoldoutId,
+      {
+        featureId: pre.featureId,
+        expectFeatureEntry: pre.addedFeatureEntry,
+      },
+    );
+    // Only when this rewind took the entry back: a declined removal means the
+    // linkage is live and its event should stand.
+    if (removed) {
+      context.bulkPublishRestoredEntities?.add(
+        holdoutLinkageOwner(
+          pre.newHoldoutId,
+          entityKey("feature", pre.featureId),
+        ),
+      );
+    }
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
