@@ -91,9 +91,10 @@ and both answer privately.
 
 When the Slack user has links to more than one organization in the workspace, the
 assistant's answers and approval outcomes end with an italic
-`Answering as <organization>` line. Prompts that precede an answer carry no label:
-the assistant-off notice, the "ask me about your experiments" prompt for an empty
-question, and the "Confirm this change?" approval request.
+`Answering as <organization>` line. Only answers and approval outcomes carry it.
+Prompts, private notices, and refusals do not, for example the assistant-off
+notice, the empty-question prompt, the "Confirm this change?" request, and the
+picker.
 
 `slackuserlinks` is unique per Slack workspace, Slack user, and organization;
 BaseModel creates that index at startup. Every stored link carries the `linkId`

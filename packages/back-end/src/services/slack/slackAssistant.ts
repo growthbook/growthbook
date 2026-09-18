@@ -9,7 +9,6 @@ import { logger } from "back-end/src/util/logger";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
   resolveSlackAssistantTarget,
   getSlackWorkspaceBotToken,
@@ -83,7 +82,7 @@ async function organizationsOwningReferences(
     }
     // Two owners already make the reference ambiguous, and no later one can
     // undo that, so stop reading other organizations' resources.
-    if (owners.length > 1) return owners;
+    if (owners.length > 1) break;
   }
   return owners;
 }
@@ -130,32 +129,40 @@ async function replyPrivately(
   });
 }
 
-/**
- * Store the organization this direct-message thread is already pinned to as the
- * user's default for the workspace. A pin in a DM can only come from a turn the
- * user themselves resolved, so the pinned id needs no re-check here.
- */
 async function rememberThreadOrganization(
   mention: SlackAssistantMention,
   rootTs: string,
 ): Promise<void> {
-  const thread = await getSlackThread({
-    teamId: mention.teamId,
-    channelId: mention.channelId,
-    rootTs,
-  });
-  if (thread?.status !== "selected") {
+  const { teamId, channelId, slackUserId } = mention;
+  try {
+    const thread = await getSlackThread({ teamId, channelId, rootTs });
+    if (thread?.status !== "selected") {
+      await replyPrivately(
+        mention,
+        'Ask me a question first, then send "remember organization" in that thread and I\'ll use its organization for your future direct messages.',
+      );
+      return;
+    }
+    // The pin is trusted routing state, not proof of access: a notification can
+    // pin a thread and a link can be revoked after a pin was written.
+    const target = await resolveSlackAssistantTarget({
+      requireAssistantEnabled: true,
+      teamId,
+      channelId,
+      slackUserId,
+      organizationId: thread.organizationId,
+    });
+    if (!target.ok) {
+      await replyPrivately(mention, target.message);
+      return;
+    }
+    await setSlackDefaultOrganization(
+      { slackTeamId: teamId, slackUserId },
+      target.organizationId,
+    );
     await replyPrivately(
       mention,
-      'Ask me a question first, then send "remember organization" in that thread and I\'ll use its organization for your future direct messages.',
-    );
-    return;
-  }
-  const organization = await findOrganizationById(thread.organizationId);
-  try {
-    await setSlackDefaultOrganization(
-      { slackTeamId: mention.teamId, slackUserId: mention.slackUserId },
-      thread.organizationId,
+      `I'll use ${escapeSlackText(target.organizationName)} for your future direct messages. Send "switch organization" to clear it.`,
     );
   } catch (error) {
     logger.error(error, "Could not store a Slack default organization");
@@ -163,12 +170,7 @@ async function rememberThreadOrganization(
       mention,
       "I couldn't save that default. Please send the message again.",
     );
-    return;
   }
-  await replyPrivately(
-    mention,
-    `I'll use ${escapeSlackText(organization?.name || thread.organizationId)} for your future direct messages. Send "switch organization" to clear it.`,
-  );
 }
 
 /** Remove the bot mention (and any other leading user mention) from the text. */

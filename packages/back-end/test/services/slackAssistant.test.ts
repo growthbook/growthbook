@@ -26,14 +26,10 @@ import {
 } from "back-end/src/services/slack/slackUserPreference";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 
 jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   runAgentTurnToCompletion: jest.fn(),
-}));
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  findOrganizationById: jest.fn(),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
@@ -126,11 +122,6 @@ beforeEach(() => {
   jest.mocked(getSlackUserPreference).mockResolvedValue(null);
   jest.mocked(getExperimentById).mockResolvedValue(null);
   jest.mocked(getFeature).mockResolvedValue(null);
-  jest
-    .mocked(findOrganizationById)
-    .mockResolvedValue({ id: "org1", name: "First org" } as Awaited<
-      ReturnType<typeof findOrganizationById>
-    >);
   // Only the fields consumed by this service are needed in the mocked context.
   jest.mocked(resolveSlackAssistantTarget).mockImplementation(
     async () =>
@@ -694,6 +685,24 @@ describe("remembering the thread's organization for direct messages", () => {
       expect.objectContaining({
         user: "U1",
         text: expect.stringContaining("Ask me a question first"),
+      }),
+    );
+    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
+  });
+  it("refuses to store an organization the user can no longer use", async () => {
+    jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
+      ok: false,
+      reason: "not_linked",
+      message:
+        "This thread belongs to a GrowthBook organization your Slack account isn't linked to.",
+      botToken: "token",
+    });
+    await handleSlackAssistantMention(remember("D1"));
+    expect(setSlackDefaultOrganization).not.toHaveBeenCalled();
+    expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user: "U1",
+        text: expect.stringContaining("isn't linked to"),
       }),
     );
     expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
