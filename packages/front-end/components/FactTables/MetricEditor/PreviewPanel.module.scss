@@ -19,7 +19,7 @@
 
 .header {
   flex-shrink: 0;
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--gray-a5);
 }
 
@@ -54,13 +54,16 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  height: clamp(380px, 60dvh, 600px);
+  height: clamp(360px, 55dvh, 520px);
+  max-height: min(600px, calc(100dvh - 88px));
+  align-self: flex-start;
+  width: 100%;
   min-height: 0;
 
   @media (min-width: 1024px) {
     position: sticky;
     top: var(--metric-preview-top, 72px);
-    height: calc(100dvh - var(--metric-preview-top, 72px) - 16px);
+    max-height: calc(100dvh - var(--metric-preview-top, 72px) - 16px);
   }
 }
 

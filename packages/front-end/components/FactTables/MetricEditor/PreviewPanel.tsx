@@ -41,13 +41,13 @@ export default function PreviewPanel({
     metric ?? (submittedKey === requestKey ? draftMetric : null);
 
   return (
-    <Frame className={styles.panel} mb="0">
+    <Frame className={styles.panel} p="4" mb="0">
       <Tabs
         className={styles.tabRoot}
         value={view}
         onValueChange={(v) => setView(v as "preview" | "sql")}
       >
-        <Flex direction="column" gap="2" mb="4" className={styles.header}>
+        <Flex direction="column" gap="2" mb="3" className={styles.header}>
           <Flex justify="between" align="center">
             <Heading as="h4" size="sm" mb="0">
               Preview
