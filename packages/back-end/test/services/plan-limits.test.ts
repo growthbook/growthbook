@@ -48,7 +48,7 @@ describe.each([
       await expect(getStampedOrgLimits({ dateCreated })).resolves.toEqual(
         expected,
       );
-      expect(initializeGrowthBookClient).toHaveBeenCalledTimes(isCloud ? 1 : 0);
+      expect(initializeGrowthBookClient).toHaveBeenCalledTimes(1);
     },
   );
 });

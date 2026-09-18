@@ -16,21 +16,18 @@ import {
   getTrustedOrgAttributes,
   initializeGrowthBookClient,
 } from "back-end/src/services/growthbook";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 
-// Limits stamped onto a newly created org. Cloud reads the flag; self-hosted
-// always uses the hardcoded defaults.
+// Limits stamped onto a newly created org. The flag carries a `cloud` global
+// attribute, so self-hosted is targeted there rather than branched on here. An
+// unreachable flag falls back to the hardcoded defaults.
 export async function getStampedOrgLimits(
   org: Pick<OrganizationInterface, "dateCreated">,
 ): Promise<OrgLimits | undefined> {
-  let raw: unknown = null;
-  if (IS_CLOUD) {
-    // Bounded by the client's 3s init timeout so startup can use configured values.
-    await initializeGrowthBookClient();
-    raw = getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
-      attributes: {},
-    }).value;
-  }
+  // Bounded by the client's 3s init timeout so startup can use configured values.
+  await initializeGrowthBookClient();
+  const raw = getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
+    attributes: {},
+  }).value;
 
   if (!shouldStampOrgLimits(org, raw)) return undefined;
 
@@ -38,7 +35,6 @@ export async function getStampedOrgLimits(
 }
 
 function evalLimitsFlagForOrg(org: OrganizationInterface): unknown {
-  if (!IS_CLOUD) return undefined;
   return getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
     attributes: getTrustedOrgAttributes(org),
   }).value;
@@ -58,7 +54,7 @@ export function getEffectiveOrgLimits(
 
   const tier = planTierFor(effectivePlan);
   const planLimitsOverride =
-    IS_CLOUD && tier && tier !== "free"
+    tier && tier !== "free"
       ? resolveOrgLimitsConfig(raw, DEFAULT_ORG_LIMITS[tier])
       : undefined;
 
