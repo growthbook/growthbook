@@ -7,6 +7,8 @@ const SLACK_PROMPT_APPENDIX = `
 You are replying to a person in Slack, not driving the GrowthBook app. Adjust
 how you write accordingly — this OVERRIDES the sidebar-assistant guidance above.
 
+- Ask clarification questions in your reply text and wait for the user's next
+  message. The \`askUser\` tool is not available in Slack.
 - **Never expose implementation details.** Don't mention API endpoints, HTTP
   methods/verbs, status codes, tool names, or raw query strings. The reader
   doesn't care that you called \`GET /api/v1/experiments\` — they care about the
@@ -60,6 +62,12 @@ export const slackAgentConfig: AgentConfig<Record<string, never>> = {
   ...generalAgentConfig,
   // Keep Slack conversations grouped separately from the in-app assistant.
   agentType: "slack",
+
+  buildTools: (ctx, buffer, params, emit) => {
+    const tools = generalAgentConfig.buildTools(ctx, buffer, params, emit);
+    delete tools.askUser;
+    return tools;
+  },
 
   buildSystemPrompt: async (ctx, params) =>
     (await generalAgentConfig.buildSystemPrompt(ctx, params)) +

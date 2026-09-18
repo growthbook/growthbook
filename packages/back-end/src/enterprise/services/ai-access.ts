@@ -30,7 +30,11 @@ async function assertAIEnabled(context: ReqContext): Promise<void> {
 
   const { aiEnabled } = await getAISettingsForOrg(context);
   if (!aiEnabled) {
-    throw new NotFoundError("AI configuration not set or enabled");
+    throw new NotFoundError(
+      context.org.settings?.aiEnabled
+        ? "AI is enabled, but no usable AI provider API key is configured. An admin can add one in GrowthBook → Settings → AI & Prompts."
+        : "AI is disabled for this organization. An admin can enable AI in GrowthBook → Settings → General.",
+    );
   }
 }
 

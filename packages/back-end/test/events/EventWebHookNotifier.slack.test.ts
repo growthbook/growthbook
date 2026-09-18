@@ -19,7 +19,6 @@ import {
   SLACK_WORKSPACE_PLACEHOLDER_URL,
   postSlackImageMessage,
 } from "back-end/src/services/slack/slackWebApi";
-import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 import { pinSlackNotificationThread } from "back-end/src/services/slack/slackThreadRouting";
 import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
@@ -63,10 +62,6 @@ jest.mock("back-end/src/services/slack/slackWebApi", () => ({
   ...jest.requireActual("back-end/src/services/slack/slackWebApi"),
   postSlackMessageResult: jest.fn(),
   postSlackImageMessage: jest.fn(),
-}));
-
-jest.mock("back-end/src/models/SlackWorkspaceConnectionModel", () => ({
-  SlackWorkspaceConnectionModel: { dangerousGetAllForTeam: jest.fn() },
 }));
 
 jest.mock("back-end/src/services/slack/slackThreadRouting", () => ({
@@ -167,9 +162,6 @@ describe("Slack EventWebHook delivery compatibility", () => {
     });
     jest.mocked(renderNotificationCard).mockResolvedValue(null);
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue(null);
-    jest
-      .mocked(SlackWorkspaceConnectionModel.dangerousGetAllForTeam)
-      .mockResolvedValue([{ teamId: "T123", organizationId: "org-1" }]);
     jest.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
       org: { id: "org-1", name: "Acme" },
       models: {
@@ -583,14 +575,11 @@ describe("Slack EventWebHook delivery compatibility", () => {
     expect(postSlackMessageResult).not.toHaveBeenCalled();
   });
 
-  describe("shared workspaces and thread pinning", () => {
-    const organizationLine = "GrowthBook organization: Acme";
+  describe("notification thread pinning", () => {
     const textBlock = {
       type: "section",
       text: { type: "mrkdwn", text: "Feature updated" },
     };
-    const footer =
-      "<http://app/experiment/exp-1|Checkout test> | Owner: owner@example.com";
 
     const connectBot = () => {
       setWebhook({
@@ -602,13 +591,6 @@ describe("Slack EventWebHook delivery compatibility", () => {
         encryptedBotAccessToken: "xoxb-token",
       });
     };
-    const shareWorkspace = () =>
-      jest
-        .mocked(SlackWorkspaceConnectionModel.dangerousGetAllForTeam)
-        .mockResolvedValue([
-          { teamId: "T123", organizationId: "org-1" },
-          { teamId: "T123", organizationId: "org-2" },
-        ]);
     const sendText = (ts: string | null) => {
       jest.mocked(getSlackMessageForNotificationEvent).mockReturnValue({
         text: "Feature updated",
@@ -632,48 +614,6 @@ describe("Slack EventWebHook delivery compatibility", () => {
         .mocked(postSlackImageMessage)
         .mockResolvedValue({ fileId: "F123", messageTs });
     };
-
-    it("names the organization on a text notification in a shared workspace", async () => {
-      connectBot();
-      shareWorkspace();
-      sendText("123.456");
-
-      await runAgendaJob();
-
-      expect(postSlackMessageResult).toHaveBeenCalledWith({
-        token: "xoxb-token",
-        channel: "C123",
-        text: `Feature updated\n${organizationLine}`,
-        blocks: [
-          textBlock,
-          {
-            type: "context",
-            elements: [{ type: "mrkdwn", text: organizationLine }],
-          },
-        ],
-      });
-    });
-
-    it("names the organization on a card in a shared workspace", async () => {
-      connectBot();
-      shareWorkspace();
-      sendCard("1700.001");
-
-      await runAgendaJob();
-
-      expect(postSlackImageMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          caption: `${footer}\n${organizationLine}`,
-          captionBlocks: [
-            { type: "context", elements: [{ type: "mrkdwn", text: footer }] },
-            {
-              type: "context",
-              elements: [{ type: "mrkdwn", text: organizationLine }],
-            },
-          ],
-        }),
-      );
-    });
 
     it("leaves the message untouched when one organization owns the workspace", async () => {
       connectBot();

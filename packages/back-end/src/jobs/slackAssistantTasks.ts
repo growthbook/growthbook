@@ -2,10 +2,7 @@ import Agenda, { Job } from "agenda";
 import { logger } from "back-end/src/util/logger";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { postSlackEphemeralMessage } from "back-end/src/services/slack/slackWebApi";
-import {
-  completeSlackLinkRequest,
-  dismissSlackLinkPrompt,
-} from "back-end/src/services/slack/slackLinkRequests";
+import { slackAssistantMentionSchema } from "back-end/src/services/slack/slackThreadRouting";
 import {
   claimSlackTask,
   getSlackTaskClaimAge,
@@ -16,8 +13,6 @@ import {
 import {
   handleSlackAssistantMention,
   handleSlackAssistantConfirmation,
-  handleSlackOrganizationSelection,
-  SlackOrganizationSelection,
   SlackAssistantMention,
   SlackAssistantConfirmation,
 } from "back-end/src/services/slack/slackAssistant";
@@ -30,26 +25,19 @@ const SLACK_ASSISTANT_JOB_NAME = "slackAssistantTask";
 type SlackAssistantTaskData = { dedupeKey?: string } & (
   | { kind: "mention"; mention: SlackAssistantMention }
   | { kind: "confirmation"; confirmation: SlackAssistantConfirmation }
-  | { kind: "organization"; selection: SlackOrganizationSelection }
 );
 
 type SlackAssistantJob = Job<SlackAssistantTaskData>;
 
 const processSlackAssistantTask = async (job: SlackAssistantJob) => {
   const data = job.attrs.data;
-  if (!data) return;
-  const task =
-    data.kind === "mention"
-      ? data.mention
-      : data.kind === "confirmation"
-        ? data.confirmation
-        : data.selection;
+  if (!data || (data.kind !== "mention" && data.kind !== "confirmation"))
+    return;
+  const task = data.kind === "mention" ? data.mention : data.confirmation;
   const rootTs =
     data.kind === "mention"
       ? data.mention.threadTs || data.mention.messageTs
-      : data.kind === "confirmation"
-        ? data.confirmation.threadTs || ""
-        : data.selection.threadTs;
+      : data.confirmation.threadTs || "";
   const lockKey = `thread:${slackTaskKey([task.teamId, task.channelId, rootTs])}`;
   if (!(await claimSlackTask(lockKey))) {
     const age = await getSlackTaskClaimAge(lockKey);
@@ -60,7 +48,6 @@ const processSlackAssistantTask = async (job: SlackAssistantJob) => {
       );
       const target = await resolveSlackAssistantTarget({
         teamId: task.teamId,
-        channelId: task.channelId,
         slackUserId: task.slackUserId,
       });
       if (target.botToken)
@@ -80,13 +67,12 @@ const processSlackAssistantTask = async (job: SlackAssistantJob) => {
   try {
     switch (data.kind) {
       case "mention":
-        await handleSlackAssistantMention(data.mention);
+        await handleSlackAssistantMention(
+          slackAssistantMentionSchema.parse(data.mention),
+        );
         return;
       case "confirmation":
         await handleSlackAssistantConfirmation(data.confirmation);
-        return;
-      case "organization":
-        await handleSlackOrganizationSelection(data.selection);
         return;
     }
   } finally {
@@ -151,26 +137,6 @@ export async function queueSlackAssistantMention(
   );
 }
 
-export async function queueSlackAssistantAfterLink(
-  input: Parameters<typeof completeSlackLinkRequest>[0],
-): Promise<void> {
-  const request = await completeSlackLinkRequest(input);
-  if (!request?.linkedAccount) return;
-  if (request.resumeUntil && Date.now() < request.resumeUntil.getTime()) {
-    await queueSlackAssistantMention(
-      {
-        ...request.mention,
-        resumeAfterLink: {
-          ...request.linkedAccount,
-          expiresAt: request.resumeUntil.getTime(),
-        },
-      },
-      `link:${request._id}`,
-    );
-  }
-  await dismissSlackLinkPrompt(request);
-}
-
 export async function queueSlackAssistantConfirmation(
   confirmation: SlackAssistantConfirmation,
 ): Promise<void> {
@@ -181,11 +147,4 @@ export async function queueSlackAssistantConfirmation(
   // failure. The permanent action claim separately prevents mutation replay.
   const dedupeKey = `confirm:${slackTaskKey([confirmation.teamId, confirmation.channelId, confirmation.slackUserId, confirmation.conversationId, confirmation.actionId, confirmation.interactionTs])}`;
   await enqueue({ kind: "confirmation", confirmation }, dedupeKey);
-}
-
-export async function queueSlackOrganizationSelection(
-  selection: SlackOrganizationSelection,
-): Promise<void> {
-  const dedupeKey = `organization:${slackTaskKey([selection.teamId, selection.channelId, selection.slackUserId, selection.selectionId, selection.interactionTs])}`;
-  await enqueue({ kind: "organization", selection }, dedupeKey);
 }

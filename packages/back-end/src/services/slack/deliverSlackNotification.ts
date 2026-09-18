@@ -19,7 +19,6 @@ import {
   alertFooterText,
 } from "back-end/src/events/handlers/slack/alertMessage";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
-import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 import {
   isSlackWorkspacePlaceholderUrl,
   postSlackMessageResult,
@@ -27,7 +26,6 @@ import {
 } from "back-end/src/services/slack/slackWebApi";
 import { pinSlackNotificationThread } from "back-end/src/services/slack/slackThreadRouting";
 import { logger } from "back-end/src/util/logger";
-import { escapeSlackMrkdwn } from "back-end/src/util/slack.util";
 
 export async function deliverSlackNotification({
   context,
@@ -124,23 +122,6 @@ export async function deliverSlackMessage({
     };
   }
 
-  const workspaceConnections =
-    await SlackWorkspaceConnectionModel.dangerousGetAllForTeam(teamId);
-  // Two organizations can connect the same Slack workspace and post to the
-  // same channel; name the organization so a reader can tell them apart.
-  const organizationLine =
-    workspaceConnections.length > 1
-      ? `GrowthBook organization: ${escapeSlackMrkdwn(context.org.name)}`
-      : null;
-  const organizationBlocks: KnownBlock[] = organizationLine
-    ? [
-        {
-          type: "context",
-          elements: [{ type: "mrkdwn", text: organizationLine }],
-        },
-      ]
-    : [];
-
   const pinThread = async (messageTs: string | null) => {
     if (!messageTs) return;
     try {
@@ -162,7 +143,7 @@ export async function deliverSlackMessage({
       url: card.objectUrl,
       ownerEmail: card.ownerEmail,
     };
-    const text = [messagePrefix, alertFooterText(footer), organizationLine]
+    const text = [messagePrefix, alertFooterText(footer)]
       .filter(Boolean)
       .join("\n");
     const blocks: KnownBlock[] = [
@@ -179,7 +160,6 @@ export async function deliverSlackMessage({
           ]
         : []),
       alertFooterBlock(footer),
-      ...organizationBlocks,
     ];
     const posted = await postSlackImageMessage({
       token: botToken,
@@ -208,17 +188,11 @@ export async function deliverSlackMessage({
   const payload = await getTextPayload();
   if (!payload?.text) return null;
 
-  const labelled = organizationLine
-    ? {
-        text: `${payload.text}\n${organizationLine}`,
-        blocks: [...payload.blocks, ...organizationBlocks],
-      }
-    : payload;
   const result = await postSlackMessageResult({
     token: botToken,
     channel: channelId,
-    text: labelled.text,
-    blocks: labelled.blocks,
+    text: payload.text,
+    blocks: payload.blocks,
   });
   await pinThread(result.ts);
 
@@ -234,7 +208,7 @@ export async function deliverSlackMessage({
           statusCode: null,
           error: `Slack delivery failed: ${result.error}`,
         },
-    payload: labelled,
+    payload,
     deliveredAs: "text",
     messageTs: result.ts,
   };

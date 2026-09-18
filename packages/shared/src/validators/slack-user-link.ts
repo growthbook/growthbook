@@ -21,13 +21,11 @@ export const slackLinkConsentSchema = z.object({
   slackTeamId: z.string(),
   slackUserId: z.string(),
   teamName: z.string(),
-  organizations: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      linkedAccount: z.enum(["current", "other"]).nullable(),
-    }),
-  ),
+  organization: z.object({
+    id: z.string(),
+    name: z.string(),
+    linkedAccount: z.enum(["current", "other"]).nullable(),
+  }),
 });
 export type SlackLinkConsent = z.infer<typeof slackLinkConsentSchema>;
 

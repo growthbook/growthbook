@@ -23,93 +23,60 @@ the assistant switch.
 
 ## Account links and organization routing
 
-Users consent separately for each GrowthBook organization. Send `link account`
-to GrowthBook in a DM, or mention the bot with that text in a channel, to get a
-private signed link. The consent page shows the Slack workspace/user, signed-in
-GrowthBook account, and eligible connected organizations. Choose the organization
-before confirming. To replace a linked GrowthBook account, open a fresh private
-link while signed in to the replacement account and confirm that organization.
+Each Slack workspace connects to one GrowthBook organization, and each GrowthBook
+organization connects to one Slack workspace. Send `link account` to GrowthBook in
+a DM, or mention the bot with that text in a channel, to get a private signed link.
+The consent page shows the Slack workspace/user, signed-in GrowthBook account, and
+the connected organization before confirmation. To replace a linked GrowthBook
+account, open a fresh private link while signed in to the replacement account and
+confirm that organization.
 
-The private **Link my account** button also sends an interaction callback. After
-successful consent, GrowthBook uses that callback to dismiss the prompt. A question
-that prompted linking resumes once in its original thread if linking and job
-execution happen within 10 minutes of the prompt. Later linking still connects the
-account, but the user must send the question again. The consent link itself expires
-after 15 minutes. Explicit `link account` requests do not start an assistant turn.
-Resumed questions recheck the selected organization, current access, and the exact
-account-link generation before running. Interactivity must be configured for
-prompt dismissal; older prompts containing plain links cannot be dismissed this way.
+The connection model enforces this temporary 1:1 policy with the unique indexes
+`slack_one_org_per_workspace` and `slack_one_workspace_per_org`. Both OAuth install
+paths reject a conflicting connection; reconnecting the same pair refreshes its
+credentials. Disconnect the existing pair before moving either side to a new one.
+Existing conflicting connections must be disconnected before these indexes can
+be created. Writes wait for index creation and fail if it cannot enforce the policy.
+
+To support shared workspaces later, remove this validation, explicitly drop the
+two policy indexes, and extend the workspace resolver. Connection primary keys,
+account links, and conversation IDs remain organization-scoped for that change.
+
+The private **Link my account** URL expires after 15 minutes. After confirming
+the connected organization and account, return to Slack and send the question
+again. Linking does not resume a question or dismiss the private prompt.
+Explicit `link account` requests do not start an assistant turn. Interactivity
+is used for mutation approvals.
 
 The personal account menu's **My Slack links** page lists the current user's
 links in the selected organization and allows disconnecting them. These actions
-do not require integration-admin permission. Other organizations' links remain
-unchanged. Every replacement creates a new link identifier, so older conversations
-and pending approvals cannot be reused, even when relinking to the same account.
+do not require integration-admin permission. Every replacement creates a new link
+identifier, so older conversations and pending approvals cannot be reused, even
+when relinking to the same account.
 A signed consent token can be used once per organization; retrying an already
 successful consent is idempotent. A failed or subsequently disconnected consent
 requires a fresh private link.
 
-Workspace OAuth connections are authoritative for linking and DMs, including a
-fresh installation with no notification channels. Deleting the final notification
-channel leaves workspace linking and DMs available. Channel requests still require
-an exact channel subscription in the selected organization.
+Workspace OAuth connections are authoritative for linking, DMs, and channel
+mentions, including a fresh installation with no notification channels. Invite the
+bot to a channel directly in Slack to talk to it there. Notification subscriptions
+do not restrict access to the assistant, and deleting a notification subscription
+does not interrupt assistant conversations.
 
-A thread with a pinned organization keeps it. Otherwise a single eligible linked
-organization with the assistant enabled is chosen automatically. When several are
-eligible, the assistant tries, in order:
+The assistant uses the organization connected to the Slack workspace. Users must
+link their account in that organization and retain access to it.
 
-1. A GrowthBook link in the message to an experiment or Feature Flag that exactly
-   one eligible organization owns.
-2. The name of exactly one eligible organization, appearing as a whole word in
-   the message.
-3. In direct messages only, the user's stored default organization for that
-   workspace, when it is still eligible. A stale default is ignored.
-4. A private clickable organization picker. The assistant continues the original
-   question after a valid choice.
+A thread keeps its organization in `slackassistantthreads`. Disconnecting and
+reconnecting the workspace to a different organization never redirects an existing
+thread. Each Slack participant has a separate conversation bound to their Slack
+identity, GrowthBook account, organization, and current link identifier. Membership,
+configuration, and permissions are checked again when acting.
 
-Inference never fails a turn. An error at any step is logged and the picker is
-shown instead, and an unreadable preference document is ignored the same way.
-
-An inferred organization is re-resolved in full (membership, configuration,
-permissions) and pinned exactly like a picker choice. The pin persists in
-`slackassistantthreads` for the team/channel/thread. Later messages and approvals
-use that organization. Losing a link, membership, or channel connection never
-redirects an existing thread to another organization. Each Slack participant has
-a separate conversation bound to their Slack identity, GrowthBook account,
-organization, and current link identifier. Picker responses are bound to the
-requester and pending question; stale, duplicate, or mismatched responses do not
-start another turn. Membership, configuration, and permissions are checked again
-when acting. To use a different organization, start a new thread.
-
-Notifications GrowthBook posts also pin their thread to the sending
-organization, so a reply under a results card does not ask which organization it
-belongs to. These notification pins expire after 90 days through a TTL index,
+Notifications GrowthBook posts also pin their thread to the sending organization,
+so replies still belong to that organization if the workspace is later reconnected
+to a different one. These notification pins expire after 90 days through a TTL index,
 and they never overwrite a pin the thread already has. A pin stops expiring once
-someone converses in the thread. When two organizations have connected the same
-Slack workspace, every notification carries a final line naming the organization
-it came from.
-
-Two phrases manage the stored default, both direct-message only and both spelled
-either `organization` or `organisation`. Sending exactly `remember organization`
-in a thread already pinned to an organization stores that organization in
-`slackuserpreferences`, one document per workspace and Slack user; the DM picker
-names the phrase so people discover it. Sent in a thread with no pin, it asks for
-a question first. Sending exactly `switch organization` clears the default
-without changing any existing thread's pin. Channels never store a default, and
-both phrases are ordinary questions there. Neither phrase runs an assistant turn,
-and both answer privately.
-
-When the Slack user has links to more than one organization in the workspace, the
-assistant's answers and approval outcomes end with an italic
-`Answering as <organization>` line. Only answers and approval outcomes carry it.
-Prompts, private notices, and refusals do not, for example the assistant-off
-notice, the empty-question prompt, the "Confirm this change?" request, and the
-picker.
-
-`slackuserlinks` is unique per Slack workspace, Slack user, and organization;
-BaseModel creates that index at startup. Every stored link carries the `linkId`
-generation it was created with. Old approval buttons from before thread routing
-was introduced are rejected and require a new proposal.
+someone converses in the thread.
 
 ## Queue recovery
 

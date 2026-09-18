@@ -8,44 +8,18 @@ import {
 import {
   handleSlackAssistantConfirmation,
   handleSlackAssistantMention,
-  handleSlackOrganizationSelection,
 } from "back-end/src/services/slack/slackAssistant";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
 import {
   getSlackThread,
   pinSlackThreadOrganization,
-  saveSlackOrganizationPicker,
-  consumeSlackOrganizationSelection,
   slackConversationId,
 } from "back-end/src/services/slack/slackThreadRouting";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
-import {
-  clearSlackDefaultOrganization,
-  getSlackUserPreference,
-  setSlackDefaultOrganization,
-} from "back-end/src/services/slack/slackUserPreference";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getFeature } from "back-end/src/models/FeatureModel";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
-import { postSlackAccountLink } from "back-end/src/services/slack/slackLinkRequests";
-
-jest.mock("back-end/src/services/slack/slackLinkRequests", () => ({
-  postSlackAccountLink: jest.fn().mockResolvedValue(true),
-}));
+import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
 
 jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   runAgentTurnToCompletion: jest.fn(),
-}));
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
-}));
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-}));
-jest.mock("back-end/src/services/slack/slackUserPreference", () => ({
-  getSlackUserPreference: jest.fn(),
-  setSlackDefaultOrganization: jest.fn(),
-  clearSlackDefaultOrganization: jest.fn(),
 }));
 jest.mock("back-end/src/services/slack/slackIdentity", () => ({
   resolveSlackAssistantTarget: jest.fn(),
@@ -70,8 +44,6 @@ jest.mock("back-end/src/services/slack/slackThreadRouting", () => ({
   ...jest.requireActual("back-end/src/services/slack/slackThreadRouting"),
   getSlackThread: jest.fn(),
   pinSlackThreadOrganization: jest.fn(),
-  saveSlackOrganizationPicker: jest.fn(),
-  consumeSlackOrganizationSelection: jest.fn(),
 }));
 const thread = {
   _id: "thread1",
@@ -89,44 +61,11 @@ const conversationId = slackConversationId({
   linkId: "link1",
 });
 const getById = jest.fn().mockResolvedValue({ pendingAction: { id: "first" } });
-const choices = [
-  { organizationId: "org1", name: "First", linkId: "link1" },
-  { organizationId: "org2", name: "Second", linkId: "link2" },
-];
-const ambiguous = {
-  ok: false as const,
-  reason: "ambiguous_org" as const,
-  message: "Choose an organization",
-  botToken: "token",
-  choices,
-  targets: choices.map((choice) => ({
-    ok: true as const,
-    context: { org: { id: choice.organizationId } } as unknown as ApiReqContext,
-    userId: "user1",
-    linkId: choice.linkId,
-    organizationId: choice.organizationId,
-    organizationName: choice.name,
-    eventWebHookId: null,
-    botToken: "token",
-    assistantEnabled: true,
-    linkedOrganizationCount: 2,
-  })),
-};
-const preference = (defaultOrganizationId: string) => ({
-  _id: "pref",
-  slackTeamId: "T1",
-  slackUserId: "U1",
-  defaultOrganizationId,
-  dateUpdated: new Date(),
-});
-
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(postSlackEphemeralMessage).mockResolvedValue(true);
   jest.mocked(getSlackThread).mockResolvedValue(thread);
   jest.mocked(pinSlackThreadOrganization).mockResolvedValue(thread);
-  jest.mocked(getSlackUserPreference).mockResolvedValue(null);
-  jest.mocked(getExperimentById).mockResolvedValue(null);
-  jest.mocked(getFeature).mockResolvedValue(null);
   // Only the fields consumed by this service are needed in the mocked context.
   jest.mocked(resolveSlackAssistantTarget).mockImplementation(
     async () =>
@@ -138,12 +77,9 @@ beforeEach(() => {
         },
         userId: "user1",
         linkId: "link1",
-        organizationName: "First org",
         organizationId: "org1",
         botToken: "token",
         assistantEnabled: true,
-        eventWebHookId: "webhook1",
-        linkedOrganizationCount: 1,
       }) as unknown as Awaited<ReturnType<typeof resolveSlackAssistantTarget>>,
   );
 });
@@ -293,7 +229,6 @@ it("keeps controls retryable before dispatch but blocks replay after an uncertai
 it("rejects approvals from an earlier link generation, even for the same account", async () => {
   const target = await resolveSlackAssistantTarget({
     teamId: "T1",
-    channelId: "C1",
     slackUserId: "U1",
   });
   if (!target.ok) throw new Error("Expected a target");
@@ -316,7 +251,6 @@ it.each(["link", "permissions"])(
   async (changed) => {
     const target = await resolveSlackAssistantTarget({
       teamId: "T1",
-      channelId: "C1",
       slackUserId: "U1",
     });
     if (!target.ok) throw new Error("Expected a target");
@@ -354,181 +288,44 @@ it.each(["link", "permissions"])(
     expect(claimSlackTask).not.toHaveBeenCalled();
   },
 );
-it("shows ambiguous organization choices instead of dropping the question", async () => {
-  const mention = {
-    teamId: "T1",
-    channelId: "C1",
-    slackUserId: "U1",
-    text: "Question",
-    messageTs: "123.456",
-  };
-  jest.mocked(getSlackThread).mockResolvedValue(null);
-  jest.mocked(resolveSlackAssistantTarget).mockResolvedValue(ambiguous);
-  jest.mocked(saveSlackOrganizationPicker).mockResolvedValue({
-    ...thread,
-    status: "pending",
-    mention,
-    selectionId: "picker",
-    choices,
-  });
-  await handleSlackAssistantMention(mention);
-  expect(saveSlackOrganizationPicker).toHaveBeenCalledWith(mention, choices);
-  expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
-    expect.objectContaining({
-      user: "U1",
-      blocks: expect.arrayContaining([
-        expect.objectContaining({
-          accessory: expect.objectContaining({ type: "static_select" }),
-        }),
-      ]),
-    }),
-  );
-  expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-});
-it("does not consume an organization selection after access is revoked", async () => {
-  jest.mocked(resolveSlackAssistantTarget).mockResolvedValue({
-    ok: false,
-    reason: "organization_unavailable",
-    message: "No access",
-    botToken: "token",
-  });
-  await handleSlackOrganizationSelection({
-    teamId: "T1",
-    channelId: "C1",
-    slackUserId: "U1",
-    selectionId: "picker",
-    organizationId: "org1",
-    threadTs: "123.456",
-    interactionTs: "123.999",
-  });
-  expect(consumeSlackOrganizationSelection).not.toHaveBeenCalled();
-  expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-});
-
-it("continues the original question once after an authorized organization choice", async () => {
-  const mention = {
-    teamId: "T1",
-    channelId: "C1",
-    slackUserId: "U1",
-    text: "Original question",
-    messageTs: "123.456",
-  };
-  jest
-    .mocked(consumeSlackOrganizationSelection)
-    .mockResolvedValueOnce(mention)
-    .mockResolvedValue(null);
-  jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
-    ok: true,
-    conversationId,
-    reply: "Answer",
-    pendingAction: null,
-  });
-  const selection = {
-    teamId: "T1",
-    channelId: "C1",
-    slackUserId: "U1",
-    selectionId: "picker",
-    organizationId: "org1",
-    threadTs: "123.456",
-    interactionTs: "123.999",
-  };
-  await handleSlackOrganizationSelection(selection);
-  await handleSlackOrganizationSelection(selection);
-  expect(runAgentTurnToCompletion).toHaveBeenCalledTimes(1);
-  expect(runAgentTurnToCompletion).toHaveBeenCalledWith(
-    expect.objectContaining({
-      input: { message: "Original question", conversationId },
-    }),
-  );
-});
-it("saves an unlinked user's original question and pinned organization with the private prompt", async () => {
-  jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
-    ok: false,
-    reason: "not_linked",
-    botToken: "token",
-    message: "Link your account.",
-  });
-  const mention = {
-    teamId: "T1",
-    channelId: "C1",
-    slackUserId: "U1",
-    text: "What experiments are running?",
-    messageTs: "123.456",
-  };
-  await handleSlackAssistantMention(mention);
-  expect(postSlackAccountLink).toHaveBeenCalledWith({
-    mention,
-    token: "token",
-    text: "Link your account.",
-    organizationId: "org1",
-    resumeQuestion: true,
-  });
-  expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-});
-
-describe("resuming after account linking", () => {
-  const resumeMention = () => ({
-    teamId: "T1",
-    channelId: "C1",
-    slackUserId: "U1",
-    text: "Original question",
-    messageTs: "123.456",
-    resumeAfterLink: {
+it.each([thread, null])(
+  "sends an unlinked user a private signed URL and asks them to resend: %p",
+  async (existingThread) => {
+    jest.mocked(getSlackThread).mockResolvedValueOnce(existingThread);
+    jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
+      ok: false,
+      reason: "not_linked",
       organizationId: "org1",
-      userId: "user1",
-      linkId: "link1",
-      expiresAt: Date.now() + 60000,
-    },
-  });
-  it("resolves the consented organization and answers in the original thread", async () => {
-    jest.mocked(getSlackThread).mockResolvedValue(null);
-    jest
-      .mocked(runAgentTurnToCompletion)
-      .mockResolvedValue({
-        ok: true,
-        conversationId,
-        reply: "Answer",
-        pendingAction: null,
-      });
-    await handleSlackAssistantMention(resumeMention());
-    expect(resolveSlackAssistantTarget).toHaveBeenCalledWith(
-      expect.objectContaining({
-        organizationId: "org1",
-        requireAssistantEnabled: true,
-      }),
-    );
-    expect(runAgentTurnToCompletion).toHaveBeenCalledWith(
-      expect.objectContaining({
-        input: { message: "Original question", conversationId },
-      }),
-    );
-    expect(postSlackMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ threadTs: "123.456" }),
-    );
-  });
-  it.each([
-    { expiresAt: 0 },
-    { userId: "another-user" },
-    { linkId: "replaced-link" },
-    { organizationId: "another-org" },
-  ])("does not resume an expired or replaced identity: %p", async (changed) => {
-    const mention = resumeMention();
-    mention.resumeAfterLink = { ...mention.resumeAfterLink, ...changed };
+      botToken: "token",
+      message: "Link your account.",
+    });
+    const mention = {
+      teamId: "T1",
+      channelId: "C1",
+      slackUserId: "U1",
+      text: "What experiments are running?",
+      messageTs: "123.456",
+    };
     await handleSlackAssistantMention(mention);
+    expect(postSlackEphemeralMessage).toHaveBeenCalledWith({
+      token: "token",
+      channel: "C1",
+      user: "U1",
+      threadTs: undefined,
+      text: expect.stringContaining("After linking, send your question again."),
+    });
+    const prompt = jest.mocked(postSlackEphemeralMessage).mock.calls[0][0].text;
+    const url = prompt.match(/<([^|]+)\|Link my account>/)?.[1];
+    expect(url).toBeDefined();
+    const state = new URL(url || "").searchParams.get("state") || "";
+    expect(verifySlackLinkState(state)).toMatchObject({
+      slackTeamId: "T1",
+      slackUserId: "U1",
+    });
+    expect(postSlackMessage).not.toHaveBeenCalled();
     expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-  });
-  it("does not resume when channel access or membership was revoked", async () => {
-    jest
-      .mocked(resolveSlackAssistantTarget)
-      .mockResolvedValueOnce({
-        ok: false,
-        reason: "organization_unavailable",
-        message: "Access removed.",
-      });
-    await handleSlackAssistantMention(resumeMention());
-    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-  });
-});
+  },
+);
 
 it("refreshes signed link consent on request even for already-linked users", async () => {
   await handleSlackAssistantMention({
@@ -538,310 +335,75 @@ it("refreshes signed link consent on request even for already-linked users", asy
     text: "link account",
     messageTs: "123.456",
   });
-  expect(postSlackAccountLink).toHaveBeenCalledWith(
+  expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
     expect.objectContaining({
-      mention: expect.objectContaining({ slackUserId: "U1" }),
-      text: "Link or replace your account for a GrowthBook organization.",
+      channel: "D1",
+      user: "U1",
+      text: expect.stringContaining("Link or replace your GrowthBook account."),
     }),
   );
+  expect(postSlackMessage).not.toHaveBeenCalled();
   expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
 });
 
-describe("organization routing for a new thread with several eligible organizations", () => {
-  const mention = (channelId: string, text: string) => ({
-    teamId: "T1",
-    channelId,
-    slackUserId: "U1",
-    text,
-    messageTs: "123.456",
-  });
-  beforeEach(() => {
+it.each(["C1", "G1", "D1"])(
+  "answers in %s using the workspace organization without a channel binding",
+  async (channelId) => {
     jest.mocked(getSlackThread).mockResolvedValue(null);
-    jest
-      .mocked(pinSlackThreadOrganization)
-      .mockImplementation(async (identity, organizationId) => ({
-        ...thread,
-        organizationId,
-      }));
-    jest
-      .mocked(saveSlackOrganizationPicker)
-      .mockImplementation(async (pending, pendingChoices) => ({
-        ...thread,
-        channelId: pending.channelId,
-        status: "pending",
-        mention: pending,
-        selectionId: "picker",
-        choices: pendingChoices,
-      }));
     jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
       ok: true,
       conversationId,
       reply: "Answer",
       pendingAction: null,
     });
-  });
-  const expectPicker = () => {
-    expect(resolveSlackAssistantTarget).toHaveBeenCalledTimes(1);
-    expect(saveSlackOrganizationPicker).toHaveBeenCalled();
-    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-  };
-  const expectRoutedTo = (organizationId: string) => {
-    expect(resolveSlackAssistantTarget).toHaveBeenCalledTimes(2);
-    expect(resolveSlackAssistantTarget).toHaveBeenLastCalledWith(
-      expect.objectContaining({ organizationId }),
-    );
-    expect(saveSlackOrganizationPicker).not.toHaveBeenCalled();
-    expect(runAgentTurnToCompletion).toHaveBeenCalledTimes(1);
-  };
-
-  it("routes to the one organization that owns a linked experiment", async () => {
-    jest
-      .mocked(resolveSlackAssistantTarget)
-      .mockResolvedValueOnce(ambiguous)
-      .mockResolvedValueOnce(ambiguous.targets[1]);
-    jest
-      .mocked(getExperimentById)
-      .mockImplementation(async (context, id) =>
-        context.org.id === "org2" && id === "exp_1"
-          ? ({ id } as Awaited<ReturnType<typeof getExperimentById>>)
-          : null,
-      );
-    await handleSlackAssistantMention(
-      mention("C1", `how is <${APP_ORIGIN}/experiment/exp_1> doing?`),
-    );
-    expectRoutedTo("org2");
-    expect(runAgentTurnToCompletion).toHaveBeenCalledWith(
-      expect.objectContaining({ context: ambiguous.targets[1].context }),
-    );
-  });
-  it("looks a linked Feature Flag up as a feature, and shows the picker when more than one eligible organization owns it", async () => {
-    jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce(ambiguous);
-    jest
-      .mocked(getFeature)
-      .mockResolvedValue({ id: "flag" } as Awaited<
-        ReturnType<typeof getFeature>
-      >);
-    await handleSlackAssistantMention(
-      mention("C1", `is <${APP_ORIGIN}/features/flag|flag> on?`),
-    );
-    for (const target of ambiguous.targets)
-      expect(getFeature).toHaveBeenCalledWith(target.context, "flag");
-    expect(getExperimentById).not.toHaveBeenCalled();
-    expectPicker();
-  });
-  it("shows the picker when the organization lookup throws", async () => {
-    jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce(ambiguous);
-    jest
-      .mocked(getExperimentById)
-      .mockRejectedValue(new Error("experiment lookup failed"));
-    await handleSlackAssistantMention(
-      mention("C1", `how is <${APP_ORIGIN}/experiment/exp_1> doing?`),
-    );
-    expectPicker();
-  });
-  it("routes to the one organization named in the message", async () => {
-    jest
-      .mocked(resolveSlackAssistantTarget)
-      .mockResolvedValueOnce(ambiguous)
-      .mockResolvedValueOnce(ambiguous.targets[1]);
-    await handleSlackAssistantMention(
-      mention("C1", "what is running in Second?"),
-    );
-    expectRoutedTo("org2");
-  });
-  it("applies a stored default in a direct message when it is still a choice", async () => {
-    jest.mocked(getSlackUserPreference).mockResolvedValue(preference("org1"));
-    jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce(ambiguous);
-    await handleSlackAssistantMention(mention("D1", "what is running?"));
-    expect(getSlackUserPreference).toHaveBeenCalledWith({
-      slackTeamId: "T1",
-      slackUserId: "U1",
-    });
-    expectRoutedTo("org1");
-  });
-  it("shows the picker in a direct message when the stored default is no longer a choice", async () => {
-    jest.mocked(getSlackUserPreference).mockResolvedValue(preference("org9"));
-    jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce(ambiguous);
-    await handleSlackAssistantMention(mention("D1", "what is running?"));
-    expectPicker();
-  });
-  it("never consults the stored default in a channel", async () => {
-    jest.mocked(getSlackUserPreference).mockResolvedValue(preference("org1"));
-    jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce(ambiguous);
-    await handleSlackAssistantMention(mention("C1", "what is running?"));
-    expect(getSlackUserPreference).not.toHaveBeenCalled();
-    expectPicker();
-  });
-  it("clears the stored default when a direct message says switch organization", async () => {
-    await handleSlackAssistantMention(mention("D1", "Switch Organisation"));
-    expect(clearSlackDefaultOrganization).toHaveBeenCalledWith({
-      slackTeamId: "T1",
-      slackUserId: "U1",
-    });
-    expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user: "U1",
-        text: expect.stringContaining("next new message"),
-      }),
-    );
-    expect(resolveSlackAssistantTarget).not.toHaveBeenCalled();
-    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-  });
-  it("treats switch organization in a channel as an ordinary question", async () => {
-    await handleSlackAssistantMention(mention("C1", "Switch Organisation"));
-    expect(clearSlackDefaultOrganization).not.toHaveBeenCalled();
-    expect(resolveSlackAssistantTarget).toHaveBeenCalled();
-  });
-  it.each([
-    { linkedOrganizationCount: 2, text: "Answer\n\n_Answering as First org_" },
-    { linkedOrganizationCount: 1, text: "Answer" },
-  ])(
-    "labels the reply with the organization only when $linkedOrganizationCount organizations are linked",
-    async ({ linkedOrganizationCount, text }) => {
-      const target = await resolveSlackAssistantTarget({
-        teamId: "T1",
-        channelId: "C1",
-        slackUserId: "U1",
-      });
-      if (!target.ok) throw new Error("Expected a target");
-      jest
-        .mocked(resolveSlackAssistantTarget)
-        .mockResolvedValue({ ...target, linkedOrganizationCount });
-      await handleSlackAssistantMention(mention("C1", "what is running?"));
-      expect(postSlackMessage).toHaveBeenLastCalledWith(
-        expect.objectContaining({ text }),
-      );
-    },
-  );
-  it("labels the answer that replaces the thinking placeholder in place", async () => {
-    const target = await resolveSlackAssistantTarget({
+    await handleSlackAssistantMention({
       teamId: "T1",
-      channelId: "C1",
+      channelId,
       slackUserId: "U1",
+      text: "<@BOT> What experiments are running?",
+      messageTs: "123.456",
+      botUserId: "BOT",
     });
-    if (!target.ok) throw new Error("Expected a target");
-    jest
-      .mocked(resolveSlackAssistantTarget)
-      .mockResolvedValue({ ...target, linkedOrganizationCount: 2 });
-    jest.mocked(postSlackMessage).mockResolvedValue("999.111");
-    jest.mocked(updateSlackMessage).mockResolvedValue(true);
-    await handleSlackAssistantMention(mention("C1", "what is running?"));
-    expect(updateSlackMessage).toHaveBeenCalledWith(
+    expect(resolveSlackAssistantTarget).toHaveBeenCalledWith({
+      teamId: "T1",
+      slackUserId: "U1",
+      requireAssistantEnabled: true,
+      organizationId: undefined,
+    });
+    expect(runAgentTurnToCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
-        ts: "999.111",
-        text: "Answer\n\n_Answering as First org_",
+        input: expect.objectContaining({
+          message: "What experiments are running?",
+        }),
       }),
     );
-    expect(postSlackMessage).toHaveBeenCalledTimes(1);
-  });
-});
-
-it("labels the approval outcome with the organization when several are linked", async () => {
-  const target = await resolveSlackAssistantTarget({
-    teamId: "T1",
-    channelId: "C1",
-    slackUserId: "U1",
-  });
-  if (!target.ok) throw new Error("Expected a target");
-  jest
-    .mocked(resolveSlackAssistantTarget)
-    .mockResolvedValue({ ...target, linkedOrganizationCount: 2 });
+    expect(postSlackMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        channel: channelId,
+        threadTs: "123.456",
+        text: "Answer",
+      }),
+    );
+  },
+);
+it("replaces the thinking placeholder with the answer", async () => {
+  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
   jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
     ok: true,
     conversationId,
-    reply: "Applied.",
+    reply: "Answer",
     pendingAction: null,
   });
-  await handleSlackAssistantConfirmation({
+  await handleSlackAssistantMention({
     teamId: "T1",
     channelId: "C1",
     slackUserId: "U1",
-    conversationId,
-    actionId: "first",
-    decision: "confirm",
-    threadTs: "123.456",
-  });
-  expect(postSlackMessage).toHaveBeenLastCalledWith(
-    expect.objectContaining({ text: "Applied.\n\n_Answering as First org_" }),
-  );
-});
-
-describe("remembering the thread's organization for direct messages", () => {
-  const remember = (channelId: string) => ({
-    teamId: "T1",
-    channelId,
-    slackUserId: "U1",
-    text: "Remember Organisation",
+    text: "Question",
     messageTs: "123.456",
-    threadTs: "123.456",
   });
-  beforeEach(() => {
-    jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
-      ok: true,
-      conversationId,
-      reply: "Answer",
-      pendingAction: null,
-    });
-  });
-  it("stores the organization a direct-message thread is pinned to", async () => {
-    await handleSlackAssistantMention(remember("D1"));
-    expect(setSlackDefaultOrganization).toHaveBeenCalledWith(
-      { slackTeamId: "T1", slackUserId: "U1" },
-      "org1",
-    );
-    expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user: "U1",
-        threadTs: "123.456",
-        text: expect.stringContaining("First org"),
-      }),
-    );
-    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-  });
-  it("asks for a question first when the direct-message thread has no organization", async () => {
-    jest.mocked(getSlackThread).mockResolvedValue(null);
-    await handleSlackAssistantMention(remember("D1"));
-    expect(setSlackDefaultOrganization).not.toHaveBeenCalled();
-    expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user: "U1",
-        text: expect.stringContaining("Ask me a question first"),
-      }),
-    );
-    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-  });
-  it("refuses to store an organization the user can no longer use", async () => {
-    jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
-      ok: false,
-      reason: "not_linked",
-      message:
-        "This thread belongs to a GrowthBook organization your Slack account isn't linked to.",
-      botToken: "token",
-    });
-    await handleSlackAssistantMention(remember("D1"));
-    expect(setSlackDefaultOrganization).not.toHaveBeenCalled();
-    expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user: "U1",
-        text: expect.stringContaining("isn't linked to"),
-      }),
-    );
-    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-  });
-  it("reports a failed write instead of confirming a default it did not store", async () => {
-    jest
-      .mocked(setSlackDefaultOrganization)
-      .mockRejectedValueOnce(new Error("write failed"));
-    await handleSlackAssistantMention(remember("D1"));
-    expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        text: expect.stringContaining("couldn't save that default"),
-      }),
-    );
-  });
-  it("treats remember organization in a channel as an ordinary question", async () => {
-    await handleSlackAssistantMention(remember("C1"));
-    expect(setSlackDefaultOrganization).not.toHaveBeenCalled();
-    expect(runAgentTurnToCompletion).toHaveBeenCalledTimes(1);
-  });
+  expect(updateSlackMessage).toHaveBeenCalledWith(
+    expect.objectContaining({ ts: "999.111", text: "Answer" }),
+  );
+  expect(postSlackMessage).toHaveBeenCalledTimes(1);
 });

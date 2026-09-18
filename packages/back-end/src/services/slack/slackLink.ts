@@ -15,14 +15,12 @@ const sign = (payload: string) =>
   createHmac("sha256", JWT_SECRET).update(payload).digest("base64url");
 
 export function buildSlackLinkUrl(
-  identity: Pick<SlackLinkState, "slackTeamId" | "slackUserId"> & {
-    nonce?: string;
-  },
+  identity: Pick<SlackLinkState, "slackTeamId" | "slackUserId">,
 ): string {
   const payload = Buffer.from(
     JSON.stringify({
       ...identity,
-      nonce: identity.nonce ?? randomBytes(12).toString("base64url"),
+      nonce: randomBytes(12).toString("base64url"),
       createdAt: Date.now(),
     }),
   ).toString("base64url");

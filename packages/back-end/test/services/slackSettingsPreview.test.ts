@@ -11,7 +11,6 @@ import {
   postSlackImageMessage,
   postSlackMessageResult,
 } from "back-end/src/services/slack/slackWebApi";
-import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 jest.mock("back-end/src/events/handlers/webhooks/sendEventWebhook", () => ({
   sendEventWebhook: jest.fn(),
 }));
@@ -28,9 +27,6 @@ jest.mock("back-end/src/services/slack/slackWebApi", () => ({
   ...jest.requireActual("back-end/src/services/slack/slackWebApi"),
   postSlackImageMessage: jest.fn(),
   postSlackMessageResult: jest.fn(),
-}));
-jest.mock("back-end/src/models/SlackWorkspaceConnectionModel", () => ({
-  SlackWorkspaceConnectionModel: { dangerousGetAllForTeam: jest.fn() },
 }));
 jest.mock("back-end/src/services/slack/slackThreadRouting", () => ({
   pinSlackNotificationThread: jest.fn(),
@@ -71,9 +67,6 @@ const context = {
 } as unknown as ReqContext;
 beforeEach(() => {
   jest.clearAllMocks();
-  jest
-    .mocked(SlackWorkspaceConnectionModel.dangerousGetAllForTeam)
-    .mockResolvedValue([{ teamId: "T1", organizationId: "org_test" }]);
 });
 it.each(previewNotificationEventNames)(
   "renders a real Slack message for sample %s",

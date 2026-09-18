@@ -1,5 +1,4 @@
 import {
-  deleteSlackEphemeralMessage,
   getSlackConversation,
   isSlackWorkspacePlaceholderUrl,
   joinSlackConversation,
@@ -36,49 +35,6 @@ const slackApiBody = (method: string): Record<string, unknown> => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-});
-
-describe("deleteSlackEphemeralMessage", () => {
-  it("uses Slack's interaction callback to delete a private prompt", async () => {
-    jest
-      .mocked(cancellableFetch)
-      .mockResolvedValueOnce(slackResponse({ ok: true }));
-    expect(
-      await deleteSlackEphemeralMessage(
-        "https://hooks.slack.com/actions/T1/callback",
-      ),
-    ).toBe(true);
-    expect(cancellableFetch).toHaveBeenCalledWith(
-      "https://hooks.slack.com/actions/T1/callback",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ delete_original: true }),
-        redirect: "error",
-      }),
-      expect.anything(),
-    );
-  });
-  it.each([
-    "not-a-url",
-    "http://hooks.slack.com/actions/token",
-    "https://example.com/actions/token",
-    "https://hooks.slack.com.example.com/actions/token",
-    "https://user:password@hooks.slack.com/actions/token",
-    "https://hooks.slack.com:8443/actions/token",
-  ])("rejects an unsafe callback: %s", async (url) => {
-    expect(await deleteSlackEphemeralMessage(url)).toBe(false);
-    expect(cancellableFetch).not.toHaveBeenCalled();
-  });
-  it("does not let a callback failure fail account linking", async () => {
-    jest
-      .mocked(cancellableFetch)
-      .mockRejectedValueOnce(new Error("Slack unavailable"));
-    expect(
-      await deleteSlackEphemeralMessage(
-        "https://hooks.slack.com/actions/T1/callback",
-      ),
-    ).toBe(false);
-  });
 });
 
 describe("isSlackWorkspacePlaceholderUrl", () => {
