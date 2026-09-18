@@ -44,7 +44,7 @@ export function ThresholdBasisRow({
       <DataList
         maxColumns={1}
         data={[
-          { label: "Basis", value: SHAPE_LABELS[shape] },
+          { label: "Threshold", value: SHAPE_LABELS[shape] },
           ...(hasColumn
             ? [
                 {
@@ -65,7 +65,7 @@ export function ThresholdBasisRow({
   return (
     <Flex gap="2" align="end" wrap="wrap">
       <ShapeSelect
-        label="Basis"
+        label="Threshold"
         value={shape}
         shapes={THRESHOLD_SHAPES}
         factTable={factTable}
