@@ -1524,6 +1524,7 @@ export async function advanceStep(
     currentStepIndex: nextStepIndex,
     currentStepEnteredAt: now,
     stepApproval: null,
+    healthHold: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     nextStepAt,
     nextSnapshotAt,
@@ -1713,6 +1714,7 @@ export async function rollbackToStep(
     nextStepAt: null,
     nextSnapshotAt: null,
     stepApproval: null,
+    healthHold: null,
     pausedAt: newStatus === "paused" ? now : null,
     nextProcessAt: null,
     // Re-arm the approval gate: clear the marker so the -1 → 0 crossing
@@ -1965,6 +1967,7 @@ export async function restartSchedule(
     startedAt: null,
     phaseStartedAt: null,
     pausedAt: null,
+    healthHold: null,
     nextStepAt: null,
     nextSnapshotAt: null,
     nextProcessAt: null,
@@ -2076,6 +2079,7 @@ export async function jumpSchedule(
         nextSnapshotAt: null,
         nextProcessAt: null,
         stepApproval: null,
+        healthHold: null,
       });
     }
   } else if (targetStepIndex > schedule.currentStepIndex) {
@@ -2089,6 +2093,7 @@ export async function jumpSchedule(
       nextSnapshotAt: null,
       nextProcessAt: null,
       stepApproval: null,
+      healthHold: null,
       ...(shouldResetMonitoringStartDate(schedule, targetStepIndex)
         ? { monitoringStartDate: now }
         : {}),
@@ -2405,6 +2410,7 @@ export async function jumpAheadToStep(
     nextSnapshotAt: null,
     pausedAt: now,
     nextProcessAt: null,
+    healthHold: null,
     stepApproval: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     eventHistory: appendRampEvent(schedule, "step-jumped", {

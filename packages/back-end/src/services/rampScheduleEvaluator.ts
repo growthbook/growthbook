@@ -546,6 +546,8 @@ export async function applyRampEvaluationDecision(
       nextSnapshotAt: schedule.nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     });
+    // Every step transition clears the record, so a restart or rollback
+    // that meets the same failure again reports it again.
     const healthHold = decision.health
       ? { stepIndex: schedule.currentStepIndex, reason: decision.reason }
       : null;
@@ -568,11 +570,6 @@ export async function applyRampEvaluationDecision(
     return updated;
   }
 
-  if (schedule.healthHold) {
-    await ctx.models.rampSchedules.updateById(schedule.id, {
-      healthHold: null,
-    });
-  }
   // Fold the verified advance and any due backlog into a single jump publish.
   // The +1 forces past-end schedules into advanceStep's completion branch; the
   // unconditional first hop doubles as the unstick mechanism for broken
