@@ -293,11 +293,11 @@ export async function setRuleRampSchedule(
 export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
   putFeatureRevisionRuleRampScheduleValidator,
 )(async (req) => {
-  const { feature, revision } = await setRuleRampSchedule(
+  const { feature, revision, warnings } = await setRuleRampSchedule(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevision(revision, req.context, feature) };
+  return { revision: toApiRevision(revision, req.context, feature), warnings };
 });

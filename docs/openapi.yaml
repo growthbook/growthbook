@@ -7384,6 +7384,13 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV1'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was
+                      interpreted.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - revision
                 additionalProperties: false
