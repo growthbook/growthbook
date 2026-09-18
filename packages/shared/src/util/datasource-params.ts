@@ -190,6 +190,7 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
     authMethod: "public",
     privateKey: "secret",
     privateKeyPassword: "secret",
+    workloadIdentityProvider: "public",
   },
 
   mixpanel: {
@@ -308,7 +309,22 @@ export function mergeDataSourceParams(
   existing: unknown,
   updates: unknown,
 ): unknown {
-  return mergeRecord(existing, updates, DATA_SOURCE_PARAM_SENSITIVITY[type]);
+  const merged = mergeRecord(
+    existing,
+    updates,
+    DATA_SOURCE_PARAM_SENSITIVITY[type],
+  );
+  // Secret keys ignore falsy updates above (blank means "keep existing", since the
+  // UI never round-trips secrets) — which would silently RETAIN a stored password or
+  // private key after a switch to workload identity, whose whole point is that no
+  // credential is stored. Strip superseded credentials based on the merged auth
+  // method, server-side, so a direct API update can't leave them behind either.
+  if (type === "snowflake" && merged.authMethod === "workload-identity") {
+    delete merged.password;
+    delete merged.privateKey;
+    delete merged.privateKeyPassword;
+  }
+  return merged;
 }
 
 function secretKeysOf(classification: object): string[] {
