@@ -1,6 +1,7 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
+import omit from "lodash/omit";
 import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
   RampStartAction,
@@ -505,8 +506,7 @@ export function computeEffectivePatch(
   // rollback (-1) applies the raw startActions instead of this function, so a
   // captured enabled state is still honored there.
   for (const a of schedule.startActions ?? []) {
-    const { enabled: _enabled, ...patch } = a.patch;
-    merge({ ...a, patch });
+    merge({ ...a, patch: omit(a.patch, "enabled") as RampStepAction["patch"] });
   }
 
   const lastStepIdx = Math.min(stepIndex, schedule.steps.length - 1);

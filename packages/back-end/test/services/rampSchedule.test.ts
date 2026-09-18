@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 /**
  * Tests for rampSchedule.ts
  *
@@ -906,8 +907,7 @@ describe("computeEffectivePatch", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
 
   it("carries the anchor's identity into every step, so a jump buckets like stepping", () => {
@@ -1181,8 +1181,7 @@ describe("sparse inherit vs explicit clear", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
 
   // ── condition ────────────────────────────────────────────────────────────
