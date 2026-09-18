@@ -261,11 +261,22 @@ describe("ramp schedule patch references", () => {
       expect(await draftRampActions()).toEqual([]);
       const anchored = await put({
         steps: [step({ coverage: 0.5 })],
-        startState: { hashAttribute: "id" },
+        startState: { hashAttribute: "id", seed: "s1", hashVersion: 2 },
       });
       expect(anchored.body.message).toBeUndefined();
       expect(anchored.status).toBe(200);
       expect(await draftRampActions()).toHaveLength(1);
+      // The anchor's identity reads back on both revision APIs.
+      for (const path of [
+        `/api/v1/features/${FLAG}/revisions/2`,
+        `/api/v2/features/${FLAG}/revisions/2`,
+      ]) {
+        const res = await auth(request(app).get(path));
+        expect(res.status).toBe(200);
+        expect(
+          res.body.revision.rampActions[0].startActions[0].patch,
+        ).toMatchObject({ hashAttribute: "id", seed: "s1", hashVersion: 2 });
+      }
     });
 
     it("judges a template's steps when the plan is built from one", async () => {
@@ -328,6 +339,18 @@ describe("ramp schedule patch references", () => {
       });
       expect(stepsOnly.body.message).toBeUndefined();
       expect(stepsOnly.status).toBe(200);
+      // The stored anchor reads back with its identity and round-trips.
+      const fetched = await auth(
+        request(app).get(`/api/v1/ramp-schedules/${id}`),
+      );
+      expect(fetched.body.rampSchedule.startActions[0].patch).toMatchObject({
+        hashAttribute: "id",
+      });
+      const echoed = await put({
+        startActions: fetched.body.rampSchedule.startActions,
+      });
+      expect(echoed.body.message).toBeUndefined();
+      expect(echoed.status).toBe(200);
       // Replacing the anchor without one leaves the stored steps unbucketed.
       const unanchored = await put({
         startActions: [action({ coverage: 0 })],
