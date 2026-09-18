@@ -335,4 +335,18 @@ describe("buildDigestFromEditorUrl", () => {
     expect(limits.maxContentSize).toBeGreaterThan(0);
     expect(limits.maxTimeMs).toBeGreaterThan(0);
   });
+
+  it("spends one timeout budget across the whole redirect chain", async () => {
+    mockFetch
+      .mockImplementationOnce(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        return respond({ status: 301, location: "https://www.example.com/" });
+      })
+      .mockResolvedValueOnce(respond({ body: SSR_PAGE }));
+
+    await buildDigestFromEditorUrl("https://example.com/");
+
+    const [first, second] = mockFetch.mock.calls.map((c) => c[2].maxTimeMs);
+    expect(second).toBeLessThan(first);
+  });
 });

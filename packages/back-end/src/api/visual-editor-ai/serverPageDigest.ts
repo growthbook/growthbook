@@ -425,13 +425,27 @@ const catalogEntryCount = (digest: DomDigest): number =>
 const looksLikeThinShell = ($: Api): boolean =>
   visibleBodyTextLength($) < MIN_BODY_TEXT || hasEmptySpaRoot($);
 
+// Editor URLs come from a live browser tab, so the query string can carry a
+// session, reset, or preview token. Logs keep the origin and path only.
+const redactUrl = (raw: string): string => {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return "(unparseable)";
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:")
+    return url.protocol;
+  return url.origin + url.pathname;
+};
+
 export const buildDigestFromEditorUrl = async (
   editorUrl: string,
 ): Promise<DomDigest | null> => {
   const url = parseFetchableEditorUrl(editorUrl);
   if (!url) {
     logger.info(
-      { editorUrl },
+      { url: redactUrl(editorUrl) },
       "[visual-editor-ai] editorUrl is not fetchable; skipping server digest",
     );
     return null;
@@ -441,7 +455,7 @@ export const buildDigestFromEditorUrl = async (
     const page = await fetchPageHtml(url);
     if (!page) {
       logger.info(
-        { url: url.href },
+        { url: redactUrl(url.href) },
         "[visual-editor-ai] page fetch did not yield a usable 200 HTML response; skipping server digest",
       );
       return null;
@@ -450,7 +464,7 @@ export const buildDigestFromEditorUrl = async (
     const $ = cheerio.load(page.html);
     if (looksLikeThinShell($)) {
       logger.info(
-        { url: url.href },
+        { url: redactUrl(url.href) },
         "[visual-editor-ai] fetched HTML looks client-rendered or too thin; skipping server digest",
       );
       return null;
@@ -472,7 +486,7 @@ export const buildDigestFromEditorUrl = async (
 
     if (catalogEntryCount(digest) < MIN_CATALOG_ENTRIES) {
       logger.info(
-        { url: url.href },
+        { url: redactUrl(url.href) },
         "[visual-editor-ai] fetched HTML looks client-rendered or too thin; skipping server digest",
       );
       return null;
@@ -481,7 +495,7 @@ export const buildDigestFromEditorUrl = async (
     return digest;
   } catch (e) {
     logger.info(
-      { err: e, url: url.href },
+      { err: e, url: redactUrl(url.href) },
       "[visual-editor-ai] server digest build failed; continuing without a digest",
     );
     return null;

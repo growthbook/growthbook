@@ -1,6 +1,7 @@
 import { cancellableFetch } from "back-end/src/util/http.util";
 
 const MAX_HTML_BYTES = 2_000_000;
+// One budget for the whole operation, redirects included — not per hop.
 const FETCH_TIMEOUT_MS = 8_000;
 const MAX_REDIRECTS = 3;
 const HTML_CONTENT_TYPE = /^\s*(text\/html|application\/xhtml\+xml)/i;
@@ -30,7 +31,7 @@ export const parseFetchableEditorUrl = (raw: string): URL | null => {
   return url;
 };
 
-const fetchOnce = (url: URL) =>
+const fetchOnce = (url: URL, maxTimeMs: number) =>
   cancellableFetch(
     url.href,
     {
@@ -40,7 +41,7 @@ const fetchOnce = (url: URL) =>
     },
     {
       maxContentSize: MAX_HTML_BYTES,
-      maxTimeMs: FETCH_TIMEOUT_MS,
+      maxTimeMs,
       throwOnTruncate: true,
     },
   );
@@ -56,9 +57,16 @@ export const fetchPageHtml = async (
   start: URL,
 ): Promise<{ url: URL; html: string } | null> => {
   let url = start;
+  const deadline = Date.now() + FETCH_TIMEOUT_MS;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const { responseWithoutBody: res, stringBody } = await fetchOnce(url);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return null;
+
+    const { responseWithoutBody: res, stringBody } = await fetchOnce(
+      url,
+      remaining,
+    );
 
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location");
