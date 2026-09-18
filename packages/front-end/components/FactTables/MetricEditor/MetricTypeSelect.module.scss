@@ -1,11 +1,11 @@
 .item:global(.rt-SelectItem) {
   height: auto;
-  min-height: 64px;
-  padding-block: var(--space-3);
-  margin-block: var(--space-1);
+  min-height: 56px;
+  padding-block: var(--space-2);
+  margin-block: 0;
 
   &:last-child {
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
   }
 }
 
@@ -43,10 +43,6 @@
   font-weight: 600;
 }
 
-.selectedIcon {
-  display: none;
-}
-
 .description {
   font-size: var(--font-size-1);
   line-height: var(--line-height-1);
@@ -59,21 +55,6 @@
   padding-block: var(--space-2);
   text-align: left;
   width: 100%;
-
-  .icon {
-    width: 16px;
-    height: 16px;
-    background: transparent;
-    color: inherit;
-  }
-
-  .optionIcon {
-    display: none;
-  }
-
-  .selectedIcon {
-    display: block;
-  }
 
   .copy {
     gap: 0;
