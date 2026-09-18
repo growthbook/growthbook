@@ -56,6 +56,14 @@ the requester and pending question; stale, duplicate, or mismatched responses do
 not start another turn. Membership, configuration, and permissions are checked again
 when acting. To use a different organization, start a new thread.
 
+Notifications GrowthBook posts also pin their thread to the sending
+organization, so a reply under a results card does not ask which organization it
+belongs to. These notification pins expire after 90 days through a TTL index,
+and they never overwrite a pin the thread already has. A pin stops expiring once
+someone converses in the thread. When two organizations have connected the same
+Slack workspace, every notification carries a final line naming the organization
+it came from.
+
 `slackuserlinks` is unique per Slack workspace, Slack user, and organization;
 BaseModel creates that index at startup. Every stored link carries the `linkId`
 generation it was created with. Old approval buttons from before thread routing

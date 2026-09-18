@@ -8,9 +8,10 @@ import {
 } from "back-end/src/services/slack/slackSettingsPreview";
 import { getEventWebHookById } from "back-end/src/models/EventWebhookModel";
 import {
-  uploadSlackImageFile,
+  postSlackImageMessage,
   postSlackMessageResult,
 } from "back-end/src/services/slack/slackWebApi";
+import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 jest.mock("back-end/src/events/handlers/webhooks/sendEventWebhook", () => ({
   sendEventWebhook: jest.fn(),
 }));
@@ -25,8 +26,14 @@ jest.mock("back-end/src/util/slackToken", () => ({
 }));
 jest.mock("back-end/src/services/slack/slackWebApi", () => ({
   ...jest.requireActual("back-end/src/services/slack/slackWebApi"),
-  uploadSlackImageFile: jest.fn(),
+  postSlackImageMessage: jest.fn(),
   postSlackMessageResult: jest.fn(),
+}));
+jest.mock("back-end/src/models/SlackWorkspaceConnectionModel", () => ({
+  SlackWorkspaceConnectionModel: { dangerousGetAllForTeam: jest.fn() },
+}));
+jest.mock("back-end/src/services/slack/slackThreadRouting", () => ({
+  pinSlackNotificationThread: jest.fn(),
 }));
 jest.mock(
   "back-end/src/services/notificationCards/renderNotificationCard",
@@ -44,7 +51,7 @@ jest.mock(
   }),
 );
 const context = {
-  org: { id: "org_test" },
+  org: { id: "org_test", name: "Acme" },
   permissions: {
     canManageIntegrations: () => true,
     throwPermissionError: () => {
@@ -62,7 +69,12 @@ const context = {
     },
   },
 } as unknown as ReqContext;
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest
+    .mocked(SlackWorkspaceConnectionModel.dangerousGetAllForTeam)
+    .mockResolvedValue([{ teamId: "T1", organizationId: "org_test" }]);
+});
 it.each(previewNotificationEventNames)(
   "renders a real Slack message for sample %s",
   async (event) => {
@@ -117,7 +129,7 @@ it("does not deliver to an absent or another organization's channel", async () =
     context.org.id,
   );
   expect(postSlackMessageResult).not.toHaveBeenCalled();
-  expect(uploadSlackImageFile).not.toHaveBeenCalled();
+  expect(postSlackImageMessage).not.toHaveBeenCalled();
 });
 it("falls back to the same text sample if the image upload fails", async () => {
   jest.mocked(getEventWebHookById).mockResolvedValue({
@@ -125,7 +137,7 @@ it("falls back to the same text sample if the image upload fails", async () => {
     url: "https://slack.com",
     slack: { teamId: "T1", channelId: "C1" },
   } as Awaited<ReturnType<typeof getEventWebHookById>>);
-  jest.mocked(uploadSlackImageFile).mockResolvedValue(null);
+  jest.mocked(postSlackImageMessage).mockResolvedValue(null);
   jest
     .mocked(postSlackMessageResult)
     .mockResolvedValue({ ok: true, ts: "1", error: null });
@@ -202,7 +214,7 @@ it("test sends preserve the incoming webhook transport used in production", asyn
     }),
   );
   expect(postSlackMessageResult).not.toHaveBeenCalled();
-  expect(uploadSlackImageFile).not.toHaveBeenCalled();
+  expect(postSlackImageMessage).not.toHaveBeenCalled();
   expect(
     context.models.slackWorkspaceConnections.getByTeamId,
   ).not.toHaveBeenCalled();
@@ -213,7 +225,9 @@ it("test sends share the production image delivery path", async () => {
     url: "https://slack.com",
     slack: { teamId: "T1", channelId: "C1" },
   } as Awaited<ReturnType<typeof getEventWebHookById>>);
-  jest.mocked(uploadSlackImageFile).mockResolvedValue("file-1");
+  jest
+    .mocked(postSlackImageMessage)
+    .mockResolvedValue({ fileId: "file-1", messageTs: "1700.001" });
   expect(
     await sendSlackSettingsTest(context, "channel", "experiment.warning", {
       type: "image",
@@ -221,10 +235,10 @@ it("test sends share the production image delivery path", async () => {
     }),
   ).toEqual({ deliveredAs: "card" });
   // The test prefix rides above the footer in the share message's blocks.
-  expect(uploadSlackImageFile).toHaveBeenCalledWith(
+  expect(postSlackImageMessage).toHaveBeenCalledWith(
     expect.objectContaining({
       channelId: "C1",
-      blocks: [
+      captionBlocks: [
         expect.objectContaining({
           text: expect.objectContaining({
             text: expect.stringContaining("Test notification — sample data"),
@@ -232,9 +246,7 @@ it("test sends share the production image delivery path", async () => {
         }),
         expect.objectContaining({ type: "context" }),
       ],
-      initialComment: expect.stringContaining(
-        "Test notification — sample data",
-      ),
+      caption: expect.stringContaining("Test notification — sample data"),
     }),
   );
   expect(postSlackMessageResult).not.toHaveBeenCalled();
@@ -261,7 +273,7 @@ it("previews sample data without sending it", async () => {
   expect(getEventWebHookById).not.toHaveBeenCalled();
   expect(sendEventWebhook).not.toHaveBeenCalled();
   expect(postSlackMessageResult).not.toHaveBeenCalled();
-  expect(uploadSlackImageFile).not.toHaveBeenCalled();
+  expect(postSlackImageMessage).not.toHaveBeenCalled();
 });
 
 it("sends text settings without rendering an image", async () => {
@@ -279,5 +291,5 @@ it("sends text settings without rendering an image", async () => {
     }),
   ).resolves.toEqual({ deliveredAs: "text" });
   expect(renderNotificationCard).not.toHaveBeenCalled();
-  expect(uploadSlackImageFile).not.toHaveBeenCalled();
+  expect(postSlackImageMessage).not.toHaveBeenCalled();
 });
