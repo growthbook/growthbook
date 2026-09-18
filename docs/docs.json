@@ -315,6 +315,7 @@
                   "sso",
                   "integrations/scim",
                   "compliance",
+                  "ip-addresses",
                   "account/audit-logs"
                 ]
               },
@@ -604,6 +605,10 @@
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/searchWarehouseTables",
+                  "api/data-sources/operation/getWarehouseTableSchema",
+                  "api/data-sources/operation/previewWarehouseColumnValues",
+                  "api/data-sources/operation/runSqlQuery",
                   "api/data-sources/operation/getInformationSchemaTable"
                 ]
               },
@@ -975,6 +980,7 @@
                   "api/ContextualBandits/operation/startContextualBandit",
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
+                  "api/ContextualBandits/operation/updateContextualBanditVariations",
                   "api/ContextualBandits/operation/cancelContextualBandit"
                 ]
               },
@@ -1051,6 +1057,7 @@
                   "api/AnalyticsExplorations/operation/postDataSourceExploration",
                   "api/AnalyticsExplorations/operation/postSqlExploration",
                   "api/AnalyticsExplorations/operation/postFunnelExploration",
+                  "api/AnalyticsExplorations/operation/postJourneyExploration",
                   "api/AnalyticsExplorations/operation/searchProductAnalyticsResources",
                   "api/AnalyticsExplorations/operation/getProductAnalyticsColumns",
                   "api/AnalyticsExplorations/operation/getProductAnalyticsColumnValues",
@@ -1208,6 +1215,7 @@
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",
+              "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
               "api/VisualChangeset_model"

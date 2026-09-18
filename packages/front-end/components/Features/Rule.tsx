@@ -204,6 +204,7 @@ function computeRemainingTime(
 import ExperimentSummary from "./ExperimentSummary";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
+  TempRolloutCallout,
 } from "./ExperimentRefSummary";
 
 interface SortableProps {
@@ -969,34 +970,40 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   >
                     {canEdit && !locked && (
                       <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setRuleModal({
-                              environment,
-                              i,
-                              ruleId: rule.id,
-                              mode: "edit",
-                            });
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        {rule.type !== "experiment-ref" && (
+                        {/* RuleModal has no `contextual-bandit-ref` form, and a
+                            second rule for one bandit is rejected on update.
+                            Edit the values from the Contextual Bandit page. */}
+                        {rule.type !== "contextual-bandit-ref" && (
                           <DropdownMenuItem
                             onClick={() => {
                               setRuleModal({
                                 environment,
                                 i,
                                 ruleId: rule.id,
-                                mode: "duplicate",
+                                mode: "edit",
                               });
                               setDropdownOpen(false);
                             }}
                           >
-                            Duplicate rule
+                            Edit
                           </DropdownMenuItem>
                         )}
+                        {rule.type !== "experiment-ref" &&
+                          rule.type !== "contextual-bandit-ref" && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setRuleModal({
+                                  environment,
+                                  i,
+                                  ruleId: rule.id,
+                                  mode: "duplicate",
+                                });
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              Duplicate rule
+                            </DropdownMenuItem>
+                          )}
                         {(rule.type === "force" || rule.type === "rollout") &&
                           !hasAnyEnvRampSchedule &&
                           canUseRampSchedules && (
@@ -1572,6 +1579,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Flex>
               </Callout>
             )}
+          {rule.type === "experiment-ref" && (
+            <TempRolloutCallout
+              rule={rule}
+              experiment={experimentsMap.get(rule.experimentId)}
+            />
+          )}
           <RuleEnvScopeBadges
             activeEnvironmentIds={
               rule.allEnvironments === true || rule.environments === undefined

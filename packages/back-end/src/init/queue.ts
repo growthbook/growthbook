@@ -29,6 +29,8 @@ import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
+import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
+import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
@@ -65,6 +67,12 @@ export async function queueInit() {
       logger.error("Error creating index needed for deleteOldAgendaJobs: " + e);
     });
   deleteOldAgendaJobs(agenda);
+
+  // Agenda only runs jobs this process has defined. Define the event
+  // notification jobs up front so a freshly started process picks up queued
+  // events right away instead of waiting until it creates an event of its own.
+  EventNotifier.defineJob(agenda);
+  EventWebHookNotifier.defineJob(agenda);
 
   if (CRON_ENABLED) {
     await agenda.start();
