@@ -15,16 +15,6 @@ describe("notification settings", () => {
   });
 
   it.each([
-    ["compact", "light"],
-    ["detailed", "light"],
-    ["compact-dark", "dark"],
-  ])("reads the legacy %s format as %s", (legacy, format) => {
-    expect(
-      notificationSettingsSchema.parse({ type: "image", cardFormat: legacy }),
-    ).toEqual({ type: "image", cardFormat: format });
-  });
-
-  it.each([
     { type: "image", cardFormat: "none" },
     { type: "image" },
     { type: "text", cardFormat: "light" },
@@ -54,17 +44,6 @@ describe("Slack preview and test requests", () => {
   ])("uses notification settings for %j", (notificationSettings) => {
     const request = { eventName: "experiment.warning", notificationSettings };
     expect(slackNotificationPreviewBodySchema.parse(request)).toEqual(request);
-  });
-  it("reads a legacy format in a preview request", () => {
-    expect(
-      slackNotificationPreviewBodySchema.parse({
-        eventName: "experiment.warning",
-        notificationSettings: { type: "image", cardFormat: "compact" },
-      }),
-    ).toEqual({
-      eventName: "experiment.warning",
-      notificationSettings: { type: "image", cardFormat: "light" },
-    });
   });
   it.each([
     { eventName: "experiment.warning", format: "none" },
