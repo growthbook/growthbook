@@ -57,6 +57,13 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "When true, the key is rejected on authentication but not deleted",
     ),
+  disabledBy: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      "User who set `disabled`. A member can undo their own disable but not an admin's.",
+    ),
   lastUsed: z
     .date()
     .nullable()
