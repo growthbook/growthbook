@@ -1,6 +1,10 @@
 const BIGQUERY_TABLE_NAME_MAX_LENGTH = 1024;
 const SNOWFLAKE_IDENTIFIER_MAX_LENGTH = 255;
 const SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com";
+const DATABRICKS_IDENTIFIER_MAX_LENGTH = 255;
+// <workspace-id>.zerobus.<region>.cloud.databricks.com | .azuredatabricks.net
+const DATABRICKS_ZEROBUS_HOST_PATTERN =
+  /^[a-z0-9-]+\.zerobus\.[a-z0-9-]+\.(cloud\.databricks\.com|azuredatabricks\.net)$/i;
 
 export const DEFAULT_EVENT_FORWARDER_TABLE_PREFIX = "gb";
 export const EVENT_FORWARDER_EVENTS_TABLE_SUFFIX = "events";
@@ -56,6 +60,19 @@ export type SnowflakeEventForwarderTablePrefix = {
   database: string;
   schema: string;
   tablePrefix: string;
+};
+
+export type DatabricksEventForwarderTablePrefix = {
+  catalog: string;
+  schema: string;
+  tablePrefix: string;
+};
+
+/** Fully qualified `catalog.schema.table` without backticks, as stored for the consumer. */
+export type DatabricksEventForwarderTables = {
+  events: string;
+  experiment_viewed: string;
+  feature_usage: string;
 };
 
 // BigQuery table names: max 1024 chars, cannot start with a digit.
@@ -471,4 +488,145 @@ export function formatSnowflakeEventForwarderTablePrefix(
   destination: SnowflakeEventForwarderTablePrefix,
 ): string {
   return `${destination.database.trim()}.${destination.schema.trim()}.${destination.tablePrefix.trim()}`;
+}
+
+// Unity Catalog table names: ASCII letters, digits, underscores; max 255; folded to lowercase.
+export function normalizeDatabricksTablePrefixForEventForwarder(
+  raw: string,
+  defaultWhenEmpty = DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
+): string {
+  let s = raw.normalize("NFKC").trim();
+  if (!s) s = defaultWhenEmpty;
+
+  const afterSanitize = s
+    .replace(/[^A-Za-z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+
+  if (!/[A-Za-z0-9]/.test(afterSanitize)) {
+    throw new Error(
+      "Event forwarder table prefix must contain at least one letter or number.",
+    );
+  }
+
+  s = afterSanitize;
+
+  if (!/^[A-Za-z_]/.test(s)) {
+    s = `_${s}`;
+  }
+
+  return s
+    .slice(
+      0,
+      DATABRICKS_IDENTIFIER_MAX_LENGTH -
+        LONGEST_EVENT_FORWARDER_TABLE_SUFFIX_LENGTH -
+        EVENT_FORWARDER_TABLE_NAME_SEPARATOR.length,
+    )
+    .toLowerCase();
+}
+
+export function resolveDatabricksEventForwarderTableNames(
+  tablePrefix: string,
+): EventForwarderResolvedTableNames {
+  const normalizedPrefix =
+    normalizeDatabricksTablePrefixForEventForwarder(tablePrefix);
+  return {
+    events: eventForwarderTableNameFromPrefix(
+      normalizedPrefix,
+      EVENT_FORWARDER_EVENTS_TABLE_SUFFIX,
+    ),
+    experimentViewed: eventForwarderTableNameFromPrefix(
+      normalizedPrefix,
+      EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE_SUFFIX,
+    ),
+    featureUsage: eventForwarderTableNameFromPrefix(
+      normalizedPrefix,
+      EVENT_FORWARDER_FEATURE_USAGE_TABLE_SUFFIX,
+    ),
+  };
+}
+
+export function quoteDatabricksIdentifier(identifier: string): string {
+  return `\`${identifier.replace(/`/g, "``")}\``;
+}
+
+function assertDatabricksIdentifier(segment: string, label: string): string {
+  const s = assertNonEmptySegment(segment, label);
+  if (
+    !/^[A-Za-z0-9_]+$/.test(s) ||
+    s.length > DATABRICKS_IDENTIFIER_MAX_LENGTH
+  ) {
+    throw new Error(
+      `${label} must contain only letters, numbers, and underscores (max ${DATABRICKS_IDENTIFIER_MAX_LENGTH} characters).`,
+    );
+  }
+  return s;
+}
+
+export function parseDatabricksEventForwarderTablePrefix(
+  input: string,
+): DatabricksEventForwarderTablePrefix {
+  const segments = splitQualifiedPath(input);
+
+  if (segments.length !== 3) {
+    throw new Error(
+      "Databricks destination must be catalog.schema.prefix (three dot-separated parts).",
+    );
+  }
+
+  return {
+    catalog: assertDatabricksIdentifier(segments[0], "Catalog"),
+    schema: assertDatabricksIdentifier(segments[1], "Schema"),
+    tablePrefix: normalizeDatabricksTablePrefixForEventForwarder(
+      assertNonEmptySegment(segments[2], "Table prefix"),
+    ),
+  };
+}
+
+export function formatDatabricksEventForwarderTablePrefix(
+  destination: DatabricksEventForwarderTablePrefix,
+): string {
+  return `${destination.catalog.trim()}.${destination.schema.trim()}.${destination.tablePrefix.trim()}`;
+}
+
+export function resolveDatabricksEventForwarderTables(
+  destination: DatabricksEventForwarderTablePrefix,
+): DatabricksEventForwarderTables {
+  const names = resolveDatabricksEventForwarderTableNames(
+    destination.tablePrefix,
+  );
+  const qualify = (table: string) =>
+    `${destination.catalog.trim()}.${destination.schema.trim()}.${table}`;
+  return {
+    events: qualify(names.events),
+    experiment_viewed: qualify(names.experimentViewed),
+    feature_usage: qualify(names.featureUsage),
+  };
+}
+
+// https://<workspace-id>.zerobus.<region>.cloud.databricks.com | .azuredatabricks.net
+export function normalizeDatabricksEventForwarderZerobusEndpoint(
+  input: string,
+): string {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error("Zerobus endpoint is required.");
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(
+      /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`,
+    );
+  } catch {
+    throw new Error("Zerobus endpoint is not a valid URL.");
+  }
+
+  if (!DATABRICKS_ZEROBUS_HOST_PATTERN.test(parsed.hostname)) {
+    throw new Error(
+      "Zerobus endpoint hostname must look like <workspace-id>.zerobus.<region>.cloud.databricks.com or .azuredatabricks.net.",
+    );
+  }
+
+  return `https://${parsed.hostname}`;
 }
