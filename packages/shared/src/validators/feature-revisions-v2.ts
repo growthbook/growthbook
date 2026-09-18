@@ -61,8 +61,10 @@ const rampScheduleInputV2 = standaloneRampScheduleInput.extend({
     .describe(
       "The rule state to roll back to (the rollback/jump-to-start anchor). " +
         'Merged onto the rule\'s current state, so `{ "coverage": 0 }` keeps ' +
-        "existing targeting but rolls back to 0%. This affects rollbacks only — " +
-        "it is NOT applied when the ramp starts. On create, omitting it infers " +
+        "existing targeting but rolls back to 0%. Steps accumulate on it, and it " +
+        "is the only place a plan sets `hashAttribute` (plus optional `seed` and " +
+        "`hashVersion`), which a partial-coverage step on a force rule requires " +
+        "unless the rule has one. On create, omitting it infers " +
         "the anchor from the rule's current coverage (and returns a warning if " +
         "that isn't 0%); on update of a live schedule, omitting it leaves the " +
         "existing anchor unchanged.",

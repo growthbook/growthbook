@@ -9,6 +9,7 @@ import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  rampPlanLacksHashAttribute,
   rampTargetRuleIds,
   rampControlFootprint,
   stemRuleId,
@@ -596,6 +597,35 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           featureRuleContext
         />,
       );
+      // A plan written outside the rule editor can ramp a force rule's
+      // coverage, which turns it into a rollout. That needs a Sample by
+      // attribute from the rule or the plan; without one the engine refuses
+      // the step.
+      if (
+        rule.type === "force" &&
+        !("hashAttribute" in rule && rule.hashAttribute) &&
+        rampPlanLacksHashAttribute(rampSchedule, rule.id)
+      ) {
+        ruleTags.push(
+          <Tooltip
+            key="ramp-hash"
+            body={
+              <p>
+                Neither this rule nor its ramp sets <strong>Sample by</strong>,
+                so the ramp will pause at its first step below 100% traffic. Set
+                it under Ramp-up Schedule in the rule editor.
+              </p>
+            }
+            style={{ display: "inline-flex", alignItems: "center" }}
+          >
+            <Badge
+              label="Ramp needs a Sample by attribute"
+              color="amber"
+              variant="soft"
+            />
+          </Tooltip>,
+        );
+      }
     }
 
     if (useDummyData && hasMonitoringStatusRow) {

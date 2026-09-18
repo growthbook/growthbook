@@ -1,9 +1,11 @@
+import omit from "lodash/omit";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   FeatureRule,
   RevisionRampUpdateAction,
   RampStartState,
   putFeatureRevisionRuleRampScheduleValidator,
+  RampScheduleInterface,
 } from "shared/validators";
 import { getApplicableEnvIds } from "shared/util";
 import {
@@ -28,6 +30,8 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   assertValidEnvironment,
   collectRampPlanPatches,
+  mergedRampPlan,
+  withTemplatePlan,
   discardIfJustCreated,
   isDraftStatus,
   normalizeInlineRampSchedule,
@@ -63,26 +67,43 @@ export async function setRuleRampSchedule(
   // Runs before the draft is created for `version: "new"` so a refusal can't
   // orphan one; for an existing draft, below, once its rule and pending action
   // are known.
-  const checkPatches = (rule: FeatureRule | undefined, stored: unknown[]) =>
-    validateRampPlanPatches(
+  // `live` is the schedule this plan updates, if any: what the body omits
+  // stays as stored there, and a startState only counts while the anchor can
+  // still change (see the warning below).
+  const checkPatches = async (
+    rule: FeatureRule | undefined,
+    live: RampScheduleInterface | undefined,
+    stored: unknown[],
+  ) => {
+    const anchorFrozen =
+      live && live.status !== "pending" && live.status !== "ready";
+    const plan = anchorFrozen
+      ? omit(scheduleInput, "startState")
+      : scheduleInput;
+    await validateRampPlanPatches(
       context,
-      rampPatchEntries(collectRampPlanPatches(scheduleInput), feature, rule),
+      rampPatchEntries(
+        collectRampPlanPatches(
+          mergedRampPlan(await withTemplatePlan(context, plan), live),
+        ),
+        feature,
+        rule,
+      ),
       { stored },
     );
+  };
   if (params.version === "new") {
     const liveRule = resolveRampTarget(
       { ruleId, environment: environment ?? null },
       feature.rules ?? [],
     );
-    await checkPatches(
-      liveRule,
-      liveRule
-        ? await context.models.rampSchedules.findByTargetRule(
-            liveRule.id,
-            environment ?? undefined,
-          )
-        : [],
-    );
+    const liveSchedules = liveRule
+      ? await context.models.rampSchedules.findByTargetRule(
+          liveRule.id,
+          environment ?? undefined,
+        )
+      : [];
+    await checkPatches(liveRule, liveSchedules[0], liveSchedules);
   }
 
   const { revision, created } = await resolveOrCreateRevision(
@@ -133,7 +154,7 @@ export async function setRuleRampSchedule(
     );
     const existingLiveSchedule = liveSchedules[0];
     if (params.version !== "new") {
-      await checkPatches(match, [
+      await checkPatches(match, existingLiveSchedule, [
         existingLiveSchedule,
         ...(revision.rampActions ?? []).filter(
           (a) =>
@@ -272,11 +293,11 @@ export async function setRuleRampSchedule(
 export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
   putFeatureRevisionRuleRampScheduleValidator,
 )(async (req) => {
-  const { feature, revision } = await setRuleRampSchedule(
+  const { feature, revision, warnings } = await setRuleRampSchedule(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevision(revision, req.context, feature) };
+  return { revision: toApiRevision(revision, req.context, feature), warnings };
 });

@@ -48,10 +48,43 @@ export type RampScheduleCompletedPayload = z.infer<
 export const rampScheduleRolledBackPayload = rampScheduleBaseNotificationPayload
   .extend({
     targetStepIndex: z.number().int(),
+    // Why it rolled back, when the engine did it (a guardrail, a restart).
+    reason: z.string().optional(),
   })
   .strict();
 export type RampScheduleRolledBackPayload = z.infer<
   typeof rampScheduleRolledBackPayload
+>;
+
+// A monitored step is held by a health check (SRM, multiple exposures, no
+// traffic, a guardrail that failed to compute, an unhealthy signal metric).
+// Sent once per check per step, not on every evaluation.
+export const rampScheduleStepHeldPayload = rampScheduleBaseNotificationPayload
+  .extend({ reason: z.string() })
+  .strict();
+export type RampScheduleStepHeldPayload = z.infer<
+  typeof rampScheduleStepHeldPayload
+>;
+
+export const rampSchedulePausedPayload = rampScheduleBaseNotificationPayload
+  .extend({ reason: z.string().optional() })
+  .strict();
+export type RampSchedulePausedPayload = z.infer<
+  typeof rampSchedulePausedPayload
+>;
+
+export const rampScheduleResumedPayload =
+  rampScheduleBaseNotificationPayload.strict();
+export type RampScheduleResumedPayload = z.infer<
+  typeof rampScheduleResumedPayload
+>;
+
+// The engine could not apply a step (a plan it now refuses, a structural
+// error) and paused the schedule where it stood.
+export const rampScheduleErrorPausedPayload =
+  rampScheduleBaseNotificationPayload.extend({ reason: z.string() }).strict();
+export type RampScheduleErrorPausedPayload = z.infer<
+  typeof rampScheduleErrorPausedPayload
 >;
 
 export const rampScheduleAwaitingStartApprovalPayload =

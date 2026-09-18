@@ -42,6 +42,7 @@ import {
   resolveOrCreateRevision,
   collectRampPlanPatches,
   rampPatchEntries,
+  stagedRule,
   validateRampPlanPatches,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
@@ -76,10 +77,16 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   }
   // Same environment-id check as the add endpoint, before a draft is created.
   assertValidRuleEnvironments(req.context, [patch]);
+  const rule = await stagedRule(
+    req.context,
+    feature,
+    req.params.version,
+    req.params.ruleId,
+  );
   await validateRampPlanPatches(
     req.context,
     rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
-      ...(feature.rules ?? []).find((r) => r.id === req.params.ruleId),
+      ...rule,
       ...patch,
       id: req.params.ruleId,
     }),

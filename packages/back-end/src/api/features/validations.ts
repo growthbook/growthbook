@@ -12,6 +12,7 @@ import {
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import {
+  rampPlanLacksHashAttribute,
   findStoredRuleCounterpart,
   stemRuleId,
   validateCondition,
@@ -123,6 +124,29 @@ export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
 }
 
+// The rule a per-rule write lands on, as staged: the draft's copy when the
+// version names an existing draft (a rule may exist only there), else live.
+// Read without creating a draft, so a refusal cannot orphan one.
+export async function stagedRule(
+  context: ApiReqContext,
+  feature: FeatureInterface,
+  version: number | "new",
+  ruleId: string,
+): Promise<FeatureRule | undefined> {
+  const draft =
+    version === "new"
+      ? null
+      : await getRevision({
+          context,
+          organization: context.org.id,
+          featureId: feature.id,
+          feature,
+          version,
+        });
+  const byId = (r: FeatureRule) => r.id === ruleId;
+  return draft?.rules?.find(byId) ?? (feature.rules ?? []).find(byId);
+}
+
 // Resolves an existing revision, or creates a blank draft on `version: "new"`.
 // `created` is true when a draft was just created — pair with
 // `discardIfJustCreated` on downstream failure.
@@ -209,6 +233,8 @@ export function assertValidRuleEnvironments(
 // the step fires, so they get the same checks a rule write gets.
 export type RampPatchTargetingInput = {
   ruleId?: string | null;
+  coverage?: number | null;
+  hashAttribute?: string | null;
   condition?: string | null;
   savedGroups?: FeatureRule["savedGroups"] | null;
   prerequisites?: FeaturePrerequisite[] | null;
@@ -225,6 +251,40 @@ type RampPlanInput = {
   startState?: unknown;
   endPatch?: unknown;
 };
+
+// The plan a partial update leaves behind: a body that omits startActions,
+// steps or endActions keeps the stored plan's, as the update itself does. A
+// `startState` is a new anchor and replaces the stored start actions.
+export function mergedRampPlan<P extends RampPlanInput>(
+  update: P,
+  stored: RampPlanInput | null | undefined,
+): P {
+  return {
+    ...update,
+    startActions:
+      update.startActions ??
+      (update.startState === undefined ? stored?.startActions : undefined),
+    steps: update.steps ?? stored?.steps,
+    endActions: update.endActions ?? stored?.endActions,
+  };
+}
+
+// A plan built from a template gets its steps at publish; judge the template's
+// now so a refusal lands on the write, not on the first step.
+export async function withTemplatePlan<
+  P extends RampPlanInput & { templateId?: string | null },
+>(context: ReqContext | ApiReqContext, plan: P): Promise<P> {
+  if (!plan.templateId || plan.steps?.length) return plan;
+  const template = await context.models.rampScheduleTemplates.getById(
+    plan.templateId,
+  );
+  if (!template) return plan;
+  return {
+    ...plan,
+    steps: template.steps,
+    endPatch: plan.endActions?.length ? undefined : template.endPatch,
+  };
+}
 
 // Every action in a ramp plan body, stored schedule or revision ramp action
 // that carries a patch, in plan order.
@@ -254,14 +314,14 @@ export function collectRampPlanPatches(
 
 type RuleScope = Pick<
   RampPatchTargetingInput,
-  "allEnvironments" | "environments" | "prerequisites"
+  "allEnvironments" | "environments" | "prerequisites" | "hashAttribute"
 > &
   Partial<
     Pick<
       FeatureRule,
       "id" | "condition" | "savedGroups" | "allProjects" | "projects"
     >
-  >;
+  > & { type?: FeatureRule["type"] };
 
 // One patch and where it lands: the flag whose rule it targets, and that
 // rule's current environment scope when the caller could resolve it.
@@ -359,6 +419,39 @@ function changedRampPatchTargeting(
 
 const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 
+// A partial-coverage step turns a force rule into a rollout, which needs a
+// hash attribute from the rule or the plan's start anchor. No default is
+// guessed: a plan that brings neither is refused at write and at fire time.
+function assertRampCoverageHashProvided(entries: RampPatchEntry[]): void {
+  // A new rule has no id yet: its entries all share one scope object.
+  const byRule = new Map<string | RuleScope, RampPatchEntry[]>();
+  for (const entry of entries) {
+    if (!entry.rule) continue;
+    const key = entry.rule.id
+      ? `${entry.feature?.id ?? ""}\0${entry.rule.id}`
+      : entry.rule;
+    byRule.set(key, [...(byRule.get(key) ?? []), entry]);
+  }
+  for (const group of byRule.values()) {
+    const rule = group[0].rule as RuleScope;
+    if (rule.type !== "force" || rule.hashAttribute) continue;
+    const ruleId = rule.id ?? "";
+    const plan = {
+      steps: [
+        { actions: group.map((e) => ({ patch: { ...e.patch, ruleId } })) },
+      ],
+    };
+    if (!rampPlanLacksHashAttribute(plan, ruleId)) continue;
+    const feature = group[0].feature;
+    const where = rule.id
+      ? `Rule "${rule.id}"${feature ? ` on "${feature.id}"` : ""}`
+      : "The rule";
+    throw new BadRequestError(
+      `${where} is a force rule with no hash attribute, so this ramp cannot control its coverage. Set hashAttribute on the rule, or in the ramp's start state (startState.hashAttribute / startActions).`,
+    );
+  }
+}
+
 // The rule endpoints' checks (`assertValidRuleEnvironments`,
 // `validateRulesReferences`, `assertValidPrerequisiteParents`) applied to ramp
 // patch targeting. `stored` are the plans this write replaces; as with
@@ -378,9 +471,11 @@ export async function validateRampPlanPatches(
       changed: changedRampPatchTargeting(entry.patch, storedPatches),
     }))
     .filter(({ changed }) => hasRampPatchTargeting(changed));
-  if (!checked.length) return;
 
   try {
+    assertRampCoverageHashProvided(entries);
+    if (!checked.length) return;
+
     assertValidRuleEnvironments(
       context,
       checked.map(({ changed }) => ({
@@ -407,11 +502,12 @@ export async function validateRampPlanPatches(
 
     for (const { patch, changed, feature, rule } of checked) {
       if (feature) {
+        // Only targeting is judged here, so the rule's type does not matter.
         const target: FeatureRule = {
-          type: "force",
           description: "",
           value: "",
           ...rule,
+          type: "force",
           id: rule?.id ?? patch.ruleId ?? "ramp-schedule-patch",
           allEnvironments: rule?.allEnvironments ?? false,
           environments: rule?.environments ?? undefined,
