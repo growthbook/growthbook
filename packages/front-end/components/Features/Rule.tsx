@@ -570,8 +570,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         />,
       );
       // A plan written outside the rule editor can ramp a force rule's
-      // coverage, which turns it into a rollout. That needs a hash attribute
-      // from the rule or the plan; without one the engine refuses the step.
+      // coverage, which turns it into a rollout. That needs a Sample by
+      // attribute from the rule or the plan; without one the engine refuses
+      // the step.
       if (
         rule.type === "force" &&
         rampPlanLacksHashAttribute(rampSchedule, rule.id)
@@ -581,15 +582,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             key="ramp-hash"
             body={
               <p>
-                Neither this rule nor its ramp names a hash attribute, so the
-                ramp will pause at its first partial-coverage step. Edit the
-                rule to choose one.
+                Neither this rule nor its ramp sets <strong>Sample by</strong>,
+                so the ramp will pause at its first step below 100% traffic. Set
+                it under Ramp-up Schedule in the rule editor.
               </p>
             }
             style={{ display: "inline-flex", alignItems: "center" }}
           >
             <Badge
-              label="Ramp needs a hash attribute"
+              label="Ramp needs a Sample by attribute"
               color="amber"
               variant="soft"
             />

@@ -2201,18 +2201,68 @@ export async function advanceScheduleManually(
         { scheduleId: schedule.id, error: (e as Error).message },
         "advanceScheduleManually failed after paused→running transition; reverting to paused",
       );
-      await ctx.models.rampSchedules.updateById(schedule.id, {
-        status: "paused",
-        pausedAt: new Date(),
-        eventHistory: appendRampEvent(schedule, "error-paused", {
-          stepIndex: schedule.currentStepIndex,
-          status: "paused",
-          previousStatus: "running",
-          reason: `Manual advance failed: ${(e as Error).message}`,
-        }),
-      });
+      await errorPauseRampSchedule(
+        ctx,
+        schedule.id,
+        `Manual advance failed: ${(e as Error).message}`,
+      );
     }
     throw e;
+  }
+}
+
+// Transient errors are retried on the next scheduler tick; structural ones
+// pause the schedule so they surface in the UI.
+export function isTransientRampError(e: unknown): boolean {
+  if (e instanceof RampAdvanceLockBusyError) return true;
+  // Mongo network / topology errors surface as generic Errors whose name or
+  // message contains well-known driver strings.
+  if (e instanceof Error) {
+    const name = e.name ?? "";
+    const msg = e.message ?? "";
+    if (
+      name.includes("MongoNetwork") ||
+      name.includes("MongoTopology") ||
+      name.includes("MongoServerSelection") ||
+      msg.includes("ECONNRESET") ||
+      msg.includes("ETIMEDOUT") ||
+      msg.includes("connection timed out")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// A structural failure while a schedule is running: pause it and record the
+// reason in its event history, so the next tick does not retry the same step
+// and the UI shows why it stopped.
+export async function errorPauseRampSchedule(
+  ctx: ReqContext | ApiReqContext,
+  scheduleId: string,
+  reason: string,
+): Promise<void> {
+  const schedule = await ctx.models.rampSchedules.getById(scheduleId);
+  if (!schedule) return;
+  const updated = await ctx.models.rampSchedules.updateById(scheduleId, {
+    status: "paused",
+    pausedAt: new Date(),
+    nextSnapshotAt: null,
+    nextProcessAt: null,
+    eventHistory: appendRampEvent(schedule, "error-paused", {
+      stepIndex: schedule.currentStepIndex,
+      status: "paused",
+      previousStatus: schedule.status,
+      reason,
+    }),
+  });
+  try {
+    await syncLinkedSafeRolloutForRampState(ctx, updated);
+  } catch (syncErr) {
+    logger.warn(
+      { rampScheduleId: scheduleId, error: (syncErr as Error).message },
+      "Failed to sync SafeRollout after error-pausing schedule; SafeRollout may be temporarily diverged",
+    );
   }
 }
 
@@ -2245,7 +2295,20 @@ export async function startSchedule(
   await applyRampStartActions(ctx, current);
   current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
   await heartbeat?.();
-  await advanceUntilBlocked(ctx, current, now);
+  try {
+    await advanceUntilBlocked(ctx, current, now);
+  } catch (e) {
+    // A first step the engine refuses (a stored plan a rule write would now
+    // reject) must not leave the schedule running for the poller to retry.
+    if (!isTransientRampError(e)) {
+      await errorPauseRampSchedule(
+        ctx,
+        schedule.id,
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+    throw e;
+  }
   current = (await ctx.models.rampSchedules.getById(schedule.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
 
