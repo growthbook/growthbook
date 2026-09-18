@@ -56,17 +56,10 @@ the requester and pending question; stale, duplicate, or mismatched responses do
 not start another turn. Membership, configuration, and permissions are checked again
 when acting. To use a different organization, start a new thread.
 
-`slackuserlinks` has an organization-scoped unique workspace/user key. Legacy
-records using `organizationId` are normalized only into that recorded organization,
-never copied across organizations. Before linking or listing personal links, the
-storage helper awaits normalization, creation of the scoped unique index, and
-removal of `slackTeamId_1_slackUserId_1`. BaseModel also removes that obsolete index
-during initialization. Legacy records without a link identifier get a stable
-identifier derived from their stored identity and update time until replaced.
-Old approval buttons from before thread routing was introduced are rejected and
-require a new proposal. Deploy matching application versions together; an older
-worker must not recreate the obsolete global index or use the former global-link
-semantics during a rolling upgrade.
+`slackuserlinks` is unique per Slack workspace, Slack user, and organization;
+BaseModel creates that index at startup. Every stored link carries the `linkId`
+generation it was created with. Old approval buttons from before thread routing
+was introduced are rejected and require a new proposal.
 
 ## Queue recovery
 

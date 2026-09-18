@@ -1,9 +1,9 @@
+import { slackUserLinkSchema } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
 import {
   linkSlackUser,
   unlinkSlackUser,
-  parseSlackUserLink,
 } from "back-end/src/services/slack/slackUserLink";
 
 const links: Record<string, unknown>[] = [];
@@ -25,9 +25,6 @@ const updateOne = jest.fn(
     else links.push({ ...query, ...update.$set, ...update.$setOnInsert });
   },
 );
-const dropIndex = jest.fn();
-const createIndex = jest.fn();
-const updateMany = jest.fn();
 const workspace = jest.fn();
 jest.mock("back-end/src/util/mongo.util", () => ({
   ...jest.requireActual("back-end/src/util/mongo.util"),
@@ -45,9 +42,6 @@ jest.mock("back-end/src/util/mongo.util", () => ({
         : {
             updateOne: (...args: Parameters<typeof updateOne>) =>
               updateOne(...args),
-            updateMany: (...args: unknown[]) => updateMany(...args),
-            createIndex: (...args: unknown[]) => createIndex(...args),
-            dropIndex: (...args: unknown[]) => dropIndex(...args),
             findOne: async (query: Record<string, unknown>) =>
               links.find((doc) => matches(doc, query)) ?? null,
             deleteOne: async (query: Record<string, unknown>) => {
@@ -80,8 +74,8 @@ it("links two organizations only after separate consent and disconnects only the
   expect(links).toHaveLength(1);
   await linkSlackUser(context("org2"), state);
   expect(links).toHaveLength(2);
-  const first = parseSlackUserLink(links[0]);
-  const second = parseSlackUserLink(links[1]);
+  const first = slackUserLinkSchema.parse(links[0]);
+  const second = slackUserLinkSchema.parse(links[1]);
   expect(first.linkId).not.toBe(second.linkId);
   expect(await unlinkSlackUser(context("org1"), first)).toBe(true);
   expect(links).toEqual([second]);
@@ -93,7 +87,7 @@ it("replaces only the consented organization's account and rejects previous cons
   const originalProof = proof();
   await linkSlackUser(context("org1"), originalProof);
   await linkSlackUser(context("org2"), originalProof);
-  const previous = parseSlackUserLink(links[0]);
+  const previous = slackUserLinkSchema.parse(links[0]);
   await linkSlackUser(context("org1", "user2"), proof());
   expect(links[0]).toMatchObject({
     organization: "org1",
@@ -111,7 +105,7 @@ it("replaces only the consented organization's account and rejects previous cons
 });
 it("invalidates the old generation even when relinking to the same account", async () => {
   await linkSlackUser(context("org1"), proof());
-  const previous = parseSlackUserLink(links[0]);
+  const previous = slackUserLinkSchema.parse(links[0]);
   await linkSlackUser(context("org1"), proof());
   expect(links[0].linkId).not.toBe(previous.linkId);
   expect(await unlinkSlackUser(context("org1"), previous)).toBe(false);
@@ -146,15 +140,4 @@ it("rejects invalid proof and removed membership before storing a link", async (
     "valid Slack consent",
   );
   expect(updateOne).not.toHaveBeenCalled();
-});
-it("awaits org-scoped index creation and removal of the old global constraint", async () => {
-  await linkSlackUser(context("org1"), proof());
-  expect(createIndex).toHaveBeenCalledWith(
-    { slackTeamId: 1, slackUserId: 1, organization: 1 },
-    { unique: true },
-  );
-  expect(dropIndex).toHaveBeenCalledWith("slackTeamId_1_slackUserId_1");
-  expect(dropIndex.mock.invocationCallOrder[0]).toBeLessThan(
-    updateOne.mock.invocationCallOrder[0],
-  );
 });
