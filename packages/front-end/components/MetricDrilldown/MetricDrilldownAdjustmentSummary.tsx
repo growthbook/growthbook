@@ -11,6 +11,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { RadixColor } from "@/ui/HelperText";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { ExperimentTableRow } from "@/services/experiments";
 import {
   AdjustmentEffectSize,
@@ -39,18 +40,18 @@ const EFFECT_SIZE_DISPLAY: Record<
 > = {
   small: { label: "Small effect", color: "gray" },
   moderate: { label: "Moderate effect", color: "amber" },
-  large: { label: "Large effect", color: "orange" },
+  large: { label: "Large effect", color: "amber" },
 };
 
-function formatAdjustmentDelta({
-  relativeChange,
+function formatAdjustmentChange(relativeChange: number): string {
+  return `${(relativeChange * 100).toFixed(1)}% change in estimate`;
+}
+
+function formatAdjustmentQualifiers({
   significanceChanged,
   signFlipped,
-}: Pick<
-  AdjustmentImpact,
-  "relativeChange" | "significanceChanged" | "signFlipped"
->): string {
-  const parts = [`${(relativeChange * 100).toFixed(1)}% estimate change`];
+}: Pick<AdjustmentImpact, "significanceChanged" | "signFlipped">): string {
+  const parts: string[] = [];
   if (signFlipped) parts.push("sign flip");
   if (significanceChanged) parts.push("significance change");
   return parts.join(" · ");
@@ -104,12 +105,9 @@ const MetricDrilldownAdjustmentSummary: FC<
   return (
     <Box mb="5">
       <Heading as="h4" size="md" weight="medium" mb="3">
-        Summary
+        Impact Summary
       </Heading>
-      <Text as="p" size="sm" color="text-low" mb="2">
-        How much each adjustment changed this metric&apos;s result.
-      </Text>
-      <Flex direction="row" gap="5" wrap="wrap">
+      <Flex direction="row" gap="8" wrap="wrap">
         {summary.map(
           ({
             field,
@@ -120,12 +118,22 @@ const MetricDrilldownAdjustmentSummary: FC<
             signFlipped,
           }) => {
             const display = EFFECT_SIZE_DISPLAY[effectSize];
+            const changeText = formatAdjustmentChange(relativeChange);
+            const qualifiers = formatAdjustmentQualifiers({
+              significanceChanged,
+              signFlipped,
+            });
+            const tooltipBody = (
+              <>
+                <div>{changeText}</div>
+                {qualifiers ? <div>({qualifiers})</div> : null}
+              </>
+            );
             return (
               <Flex
                 key={field}
-                direction="column"
-                align="start"
-                gap="1"
+                align="center"
+                gap="2"
                 style={{ minWidth: 120 }}
               >
                 {onAdjustmentClick ? (
@@ -141,14 +149,9 @@ const MetricDrilldownAdjustmentSummary: FC<
                     {label}
                   </Text>
                 )}
-                <Badge label={display.label} color={display.color} />
-                <Text size="sm" color="text-low">
-                  {formatAdjustmentDelta({
-                    relativeChange,
-                    significanceChanged,
-                    signFlipped,
-                  })}
-                </Text>
+                <Tooltip body={tooltipBody}>
+                  <Badge label={display.label} color={display.color} />
+                </Tooltip>
               </Flex>
             );
           },

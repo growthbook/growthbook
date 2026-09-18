@@ -338,7 +338,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
 
   return (
     <>
-      <Box mt="4">
+      <Box mt="4" style={{ paddingBottom: 6 }}>
         <MetricDrilldownAdjustmentSummary
           row={row}
           statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
