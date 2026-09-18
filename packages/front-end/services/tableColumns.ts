@@ -32,7 +32,8 @@ export interface TableColumnDef<TRow> {
   align?: "left" | "center" | "right";
   headerProps?: { className?: string; style?: CSSProperties };
   cellProps?: (row: TRow) => { className?: string; style?: CSSProperties };
-  render: (row: TRow) => ReactNode;
+  /** `width` is the column's resolved width, for content that must size to it. */
+  render: (row: TRow, width: number | undefined) => ReactNode;
 }
 
 export interface TableColumnLayoutEntry {
@@ -139,7 +140,14 @@ export function resolveTableColumns<TRow>(
     return {
       ...def,
       visible,
-      width: clampWidth(def, entry?.width ?? def.defaultWidth),
+      // A column the user can't resize has no stored width worth honouring —
+      // it is a stale copy of a past default, and it would shadow the current
+      // one forever for anyone who has already saved a layout.
+      width: clampWidth(
+        def,
+        (def.resizable === false ? undefined : entry?.width) ??
+          def.defaultWidth,
+      ),
     };
   });
 

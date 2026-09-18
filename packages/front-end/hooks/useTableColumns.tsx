@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import {
   isLayoutCustomized,
   mergeLayoutForWrite,
@@ -22,6 +22,11 @@ export interface UseTableColumnsReturn<TRow> {
   reset: () => void;
   /** Live `<col>` nodes, keyed by column id, for imperative width writes. */
   colRefs: React.MutableRefObject<Map<string, HTMLTableColElement | null>>;
+  /**
+   * Renders the `<colgroup>`. Pass as the first child of `<Table>` — under a
+   * fixed layout these widths are what make column sizes authoritative.
+   */
+  ColGroup: React.FC;
 }
 
 /**
@@ -91,6 +96,23 @@ export function useTableColumns<TRow>({
   // defaults still reach users who have reset.
   const reset = useCallback(() => setLayout(null), [setLayout]);
 
+  const ColGroup = useMemo<React.FC>(() => {
+    const Group = () => (
+      <colgroup>
+        {visibleColumns.map((col) => (
+          <col
+            key={col.id}
+            ref={(el) => {
+              colRefs.current.set(col.id, el);
+            }}
+            style={col.width ? { width: col.width } : undefined}
+          />
+        ))}
+      </colgroup>
+    );
+    return Group;
+  }, [visibleColumns]);
+
   return {
     columns,
     visibleColumns,
@@ -101,5 +123,6 @@ export function useTableColumns<TRow>({
     setWidth,
     reset,
     colRefs,
+    ColGroup,
   };
 }
