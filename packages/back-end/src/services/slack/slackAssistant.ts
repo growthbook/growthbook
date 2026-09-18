@@ -7,15 +7,27 @@ import {
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   resolveSlackAssistantTarget,
   getSlackWorkspaceBotToken,
 } from "back-end/src/services/slack/slackIdentity";
+import type {
+  AmbiguousSlackTarget,
+  ResolvedSlackTarget,
+} from "back-end/src/services/slack/slackIdentity";
 import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
+import {
+  inferSlackOrganizationByName,
+  parseSlackResourceReferences,
+} from "back-end/src/services/slack/slackOrganizationInference";
+import type { SlackResourceRef } from "back-end/src/services/slack/slackOrganizationInference";
 import {
   SlackAssistantMention,
   SlackOrganizationSelection,
   getSlackThread,
+  isSlackDirectMessageChannel,
   pinSlackThreadOrganization,
   saveSlackOrganizationPicker,
   consumeSlackOrganizationSelection,
@@ -27,14 +39,76 @@ export type {
   SlackOrganizationSelection,
 } from "back-end/src/services/slack/slackThreadRouting";
 import {
+  clearSlackDefaultOrganization,
+  getSlackUserPreference,
+  setSlackDefaultOrganization,
+} from "back-end/src/services/slack/slackUserPreference";
+import {
   postSlackMessage,
   postSlackEphemeralMessage,
   updateSlackMessage,
 } from "back-end/src/services/slack/slackWebApi";
-import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
+import {
+  escapeSlackText,
+  toSlackMrkdwn,
+} from "back-end/src/services/slack/slackMarkdown";
 import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
 
 const THINKING_TEXT = "_Thinking…_";
+const SWITCH_ORGANIZATION_TEXT = /^switch organi[sz]ation$/i;
+
+function organizationLabel(target: ResolvedSlackTarget): string {
+  return target.linkedOrganizationCount > 1
+    ? `\n\n_Answering as ${escapeSlackText(target.organizationName)}_`
+    : "";
+}
+
+async function organizationsOwningReferences(
+  refs: SlackResourceRef[],
+  targets: ResolvedSlackTarget[],
+): Promise<string[]> {
+  const owners: string[] = [];
+  for (const target of targets) {
+    for (const ref of refs) {
+      const resource =
+        ref.kind === "experiment"
+          ? await getExperimentById(target.context, ref.id)
+          : await getFeature(target.context, ref.id);
+      if (resource) {
+        owners.push(target.organizationId);
+        break;
+      }
+    }
+  }
+  return owners;
+}
+
+// Order for a new thread with several eligible orgs: the owner of a linked
+// resource, then an org named in the text, then (DMs only) the stored default.
+async function inferSlackOrganization(
+  question: string,
+  ambiguous: AmbiguousSlackTarget,
+  identity: { teamId: string; channelId: string; slackUserId: string },
+): Promise<string | null> {
+  const refs = parseSlackResourceReferences(question, APP_ORIGIN);
+  if (refs.length) {
+    const owners = await organizationsOwningReferences(refs, ambiguous.targets);
+    if (owners.length === 1) return owners[0];
+  }
+  const named = inferSlackOrganizationByName(question, ambiguous.choices);
+  if (named) return named.organizationId;
+  if (!isSlackDirectMessageChannel(identity.channelId)) return null;
+  const preference = await getSlackUserPreference({
+    slackTeamId: identity.teamId,
+    slackUserId: identity.slackUserId,
+  });
+  if (!preference) return null;
+  return ambiguous.choices.some(
+    (c) => c.organizationId === preference.defaultOrganizationId,
+  )
+    ? preference.defaultOrganizationId
+    : null;
+}
 
 /** Remove the bot mention (and any other leading user mention) from the text. */
 function stripBotMention(text: string, botUserId?: string): string {
@@ -89,6 +163,22 @@ export async function handleSlackAssistantMention(
       });
     return;
   }
+  if (
+    isSlackDirectMessageChannel(channelId) &&
+    SWITCH_ORGANIZATION_TEXT.test(question)
+  ) {
+    await clearSlackDefaultOrganization({ slackTeamId: teamId, slackUserId });
+    const token = await getSlackWorkspaceBotToken(teamId);
+    if (token)
+      await postSlackEphemeralMessage({
+        token,
+        channel: channelId,
+        user: slackUserId,
+        threadTs: mention.threadTs,
+        text: "Your default organization for direct messages is cleared. Your next new message will ask which organization to use.",
+      });
+    return;
+  }
   const threadIdentity = { teamId, channelId, rootTs };
   const thread = await getSlackThread(threadIdentity);
   if (mention.requireActiveThread && thread?.status !== "selected") return;
@@ -105,25 +195,40 @@ export async function handleSlackAssistantMention(
     target.reason === "ambiguous_org" &&
     !mention.requireActiveThread
   ) {
-    const picker = await saveSlackOrganizationPicker(mention, target.choices);
-    if (picker.status === "pending") {
-      await postSlackEphemeralMessage({
-        token: target.botToken,
-        channel: channelId,
-        user: slackUserId,
-        text: target.message,
-        blocks: slackOrganizationPickerBlocks(picker),
-        threadTs: mention.threadTs,
-      });
-      return;
-    }
-    target = await resolveSlackAssistantTarget({
-      requireAssistantEnabled: true,
+    const inferred = await inferSlackOrganization(question, target, {
       teamId,
       channelId,
       slackUserId,
-      organizationId: picker.organizationId,
     });
+    if (inferred) {
+      target = await resolveSlackAssistantTarget({
+        requireAssistantEnabled: true,
+        teamId,
+        channelId,
+        slackUserId,
+        organizationId: inferred,
+      });
+    } else {
+      const picker = await saveSlackOrganizationPicker(mention, target.choices);
+      if (picker.status === "pending") {
+        await postSlackEphemeralMessage({
+          token: target.botToken,
+          channel: channelId,
+          user: slackUserId,
+          text: target.message,
+          blocks: slackOrganizationPickerBlocks(picker),
+          threadTs: mention.threadTs,
+        });
+        return;
+      }
+      target = await resolveSlackAssistantTarget({
+        requireAssistantEnabled: true,
+        teamId,
+        channelId,
+        slackUserId,
+        organizationId: picker.organizationId,
+      });
+    }
   }
   if (!target.ok) {
     // Non-mention thread messages stay silent on any failure — don't nag.
@@ -181,6 +286,7 @@ export async function handleSlackAssistantMention(
   );
 
   const token = target.botToken;
+  const label = organizationLabel(target);
   const reply = (text: string) =>
     postSlackMessage({ token, channel: channelId, text, threadTs: rootTs });
 
@@ -247,7 +353,7 @@ export async function handleSlackAssistantMention(
   });
 
   const finish = async (text: string) => {
-    const mrkdwn = toSlackMrkdwn(text, { appOrigin: APP_ORIGIN });
+    const mrkdwn = toSlackMrkdwn(text, { appOrigin: APP_ORIGIN }) + label;
     if (placeholderTs) {
       const ok = await updateSlackMessage({
         token,
@@ -432,6 +538,7 @@ export async function handleSlackAssistantConfirmation({
     return;
   }
   const token = target.botToken;
+  const label = organizationLabel(target);
 
   // Bind approval to its original channel, thread, organization, and owner.
   if (
@@ -547,7 +654,7 @@ export async function handleSlackAssistantConfirmation({
       await postSlackMessage({
         token,
         channel: channelId,
-        text: toSlackMrkdwn(result.message, { appOrigin: APP_ORIGIN }),
+        text: toSlackMrkdwn(result.message, { appOrigin: APP_ORIGIN }) + label,
         threadTs,
       });
       return;
@@ -566,10 +673,12 @@ export async function handleSlackAssistantConfirmation({
     await postSlackMessage({
       token,
       channel: channelId,
-      text: toSlackMrkdwn(
-        result.reply || (decision === "confirm" ? "Done." : "Okay, cancelled."),
-        { appOrigin: APP_ORIGIN },
-      ),
+      text:
+        toSlackMrkdwn(
+          result.reply ||
+            (decision === "confirm" ? "Done." : "Okay, cancelled."),
+          { appOrigin: APP_ORIGIN },
+        ) + label,
       threadTs,
     });
   } catch (e) {
@@ -577,9 +686,10 @@ export async function handleSlackAssistantConfirmation({
     await postSlackMessage({
       token,
       channel: channelId,
-      text: alreadySubmitted
-        ? "This action has already been submitted. Check GrowthBook before requesting it again."
-        : "Something went wrong applying that change.",
+      text:
+        (alreadySubmitted
+          ? "This action has already been submitted. Check GrowthBook before requesting it again."
+          : "Something went wrong applying that change.") + label,
       threadTs,
     });
   }
@@ -610,5 +720,10 @@ export async function handleSlackOrganizationSelection(
       });
     return;
   }
+  if (selection.remember && isSlackDirectMessageChannel(selection.channelId))
+    await setSlackDefaultOrganization(
+      { slackTeamId: selection.teamId, slackUserId: selection.slackUserId },
+      selection.organizationId,
+    );
   await handleSlackAssistantMention(mention);
 }

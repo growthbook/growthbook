@@ -8,6 +8,10 @@ import {
 } from "back-end/src/services/slack/slackTaskSafety";
 import type { SlackOrganizationChoice } from "back-end/src/services/slack/slackIdentity";
 
+export function isSlackDirectMessageChannel(channelId: string): boolean {
+  return /^D[A-Z0-9]+$/.test(channelId);
+}
+
 export const slackAssistantMentionSchema = z.object({
   teamId: z.string().min(1),
   channelId: z.string().min(1),
@@ -32,6 +36,7 @@ export const slackOrganizationSelectionSchema = z.strictObject({
   organizationId: z.string().min(1),
   threadTs: z.string().min(1),
   interactionTs: z.string().min(1),
+  remember: z.boolean(),
 });
 export type SlackOrganizationSelection = z.infer<
   typeof slackOrganizationSelectionSchema
@@ -263,6 +268,28 @@ export function slackOrganizationPickerBlocks(
       options: options.slice(i * 100, (i + 1) * 100),
     }),
   );
+  const rememberBlocks = isSlackDirectMessageChannel(thread.channelId)
+    ? [
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "checkboxes",
+              action_id: "gb_remember_organization",
+              options: [
+                {
+                  text: {
+                    type: "plain_text",
+                    text: "Use this organization for my direct messages",
+                  },
+                  value: "remember",
+                },
+              ],
+            },
+          ],
+        },
+      ]
+    : [];
   return [
     {
       type: "section",
@@ -277,5 +304,6 @@ export function slackOrganizationPickerBlocks(
         ...(options.length <= 100 ? { options } : { option_groups: groups }),
       },
     },
+    ...rememberBlocks,
   ];
 }

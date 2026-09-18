@@ -14,6 +14,7 @@ import {
   buildSlackLinkUrl,
   verifySlackLinkState,
 } from "back-end/src/services/slack/slackLink";
+import { isSlackDirectMessageChannel } from "back-end/src/services/slack/slackThreadRouting";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 
 export function selectCandidateWorkspaces<T extends { organization: string }>(
@@ -25,7 +26,7 @@ export function selectCandidateWorkspaces<T extends { organization: string }>(
   }[],
   channelId: string,
 ): { connection: T; eventWebHookId: string | null }[] {
-  const isDM = /^D[A-Z0-9]+$/.test(channelId);
+  const isDM = isSlackDirectMessageChannel(channelId);
   return connections.flatMap((connection) => {
     const webhook = webhooks.find(
       (w) =>
@@ -44,7 +45,7 @@ export type SlackOrganizationChoice = {
   linkId: string;
 };
 
-type ResolvedSlackTarget = {
+export type ResolvedSlackTarget = {
   ok: true;
   context: ApiReqContext;
   userId: string;
@@ -54,6 +55,7 @@ type ResolvedSlackTarget = {
   eventWebHookId: string | null;
   botToken: string;
   assistantEnabled: boolean;
+  linkedOrganizationCount: number;
 };
 export type SlackAssistantTarget =
   | ResolvedSlackTarget
@@ -63,6 +65,7 @@ export type SlackAssistantTarget =
       message: string;
       botToken: string;
       choices: SlackOrganizationChoice[];
+      targets: ResolvedSlackTarget[];
     }
   | {
       ok: false;
@@ -77,6 +80,10 @@ export type SlackAssistantTarget =
       message: string;
       botToken?: string;
     };
+export type AmbiguousSlackTarget = Extract<
+  SlackAssistantTarget,
+  { reason: "ambiguous_org" }
+>;
 export type SlackTargetFailureReason = Extract<
   SlackAssistantTarget,
   { ok: false }
@@ -195,7 +202,7 @@ export async function resolveSlackAssistantTarget({
       message:
         "This Slack workspace isn't fully connected to GrowthBook. Ask an admin to reinstall the GrowthBook app.",
     };
-  const webhooks = /^D[A-Z0-9]+$/.test(channelId)
+  const webhooks = isSlackDirectMessageChannel(channelId)
     ? []
     : await EventWebHookModel.find({
         payloadType: "slack",
@@ -251,6 +258,7 @@ export async function resolveSlackAssistantTarget({
       eventWebHookId,
       botToken: token,
       assistantEnabled: connection.assistantEnabled === true,
+      linkedOrganizationCount: links.length,
     });
   }
   if (targets.length === 1) return targets[0];
@@ -265,8 +273,21 @@ export async function resolveSlackAssistantTarget({
         name: t.organizationName,
         linkId: t.linkId,
       })),
+      targets,
     };
-  if (organizationId)
+  if (organizationId) {
+    const pinnedIsCandidate = candidates.some(
+      (c) => c.connection.organization === organizationId,
+    );
+    if (pinnedIsCandidate && !hasLink) {
+      const org = await findOrganizationById(organizationId);
+      return {
+        ok: false,
+        reason: "not_linked",
+        botToken,
+        message: `This thread uses the GrowthBook organization ${org?.name || organizationId}, which isn't linked to your Slack account. Link it to take part here: ${buildSlackLinkUrl({ slackTeamId: teamId || "", slackUserId })}`,
+      };
+    }
     return {
       ok: false,
       reason: "organization_unavailable",
@@ -274,6 +295,7 @@ export async function resolveSlackAssistantTarget({
       message:
         "This thread's GrowthBook organization is no longer available to your linked account. Restore your access or start a new thread. To link this organization, send 'link account' to GrowthBook in Slack.",
     };
+  }
   if (hasDisabledAssistant)
     return {
       ok: false,

@@ -120,6 +120,10 @@ it.each(["D1", "C_SHARED"])(
           linkId: "link_org2_user2",
         },
       ],
+      targets: [
+        { organizationId: "org1", context },
+        { organizationId: "org2", context },
+      ],
     });
     expect(getContextForUserIdInOrg).toHaveBeenCalledWith(
       { id: "org2", name: "Organization org2" },
@@ -140,14 +144,42 @@ it("resolves the pinned org using that org's explicitly linked account", async (
     botToken: "token_org2",
   });
 });
-it("never reroutes a selected thread after unlinking or losing access", async () => {
-  expect(
-    await resolveSlackAssistantTarget({ ...request, organizationId: "org2" }),
-  ).toMatchObject({ ok: false, reason: "organization_unavailable" });
+it("never reroutes a selected thread: an unlinked pinned org asks for a link, lost access is unavailable", async () => {
+  const unlinked = await resolveSlackAssistantTarget({
+    ...request,
+    organizationId: "org2",
+  });
+  expect(unlinked).toMatchObject({ ok: false, reason: "not_linked" });
+  if (unlinked.ok) throw new Error("Expected a failure");
+  expect(unlinked.message).toContain("Organization org2");
+  expect(unlinked.message).toContain("/integrations/slack/link?state=");
   jest.mocked(getContextForUserIdInOrg).mockResolvedValue(null);
   expect(
     await resolveSlackAssistantTarget({ ...request, organizationId: "org1" }),
   ).toMatchObject({ ok: false, reason: "organization_unavailable" });
+});
+it("counts every organization linked in the workspace, including for a pinned thread", async () => {
+  expect(await resolveSlackAssistantTarget(request)).toMatchObject({
+    ok: true,
+    linkedOrganizationCount: 1,
+  });
+  jest
+    .mocked(SlackUserLinkModel.dangerousFindAllBySlackIdentity)
+    .mockResolvedValue([linked("org1"), linked("org2", "user2")]);
+  expect(
+    await resolveSlackAssistantTarget({ ...request, channelId: "C1" }),
+  ).toMatchObject({
+    ok: true,
+    organizationId: "org1",
+    linkedOrganizationCount: 2,
+  });
+  expect(
+    await resolveSlackAssistantTarget({ ...request, organizationId: "org2" }),
+  ).toMatchObject({
+    ok: true,
+    organizationId: "org2",
+    linkedOrganizationCount: 2,
+  });
 });
 it("checks revoked membership even for an unambiguous channel", async () => {
   jest.mocked(getContextForUserIdInOrg).mockResolvedValue(null);

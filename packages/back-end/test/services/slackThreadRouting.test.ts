@@ -1,6 +1,7 @@
 import {
   getSlackThread,
   pinSlackNotificationThread,
+  isSlackDirectMessageChannel,
   pinSlackThreadOrganization,
   saveSlackOrganizationPicker,
   consumeSlackOrganizationSelection,
@@ -77,6 +78,7 @@ function selection(thread: SlackThread): SlackOrganizationSelection {
     interactionTs: "123.789",
     selectionId: thread.selectionId,
     organizationId: "org2",
+    remember: false,
   };
 }
 beforeEach(() => records.clear());
@@ -165,35 +167,45 @@ it("keeps conversation identity separate for Slack users, orgs, threads, account
   }
   expect(slackConversationId(original)).toBe(id);
 });
-it("renders clickable choices with labels and a bound selection value", async () => {
+it("renders clickable choices with labels and a bound selection value, plus a remember checkbox in a DM", async () => {
   const thread = await saveSlackOrganizationPicker(mention, choices);
   if (thread.status !== "pending") throw new Error("Expected pending choices");
-  expect(slackOrganizationPickerBlocks(thread)).toMatchObject([
-    {
-      accessory: {
-        type: "static_select",
-        action_id: "gb_select_organization",
-        options: [
-          {
-            text: { text: "First org" },
-            value: JSON.stringify({
-              s: thread.selectionId,
-              o: "org1",
-              t: identity.rootTs,
-            }),
-          },
-          {
-            text: { text: "Second org" },
-            value: JSON.stringify({
-              s: thread.selectionId,
-              o: "org2",
-              t: identity.rootTs,
-            }),
-          },
-        ],
-      },
+  const blocks = slackOrganizationPickerBlocks(thread);
+  expect(blocks).toHaveLength(2);
+  expect(blocks[0]).toMatchObject({
+    accessory: {
+      type: "static_select",
+      action_id: "gb_select_organization",
+      options: [
+        {
+          text: { text: "First org" },
+          value: JSON.stringify({
+            s: thread.selectionId,
+            o: "org1",
+            t: identity.rootTs,
+          }),
+        },
+        {
+          text: { text: "Second org" },
+          value: JSON.stringify({
+            s: thread.selectionId,
+            o: "org2",
+            t: identity.rootTs,
+          }),
+        },
+      ],
     },
-  ]);
+  });
+  expect(blocks[1]).toMatchObject({
+    type: "actions",
+    elements: [
+      {
+        type: "checkboxes",
+        action_id: "gb_remember_organization",
+        options: [{ value: "remember" }],
+      },
+    ],
+  });
 });
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
@@ -252,3 +264,23 @@ it("creates the expiry index once per process", async () => {
     { expireAfterSeconds: 0 },
   );
 });
+it("offers no remember checkbox in a channel picker", async () => {
+  const thread = await saveSlackOrganizationPicker(
+    { ...mention, channelId: "C1" },
+    choices,
+  );
+  if (thread.status !== "pending") throw new Error("Expected pending choices");
+  expect(slackOrganizationPickerBlocks(thread)).toHaveLength(1);
+});
+it.each([
+  { channelId: "D123", expected: true },
+  { channelId: "C1", expected: false },
+  { channelId: "G1", expected: false },
+  { channelId: "U1", expected: false },
+  { channelId: "", expected: false },
+])(
+  "recognizes $channelId as a direct message: $expected",
+  ({ channelId, expected }) => {
+    expect(isSlackDirectMessageChannel(channelId)).toBe(expected);
+  },
+);

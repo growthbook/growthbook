@@ -44,16 +44,28 @@ fresh installation with no notification channels. Deleting the final notificatio
 channel leaves workspace linking and DMs available. Channel requests still require
 an exact channel subscription in the selected organization.
 
-An unambiguous eligible organization with the assistant enabled is chosen automatically. When a DM or channel
-has multiple eligible linked organizations, the assistant posts a private clickable
-organization picker and continues the original question after a valid choice.
-The choice persists in `slackassistantthreads` for the team/channel/thread. Later
-messages and approvals use that organization. Losing a link, membership, or channel
-connection never redirects an existing thread to another organization. Each Slack
-participant has a separate conversation bound to their Slack identity, GrowthBook
-account, organization, and current link identifier. Picker responses are bound to
-the requester and pending question; stale, duplicate, or mismatched responses do
-not start another turn. Membership, configuration, and permissions are checked again
+A thread with a pinned organization keeps it. Otherwise a single eligible linked
+organization with the assistant enabled is chosen automatically. When several are
+eligible, the assistant tries, in order:
+
+1. A GrowthBook link in the message to an experiment or Feature Flag that exactly
+   one eligible organization owns.
+2. The name of exactly one eligible organization, appearing as a whole word in
+   the message.
+3. In direct messages only, the user's stored default organization for that
+   workspace, when it is still eligible. A stale default is ignored.
+4. A private clickable organization picker. The assistant continues the original
+   question after a valid choice.
+
+An inferred organization is re-resolved in full (membership, configuration,
+permissions) and pinned exactly like a picker choice. The pin persists in
+`slackassistantthreads` for the team/channel/thread. Later messages and approvals
+use that organization. Losing a link, membership, or channel connection never
+redirects an existing thread to another organization. Each Slack participant has
+a separate conversation bound to their Slack identity, GrowthBook account,
+organization, and current link identifier. Picker responses are bound to the
+requester and pending question; stale, duplicate, or mismatched responses do not
+start another turn. Membership, configuration, and permissions are checked again
 when acting. To use a different organization, start a new thread.
 
 Notifications GrowthBook posts also pin their thread to the sending
@@ -63,6 +75,16 @@ and they never overwrite a pin the thread already has. A pin stops expiring once
 someone converses in the thread. When two organizations have connected the same
 Slack workspace, every notification carries a final line naming the organization
 it came from.
+
+In direct messages the picker offers a "Use this organization for my direct
+messages" checkbox. Checking it stores the default in `slackuserpreferences`, one
+document per workspace and Slack user. Channels never store a default. Sending
+exactly `switch organization` in a DM clears the default without changing any
+existing thread's pin.
+
+When the Slack user has links to more than one organization in the workspace,
+every assistant text reply and approval outcome ends with an italic
+`Answering as <organization>` line.
 
 `slackuserlinks` is unique per Slack workspace, Slack user, and organization;
 BaseModel creates that index at startup. Every stored link carries the `linkId`
