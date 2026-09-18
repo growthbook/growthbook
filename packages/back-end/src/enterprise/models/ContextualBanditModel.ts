@@ -1,23 +1,31 @@
 import { z } from "zod";
+import isEqual from "lodash/isEqual";
+import { v4 as uuidv4 } from "uuid";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
   apiContextualBanditRefreshReturn,
+  apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
-  assertExposureQueriesTargetingAttributeColumnsValid,
+  assertContextualAttributesValid,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
   ContextualBanditInterface,
+  ContextualBanditVariation,
   contextualBanditValidator,
   LeafWeight,
+  VariationWeightPair,
 } from "shared/validators";
 import {
   ContextualBanditLinkageDelta,
   ContextualBanditLinkageState,
   generateVariationId,
+  getContextualBanditIdsFromRules,
 } from "shared/util";
+import type { FeatureInterface } from "shared/types/feature";
 import { isFactMetricId } from "shared/experiments";
+import { NotFoundError } from "back-end/src/util/errors";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   cancelContextualBanditEndpoint,
@@ -25,18 +33,25 @@ import {
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
+  updateVariationsContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   executeContextualBanditStart,
   executeContextualBanditStop,
+  refreshLinkedFeaturePayloads,
 } from "back-end/src/services/contextualBanditChanges";
 import {
+  activatePendingContextualBanditVariations,
+  executeContextualBanditVariationChange,
   cancelContextualBanditLatestRunningSnapshot,
   getContextualBanditLinkedFeatureInfo,
   runContextualBanditSnapshot,
 } from "back-end/src/enterprise/services/contextualBandits";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import {
+  CasConflictError,
+  MakeModelClass,
+} from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 
 const COLLECTION = "contextualbandits";
@@ -80,7 +95,9 @@ const BaseClass = MakeModelClass({
             req.params.id,
           );
           if (!cb) {
-            return req.context.throwNotFoundError();
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
           }
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
@@ -112,7 +129,9 @@ const BaseClass = MakeModelClass({
             req.params.id,
           );
           if (!cb) {
-            return req.context.throwNotFoundError();
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
           }
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
@@ -136,7 +155,9 @@ const BaseClass = MakeModelClass({
             req.params.id,
           );
           if (!cb) {
-            return req.context.throwNotFoundError();
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
           }
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
@@ -149,6 +170,36 @@ const BaseClass = MakeModelClass({
         },
       }),
       defineCustomApiHandler({
+        ...updateVariationsContextualBanditEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditVariationsReturn>> => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
+          }
+          if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
+            req.context.permissions.throwPermissionError();
+          }
+          const { updated, featureDraftPublishFailures } =
+            await executeContextualBanditVariationChange(req.context, cb, {
+              addVariations: req.body.addVariations,
+              removeVariationIds: req.body.removeVariationIds,
+              updateVariations: req.body.updateVariations,
+            });
+          return {
+            contextualBandit: toApiContextualBandit(updated),
+            ...(featureDraftPublishFailures.length > 0
+              ? { featureDraftPublishFailures }
+              : {}),
+          };
+        },
+      }),
+      defineCustomApiHandler({
         ...cancelContextualBanditEndpoint,
         reqHandler: async (
           req,
@@ -157,7 +208,9 @@ const BaseClass = MakeModelClass({
             req.params.id,
           );
           if (!cb) {
-            return req.context.throwNotFoundError();
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
           }
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
@@ -190,12 +243,16 @@ export function toApiContextualBandit(
     dateStopped: doc.dateStopped?.toISOString(),
     trackingKey: doc.trackingKey,
     hashAttribute: doc.hashAttribute,
-    variations: doc.variations.map((v) => ({
-      id: v.id,
-      key: v.key,
-      name: v.name,
-      description: v.description,
-    })),
+    // Deactivated variations are hidden from API consumers; pending arms surface status.
+    variations: doc.variations
+      .filter((v) => v.status !== "deactivated")
+      .map((v) => ({
+        id: v.id,
+        key: v.key,
+        name: v.name,
+        description: v.description,
+        ...(v.status === "pending" ? { status: "pending" as const } : {}),
+      })),
     datasource: doc.datasource,
     contextualBanditQueryId: doc.contextualBanditQueryId,
     coverage: doc.coverage,
@@ -276,23 +333,20 @@ export class ContextualBanditModel extends BaseClass {
       }
     }
 
-    const targetingAttributeColumns =
-      doc.targetingAttributeColumns ?? doc.contextualAttributes;
-    if ((targetingAttributeColumns?.length ?? 0) === 0) {
-      throw new Error(
-        "A contextual bandit must declare at least one contextual attribute.",
+    if (
+      !previousDoc ||
+      !isEqual(doc.contextualAttributes, previousDoc.contextualAttributes)
+    ) {
+      if ((doc.contextualAttributes?.length ?? 0) === 0) {
+        throw new Error(
+          "A contextual bandit must declare at least one contextual attribute.",
+        );
+      }
+      assertContextualAttributesValid(
+        this.context.org.settings?.attributeSchema,
+        doc,
       );
     }
-    assertExposureQueriesTargetingAttributeColumnsValid(
-      this.context.org.settings?.attributeSchema,
-      [
-        {
-          id: doc.id,
-          name: doc.name,
-          targetingAttributeColumns,
-        },
-      ],
-    );
   }
 
   public override async handleApiList(
@@ -337,11 +391,11 @@ export class ContextualBanditModel extends BaseClass {
         id: generateVariationId(),
         screenshots: [],
       })),
-      targetingAttributeColumns: body.contextualAttributes,
       contextualAttributes: body.contextualAttributes,
       status: "draft" as const,
       currentLeafWeights: [],
       banditVersion: 0,
+      seed: uuidv4(),
     };
   }
 
@@ -352,9 +406,6 @@ export class ContextualBanditModel extends BaseClass {
       if (body[field] !== undefined) {
         (out as Record<string, unknown>)[field] = body[field];
       }
-    }
-    if (body.contextualAttributes !== undefined) {
-      out.targetingAttributeColumns = body.contextualAttributes;
     }
     return out as Parameters<typeof this.updateById>[1];
   }
@@ -371,6 +422,19 @@ export class ContextualBanditModel extends BaseClass {
     existing: ContextualBanditInterface,
     updated?: Partial<ContextualBanditInterface>,
   ): boolean {
+    // A status change turns the bandit's published rule on or off in SDK
+    // payloads, so it needs the same run permission the start/stop endpoints
+    // check; other edits only need the update permission.
+    if (
+      updated?.status !== undefined &&
+      updated.status !== existing.status &&
+      !this.context.permissions.canRunContextualBandit(
+        existing,
+        this.context.org.settings?.environments?.map((e) => e.id) ?? [],
+      )
+    ) {
+      return false;
+    }
     return this.context.permissions.canUpdateContextualBandit(
       existing,
       updated ?? existing,
@@ -390,40 +454,63 @@ export class ContextualBanditModel extends BaseClass {
     );
   }
 
-  public async patchLeafWeights(
+  public async applyWeightEpochUpdate(
     cbId: string,
-    leafWeights: LeafWeight[],
-    options?: {
+    changes: {
+      variations?: ContextualBanditVariation[];
+      variationWeights?: VariationWeightPair[];
+      currentLeafWeights?: LeafWeight[];
       bumpVersion?: boolean;
+      expectedBanditVersion?: number;
+      bypassPermissionCheck?: boolean;
+      newSeed?: string;
     },
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
     if (!existingCB) {
-      throw new Error(`ContextualBandit not found: ${cbId}`);
+      throw new NotFoundError(
+        `Contextual Bandit ${cbId} not found or not accessible`,
+      );
     }
-    if (!this.canUpdate(existingCB)) {
+    if (!changes.bypassPermissionCheck && !this.canUpdate(existingCB)) {
       this.context.permissions.throwPermissionError();
     }
 
     const collection = this._dangerousGetCollection();
     const now = new Date();
     const set: Record<string, unknown> = { dateUpdated: now };
-    if (leafWeights.length > 0) {
-      set.currentLeafWeights = leafWeights;
+    if (changes.variations !== undefined) {
+      set.variations = changes.variations;
+    }
+    if (changes.variationWeights !== undefined) {
+      set.variationWeights = changes.variationWeights;
+    }
+    if (changes.currentLeafWeights !== undefined) {
+      set.currentLeafWeights = changes.currentLeafWeights;
+    }
+    if (changes.newSeed) {
+      set.seed = changes.newSeed;
     }
     const res = await collection.updateOne(
       {
         organization: this.context.org.id,
         id: cbId,
+        ...(changes.expectedBanditVersion !== undefined
+          ? { banditVersion: changes.expectedBanditVersion }
+          : {}),
       },
       {
         $set: set,
-        ...(options?.bumpVersion ? { $inc: { banditVersion: 1 } } : {}),
+        ...(changes.bumpVersion ? { $inc: { banditVersion: 1 } } : {}),
       },
     );
     if (res.matchedCount === 0) {
+      if (changes.expectedBanditVersion !== undefined) {
+        const still = await this.getById(cbId);
+        if (still) throw new CasConflictError();
+      }
       throw new Error(
-        `ContextualBandit ${cbId} currentLeafWeights could not be updated`,
+        `ContextualBandit ${cbId} weight epoch could not be updated`,
       );
     }
 
@@ -432,6 +519,36 @@ export class ContextualBanditModel extends BaseClass {
       throw new Error(`ContextualBandit ${cbId} disappeared after update`);
     }
     return refreshed;
+  }
+
+  public async activatePendingVariationsForFeature(
+    feature: FeatureInterface,
+  ): Promise<void> {
+    const cbIds = getContextualBanditIdsFromRules(feature.rules ?? []);
+    for (const cbId of cbIds) {
+      try {
+        const cb = await this.getById(cbId);
+        if (!cb) continue;
+        let latest = cb;
+        if (cb.variations.some((v) => v.status === "pending")) {
+          ({ updated: latest } =
+            await activatePendingContextualBanditVariations(this.context, cb, {
+              bypassPermissionChecks: true,
+            }));
+        }
+        // Unconditional: heals a prior activation whose refresh failed.
+        await refreshLinkedFeaturePayloads(
+          this.context,
+          latest,
+          "contextualBandit.refresh",
+        );
+      } catch (e) {
+        this.context.logger.error(
+          e,
+          `Failed to activate pending contextual bandit variations for ${cbId} after publishing feature ${feature.id}; arms stay pending and will be retried on the next publish or variation save`,
+        );
+      }
+    }
   }
 
   /** Used when starting the bandit consumes a queued draft; every other write goes through `applyLinkageDelta`. */
@@ -444,7 +561,7 @@ export class ContextualBanditModel extends BaseClass {
     if (!cb) return;
     const drafts = cb.pendingFeatureDrafts ?? [];
     const remaining = drafts.filter((d) =>
-      revisionVersion != null
+      (revisionVersion ?? null) !== null
         ? !(d.featureId === featureId && d.revisionVersion === revisionVersion)
         : d.featureId !== featureId,
     );
@@ -477,9 +594,25 @@ export class ContextualBanditModel extends BaseClass {
   public async applyLinkageDelta(
     featureId: string,
     delta: ContextualBanditLinkageDelta,
+    // The slice this delta was PLANNED against. A landing that lost the feature
+    // document to a newer publish would otherwise apply its stale delta on top of the
+    // winner's linkage — the forward twin of the ownership check `setLinkageState`
+    // already makes on the way back, and a conflict rather than a skip because going
+    // forward a lost race must stop the landing.
+    expectedFeatureSlice?: ContextualBanditLinkageState,
   ): Promise<void> {
     const cb = await this.getById(delta.contextualBanditId);
     if (!cb) return;
+
+    if (
+      expectedFeatureSlice &&
+      !isEqual(
+        this.featureLinkageSlice(cb, featureId),
+        this.featureLinkageSlice(expectedFeatureSlice, featureId),
+      )
+    ) {
+      throw new CasConflictError();
+    }
 
     const changes: LinkageChanges = {};
 
@@ -509,7 +642,31 @@ export class ContextualBanditModel extends BaseClass {
     }
 
     if (!Object.keys(changes).length) return;
-    await this.update(cb, changes);
+    // GUARDED on the document the slice decision was read from. Checking the expected
+    // slice and then issuing a plain update is check-then-act: a concurrent linkage
+    // write landing in between is derived away by `changes`, which was computed from
+    // the stale document. A lost race means someone else moved this bandit's linkage,
+    // and theirs is the state to keep.
+    await this.updateIfUnchanged(cb, changes, undefined, {
+      dangerouslyBypassCanUpdate: true,
+    });
+  }
+
+  /** Just this feature's part of a bandit's linkage — what a rollback owns. */
+  private featureLinkageSlice(
+    cb: {
+      linkedFeatures?: string[];
+      pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
+    },
+    featureId: string,
+  ): { linked: boolean; drafts: number[] } {
+    return {
+      linked: (cb.linkedFeatures ?? []).includes(featureId),
+      drafts: (cb.pendingFeatureDrafts ?? [])
+        .filter((d) => d.featureId === featureId)
+        .map((d) => d.revisionVersion)
+        .sort((a, b) => a - b),
+    };
   }
 
   /**
@@ -521,42 +678,85 @@ export class ContextualBanditModel extends BaseClass {
     cbId: string,
     featureId: string,
     state: ContextualBanditLinkageState,
+    // Compensation only: converge to `state` while this feature's slice still
+    // holds what the forward pass wrote. Writes here are already scoped to the one
+    // feature, so a concurrent change to ANOTHER feature's linkage is unaffected —
+    // this covers the remaining case, a second writer moving THIS feature's
+    // linkage before our rollback runs, which the pre-image would otherwise undo.
+    expectedFeatureSlice?: ContextualBanditLinkageState,
   ): Promise<void> {
-    const cb = await this.getById(cbId);
-    if (!cb) return;
+    // Recomputed from the document each attempt: the arrays this write sets are
+    // DERIVED from the document it read, so retrying with the fresh CAS token but the
+    // old arrays would write back a snapshot that predates another feature's
+    // concurrent linkage change and erase it.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const cb = await this.getById(cbId);
+      if (!cb) return;
 
-    const shouldBeLinked = state.linkedFeatures.includes(featureId);
-    const linked = cb.linkedFeatures ?? [];
-    const isLinked = linked.includes(featureId);
+      if (
+        expectedFeatureSlice &&
+        !isEqual(
+          this.featureLinkageSlice(cb, featureId),
+          this.featureLinkageSlice(expectedFeatureSlice, featureId),
+        )
+      ) {
+        // Their slice now, not ours to take back.
+        return;
+      }
 
-    const changes: LinkageChanges = {};
-    if (shouldBeLinked && !isLinked) {
-      changes.linkedFeatures = [...linked, featureId];
-    } else if (!shouldBeLinked && isLinked) {
-      changes.linkedFeatures = linked.filter((f) => f !== featureId);
-    }
+      const shouldBeLinked = state.linkedFeatures.includes(featureId);
+      const linked = cb.linkedFeatures ?? [];
+      const isLinked = linked.includes(featureId);
 
-    const otherDrafts = (cb.pendingFeatureDrafts ?? []).filter(
-      (d) => d.featureId !== featureId,
-    );
-    const restored = [
-      ...otherDrafts,
-      ...state.pendingFeatureDrafts.filter((d) => d.featureId === featureId),
-    ];
-    const current = cb.pendingFeatureDrafts ?? [];
-    const changed =
-      restored.length !== current.length ||
-      restored.some(
-        (d, i) =>
-          d.featureId !== current[i]?.featureId ||
-          d.revisionVersion !== current[i]?.revisionVersion,
+      const changes: LinkageChanges = {};
+      if (shouldBeLinked && !isLinked) {
+        changes.linkedFeatures = [...linked, featureId];
+      } else if (!shouldBeLinked && isLinked) {
+        changes.linkedFeatures = linked.filter((f) => f !== featureId);
+      }
+
+      const otherDrafts = (cb.pendingFeatureDrafts ?? []).filter(
+        (d) => d.featureId !== featureId,
       );
-    if (changed) {
-      changes.pendingFeatureDrafts = restored;
-    }
+      const restored = [
+        ...otherDrafts,
+        ...state.pendingFeatureDrafts.filter((d) => d.featureId === featureId),
+      ];
+      const current = cb.pendingFeatureDrafts ?? [];
+      const changed =
+        restored.length !== current.length ||
+        restored.some(
+          (d, i) =>
+            d.featureId !== current[i]?.featureId ||
+            d.revisionVersion !== current[i]?.revisionVersion,
+        );
+      if (changed) {
+        changes.pendingFeatureDrafts = restored;
+      }
 
-    if (!Object.keys(changes).length) return;
-    await this.update(cb, changes);
+      if (!Object.keys(changes).length) return;
+      try {
+        // GUARDED on the document these changes were derived from — checking the
+        // slice and then issuing a plain update is check-then-act. A lost race means
+        // SOMETHING moved; the loop re-derives and the slice check above decides
+        // whether it was this feature's linkage (theirs now) or an unrelated field
+        // (ours still to take back).
+        await this.updateIfUnchanged(cb, changes, undefined, {
+          dangerouslyBypassCanUpdate: true,
+        });
+        return;
+      } catch (e) {
+        if (!(e instanceof CasConflictError)) throw e;
+      }
+    }
+    // Exhausted: this feature's slice never moved, so the rollback was still ours to
+    // make and the failed publish's linkage is still live. Returning quietly recorded
+    // compensation as clean over it.
+    throw new Error(
+      `contextual bandit ${cbId}: linkage rollback for feature ${featureId} ` +
+        `could not be applied after repeated conflicts; its linkage still carries ` +
+        `the failed publish`,
+    );
   }
 
   /** All contextual bandits that reference a given contextual bandit query. */

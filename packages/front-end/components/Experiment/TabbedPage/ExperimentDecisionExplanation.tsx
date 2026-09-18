@@ -4,6 +4,7 @@ import {
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
 } from "shared/enterprise";
+import { Fragment } from "react";
 import Link from "@/ui/Link";
 
 interface Props {
@@ -113,17 +114,17 @@ export default function ExperimentDecisionExplanation({
         {getRecommendationText(status.status, variations.length > 1)}
       </Text>
       {decidingRules.map((r) => (
-        <>
+        <Fragment key={JSON.stringify(r.variationIds)}>
           <Flex direction="column" mb="2">
             <Flex direction="row" align="center" gap="1" mb="1">
               {decidingRules.length > 1
                 ? r.variationIds.map((v, i) => (
-                    <>
+                    <Fragment key={v}>
                       <Box>{variationNames[v]}</Box>
                       {i !== r.variationIds.length - 1 ? (
                         <Text mx="1">,</Text>
                       ) : null}
-                    </>
+                    </Fragment>
                   ))
                 : null}
             </Flex>
@@ -188,7 +189,7 @@ export default function ExperimentDecisionExplanation({
               </Flex>
             )}
           </Flex>
-        </>
+        </Fragment>
       ))}
       {showDecisionCriteriaLink ? (
         <Box mt="4" mb="2">

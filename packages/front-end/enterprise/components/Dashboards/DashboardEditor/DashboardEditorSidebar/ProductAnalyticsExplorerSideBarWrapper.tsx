@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo } from "react";
 import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
+  blockUsesDashboardDateControl,
   FunnelExplorationBlockInterface,
   getEffectiveExplorationConfig,
   restoreBlockLocalDateControls,
@@ -20,13 +22,15 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   setBlock,
   dashboardGlobalControls,
   invalidateStaleResults = true,
-  saveAndCloseTrigger,
-  onSaveAndClose,
+  hideDataSourceSelector = false,
+  sqlExploreConfigOnly = false,
+  dashboardHeaderLeadingContent,
 }: {
   block: DashboardBlockInterfaceOrData<
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
     | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
@@ -34,13 +38,15 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | SqlExplorationBlockInterface
       | FunnelExplorationBlockInterface
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   invalidateStaleResults?: boolean;
-  saveAndCloseTrigger?: number;
-  onSaveAndClose?: () => void;
+  hideDataSourceSelector?: boolean;
+  sqlExploreConfigOnly?: boolean;
+  dashboardHeaderLeadingContent?: ReactNode;
 }) {
   const {
     needsFetch,
@@ -48,38 +54,38 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     draftExploreState,
     setDraftExploreState,
     handleSubmit,
-    loading,
     comparisonMode,
+    linkedFunnelMetricId,
   } = useExplorerContext();
-  const pendingCloseRef = useRef(false);
-  const onSaveAndCloseRef = useRef(onSaveAndClose);
-  onSaveAndCloseRef.current = onSaveAndClose;
-
   const explorerAnalysisId =
     "explorerAnalysisId" in block ? block.explorerAnalysisId : undefined;
-  const comparisonExplorerAnalysisId =
-    "comparisonExplorerAnalysisId" in block
-      ? block.comparisonExplorerAnalysisId
-      : undefined;
-  const compareEnabled = draftExploreState.previousTimeFrame != null;
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
   const usesDashboardDateRange =
-    block.globalControlSettings?.dateRange === true &&
-    Boolean(dashboardGlobalControls?.dateRange);
+    dateControlledBlock !== null && Boolean(dashboardGlobalControls?.dateRange);
   const getEffectiveDraftConfig = useCallback(
     () =>
-      usesDashboardDateRange
+      usesDashboardDateRange && dateControlledBlock
         ? ({
             ...getEffectiveExplorationConfig(
               {
-                ...block,
-                config: stripExplorerDraftFields(draftExploreState),
-              } as typeof block,
+                ...dateControlledBlock,
+                config: stripExplorerDraftFields(
+                  draftExploreState,
+                ) as typeof dateControlledBlock.config,
+              } as typeof dateControlledBlock,
               { globalControls: dashboardGlobalControls },
             ),
             previousTimeFrame: draftExploreState.previousTimeFrame,
           } as typeof draftExploreState)
         : draftExploreState,
-    [block, dashboardGlobalControls, draftExploreState, usesDashboardDateRange],
+    [
+      dashboardGlobalControls,
+      dateControlledBlock,
+      draftExploreState,
+      usesDashboardDateRange,
+    ],
   );
 
   const nextComparison = useMemo<BlockComparison | undefined>(() => {
@@ -93,11 +99,21 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       ...(comparisonMode === "custom" ? { previousTimeFrame } : {}),
     };
   }, [comparisonMode, draftExploreState.previousTimeFrame]);
+  const blockLinkedMetricId =
+    "linkedFunnelMetricId" in block
+      ? (block.linkedFunnelMetricId ?? null)
+      : null;
+  const linkedMetricChanged = linkedFunnelMetricId !== blockLinkedMetricId;
+
   useEffect(() => {
     const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
-    const nextConfig = usesDashboardDateRange
-      ? restoreBlockLocalDateControls(nextDraftConfig, block.config)
-      : nextDraftConfig;
+    const nextConfig =
+      usesDashboardDateRange && dateControlledBlock
+        ? restoreBlockLocalDateControls(
+            nextDraftConfig as typeof dateControlledBlock.config,
+            dateControlledBlock.config,
+          )
+        : nextDraftConfig;
     const shouldInvalidateResults =
       needsFetch && invalidateStaleResults && Boolean(explorerAnalysisId);
     const comparisonChanged =
@@ -105,7 +121,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
       comparisonChanged ||
-      shouldInvalidateResults
+      shouldInvalidateResults ||
+      linkedMetricChanged
     ) {
       setBlock({
         ...block,
@@ -118,10 +135,14 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
           nextComparison && (!needsFetch || !invalidateStaleResults)
             ? block.comparisonExplorerAnalysisId
             : undefined,
+        ...(block.type === "funnel-exploration"
+          ? { linkedFunnelMetricId }
+          : {}),
       } as
         | MetricExplorationBlockInterface
         | FactTableExplorationBlockInterface
         | DataSourceExplorationBlockInterface
+        | SqlExplorationBlockInterface
         | FunnelExplorationBlockInterface);
     }
   }, [
@@ -132,90 +153,98 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     block,
     draftExploreState,
     dashboardGlobalControls,
+    dateControlledBlock,
     nextComparison,
     usesDashboardDateRange,
     explorerAnalysisId,
-  ]);
-
-  // When Save & Close is requested and the block is stale, run the analysis first.
-  useEffect(() => {
-    if (!saveAndCloseTrigger) return;
-    pendingCloseRef.current = true;
-    handleSubmit({ force: true, config: getEffectiveDraftConfig() });
-  }, [saveAndCloseTrigger, handleSubmit, getEffectiveDraftConfig]);
-
-  // Once onRunComplete writes the required analysis ids, complete the save.
-  useEffect(() => {
-    if (
-      pendingCloseRef.current &&
-      explorerAnalysisId &&
-      (!compareEnabled ||
-        comparisonExplorerAnalysisId ||
-        (!loading && !needsFetch))
-    ) {
-      pendingCloseRef.current = false;
-      onSaveAndCloseRef.current?.();
-    }
-  }, [
-    compareEnabled,
-    comparisonExplorerAnalysisId,
-    explorerAnalysisId,
-    loading,
-    needsFetch,
+    linkedMetricChanged,
+    linkedFunnelMetricId,
   ]);
 
   return (
-    <ExplorerSideBar
-      renderingInDashboardSidebar
-      dashboardDateRange={dashboardGlobalControls?.dateRange}
-      useDashboardDateControl={usesDashboardDateRange}
-      onSubmit={() =>
-        handleSubmit({ force: true, config: getEffectiveDraftConfig() })
-      }
-      onGlobalControlSettingsChange={(settings) => {
-        const nextSettings = {
-          ...block.globalControlSettings,
-          ...settings,
-        };
-        if (settings.dateRange !== undefined) {
-          setDraftExploreState((prev) => ({
-            ...prev,
-            dateRange:
-              settings.dateRange && dashboardGlobalControls?.dateRange
-                ? dashboardGlobalControls.dateRange
-                : block.config.dateRange,
-            dimensions: prev.dimensions.map((dimension) => {
-              if (dimension.dimensionType !== "date") return dimension;
-              if (
-                settings.dateRange &&
-                dashboardGlobalControls?.dateGranularity
-              ) {
-                return {
-                  ...dimension,
-                  dateGranularity: dashboardGlobalControls.dateGranularity,
-                };
-              }
-
-              const blockDateDimension = block.config.dimensions.find(
-                (blockDimension) => blockDimension.dimensionType === "date",
-              );
-              return blockDateDimension
-                ? {
-                    ...dimension,
-                    dateGranularity: blockDateDimension.dateGranularity,
-                  }
-                : dimension;
-            }),
-          }));
+    <>
+      <ExplorerSideBar
+        renderingInDashboardSidebar
+        hideDataSourceSelector={hideDataSourceSelector}
+        sqlExploreConfigOnly={sqlExploreConfigOnly}
+        dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}
+        dashboardDateRange={dashboardGlobalControls?.dateRange}
+        useDashboardDateControl={usesDashboardDateRange}
+        onSubmit={() =>
+          handleSubmit({ force: true, config: getEffectiveDraftConfig() })
         }
-        setBlock({
-          ...block,
-          globalControlSettings: nextSettings,
-        } as
-          | MetricExplorationBlockInterface
-          | FactTableExplorationBlockInterface
-          | DataSourceExplorationBlockInterface);
-      }}
-    />
+        // Writes config, not just the flag: block.config is what reseeds the draft,
+        // so this is what makes the edit survive a provider remount.
+        onClaimDashboardDateRange={({ dateRange, granularity }) =>
+          setBlock({
+            ...block,
+            globalControlSettings: {
+              ...block.globalControlSettings,
+              dateRange: false,
+            },
+            config: {
+              ...block.config,
+              dateRange,
+              dimensions: granularity
+                ? block.config.dimensions.map((dimension) =>
+                    dimension.dimensionType === "date"
+                      ? { ...dimension, dateGranularity: granularity }
+                      : dimension,
+                  )
+                : block.config.dimensions,
+            },
+          } as
+            | MetricExplorationBlockInterface
+            | FactTableExplorationBlockInterface
+            | DataSourceExplorationBlockInterface
+            | FunnelExplorationBlockInterface)
+        }
+        onGlobalControlSettingsChange={(settings) => {
+          const nextSettings = {
+            ...block.globalControlSettings,
+            ...settings,
+          };
+          if (settings.dateRange !== undefined) {
+            setDraftExploreState((prev) => ({
+              ...prev,
+              dateRange:
+                settings.dateRange && dashboardGlobalControls?.dateRange
+                  ? dashboardGlobalControls.dateRange
+                  : block.config.dateRange,
+              dimensions: prev.dimensions.map((dimension) => {
+                if (dimension.dimensionType !== "date") return dimension;
+                if (
+                  settings.dateRange &&
+                  dashboardGlobalControls?.dateGranularity
+                ) {
+                  return {
+                    ...dimension,
+                    dateGranularity: dashboardGlobalControls.dateGranularity,
+                  };
+                }
+
+                const blockDateDimension = block.config.dimensions.find(
+                  (blockDimension) => blockDimension.dimensionType === "date",
+                );
+                return blockDateDimension
+                  ? {
+                      ...dimension,
+                      dateGranularity: blockDateDimension.dateGranularity,
+                    }
+                  : dimension;
+              }),
+            }));
+          }
+          setBlock({
+            ...block,
+            globalControlSettings: nextSettings,
+          } as
+            | MetricExplorationBlockInterface
+            | FactTableExplorationBlockInterface
+            | DataSourceExplorationBlockInterface
+            | SqlExplorationBlockInterface);
+        }}
+      />
+    </>
   );
 }

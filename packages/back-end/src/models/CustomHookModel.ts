@@ -175,7 +175,7 @@ export class CustomHookModel extends BaseClass {
     if (entityType === "config" && entityId) {
       const config = await this.context.models.configs.getByKey(entityId);
       if (!config) {
-        throw new Error(`Could not find config for custom hook: ${entityId}`);
+        throw new Error(`Could not find Config for custom hook: ${entityId}`);
       }
     }
 

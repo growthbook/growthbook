@@ -30,7 +30,7 @@ export default function ConfigLockModal({
         minRows={2}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
-        placeholder="Why lock this config?"
+        placeholder="Why lock this Config?"
       />
     </ModalStandard>
   );

@@ -2,10 +2,8 @@ import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface, hookEntityType } from "shared/validators";
 import { getConfigAncestorKeys, getConfigSubtree } from "shared/util";
 import { useMemo, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import { isCloud } from "@/services/env";
@@ -13,22 +11,14 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
-import Table, {
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableColumnHeader,
-  TableCell,
-} from "@/ui/Table";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Code from "@/components/SyntaxHighlighting/Code";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
-import CompareCustomHookEventsModal from "@/components/Features/CompareCustomHookEventsModal";
-import Badge from "@/ui/Badge";
+import CustomHooksTable, {
+  HookScope,
+  hookScopeColumn,
+  isHookScopedTo,
+} from "@/components/CustomHooks/CustomHooksTable";
 import PremiumCallout from "@/ui/PremiumCallout";
-import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import LinkButton from "@/ui/LinkButton";
 
@@ -113,10 +103,17 @@ export default function ConfigCustomHooksSection({
     [data, config.key, config.project, ancestorKeys],
   );
 
+  const scope: HookScope = {
+    entityType: "config",
+    entityId: config.key,
+    label: "Config + descendants",
+  };
+  const configScoped = (h: CustomHookInterface) => isHookScopedTo(h, scope);
+
   const disableReason = !hasAccess
     ? "Custom Hooks require an Enterprise plan."
     : !canManage
-      ? "You don't have permission to manage hooks for this config."
+      ? "You don't have permission to manage hooks for this Config."
       : "";
 
   if (isCloud()) return null;
@@ -143,7 +140,7 @@ export default function ConfigCustomHooksSection({
       </Heading>
       <Box mb="3">
         <Text as="p" size="sm" color="text-low" fontStyle="italic">
-          Run sandboxed JavaScript validation before this config is published.
+          Run sandboxed JavaScript validation before this Config is published.
         </Text>
       </Box>
 
@@ -171,13 +168,12 @@ export default function ConfigCustomHooksSection({
               </Tooltip>
             </Box>
           </Flex>
-          <HooksTable
-            hooks={applicableHooks.filter(
-              (h) => h.entityType === "config" && h.entityId === config.key,
-            )}
-            config={config}
-            canManage={canManage}
-            setModalData={setModalData}
+          <CustomHooksTable
+            hooks={applicableHooks.filter(configScoped)}
+            column={hookScopeColumn(scope)}
+            showIncremental
+            canManage={(h) => canManage && configScoped(h)}
+            onEdit={setModalData}
             mutate={mutate}
           />
 
@@ -191,19 +187,24 @@ export default function ConfigCustomHooksSection({
                 </Heading>
               </Flex>
               <Text as="p" size="sm" color="text-low" mb="3">
-                Inherited from an ancestor config (scoped to descendants). These
-                run on this config&apos;s changes but are managed from the
+                Inherited from an ancestor Config (scoped to descendants). These
+                run on this Config&apos;s changes but are managed from the
                 parent.
               </Text>
-              <HooksTable
+              <CustomHooksTable
                 hooks={applicableHooks.filter(
-                  (h) => h.entityType === "config" && h.entityId !== config.key,
+                  (h) => h.entityType === "config" && !configScoped(h),
                 )}
-                config={config}
-                canManage={canManage}
-                setModalData={setModalData}
+                column={{
+                  header: "Parent Config",
+                  width: "260px",
+                  render: (h) => (
+                    <Link href={`/configs/${h.entityId}`}>{h.entityId}</Link>
+                  ),
+                }}
+                showIncremental
+                canManage={() => false}
                 mutate={mutate}
-                showSource
               />
             </>
           )}
@@ -218,227 +219,15 @@ export default function ConfigCustomHooksSection({
               </LinkButton>
             </Box>
           </Flex>
-          <HooksTable
+          <CustomHooksTable
             hooks={applicableHooks.filter((h) => !h.entityId)}
-            config={config}
-            canManage={canManage}
-            setModalData={setModalData}
+            column={hookScopeColumn(scope)}
+            showIncremental
+            canManage={() => false}
             mutate={mutate}
           />
         </>
       )}
     </Frame>
-  );
-}
-
-function HookCodeModal({
-  hook,
-  close,
-}: {
-  hook: CustomHookInterface;
-  close: () => void;
-}) {
-  return (
-    <ModalStandard
-      open
-      header={hook.name}
-      subheader={hook.hook}
-      close={close}
-      closeCta="Close"
-      size="lg"
-      trackingEventModalType=""
-    >
-      <Code language="javascript" code={hook.code} />
-    </ModalStandard>
-  );
-}
-
-function HooksTable({
-  hooks,
-  config,
-  canManage,
-  mutate,
-  setModalData,
-  showSource = false,
-}: {
-  hooks: CustomHookInterface[];
-  config: ConfigInterface;
-  canManage: boolean;
-  setModalData: (hook: CustomHookInterface) => void;
-  mutate: () => void;
-  // Show a linked "Parent config" column instead of "Scope" (for inherited hooks).
-  showSource?: boolean;
-}) {
-  const { apiCall } = useAuth();
-  const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
-    null,
-  );
-  const [historyHook, setHistoryHook] = useState<CustomHookInterface | null>(
-    null,
-  );
-  const [toggleError, setToggleError] = useState<string | null>(null);
-
-  if (!hooks.length) {
-    return (
-      <Text color="text-low">
-        <em>No custom hooks yet.</em>
-      </Text>
-    );
-  }
-
-  return (
-    <>
-      {viewCodeHook && (
-        <HookCodeModal
-          hook={viewCodeHook}
-          close={() => setViewCodeHook(null)}
-        />
-      )}
-      {historyHook && (
-        <CompareCustomHookEventsModal
-          hook={historyHook}
-          canRevert={
-            canManage &&
-            historyHook.entityType === "config" &&
-            historyHook.entityId === config.key
-          }
-          onClose={() => setHistoryHook(null)}
-          onRevert={() => mutate()}
-        />
-      )}
-      {toggleError && (
-        <Callout status="error" mb="3">
-          {toggleError}
-        </Callout>
-      )}
-      <Table variant="list" stickyHeader roundedCorners>
-        <TableHeader>
-          <TableRow>
-            <TableColumnHeader>Name</TableColumnHeader>
-            {showSource && (
-              <TableColumnHeader width="260px">Parent config</TableColumnHeader>
-            )}
-            <TableColumnHeader width="200px">Type</TableColumnHeader>
-            {!showSource && (
-              <TableColumnHeader width="180px">Scope</TableColumnHeader>
-            )}
-            <TableColumnHeader width="100px">Incremental</TableColumnHeader>
-            {!showSource && <TableColumnHeader style={{ width: 50 }} />}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {hooks.map((hook) => {
-            const configScoped =
-              hook.entityType === "config" && hook.entityId === config.key;
-            // Scoped to an ancestor — applies here, but is managed from the
-            // ancestor's page.
-            const inherited =
-              hook.entityType === "config" && hook.entityId !== config.key;
-            const scopeLabel = configScoped
-              ? "Config + descendants"
-              : inherited
-                ? `From ${hook.entityId}`
-                : hook.projects.length
-                  ? "Project"
-                  : "Global";
-            return (
-              <TableRow key={hook.id}>
-                <TableCell>
-                  <Link onClick={() => setViewCodeHook(hook)}>{hook.name}</Link>
-                  {!hook.enabled ? (
-                    <Badge color="gray" label="Disabled" ml="2" />
-                  ) : null}
-                </TableCell>
-                {showSource && (
-                  <TableCell>
-                    {hook.entityId ? (
-                      <Link href={`/configs/${hook.entityId}`}>
-                        {hook.entityId}
-                      </Link>
-                    ) : null}
-                  </TableCell>
-                )}
-                <TableCell>{hook.hook}</TableCell>
-                {!showSource && <TableCell>{scopeLabel}</TableCell>}
-                <TableCell>
-                  {hook.incrementalChangesOnly ? "Yes" : "No"}
-                </TableCell>
-                {!showSource && (
-                  <TableCell>
-                    <DropdownMenu
-                      variant="soft"
-                      trigger={
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          size="2"
-                          highContrast
-                        >
-                          <BsThreeDotsVertical size={16} />
-                        </IconButton>
-                      }
-                      menuPlacement="end"
-                    >
-                      {canManage && configScoped && (
-                        <DropdownMenuItem onClick={() => setModalData(hook)}>
-                          Edit
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => setHistoryHook(hook)}>
-                        History &amp; revert
-                      </DropdownMenuItem>
-                      {canManage && configScoped && (
-                        <DropdownMenuItem
-                          onClick={async () => {
-                            setToggleError(null);
-                            try {
-                              await apiCall(`/custom-hooks/${hook.id}`, {
-                                method: "PUT",
-                                body: JSON.stringify({
-                                  enabled: !hook.enabled,
-                                }),
-                              });
-                              await mutate();
-                            } catch (err) {
-                              setToggleError(
-                                err instanceof Error
-                                  ? err.message
-                                  : "Failed to update hook",
-                              );
-                            }
-                          }}
-                        >
-                          {hook.enabled ? "Disable" : "Enable"}
-                        </DropdownMenuItem>
-                      )}
-                      {canManage && configScoped && (
-                        <DropdownMenuItem
-                          color="red"
-                          confirmation={{
-                            submit: async () => {
-                              await apiCall(`/custom-hooks/${hook.id}`, {
-                                method: "DELETE",
-                              });
-                              await mutate();
-                            },
-                            confirmationTitle: "Delete custom hook",
-                            cta: "Delete",
-                            getConfirmationContent: async () =>
-                              "Are you sure? This action cannot be undone.",
-                          }}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenu>
-                  </TableCell>
-                )}
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </>
   );
 }

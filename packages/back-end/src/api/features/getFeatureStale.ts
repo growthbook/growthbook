@@ -3,7 +3,7 @@ import {
   ACTIVE_DRAFT_STATUSES,
   FeatureStaleEntry,
 } from "shared/validators";
-import { isFeatureStale } from "shared/util";
+import { isFeatureStale, TempRolloutStaleReason } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
@@ -85,7 +85,12 @@ export async function computeFeatureStale(
 
     const staleByEnv: Record<
       string,
-      { isStale: boolean; reason: EnvReason; evaluatesTo?: string }
+      {
+        isStale: boolean;
+        reason: EnvReason;
+        evaluatesTo?: string;
+        tempRollout?: TempRolloutStaleReason;
+      }
     > = {};
     for (const [envId, r] of Object.entries(envResults)) {
       staleByEnv[envId] = {
@@ -94,6 +99,7 @@ export async function computeFeatureStale(
           ? null
           : (r.reason ?? null)) as EnvReason,
         ...(r.evaluatesTo !== undefined ? { evaluatesTo: r.evaluatesTo } : {}),
+        ...(r.tempRollout ? { tempRollout: r.tempRollout } : {}),
       };
     }
 

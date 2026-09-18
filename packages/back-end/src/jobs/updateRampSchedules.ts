@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { isAwaitingStartApproval } from "shared/validators";
+import { isRampScheduleServing } from "shared/util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -7,6 +8,7 @@ import {
   applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
+  ensureRampStartActions,
   ensureSafeRolloutForMonitoredRamp,
   onActivatingRevisionPublished,
   syncLinkedSafeRolloutForRampState,
@@ -201,6 +203,8 @@ async function runRampScheduleTick(
       if (current.status === "pending") return;
     }
 
+    current = await ensureRampStartActions(context, current);
+
     if (
       current.status === "ready" &&
       current.startDate &&
@@ -237,7 +241,7 @@ async function runRampScheduleTick(
     if (
       current.cutoffDate &&
       current.cutoffDate <= now &&
-      ["running", "paused"].includes(current.status)
+      isRampScheduleServing(current)
     ) {
       await completeRollout(context, current, {
         disableActiveTargets: true,

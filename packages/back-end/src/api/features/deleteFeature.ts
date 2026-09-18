@@ -1,12 +1,13 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { filterEnvironmentsByFeature, PermissionError } from "shared/util";
 import { deleteFeatureValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
-import { assertFeatureDeletable } from "back-end/src/services/features";
-import { auditDetailsDelete } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
+import { assertFeatureDeletable } from "back-end/src/services/features";
+import { auditDetailsDelete } from "back-end/src/services/audit";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 // Single handler shared by v1 and v2: identical semantics, identical response
@@ -22,17 +23,26 @@ export async function deleteFeatureHandler(
     );
   }
 
-  const allEnvironments = getEnvironments(req.context.org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentsIds = environments.map((e) => e.id);
+  // Live deletion requires authority across the feature's serving footprint.
+  const deleteFootprint = feature.archived
+    ? NO_ENVIRONMENT_BINDING
+    : Array.from(
+        getEnabledEnvironments(
+          feature,
+          filterEnvironmentsByFeature(
+            getEnvironments(req.context.org),
+            feature,
+          ).map((e) => e.id),
+        ),
+      );
+
+  if (!req.context.permissions.canDeleteFeature(feature, deleteFootprint)) {
+    req.context.permissions.throwPermissionError();
+  }
 
   if (
-    !req.context.permissions.canDeleteFeature(feature) ||
-    !req.context.permissions.canManageFeatureDrafts(feature) ||
-    !req.context.permissions.canPublishFeature(
-      feature,
-      Array.from(getEnabledEnvironments(feature, environmentsIds)),
-    )
+    !feature.archived &&
+    !req.context.permissions.canPublishFeature(feature, deleteFootprint)
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -40,7 +50,7 @@ export async function deleteFeatureHandler(
   // Deleting a live (non-archived) feature is a production-affecting action.
   // Archived features can be deleted freely; unarchived ones require the org
   // to have opted in to unrestricted REST API writes. The project-scoped
-  // bypassApprovalChecks permission intentionally does NOT authorize this path:
+  // FlagsBypassApprovals permission intentionally does NOT authorize this path:
   // it is a review-workflow bypass, not a destructive-action override.
   if (!feature.archived) {
     if (!canUseRestApiBypassSetting(req)) {

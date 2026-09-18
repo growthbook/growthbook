@@ -20,6 +20,10 @@ export type GuardedResolvable = {
   project?: string;
 };
 
+// User-facing noun per the copy glossary — both sources are named resources.
+const displaySource = (source: ConstantSource): string =>
+  source === "config" ? "Config" : "Constant";
+
 // Config-lock guard: locking a config pins ITS OWN revision (assertConfigNotLocked
 // hard-blocks re-publishing it), but a locked config that `@const:`/`@config:`-
 // extends an external value is NOT frozen — changing that upstream constant/config
@@ -89,9 +93,10 @@ export async function assertConfigLockGuard(
 
   const synchronousOverride =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
-      project: resolvable.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: resolvable.project || "" },
+      resolvable.source,
+    );
 
   const decision = decideExperimentGuard({
     guardEnabled: true,
@@ -119,12 +124,16 @@ export async function assertConfigLockGuard(
   const keyList = decision.conflictKeys.join(", ");
   if (decision.action === "block-immediate") {
     throw new SoftWarningError(
-      `Publishing this ${resolvable.source} changes the resolved value of locked config(s): ${keyList}. Those configs are locked to a pinned revision — unlock them, or re-submit with ignoreWarnings to proceed.`,
+      `Publishing this ${displaySource(
+        resolvable.source,
+      )} changes the resolved value of locked Config(s): ${keyList}. Those Configs are locked to a pinned revision — unlock them, or re-submit with ignoreWarnings to proceed.`,
       decision.conflictKeys,
     );
   }
   throw new TerminalPublishError(
-    `Publish blocked by the config-lock guard: the locked configs depending on this ${resolvable.source} changed since this publish was scheduled (now: ${keyList}). Re-open the draft and re-confirm to publish.`,
+    `Publish blocked by the config-lock guard: the locked Configs depending on this ${displaySource(
+      resolvable.source,
+    )} changed since this publish was scheduled (now: ${keyList}). Re-open the draft and re-confirm to publish.`,
   );
 }
 
@@ -141,12 +150,13 @@ export async function captureConfigLockAcknowledgment(
   const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
-      project: resolvable.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: resolvable.project || "" },
+      resolvable.source,
+    );
   if (!override) {
     throw new SoftWarningError(
-      `Scheduling this publish will change the resolved value of locked config(s): ${sortedKeys.join(
+      `Scheduling this publish will change the resolved value of locked Config(s): ${sortedKeys.join(
         ", ",
       )}. Re-submit with ignoreWarnings to acknowledge and schedule.`,
       sortedKeys,

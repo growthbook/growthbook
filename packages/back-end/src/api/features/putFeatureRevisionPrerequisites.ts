@@ -1,7 +1,6 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import type { FeaturePrerequisite } from "shared/types/feature";
 import { putFeatureRevisionPrerequisitesValidator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -12,6 +11,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -33,10 +33,7 @@ export async function setRevisionPrerequisites(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -58,6 +55,12 @@ export async function setRevisionPrerequisites(
     }
 
     await validatePrerequisiteReferences(body.prerequisites, context);
+    const rules = revision.rules ?? feature.rules;
+    await assertValidPrerequisiteParents(
+      context,
+      { ...feature, rules, prerequisites: body.prerequisites },
+      { rules, prerequisites: revision.prerequisites ?? feature.prerequisites },
+    );
 
     await updateRevision(
       context,
@@ -70,12 +73,6 @@ export async function setRevisionPrerequisites(
         subject: "",
         value: JSON.stringify(body.prerequisites),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [],
-        defaultValueChanged: false,
-        settings: organization.settings,
-      }),
     );
 
     const updated = await getRevision({

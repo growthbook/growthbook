@@ -1,4 +1,5 @@
 import { FeatureEnvironment } from "shared/types/feature";
+import { getEnabledHoldoutEnvironments } from "shared/util";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
@@ -22,11 +23,7 @@ export default function HoldoutEnvironments({
           <Text weight="semibold">Edit</Text>
         </Link>
       </div>
-      <div>
-        {Object.keys(environments)
-          .filter((e) => environments[e].enabled)
-          .join(", ")}
-      </div>
+      <div>{getEnabledHoldoutEnvironments(environments).join(", ")}</div>
     </Frame>
   );
 }

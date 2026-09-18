@@ -2,11 +2,13 @@ import { randomUUID } from "crypto";
 import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIModel, AIPromptType } from "shared/ai";
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import { stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
+import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import {
   dispatchInternal,
   type DispatchInput,
@@ -14,12 +16,12 @@ import {
 import {
   getContextFromReq,
   getAISettingsForOrg,
+  getAllowedAIModel,
 } from "back-end/src/services/organizations";
 import {
   streamingChatCompletion,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   type ConversationBuffer,
   loadOrInitConversation,
@@ -28,7 +30,8 @@ import {
 import { toModelMessages } from "back-end/src/enterprise/services/ai-chat-to-model";
 import { logger } from "back-end/src/util/logger";
 import {
-  runAccessGates,
+  runAIEnabledGates,
+  enforceAIUsageCap,
   buildSystemPromptForRequest,
 } from "back-end/src/enterprise/services/ai-access";
 import {
@@ -53,6 +56,13 @@ export {
 // =============================================================================
 // Public types
 // =============================================================================
+
+export interface SkillLoadResult {
+  status: "ok";
+  name: string;
+  description: string;
+  body: string;
+}
 
 export interface AgentConfig<TParams = unknown> {
   /** Unique key that scopes conversations to this agent (e.g. "product-analytics"). */
@@ -89,6 +99,22 @@ export interface AgentConfig<TParams = unknown> {
     params: TParams,
     emit?: AgentEmit,
   ) => ToolSet;
+
+  /**
+   * Slash-command resolver. Seeded calls use the same shape as a real
+   * `loadSkill` result. Unset (PA chat) makes any `skill` on the body a no-op.
+   */
+  resolveSkill?: (name: string) => SkillLoadResult | undefined;
+
+  /**
+   * Annotate @-mentions with `stale` when they're out of scope for this turn.
+   * Stale mentions still reach the model so it can say they're unavailable.
+   */
+  resolveMentions?: (
+    ctx: ReqContext,
+    mentions: AIChatMention[],
+    params: TParams,
+  ) => Promise<AIChatMention[]>;
 
   temperature?: number;
   maxSteps?: number;
@@ -143,6 +169,8 @@ type AgentRequestBody = {
    * message as a soft `datasourceHint` (see `AIChatUserMessage`).
    */
   datasourceId?: string;
+  mentions?: AIChatMention[];
+  skills?: string[];
 } & Record<string, unknown>;
 
 type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
@@ -152,6 +180,64 @@ type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
 // =============================================================================
 
 const activeStreamControllers = new Map<string, AbortController>();
+
+const SSE_KEEPALIVE_MS = 15_000;
+// Keep this below the client's 60-second stale-stream threshold.
+const DB_HEARTBEAT_MS = 30_000;
+
+// SSE pings keep the connection open; Mongo updates support reloads and
+// cancellation handled by another server instance.
+function startStreamHeartbeats({
+  conversations,
+  conversationId,
+  emit,
+  onCancelled,
+}: {
+  conversations: AIConversationModel;
+  conversationId: string;
+  emit: AgentEmit;
+  onCancelled: () => void;
+}) {
+  const sseKeepalive = setInterval(
+    () => emit("keepalive", {}),
+    SSE_KEEPALIVE_MS,
+  );
+
+  let bumpInFlight = false;
+  const dbHeartbeat = setInterval(() => {
+    if (bumpInFlight) return;
+    bumpInFlight = true;
+    void conversations
+      .touchStreamedAt(conversationId)
+      .then((doc) => {
+        if (doc && !doc.isStreaming) {
+          stopSseKeepalive();
+          stopDbHeartbeat();
+          onCancelled();
+        }
+      })
+      .catch((err) => {
+        logger.debug(
+          `Keepalive bump failed for conversation ${conversationId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      })
+      .finally(() => {
+        bumpInFlight = false;
+      });
+  }, DB_HEARTBEAT_MS);
+
+  const stopSseKeepalive = (): void => {
+    clearInterval(sseKeepalive);
+  };
+
+  const stopDbHeartbeat = (): void => {
+    clearInterval(dbHeartbeat);
+  };
+
+  return { stopSseKeepalive, stopDbHeartbeat };
+}
 
 /**
  * Abort the active LLM stream for a conversation. Called from the cancel
@@ -181,7 +267,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     config.onStreamStart?.(conversationId);
 
-    if (!(await runAccessGates(context, res))) {
+    if (!(await runAIEnabledGates(context, res))) {
       return;
     }
 
@@ -200,24 +286,29 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     const storedModel = buffer.getModel() as AIModel | undefined;
 
-    // Resolve the model override. `undefined` falls through to the org's
-    // `defaultAIModel` below — which on Cloud is always the hardcoded model.
-    //
-    // Cloud: continued conversations keep their stored model; new ones fall
-    // through to the hardcoded default. `body.model` and `dbOverrideModel`
-    // are deliberately ignored — Cloud users cannot pick a model.
-    //
-    // Self-hosted: continued conversations keep their stored model; on the
-    // first turn we honor the user's per-request choice, else the org-level
-    // prompt override, else the org default. The model selector is disabled
-    // in the UI after the first turn, so `body.model` won't be set on
-    // follow-ups in normal usage.
-    const overrideModel: AIModel | undefined = IS_CLOUD
-      ? storedModel
-      : storedModel || body.model || dbOverrideModel;
+    // Stored model, else the user's per-request choice, else the org-level
+    // prompt override, else the org default. Each candidate is filtered through
+    // the org's key state, so on Cloud a managed org stays pinned to
+    // GrowthBook's model while a BYOK org gets the one it picked — silently
+    // discarding those picks was the bug. Also catches a stored model
+    // disallowed mid-conversation by a downgrade.
+    const { keySource, defaultAIModel } = await getAISettingsForOrg(
+      context,
+      false,
+    );
+    const overrideModel: AIModel | undefined =
+      getAllowedAIModel("text", storedModel, keySource) ||
+      getAllowedAIModel("text", body.model, keySource) ||
+      getAllowedAIModel("text", dbOverrideModel, keySource);
 
-    const { defaultAIModel } = getAISettingsForOrg(context, false);
     const resolvedModel = overrideModel || defaultAIModel;
+
+    // Waits until here because the BYOK exemption is per provider, so it needs
+    // the resolved model. Must stay above setSseHeaders: a 429 is JSON.
+    if (!(await enforceAIUsageCap(context, res, resolvedModel))) {
+      return;
+    }
+
     buffer.setModel(resolvedModel);
 
     setSseHeaders(res);
@@ -255,12 +346,24 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     // gate. A cancel/supersede with a follow-up message lets the model react
     // to the rejection plus the new instruction in the same turn.
     if (pendingAction) {
+      // Re-checked here, not only when the model proposed it: the user can
+      // navigate off the dashboard between the card appearing and clicking
+      // Confirm, and the stored call would then write to an off-screen one.
+      const offScreenNow = isConfirm
+        ? offScreenDashboardWriteRejection({
+            method: pendingAction.method,
+            path: pendingAction.path,
+            currentPage:
+              typeof body.currentPage === "string" ? body.currentPage : null,
+          })
+        : undefined;
       await resolvePendingAction(
         context,
         buffer,
         pendingAction,
         emit,
-        isConfirm,
+        isConfirm && !offScreenNow,
+        offScreenNow,
       );
       buffer.setPendingAction(undefined);
     }
@@ -274,7 +377,33 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         config.injectDatasourceHint && typeof body.datasourceId === "string"
           ? body.datasourceId
           : undefined;
-      appendUserMessage(buffer, message, body.currentPage, datasourceHint);
+      const skills = Array.from(new Set(body.skills ?? []));
+      const mentions =
+        config.resolveMentions && body.mentions?.length
+          ? await config.resolveMentions(context, body.mentions, params)
+          : body.mentions;
+      appendUserMessage(
+        buffer,
+        message,
+        body.currentPage,
+        datasourceHint,
+        mentions,
+        skills,
+      );
+      if (config.resolveSkill) {
+        const seeded = new Set<string>();
+        for (const name of skills) {
+          // A leaf picked from the `/` menu arrives without the domain router the
+          // model would have read on its way there, so its shared conventions
+          // would be missing. Seed the router first, as the two-step flow does.
+          const domain = name.split("/")[0];
+          for (const target of domain === name ? [name] : [domain, name]) {
+            if (seeded.has(target)) continue;
+            seeded.add(target);
+            seedSkillLoad(buffer, emit, target, config.resolveSkill);
+          }
+        }
+      }
     }
     buffer.setStreaming(true);
 
@@ -292,16 +421,30 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     activeStreamControllers.set(conversationId, abortController);
     let cancelledExternally = false;
 
+    const markCancelledExternally = (): void => {
+      cancelledExternally = true;
+      abortController.abort();
+    };
+
     const checkCancellation = async (): Promise<boolean> => {
       if (cancelledExternally) return true;
       const doc = await context.models.aiConversations.getById(conversationId);
       if (doc && !doc.isStreaming) {
-        cancelledExternally = true;
-        abortController.abort();
+        markCancelledExternally();
         return true;
       }
       return false;
     };
+
+    const heartbeats = startStreamHeartbeats({
+      conversations: context.models.aiConversations,
+      conversationId,
+      emit,
+      onCancelled: markCancelledExternally,
+    });
+
+    // Continue the DB heartbeat so the result survives a disconnected client.
+    res.on("close", heartbeats.stopSseKeepalive);
 
     try {
       const stream = await streamingChatCompletion({
@@ -317,32 +460,45 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         abortSignal: abortController.signal,
       });
 
-      await processStream(stream, config, buffer, emit, abortController, () => {
-        // A tool just parked a mutation for confirmation: stop the turn
-        // deterministically so the model can't continue past the gate. The
-        // pending state is persisted below and acted on next turn.
-        if (buffer.getPendingAction()) {
-          abortController.abort();
-        }
-        void (async () => {
-          if (await checkCancellation()) return;
-          await persistConversation(context.models.aiConversations, buffer);
-        })().catch((err) => {
-          logger.error(
-            err,
-            "Failed to persist intermediate conversation state",
-          );
-        });
-      });
-
       try {
-        await stream.response;
-      } catch {
-        // Provider errors after stream close — already handled
+        await processStream(
+          stream.result,
+          config,
+          buffer,
+          emit,
+          abortController,
+          () => {
+            // A tool just parked a mutation for confirmation: stop the turn
+            // deterministically so the model can't continue past the gate. The
+            // pending state is persisted below and acted on next turn.
+            if (buffer.getPendingAction()) {
+              abortController.abort();
+            }
+            void (async () => {
+              if (await checkCancellation()) return;
+              await persistConversation(context.models.aiConversations, buffer);
+            })().catch((err) => {
+              logger.error(
+                err,
+                "Failed to persist intermediate conversation state",
+              );
+            });
+          },
+        );
+
+        try {
+          await stream.result.response;
+        } catch {
+          // Provider errors after stream close — already handled
+        }
+      } finally {
+        await stream.completeAccounting();
       }
 
       await titlePromise;
     } finally {
+      heartbeats.stopSseKeepalive();
+      heartbeats.stopDbHeartbeat();
       activeStreamControllers.delete(conversationId);
 
       try {
@@ -385,6 +541,8 @@ function appendUserMessage(
   message: string,
   currentPage?: string,
   datasourceHint?: string,
+  mentions?: AIChatMention[],
+  skills?: string[],
 ): void {
   const userMessage: AIChatMessage = {
     role: "user",
@@ -398,8 +556,60 @@ function appendUserMessage(
     ...(datasourceHint && datasourceHint.trim()
       ? { datasourceHint: datasourceHint.trim() }
       : {}),
+    ...(mentions && mentions.length ? { mentions } : {}),
+    ...(skills && skills.length ? { skills } : {}),
   };
   buffer.appendMessages([userMessage]);
+}
+
+function seedSkillLoad(
+  buffer: ConversationBuffer,
+  emit: AgentEmit,
+  name: string,
+  resolveSkill: (name: string) => SkillLoadResult | undefined,
+): void {
+  const result = resolveSkill(name);
+  if (!result) {
+    logger.warn(`Ignoring unknown slash-command skill "${name}"`);
+    return;
+  }
+
+  const toolCallId = randomUUID();
+  const args = { name };
+
+  emit("tool-call-input", {
+    toolCallId,
+    toolName: "loadSkill",
+    input: serializeUnknownForSSE(args),
+  });
+  emit("tool-call-end", {
+    toolName: "loadSkill",
+    toolCallId,
+    input: serializeUnknownForSSE(args),
+    output: serializeUnknownForSSE(result),
+  });
+
+  buffer.appendMessages([
+    {
+      role: "assistant",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [{ type: "tool-call", toolCallId, toolName: "loadSkill", args }],
+    },
+    {
+      role: "tool",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [
+        {
+          type: "tool-result",
+          toolCallId,
+          toolName: "loadSkill",
+          result: stringifyToolResultForStorage(result),
+        },
+      ],
+    },
+  ]);
 }
 
 /**
@@ -423,13 +633,24 @@ async function resolvePendingAction(
   pendingAction: AIAgentPendingAction,
   emit: AgentEmit,
   confirmed: boolean,
+  rejection?: string,
 ): Promise<void> {
   const toolCallId = randomUUID();
+  // Strip `confirm` from the body the model sees so it doesn't copy it into
+  // follow-up calls and bypass the cost confirmation gate.
+  const sanitizedBody =
+    pendingAction.body && typeof pendingAction.body === "object"
+      ? Object.fromEntries(
+          Object.entries(pendingAction.body as Record<string, unknown>).filter(
+            ([k]) => k !== "confirm",
+          ),
+        )
+      : pendingAction.body;
   const args: Record<string, unknown> = {
     method: pendingAction.method,
     path: pendingAction.path,
     ...(pendingAction.query ? { query: pendingAction.query } : {}),
-    ...(pendingAction.body !== undefined ? { body: pendingAction.body } : {}),
+    ...(sanitizedBody !== undefined ? { body: sanitizedBody } : {}),
   };
 
   emit("tool-call-input", {
@@ -451,13 +672,14 @@ async function resolvePendingAction(
     result = dispatched;
     isError = !(dispatched.status >= 200 && dispatched.status < 300);
   } else {
-    // Not a tool error — a deliberate user decision. Phrased so the model
-    // treats it as a stop signal rather than something to retry.
+    // Not a tool error — a deliberate user decision, or a guard that no longer
+    // holds. Phrased so the model treats it as a stop signal, not a retry.
     result = {
       status: "rejected",
       message:
+        rejection ??
         "The user reviewed this change and chose not to run it. Do not retry " +
-        "it; acknowledge and wait for their next instruction.",
+          "it; acknowledge and wait for their next instruction.",
     };
   }
 
@@ -543,7 +765,7 @@ function debugNonTextPart(
 }
 
 async function processStream<TParams>(
-  stream: Awaited<ReturnType<typeof streamingChatCompletion>>,
+  stream: Awaited<ReturnType<typeof streamingChatCompletion>>["result"],
   config: AgentConfig<TParams>,
   buffer: ConversationBuffer,
   emit: AgentEmit,

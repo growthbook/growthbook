@@ -2,21 +2,19 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
-  experimentHasLinkedChanges,
+  assertTargetingRulesDisjoint,
   getNamespaceRanges,
   getRulesForEnvironment,
+  normalizeApprovalRuleSettings,
   parseIntWithDefaultCapped,
+  pruneApprovalRuleReferences,
 } from "shared/util";
-import {
-  getRoles,
-  areProjectRolesValid,
-  isRoleValid,
-  getDefaultRole,
-} from "shared/permissions";
+import { getRoles, getDefaultRole } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
+import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
@@ -35,7 +33,10 @@ import {
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
-import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
+import {
+  assertNamespaceHashAttributeChangeAllowed,
+  assertNamespaceNotInUse,
+} from "back-end/src/services/namespaces";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -44,10 +45,12 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  assertMemberRoleInfoValid,
   assertRoleAssignmentAllowed,
   assertRoleChangeAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
+  getAISettingsForOrg,
   getContextFromReq,
   getInviteUrl,
   getMembersOfTeam,
@@ -58,6 +61,7 @@ import {
   removeMember,
   revokeInvite,
   setLicenseKey,
+  assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
 import { updatePassword } from "back-end/src/services/users";
 import {
@@ -116,7 +120,10 @@ import {
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
-import { buildNamespace } from "back-end/src/util/namespaces";
+import {
+  buildNamespace,
+  experimentAllocatesTrafficInNamespace,
+} from "back-end/src/util/namespaces";
 import {
   deleteUser,
   getUserById,
@@ -187,8 +194,10 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       permissionsFingerprint: context.getPermissionsFingerprint(),
       buildFingerprint: definitionsBuildFingerprint(),
       // null = the user can read all projects, so every project's version counts.
-      readableProjects:
-        context.permissions.getProjectsWithPermission("readData"),
+      readableProjects: context.permissions.getProjectsWithPermission(
+        "readData",
+        await context.models.projects.getAllIdsForOrg(),
+      ),
       configFileHash: getConfigFileHash(),
     });
     // Make the browser behavior we rely on explicit: store, but always
@@ -435,8 +444,13 @@ export async function putMemberRole(
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -446,10 +460,23 @@ export async function putMemberRole(
     });
   }
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
+    });
+    await assertProjectRulesReferenceProjects(
+      context,
+      org.members.find((m) => m.id === id)?.projectRoles,
+      projectRoles,
+    );
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -478,6 +505,7 @@ export async function putMemberRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
+      m.additionalRoles = additionalRoles || [];
     }
   });
   org?.pendingMembers?.forEach((m) => {
@@ -486,6 +514,7 @@ export async function putMemberRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
+      m.additionalRoles = additionalRoles || [];
     }
   });
 
@@ -536,18 +565,18 @@ export async function putMemberProjectRole(
     });
   }
 
-  // Validate the project role
-  const { memberIsValid, reason } = validateRoleAndEnvs(
-    org,
-    projectRole.role,
-    projectRole.limitAccessByEnvironment || false,
-    projectRole.environments,
-  );
-
-  if (!memberIsValid) {
+  try {
+    // The whole rule, additional roles included — nothing rides in unchecked.
+    assertMemberRoleInfoValid(org, projectRole);
+    await assertProjectRulesReferenceProjects(
+      context,
+      org.members.find((m) => m.id === id)?.projectRoles,
+      [projectRole],
+    );
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: reason,
+      message: e.message,
     });
   }
   const updatedProjectRole: ProjectMemberRole = {
@@ -796,15 +825,33 @@ export async function putInviteRole(
   }
 
   const { org } = context;
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
+    });
+    await assertProjectRulesReferenceProjects(
+      context,
+      org.invites.find((invite) => invite.key === key)?.projectRoles,
+      projectRoles,
+    );
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -831,6 +878,7 @@ export async function putInviteRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
+      m.additionalRoles = additionalRoles || [];
     }
   });
 
@@ -952,6 +1000,11 @@ export async function getOrganization(
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
+  // Returned here so every page can gate AI affordances off the org's real key
+  // state without a second request. The keys never leave the back end.
+  const { keySource, sttModel } = await getAISettingsForOrg(context);
+  const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
+
   // Teams were already loaded (unfiltered) by the auth middleware
   const teams = context.teams;
 
@@ -967,6 +1020,7 @@ export async function getOrganization(
     req.currentUser,
     org,
     teams || [],
+    req.restrictedProjects,
   );
   const agreementsAgreed = Array.from(
     new Set(agreements.map((a) => a.agreement as AgreementType)),
@@ -992,6 +1046,8 @@ export async function getOrganization(
     installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
+    aiKeyProviders,
+    sttModel,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -1083,26 +1139,19 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 
   const allExperiments = await getAllExperiments(context);
   allExperiments.forEach((e) => {
-    if (e.archived) return;
-
-    // Skip experiments that are not linked to any changes since they aren't included in the payload
-    if (!experimentHasLinkedChanges(e)) return;
-
-    // Skip if experiment is stopped and doesn't have a temporary rollout enabled
-    if (
-      e.status === "stopped" &&
-      (e.excludeFromPayload || !e.releasedVariationId)
-    ) {
-      return;
-    }
-
     // Skip if a namespace isn't enabled on the latest phase
-    if (!e.phases) return;
-    const phase = e.phases[e.phases.length - 1];
-    if (!phase) return;
-    if (!phase.namespace || !phase.namespace.enabled) return;
+    const phases = e.phases ?? [];
+    const phase = phases[phases.length - 1];
+    if (!phase?.namespace?.enabled) return;
 
     const ns = phase.namespace as NamespaceValue;
+
+    // Skip archived experiments, ones not linked to any changes, and stopped
+    // ones without a temporary rollout — none of them reach the payload. This
+    // is the same check the delete / re-hash guards enforce, so what this page
+    // lists as usage is exactly what those refuse to break.
+    if (!experimentAllocatesTrafficInNamespace(e, ns.name)) return;
+
     namespaces[ns.name] = namespaces[ns.name] || [];
 
     getNamespaceRanges(ns).forEach((range) => {
@@ -1226,9 +1275,16 @@ export async function putNamespaces(
   const namespaces = org.settings?.namespaces || [];
 
   // Make sure this namespace exists
-  if (namespaces.filter((n) => n.name === name).length === 0) {
+  const target = namespaces.find((n) => n.name === name);
+  if (!target) {
     throw new Error("Namespace not found.");
   }
+
+  await assertNamespaceHashAttributeChangeAllowed(
+    context,
+    target,
+    hashAttribute,
+  );
 
   const updatedNamespaces = namespaces.map((n) => {
     if (n.name !== name) return n;
@@ -1297,6 +1353,8 @@ export async function deleteNamespace(
   if (namespaces.length === updatedNamespaces.length) {
     throw new Error("Namespace not found.");
   }
+
+  await assertNamespaceNotInUse(context, name, "delete");
 
   await updateOrganization(org.id, {
     settings: {
@@ -1396,14 +1454,29 @@ export async function postInvite(
   }
 
   const { org } = context;
-  const { email, role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    email,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
+    });
+    await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -1414,6 +1487,7 @@ export async function postInvite(
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    additionalRoles,
     invitedBy: req.email,
   });
 
@@ -1536,6 +1610,14 @@ export async function signup(
       throw Error("Company length must be at least 3 characters");
     }
     if (IS_CLOUD && PROHIBITED_ORGANIZATION_NAME_REGEX?.test(company)) {
+      req.log.warn(
+        {
+          event: "signup_blocked_prohibited_organization_name",
+          company,
+          userId: req.userId,
+        },
+        "Blocked signup with prohibited organization name",
+      );
       throw Error(
         "Unable to create organization. Please contact support@growthbook.io",
       );
@@ -1725,10 +1807,21 @@ export async function putOrganization(
       orig.externalId = org.externalId;
     }
     if (settings) {
-      updates.settings = {
-        ...org.settings,
-        ...settings,
-      };
+      // Drops rule references to deleted teams, environments, and projects, so
+      // the settings UI's "Saving removes it" note is true and a stale
+      // round-tripped rule can never block the save.
+      const pruned = pruneApprovalRuleReferences(
+        normalizeApprovalRuleSettings(settings),
+        {
+          environments: (org.settings?.environments ?? []).map((e) => e.id),
+          teams: (context.teams ?? []).map((t) => t.id),
+          projects: await context.getAllProjectIds(),
+        },
+      );
+      if (pruned.targetingReviewMode) {
+        assertTargetingRulesDisjoint(pruned.targetingReviewMode);
+      }
+      updates.settings = { ...org.settings, ...pruned };
       orig.settings = org.settings;
     }
 
@@ -1856,6 +1949,7 @@ export async function postApiKey(
     type: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ProjectMemberRole[];
   }>,
   res: Response,
@@ -1867,6 +1961,7 @@ export async function postApiKey(
     type,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   } = req.body;
 
@@ -1890,6 +1985,7 @@ export async function postApiKey(
       roleId: type,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
     });
   }
@@ -1917,6 +2013,7 @@ export async function putApiKey(
       description?: string;
       limitAccessByEnvironment?: boolean;
       environments?: string[];
+      additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ProjectMemberRole[];
     },
     { id: string }
@@ -1930,6 +2027,7 @@ export async function putApiKey(
     description,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   } = req.body;
 
@@ -1949,6 +2047,7 @@ export async function putApiKey(
       description,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
     });
 
@@ -2279,7 +2378,7 @@ export async function addOrphanedUser(
     );
   }
 
-  const { org } = getContextFromReq(req);
+  const { org } = context;
 
   const { id } = req.params;
   const { role, environments, limitAccessByEnvironment, projectRoles } =
@@ -2304,10 +2403,18 @@ export async function addOrphanedUser(
   }
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+    });
+    await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -2488,31 +2595,7 @@ export async function putDefaultRole(
   // Only gate a change so an existing non-admin default keeps working
   assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
 
-  const { memberIsValid, reason } = validateRoleAndEnvs(
-    org,
-    defaultRole.role,
-    defaultRole.limitAccessByEnvironment,
-    defaultRole.environments,
-  );
-
-  if (!memberIsValid) {
-    throw new Error(reason);
-  }
-
-  if (defaultRole.projectRoles?.length) {
-    defaultRole.projectRoles.forEach((p) => {
-      const { memberIsValid, reason } = validateRoleAndEnvs(
-        org,
-        p.role,
-        p.limitAccessByEnvironment,
-        p.environments,
-      );
-
-      if (!memberIsValid) {
-        throw new Error(reason);
-      }
-    });
-  }
+  assertMemberRoleInfoValid(org, defaultRole);
 
   updateOrganization(org.id, {
     settings: {

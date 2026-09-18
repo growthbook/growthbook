@@ -29,7 +29,7 @@ export const verifyConfigSchema = createApiRequestHandler(
   // getByKey enforces read permission (returns nothing for an unreadable config).
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config with that key");
+    throw new NotFoundError("Could not find Config with that key");
   }
 
   const { schema: incoming, warnings } = resolveConfigSchemaSource({

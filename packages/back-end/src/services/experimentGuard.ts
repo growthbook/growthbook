@@ -57,11 +57,11 @@ function experimentGuardConflictKey(
 // Human-readable rendering of composite conflict keys for warning messages.
 function describeConfigConflictKey(key: string): string {
   const sep = key.indexOf("|");
-  if (sep === -1) return `config "${key}"`;
+  if (sep === -1) return `Config "${key}"`;
   const configKey = key.slice(0, sep);
   const subject = key.slice(sep + 1);
   const noun = subject.startsWith("cb:") ? "bandit" : "experiment";
-  return `config "${configKey}" serving ${noun} ${subject.slice(subject.indexOf(":") + 1)}`;
+  return `Config "${configKey}" serving ${noun} ${subject.slice(subject.indexOf(":") + 1)}`;
 }
 
 export function describeConfigConflictKeys(keys: string[]): string {
@@ -338,7 +338,7 @@ export async function evaluateConfigExperimentGuardConflicts(
 // Enforce the experiment guard for a config publish. `armed` = a deferred merge
 // (scheduled publish or auto-publish-on-approval), whose override is the arm-time
 // fingerprint on the revision; unarmed = a direct manual publish, which honors an
-// explicit synchronous override (`?ignoreWarnings=true` or bypassApprovalChecks).
+// explicit synchronous override (`?ignoreWarnings=true` or FlagsBypassApprovals).
 // Throws SoftWarningError (422) for an un-acknowledged direct publish, or
 // TerminalPublishError for a deferred merge whose fingerprint has diverged.
 export async function assertConfigExperimentGuard(
@@ -357,9 +357,10 @@ export async function assertConfigExperimentGuard(
 
   const synchronousOverride =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
-      project: config.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: config.project || "" },
+      "config",
+    );
 
   const decision = decideExperimentGuard({
     guardEnabled: true,
@@ -389,7 +390,7 @@ export async function assertConfigExperimentGuard(
   const keyList = describeConfigConflictKeys(decision.conflictKeys);
   if (decision.action === "block-immediate") {
     throw new SoftWarningError(
-      `Publishing this config rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
+      `Publishing this Config rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
       decision.conflictKeys,
     );
   }
@@ -438,7 +439,7 @@ export async function assertScopedOverridesExperimentGuard(
 // on the revision (compared at merge time), or undefined when there is nothing to
 // acknowledge (guard off / no live conflict / metadata-only revision). Throws
 // SoftWarningError when live conflicts exist and the armer did not acknowledge
-// them (?ignoreWarnings=true or bypassApprovalChecks) — arming must be an
+// them (?ignoreWarnings=true or FlagsBypassApprovals) — arming must be an
 // explicit, recorded override. `proposedChanges` (the revision's staged ops, when
 // known) lets a metadata-only revision skip the guard, matching the merge-time
 // gate so a rename doesn't need acknowledgment to be scheduled.
@@ -466,9 +467,10 @@ export async function captureConfigExperimentGuardAcknowledgment(
   const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
-      project: config.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: config.project || "" },
+      "config",
+    );
   if (!override) {
     throw new SoftWarningError(
       `Scheduling this publish will rewrite the live value served to a running experiment (${describeConfigConflictKeys(
@@ -574,9 +576,10 @@ export async function assertConstantExperimentGuard(
 
   const synchronousOverride =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
-      project: constant.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: constant.project || "" },
+      "constant",
+    );
 
   const decision = decideExperimentGuard({
     guardEnabled: true,
@@ -603,7 +606,7 @@ export async function assertConstantExperimentGuard(
   const keyList = describeConstantConflictKeys(decision.conflictKeys);
   if (decision.action === "block-immediate") {
     throw new SoftWarningError(
-      `Publishing this constant rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
+      `Publishing this Constant rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
       decision.conflictKeys,
     );
   }
@@ -641,9 +644,10 @@ export async function captureConstantExperimentGuardAcknowledgment(
   const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
-      project: constant.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: constant.project || "" },
+      "constant",
+    );
   if (!override) {
     throw new SoftWarningError(
       `Scheduling this publish will rewrite the live value served to a running experiment (${describeConstantConflictKeys(

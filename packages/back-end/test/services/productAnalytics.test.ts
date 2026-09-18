@@ -39,14 +39,14 @@ const makeConfig = (
     steps: [
       {
         name: "Step 1",
-        factTable: "ft_1",
+        factTableId: "ft_1",
         rowFilters: [],
         optional: false,
         conversionWindow: null,
       },
       {
         name: "Step 2",
-        factTable: "ft_2",
+        factTableId: "ft_2",
         rowFilters: [],
         optional: false,
         conversionWindow: null,
@@ -101,7 +101,7 @@ describe("runProductAnalyticsExploration funnel validation", () => {
       config: makeConfig({
         steps: [
           makeConfig().dataset.steps[0],
-          { ...makeConfig().dataset.steps[1], factTable: "" },
+          { ...makeConfig().dataset.steps[1], factTableId: "" },
         ],
       }),
       error: "Funnel steps require fact tables",

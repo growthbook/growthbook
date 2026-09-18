@@ -1,4 +1,6 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { deleteConstantValidator } from "shared/validators";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -11,11 +13,19 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
     );
     if (!constant) {
       throw new NotFoundError(
-        `Unable to delete - could not find constant with key ${req.params.key}`,
+        `Unable to delete - could not find Constant with key ${req.params.key}`,
       );
     }
 
-    if (!req.context.permissions.canDeleteConstant(constant)) {
+    // Live deletion requires authority across the Constant's serving footprint.
+    if (
+      !req.context.permissions.canDeleteConstant(
+        constant,
+        constant.archived
+          ? NO_ENVIRONMENT_BINDING
+          : archiveServeFootprint(req.context, constant),
+      )
+    ) {
       req.context.permissions.throwPermissionError();
     }
 
@@ -25,8 +35,8 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
     // require archiving first.
     if (!constant.archived && !canUseRestApiBypassSetting(req)) {
       throw new BadRequestError(
-        "Cannot delete a live constant via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
-          "Archive the constant first, or enable the bypass setting in organization settings.",
+        "Cannot delete a live Constant via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
+          "Archive the Constant first, or enable the bypass setting in organization settings.",
       );
     }
 

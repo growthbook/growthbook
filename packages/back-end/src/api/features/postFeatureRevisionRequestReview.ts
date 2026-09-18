@@ -14,6 +14,7 @@ import {
   getRevision,
   markRevisionAsReviewRequested,
 } from "back-end/src/models/FeatureRevisionModel";
+import { canAdvanceFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   canEnableFeatureAutoPublishOnApproval,
@@ -37,12 +38,6 @@ export async function requestReview(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Gated on canManageFeatureDrafts only so contributors can request approval
-  // on drafts they can't publish themselves.
-  if (!req.context.permissions.canManageFeatureDrafts(feature)) {
-    req.context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context: req.context,
     organization: req.organization.id,
@@ -51,6 +46,19 @@ export async function requestReview(
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
+
+  // Draft authority so contributors can request approval on drafts they can't
+  // publish themselves, or revert authority over a draft that only restores a
+  // published revision — otherwise a revert-only role strands its own rollback.
+  if (
+    !(await canAdvanceFeatureDraft({
+      context: req.context,
+      feature,
+      draft: revision,
+    }))
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   if (revision.status !== "draft") {
     throw new BadRequestError(
@@ -83,13 +91,17 @@ export async function requestReview(
   }
 
   const enableAutoPublish =
-    req.body.autoPublishOnApproval &&
-    canEnableFeatureAutoPublishOnApproval(req.context, feature);
+    !!req.body.autoPublishOnApproval &&
+    (await canEnableFeatureAutoPublishOnApproval(
+      req.context,
+      feature,
+      revision,
+    ));
 
   const scheduledDate = parseScheduledPublishDate(req.body.scheduledPublishAt);
   if (
     scheduledDate !== null &&
-    !canScheduleFeaturePublish(req.context, feature)
+    !(await canScheduleFeaturePublish(req.context, feature, revision))
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -147,6 +159,20 @@ export async function requestReview(
     "revision.reviewRequested",
     { reviewComment: req.body.comment ?? null },
   );
+
+  // Emit schedule changes for both arming and clearing an existing schedule.
+  const wasScheduled =
+    !!revision.autoPublishOnApproval ||
+    (revision.scheduledPublishAt ?? null) !== null;
+  if (enableAutoPublish || scheduledDate !== null || wasScheduled) {
+    await dispatchFeatureRevisionEvent(
+      req.context,
+      feature,
+      finalRevision,
+      "revision.publishScheduleChanged",
+      {},
+    );
+  }
 
   return { feature, revision: finalRevision };
 }

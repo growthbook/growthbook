@@ -18,28 +18,50 @@ import {
   startApprovalPending,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
-import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
+import {
+  MergeResultChanges,
+  filterEnvironmentsByFeature,
+  getApplicableEnvIds,
+  getEnvsFromRampSchedule,
+  isRampScheduleServing,
+  rampRuleEnvKey,
+  rampTargetFootprint,
+  rampTargetRuleIds,
+  stemRuleId,
+  stringifyFeatureValue,
+  unanchoredRampTargets,
+  validateFeatureValue,
+} from "shared/util";
 import uniqid from "uniqid";
-import { getEnvironments } from "back-end/src/services/organizations";
+import {
+  getEnvironmentIdsFromOrg,
+  getEnvironments,
+} from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import {
+  getFeatureRuleEnvironmentsByIds,
+  getFeature,
+  getFeatureProjectsByIds,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
 // NOTE: rampScheduleEvaluator also imports from this module (advanceStep, etc).
 // The cycle is safe: every cross-module reference is a hoisted function
 // declaration used only at call time, never at module top-level.
 import { isCurrentStepReadyForApproval } from "back-end/src/services/rampScheduleEvaluator";
 import {
   createRevision,
+  getRevision,
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   resolveRampTargets,
   ruleFootprint,
-  getApplicableEnvIds,
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
+  BadRequestError,
   ConflictError,
   NotFoundError,
   RampAdvanceLockBusyError,
@@ -140,6 +162,9 @@ export async function withRampScheduleAdvanceLockRetry<T>(
 
 // `fn` must re-validate any status preconditions screened on the caller's
 // pre-lock read — the schedule may have changed while waiting for the lock.
+// Authorization is NOT re-checked here (callers gate differently, and the
+// scheduler holds no user authority); control-verb dispatch sites use
+// `runControlledRampScheduleAction` below, which does re-check.
 export async function runLockedRampScheduleAction<T>(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
@@ -159,6 +184,31 @@ export async function runLockedRampScheduleAction<T>(
       return fn(fresh, heartbeat);
     },
   );
+}
+
+/**
+ * Locked runner for the control verbs (start/pause/resume/advance/rollback…),
+ * which all gate on `assertCanControlRampSchedule`.
+ *
+ * Control authority derives from the schedule's targets, so a pre-lock check
+ * can go stale while waiting for the lock (e.g. a concurrent add-target
+ * attaches a flag the caller holds nothing in). The verdict is re-taken on the
+ * in-lock document — the one the action actually acts on. Dispatch sites keep
+ * their pre-lock assertion so the common case gets a plain 403 without a lock
+ * wait.
+ */
+export async function runControlledRampScheduleAction<T>(
+  ctx: ReqContext | ApiReqContext,
+  scheduleId: string,
+  fn: (
+    fresh: RampScheduleInterface,
+    heartbeat: () => Promise<void>,
+  ) => Promise<T>,
+): Promise<T> {
+  return runLockedRampScheduleAction(ctx, scheduleId, async (fresh, hb) => {
+    await assertCanControlRampSchedule(ctx, fresh);
+    return fn(fresh, hb);
+  });
 }
 
 const MAX_EVENT_HISTORY = 500;
@@ -330,6 +380,16 @@ export function appendRampEvent(
   return history.slice(-MAX_EVENT_HISTORY);
 }
 
+// Distinct class so the bulk planner can tell a lockdown apart from an infra
+// failure of the schedule read — a plain Error let a database error become a
+// bypassable `ramp-locked` gate.
+export class RampLockdownError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RampLockdownError";
+  }
+}
+
 export async function assertFeatureNotLockedByRamp(
   ctx: ReqContext | ApiReqContext,
   featureId: string,
@@ -340,7 +400,7 @@ export async function assertFeatureNotLockedByRamp(
       s.lockdownConfig?.mode === "locked" &&
       (LOCKDOWN_ACTIVE_STATUSES as readonly string[]).includes(s.status)
     ) {
-      throw new Error(
+      throw new RampLockdownError(
         `Feature is locked by an active ramp schedule ("${s.name}"). Pause the schedule to make immediate changes.`,
       );
     }
@@ -357,6 +417,7 @@ interface EntityHandler {
       stepLabel: string;
       user: EventUser;
       environment?: string | null;
+      judgeTargeting?: boolean;
     },
   ): Promise<void>;
 }
@@ -367,9 +428,18 @@ export function forceMatchesValueType(
 ): boolean {
   if (value === null || value === undefined) return false;
   const t = typeof value;
+  // A string is the form rule values are stored in; it matches when the
+  // feature's type accepts it ("false" for a boolean flag, "10" for a number).
+  if (t === "string") {
+    try {
+      validateFeatureValue({ valueType }, value as string);
+      return true;
+    } catch {
+      return false;
+    }
+  }
   if (valueType === "boolean") return t === "boolean";
   if (valueType === "number") return t === "number";
-  if (valueType === "string") return t === "string";
   if (valueType === "json") return t === "object";
   return false;
 }
@@ -387,6 +457,9 @@ export function remapTemplateActions(
     if ("force" in patch && !forceMatchesValueType(patch.force, valueType)) {
       const { force: _force, ...rest } = patch;
       return { targetType: "feature-rule" as const, targetId, patch: rest };
+    }
+    if ("force" in patch) {
+      patch.force = stringifyFeatureValue(patch.force);
     }
     return { targetType: "feature-rule" as const, targetId, patch };
   });
@@ -446,6 +519,130 @@ export function computeEffectivePatch(
   return byTarget;
 }
 
+type RampForceFeature = Pick<FeatureInterface, "valueType">;
+
+// Bring every feature-rule action's `force` to the string form rule values
+// are stored in and, given the feature, reject one its value TYPE rejects —
+// the type half of a rule write's check, so a value predating a JSON-schema
+// change is never refused. Without a feature, only stringify.
+export function normalizeRampActionsForceValues<
+  A extends { targetType?: string; patch: { force?: unknown } },
+>(
+  actions: A[],
+  feature?: RampForceFeature | null,
+  label = "Ramp value",
+  isEcho: (force: string, action: A) => boolean = () => false,
+): A[] {
+  return actions.map((action, i) => {
+    if (action.targetType !== undefined && action.targetType !== "feature-rule")
+      return action;
+    const { patch } = action;
+    if (!patch || !("force" in patch) || patch.force === undefined)
+      return action;
+    let force = stringifyFeatureValue(patch.force);
+    if (feature && !isEcho(force, action)) {
+      try {
+        force = validateFeatureValue(
+          { valueType: feature.valueType },
+          force,
+          `${label} (action ${i + 1})`,
+        );
+      } catch (e) {
+        throw new BadRequestError(e instanceof Error ? e.message : String(e));
+      }
+    }
+    return { ...action, patch: { ...patch, force } };
+  });
+}
+
+// The start values each target may echo without being judged: its rule's own
+// current value and its stored anchor, keyed by target id. Anything else in
+// `startActions` is the caller's and is checked like a step value. "t1" is
+// the single-target sentinel the REST body may use.
+export function rampStartValuesOf(
+  feature: Pick<FeatureInterface, "rules"> | null | undefined,
+  targets: { id: string; ruleId?: string | null }[],
+  stored?: RampStepAction[] | null,
+): Map<string, Set<string>> {
+  const known = new Map<string, Set<string>>();
+  for (const target of targets) {
+    const values = new Set<string>();
+    for (const rule of feature?.rules ?? []) {
+      const { value } = rule as { value?: unknown };
+      if (
+        value !== undefined &&
+        target.ruleId &&
+        stemRuleId(rule.id) === stemRuleId(target.ruleId)
+      ) {
+        values.add(stringifyFeatureValue(value));
+      }
+    }
+    for (const action of stored ?? []) {
+      if (action.targetId === target.id && action.patch.force !== undefined) {
+        values.add(stringifyFeatureValue(action.patch.force));
+      }
+    }
+    known.set(target.id, values);
+  }
+  if (targets.length === 1) known.set("t1", known.get(targets[0].id)!);
+  return known;
+}
+
+// Same, over a whole plan. Absent parts stay absent. `startActions` are the
+// rollback anchor: `validateStartActions: false` only stringifies them (the
+// anchor was derived by the server), and `knownStartValues` exempts values
+// that echo the rule's own (see rampStartValuesOf) while judging the rest.
+export function normalizeRampPlanForceValues<
+  A extends { targetType?: string; patch: { force?: unknown } },
+  P extends {
+    steps?: { actions?: A[] | null }[] | null;
+    startActions?: A[] | null;
+    endActions?: A[] | null;
+  },
+>(
+  plan: P,
+  feature?: RampForceFeature | null,
+  opts: {
+    validateStartActions?: boolean;
+    knownStartValues?: Map<string, Set<string>>;
+  } = {},
+): P {
+  const out = { ...plan };
+  if (plan.steps) {
+    out.steps = plan.steps.map((s, i) =>
+      s.actions
+        ? {
+            ...s,
+            actions: normalizeRampActionsForceValues(
+              s.actions,
+              feature,
+              `Step ${i + 1} value`,
+            ),
+          }
+        : s,
+    ) as P["steps"];
+  }
+  if (plan.startActions) {
+    out.startActions = normalizeRampActionsForceValues(
+      plan.startActions,
+      opts.validateStartActions === false ? undefined : feature,
+      "Start value",
+      (force, action) =>
+        opts.knownStartValues
+          ?.get((action as { targetId?: string }).targetId ?? "")
+          ?.has(force) ?? false,
+    ) as P["startActions"];
+  }
+  if (plan.endActions) {
+    out.endActions = normalizeRampActionsForceValues(
+      plan.endActions,
+      feature,
+      "End value",
+    ) as P["endActions"];
+  }
+  return out;
+}
+
 // Apply a patch to a rule. Uses "in" checks so injected undefined values clear the field.
 // null clears most fields, but force allows null (valid JSON feature value).
 export function applyPatchToRule(
@@ -480,7 +677,11 @@ export function applyPatchToRule(
     }
   }
   if ("force" in patch) {
-    (updated as { value?: unknown }).value = patch.force; // null is a valid JSON value
+    // null is a valid JSON value ("null"); undefined clears.
+    (updated as { value?: string }).value =
+      patch.force === undefined
+        ? undefined
+        : stringifyFeatureValue(patch.force);
   }
   if ("enabled" in patch) {
     updated.enabled = patch.enabled ?? undefined;
@@ -590,7 +791,7 @@ export function resolveRampStartState({
 
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
-    const { stepLabel, user, environment } = opts;
+    const { stepLabel, user, environment, judgeTargeting } = opts;
 
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
@@ -598,6 +799,36 @@ export const featureEntityHandler: EntityHandler = {
     const updatedRules: FeatureRule[] = (feature.rules ?? []).map((r) => ({
       ...r,
     }));
+
+    if (judgeTargeting) {
+      // A patch whose condition no longer parses or whose references are gone
+      // would serve everyone once landed; refuse the step instead. Lazy
+      // import: the validations module imports this one.
+      const { validateRampPlanPatches } = await import(
+        "back-end/src/api/features/validations"
+      );
+      const entries = actions.flatMap((action) => {
+        if (action.targetType !== "feature-rule") return [];
+        const { ruleId, ...patch } = action.patch;
+        return resolveRampTargets(
+          { ruleId, environment: environment ?? null },
+          updatedRules,
+        ).map((rule) => ({
+          patch: { ...patch, ruleId: rule.id },
+          feature,
+          rule,
+        }));
+      });
+      // The effective patch replays the start anchor too; only what the step
+      // changes on the live rule is judged.
+      await validateRampPlanPatches(ctx, entries, {
+        stored: entries.map(({ rule }) => ({
+          startActions: [
+            { patch: { ...getStartPatchForRule(rule), ruleId: rule.id } },
+          ],
+        })),
+      });
+    }
 
     for (const action of actions) {
       if (action.targetType !== "feature-rule") continue;
@@ -620,7 +851,26 @@ export const featureEntityHandler: EntityHandler = {
 
       for (const target of targets) {
         const idx = updatedRules.indexOf(target);
-        updatedRules[idx] = applyPatchToRule(target, patchFields);
+        // A value the feature's type rejects is logged, never refused:
+        // rollbacks and restarts re-apply the rule's own earlier value.
+        const patched = applyPatchToRule(target, patchFields);
+        if ("force" in patchFields && patchFields.force !== undefined) {
+          const value = (patched as { value?: string }).value ?? "";
+          try {
+            validateFeatureValue({ valueType: feature.valueType }, value);
+          } catch (e) {
+            logger.warn(
+              {
+                featureId: feature.id,
+                ruleId,
+                valueType: feature.valueType,
+                err: e instanceof Error ? e.message : String(e),
+              },
+              "Ramp step applied a value the feature type does not accept",
+            );
+          }
+        }
+        updatedRules[idx] = patched;
       }
     }
 
@@ -644,6 +894,7 @@ export const featureEntityHandler: EntityHandler = {
       result: forceResult,
       comment: stepLabel,
       bypassLockdown: true,
+      skipValueSchemaNet: true,
     });
   },
 };
@@ -874,7 +1125,9 @@ async function executeStepActions(
   actions: RampStepAction[],
   // fromStepIndex: position before a catch-up jump, so the published
   // revision's label shows the folded range instead of a normal single advance.
-  opts: { fromStepIndex?: number } = {},
+  // judgeTargeting: stored step or end patches are checked before they land.
+  // Rollbacks are not: refusing a retreat is worse than replaying a stale step.
+  opts: { fromStepIndex?: number; judgeTargeting?: boolean } = {},
 ): Promise<void> {
   const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
   if (!ruleActions.length) return;
@@ -946,6 +1199,7 @@ async function executeStepActions(
         stepLabel,
         user,
         environment: group.environment,
+        judgeTargeting: opts.judgeTargeting,
       });
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
@@ -1159,6 +1413,7 @@ export async function advanceStep(
     }),
   );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions, {
+    judgeTargeting: true,
     fromStepIndex: schedule.currentStepIndex,
   });
 
@@ -1263,6 +1518,47 @@ export async function advanceStep(
   return updated;
 }
 
+// Restores missing rollback anchors from the revision that activated each
+// target. Its rules are the pre-step-0 state — the same input publish derives
+// the anchor from — because every step publishes its own revision on top.
+export async function ensureRampStartActions(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  const unanchored = unanchoredRampTargets(schedule);
+  if (!unanchored.length) return schedule;
+
+  const feature = await getFeature(ctx, schedule.entityId);
+  if (!feature) return schedule;
+
+  const restored: RampStepAction[] = [];
+  for (const target of unanchored) {
+    const version = target.activatingRevisionVersion ?? null;
+    if (version === null) continue;
+    const revision = await getRevision({
+      context: ctx,
+      organization: ctx.org.id,
+      featureId: feature.id,
+      feature,
+      version,
+    });
+    if (!revision?.rules) continue;
+    restored.push(
+      ...getStartActionsFromRules({
+        rules: revision.rules,
+        targetId: target.id,
+        ruleId: target.ruleId ?? "",
+        environment: target.environment,
+      }),
+    );
+  }
+
+  if (!restored.length) return schedule;
+  return ctx.models.rampSchedules.updateById(schedule.id, {
+    startActions: [...(schedule.startActions ?? []), ...restored],
+  });
+}
+
 export async function rollbackToStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -1274,7 +1570,15 @@ export async function rollbackToStep(
     syncSafeRollout?: boolean;
   } = {},
 ): Promise<RampScheduleInterface> {
+  schedule = await ensureRampStartActions(ctx, schedule);
   const isFullRollback = targetStepIndex === -1;
+  const unanchored = isFullRollback ? unanchoredRampTargets(schedule) : [];
+  if (unanchored.length) {
+    logger.warn(
+      { rampScheduleId: schedule.id, targetIds: unanchored.map((t) => t.id) },
+      "Full rollback has no start actions for some targets; their rules keep the last applied step",
+    );
+  }
   // An approval-gated schedule returns to the pre-start hold on a full
   // rollback (manual or auto) instead of terminating: it lands back at step -1
   // awaiting a fresh approval. The -1 → 0 edge is always re-gated.
@@ -1623,12 +1927,10 @@ export async function restartSchedule(
   return startSchedule(ctx, readied, heartbeat);
 }
 
-/**
- * Move the schedule to `targetStepIndex` (forward or backward) and leave it
- * paused. Re-applies (forward) or rolls back (backward) rule patches between
- * the old and new step, stops the linked SafeRollout, and emits
- * `rampSchedule.actions.jumped`. Use -1 for pre-start.
- */
+// Move the schedule to `targetStepIndex` (forward or backward) and leave it
+// paused. Re-applies (forward) or rolls back (backward) rule patches between
+// the old and new step, stops the linked SafeRollout, and emits
+// `rampSchedule.actions.jumped`. Use -1 for pre-start.
 export async function jumpSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -1933,7 +2235,9 @@ export async function jumpAheadToStep(
   );
 
   if (jumpActions.length > 0) {
-    await executeStepActions(ctx, schedule, jumpTarget, jumpActions);
+    await executeStepActions(ctx, schedule, jumpTarget, jumpActions, {
+      judgeTargeting: true,
+    });
   }
 
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
@@ -2005,7 +2309,12 @@ async function applyEndActionsAndAwaitCutoff(
       schedule,
       schedule.steps.length,
       actionsToApply,
-      opts.autoCatchUp ? { fromStepIndex: schedule.currentStepIndex } : {},
+      {
+        judgeTargeting: true,
+        ...(opts.autoCatchUp
+          ? { fromStepIndex: schedule.currentStepIndex }
+          : {}),
+      },
     );
   }
 
@@ -2124,7 +2433,12 @@ export async function completeRollout(
       schedule,
       schedule.steps.length,
       actionsToApply,
-      opts.autoCatchUp ? { fromStepIndex: schedule.currentStepIndex } : {},
+      {
+        judgeTargeting: true,
+        ...(opts.autoCatchUp
+          ? { fromStepIndex: schedule.currentStepIndex }
+          : {}),
+      },
     );
   }
 
@@ -2236,19 +2550,17 @@ export async function onActivatingRevisionPublished(
   }
 }
 
-/**
- * Transition a `ready` schedule to `running` immediately (the "start now"
- * path). Called from `createRampSchedulesForRevision` when an update action
- * explicitly clears `startDate` on a schedule that has not yet started.
- *
- * Content-level fields (name, steps, cutoffDate, etc.) should already be
- * applied to `schedule` before this is called, or passed in via
- * `contentUpdates` so they land atomically in a single write.
- *
- * Returns false when the start did NOT run (schedule no longer ready, or the
- * lock stayed busy) so the caller can apply its content edits through the
- * normal update path instead of silently dropping them.
- */
+// Transition a `ready` schedule to `running` immediately (the "start now"
+// path). Called from `createRampSchedulesForRevision` when an update action
+// explicitly clears `startDate` on a schedule that has not yet started.
+//
+// Content-level fields (name, steps, cutoffDate, etc.) should already be
+// applied to `schedule` before this is called, or passed in via
+// `contentUpdates` so they land atomically in a single write.
+//
+// Returns false when the start did NOT run (schedule no longer ready, or the
+// lock stayed busy) so the caller can apply its content edits through the
+// normal update path instead of silently dropping them.
 export async function startReadyScheduleNow(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2513,7 +2825,9 @@ export async function advanceUntilBlocked(
     !current.cutoffDate
   ) {
     await completeRollout(ctx, current);
-    await ctx.models.rampSchedules.deleteById(current.id);
+    await ctx.models.rampSchedules.dangerousDeleteByIdBypassPermission(
+      current.id,
+    );
     return;
   }
 
@@ -2521,7 +2835,7 @@ export async function advanceUntilBlocked(
   if (
     current.cutoffDate &&
     current.cutoffDate <= now &&
-    ["running", "paused"].includes(current.status)
+    isRampScheduleServing(current)
   ) {
     await completeRollout(ctx, current, { disableActiveTargets: true });
     return;
@@ -2577,10 +2891,14 @@ export async function approveAndPublishStep(
   const feature = await getFeature(ctx, schedule.entityId);
   if (!feature) return { code: "feature_not_found" };
 
-  if (!ctx.permissions.canUpdateFeature(feature, feature)) {
+  if (!ctx.permissions.canEditFeatureDrafts(feature)) {
     return { code: "permission_denied", detail: "Cannot update this feature" };
   }
-  if (!ctx.permissions.canReviewFeatureDrafts(feature)) {
+  // Granting an approval, so this must not use `any`. The step's footprint
+  // needs the revision this path never loads, so it fails closed for now.
+  if (
+    !ctx.permissions.canReviewFeatureDrafts(feature, { scope: "everywhere" })
+  ) {
     return {
       code: "permission_denied",
       detail: "Cannot review drafts for this feature",
@@ -2693,14 +3011,12 @@ type ApproveStartError =
   | { code: "permission_denied"; detail: string }
   | { code: "error"; detail: string };
 
-/**
- * Approves the one-time "start on approval" hold on the -1 → step 0 edge.
- * Sets the transient startApprovedAt marker, then either arms for a future
- * startDate (the "approve, then wait for date" compose case) or starts now.
- *
- * Idempotent: a schedule that's already been approved (or already left the
- * ready hold) returns null without side effects.
- */
+// Approves the one-time "start on approval" hold on the -1 → step 0 edge.
+// Sets the transient startApprovedAt marker, then either arms for a future
+// startDate (the "approve, then wait for date" compose case) or starts now.
+//
+// Idempotent: a schedule that's already been approved (or already left the
+// ready hold) returns null without side effects.
 export async function approveScheduleStart(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2708,7 +3024,7 @@ export async function approveScheduleStart(
   const feature = await getFeature(ctx, schedule.entityId);
   if (!feature) return { code: "feature_not_found" };
 
-  if (!ctx.permissions.canUpdateFeature(feature, feature)) {
+  if (!ctx.permissions.canEditFeatureDrafts(feature)) {
     return { code: "permission_denied", detail: "Cannot update this feature" };
   }
   const allEnvironments = getEnvironments(ctx.org);
@@ -2815,6 +3131,14 @@ export async function updateRampMonitoringConfig(
   schedule: RampScheduleInterface,
   newConfig: RampMonitoringConfig,
 ): Promise<RampScheduleInterface> {
+  // A started SafeRollout freezes its metrics and cadence too, not just its
+  // data source. Enforced here so the internal and REST surfaces can't drift.
+  await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+    ctx,
+    schedule,
+    newConfig,
+  );
+
   // Datasource and exposureQuery are baked into the linked SafeRollout at
   // creation and cannot be changed post-start. Reject early to avoid silent
   // drift between the schedule config and what the SafeRollout actually queries.
@@ -2909,13 +3233,11 @@ export type StepMergeResult = {
   skippedIndices: number[];
 };
 
-/**
- * Merges an incoming steps array onto a running schedule with per-position guards:
- *  - past steps  : frozen — incoming changes are dropped
- *  - current step: only `holdConditions` and `approvalNotes` may change
- *  - future steps: full replacement from incoming (preserving existing `actions`
- *                  when the caller omits them, to avoid wiping coverage patches)
- */
+// Merges an incoming steps array onto a running schedule with per-position guards:
+// - past steps  : frozen — incoming changes are dropped
+// - current step: only `holdConditions` and `approvalNotes` may change
+// - future steps: full replacement from incoming (preserving existing `actions`
+// when the caller omits them, to avoid wiping coverage patches)
 export function mergeStepsForRunningSchedule(
   schedule: RampScheduleInterface,
   incomingSteps: RampScheduleInterface["steps"],
@@ -3019,4 +3341,141 @@ export async function updateRampSteps(
   await syncLinkedSafeRolloutForRampState(ctx, ensured);
 
   return { schedule: ensured };
+}
+
+// Live ramp control — start/pause/resume/advance/rewind/complete/restart and
+// target attach/eject — changes what users are served right now, so it takes
+// publish authority over the environments the schedule reaches. Shared by the
+// internal controller and the REST handlers so the two can't drift.
+export async function assertCanControlRampSchedule(
+  context: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<void> {
+  const scheduleEnvs =
+    context.models.rampSchedules.publishEnvironments(schedule);
+  // The strictest answer available: every environment the org has.
+  const orgEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
+  // A multi-target schedule mutates every attached flag, so control takes
+  // publish over each target's project against that target's OWN environments —
+  // a union across targets would demand authority the schedule never acts on.
+  // Keyed by feature so two targets on different rules of the same feature
+  // union their environments instead of the later replacing the earlier.
+  const checks = new Map<string, Set<string>>();
+  // Every rule id this schedule could touch for a target: the target's own AND
+  // every `patch.ruleId` its actions name — the executor resolves rules from the
+  // patch, not `target.ruleId`, so a dev-only target can carry a production patch.
+  const ruleIdsForTarget = (target: { id: string; ruleId?: string | null }) =>
+    rampTargetRuleIds(schedule, target);
+
+  // Footprint is what each rule CURRENTLY serves, not what the patch names: a
+  // patch's `environments` REPLACES the field, so narrowing production → dev is
+  // still a production change the patch alone never mentions.
+  const ruleEnvs = await getFeatureRuleEnvironmentsByIds(
+    context,
+    (schedule.targets ?? []).flatMap((t) =>
+      ruleIdsForTarget(t).map((ruleId) => ({
+        featureId: t.entityId,
+        ruleId,
+        // Same env scoping as `resolveRampTargets`, so the gate resolves the
+        // sibling set the write will patch.
+        environment: t.environment ?? undefined,
+      })),
+    ),
+  );
+  for (const target of schedule.targets ?? []) {
+    // Union across every rule this target can reach: if ANY of them serves
+    // production, the footprint says production.
+    const reachable = ruleIdsForTarget(target).map((ruleId) =>
+      ruleEnvs.get(
+        rampRuleEnvKey(
+          target.entityId,
+          ruleId,
+          target.environment ?? undefined,
+        ),
+      ),
+    );
+    const currentRuleEnvs: string[] | "all" = reachable.some((r) => r === "all")
+      ? "all"
+      : reachable.flatMap((r) => (Array.isArray(r) ? r : []));
+    // The same shared per-target footprint call the Publish control makes, so
+    // the two gates can't drift.
+    const envs = rampTargetFootprint({
+      schedule,
+      target,
+      currentRuleEnvs,
+      allEnvironments: orgEnvironmentIds,
+    });
+    const existing = checks.get(target.entityId) ?? new Set<string>();
+    // "all" has already been resolved against the organization's environments.
+    for (const env of envs) existing.add(env);
+    checks.set(target.entityId, existing);
+  }
+  // The anchor feature is always checked, against the schedule-wide footprint
+  // when it isn't itself a target.
+  if (!checks.has(schedule.entityId)) {
+    // As in the per-target arm, an unscoped "all" resolves to every org
+    // environment, never the patch list.
+    const anchorEnvs =
+      getEnvsFromRampSchedule(schedule) === "all"
+        ? orgEnvironmentIds
+        : scheduleEnvs;
+    checks.set(schedule.entityId, new Set(anchorEnvs));
+  }
+
+  // Raw projects, not a read-filtered fetch: `getFeature` returns null for a
+  // feature the CALLER cannot read, and an unreadable target is precisely the
+  // one that must still be checked. A target that is truly gone contributes no
+  // project and is checked against the global scope — the strictest answer.
+  const projectsById = await getFeatureProjectsByIds(context, [
+    ...checks.keys(),
+  ]);
+  for (const [featureId, envSet] of checks) {
+    const environments = Array.from(envSet);
+    if (
+      !context.permissions.canPublishFeature(
+        { project: projectsById.get(featureId) },
+        environments,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  }
+}
+
+// Config-edit gate for PUT-style updates of a not-yet-running schedule, shared
+// by the dashboard PUT /ramp-schedule/:id and the REST PUT /ramp-schedules/:id.
+// Fields the poller executes — fire times and the actions/steps it will apply —
+// are publish-class to touch on an ARMABLE schedule, for the same reason the
+// arm itself is: editing them re-aims a live transition the /actions endpoints
+// would refuse this caller. Name and monitoring edits stay draft-class.
+//
+// Armable is `computeNextProcessAt` answering non-null — the same function the
+// poller keys off. Checked BOTH before (`existing.nextProcessAt`) and after
+// (`updates.nextProcessAt`, which the caller has already recomputed): a
+// dateless or approval-gated schedule fires nothing, so editing its steps is
+// draft-class; but disarming a schedule that IS armed re-aims a live transition
+// just as arming one does. Both the PRE-edit and POST-edit aim are asserted:
+// checking `existing` alone would let a dateless schedule with dev-only steps
+// be armed in ONE put that also swapped in production steps — the incoming
+// steps are what will fire, so they answer too.
+export const RAMP_EXECUTION_FIELDS = [
+  "startDate",
+  "cutoffDate",
+  "startActions",
+  "steps",
+  "endActions",
+] as const;
+export async function assertCanEditRampScheduleConfig(
+  context: ReqContext | ApiReqContext,
+  existing: RampScheduleInterface,
+  updates: Record<string, unknown>,
+): Promise<void> {
+  const touchesExecution = RAMP_EXECUTION_FIELDS.some((k) => k in updates);
+  if (!touchesExecution) return;
+  if (!existing.nextProcessAt && !updates.nextProcessAt) return;
+  await assertCanControlRampSchedule(context, existing);
+  await assertCanControlRampSchedule(context, {
+    ...existing,
+    ...updates,
+  } as RampScheduleInterface);
 }

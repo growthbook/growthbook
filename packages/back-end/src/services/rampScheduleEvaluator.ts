@@ -7,6 +7,10 @@ import { expandMetricGroups } from "shared/experiments";
 import { getHealthSettings } from "shared/enterprise";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
+  findAnalysisComputeFailure,
+  getSafeRolloutSnapshotAnalysis,
+} from "shared/util";
+import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
@@ -27,6 +31,7 @@ import {
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 
 export type EvalDecision =
   | { action: "advance" }
@@ -305,6 +310,19 @@ async function evaluateMonitoredStep(
   );
   if (experimentHealthDecision) return experimentHealthDecision;
 
+  // A metric that failed to compute can't be judged safe, so hold rather than
+  // advance. After the rollback checks (rollback beats hold), before the
+  // sample-size gate (more data won't fix a compute error).
+  const computeFailure = findAnalysisComputeFailure(
+    getSafeRolloutSnapshotAnalysis(summarySnapshot),
+  );
+  if (computeFailure) {
+    return {
+      action: "hold",
+      reason: `Guardrail metric ${computeFailure.metricId} failed to compute — holding step until it recovers`,
+    };
+  }
+
   const resultsStatus = summary.resultsStatus;
   if (!resultsStatus) {
     return { action: "hold", reason: "No results status available yet" };
@@ -407,6 +425,7 @@ function checkScheduleGuardrailSignals(
 
   return null;
 }
+
 function checkExperimentHealth(
   ctx: ReqContext | ApiReqContext,
   safeRollout: SafeRolloutInterface,
@@ -533,12 +552,16 @@ export async function applyRampEvaluationDecision(
 }
 
 export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
-  ctx: ReqContext,
+  requestCtx: ReqContext,
   safeRollout: SafeRolloutInterface,
   now: Date = new Date(),
 ): Promise<void> {
   if (!safeRollout.rampScheduleId) return;
   const rampScheduleId = safeRollout.rampScheduleId;
+
+  // A scheduler decision, so it runs on the same authority as the cron tick:
+  // the member whose snapshot completed may not be able to publish the feature.
+  const ctx = getContextForAgendaJobByOrgObject(requestCtx.org);
 
   // Pre-lock screen: don't pay lock writes for no-op snapshot completions.
   // Re-screened inside the lock.

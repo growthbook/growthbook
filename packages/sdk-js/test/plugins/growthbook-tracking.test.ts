@@ -50,7 +50,7 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(75);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `https://us1.gb-ingest.com/track?client_key=test`,
+      `https://us-east-1.gb-ingest.com/track?client_key=test`,
       {
         method: "POST",
         headers: {
@@ -157,6 +157,45 @@ describe("growthbookTrackingPlugin", () => {
     // Should NOT have been sent to the server
     await sleep(150);
     expect(fetchMock).not.toHaveBeenCalled();
+
+    gb.destroy();
+  });
+
+  it("can disable feature usage events independently", async () => {
+    const eventFilter = jest.fn(() => true);
+    const gb = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [
+        growthbookTrackingPlugin({
+          enableFeatureUsageEvents: false,
+          eventFilter,
+        }),
+      ],
+    });
+    gb.initSync({
+      payload: {
+        features: {
+          feature: { defaultValue: true },
+        },
+      },
+    });
+
+    const user = gb.createScopedInstance({ attributes: { user_id: "1" } });
+    user.evalFeature("feature");
+    user.runInlineExperiment({
+      key: "my-experiment",
+      variations: [false, true],
+      hashAttribute: "user_id",
+      hashVersion: 2,
+    });
+    user.logEvent("Custom Event");
+
+    await sleep(150);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      body.map((event: { event_name: string }) => event.event_name),
+    ).toEqual([EVENT_EXPERIMENT_VIEWED, "Custom Event"]);
+    expect(eventFilter).toHaveBeenCalledTimes(2);
 
     gb.destroy();
   });
@@ -303,7 +342,7 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(150);
 
     expect(fetchMock.mock.calls[2][0]).toBe(
-      "https://us1.gb-ingest.com/track?client_key=test2",
+      "https://us-east-1.gb-ingest.com/track?client_key=test2",
     );
     const body3 = JSON.parse(fetchMock.mock.calls[2][1].body);
     expect(body3.length).toBe(1);
@@ -424,7 +463,7 @@ describe("growthbookTrackingPlugin", () => {
 
       expect(sendBeaconMock).toHaveBeenCalledTimes(1);
       const [url, blob] = sendBeaconMock.mock.calls[0];
-      expect(url).toBe("https://us1.gb-ingest.com/track?client_key=test");
+      expect(url).toBe("https://us-east-1.gb-ingest.com/track?client_key=test");
       // jsdom's Blob has no .text() - read via FileReader
       const text = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();

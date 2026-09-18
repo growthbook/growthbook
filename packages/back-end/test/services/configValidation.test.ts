@@ -29,7 +29,9 @@ const makeContext = ({
   ({
     org: { settings },
     ignoreWarnings,
-    skipSchemaValidation,
+    // The per-family method the validators consult now — the old boolean getter
+    // ORed bypass authority across models.
+    canSkipSchemaValidationFor: () => skipSchemaValidation,
     models: {
       configs: {
         getAllForReconcile: async () => configs as ConfigInterface[],

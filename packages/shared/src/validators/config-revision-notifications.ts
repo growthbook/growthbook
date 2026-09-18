@@ -71,6 +71,23 @@ export type ConfigRevisionReopenedPayload = z.infer<
   typeof configRevisionReopenedPayload
 >;
 
+export const configRevisionRecalledPayload = configRevisionWebhookPayload;
+export type ConfigRevisionRecalledPayload = z.infer<
+  typeof configRevisionRecalledPayload
+>;
+
+export const configRevisionReviewRetractedPayload =
+  configRevisionWebhookPayload;
+export type ConfigRevisionReviewRetractedPayload = z.infer<
+  typeof configRevisionReviewRetractedPayload
+>;
+
+export const configRevisionPublishScheduleChangedPayload =
+  configRevisionWebhookPayload;
+export type ConfigRevisionPublishScheduleChangedPayload = z.infer<
+  typeof configRevisionPublishScheduleChangedPayload
+>;
+
 // `change` indicates which kind of config field was mutated, derived from the
 // revision's proposed-changes patch op paths when the event is dispatched.
 // Configs add a "schema" kind on top of the constant set (schema-only edits).

@@ -2,7 +2,9 @@ import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
   ExperimentMetricDefinition,
+  getFactMetricFactTableIds,
   isFactMetric,
+  isFactMetricJoinable,
   isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
@@ -31,7 +33,7 @@ type MetricOption = {
   tags: string[];
   projects: string[];
   factTables: string[];
-  userIdTypes: string[];
+  joinable: boolean;
   isGroup: boolean;
   metrics?: string[];
   managedBy?: string;
@@ -42,12 +44,14 @@ type MetricOption = {
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
   noQuantileGoalMetrics?: boolean;
+  noFactFunnelMetrics?: boolean;
   isSingular?: boolean;
 };
 
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
   noQuantileGoalMetrics = false,
+  noFactFunnelMetrics = false,
   isSingular = false,
 }: MetricsSelectorTooltipProps) => {
   return (
@@ -75,6 +79,13 @@ export const MetricsSelectorTooltip = ({
                 {isSingular
                   ? "is not a quantile metric"
                   : "are not quantile metrics"}
+              </li>
+            ) : null}
+            {noFactFunnelMetrics ? (
+              <li>
+                {isSingular
+                  ? "is not a funnel metric"
+                  : "are not funnel metrics"}
               </li>
             ) : null}
           </ul>
@@ -136,8 +147,8 @@ const MetricsSelector: FC<{
     metrics,
     metricGroups,
     factMetrics,
-    factTables,
     getExperimentMetricById,
+    getFactTableById,
     getDatasourceById,
     mutateDefinitions,
   } = useDefinitions();
@@ -179,7 +190,16 @@ const MetricsSelector: FC<{
             tags: m.tags || [],
             projects: m.projects || [],
             factTables: [],
-            userIdTypes: m.userIdTypes || [],
+            joinable:
+              !datasourceSettings ||
+              !userIdType ||
+              !(m.userIdTypes || []).length
+                ? true
+                : isMetricJoinable(
+                    m.userIdTypes || [],
+                    userIdType,
+                    datasourceSettings,
+                  ),
             isGroup: false,
             managedBy: m.managedBy,
             disabled: disabledInfo.disabled,
@@ -215,16 +235,16 @@ const MetricsSelector: FC<{
                 tags: m.tags || [],
                 projects: m.projects || [],
                 managedBy: m.managedBy,
-                factTables: [
-                  m.numerator.factTableId,
-                  (m.metricType === "ratio" && m.denominator
-                    ? m.denominator.factTableId
-                    : "") || "",
-                ],
-                // only focus on numerator user id types
-                userIdTypes:
-                  factTables.find((f) => f.id === m.numerator.factTableId)
-                    ?.userIdTypes || [],
+                factTables: getFactMetricFactTableIds(m),
+                joinable:
+                  !datasourceSettings || !userIdType
+                    ? true
+                    : isFactMetricJoinable(
+                        m,
+                        userIdType,
+                        getFactTableById,
+                        datasourceSettings,
+                      ),
                 isGroup: false,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
@@ -246,7 +266,7 @@ const MetricsSelector: FC<{
                 tags: mg.tags || [],
                 projects: mg.projects || [],
                 factTables: [],
-                userIdTypes: [],
+                joinable: true,
                 isGroup: true,
                 metrics: mg.metrics,
                 disabled: disabledInfo.disabled,
@@ -260,16 +280,12 @@ const MetricsSelector: FC<{
       .filter((m) =>
         datasource ? m.datasource === datasource : !requireDatasource,
       )
-      .filter((m) =>
-        datasourceSettings && userIdType && m.userIdTypes.length
-          ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
-          : true,
-      )
+      .filter((m) => m.joinable)
       .filter((m) => isProjectListValidForProject(m.projects, project));
   }, [
     metrics,
     factMetrics,
-    factTables,
+    getFactTableById,
     metricGroups,
     datasource,
     datasourceSettings,
@@ -341,10 +357,20 @@ const MetricsSelector: FC<{
         opt.metrics.map((m) => {
           const metric = getExperimentMetricById(m);
           if (!metric) return { metric, joinable: false };
-          const userIdTypes = isFactMetric(metric)
-            ? factTables.find((f) => f.id === metric.numerator.factTableId)
-                ?.userIdTypes || []
-            : metric.userIdTypes || [];
+          if (isFactMetric(metric)) {
+            return {
+              metric,
+              joinable: userIdType
+                ? isFactMetricJoinable(
+                    metric,
+                    userIdType,
+                    getFactTableById,
+                    datasourceSettings,
+                  )
+                : true,
+            };
+          }
+          const userIdTypes = metric.userIdTypes || [];
           return {
             metric,
             joinable:
@@ -359,7 +385,7 @@ const MetricsSelector: FC<{
   }, [
     filteredOptions,
     getExperimentMetricById,
-    factTables,
+    getFactTableById,
     userIdType,
     datasourceSettings,
   ]);

@@ -63,6 +63,9 @@ const Field = forwardRef(
       type = "text",
       customClassName: customClassNameProp,
       size = "legacy",
+      // Destructured out of the rest so it isn't spread onto the <input>, which
+      // React rejects as an unknown DOM attribute. The counter below uses it.
+      currentLength,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -154,9 +157,9 @@ const Field = forwardRef(
               {markRequired && <span className="text-danger ml-1">*</span>}
             </label>
           )}
-          {otherProps.currentLength !== undefined && otherProps.maxLength ? (
+          {currentLength !== undefined && otherProps.maxLength ? (
             <div className="font-weight-light">
-              <small>{`${otherProps.currentLength} / ${otherProps.maxLength}`}</small>
+              <small>{`${currentLength} / ${otherProps.maxLength}`}</small>
             </div>
           ) : null}
         </div>

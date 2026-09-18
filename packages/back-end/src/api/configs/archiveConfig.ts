@@ -24,7 +24,14 @@ import {
   assertConfigNotLocked,
   collectConfigLockGate,
 } from "back-end/src/services/configLock";
+import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
+import {
+  archiveServeFootprint,
+  configPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 async function buildResponse(
@@ -49,10 +56,28 @@ async function setArchivedState(
   const { context } = req;
   const config = await context.models.configs.getByKey(key);
   if (!config) {
-    throw new NotFoundError(`Unable to locate the config: ${key}`);
+    throw new NotFoundError(`Unable to locate the Config: ${key}`);
   }
 
-  if (!context.permissions.canUpdateConfig(config, config)) {
+  // Archiving is delete-class; unarchiving returns the Config to service and is
+  // an ordinary publish.
+  if (
+    !canLandArchivedState({
+      permissions: context.permissions,
+      model: "config",
+      entity: config,
+      archived,
+      // Serve footprint — the same helper the adapter and both controllers use.
+      // The scoped list is empty for a base Config, so this pre-check demanded
+      // nothing; the engine backstopped it, but a gate that answers differently
+      // from the one behind it is a gate nobody can reason about.
+      environments: archiveServeFootprint(
+        context,
+        config,
+        configPublishEnvironments(context, config),
+      ),
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -89,8 +114,9 @@ async function setArchivedState(
     ...collectArchiveApprovalGate({
       approvalRequired,
       archived,
-      noun: "config",
+      noun: "Config",
       createDraftPath: `/configs-revisions/${config.key}`,
+      model: "config",
     }),
   ];
   // Soft guards (experiment / locked-dependent / schema-break / archive-dependents)
@@ -109,8 +135,8 @@ async function setArchivedState(
 
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: context.ignoreWarnings,
-    skipSchemaValidation: context.skipSchemaValidation,
-    skipHooks: context.skipHooks,
+    skipSchemaValidation: context.canSkipSchemaValidationFor("config"),
+    skipHooks: context.canSkipHooksFor("config"),
     bypassApprovalPermission: adapter.canBypassApproval(
       context,
       config as Record<string, unknown>,
@@ -126,48 +152,43 @@ async function setArchivedState(
   assertConfigNotLocked(config);
   if (approvalRequired && !canBypass) {
     throw new BadRequestError(
-      "This organization requires approvals for this config. " +
+      "This organization requires approvals for this Config. " +
         `Use \`POST /configs-revisions/${config.key}\` to ${
           archived ? "archive" : "unarchive"
         } it through a draft, or use a role/token with the bypass permission.`,
     );
   }
 
-  if (approvalRequired) {
-    // Record the merged revision FIRST, then apply to the live entity; roll the
-    // revision back if the apply fails, so a merged record never lacks a live change.
-    await ensureLiveRevisionExists(
-      context,
-      "config",
-      config as unknown as Record<string, unknown> & {
-        id: string;
-        owner?: string;
-        dateCreated?: Date;
-      },
-    );
-    const merged = await context.models.revisions.createMerged({
-      type: "config",
-      id: config.id,
-      snapshot: config as unknown as Record<string, unknown>,
-      proposedChanges: patchOps,
-      bypass: true,
-    });
-    let updated: Partial<ConfigInterface>;
-    try {
-      updated = await context.models.configs.update(config, { archived });
-    } catch (e) {
-      try {
-        await context.models.revisions.deleteById(merged.id);
-      } catch {
-        // ignore — surface the original update error
-      }
-      throw e;
-    }
-    await dispatchConfigRevisionEvent(context, merged, { type: "published" });
-    return buildResponse(context, { ...config, ...updated }, bypassed);
-  }
-
-  const updated = await context.models.configs.update(config, { archived });
+  // One recorded, guarded landing whether or not approval was bypassed.
+  await ensureLiveRevisionExists(
+    context,
+    "config",
+    config as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
+  );
+  const { merged, result: updated } = await landDirectChange({
+    context,
+    entityType: "config",
+    entity: config as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    bypass: approvalRequired,
+    changes: { archived },
+    // Reports what it persisted from inside the write, so compensation can
+    // tell "never wrote" from "wrote, then a post-write hook threw".
+    write: (report) =>
+      runGuardedWrite("config", config.id, () =>
+        context.models.configs.updateIfUnchanged(
+          config,
+          { archived },
+          undefined,
+          { onWritten: (doc) => report(doc as Record<string, unknown>) },
+        ),
+      ),
+  });
+  await dispatchConfigRevisionEvent(context, merged, { type: "published" });
   return buildResponse(context, { ...config, ...updated }, bypassed);
 }
 

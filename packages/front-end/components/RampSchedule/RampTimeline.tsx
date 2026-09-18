@@ -12,6 +12,7 @@ import {
   StepHoldConditions,
 } from "shared/validators";
 import stringify from "json-stringify-pretty-compact";
+import { isRampScheduleServing } from "shared/util";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
@@ -379,7 +380,7 @@ function NodePopoverContent({
 }: NodePopoverContentProps) {
   const [loading, setLoading] = useState(false);
 
-  const canAct = !isActive && ["running", "paused"].includes(rs.status);
+  const canAct = !isActive && isRampScheduleServing(rs);
 
   let ctaLabel: string | null = null;
   if (canAct) {

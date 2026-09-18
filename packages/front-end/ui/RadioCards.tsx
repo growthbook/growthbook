@@ -96,6 +96,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                           size={radixSize(labelSize)}
                           className="main-text truncate"
                           style={{ minWidth: 0 }}
+                          title={typeof label === "string" ? label : undefined}
                         >
                           {label || value}
                         </Text>

@@ -1,9 +1,9 @@
 import { Revision, JsonPatchOperation } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
+import { revisionEventRouting } from "back-end/src/services/revisionEventRouting";
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -54,8 +54,16 @@ export async function dispatchSavedGroupRevisionEvent(
       revision,
       context as ApiReqContext,
     );
-    const snapshot = revision.target.snapshot as SavedGroupInterface;
-    const projects = snapshot.projects ?? [];
+    const liveForRouting = await context.models.savedGroups.getById(
+      revision.target.id,
+    );
+    // No `scopedFor`: saved groups have no environment partition, so their events
+    // stay env-unbound and every environment-filtered subscription hears them.
+    const { projects, environments } = await revisionEventRouting({
+      context,
+      revision,
+      liveForRouting,
+    });
 
     const emit = async <T extends SavedGroupRevisionEvent>(
       event: T,
@@ -69,7 +77,7 @@ export async function dispatchSavedGroupRevisionEvent(
         data: { object } as CreateEventData<"savedGroup", T>,
         projects,
         tags: [],
-        environments: [],
+        environments,
         containsSecrets: false,
       });
     };
@@ -151,6 +159,15 @@ export async function dispatchSavedGroupRevisionEvent(
         break;
       case "reopened":
         await emit("revision.reopened", apiRevision);
+        break;
+      case "recalled":
+        await emit("revision.recalled", apiRevision);
+        break;
+      case "reviewRetracted":
+        await emit("revision.reviewRetracted", apiRevision);
+        break;
+      case "publishScheduleChanged":
+        await emit("revision.publishScheduleChanged", apiRevision);
         break;
       case "reverted": {
         // `revertedFrom` is the id of the revision being reverted to; surface

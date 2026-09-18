@@ -1,3 +1,4 @@
+import { canCreateInSelectedScope } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
@@ -17,7 +18,6 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Table, {
   TableHeader,
@@ -27,10 +27,6 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import {
-  draftStatusDots,
-  draftStatusTooltip,
-} from "@/components/Reviews/RevisionStatusBadge";
 import { useConstantDraftStates } from "@/hooks/useConstantDraftStates";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import ConstantModal from "@/components/Constants/ConstantModal";
@@ -112,7 +108,6 @@ export default function ConstantsPage(): React.ReactElement {
   );
 
   const draftHook = useConstantDraftStates();
-  const hasDraftStates = Object.keys(draftHook.draftStates).length > 0;
 
   const {
     items,
@@ -169,17 +164,10 @@ export default function ConstantsPage(): React.ReactElement {
     (f) => f.field === "has" && f.values.includes("draft"),
   );
 
-  // Fetch all draft states when filtering by draft, otherwise just the visible
-  // rows (the hook dedupes already-fetched ids).
   useEffect(() => {
-    if (hasDraftFilter) {
-      draftHook.fetchAll();
-    } else {
-      const ids = items.map((c) => c.id);
-      if (ids.length) draftHook.fetchSome(ids);
-    }
+    if (hasDraftFilter) draftHook.fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, hasDraftFilter]);
+  }, [hasDraftFilter]);
 
   // Project-scoped: the archived facet/badge must reflect the constants in scope
   // for the current project, not the org-wide list.
@@ -194,8 +182,10 @@ export default function ConstantsPage(): React.ReactElement {
     return <LoadingOverlay />;
   }
 
-  const canAdd = permissionsUtil.canCreateConstant({
-    project: project || undefined,
+  const canAdd = canCreateInSelectedScope({
+    project,
+    projectIds: projects.map((p) => p.id),
+    canCreateIn: (p) => permissionsUtil.canCreateConstant({ project: p }),
   });
   // Include archived so an org with only archived constants still gets the list
   // (and its `is:archived` facet) rather than the empty state.
@@ -217,14 +207,14 @@ export default function ConstantsPage(): React.ReactElement {
           {hasConstants && canAdd && addButton}
         </Flex>
         <Text as="p" mb="3" color="text-mid">
-          Define a value once and reference it across your feature flags. Change
+          Define a value once and reference it across your Feature Flags. Change
           it in one place and every consumer updates.
         </Text>
 
         {!hasConstants ? (
           <EmptyState
-            title="Reusable values for your configs"
-            description="Define a value once and reference it from feature flags with {{ @const:key }}. Change it in one place and every consumer updates."
+            title="Reusable values for your Configs"
+            description="Define a value once and reference it from Feature Flags with {{ @const:key }}. Change it in one place and every consumer updates."
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/constants"
@@ -280,7 +270,6 @@ export default function ConstantsPage(): React.ReactElement {
                     setSearchValue={setSearchValue}
                     constants={items}
                     hasArchived={hasArchived}
-                    hasDraftStates={hasDraftStates}
                   />
                 </Flex>
                 <Table variant="list" stickyHeader roundedCorners>
@@ -292,15 +281,12 @@ export default function ConstantsPage(): React.ReactElement {
                       <SortableTableColumnHeader field="key">
                         Key
                       </SortableTableColumnHeader>
+                      <TableColumnHeader>Project</TableColumnHeader>
                       <SortableTableColumnHeader field="typeLabel">
                         Type
                       </SortableTableColumnHeader>
                       <TableColumnHeader style={{ width: "25%" }}>
                         Description
-                      </TableColumnHeader>
-                      <TableColumnHeader>Projects</TableColumnHeader>
-                      <TableColumnHeader style={{ textAlign: "center" }}>
-                        Draft Status
                       </TableColumnHeader>
                       <SortableTableColumnHeader field="dateUpdated">
                         Last Modified
@@ -309,7 +295,6 @@ export default function ConstantsPage(): React.ReactElement {
                   </TableHeader>
                   <TableBody>
                     {items.map((c) => {
-                      const draftEntry = draftHook.draftStates[c.id];
                       return (
                         <TableRow
                           key={c.id}
@@ -335,10 +320,6 @@ export default function ConstantsPage(): React.ReactElement {
                             </Flex>
                           </TableCell>
                           <TableCell>{c.key}</TableCell>
-                          <TableCell>{c.typeLabel}</TableCell>
-                          <TableCell>
-                            {truncateString(c.description || "", 80)}
-                          </TableCell>
                           <TableCell>
                             {c.project ? (
                               <ProjectBadges
@@ -347,45 +328,9 @@ export default function ConstantsPage(): React.ReactElement {
                               />
                             ) : null}
                           </TableCell>
-                          <TableCell style={{ textAlign: "center" }}>
-                            {draftEntry
-                              ? (() => {
-                                  const dots = draftStatusDots(draftEntry);
-                                  if (!dots.length) return null;
-                                  return (
-                                    <Tooltip
-                                      flipTheme={false}
-                                      body={draftStatusTooltip(draftEntry)}
-                                      usePortal
-                                    >
-                                      <Flex
-                                        align="center"
-                                        justify="center"
-                                        gap="1"
-                                        style={{
-                                          width: "100%",
-                                          height: "100%",
-                                          padding: "0 4px",
-                                        }}
-                                      >
-                                        {dots.map((bg) => (
-                                          <span
-                                            key={bg}
-                                            style={{
-                                              display: "block",
-                                              width: 8,
-                                              height: 8,
-                                              borderRadius: "50%",
-                                              flexShrink: 0,
-                                              background: bg,
-                                            }}
-                                          />
-                                        ))}
-                                      </Flex>
-                                    </Tooltip>
-                                  );
-                                })()
-                              : null}
+                          <TableCell>{c.typeLabel}</TableCell>
+                          <TableCell>
+                            {truncateString(c.description || "", 80)}
                           </TableCell>
                           <TableCell title={datetime(c.dateUpdated)}>
                             {date(c.dateUpdated)}
@@ -395,10 +340,10 @@ export default function ConstantsPage(): React.ReactElement {
                     })}
                     {items.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} style={{ textAlign: "center" }}>
+                        <TableCell colSpan={6} style={{ textAlign: "center" }}>
                           {isFiltered
-                            ? "No constants match the current filter."
-                            : "No constants found."}
+                            ? "No Constants match the current filter."
+                            : "No Constants found."}
                         </TableCell>
                       </TableRow>
                     )}

@@ -455,7 +455,7 @@ export default function ConfigFieldRow({
                   {f.source ? (
                     <Link
                       href={`/configs/${f.source}`}
-                      title={`View config: ${sourceName}`}
+                      title={`View Config: ${sourceName}`}
                       className="hover-underline"
                       style={{
                         display: "flex",

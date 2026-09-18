@@ -101,6 +101,7 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
+import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   removeManagedWarehouseLegacyIdentifier,
@@ -489,9 +490,6 @@ export async function putDataSource(
     }
 
     if (settings) {
-      // Event Forwarder managed identifier types (`ef_` prefixed) used to be
-      // rejected here. They're intentionally editable and deletable for now —
-      // restore the guard if we need to lock them down again.
       updates.settings = settings;
     }
 
@@ -1329,13 +1327,20 @@ export async function testLimitedQuery(
     templateVariables?: TemplateVariables;
     timestampColumn?: string;
     limit?: number;
+    detectColumns?: boolean;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
 
-  const { query, datasourceId, templateVariables, timestampColumn, limit } =
-    req.body;
+  const {
+    query,
+    datasourceId,
+    templateVariables,
+    timestampColumn,
+    limit,
+    detectColumns,
+  } = req.body;
 
   // Sanity check to prevent potential abuse
   if (limit && limit > SQL_ROW_LIMIT) {
@@ -1345,7 +1350,9 @@ export async function testLimitedQuery(
     });
   }
 
-  const maxLimit = limit || SQL_ROW_LIMIT;
+  // Nullish, not falsy: 0 is a meaningful limit -- it reads the query's output
+  // schema without reading any rows.
+  const maxLimit = limit ?? SQL_ROW_LIMIT;
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
@@ -1355,13 +1362,14 @@ export async function testLimitedQuery(
     });
   }
 
-  const { results, sql, duration, error } = await testQuery(
+  const { results, sql, duration, error, columns } = await testQuery(
     context,
     datasource,
     query,
     templateVariables,
     maxLimit,
     timestampColumn,
+    detectColumns,
   );
 
   res.status(200).json({
@@ -1370,6 +1378,7 @@ export async function testLimitedQuery(
     results,
     sql,
     error,
+    columns,
   });
 }
 
@@ -1578,14 +1587,15 @@ export async function cancelDataSourceQuery(
     true,
   );
 
-  if (integration.cancelQuery && query.externalId) {
-    try {
-      await integration.cancelQuery(query.externalId, query.externalIdMetadata);
-    } catch (e: unknown) {
-      // Log but continue - we'll still mark the query as failed
-      const msg = e instanceof Error ? e.message : String(e);
-      logger.debug(e, `Failed to cancel query on warehouse: ${msg}`);
-    }
+  if (query.externalId) {
+    await cancelQueryAndConfirm(
+      integration,
+      {
+        externalId: query.externalId,
+        metadata: query.externalIdMetadata,
+      },
+      { datasourceId, queryId: query.id },
+    );
   }
 
   const cancelledBy =

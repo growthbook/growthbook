@@ -454,7 +454,7 @@ export type ApiConstant = z.infer<typeof apiConstantValidator>;
 const bypassApprovalField = z
   .boolean()
   .describe(
-    "Set to true to skip the approval flow when the org requires approvals for this constant's project. Requires the `bypassApprovalChecks` permission (or the org-level REST bypass setting). When approvals aren't required, this flag has no effect.",
+    "Set to true to write directly to the live Constant without approval. The caller must have Bypass draft approvals access in the Constant's Project, unless the organization enables the REST API approval bypass. This field has no effect when approval is not required.",
   )
   .optional();
 
@@ -501,6 +501,12 @@ const constantKeyParams = z
 const apiConstantResponse = z
   .object({ constant: apiConstantValidator })
   .strict();
+
+// An update lands directly, so it can skip an approval requirement — reported the
+// same way every other publish surface reports one.
+const apiConstantUpdateResponse = apiConstantResponse.extend({
+  bypassedGates: publishBypassedGatesField,
+});
 
 // Archive/unarchive publish through the standard gate contract, so a successful
 // call can report gates that were bypassed by the caller's authority.
@@ -587,8 +593,10 @@ export const updateConstantValidator = {
   bodySchema: updateConstantApiBody,
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
-  responseSchema: apiConstantResponse,
+  responseSchema: apiConstantUpdateResponse,
   summary: "Partially update a single constant",
+  description:
+    "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
   operationId: "updateConstant",
   tags: ["constants"],
   method: "post" as const,

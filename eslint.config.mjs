@@ -26,6 +26,9 @@ const { name: _nextName, ...nextRecommendedConfig } =
 
 export default defineConfig([
   globalIgnores([
+    // Claude Code parks agent worktrees (full checkouts) here; linting them
+    // rewrites another branch's files.
+    ".claude/",
     "**/.next",
     "**/dist",
     "**/coverage",
@@ -34,6 +37,7 @@ export default defineConfig([
     "docs/.docusaurus",
     "docs/docusaurus.config.js",
     "docs/build",
+    "docs-archive/",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
     "packages/shared/types/*.js",
@@ -148,6 +152,15 @@ export default defineConfig([
         },
       ],
 
+      "react/jsx-key": [
+        "error",
+        {
+          checkFragmentShorthand: true,
+          checkKeyMustBeforeSpread: true,
+          warnOnDuplicates: true,
+        },
+      ],
+
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
 
@@ -183,9 +196,9 @@ export default defineConfig([
     },
   },
   {
-    // Standalone CommonJS runtime script (no build step): require() is correct
+    // Standalone runtime/tooling scripts (no build step): require() is correct
     // and console is the intended logging channel.
-    files: ["./preview/idle-monitor.js"],
+    files: ["./preview/idle-monitor.js", "./scripts/*.js", "./scripts/*.mjs"],
 
     rules: {
       "@typescript-eslint/no-require-imports": "off",

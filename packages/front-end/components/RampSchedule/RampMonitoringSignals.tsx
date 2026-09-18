@@ -15,6 +15,7 @@ import {
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { expandMetricGroups } from "shared/experiments";
+import { isRampScheduleServing, pValueFormatter } from "shared/util";
 import Badge from "@/ui/Badge";
 import Button, { Size as ButtonSize } from "@/ui/Button";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
@@ -125,10 +126,6 @@ function buildDummySignalData({
       },
     } as unknown as SafeRolloutInterface,
   };
-}
-
-function formatPValue(value: number): string {
-  return value < 0.001 ? "<0.001" : value.toFixed(3);
 }
 
 function getHoldStatusPrefix(rampSchedule: RampScheduleInterface): string {
@@ -254,7 +251,7 @@ function computeSignals(
   const mc = rampSchedule.monitoringConfig;
 
   const isMonitored = rampSchedule.steps.some((s) => s.monitored);
-  if (!isMonitored || !["running", "paused"].includes(rampSchedule.status)) {
+  if (!isMonitored || !isRampScheduleServing(rampSchedule)) {
     return { signals, actions, details };
   }
 
@@ -304,7 +301,7 @@ function computeSignals(
       signals.push("srm");
       actions["srm"] = (mc?.srmAction as SignalAction) ?? "hold";
       details["srm"] =
-        `SRM p-value ${formatPValue(srmPValue)} is below threshold ${srmThreshold}`;
+        `SRM p-value ${pValueFormatter(srmPValue)} is below threshold ${srmThreshold}`;
     }
   }
 
@@ -589,7 +586,7 @@ export interface RampHealthOverview {
 export function isOnMonitoredStep(
   rampSchedule: RampScheduleInterface,
 ): boolean {
-  if (!["running", "paused"].includes(rampSchedule.status)) return false;
+  if (!isRampScheduleServing(rampSchedule)) return false;
   const step = rampSchedule.steps[rampSchedule.currentStepIndex];
   return !!step?.monitored;
 }

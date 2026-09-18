@@ -202,7 +202,7 @@ export function validateConfigValue({
             .map((k) => `"${k}"`)
             .join(
               ", ",
-            )}: this config has no schema and does not allow extra fields.`,
+            )}: this Config has no schema and does not allow extra fields.`,
         ],
       };
     }

@@ -23,7 +23,7 @@ def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
     if not mean_a_unadjusted:
         mean_a_unadjusted = mean_a
     if relative:
-        return (mean_b - mean_a) / mean_a_unadjusted
+        return (mean_b - mean_a) / abs(mean_a_unadjusted)
     else:
         return mean_b - mean_a
 

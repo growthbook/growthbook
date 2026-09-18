@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import {
   canInlineFilterColumn,
-  expandVirtualColumnsInSql,
+  getFactTableTimestampColumn,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
@@ -14,7 +14,9 @@ import {
   UpdateFactFilterProps,
   UpdateColumnProps,
   UpdateFactTableProps,
+  RowFilterTestResults,
   TestFactFilterProps,
+  TestRowFiltersProps,
   TestVirtualColumnProps,
   FactFilterTestResults,
   ColumnInterface,
@@ -28,6 +30,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createFactTable,
+  mergeUpsertColumns,
   getAllFactTablesForOrganization,
   getFactTable,
   createColumn,
@@ -46,20 +49,25 @@ import {
   getIntegrationIdentifierQuote,
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import {
-  runRefreshColumnsQuery,
+  runColumnDetectionQuery,
+  refreshColumnTopValues,
   runColumnsTopValuesQuery,
   populateAutoSlices,
-  queueFactTableColumnsRefresh,
-} from "back-end/src/jobs/refreshFactTableColumns";
+} from "back-end/src/services/factTableColumns";
 import {
+  buildColumnTypeMaps,
   deriveUserIdTypesFromColumns,
   validateAggregatedFactTableSettings,
+  validateColumnMappingTargets,
+  validateNewUserIdColumnKeys,
   getNextUpdateOccurrence,
   validateVirtualColumnProps,
   validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
+import { columnNamesMatch, getColumnByName } from "back-end/src/util/sql";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
   AggregatedFactTableStatus,
@@ -71,6 +79,11 @@ import {
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import {
+  testFilterQuery,
+  testRowFiltersQuery,
+  testVirtualColumnQuery,
+} from "back-end/src/services/factTableTestQueries";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -103,151 +116,20 @@ export const getFactTableById = async (
   });
 };
 
-async function testFilterQuery(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  factTable: FactTableInterface,
-  filter: string,
-): Promise<FactFilterTestResults> {
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const timestampColumn = "timestamp";
-
-  const sql = integration.getTestQuery({
-    // Must have a newline after factTable sql in case it ends with a comment.
-    // Expand any virtual column references so the filter runs against real columns.
-    query: `SELECT * FROM (
-      ${factTable.sql}
-    ) f WHERE ${expandVirtualColumnsInSql(
-      filter,
-      factTable,
-      getIntegrationIdentifierQuote(integration),
-    )}`,
-    templateVariables: {
-      eventName: factTable.eventName,
-    },
-    testDays: context.org.settings?.testQueryDays,
-    timestampColumn,
-  });
-
-  try {
-    const results = await integration.runTestQuery(
-      sql,
-      [timestampColumn],
-      "factTableValidation",
-    );
-    return {
-      sql,
-      ...results,
-    };
-  } catch (e) {
-    return {
-      sql,
-      error: e.message,
-    };
-  }
-}
-
-async function testVirtualColumnQuery(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  factTable: FactTableInterface,
-  sql: string,
-  columnId?: string,
-): Promise<FactFilterTestResults> {
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  // The preview runs the expression, so apply the same structural check as the
-  // save paths rather than letting an unsafe expression reach the warehouse.
-  validateVirtualColumnSql(sql);
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const timestampColumn = "timestamp";
-
-  // Alias the computed expression with the real column id (sanitized to a safe
-  // SQL identifier) so the preview matches what the saved column will be named.
-  const alias =
-    (columnId || "").replace(/[^a-zA-Z0-9_]/g, "") || "__virtual_column";
-
-  // Expand any nested virtual column references into their real SQL (each
-  // wrapped in parentheses) so the preview runs against real columns and matches
-  // how the column resolves in metric queries. Exclude the column being edited
-  // so a self-reference surfaces as an error instead of silently expanding to
-  // its previously-saved definition.
-  const expandedSql = expandVirtualColumnsInSql(
-    sql,
-    {
-      columns: factTable.columns.filter((c) => c.column !== columnId),
-    },
-    getIntegrationIdentifierQuote(integration),
-  );
-
-  // Select the computed expression alongside the raw rows. The expression
-  // references bare column names, which resolve against the aliased subquery.
-  const testSql = integration.getTestQuery({
-    // Must have a newline after factTable sql in case it ends with a comment
-    query: `SELECT (${expandedSql}) AS ${alias}, * FROM (
-      ${factTable.sql}
-    ) f`,
-    templateVariables: {
-      eventName: factTable.eventName,
-    },
-    testDays: context.org.settings?.testQueryDays,
-    timestampColumn,
-    // Only preview rows where the tested expression is non-null, so an empty
-    // result reliably means "no matching data" rather than an arbitrary sample
-    // of null rows.
-    notNullColumn: alias,
-  });
-
-  try {
-    const results = await integration.runTestQuery(
-      testSql,
-      [timestampColumn],
-      "factTableValidation",
-    );
-    return {
-      sql: testSql,
-      ...results,
-    };
-  } catch (e) {
-    return {
-      sql: testSql,
-      error: e.message,
-    };
-  }
-}
-
-// Helper to merge existing columns with new type map from LIMIT 0
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
   typeMap: Map<string, FactTableColumnType>,
+  caseSensitive: boolean,
 ): ColumnInterface[] {
   const columns = cloneDeep(existingColumns);
 
-  // Update existing columns
   columns.forEach((col) => {
     // Virtual columns are user-defined and never appear in the SQL output
     // schema, so preserve them instead of marking them deleted.
     if (col.isVirtual) {
       return;
     }
-    const type = typeMap.get(col.column);
+    const type = getColumnByName(typeMap, col.column, caseSensitive);
     if (type === undefined) {
       col.deleted = true;
       col.dateUpdated = new Date();
@@ -256,7 +138,6 @@ function mergeColumnsWithTypeMap(
         col.deleted = false;
         col.dateUpdated = new Date();
       }
-      // Only update datatype if it was previously empty (preserve rich types)
       if (col.datatype === "" && type !== "") {
         col.datatype = type;
         col.dateUpdated = new Date();
@@ -264,9 +145,10 @@ function mergeColumnsWithTypeMap(
     }
   });
 
-  // Add new columns
   typeMap.forEach((datatype, column) => {
-    if (!columns.some((c) => c.column === column)) {
+    if (
+      !columns.some((c) => columnNamesMatch(c.column, column, caseSensitive))
+    ) {
       columns.push({
         column,
         datatype,
@@ -283,23 +165,17 @@ function mergeColumnsWithTypeMap(
   return columns;
 }
 
-// Result type for the unified refreshColumns function
 export type RefreshColumnsResult = {
   columns: ColumnInterface[];
-  needsBackgroundRefresh: boolean; // True if LIMIT 0 was used and background job needed
+  needsBackgroundRefresh: boolean;
 };
 
-/**
- * Unified function to refresh columns that handles both LIMIT 0 (fast) and LIMIT 20 (full) paths.
- * - For datasources supporting LIMIT 0: Returns basic columns from metadata, signals background refresh needed
- * - For other datasources: Returns full columns with type inference, no background refresh needed
- */
 export async function refreshColumns(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "columns" | "userIdTypes"
+    "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
   >,
   forceColumnRefresh?: boolean,
 ): Promise<RefreshColumnsResult> {
@@ -313,14 +189,9 @@ export async function refreshColumns(
     throw new Error("Testing not supported on this data source");
   }
 
-  // Check if datasource supports LIMIT 0 for fast column metadata
-  if (
-    !forceColumnRefresh &&
-    integration.supportsLimitZeroColumnValidation?.()
-  ) {
-    const timestampColumn = "timestamp";
+  if (!forceColumnRefresh) {
+    const timestampColumn = getFactTableTimestampColumn(factTable);
 
-    // Fast path: LIMIT 0 query
     const sql = integration.getTestQuery({
       query: factTable.sql,
       templateVariables: { eventName: factTable.eventName },
@@ -339,25 +210,19 @@ export async function refreshColumns(
       throw new Error("SQL did not return any columns");
     }
 
-    // Build type map from metadata (includes "json" without fields)
-    const typeMap = new Map<string, FactTableColumnType>();
-    result.columns.forEach((col) => {
-      typeMap.set(col.name, col.dataType || "");
-    });
-
-    // Merge with existing columns (preserve rich types like json with jsonFields)
-    const columns = mergeColumnsWithTypeMap(factTable.columns || [], typeMap);
+    const { datatypes } = buildColumnTypeMaps(result);
+    const columns = mergeColumnsWithTypeMap(
+      factTable.columns || [],
+      datatypes,
+      integration.columnNamesAreCaseSensitive,
+    );
 
     return { columns, needsBackgroundRefresh: true };
-  } else {
-    // Slow path: Full LIMIT 20 query (existing behavior)
-    const columns = await runRefreshColumnsQuery(
-      context,
-      datasource,
-      factTable,
-    );
-    return { columns, needsBackgroundRefresh: false };
   }
+
+  const columns = await runColumnDetectionQuery(context, datasource, factTable);
+  await refreshColumnTopValues(context, datasource, factTable, columns);
+  return { columns, needsBackgroundRefresh: false };
 }
 
 export const postFactTable = async (
@@ -389,6 +254,20 @@ export const postFactTable = async (
     data.columns = columns;
     data.columnRefreshPending = needsBackgroundRefresh;
   }
+
+  // Columns are resolved synchronously above, so a mapping is always checked
+  // against the real list before anything is persisted.
+  if (data.userIdColumns) {
+    validateNewUserIdColumnKeys({
+      datasource,
+      userIdColumns: data.userIdColumns,
+    });
+  }
+  validateColumnMappingTargets({
+    columns: mergeUpsertColumns([], data.columns ?? []).columns,
+    timestampColumn: data.timestampColumn,
+    userIdColumns: data.userIdColumns,
+  });
 
   if (data.aggregatedFactTableSettings) {
     if (!context.hasPremiumFeature("pipeline-mode")) {
@@ -450,10 +329,11 @@ export const putFactTable = async (
   > | null = null;
 
   if (forceColumnRefresh || needsColumnRefresh(factTable, data)) {
+    const updatedFactTable = { ...factTable, ...data } as FactTableInterface;
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
-      { ...factTable, ...data } as FactTableInterface,
+      updatedFactTable,
       forceColumnRefresh,
     );
 
@@ -470,6 +350,7 @@ export const putFactTable = async (
     columnRefreshResults.userIdTypes = deriveUserIdTypesFromColumns(
       datasource,
       columns,
+      updatedFactTable.userIdColumns,
     );
   }
 
@@ -492,6 +373,22 @@ export const putFactTable = async (
       effectiveUserIdTypes,
     );
   }
+
+  // A mapping change forces a refresh above, so this sees the new column list;
+  // an unchanged mapping is skipped via `existing`.
+  if (data.userIdColumns) {
+    validateNewUserIdColumnKeys({
+      datasource,
+      userIdColumns: data.userIdColumns,
+      existingUserIdColumns: factTable.userIdColumns,
+    });
+  }
+  validateColumnMappingTargets({
+    columns: columnRefreshResults?.columns ?? factTable.columns,
+    timestampColumn: data.timestampColumn,
+    userIdColumns: data.userIdColumns,
+    existing: factTable,
+  });
 
   await updateFactTable(context, factTable, data);
 
@@ -1085,6 +982,39 @@ export const postFactFilterTest = async (
     datasource,
     factTable,
     data.value,
+  );
+
+  res.status(200).json({
+    status: 200,
+    result,
+  });
+};
+
+export const postRowFiltersTest = async (
+  req: AuthRequest<TestRowFiltersProps, { id: string }>,
+  res: Response<{
+    status: 200;
+    result: RowFilterTestResults;
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  // Test query, not a filter edit — skip canCreateAndUpdateFactFilter.
+  const result = await testRowFiltersQuery(
+    context,
+    datasource,
+    factTable,
+    req.body.rowFilters,
   );
 
   res.status(200).json({

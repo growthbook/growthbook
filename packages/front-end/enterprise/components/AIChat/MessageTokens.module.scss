@@ -1,0 +1,38 @@
+// Composer tokens (@-mentions and `/` commands) inside a sent message.
+//
+// Typography is inherited and there is no fill by default, so a token sits in
+// the sentence rather than interrupting it — the leading "@" / "/" and the
+// weight are enough to mark it. Hovering reveals the box, which pairs with the
+// tooltip appearing at the same moment.
+//
+// `UserBubble` paints a solid `--violet-10` ground with white text, so that
+// hover fill is a translucent white rather than a tinted background: it stays
+// legible on that ground in both themes, where a fixed colour would not.
+.token {
+  padding: 1px 5px;
+  margin: 0 1px;
+  border-radius: var(--radius-2);
+  background: transparent;
+  font-weight: 500;
+  // Keeps a name from being split across lines mid-token.
+  white-space: nowrap;
+  transition: background-color 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(255, 255, 255, 0.22);
+  }
+}
+
+// A mention is a link to its metric, but it should read as part of the
+// sentence, not as a link in it — the fill on hover/focus is the affordance.
+// Element + class outranks Radix's own single class.
+a.token {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: inherit;
+    text-decoration: none;
+  }
+}

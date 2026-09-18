@@ -27,6 +27,7 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   content: AllowedChildren;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
+  sideOffset?: number;
   showCloseButton?: boolean;
   showArrow?: boolean;
   disableDismiss?: boolean;
@@ -41,6 +42,10 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   onInteractOutside?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onInteractOutside"];
+  /** Called when the content mounts and would auto-focus — call e.preventDefault() to keep focus on the anchor (e.g. a combobox input). */
+  onOpenAutoFocus?: React.ComponentProps<
+    typeof RadixPopover.Content
+  >["onOpenAutoFocus"];
   // Open on hover of the trigger (and stay open while hovering the content)
   // instead of on click. The content does not steal focus — suitable for
   // read-only previews, including inside menus.
@@ -53,6 +58,7 @@ export function Popover({
   content,
   side = "bottom",
   align = "center",
+  sideOffset,
   showCloseButton = false,
   showArrow = true,
   disableDismiss = false,
@@ -61,6 +67,7 @@ export function Popover({
   contentClassName,
   onFocusOutside,
   onInteractOutside,
+  onOpenAutoFocus,
   openOnHover = false,
   ...props
 }: PopoverProps) {
@@ -145,11 +152,12 @@ export function Popover({
             <RadixPopover.Content
               side={side}
               align={align}
+              sideOffset={sideOffset}
               className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
               style={appliedContentStyle}
               {...hoverHandlers}
               onOpenAutoFocus={
-                openOnHover ? (e) => e.preventDefault() : undefined
+                openOnHover ? (e) => e.preventDefault() : onOpenAutoFocus
               }
               onEscapeKeyDown={
                 disableDismiss ? (e) => e.preventDefault() : undefined

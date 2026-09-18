@@ -1,11 +1,20 @@
-import { isEqual } from "lodash";
+import {
+  holdsMoveDestination,
+  projectScopeChanged,
+  type ProjectScoped,
+} from "shared/permissions";
 import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postConfigRevisionPublishValidator } from "shared/validators";
 import { SimpleSchema } from "shared/types/feature";
+import {
+  publishRevision,
+  assertCanPublishRevision,
+} from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   BadRequestError,
   ConflictError,
@@ -14,8 +23,7 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
-  evaluatePublishGates,
-  PublishBlockedError,
+  resolveEntityPublishGates,
   PublishGate,
 } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -32,7 +40,6 @@ import {
   collectConfigLockGate,
 } from "back-end/src/services/configLock";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
-import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -41,7 +48,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const revision = await loadRevisionByVersion(
@@ -52,11 +59,9 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("config");
 
-  // Re-check edit permission against the LIVE entity (a proposed `project` move
-  // shouldn't launder write access) before leaking any revision state.
-  if (!adapter.canUpdate(req.context, config as Record<string, unknown>)) {
-    req.context.permissions.throwPermissionError();
-  }
+  // Publish authority on the live entity, or revert authority for a pure revert
+  // (project-move manage checked below).
+  await assertCanPublishRevision(req.context, revision, config);
 
   if (revision.status === "merged" || revision.status === "discarded") {
     throw new BadRequestError(
@@ -72,6 +77,12 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   const canBypass =
     canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(req.context, config as Record<string, unknown>);
+
+  // Approval bypass does not permit merging a stale base.
+  const canForceMerge = adapter.canBypassApproval(
+    req.context,
+    config as Record<string, unknown>,
+  );
 
   // Layer proposed changes on LIVE (not the snapshot) so out-of-band writes to
   // untouched fields are preserved.
@@ -121,20 +132,16 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     })),
   );
 
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
-    ignoreWarnings: req.context.ignoreWarnings,
-    skipSchemaValidation: req.context.skipSchemaValidation,
-    skipHooks: req.context.skipHooks,
+  const { bypassed } = resolveEntityPublishGates({
+    entityType: "config",
+    req,
+    gates,
     bypassApprovalPermission: adapter.canBypassApproval(
       req.context,
-      config as Record<string, unknown>,
+      config as unknown as Record<string, unknown>,
     ),
-    restApiBypassesReviews: canUseRestApiBypassSetting(req),
-    canForceMergeStaleBase: canBypass,
+    canForceMergeStaleBase: canForceMerge,
   });
-  if (blocking.length) {
-    throw new PublishBlockedError(blocking);
-  }
 
   // Locked-config backstop behind the config-locked gate above — still well
   // before the merge is claimed, so a blocked publish leaves the draft open.
@@ -144,18 +151,39 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this config's project.",
+        "or use a role/token that grants FlagsBypassApprovals on this Config's project.",
     );
   }
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // If the revision moves the config to a different project, also require update
-  // permission on the destination.
+  const destination = {
+    ...(config as unknown as Record<string, unknown>),
+    ...desiredState,
+  };
   if (
-    !adapter.canUpdate(req.context, {
-      ...(config as unknown as Record<string, unknown>),
-      ...desiredState,
+    // In-place publishes are already authorized above (narrow revert/archive
+    // atoms included); only a relocation needs the destination publish check.
+    (projectScopeChanged(
+      config as ProjectScoped,
+      destination as ProjectScoped,
+    ) &&
+      !adapter.canUpdate(req.context, destination)) ||
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "config",
+      action: "publish",
+      existing: config as ProjectScoped,
+      proposed: destination as ProjectScoped,
+      environments: resolvePublishFootprint(
+        req.context,
+        adapter.publishFootprint?.(
+          req.context,
+          config as unknown as Record<string, unknown>,
+          revision.target.proposedChanges,
+        ),
+        config as ProjectScoped,
+      ),
     })
   ) {
     req.context.permissions.throwPermissionError();
@@ -176,14 +204,12 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     );
   }
 
-  const updatableFields = adapter.getUpdatableFields();
-
   // When the org enforces rebase-before-publish, a diverged revision must
   // rebase first. `ignoreWarnings` force-merges the stale draft — but only for
   // bypass-approval callers, and asking without the permission fails loudly
   // rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMerge = req.context.ignoreWarnings && canBypass;
+    const forceMerge = req.context.ignoreWarnings && canForceMerge;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,
@@ -195,45 +221,18 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       }
       if (diverged && !canBypass) {
         throw new ConflictError(
-          "This revision was created against an older version of the config. " +
+          "This revision was created against an older version of the Config. " +
             'Rebase the revision first, or pass `"ignoreWarnings": true` to force-merge (requires the bypass-approval permission).',
         );
       }
     }
   }
 
-  const changedFields = Object.keys(desiredState).filter(
-    (key) =>
-      updatableFields.has(key) &&
-      !isEqual(
-        desiredState[key],
-        (config as unknown as Record<string, unknown>)[key],
-      ),
-  );
-  const hasChanges = changedFields.length > 0;
-
-  // No diff vs live (no-op publish or recovery retry): replay the descendant
-  // reconcile (idempotent; only acts on schema/parent/extends changes) so a
-  // retry after a partially-applied publish still heals descendants, then merge.
-  if (!hasChanges) {
-    await adapter.beforeNoOpMerge?.(
-      req.context,
-      config as unknown as Record<string, unknown>,
-      revision,
-    );
-    const merged = await req.context.models.revisions.merge(
-      revision.id,
-      req.context.userId,
-      { bypass: isBypass },
-    );
-    await dispatchConfigRevisionEvent(req.context, merged, {
-      type: merged.revertedFrom ? "reverted" : "published",
-    });
-    return {
-      revision: await toApiConfigRevision(merged, req.context),
-      ...(bypassed.length ? { bypassedGates: bypassed } : {}),
-    };
-  }
+  // No-op publishes are NOT short-circuited here. The engine has its own no-op
+  // branch — same beforeNoOpMerge, merge and dispatch — and reaching it means a
+  // no-op still passes assertPublishable, which is the point: publishing is the
+  // gated action even when nothing changes, so a locked Config cannot have its
+  // latest-merged pointer advanced past the pin by publishing an empty diff.
 
   // Experiment/lock/schema-break guards were enforced above via the adapter's
   // collectPublishGates + evaluatePublishGates (the collector also records any
@@ -263,52 +262,12 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     { skipHooks: true },
   );
 
-  // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
-  // so a concurrent discard either already lost or will lose its `close` CAS.
-  const merged = await req.context.models.revisions.merge(
-    revision.id,
-    req.context.userId,
-    { bypass: isBypass },
+  const merged = await publishRevision(
+    req.context,
+    revision,
+    config as unknown as Record<string, unknown>,
+    { bypass: isBypass, skipHooks: true },
   );
-
-  try {
-    // The config adapter's applyChanges re-runs "base wins" schema
-    // normalization and cascades the reconcile to descendants.
-    await adapter.applyChanges(
-      req.context,
-      config as unknown as Record<string, unknown>,
-      desiredState,
-      { isRevert: !!revision.revertedFrom },
-    );
-  } catch (e) {
-    // Couldn't apply after claiming the merge — roll back to the pre-merge state
-    // so the revision isn't stranded "merged" with the live config unchanged.
-    // Use reopenAfterFailedApply (not a plain reopen) to restore the status,
-    // schedule, and experiment-guard acknowledgment that `merge` scrubbed — so a
-    // retry doesn't lose a pending schedule or re-prompt an already-acknowledged
-    // guard. Mirrors the deferred publish path; falls back to a plain reopen.
-    try {
-      const restored =
-        await req.context.models.revisions.reopenAfterFailedApply(
-          merged.id,
-          req.context.userId,
-          revision,
-        );
-      if (!restored) {
-        await req.context.models.revisions.reopen(
-          merged.id,
-          req.context.userId,
-        );
-      }
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
-
-  await dispatchConfigRevisionEvent(req.context, merged, {
-    type: merged.revertedFrom ? "reverted" : "published",
-  });
 
   return {
     revision: await toApiConfigRevision(merged, req.context),

@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { cloneDeep } from "lodash";
 import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
@@ -31,6 +30,14 @@ const baseMemberFields = {
   dateCreated: Date,
   limitAccessByEnvironment: Boolean,
   environments: [String],
+  additionalRoles: [
+    {
+      _id: false,
+      role: String,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+    },
+  ],
   projectRoles: [
     {
       _id: false,
@@ -38,6 +45,14 @@ const baseMemberFields = {
       role: String,
       limitAccessByEnvironment: Boolean,
       environments: [String],
+      additionalRoles: [
+        {
+          _id: false,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
     },
   ],
   teams: [String],
@@ -304,6 +319,33 @@ type DeletableKeys = Extract<
   "restrictLoginMethod"
 >;
 
+// One positional pull per record that carries the rule, so concurrent edits
+// to other members, invites, or pending members are untouched. The single
+// positional operator is the one every supported Mongo-compatible backend has.
+export async function removeProjectRolesForProject(
+  org: OrganizationInterface,
+  projectId: string,
+) {
+  const hasRule = (record: { projectRoles?: { project: string }[] }) =>
+    !!record.projectRoles?.some((rule) => rule.project === projectId);
+  const pull = (field: string, match: Record<string, string>) =>
+    OrganizationModel.updateOne(
+      { id: org.id, ...match },
+      { $pull: { [`${field}.$.projectRoles`]: { project: projectId } } },
+    );
+  await Promise.all([
+    ...org.members
+      .filter(hasRule)
+      .map((m) => pull("members", { "members.id": m.id })),
+    ...(org.invites ?? [])
+      .filter(hasRule)
+      .map((i) => pull("invites", { "invites.key": i.key })),
+    ...(org.pendingMembers ?? [])
+      .filter(hasRule)
+      .map((p) => pull("pendingMembers", { "pendingMembers.id": p.id })),
+  ]);
+}
+
 export async function updateOrganization(
   id: string,
   update: Partial<OrganizationInterface>,
@@ -513,40 +555,6 @@ export async function getOrganizationsWithNorthStars() {
   return withNorthStars.map(toInterface);
 }
 
-export async function removeProjectFromProjectRoles(
-  project: string,
-  org: OrganizationInterface,
-) {
-  if (!org) return;
-
-  const updates: {
-    members?: Member[];
-    invites?: Invite[];
-  } = {};
-
-  const members = cloneDeep(org.members);
-  members.forEach((m) => {
-    if (!m.projectRoles?.length) return;
-    m.projectRoles = m.projectRoles.filter((pr) => pr.project !== project);
-  });
-  if (JSON.stringify(members) !== JSON.stringify(org.members)) {
-    updates["members"] = members;
-  }
-
-  const invites = cloneDeep(org.invites);
-  invites.forEach((inv) => {
-    if (!inv.projectRoles?.length) return;
-    inv.projectRoles = inv.projectRoles.filter((pr) => pr.project !== project);
-  });
-  if (JSON.stringify(invites) !== JSON.stringify(org.invites)) {
-    updates["invites"] = invites;
-  }
-
-  if (Object.keys(updates).length > 0) {
-    await OrganizationModel.updateOne({ id: org.id }, { $set: updates });
-  }
-}
-
 export async function findOrganizationsByDomain(domain: string) {
   const docs = await OrganizationModel.find({
     verifiedDomain: domain,
@@ -607,6 +615,8 @@ export async function updateMember(
   });
 }
 
+// Policies are the only grant mechanism — `.strict()` rejects a stray
+// `permissions` array loudly rather than persisting a grant that does nothing.
 export const customRoleValidator = z
   .object({
     id: z.string().min(2).max(64),

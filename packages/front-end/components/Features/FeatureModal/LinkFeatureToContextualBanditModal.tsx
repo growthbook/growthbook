@@ -37,13 +37,13 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+  isUnsetFeatureValue,
+  unsetFeatureValueMessage,
+} from "@/components/Features/EmptyStringConfirm";
+import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
@@ -82,13 +82,11 @@ const genFormDefaultValues = ({
   permissions,
   project,
   cb,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   cb: ApiContextualBanditInterface;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Omit<
   FeatureInterface,
   | "organization"
@@ -106,11 +104,6 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [field.id, field.defaultValue ?? ""]),
-      )
-    : {};
   const type = cb.variations.length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
   return {
@@ -124,7 +117,7 @@ const genFormDefaultValues = ({
     tags: cb.tags || [],
     environmentSettings,
     rules: [],
-    customFields: customFieldValues,
+    customFields: {},
     variations: cb.variations.map((v, i) => ({
       value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
       variationId: v.id,
@@ -145,22 +138,12 @@ export default function LinkFeatureToContextualBanditModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
-  const allCustomFields = useCustomFields();
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     cb,
     project: selectedProject,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
-      : undefined,
   });
 
   const { features } = useFeatureMetaInfo({ project: cb.project });
@@ -175,10 +158,23 @@ export default function LinkFeatureToContextualBanditModal({
     defaultValues: defaultValues as never,
   });
 
+  const { availableFields: availableCustomFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
+
   const [showTags, setShowTags] = useState(cb.tags && cb.tags.length > 0);
   const [showDescription, setShowDescription] = useState(
     !!cb.description && cb.description.length > 0,
   );
+
+  const [emptyStringConfirmed, setEmptyStringConfirmed] = useState<
+    Record<string, boolean>
+  >({});
+  const [showValueErrors, setShowValueErrors] = useState(false);
 
   const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
   const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
@@ -218,7 +214,7 @@ export default function LinkFeatureToContextualBanditModal({
   let disabledMessage: string | undefined;
 
   if (
-    !permissionsUtil.canManageFeatureDrafts({
+    !permissionsUtil.canEditFeatureDrafts({
       project: selectedProject,
     })
   ) {
@@ -302,6 +298,18 @@ export default function LinkFeatureToContextualBanditModal({
           contextualBanditId: cb.id,
           variations,
         };
+
+        const unsetVariation = variations.find((v) =>
+          isUnsetFeatureValue({
+            valueType,
+            value: v.value ?? "",
+            emptyStringConfirmed: !!emptyStringConfirmed[v.variationId],
+          }),
+        );
+        if (unsetVariation) {
+          setShowValueErrors(true);
+          throw new Error("Set a value for every variation before saving");
+        }
 
         const newRule = validateFeatureRule(
           rule,
@@ -449,21 +457,15 @@ export default function LinkFeatureToContextualBanditModal({
             my="5"
           />
 
-          {hasCommercialFeature("custom-metadata") &&
-            customFields &&
-            customFields.length > 0 && (
-              <div>
-                <CustomFieldInput
-                  customFields={customFields}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  section={"feature"}
-                  project={selectedProject}
-                />
-              </div>
-            )}
+          {availableCustomFields.length > 0 && (
+            <div>
+              <CustomFieldInput
+                fields={availableCustomFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            </div>
+          )}
         </>
       )}
 
@@ -497,28 +499,49 @@ export default function LinkFeatureToContextualBanditModal({
         <Text as="label" weight="semibold" mb="0">
           Variation Values
         </Text>
-        {variations.map((v, i) => (
-          <Box key={v.id}>
-            <Box mb="3">
-              <VariationLabel number={i} name={v.name} />
+        {variations.map((v, i) => {
+          const currentValue = form.watch(`variations.${i}.value`) || "";
+          const isMissing = isUnsetFeatureValue({
+            valueType,
+            value: currentValue,
+            emptyStringConfirmed: !!emptyStringConfirmed[v.id],
+          });
+          return (
+            <Box key={v.id}>
+              <Box mb="3">
+                <VariationLabel number={i} name={v.name} />
+              </Box>
+              {showValueErrors && isMissing && (
+                <HelperText status="error">
+                  {unsetFeatureValueMessage(valueType)}
+                </HelperText>
+              )}
+              <FeatureValueField
+                id={v.id}
+                value={currentValue}
+                setValue={(val) => form.setValue(`variations.${i}.value`, val)}
+                valueType={valueType}
+                feature={existing ? existingFeature : undefined}
+                useCodeInput={true}
+                showFullscreenButton={true}
+                sparse={isConfigBacked}
+                allowConfigBacking={isConfigBacked}
+                configBackingOptionKeys={configBackingOptionKeys}
+                configBackingShowPatch={isConfigBacked}
+                lockConfigBacking={isConfigBacked}
+                confirmEmptyString
+                emptyStringConfirmed={!!emptyStringConfirmed[v.id]}
+                setEmptyStringConfirmed={(checked) =>
+                  setEmptyStringConfirmed((prev) => ({
+                    ...prev,
+                    [v.id]: checked,
+                  }))
+                }
+              />
+              {i < variations.length - 1 && <Separator size="4" my="4" />}
             </Box>
-            <FeatureValueField
-              id={v.id}
-              value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(val) => form.setValue(`variations.${i}.value`, val)}
-              valueType={valueType}
-              feature={existing ? existingFeature : undefined}
-              useCodeInput={true}
-              showFullscreenButton={true}
-              sparse={isConfigBacked}
-              allowConfigBacking={isConfigBacked}
-              configBackingOptionKeys={configBackingOptionKeys}
-              configBackingShowPatch={isConfigBacked}
-              lockConfigBacking={isConfigBacked}
-            />
-            {i < variations.length - 1 && <Separator size="4" my="4" />}
-          </Box>
-        ))}
+          );
+        })}
       </Flex>
     </ModalStandard>
   );

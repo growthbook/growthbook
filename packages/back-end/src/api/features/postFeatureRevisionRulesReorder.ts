@@ -1,6 +1,5 @@
 import { postFeatureRevisionRulesReorderValidator } from "shared/validators";
 import type { FeatureRule } from "shared/types/feature";
-import { resetReviewOnChange } from "shared/util";
 import { projectRulesForEnv } from "back-end/src/util/revisionRuleOps";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -24,10 +23,7 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -117,12 +113,6 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
         subject: environment,
         value: JSON.stringify(ruleIds),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [environment],
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
     );
 
     const updated = await getRevision({

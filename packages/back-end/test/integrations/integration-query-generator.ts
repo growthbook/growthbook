@@ -455,6 +455,7 @@ const engines: DataSourceType[] = [
   "mysql",
   "mssql",
   "clickhouse",
+  "adobe_experience_platform_query_service",
 ];
 
 // Output to store queries in

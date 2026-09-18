@@ -1,11 +1,73 @@
 import {
+  AI_PROVIDER_STT_MODEL_MAP,
+  resolveDefaultSTTModel,
   formatAIRateLimitRetryMessage,
+  getAIModelSettingsUsingProvider,
+  getProviderForAIModel,
   parseAspectRatio,
   snapAspectRatio,
   aspectRatioToDims,
   humanizeAspectRatio,
   buildImageAspectInstruction,
 } from "../src/ai";
+
+describe("getProviderForAIModel", () => {
+  it("resolves text models", () => {
+    expect(getProviderForAIModel("text", "gpt-4o-mini")).toBe("openai");
+    expect(getProviderForAIModel("text", "claude-sonnet-4-6")).toBe(
+      "anthropic",
+    );
+    expect(getProviderForAIModel("text", "mistral-small-latest")).toBe(
+      "mistral",
+    );
+  });
+
+  it("resolves embedding models from their own registry", () => {
+    // Text and embedding models share a provider namespace, not a registry.
+    expect(getProviderForAIModel("embedding", "gemini-embedding-001")).toBe(
+      "google",
+    );
+    expect(getProviderForAIModel("text", "gemini-embedding-001")).toBeNull();
+    expect(getProviderForAIModel("embedding", "gemini-2.5-flash")).toBeNull();
+  });
+
+  it("resolves image models, including legacy aliases", () => {
+    expect(getProviderForAIModel("image", "dall-e-3")).toBe("openai");
+    expect(getProviderForAIModel("image", "grok-2-image")).toBe("xai");
+    expect(getProviderForAIModel("image", "imagen-4.0-generate-001")).toBe(
+      "google",
+    );
+    // Stored on orgs from before the id changed.
+    expect(
+      getProviderForAIModel("image", "gemini-2.5-flash-image-preview"),
+    ).toBe("google");
+  });
+
+  it("resolves transcription models from their own registry", () => {
+    expect(getProviderForAIModel("stt", "grok-stt-1.0")).toBe("xai");
+    expect(getProviderForAIModel("stt", "gpt-transcribe")).toBe("openai");
+    expect(getProviderForAIModel("stt", "voxtral-mini-latest")).toBe("mistral");
+    expect(getProviderForAIModel("text", "grok-stt-1.0")).toBeNull();
+    expect(getProviderForAIModel("stt", "grok-4.6")).toBeNull();
+  });
+
+  it("has no transcription model for Anthropic or Google", () => {
+    for (const model of Object.values(AI_PROVIDER_STT_MODEL_MAP).flat()) {
+      expect(["anthropic", "google"]).not.toContain(
+        getProviderForAIModel("stt", model),
+      );
+    }
+  });
+
+  it("returns null for an unknown id rather than throwing", () => {
+    // Read off saved org settings, so a stale value must not throw.
+    expect(getProviderForAIModel("text", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("embedding", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("image", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("stt", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("text", "")).toBeNull();
+  });
+});
 
 describe("formatAIRateLimitRetryMessage", () => {
   it("formats duration with singular units when appropriate", () => {
@@ -140,5 +202,89 @@ describe("buildImageAspectInstruction", () => {
       honorsAspectRatio: false,
     });
     expect(out).toContain("center-cropped");
+  });
+});
+
+describe("getAIModelSettingsUsingProvider", () => {
+  const settings = {
+    defaultAIModel: "claude-haiku-4-5-20251001",
+    visualEditorAIModel: "gpt-4o",
+    visualEditorImageModel: "gemini-2.5-flash-image",
+    embeddingModel: "gemini-embedding-001",
+  };
+
+  it("finds every setting served by the provider", () => {
+    expect(
+      getAIModelSettingsUsingProvider(settings, "google").map((s) => s.key),
+    ).toEqual(["visualEditorImageModel", "embeddingModel"]);
+  });
+
+  it("matches across the text, image and embedding registries", () => {
+    expect(
+      getAIModelSettingsUsingProvider(settings, "anthropic").map((s) => s.key),
+    ).toEqual(["defaultAIModel"]);
+    expect(
+      getAIModelSettingsUsingProvider(settings, "openai").map((s) => s.key),
+    ).toEqual(["visualEditorAIModel"]);
+  });
+
+  it("returns nothing for a provider no setting uses", () => {
+    expect(getAIModelSettingsUsingProvider(settings, "mistral")).toEqual([]);
+  });
+
+  it("finds the dictation setting", () => {
+    expect(
+      getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "xai").map(
+        (s) => s.key,
+      ),
+    ).toEqual(["sttModel"]);
+    expect(
+      getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "openai"),
+    ).toEqual([]);
+  });
+
+  it("catches the legacy openAIDefaultModel field", () => {
+    expect(
+      getAIModelSettingsUsingProvider(
+        { openAIDefaultModel: "gpt-4o-mini" },
+        "openai",
+      ).map((s) => s.key),
+    ).toEqual(["openAIDefaultModel"]);
+  });
+
+  it("ignores an unset or unrecognized model", () => {
+    expect(
+      getAIModelSettingsUsingProvider(
+        { defaultAIModel: "", visualEditorAIModel: "some-future-model" },
+        "openai",
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("resolveDefaultSTTModel", () => {
+  it("prefers gpt-transcribe", () => {
+    expect(resolveDefaultSTTModel(["openai", "xai", "mistral"])).toBe(
+      "gpt-transcribe",
+    );
+  });
+
+  it("falls through in order when OpenAI has no key", () => {
+    expect(resolveDefaultSTTModel(["xai", "mistral"])).toBe("grok-stt-1.0");
+    expect(resolveDefaultSTTModel(["mistral"])).toBe("voxtral-mini-latest");
+  });
+
+  it("serves a Cloud org with no keys of its own", () => {
+    // Anthropic alone is the one combination that yields nothing.
+    expect(resolveDefaultSTTModel(["anthropic", "openai"])).toBe(
+      "gpt-transcribe",
+    );
+    expect(resolveDefaultSTTModel(["anthropic", "xai"])).toBe("grok-stt-1.0");
+    expect(resolveDefaultSTTModel(["anthropic"])).toBeNull();
+  });
+
+  it("returns null when no provider serves transcription", () => {
+    expect(resolveDefaultSTTModel(["anthropic", "google"])).toBeNull();
+    expect(resolveDefaultSTTModel([])).toBeNull();
   });
 });

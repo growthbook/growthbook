@@ -12,7 +12,7 @@ import {
   ensureEventForwarderBigQueryTables,
 } from "back-end/src/services/eventForwarder/bigquery";
 import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarder/writeAccess";
-import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarder/datasourceSync";
+import { reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries } from "back-end/src/services/eventForwarder/datasourceSync";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
 import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarder/factTable";
 
@@ -57,9 +57,9 @@ const mockedEnsureBigQueryTables =
   ensureEventForwarderBigQueryTables as jest.MockedFunction<
     typeof ensureEventForwarderBigQueryTables
   >;
-const mockedInitializeUserIdTypes =
-  initializeDatasourceUserIdTypesFromOrgAttributeSchema as jest.MockedFunction<
-    typeof initializeDatasourceUserIdTypesFromOrgAttributeSchema
+const mockedReconcileUserIdTypes =
+  reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries as jest.MockedFunction<
+    typeof reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries
   >;
 const mockedEnsureFeatureUsage =
   ensureEventForwarderFeatureUsageQuery as jest.MockedFunction<
@@ -110,7 +110,7 @@ describe("provisionEventForwarderThroughLicenseServer", () => {
       connectorName: "connector_1",
       connectorId: "connector-id-1",
     });
-    mockedInitializeUserIdTypes.mockResolvedValue(undefined);
+    mockedReconcileUserIdTypes.mockResolvedValue(undefined);
     mockedEnsureFeatureUsage.mockResolvedValue(["fuq_1"]);
     mockedEnsureFactTable.mockResolvedValue("ds_1_events");
   });
@@ -164,7 +164,7 @@ describe("provisionEventForwarderThroughLicenseServer", () => {
       connectorId: "connector-id-1",
       lastProvisioningError: "",
     });
-    expect(mockedInitializeUserIdTypes).toHaveBeenCalled();
+    expect(mockedReconcileUserIdTypes).toHaveBeenCalled();
     expect(mockedEnsureFeatureUsage).toHaveBeenCalled();
     expect(mockedEnsureFactTable).toHaveBeenCalled();
   });

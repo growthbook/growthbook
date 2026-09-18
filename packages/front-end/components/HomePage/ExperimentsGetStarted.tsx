@@ -215,7 +215,8 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         Create your first metric definition. Use this as a goal
                         or guardrail when analyzing your experiment results.
                         With GrowthBook, you can build out an entire metric
-                        library to represent all of the KPIs for your business
+                        library to represent all of the KPIs for your
+                        organization.
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}

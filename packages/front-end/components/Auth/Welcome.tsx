@@ -56,8 +56,8 @@ export default function Welcome({
   }, [pathname]);
 
   const welcomeMsg = [
-    <>Welcome to GrowthBook!</>,
-    <>Hello! Welcome to GrowthBook</>,
+    "Welcome to GrowthBook!",
+    "Hello! Welcome to GrowthBook",
     "Hello there, Welcome!",
     "Hey there!",
   ];

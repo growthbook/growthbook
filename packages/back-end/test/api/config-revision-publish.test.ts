@@ -42,7 +42,7 @@ const rebaseOrg = {
   settings: { requireRebaseBeforePublish: true },
 } as unknown as OrganizationInterface;
 
-// Admin grants manageConfigs (edit) + bypassApprovalChecks, so a clean publish
+// Admin grants manageConfigs (edit) + FlagsBypassApprovals, so a clean publish
 // isn't blocked by an approval/stale-base gate — isolating the gates under test.
 function makeContext(
   opts: { ignoreWarnings?: boolean; skipSchemaValidation?: boolean } = {},
@@ -65,7 +65,7 @@ function makeContext(
 // Engineer context: ConfigsFullAccess (edit) but NOT FeaturesBypassApprovals,
 // so it can publish a config revision yet cannot silently bypass a soft
 // schema-break gate — isolating the gate so it actually blocks (an admin would
-// bypass it via bypassApprovalChecks). `ignoreWarnings` is baked onto the
+// bypass it via FlagsBypassApprovals). `ignoreWarnings` is baked onto the
 // context's own request (context.ignoreWarnings reads context.req, not the HTTP
 // body the mock middleware discards).
 function makeEngineerContext(
@@ -243,7 +243,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish", () => {
     // fields are explicit: override is null and the escape is a callable unlock
     // route in `resolution`, not inline prose.
     expect(lockGate.override).toBeNull();
-    expect(lockGate.requiresPermission).toBe("bypassApprovalChecks");
+    expect(lockGate.requiresPermission).toBe("bypassApprovalConfigs");
     expect(lockGate.messages[0]).toMatch(/locked/i);
     expect(lockGate.resolution).toEqual({
       action: "unlock",
@@ -352,9 +352,9 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
     expect(gate).toBeDefined();
     expect(gate.severity).toBe("warning");
     // Schema-break is validation-class: cleared only by the privileged
-    // skipSchemaValidation flag (which needs bypassApprovalChecks).
+    // skipSchemaValidation flag (which needs FlagsBypassApprovals).
     expect(gate.override).toBe("skipSchemaValidation");
-    expect(gate.requiresPermission).toBe("bypassApprovalChecks");
+    expect(gate.requiresPermission).toBe("bypassApprovalConfigs");
     const gateText = gate.messages.join("\n");
     // The gate names the transition (not the config's own resolved value) and
     // the dependent it breaks.
@@ -369,7 +369,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
       .set("Authorization", "Bearer foo");
     expect(stillBlocked.status).toBe(422);
 
-    // skipSchemaValidation from an engineer (no bypassApprovalChecks) is ignored.
+    // skipSchemaValidation from an engineer (no FlagsBypassApprovals) is ignored.
     setReqContext(makeEngineerContext({ skipSchemaValidation: true }));
     const engSkip = await request(app)
       .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
@@ -377,7 +377,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
       .set("Authorization", "Bearer foo");
     expect(engSkip.status).toBe(422);
 
-    // Admin (bypassApprovalChecks) + skipSchemaValidation → bypassed (200).
+    // Admin (FlagsBypassApprovals) + skipSchemaValidation → bypassed (200).
     setReqContext(makeContext({ skipSchemaValidation: true }));
     const okRes = await request(app)
       .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
@@ -461,7 +461,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
 
 describe("POST /api/v1/configs-revisions/:key/:version/publish (requireRebaseBeforePublish)", () => {
   it("blocks a diverged draft with a stale-base gate that only ignoreWarnings force-merges past", async () => {
-    // Rebase org, admin (bypassApprovalChecks) but NO ignoreWarnings on the
+    // Rebase org, admin (FlagsBypassApprovals) but NO ignoreWarnings on the
     // context yet — the bypass permission alone must not skip the rebase.
     setReqContext(makeRebaseContext());
 
@@ -497,7 +497,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (requireRebaseBef
     expect(staleGate).toBeDefined();
     expect(staleGate.severity).toBe("blocker");
     expect(staleGate.override).toBe("ignoreWarnings");
-    expect(staleGate.requiresPermission).toBe("bypassApprovalChecks");
+    expect(staleGate.requiresPermission).toBe("bypassApprovalConfigs");
     expect(staleGate.resolution.action).toBe("rebase");
     expect(staleGate.resolution).toEqual({
       action: "rebase",
@@ -520,5 +520,128 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (requireRebaseBef
       outcome: "bypassed",
       via: "ignoreWarnings",
     });
+  });
+});
+
+/**
+ * The lock is the ONE entity-specific precondition on arming a deferred publish.
+ *
+ * All four revision lifecycle verbs now share one implementation
+ * (`revisions/revisionLifecycle.ts`) across Configs, Constants and Saved Groups, and
+ * the Config handler passes its lock check in as an `assertArmable` callback. Nothing
+ * else would fail if that callback were dropped — the shared helper has no idea locks
+ * exist — so these two cases are what hold the wiring in place.
+ *
+ * Directional on purpose: a lock must not strand a schedule that is already armed.
+ */
+describe("POST /api/v1/configs-revisions/:key/:version/schedule-publish", () => {
+  // Arming needs the `scheduled-revisions` commercial feature on top of publish
+  // authority. Without it every case here 403s before reaching the lock, which
+  // would make the pair pass for a reason that has nothing to do with locking.
+  //
+  // A USER, not the bare api-key context the rest of this file uses: a scheduled
+  // publish records who it will run as, and an org-scoped key has no identity to
+  // record, so arming from one is refused before the lock is ever consulted.
+  const withScheduling = () => {
+    const context = new ReqContextClass({
+      // Same ORG_ID so the seeded configs resolve; only the member list differs
+      // (the file's shared org has none, and a user context needs one).
+      org: {
+        ...org,
+        members: [
+          {
+            id: "u_scheduler",
+            role: "admin",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      } as unknown as OrganizationInterface,
+      auditUser: { type: "api_key", apiKey: "key_test" },
+      user: {
+        id: "u_scheduler",
+        email: "scheduler@test.com",
+        name: "Scheduler",
+        superAdmin: false,
+      },
+      role: "admin",
+      req: { query: {}, headers: {}, body: {} } as unknown as Request,
+    });
+    context.hasPremiumFeature = () => true;
+    return context;
+  };
+
+  const lockConfig = async (key: string) =>
+    mongoose.connection.collection("configs").updateOne(
+      { key, organization: ORG_ID },
+      {
+        $set: {
+          lock: {
+            revisionId: "rev_locked_schedule",
+            version: 1,
+            lockedBy: "u_admin",
+            dateLocked: new Date(),
+          },
+        },
+      },
+    );
+
+  const tomorrow = () => new Date(Date.now() + 86400000).toISOString();
+
+  it("refuses to ARM a schedule on a locked config", async () => {
+    setReqContext(withScheduling());
+    const key = "cfg_lock_arm";
+    const version = await setupConfigDraft(key);
+    await lockConfig(key);
+
+    const res = await request(app)
+      .post(`/api/v1/configs-revisions/${key}/${version}/schedule-publish`)
+      .send({ scheduledPublishAt: tomorrow() })
+      .set("Authorization", "Bearer foo");
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/is locked at revision/i);
+  });
+
+  it("still allows CANCELLING a schedule armed before the lock", async () => {
+    setReqContext(withScheduling());
+    const key = "cfg_lock_cancel";
+    const version = await setupConfigDraft(key);
+
+    // Arm while unlocked, so there is a real pending schedule to withdraw.
+    const armed = await request(app)
+      .post(`/api/v1/configs-revisions/${key}/${version}/schedule-publish`)
+      .send({ scheduledPublishAt: tomorrow() })
+      .set("Authorization", "Bearer foo");
+    expect(`${armed.status} ${JSON.stringify(armed.body)}`).toMatch(/^200 /);
+    // Asserted on the stored revision: the API revision shape doesn't carry
+    // `scheduledPublishAt`, so a 200 alone wouldn't prove anything was armed —
+    // and this test is worthless if the cancel below has nothing to cancel.
+    const armedDoc = await mongoose.connection
+      .collection("revisions")
+      .findOne({ id: armed.body.revision.id });
+    expect(armedDoc?.scheduledPublishAt).toBeTruthy();
+
+    await lockConfig(key);
+
+    const cancelled = await request(app)
+      .post(`/api/v1/configs-revisions/${key}/${version}/schedule-publish`)
+      .send({ scheduledPublishAt: null })
+      .set("Authorization", "Bearer foo");
+
+    expect(`${cancelled.status} ${JSON.stringify(cancelled.body)}`).toMatch(
+      /^200 /,
+    );
+    // The response reports the schedule state, in both directions. It carried
+    // NONE of it until recently, so a caller could arm one and have no way to
+    // confirm it from the response they got back.
+    expect(armed.body.revision.scheduledPublishAt).toBeTruthy();
+    expect(armed.body.revision.autoPublishOnApproval).toBe(true);
+    expect(cancelled.body.revision.scheduledPublishAt ?? null).toBeNull();
+    expect(cancelled.body.revision.autoPublishOnApproval ?? false).toBe(false);
+    const cancelledDoc = await mongoose.connection
+      .collection("revisions")
+      .findOne({ id: armed.body.revision.id });
+    expect(cancelledDoc?.scheduledPublishAt ?? null).toBeNull();
   });
 });

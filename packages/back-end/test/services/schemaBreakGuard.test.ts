@@ -187,7 +187,7 @@ describe("collectDependentConfigBreaks", () => {
       key: "t",
       proposedValue: '{"port":"bad"}',
     });
-    expect(out).toEqual([expect.stringContaining('config "c"')]);
+    expect(out).toEqual([expect.stringContaining('Config "c"')]);
     expect(out[0]).not.toContain("[prod]");
   });
 
@@ -241,7 +241,7 @@ describe("collectDependentConfigBreaks", () => {
       proposedEnvironmentValues: { prod: '{"port":9090}' },
     });
     expect(out).toEqual([expect.stringContaining("[staging]")]);
-    expect(out[0]).toContain('config "c"');
+    expect(out[0]).toContain('Config "c"');
   });
 
   it("drops a base-only break every live environment avoids via overrides", () => {
@@ -390,7 +390,7 @@ describe("archive/unarchive transition breaks (proposedArchived)", () => {
       proposedValue: undefined,
       proposedArchived: true,
     });
-    expect(out).toEqual([expect.stringContaining('config "child"')]);
+    expect(out).toEqual([expect.stringContaining('Config "child"')]);
     expect(out[0]).toContain("port");
   });
 
@@ -421,7 +421,7 @@ describe("archive/unarchive transition breaks (proposedArchived)", () => {
       proposedValue: '{"port":"bad"}', // unchanged — the transition is the flip
       proposedArchived: false,
     });
-    expect(out).toEqual([expect.stringContaining('config "c"')]);
+    expect(out).toEqual([expect.stringContaining('Config "c"')]);
     expect(out[0]).toContain("port");
   });
 

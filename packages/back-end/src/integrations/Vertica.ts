@@ -26,6 +26,7 @@ export default class Vertica extends SqlIntegration {
       defaultSchema: this.params.defaultSchema || "",
     };
   }
+  // Vertica OIDs differ from Postgres, so leave column types undetected.
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(this.params, sql);
   }

@@ -1,6 +1,7 @@
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import type { DataRegion } from "shared/util";
 
-export type DataRegion = "us-east-1" | "eu-west-1";
+export type { DataRegion };
 
 export const DATA_REGION_OPTIONS: { label: string; value: DataRegion }[] = [
   { label: "AWS us-east-1", value: "us-east-1" },
@@ -19,4 +20,15 @@ export function useDataRegionOptions(): { label: string; value: DataRegion }[] {
 
 export function getDataRegionLabel(region: DataRegion): string {
   return DATA_REGION_OPTIONS.find((o) => o.value === region)?.label ?? region;
+}
+
+const EVENT_INGESTOR_HOSTS: Record<DataRegion, string> = {
+  "us-east-1": "https://us1.gb-ingest.com",
+  "eu-west-1": "https://eu-west-1.gb-ingest.com",
+};
+
+// The SDK's growthbookTrackingPlugin defaults to the us-east-1 host, so
+// callers only need to pass this along explicitly for non-default regions.
+export function getEventIngestorHost(region: DataRegion): string {
+  return EVENT_INGESTOR_HOSTS[region];
 }

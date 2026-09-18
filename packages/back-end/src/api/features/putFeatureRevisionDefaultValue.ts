@@ -1,6 +1,6 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionDefaultValueValidator } from "shared/validators";
-import { resetReviewOnChange, validateFeatureValue } from "shared/util";
+import { validateFeatureValue } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -32,10 +32,7 @@ export async function setRevisionDefaultValue(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -56,7 +53,7 @@ export async function setRevisionDefaultValue(
 
     // Always normalize; enforce the schema unless ?skipSchemaValidation=true.
     const defaultValue = validateFeatureValue(
-      context.skipSchemaValidation
+      context.canSkipSchemaValidationFor("feature")
         ? { ...feature, jsonSchema: undefined }
         : feature,
       body.defaultValue,
@@ -89,12 +86,6 @@ export async function setRevisionDefaultValue(
         subject: "",
         value: defaultValue,
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [],
-        defaultValueChanged: true,
-        settings: organization.settings,
-      }),
     );
 
     const updated = await getRevision({

@@ -1,12 +1,13 @@
 import { isEqual } from "lodash";
-import {
-  DEFAULT_STATS_ENGINE,
-  PRECOMPUTED_DIMENSION_PREFIX,
-} from "shared/constants";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { isDefined } from "shared/util";
 import {
   ExperimentMetricInterface,
+  getFunnelStepMetric,
   isDimensionPrecomputed,
+  isFactFunnelMetric,
+  parseDimensionId,
+  parseFunnelStepMetricId,
   parseSliceMetricId,
 } from "shared/experiments";
 import { ApiExperimentBulkResult, LookbackOverride } from "shared/validators";
@@ -36,7 +37,7 @@ export function buildExperimentBulkResultId(
 function parseApiResultDimension(
   dimensionId: string,
   precomputedUnitDimensionIds: string[],
-): { type: string; id?: string; precomputed: boolean } {
+): ApiExperimentBulkResult["dimension"] {
   if (!dimensionId) {
     return { type: "none", precomputed: false };
   }
@@ -46,31 +47,44 @@ function parseApiResultDimension(
     precomputedUnitDimensionIds,
   );
 
-  // Precomputed experiment dimensions carry the `precomputed:` prefix.
-  if (dimensionId.startsWith(PRECOMPUTED_DIMENSION_PREFIX)) {
-    return {
-      type: "experiment",
-      id: dimensionId.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
-      precomputed: true,
-    };
+  const parsed = parseDimensionId(dimensionId);
+  switch (parsed.kind) {
+    case "experiment":
+      return { type: "experiment", id: parsed.column, precomputed };
+    case "date":
+      return { type: "date", precomputed };
+    case "activation":
+      return { type: "activation", precomputed };
+    case "datecutoff":
+      return {
+        type: "datecutoff",
+        id: parsed.cutoff.toISOString(),
+        precomputed,
+      };
+    case "combo":
+      return {
+        type: "combo",
+        precomputed,
+        dimensions: parsed.constituentIds.map((c) => {
+          const constituent = parseDimensionId(c);
+          return constituent.kind === "experiment"
+            ? { type: "experiment", id: constituent.column }
+            : { type: "user", id: c };
+        }),
+      };
+    case "invalid":
+      // Preserve legacy output for unrecognized "pre:*" ids stored on old snapshots
+      return { type: dimensionId.replace(/^pre:/, ""), precomputed };
+    case "user":
+      // Possibly a precomputed unit dimension.
+      return { type: "user", id: parsed.id, precomputed };
   }
-  if (dimensionId.startsWith("exp:")) {
-    return {
-      type: "experiment",
-      id: dimensionId.substring(4),
-      precomputed,
-    };
-  }
-  if (dimensionId.startsWith("pre:")) {
-    return { type: dimensionId.substring(4), precomputed };
-  }
-  // Otherwise a unit/user dimension id (possibly a precomputed unit dimension).
-  return { type: "user", id: dimensionId, precomputed };
 }
 
 // Builds a metric display-name resolver that formats slice metrics as
-// "Parent (col: val, ...)" so payloads are self-describing.
-function buildResultMetricNameResolver(
+// "Parent (col: val, ...)" and funnel step metrics as "Parent: Step" so
+// payloads are self-describing.
+export function buildResultMetricNameResolver(
   metricIds: Iterable<string>,
   metricsById: Map<string, ExperimentMetricInterface>,
 ): (id: string) => string | undefined {
@@ -86,6 +100,13 @@ function buildResultMetricNameResolver(
     }),
   );
   return (id: string): string | undefined => {
+    const stepInfo = parseFunnelStepMetricId(id);
+    if (stepInfo.isFunnelStepMetric && stepInfo.stepIndex !== null) {
+      const parent = baseMetricsById.get(stepInfo.baseMetricId);
+      if (!parent || !isFactFunnelMetric(parent)) return undefined;
+      return getFunnelStepMetric(parent, stepInfo.stepIndex)?.name;
+    }
+
     const { baseMetricId, sliceLevels } = parseSliceMetricId(id);
     const baseName = baseMetricsById.get(baseMetricId)?.name;
     if (!baseName) return undefined;
@@ -162,10 +183,12 @@ export function toApiResultAnalysis(
     mean: safeFloatOrNull(data?.stats?.mean),
     stddev: safeFloatOrNull(data?.stats?.stddev),
     effect: safeFloatOrNull(data?.expected),
+    effectStandardError: safeFloatOrNull(data?.uplift?.stddev),
     ciLow: safeFloatOrNull(data?.ci?.[0]),
     ciHigh: safeFloatOrNull(data?.ci?.[1]),
     pValue: safeFloatOrNull(data?.pValue),
     chanceToBeatControl: safeFloatOrNull(data?.chanceToWin),
+    ...(data?.errorMessage ? { errorMessage: data.errorMessage } : null),
   };
 }
 

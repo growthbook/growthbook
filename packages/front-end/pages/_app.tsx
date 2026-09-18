@@ -14,6 +14,7 @@ import { Container } from "@radix-ui/themes";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { OrgSuspendedBannerContainer } from "@/components/OrgSuspendedBanner/OrgSuspendedBanner";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
+import NPSSurvey from "@/components/NPSSurvey/NPSSurvey";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
 import { AuthProvider, useAuth } from "@/services/auth";
@@ -41,7 +42,7 @@ import { growthbook } from "@/services/utils";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
-import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
+import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
 import AgentLauncher from "@/components/Agent/AgentLauncher";
 import { AgentPanelProvider } from "@/components/Agent/AgentPanelContext";
@@ -208,7 +209,7 @@ function App({
                           {organizationRequired ? (
                             <GetStartedProvider>
                               <DefinitionsProvider>
-                                <FeatureStaleStatesProvider>
+                                <FeatureHealthStatesProvider>
                                   <AgentPanelProvider>
                                     {liteLayout ? <LayoutLite /> : <Layout />}
                                     <CommandPaletteLauncher />
@@ -217,6 +218,7 @@ function App({
                                       <OrgSuspendedBannerContainer />
                                       <OrganizationMessagesContainer />
                                       <DemoDataSourceGlobalBannerContainer />
+                                      <NPSSurvey />
                                       <OrgPageContent>
                                         <GuidedGetStartedBar />
                                         <DefinitionsGuard>
@@ -230,7 +232,7 @@ function App({
                                       </OrgPageContent>
                                     </main>
                                   </AgentPanelProvider>
-                                </FeatureStaleStatesProvider>
+                                </FeatureHealthStatesProvider>
                               </DefinitionsProvider>
                             </GetStartedProvider>
                           ) : (

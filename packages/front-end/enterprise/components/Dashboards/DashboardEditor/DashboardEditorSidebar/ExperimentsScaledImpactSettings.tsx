@@ -1,12 +1,14 @@
 import React from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   ExperimentsScaledImpactBlockInterface,
+  withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
-import Text from "@/ui/Text";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
+import SidebarSettingField from "./SidebarSettingField";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<ExperimentsScaledImpactBlockInterface>;
@@ -14,19 +16,19 @@ interface Props {
     DashboardBlockInterfaceOrData<ExperimentsScaledImpactBlockInterface>
   >;
   projects: string[];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
 }
 
 export default function ExperimentsScaledImpactSettings({
   block,
   setBlock,
   projects,
+  dashboardGlobalControls,
 }: Props) {
   return (
     <Flex direction="column" gap="5">
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Metric</Text>
-        </Box>
+      {/* What this block calculates, not a filter — always the block's own. */}
+      <SidebarSettingField label="Metric">
         <MetricSelector
           value={block.metricId}
           onChange={(metricId) => setBlock({ ...block, metricId })}
@@ -34,12 +36,25 @@ export default function ExperimentsScaledImpactSettings({
           projects={projects}
           placeholder="Select a metric..."
         />
-      </Box>
+      </SidebarSettingField>
 
       <CompletedExperimentsFilterFields
         value={block}
-        onChange={(patch) => setBlock({ ...block, ...patch })}
+        onChange={(patch, claim = []) =>
+          setBlock(
+            withBlockGlobalFilterFollowing(
+              { ...block, ...patch },
+              claim,
+              false,
+            ),
+          )
+        }
+        onRevert={(key) =>
+          setBlock(withBlockGlobalFilterFollowing(block, [key], true))
+        }
         availableProjects={projects}
+        dashboardGlobalControls={dashboardGlobalControls}
+        globalControlSettings={block.globalControlSettings}
       />
     </Flex>
   );

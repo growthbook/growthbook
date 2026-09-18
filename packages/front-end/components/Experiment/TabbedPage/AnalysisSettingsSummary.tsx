@@ -16,8 +16,9 @@ import {
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   isFactMetric,
+  isFactMetricJoinable,
   isMetricJoinable,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
@@ -136,6 +137,7 @@ export default function AnalysisSettingsSummary({
   const {
     getDatasourceById,
     getExperimentMetricById,
+    getFactTableById,
     factTables,
     metricGroups,
     factMetrics,
@@ -437,13 +439,20 @@ export default function AnalysisSettingsSummary({
     allExpandedMetrics.forEach((m) => {
       const metric = getExperimentMetricById(m);
       if (!metric) return;
-      const userIdTypes = isFactMetric(metric)
-        ? factTables.find((f) => f.id === metric.numerator.factTableId)
-            ?.userIdTypes || []
-        : metric.userIdTypes || [];
       const isJoinable =
         userIdType && datasourceSettings
-          ? isMetricJoinable(userIdTypes, userIdType, datasourceSettings)
+          ? isFactMetric(metric)
+            ? isFactMetricJoinable(
+                metric,
+                userIdType,
+                getFactTableById,
+                datasourceSettings,
+              )
+            : isMetricJoinable(
+                metric.userIdTypes || [],
+                userIdType,
+                datasourceSettings,
+              )
           : true;
       if (!isJoinable) {
         unjoinables.add(m);
@@ -452,7 +461,7 @@ export default function AnalysisSettingsSummary({
     return unjoinables;
   }, [
     allExpandedMetrics,
-    factTables,
+    getFactTableById,
     userIdType,
     datasourceSettings,
     getExperimentMetricById,
@@ -615,7 +624,8 @@ export default function AnalysisSettingsSummary({
     if (!val1 && !val2) return false;
     if (!val1 || !val2) return true;
     if (val1.length !== val2.length) return true;
-    return val1.some((v) => !val2.includes(v));
+    // Order matters: snapshot results are indexed by variation position.
+    return val1.some((v, i) => v !== val2[i]);
   }
 
   function isStringArrayMissingElements(
@@ -984,8 +994,8 @@ export default function AnalysisSettingsSummary({
                   factTables.map((table) => [table.id, table]),
                 );
 
-                // Expand slice metrics and add them to the map
-                expandAllSliceMetricsInMap({
+                // Expand derived metrics and add them to the map
+                expandDerivedMetricsInMap({
                   metricMap,
                   factTableMap,
                   experiment,

@@ -1,9 +1,13 @@
-import { ReactNode, useMemo, useState } from "react";
+import { Fragment, ReactNode, useMemo, useState } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  getDroppedContextualAttributes,
+  getEffectiveContextualAttributes,
+} from "shared/validators";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -12,7 +16,11 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
-import { jsonToConds, useAttributeMap } from "@/services/features";
+import {
+  jsonToConds,
+  useAttributeMap,
+  useAttributeSchema,
+} from "@/services/features";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -22,6 +30,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Metadata from "@/ui/Metadata";
+import VariationLabel from "@/ui/VariationLabel";
 import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
 import Owner from "@/components/Avatar/Owner";
@@ -41,6 +50,7 @@ import ContextualBanditResultsTable from "@/components/ContextualBandit/Contextu
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
+import CompareContextualBanditEventsModal from "@/components/ContextualBandit/CompareContextualBanditEventsModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 
 function OverviewSection({
@@ -121,6 +131,7 @@ export default function ContextualBanditDetailPage({
   const [confirmStop, setConfirmStop] = useState(false);
   const [showStart, setShowStart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
@@ -179,7 +190,6 @@ export default function ContextualBanditDetailPage({
       );
       globalAttributes = Array.from(fields);
     } else {
-      // Advanced condition jsonToConds can't simplify - fall back to top-level keys
       try {
         globalAttributes = Object.keys(JSON.parse(cb.condition)).filter(
           (k) => !k.startsWith("$"),
@@ -191,6 +201,31 @@ export default function ContextualBanditDetailPage({
 
     return globalAttributes.filter((a) => contextual.has(a));
   }, [cb.condition, cb.contextualAttributes, attributeMap]);
+
+  const globalAttributeSchema = useAttributeSchema(false);
+  const { effectiveContextualAttributes, droppedContextualAttributes } =
+    useMemo(() => {
+      const queryAttrs = contextualBanditQueriesMap.get(
+        cb.contextualBanditQueryId,
+      )?.targetingAttributeColumns;
+      return {
+        effectiveContextualAttributes: getEffectiveContextualAttributes(
+          cb.contextualAttributes,
+          queryAttrs,
+          globalAttributeSchema,
+        ),
+        droppedContextualAttributes: getDroppedContextualAttributes(
+          cb.contextualAttributes,
+          queryAttrs,
+          globalAttributeSchema,
+        ),
+      };
+    }, [
+      cb.contextualAttributes,
+      cb.contextualBanditQueryId,
+      contextualBanditQueriesMap,
+      globalAttributeSchema,
+    ]);
 
   const formatExploratoryStage = (
     value?: number,
@@ -208,6 +243,10 @@ export default function ContextualBanditDetailPage({
     return `Every ${v} ${(unit ?? "days") === "days" ? "days" : "hours"}`;
   };
 
+  const pendingVariations = cb.variations
+    .map((v, index) => ({ ...v, index }))
+    .filter((v) => v.status === "pending");
+
   const numVariations = cb.variations.length;
   const variationCols = numVariations > 4 ? 4 : Math.max(numVariations, 1);
   const banditVariations: Variation[] = useMemo(
@@ -221,6 +260,7 @@ export default function ContextualBanditDetailPage({
       })),
     [cb.variations],
   );
+  const hasUniqueIDs = banditVariations.some((v, i) => v.key !== i + "");
 
   const experimentForVariations = useMemo<
     Pick<ExperimentInterfaceStringDates, "id" | "status" | "type">
@@ -290,51 +330,60 @@ export default function ContextualBanditDetailPage({
               Stop Contextual Bandit
             </Button>
           ) : null}
-          {editOverview || duplicate ? (
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="3"
-                  highContrast
-                  ml="2"
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+                ml="2"
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            open={dropdownOpen}
+            onOpenChange={(o) => setDropdownOpen(!!o)}
+            menuPlacement="end"
+          >
+            {editOverview ? (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    editOverview();
+                  }}
                 >
-                  <BsThreeDotsVertical size={18} />
-                </IconButton>
-              }
-              open={dropdownOpen}
-              onOpenChange={(o) => setDropdownOpen(!!o)}
-              menuPlacement="end"
-            >
-              <DropdownMenuGroup>
-                {editOverview ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      editOverview();
-                    }}
-                  >
-                    Edit info
-                  </DropdownMenuItem>
-                ) : null}
+                  Edit info
+                </DropdownMenuItem>
               </DropdownMenuGroup>
-              {editOverview && duplicate ? <DropdownMenuSeparator /> : null}
+            ) : null}
+            {editOverview ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => {
+                  setDropdownOpen(false);
+                  setAuditModal(true);
+                }}
+              >
+                Audit history
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            {duplicate ? <DropdownMenuSeparator /> : null}
+            {duplicate ? (
               <DropdownMenuGroup>
-                {duplicate ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      duplicate();
-                    }}
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                ) : null}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    duplicate();
+                  }}
+                >
+                  Duplicate
+                </DropdownMenuItem>
               </DropdownMenuGroup>
-            </DropdownMenu>
-          ) : null}
+            ) : null}
+          </DropdownMenu>
         </Flex>
       </Flex>
 
@@ -447,7 +496,7 @@ export default function ContextualBanditDetailPage({
               ) : (
                 <Text color="text-low">
                   <em>
-                    Add context about this contextual bandit for your team
+                    Add context about this Contextual Bandit for your team
                   </em>
                 </Text>
               )}
@@ -469,6 +518,33 @@ export default function ContextualBanditDetailPage({
                     </Button>
                   ) : null}
                 </Flex>
+
+                {pendingVariations.length > 0 && (
+                  <Callout status="warning" mb="4">
+                    <Flex align="center" gap="2" wrap="wrap">
+                      {pendingVariations.map((v) => (
+                        <Box key={v.id} flexShrink="0">
+                          <VariationLabel
+                            number={v.index}
+                            name={v.name}
+                            size="sm"
+                            disableTooltip
+                          />
+                        </Box>
+                      ))}
+                      <Text>
+                        {pendingVariations.length === 1 ? "is" : "are"} waiting
+                        on a linked Feature Flag rule to be published and will
+                        not receive any traffic until then.{" "}
+                        {pendingVariations.length === 1
+                          ? "It activates"
+                          : "They activate"}{" "}
+                        automatically when the Feature Flag revision publishes.
+                      </Text>
+                    </Flex>
+                  </Callout>
+                )}
+
                 <Grid
                   gap="4"
                   style={{ gridAutoRows: "1fr" }}
@@ -485,7 +561,7 @@ export default function ContextualBanditDetailPage({
                         i={i}
                         v={v}
                         experiment={experimentForVariations}
-                        showIds
+                        showIds={hasUniqueIDs}
                         allowImages={false}
                         showSplit={false}
                       />
@@ -553,7 +629,7 @@ export default function ContextualBanditDetailPage({
                 )}
               </Grid>
               {conflictingAttributes.length > 0 && (
-                <Callout status="warning" mt="4">
+                <Callout status="info" mt="4">
                   <Flex direction="column" gap="2">
                     <Text as="span">
                       Your attribute targeting overlaps with the Bandit&apos;s
@@ -583,8 +659,13 @@ export default function ContextualBanditDetailPage({
                   {exposureQueryName || <em>none</em>}
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Contextual Attributes">
-                  {cb.contextualAttributes.length
-                    ? cb.contextualAttributes.join(", ")
+                  {effectiveContextualAttributes.length
+                    ? effectiveContextualAttributes.map((a, i) => (
+                        <Fragment key={a}>
+                          {i ? ", " : ""}
+                          <code>{a}</code>
+                        </Fragment>
+                      ))
                     : "—"}
                 </DetailSectionColumn>
               </Grid>
@@ -618,6 +699,22 @@ export default function ContextualBanditDetailPage({
                   {formatUpdateCadence(cb.scheduleValue, cb.scheduleUnit)}
                 </DetailSectionColumn>
               </Grid>
+              {droppedContextualAttributes.length > 0 && (
+                <Callout status="warning" mt="4">
+                  <Flex direction="column" gap="2">
+                    <Text as="span">
+                      These attributes were removed from the Contextual Bandit
+                      query or your organization&apos;s attributes and are no
+                      longer used. Edit the analysis settings to update them.
+                    </Text>
+                    <Flex align="center" gap="1" wrap="wrap">
+                      {droppedContextualAttributes.map((a) => (
+                        <AttributeBadge key={a} attributeId={a} />
+                      ))}
+                    </Flex>
+                  </Flex>
+                </Callout>
+              )}
             </OverviewSection>
           </Box>
         </TabsContent>
@@ -639,6 +736,13 @@ export default function ContextualBanditDetailPage({
           linkedFeatures={linkedFeatures}
           startContextualBandit={start}
           close={() => setShowStart(false)}
+        />
+      ) : null}
+
+      {auditModal ? (
+        <CompareContextualBanditEventsModal
+          cbId={cb.id}
+          onClose={() => setAuditModal(false)}
         />
       ) : null}
 

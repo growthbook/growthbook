@@ -48,15 +48,18 @@ const SCHEMA_BREAK: ArmGuardId = "schema-break";
 // Resolve a direct (unarmed) publish's schema-break violations to an action,
 // honoring the org's `blockPublishOnSchemaError` setting:
 //  - block mode (default): validation-class. Cleared only by the privileged
-//    skipSchemaValidation (which requires bypassApprovalChecks); else a HARD
+//    skipSchemaValidation (which requires FlagsBypassApprovals); else a HARD
 //    400, so the UI blocks and no ignoreWarnings escape exists.
 //  - warn mode (setting off): acknowledge-class. Anyone clears with an explicit
 //    ignoreWarnings ack; else a 422 soft warning. No permission-alone escape —
 //    even an approver must acknowledge invalid data explicitly, matching the
 //    documented warn-mode contract and the value-validation backstop.
-// Shared by the constant and config guards.
+// Shared by the constant and config guards, so the caller names the family whose
+// bypass authority clears it — bypass is per family now, and hardcoding one here
+// let a Configs bypass clear a CONSTANT schema break (and vice versa).
 function resolveDirectSchemaBreak(
   context: Context,
+  entityType: "config" | "constant",
   violations: string[],
   logKey: Record<string, unknown>,
   message: string,
@@ -64,8 +67,8 @@ function resolveDirectSchemaBreak(
   if (!violations.length) return;
   const blocking = context.org.settings?.blockPublishOnSchemaError !== false;
   if (blocking) {
-    // `context.skipSchemaValidation` already requires bypassApprovalChecks.
-    if (context.skipSchemaValidation) {
+    // Already requires the bypass permission for THIS entity's family.
+    if (context.canSkipSchemaValidationFor(entityType)) {
       logger.info(
         { ...logKey, userId: context.userId, violations },
         "Schema-break guard skipped via skipSchemaValidation",
@@ -354,8 +357,8 @@ export function collectDependentConfigBreaks({
         (env) => introducedFor(cfgKey, env, project, additionalProperties),
         (v, env) =>
           env === null
-            ? `config "${cfgKey}": ${v}`
-            : `config "${cfgKey}" [${env}]: ${v}`,
+            ? `Config "${cfgKey}": ${v}`
+            : `Config "${cfgKey}" [${env}]: ${v}`,
       ),
     );
   }
@@ -511,7 +514,7 @@ export function collectDependentFeatureBreaks({
 // Warn (never hard-block) when publishing a constant would make a dependent
 // config OR config-backed feature value violate its schema or invariants.
 // Bypassable soft warning on a direct publish (?ignoreWarnings=true or
-// bypassApprovalChecks).
+// FlagsBypassApprovals).
 //
 // All schema-break violations a proposed constant value would introduce —
 // dependent configs (per env) and config-backed feature values, combined. Loads
@@ -597,16 +600,17 @@ export async function assertConstantSchemaBreakGuard(
     assertArmedSchemaBreakAcknowledged(
       violations,
       revision,
-      "Publishing this constant would newly break dependent config or feature value(s)",
+      "Publishing this Constant would newly break dependent Config or Feature Flag value(s)",
     );
     return;
   }
 
   resolveDirectSchemaBreak(
     context,
+    "constant",
     violations,
     { constantKey: constant.key },
-    "Breaks a dependent config or feature value:",
+    "Breaks a dependent Config or feature value:",
   );
 }
 
@@ -635,13 +639,13 @@ export async function captureConstantSchemaBreakAcknowledgment(
 
   // Same class split as the direct fire, honoring blockPublishOnSchemaError.
   const body =
-    "Scheduling this publish would break a dependent config or feature value:\n" +
+    "Scheduling this publish would break a dependent Config or feature value:\n" +
     violations.join("\n");
   if (context.org.settings?.blockPublishOnSchemaError !== false) {
-    if (!context.skipSchemaValidation) {
+    if (!context.canSkipSchemaValidationFor("constant")) {
       throw new BadRequestError(
         body +
-          "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
+          "\nRe-submit with skipSchemaValidation (requires the FlagsBypassApprovals permission) to schedule anyway.",
       );
     }
   } else if (!context.ignoreWarnings) {
@@ -793,16 +797,17 @@ export async function assertConfigSchemaBreakGuard(
     assertArmedSchemaBreakAcknowledged(
       violations,
       revision,
-      "Publishing this config would newly break its own resolved value",
+      "Publishing this Config would newly break its own resolved value",
     );
     return;
   }
 
   resolveDirectSchemaBreak(
     context,
+    "config",
     violations,
     { configKey: proposed.key },
-    "Invalid config value:",
+    "Invalid Config value:",
   );
 }
 
@@ -875,16 +880,17 @@ export async function assertConfigArchiveSchemaBreakGuard(
     assertArmedSchemaBreakAcknowledged(
       violations,
       revision,
-      `${action} this config would newly break dependent config or feature value(s)`,
+      `${action} this Config would newly break dependent Config or Feature Flag value(s)`,
     );
     return;
   }
 
   resolveDirectSchemaBreak(
     context,
+    "config",
     violations,
     { configKey: config.key },
-    `${action} this config breaks a dependent config or feature value:`,
+    `${action} this Config breaks a dependent Config or Feature Flag value:`,
   );
 }
 
@@ -920,7 +926,7 @@ export async function captureConfigSchemaBreakAcknowledgment(
 
   // Same class split as the direct fire, honoring blockPublishOnSchemaError.
   const body =
-    "Scheduling this publish would produce an invalid config or dependent value:\n" +
+    "Scheduling this publish would produce an invalid Config or dependent value:\n" +
     violations.join("\n");
   if (context.org.settings?.blockPublishOnSchemaError === false) {
     if (!context.ignoreWarnings) {
@@ -931,10 +937,10 @@ export async function captureConfigSchemaBreakAcknowledgment(
     }
     return [...new Set(violations)].sort();
   }
-  if (!context.skipSchemaValidation) {
+  if (!context.canSkipSchemaValidationFor("config")) {
     throw new BadRequestError(
       body +
-        "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
+        "\nRe-submit with skipSchemaValidation (requires the FlagsBypassApprovals permission) to schedule anyway.",
     );
   }
   return [...new Set(violations)].sort();

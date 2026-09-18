@@ -878,7 +878,7 @@ export async function assertConstantArchivable(
   const parts: string[] = [];
   if (refs.features.length) parts.push(`${refs.features.length} feature(s)`);
   if (refs.constants.length) {
-    parts.push(`${refs.constants.length} other constant(s)/config(s)`);
+    parts.push(`${refs.constants.length} other Constant(s)/Config(s)`);
   }
   throw new BadRequestError(
     `Cannot archive ${noun}: it is still referenced by ${parts.join(
@@ -940,7 +940,7 @@ export async function assertConfigDeletable(
   const dependents = await getDependentConfigs(context, config.key);
   if (dependents.length) {
     throw new BadRequestError(
-      `Cannot delete config: ${dependents.length} config(s) depend on it (${dependents
+      `Cannot delete Config: ${dependents.length} Config(s) depend on it (${dependents
         .map((c) => c.key)
         .join(
           ", ",
@@ -983,7 +983,7 @@ export async function assertScopedOverridesValid(
   ];
   if (dangling.length) {
     errors.push(
-      `Scoped override references unknown config(s): ${dangling
+      `Scoped override references unknown Config(s): ${dangling
         .map((k) => `"${k}"`)
         .join(", ")}.`,
     );
@@ -1024,7 +1024,7 @@ export async function assertScopedOverridesValid(
     );
     if (otherBase) {
       errors.push(
-        `"${key}" is already an environment override of "${otherBase.key}" — a config can only override one base.`,
+        `"${key}" is already an environment override of "${otherBase.key}" — a Config can only override one base.`,
       );
     }
   }
@@ -1077,9 +1077,12 @@ export async function assertScopedOverridesChangeAllowed(
   );
   if (!requiresReview) return;
   if (
-    context.permissions.canBypassApprovalChecks({
-      project: config.project || "",
-    })
+    context.permissions.canBypassFlagApprovalChecks(
+      {
+        project: config.project || "",
+      },
+      "config",
+    )
   ) {
     return;
   }

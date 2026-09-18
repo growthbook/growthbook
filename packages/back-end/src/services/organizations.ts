@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
@@ -6,7 +7,14 @@ import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
+  roleSupportsEnvLimit,
+  changedProjectRoleProjects,
 } from "shared/permissions";
+import {
+  DUPLICATE_PROJECT_ROLES_MESSAGE,
+  hasNoDuplicateProjects,
+} from "shared/validators";
+import { accountFeatures } from "shared/enterprise";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_MAX_PERCENT_CHANGE,
@@ -21,7 +29,21 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { AIModel, EmbeddingModel } from "shared/ai";
+import {
+  AIModel,
+  AIModelKind,
+  AIProvider,
+  AI_PROVIDERS,
+  CLOUD_MANAGED_AI_MODEL,
+  SELF_HOSTED_DEFAULT_AI_MODELS,
+  CLOUD_MANAGED_IMAGE_MODEL,
+  CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  DEFAULT_EMBEDDING_MODEL,
+  EmbeddingModel,
+  STTModel,
+  resolveDefaultSTTModel,
+  getProviderForAIModel,
+} from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   MetricCappingSettings,
@@ -46,6 +68,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
+import { TeamInterface } from "shared/types/team";
 import {
   acceptOrganizationInvite,
   addOrganizationInviteIfSeatAvailable,
@@ -63,6 +86,11 @@ import {
   IS_CLOUD,
   IS_MULTI_ORG,
 } from "back-end/src/util/secrets";
+import {
+  AIKeySource,
+  canOrgChooseProviderModels,
+  getResolvedAIKeys,
+} from "back-end/src/services/aiCredentials";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
@@ -94,11 +122,15 @@ import {
 import {
   getAccountPlan,
   getLicense,
+  getLowestPlanPerFeature,
   licenseInit,
+  orgHasPremiumFeature,
 } from "back-end/src/enterprise";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -112,6 +144,7 @@ import {
   sendPendingMemberEmail,
 } from "./email";
 import { ReqContextClass } from "./context";
+import { queueSDKPayloadRefresh } from "./features";
 
 export {
   getEnvironments,
@@ -201,6 +234,7 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     },
     teams: req.teams,
     req: req as Request,
+    restrictedProjects: req.restrictedProjects,
   });
 }
 
@@ -268,87 +302,131 @@ export async function getSignificanceSettingsForProject(
   };
 }
 
-export function getAISettingsForOrg(
+export async function getAISettingsForOrg(
   context: ReqContext,
   includeKey: boolean = false,
-): {
+): Promise<{
   aiEnabled: boolean;
   openAIAPIKey: string;
   anthropicAPIKey: string;
   xaiAPIKey: string;
   mistralAPIKey: string;
   googleAPIKey: string;
+  // Where each provider's key came from. Non-secret, so returned regardless of
+  // `includeKey`.
+  keySource: Record<AIProvider, AIKeySource>;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
+  // Dictation model, or null when unavailable (hides the mic button).
+  sttModel: STTModel | null;
   // Resolved Visual Editor overrides — both already fall back to a
   // sensible default so callers don't need their own resolution logic.
   visualEditorAIModel: AIModel;
   visualEditorImageModel: string;
   // Free-text brand guidelines appended to the AI system prompt.
   visualEditorAIContext: string;
-} {
-  const openAIKey = process.env.OPENAI_API_KEY || "";
-  const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
-  const xaiKey = process.env.XAI_API_KEY || "";
-  const mistralKey = process.env.MISTRAL_API_KEY || "";
-  // GEMINI_API_KEY is the legacy name; GOOGLE_AI_API_KEY is preferred.
-  const googleKey =
-    process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
+}> {
+  // Cloud: a stored key beats the env var. Self-hosted: the env var wins.
+  // Either way it only counts while the plan allows it — see getResolvedAIKeys.
+  // Memoized per request, so repeated calls cost one query.
+  const resolvedKeys = await getResolvedAIKeys(context);
 
-  const hasValidKey = !!(
-    openAIKey ||
-    anthropicKey ||
-    xaiKey ||
-    mistralKey ||
-    googleKey
+  const keySource = AI_PROVIDERS.reduce(
+    (acc, provider) => {
+      acc[provider] = resolvedKeys[provider].source;
+      return acc;
+    },
+    {} as Record<AIProvider, AIKeySource>,
   );
 
+  const hasValidKey = AI_PROVIDERS.some((p) => !!resolvedKeys[p].key);
+
+  // Cloud ships with GrowthBook's own managed keys, so AI only needs the org
+  // toggle. Self-hosted additionally needs a key from somewhere.
   const aiEnabled = IS_CLOUD
     ? !!context.org.settings?.aiEnabled
     : !!(context.org.settings?.aiEnabled && hasValidKey);
 
-  const defaultAIModel: AIModel = IS_CLOUD
-    ? "claude-haiku-4-5-20251001"
-    : context.org.settings?.defaultAIModel ||
-      context.org.settings?.openAIDefaultModel ||
-      "gpt-5.4-mini";
+  // Cloud pins the cheap managed model because GrowthBook pays for it; an org on
+  // its own key for that model's provider picks its own.
+  const orgDefaultAIModel = getAllowedAIModel(
+    "text",
+    context.org.settings?.defaultAIModel ||
+      context.org.settings?.openAIDefaultModel,
+    keySource,
+  );
+  const selfHostedDefaultAIModel: AIModel =
+    SELF_HOSTED_DEFAULT_AI_MODELS.find(
+      ([provider]) => keySource[provider] !== "none",
+    )?.[1] ?? SELF_HOSTED_DEFAULT_AI_MODELS[0][1];
+  const defaultAIModel: AIModel =
+    orgDefaultAIModel ||
+    (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : selfHostedDefaultAIModel);
 
-  // Visual editor AI. An explicit per-surface override always wins.
-  // Otherwise: on Cloud, default to Sonnet — the visual editor's
-  // structured-output + vision workload (mutations schema, figma-to-
-  // variant) needs more capability than the cheap managed default
-  // (Haiku), which fails schema adherence too often here. Self-hosted
-  // keeps falling back to the org's general default model so admins stay
-  // in control of cost/model.
+  // Cloud stays on Sonnet unless the Visual Editor's own setting overrides it:
+  // its structured-output + vision workload fails schema adherence on Haiku.
   const visualEditorAIModel: AIModel =
-    context.org.settings?.visualEditorAIModel ||
-    (IS_CLOUD ? "claude-sonnet-4-5-20250929" : defaultAIModel);
-  // On Cloud, default the visual editor's image model to Gemini 3 Pro Image:
-  // it honors the requested aspect ratio (so replacements aren't center-
-  // cropped/clipped) and renders at higher resolution, while still supporting
-  // reference images for img2img. Self-hosted keeps the stable nano-banana
-  // default (GEMINI_IMAGE_MODEL, env-overridable) rather than a preview model.
-  // An explicit org setting always wins.
+    getAllowedAIModel(
+      "text",
+      context.org.settings?.visualEditorAIModel,
+      keySource,
+    ) || (IS_CLOUD ? CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL : defaultAIModel);
+  // Managed Cloud gets Gemini 3 Pro Image for aspect-ratio fidelity. An org on
+  // its own Google key gets the stable default, since a preview model isn't
+  // enabled on every account.
   const visualEditorImageModel: string =
-    context.org.settings?.visualEditorImageModel ||
-    (IS_CLOUD ? "gemini-3-pro-image-preview" : GEMINI_IMAGE_MODEL);
+    getAllowedAIModel(
+      "image",
+      context.org.settings?.visualEditorImageModel,
+      keySource,
+    ) ||
+    (IS_CLOUD && !canOrgChooseProviderModels(keySource, "google")
+      ? CLOUD_MANAGED_IMAGE_MODEL
+      : GEMINI_IMAGE_MODEL);
+
+  const sttModel: STTModel | null = !aiEnabled
+    ? null
+    : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
+      resolveDefaultSTTModel(
+        AI_PROVIDERS.filter((p) => keySource[p] !== "none"),
+      );
 
   return {
     aiEnabled,
-    openAIAPIKey: includeKey ? openAIKey : "",
-    anthropicAPIKey: includeKey ? anthropicKey : "",
-    xaiAPIKey: includeKey ? xaiKey : "",
-    mistralAPIKey: includeKey ? mistralKey : "",
-    googleAPIKey: includeKey ? googleKey : "",
+    openAIAPIKey: includeKey ? resolvedKeys.openai.key : "",
+    anthropicAPIKey: includeKey ? resolvedKeys.anthropic.key : "",
+    xaiAPIKey: includeKey ? resolvedKeys.xai.key : "",
+    mistralAPIKey: includeKey ? resolvedKeys.mistral.key : "",
+    googleAPIKey: includeKey ? resolvedKeys.google.key : "",
+    keySource,
     defaultAIModel,
     embeddingModel:
-      context.org.settings?.embeddingModel || "text-embedding-ada-002",
+      getAllowedAIModel(
+        "embedding",
+        context.org.settings?.embeddingModel,
+        keySource,
+      ) || DEFAULT_EMBEDDING_MODEL,
+    sttModel,
     visualEditorAIModel,
     visualEditorImageModel,
     visualEditorAIContext: (
       context.org.settings?.visualEditorAIContext || ""
     ).trim(),
   };
+}
+
+// Stored and request-level model choices use the same runtime entitlement rule.
+// A disallowed legacy value reads as unset so callers fall back safely.
+export function getAllowedAIModel<T extends string>(
+  kind: AIModelKind,
+  model: T | undefined,
+  keySource: Record<AIProvider, AIKeySource>,
+): T | undefined {
+  if (!model) return undefined;
+  const provider = getProviderForAIModel(kind, model);
+  return provider && canOrgChooseProviderModels(keySource, provider)
+    ? model
+    : undefined;
 }
 
 export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
@@ -543,6 +621,134 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
+type RoleRuleInput = {
+  role: string;
+  limitAccessByEnvironment?: boolean;
+  environments?: string[];
+};
+
+// One rule: a valid role the plan allows, with a coherent environment limit.
+function assertRoleRuleValid(
+  organization: OrganizationInterface,
+  { role, limitAccessByEnvironment, environments }: RoleRuleInput,
+) {
+  if (!isRoleValid(role, organization)) {
+    throw new Error(`${role} is not a valid role`);
+  }
+
+  const lowestPlanMap = getLowestPlanPerFeature(accountFeatures);
+
+  if (
+    role === "noaccess" &&
+    !orgHasPremiumFeature(organization, "no-access-role")
+  ) {
+    throw new Error(
+      `Must have a ${lowestPlanMap["no-access-role"]} plan to gain access to the no-access role.`,
+    );
+  }
+
+  if (
+    role === "gbDefault_projectAdmin" &&
+    !orgHasPremiumFeature(organization, "project-admin-role")
+  ) {
+    throw new Error(
+      `Must have a ${lowestPlanMap["project-admin-role"]} plan to gain access to the project admin role.`,
+    );
+  }
+
+  if (limitAccessByEnvironment && environments?.length) {
+    if (!orgHasPremiumFeature(organization, "advanced-permissions")) {
+      throw new Error(
+        `Must have a ${lowestPlanMap["advanced-permissions"]} plan to restrict permissions by environment.`,
+      );
+    }
+
+    if (!roleSupportsEnvLimit(role, organization)) {
+      throw new Error(
+        `${role} does not support restricting access to certain environments.`,
+      );
+    }
+
+    const environmentIds =
+      organization.settings?.environments?.map((e) => e.id) || [];
+    environments.forEach((env) => {
+      if (!environmentIds.includes(env)) {
+        throw new Error(
+          `${env} is not a valid environment ID for this organization.`,
+        );
+      }
+    });
+  }
+}
+
+// The whole shape a member-role writer accepts. Every human-payload writer
+// validates through here, so no rule rides in unchecked on just one path.
+// Project rules must name real projects. Only the rules a write adds or
+// changes are checked, so a record pointing at a since-deleted project stays
+// editable.
+export async function assertProjectRulesReferenceProjects(
+  context: ReqContext | ApiReqContext,
+  before: ProjectMemberRole[] | undefined,
+  after: ProjectMemberRole[] | undefined,
+) {
+  const submitted = new Set((after ?? []).map((rule) => rule.project));
+  const changed = changedProjectRoleProjects(before, after).filter((project) =>
+    submitted.has(project),
+  );
+  if (!changed.length) return;
+  const known = new Set(await context.models.projects.getAllIdsForOrg());
+  const unknown = changed.filter((project) => !known.has(project));
+  if (unknown.length) {
+    throw new Error(`Unknown project: ${unknown.join(", ")}`);
+  }
+}
+
+export function assertMemberRoleInfoValid(
+  organization: OrganizationInterface,
+  roleInfo: RoleRuleInput & {
+    additionalRoles?: RoleRuleInput[];
+    projectRoles?: (RoleRuleInput & {
+      project: string;
+      additionalRoles?: RoleRuleInput[];
+    })[];
+  },
+) {
+  const rules = [roleInfo, ...(roleInfo.additionalRoles ?? [])];
+  rules.forEach((rule) =>
+    assertRoleRuleValid(organization, {
+      ...rule,
+      // An extra rule's env list is its limit; there is no unlimited form.
+      limitAccessByEnvironment:
+        rule === roleInfo
+          ? rule.limitAccessByEnvironment
+          : (rule.limitAccessByEnvironment ?? !!rule.environments?.length),
+    }),
+  );
+
+  const projectRoles = roleInfo.projectRoles ?? [];
+  if (!projectRoles.length) return;
+
+  if (!orgHasPremiumFeature(organization, "advanced-permissions")) {
+    throw new Error(
+      "Your plan does not support providing users with project-level permissions.",
+    );
+  }
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    throw new Error(DUPLICATE_PROJECT_ROLES_MESSAGE);
+  }
+  projectRoles.forEach((projectRole) => {
+    [projectRole, ...(projectRole.additionalRoles ?? [])].forEach((rule) =>
+      assertRoleRuleValid(organization, {
+        ...rule,
+        limitAccessByEnvironment:
+          rule === projectRole
+            ? rule.limitAccessByEnvironment
+            : (rule.limitAccessByEnvironment ?? !!rule.environments?.length),
+      }),
+    );
+  });
+}
+
 // Free (role-restricted) plans can only assign the admin global role. Only the
 // global role is checked here.
 export function assertRoleAssignmentAllowed(
@@ -663,6 +869,26 @@ export async function addMembersToTeam({
   });
 
   await updateOrganization(organization.id, { members: updatedMembers });
+}
+
+// Membership hands out the team's authority, so it is gated like the team
+// itself. A caller relying on project authority alone also can't change their
+// own membership, mirroring the member project-role rule.
+export function assertCanChangeTeamMembership(
+  context: ReqContext | ApiReqContext,
+  team: TeamInterface,
+  userIds: string[],
+) {
+  if (!context.permissions.canManageTeamMembership(team)) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    !context.permissions.canManageTeam() &&
+    context.userId &&
+    userIds.includes(context.userId)
+  ) {
+    context.throwBadRequestError("Cannot change your own team membership");
+  }
 }
 
 export function getMembersOfTeam(org: OrganizationInterface, teamId: string) {
@@ -835,6 +1061,7 @@ export async function inviteUser({
   limitAccessByEnvironment,
   environments,
   projectRoles,
+  additionalRoles,
   invitedBy,
 }: {
   organization: OrganizationInterface;
@@ -843,7 +1070,14 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email.toLowerCase();
+  email = email
+    .toLowerCase()
+    .replace(/^[\s;,]+/, "")
+    .replace(/[\s;,]+$/, "");
+
+  if (!z.string().email().safeParse(email).success) {
+    throw new Error(`Invalid email address: ${email}`);
+  }
 
   // User is already invited (legacy invites may have been stored with
   // mixed case, so compare case-insensitively).
@@ -886,6 +1120,7 @@ export async function inviteUser({
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    additionalRoles,
     invitedBy,
   };
   const updatedOrganization = await addOrganizationInviteIfSeatAvailable(
@@ -1030,10 +1265,28 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
-    await updateOrganization(organization.id, {
-      settings: {
-        ...organization.settings,
-        ...config.organization.settings,
+    const settings = {
+      ...organization.settings,
+      ...config.organization.settings,
+    };
+    await updateOrganization(organization.id, { settings });
+
+    // The request snapshot cannot prove this write was a no-op.
+    // Refresh now because later resource imports can fail after settings persist.
+    const refreshContext = await getContextForAgendaJobByOrgId(organization.id);
+    queueSDKPayloadRefresh({
+      context: refreshContext,
+      payloadKeys: refreshContext.environments.map((environment) => ({
+        environment,
+        project: "",
+      })),
+      // Include connections whose environments were removed by the import.
+      sdkConnections: await findSDKConnectionsByOrganization(refreshContext),
+      treatEmptyProjectAsGlobal: true,
+      auditContext: {
+        event: "config imported",
+        model: "organization",
+        id: organization.id,
       },
     });
   }
@@ -1332,7 +1585,8 @@ export async function addMemberFromSSOConnection(
 
     organization = orgs[0];
   }
-  if (!organization) return null;
+  // Never auto-join users into a disabled organization
+  if (!organization || organization.disabled) return null;
 
   // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
   // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior
@@ -1500,6 +1754,13 @@ export async function getContextForAgendaJobByOrgId(
 export async function getContextForUserIdInOrg(
   org: OrganizationInterface,
   userId: string,
+  {
+    // Deferred and scheduled executions err permissive: they run on the
+    // authority the user held when they enabled the action, so a project
+    // restricting access later must not strand them. Live request contexts
+    // (e.g. OAuth) keep the default and apply restrictions.
+    applyProjectRestrictions = true,
+  }: { applyProjectRestrictions?: boolean } = {},
 ): Promise<ApiReqContext | null> {
   const user = await getUserById(userId);
   if (!user) return null;
@@ -1507,7 +1768,12 @@ export async function getContextForUserIdInOrg(
   const isMember = org.members.some((m) => m.id === user.id);
   if (!isMember) return null;
 
-  const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    applyProjectRestrictions
+      ? ProjectModel.dangerousGetRestrictedProjectIds(org.id)
+      : [],
+  ]);
 
   return new ReqContextClass({
     org,
@@ -1524,5 +1790,6 @@ export async function getContextForUserIdInOrg(
       superAdmin: user.superAdmin,
     },
     teams,
+    restrictedProjects,
   });
 }

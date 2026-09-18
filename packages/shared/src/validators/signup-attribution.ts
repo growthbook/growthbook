@@ -8,6 +8,7 @@ export const attributionCookieSchema = z
     utm_term: z.string().optional(),
     utm_content: z.string().optional(),
     gclid: z.string().optional(),
+    li_fat_id: z.string().optional(),
     fbclid: z.string().optional(),
     msclkid: z.string().optional(),
     referrer: z.string().optional(),

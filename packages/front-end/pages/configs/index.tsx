@@ -1,3 +1,4 @@
+import { canCreateInSelectedScope } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
@@ -23,7 +24,6 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Table, {
   TableHeader,
@@ -33,10 +33,6 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import {
-  draftStatusDots,
-  draftStatusTooltip,
-} from "@/components/Reviews/RevisionStatusBadge";
 import { useConfigDraftStates } from "@/hooks/useConstantDraftStates";
 import { useRevisionsEntityType } from "@/hooks/useRevisions";
 import ConfigModal from "@/components/Configs/ConfigModal";
@@ -122,7 +118,6 @@ export default function ConfigsPage(): React.ReactElement {
   );
 
   const draftHook = useConfigDraftStates();
-  const hasDraftStates = Object.keys(draftHook.draftStates).length > 0;
 
   const {
     items,
@@ -178,17 +173,10 @@ export default function ConfigsPage(): React.ReactElement {
     (f) => f.field === "has" && f.values.includes("draft"),
   );
 
-  // Fetch all draft states when filtering by draft, otherwise just the visible
-  // rows (the hook dedupes already-fetched ids).
   useEffect(() => {
-    if (hasDraftFilter) {
-      draftHook.fetchAll();
-    } else {
-      const ids = items.map((c) => c.id);
-      if (ids.length) draftHook.fetchSome(ids);
-    }
+    if (hasDraftFilter) draftHook.fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, hasDraftFilter]);
+  }, [hasDraftFilter]);
 
   // Rows to render, memoized on the search result (useSearch returns a stable
   // `items` reference until the query/sort/page changes). Browse view nests by
@@ -213,8 +201,10 @@ export default function ConfigsPage(): React.ReactElement {
     return <LoadingOverlay />;
   }
 
-  const canAdd = permissionsUtil.canCreateConfig({
-    project: project || undefined,
+  const canAdd = canCreateInSelectedScope({
+    project,
+    projectIds: projects.map((p) => p.id),
+    canCreateIn: (p) => permissionsUtil.canCreateConfig({ project: p }),
   });
   // Include archived so an org with only archived configs still gets the list
   // (and its `is:archived` facet) rather than the empty state.
@@ -242,7 +232,7 @@ export default function ConfigsPage(): React.ReactElement {
           {hasConfigs && canAdd && addButton}
         </Flex>
         <Text as="p" mb="3" color="text-mid">
-          Strongly-typed configuration objects with a base config and
+          Strongly-typed configuration objects with a base Config and
           field-level overrides, composed and delivered through your feature
           flags.
         </Text>
@@ -250,7 +240,7 @@ export default function ConfigsPage(): React.ReactElement {
         {!hasConfigs ? (
           <EmptyState
             title="Typed, composable configuration"
-            description="Define a base config with a field schema, then create override configs that inherit and override specific fields."
+            description="Define a base Config with a field schema, then create override Configs that inherit and override specific fields."
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/configs"
@@ -306,7 +296,6 @@ export default function ConfigsPage(): React.ReactElement {
                     setSearchValue={setSearchValue}
                     configs={items}
                     hasArchived={hasArchived}
-                    hasDraftStates={hasDraftStates}
                   />
                 </Flex>
                 <Table variant="list" stickyHeader roundedCorners>
@@ -318,12 +307,9 @@ export default function ConfigsPage(): React.ReactElement {
                       <SortableTableColumnHeader field="key">
                         Key
                       </SortableTableColumnHeader>
+                      <TableColumnHeader>Project</TableColumnHeader>
                       <TableColumnHeader style={{ width: "25%" }}>
                         Description
-                      </TableColumnHeader>
-                      <TableColumnHeader>Project</TableColumnHeader>
-                      <TableColumnHeader style={{ textAlign: "center" }}>
-                        Draft Status
                       </TableColumnHeader>
                       <SortableTableColumnHeader field="dateUpdated">
                         Last Modified
@@ -332,7 +318,6 @@ export default function ConfigsPage(): React.ReactElement {
                   </TableHeader>
                   <TableBody>
                     {displayRows.map(({ config: c, depth }) => {
-                      const draftEntry = draftHook.draftStates[c.id];
                       return (
                         <TableRow
                           key={c.id}
@@ -379,9 +364,6 @@ export default function ConfigsPage(): React.ReactElement {
                           </TableCell>
                           <TableCell>{c.key}</TableCell>
                           <TableCell>
-                            {truncateString(c.description || "", 80)}
-                          </TableCell>
-                          <TableCell>
                             {c.project ? (
                               <ProjectBadges
                                 resourceType="constant"
@@ -389,45 +371,8 @@ export default function ConfigsPage(): React.ReactElement {
                               />
                             ) : null}
                           </TableCell>
-                          <TableCell style={{ textAlign: "center" }}>
-                            {draftEntry
-                              ? (() => {
-                                  const dots = draftStatusDots(draftEntry);
-                                  if (!dots.length) return null;
-                                  return (
-                                    <Tooltip
-                                      flipTheme={false}
-                                      body={draftStatusTooltip(draftEntry)}
-                                      usePortal
-                                    >
-                                      <Flex
-                                        align="center"
-                                        justify="center"
-                                        gap="1"
-                                        style={{
-                                          width: "100%",
-                                          height: "100%",
-                                          padding: "0 4px",
-                                        }}
-                                      >
-                                        {dots.map((bg) => (
-                                          <span
-                                            key={bg}
-                                            style={{
-                                              display: "block",
-                                              width: 8,
-                                              height: 8,
-                                              borderRadius: "50%",
-                                              flexShrink: 0,
-                                              background: bg,
-                                            }}
-                                          />
-                                        ))}
-                                      </Flex>
-                                    </Tooltip>
-                                  );
-                                })()
-                              : null}
+                          <TableCell>
+                            {truncateString(c.description || "", 80)}
                           </TableCell>
                           <TableCell title={datetime(c.dateUpdated)}>
                             {date(c.dateUpdated)}
@@ -437,10 +382,10 @@ export default function ConfigsPage(): React.ReactElement {
                     })}
                     {items.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} style={{ textAlign: "center" }}>
+                        <TableCell colSpan={5} style={{ textAlign: "center" }}>
                           {isFiltered
-                            ? "No configs match the current filter."
-                            : "No configs found."}
+                            ? "No Configs match the current filter."
+                            : "No Configs found."}
                         </TableCell>
                       </TableRow>
                     )}

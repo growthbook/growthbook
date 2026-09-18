@@ -2,10 +2,10 @@
 // Public types for useAIChat
 // ---------------------------------------------------------------------------
 
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 
-export type { AIChatMessage };
+export type { AIChatMention, AIChatMessage };
 
 export type ActiveTurnItem =
   | { kind: "text"; id: string; content: string }
@@ -23,7 +23,7 @@ export type ActiveTurnItem =
       /** Serialized tool return value from tool-call-end SSE. */
       toolOutput?: unknown;
       errorMessage?: string;
-      /** Chart payload derived from runExploration tool output on tool-call-end. */
+      /** Chart payload derived from an exploration tool output. */
       toolResultData?: Record<string, unknown>;
     }
   | { kind: "thinking"; id: string };
@@ -138,7 +138,11 @@ export interface UseAIChatReturn {
   displayedTextMap: Map<string, string>;
   sendMessage: (
     messageOverride?: string,
-    options?: { suppressUserMessage?: boolean },
+    options?: {
+      suppressUserMessage?: boolean;
+      mentions?: AIChatMention[];
+      skills?: string[];
+    },
   ) => void;
   /** Cancels the active live stream. No-op unless `isLocalStream` is true. */
   cancelGeneration: () => void;

@@ -51,25 +51,50 @@ export const revisionTargetType = [
 ] as const;
 export type RevisionTargetType = (typeof revisionTargetType)[number];
 
+/**
+ * TOP-LEVEL paths only — `/field`, never `/field/subfield`.
+ *
+ * Two appliers read these ops and disagree on nested paths: the authority side
+ * (`applyTopLevelPatchOps`, feeding the footprint `assertCanPublishRevision`
+ * narrows on) skips multi-segment paths, while the write side (fast-json-patch)
+ * applies them — so a nested path yields an empty footprint (which skips the
+ * environment check) for a publish that still writes the environment. Every
+ * internal writer already emits top-level paths.
+ */
+const topLevelPatchPath = z
+  .string()
+  .regex(
+    /^\/[^/]+$/,
+    "Patch paths must be top-level (`/field`); nested paths are not accepted.",
+  );
+
 export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
-  z.object({ op: z.literal("add"), path: z.string(), value: z.unknown() }),
-  z.object({ op: z.literal("remove"), path: z.string() }),
+  z.object({
+    op: z.literal("add"),
+    path: topLevelPatchPath,
+    value: z.unknown(),
+  }),
+  z.object({ op: z.literal("remove"), path: topLevelPatchPath }),
   z.object({
     op: z.literal("replace"),
-    path: z.string(),
+    path: topLevelPatchPath,
     value: z.unknown(),
   }),
   z.object({
     op: z.literal("move"),
-    from: z.string(),
-    path: z.string(),
+    from: topLevelPatchPath,
+    path: topLevelPatchPath,
   }),
   z.object({
     op: z.literal("copy"),
-    from: z.string(),
-    path: z.string(),
+    from: topLevelPatchPath,
+    path: topLevelPatchPath,
   }),
-  z.object({ op: z.literal("test"), path: z.string(), value: z.unknown() }),
+  z.object({
+    op: z.literal("test"),
+    path: topLevelPatchPath,
+    value: z.unknown(),
+  }),
 ]);
 export type JsonPatchOperation = z.infer<typeof jsonPatchOperationValidator>;
 
@@ -96,9 +121,17 @@ export const activityLogEntryValidator = z.object({
     "merged",
     "discarded",
     "reopened",
+    // Review request retracted, returning the revision to draft with verdicts
+    // cleared. Starts a new review cycle, so cycle-start scans must recognize
+    // it alongside "review-requested".
+    "recalled",
     "scheduled-publish",
     "scheduled-publish-updated",
     "scheduled-publish-canceled",
+    // An operator re-published a revision whose merge was claimed but whose
+    // entity write never landed. Its presence is the idempotency marker: it
+    // stops a second concurrent retry from applying and dispatching again.
+    "merge-recovered",
   ]),
   description: z.string().nullish(),
   dateCreated: z.date(),
@@ -163,9 +196,14 @@ export const revisionValidator = z.object({
   // Everyone who edited this revision (always includes the author); drives
   // `blockSelfApproval`. Optional for backward compatibility.
   contributors: z.array(z.string()).optional(),
+  /** Review-cycle identity; absent legacy values are treated as cycle 0. */
+  reviewCycle: z.number().optional(),
   autoPublishOnApproval: z.boolean().optional(),
   // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.
-  autoPublishEnabledBy: z.string().optional(),
+  // Nullable: an explicit null means "nobody" — the generic arming paths store
+  // it literally, the disarm fragment clears via `$unset`, and both read the
+  // same. A leftover publisher lets a later deferred publish run as them.
+  autoPublishEnabledBy: z.string().nullable().optional(),
   // ── Scheduled / deferred publish (shape mirrors FeatureRevisionInterface) ──
   // Defers an armed revision's auto-publish until on/after this date (and, if
   // required, approved). null/absent = publish as soon as approved.

@@ -15,8 +15,11 @@ import {
 } from "back-end/src/models/MetricModel";
 import {
   deleteAllFeaturesForAProject,
+  getAllFeatures,
   projectHasFeatures,
 } from "back-end/src/models/FeatureModel";
+import { getEnvironments } from "back-end/src/util/organization.util";
+import { projectFeatureDeleteFootprint } from "back-end/src/util/features";
 import {
   deleteAllExperimentsForAProject,
   projectHasExperiments,
@@ -232,7 +235,29 @@ export const deleteProject = async (
     }
 
     if (await projectHasFeatures(context, id)) {
-      requirePermission(context.permissions.canDeleteFeature({ project: id }));
+      // Deleting a live feature drops it from the SDK payload in the
+      // environments it is enabled in, so this cascade owes the same delete +
+      // publish authority over that footprint that the single-feature delete
+      // does — passing NO_ENVIRONMENT_BINDING skipped the env check entirely and
+      // let a dev-only deleter hard-delete production features project-wide.
+      // Union across the project's non-archived features (archived ones are
+      // already out of service, so the delete atom alone covers them).
+      // Non-archived features in/targeting this project; the helper narrows to
+      // OWNED (project === id) — the ones the cascade actually deletes.
+      const liveFeatures = await getAllFeatures(context, { projects: [id] });
+      const footprint = projectFeatureDeleteFootprint(
+        liveFeatures,
+        id,
+        getEnvironments(context.org),
+      );
+      requirePermission(
+        context.permissions.canDeleteFeature({ project: id }, footprint),
+      );
+      if (footprint.length) {
+        requirePermission(
+          context.permissions.canPublishFeature({ project: id }, footprint),
+        );
+      }
       resourceDeletes.push({
         label: "features",
         run: () => deleteAllFeaturesForAProject({ projectId: id, context }),

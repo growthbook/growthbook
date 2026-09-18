@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPlusBold, PiCaretDown, PiCaretUp } from "react-icons/pi";
@@ -94,7 +95,6 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
 
   return (
     <Modal
-      useRadixButton={false}
       open
       trackingEventModalType="ramp-schedule-template-edit"
       close={onClose}
@@ -419,16 +419,14 @@ export default function RampScheduleTemplates() {
   const permissionsUtil = usePermissionsUtil();
 
   const hasFeature = hasCommercialFeature("ramp-schedules");
-  const canCreate =
-    hasFeature && permissionsUtil.canCreateFeature({ project: undefined });
-  const canUpdate =
-    hasFeature &&
-    permissionsUtil.canUpdateFeature(
-      { project: undefined },
-      { project: undefined },
-    );
+  const canCreateOrUpdate =
+    hasFeature && permissionsUtil.canEditFeatureDrafts({ project: undefined });
   const canDelete =
-    hasFeature && permissionsUtil.canDeleteFeature({ project: undefined });
+    hasFeature &&
+    permissionsUtil.canDeleteFeature(
+      { project: undefined },
+      NO_ENVIRONMENT_BINDING,
+    );
 
   const [editingTemplate, setEditingTemplate] = useState<
     RampScheduleTemplateInterface | null | false
@@ -500,8 +498,8 @@ export default function RampScheduleTemplates() {
         <PremiumTooltip commercialFeature="ramp-schedules">
           <Button
             variant="outline"
-            onClick={() => canCreate && setEditingTemplate(null)}
-            disabled={!canCreate}
+            onClick={() => canCreateOrUpdate && setEditingTemplate(null)}
+            disabled={!canCreateOrUpdate}
           >
             <PiPlusBold style={{ marginRight: 4, verticalAlign: "middle" }} />
             New template
@@ -513,8 +511,8 @@ export default function RampScheduleTemplates() {
         <Text color="text-low" size="md">
           No templates yet.{" "}
           {hasFeature
-            ? "Create one to quickly apply standard ramp schedules to feature rules."
-            : "Upgrade to Enterprise to create and manage ramp schedule templates."}
+            ? "Create one to quickly apply standard ramp schedules to Feature Flag rules."
+            : "Upgrade to Pro to create and manage ramp schedule templates."}
         </Text>
       ) : (
         <DndContext
@@ -546,7 +544,7 @@ export default function RampScheduleTemplates() {
                   <SortableTemplateRow
                     key={tmpl.id}
                     template={tmpl}
-                    canUpdate={canUpdate}
+                    canUpdate={canCreateOrUpdate}
                     canDelete={canDelete}
                     canMoveUp={i > 0}
                     canMoveDown={i < items.length - 1}

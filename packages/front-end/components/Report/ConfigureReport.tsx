@@ -224,6 +224,16 @@ export default function ConfigureReport({
               )}
               userIdType={form.watch("experimentAnalysisSettings.userIdType")}
               newUi={false}
+              cutoffBounds={{
+                min: getValidDate(
+                  form.watch("experimentAnalysisSettings.dateStarted"),
+                ),
+                max: form.watch("experimentAnalysisSettings.dateEnded")
+                  ? getValidDate(
+                      form.watch("experimentAnalysisSettings.dateEnded") ?? "",
+                    )
+                  : new Date(),
+              }}
             />
             <SelectField
               size="legacy"
@@ -617,12 +627,14 @@ export default function ConfigureReport({
                   Activation Metric{" "}
                   <MetricsSelectorTooltip
                     onlyBinomial={true}
+                    noFactFunnelMetrics={true}
                     isSingular={true}
                   />
                 </>
               }
               initialOption="None"
               onlyBinomial
+              filterFactFunnelMetrics
               value={
                 form.watch("experimentAnalysisSettings.activationMetric") || ""
               }

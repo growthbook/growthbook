@@ -1,17 +1,15 @@
-import React, { useState } from "react";
-import { Flex, Box, IconButton } from "@radix-ui/themes";
+import React, { ReactNode } from "react";
+import { Flex, Box } from "@radix-ui/themes";
 import {
   DatasetType,
   FactTableValue,
   ExplorationConfig,
 } from "shared/validators";
-import { PiArrowsClockwise, PiLink } from "react-icons/pi";
+import { PiArrowsClockwise } from "react-icons/pi";
 import {
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import ShareUrlPopover from "@/ui/ShareUrlPopover";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
@@ -20,36 +18,51 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
 import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
+import JourneyGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/JourneyGraphTypeSelector";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
-import { formatExplorationDateRange } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
-import Switch from "@/ui/Switch";
+import DashboardFilterInheritTag from "@/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/DashboardFilterInheritTag";
+import DashboardFilterSummary from "@/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/DashboardFilterSummary";
 import {
   createEmptyValue,
   getInitialInlineFilters,
+  isTimelessSqlExploration,
   showAsAppliesTo,
-  stripExplorerDraftFields,
 } from "@/enterprise/components/ProductAnalytics/util";
-import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import track from "@/services/track";
+import { useOptionalSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
+import ExplorerPageActions from "@/enterprise/components/ProductAnalytics/ExplorerPageActions";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
+import SqlTabContent from "./SqlTabContent";
 import FunnelTabContent from "./FunnelTabContent";
+import JourneyTabContent from "./JourneyTabContent";
 import GroupBySection from "./GroupBySection";
+import SaveFunnelMetricAction from "./SaveFunnelMetricAction";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
+import ChartSettingsSection from "./ChartSettingsSection";
+import SchemaBrowserSection from "./SchemaBrowserSection";
 
 interface Props {
   renderingInDashboardSidebar?: boolean;
   dashboardDateRange?: ExplorationConfig["dateRange"];
   useDashboardDateControl?: boolean;
   onGlobalControlSettingsChange?: (settings: { dateRange?: boolean }) => void;
+  // Editing an inherited date range claims it for the block. Not
+  // onGlobalControlSettingsChange, which reseeds the draft from the block's stored
+  // config and would discard the value just picked.
+  onClaimDashboardDateRange?: (value: DateRangeCompareValue) => void;
   onSubmit?: () => void;
+  hideHeaderActions?: boolean;
+  headerActions?: ReactNode;
+  hideDataSourceSelector?: boolean;
+  /** When true, only show explore chart controls (no SQL schema browser). */
+  sqlExploreConfigOnly?: boolean;
+  dashboardHeaderLeadingContent?: ReactNode;
 }
 
 export default function ExplorerSideBar({
@@ -57,60 +70,58 @@ export default function ExplorerSideBar({
   dashboardDateRange,
   useDashboardDateControl = false,
   onGlobalControlSettingsChange,
+  onClaimDashboardDateRange,
   onSubmit,
+  hideHeaderActions = false,
+  headerActions,
+  hideDataSourceSelector = false,
+  sqlExploreConfigOnly = false,
+  dashboardHeaderLeadingContent,
 }: Props) {
-  const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
-    useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const {
     draftExploreState,
     setDraftExploreState,
-    exploration,
     compareEnabled,
     comparisonMode,
-    comparisonExploration,
     loading,
     handleSubmit,
     isSubmittable,
     isStale,
-    needsFetch,
     error,
-    trackingSource,
   } = useExplorerContext();
   const { factTables, getFactMetricById, getFactTableById, project } =
     useDefinitions();
-  const { hasCommercialFeature, permissionsUtil } = useUser();
-  const canCreateDashboards = permissionsUtil.canCreateGeneralDashboards({
-    projects: [project],
-  });
-  const canEditDashboards = permissionsUtil.canUpdateGeneralDashboards(
-    { projects: [project] },
-    {},
-  );
-  const hasDashboardsFeature = hasCommercialFeature(
-    "product-analytics-dashboards",
-  );
-  const saveToDashboardDisabledReason =
-    !canEditDashboards && !canCreateDashboards
-      ? "You do not have permission to create or edit dashboards in this project."
-      : !isSubmittable
-        ? "Configure a valid exploration before saving."
-        : loading || isStale || needsFetch
-          ? "Run the updated exploration before saving to a dashboard."
-          : undefined;
-
+  const { permissionsUtil } = useUser();
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
+  const sqlEditorContext = useOptionalSqlEditorContext();
+  const viewMode = sqlEditorContext?.viewMode ?? "explore";
+  const showSqlSchemaBrowser =
+    activeType === "sql" && !sqlExploreConfigOnly && viewMode === "dataset";
+  const showChartControls =
+    sqlExploreConfigOnly || activeType !== "sql" || viewMode === "explore";
   const factTableDataset =
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
+  const isSqlSetupState =
+    activeType === "sql" &&
+    dataset?.type === "sql" &&
+    Object.keys(dataset.columnTypes).length === 0;
+  const isRawTable =
+    activeType === "sql" && draftExploreState.chartType === "rawTable";
+
   const hasFunnelInputs =
-    dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTable);
+    dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTableId);
+  const hasJourneyInputs = dataset?.type === "journey" && !!dataset.factTableId;
   const hasInputs =
     dataset?.type === "funnel"
       ? hasFunnelInputs
-      : (dataset?.values?.length ?? 0) > 0;
+      : dataset?.type === "journey"
+        ? hasJourneyInputs
+        : isRawTable && dataset?.type === "sql"
+          ? Object.keys(dataset.columnTypes).length > 0
+          : (dataset?.values?.length ?? 0) > 0;
   const dateRangeValue: DateRangeCompareValue = {
     dateRange: draftExploreState.dateRange,
     comparison: compareEnabled
@@ -130,6 +141,10 @@ export default function ExplorerSideBar({
     comparison,
     granularity,
   }: DateRangeCompareValue) => {
+    // Targets the block, not the draft, so it can't race the setter below.
+    if (useDashboardDateControl) {
+      onClaimDashboardDateRange?.({ dateRange, comparison, granularity });
+    }
     setDraftExploreState((prev) => {
       const next = {
         ...prev,
@@ -163,101 +178,58 @@ export default function ExplorerSideBar({
     });
   };
 
+  const emptyStaticDimension = draftExploreState.dimensions.some(
+    (d) => d.dimensionType === "static" && d.values.length === 0,
+  );
+  const updateDisabledReason =
+    hasInputs && !isSubmittable
+      ? emptyStaticDimension
+        ? "Select at least one value for the pinned dimension before updating."
+        : "Configure a valid exploration before updating."
+      : undefined;
+
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
   );
-
+  const dateControlsDisabled = isTimelessSqlExploration(draftExploreState);
   return (
     <Flex
       direction="column"
       gap="4"
       p={renderingInDashboardSidebar ? "0" : "2"}
+      height={
+        showSqlSchemaBrowser && !renderingInDashboardSidebar
+          ? "100%"
+          : undefined
+      }
     >
-      {showSaveToDashboardModal && (
-        <SaveToDashboardModal
-          close={() => setShowSaveToDashboardModal(false)}
-          config={stripExplorerDraftFields(draftExploreState)}
-          exploration={exploration}
-          compareEnabled={compareEnabled}
-          previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
-          comparisonMode={comparisonMode}
-          comparisonExplorationId={comparisonExploration?.id ?? null}
-          trackingSource={trackingSource}
-        />
-      )}
-      {showUpgradeModal && (
-        <UpgradeModal
-          close={() => setShowUpgradeModal(false)}
-          source="product-analytics-explorer"
-          commercialFeature="product-analytics-dashboards"
-        />
-      )}
       {error && renderingInDashboardSidebar ? (
         <Callout status="error">{error}</Callout>
       ) : null}
-      <Flex justify="end" align="center" height="32px" py="2" gap="2">
-        {!renderingInDashboardSidebar ? (
-          <>
+      {hideHeaderActions ? null : headerActions ? (
+        <Flex justify="end" align="center" height="32px" py="2" gap="2">
+          {headerActions}
+        </Flex>
+      ) : renderingInDashboardSidebar ? (
+        <Flex justify="end" align="center" height="32px" py="2" gap="2">
+          <Flex
+            direction="row"
+            align="center"
+            justify={
+              hideDataSourceSelector && !dashboardHeaderLeadingContent
+                ? "end"
+                : "between"
+            }
+            width="100%"
+          >
+            {dashboardHeaderLeadingContent ??
+              (hideDataSourceSelector ? null : <DataSourceDropdown />)}
             <Tooltip
-              body={saveToDashboardDisabledReason || ""}
-              shouldDisplay={!!saveToDashboardDisabledReason}
-            >
-              <Button
-                size="md"
-                disabled={!!saveToDashboardDisabledReason}
-                onClick={() => {
-                  if (!hasDashboardsFeature) {
-                    setShowUpgradeModal(true);
-                  } else {
-                    setShowSaveToDashboardModal(true);
-                  }
-                }}
-              >
-                <Flex align="center" justify="center" gap="2">
-                  <PaidFeatureBadge
-                    commercialFeature="product-analytics-dashboards"
-                    useTip={false}
-                    inheritColor
-                  />
-                  Save to Dashboard
-                </Flex>
-              </Button>
-            </Tooltip>
-            <ShareUrlPopover
-              title="Share this exploration"
-              description="Anyone in your organization with read access to the Data Source this exploration uses, can open this exploration."
-              trigger={
-                <IconButton
-                  size="2"
-                  variant="solid"
-                  color="violet"
-                  aria-label="Share exploration link"
-                  style={{ height: 32, width: 32 }}
-                >
-                  <PiLink size={20} />
-                </IconButton>
+              body={
+                updateDisabledReason ||
+                "Configuration has changed. Click to refresh the chart."
               }
-              side="bottom"
-              align="end"
-              onCopy={
-                trackingSource
-                  ? () => {
-                      track("Product Analytics Explorer: Copy Link Clicked", {
-                        source: trackingSource,
-                        type: draftExploreState.type,
-                        chart_type: draftExploreState.chartType,
-                      });
-                    }
-                  : undefined
-              }
-            />
-          </>
-        ) : (
-          <Flex direction="row" align="center" justify="between" width="100%">
-            <DataSourceDropdown />
-            <Tooltip
-              body="Configuration has changed. Click to refresh the chart."
-              shouldDisplay={isStale}
+              shouldDisplay={!!updateDisabledReason || isStale}
             >
               <Button
                 size="md"
@@ -286,9 +258,23 @@ export default function ExplorerSideBar({
               </Button>
             </Tooltip>
           </Flex>
-        )}
-      </Flex>
-      {renderingInDashboardSidebar && (
+        </Flex>
+      ) : (
+        <Flex justify="end" align="center" height="32px" py="2" gap="2">
+          <ExplorerPageActions />
+        </Flex>
+      )}
+      {renderingInDashboardSidebar &&
+      showSqlSchemaBrowser &&
+      isSqlSetupState ? (
+        <Callout status="info">
+          Test the query before configuring the exploration.
+        </Callout>
+      ) : null}
+      {showSqlSchemaBrowser && (
+        <SchemaBrowserSection fullHeight={!renderingInDashboardSidebar} />
+      )}
+      {renderingInDashboardSidebar && showChartControls && (
         <Flex
           direction="column"
           gap="4"
@@ -300,64 +286,62 @@ export default function ExplorerSideBar({
             backgroundColor: "var(--color-panel-translucent)",
           }}
         >
+          {/* Date Range is the only filter these blocks follow, so the count is
+              0 or 1. */}
+          {dashboardDateRange ? (
+            <DashboardFilterSummary
+              customCount={useDashboardDateControl ? 0 : 1}
+              onRevertAll={() =>
+                onGlobalControlSettingsChange?.({ dateRange: true })
+              }
+            />
+          ) : null}
           <Flex direction="column" gap="2">
             <Text weight="medium">Chart Type</Text>
             {activeType === "funnel" ? (
               <FunnelGraphTypeSelector />
+            ) : activeType === "journey" ? (
+              <JourneyGraphTypeSelector />
             ) : (
               <GraphTypeSelector />
             )}
           </Flex>
-          <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
-            <Flex justify="between" align="center" gap="2" width="100%">
-              <Text weight="medium">Date Range</Text>
-              {dashboardDateRange ? (
-                <Switch
-                  size="sm"
-                  value={useDashboardDateControl}
-                  onChange={(checked) =>
-                    onGlobalControlSettingsChange?.({ dateRange: checked })
-                  }
-                  label={
-                    <Flex direction="row" align="center" gap="1">
-                      <Text size="sm" weight="medium">
-                        Use dashboard date filter
-                      </Text>
-                      <Tooltip
-                        body={
-                          useDashboardDateControl
-                            ? "This block uses the dashboard date range."
-                            : "This block overrides the dashboard date filter."
-                        }
-                      />
-                    </Flex>
-                  }
-                />
-              ) : null}
-            </Flex>
-            {dashboardDateRange && useDashboardDateControl ? (
-              <Flex
-                p="2"
-                style={{
-                  border: "1px solid var(--gray-a3)",
-                  borderRadius: "var(--radius-3)",
-                  backgroundColor: "var(--gray-a2)",
-                }}
-              >
-                <Text size="md" color="text-low">
-                  {formatExplorationDateRange(dashboardDateRange)}
-                </Text>
+          <Tooltip
+            body="Update your SQL query to return a date or timestamp column to filter by date."
+            shouldDisplay={dateControlsDisabled}
+            usePortal
+            style={{ display: "block", width: "100%" }}
+          >
+            <Flex
+              direction="column"
+              gap="2"
+              width="100%"
+              style={{ minWidth: 0 }}
+            >
+              <Flex justify="between" align="center" gap="2" width="100%">
+                <Text weight="medium">Date Range</Text>
+                {dashboardDateRange ? (
+                  <DashboardFilterInheritTag
+                    label="Date Range"
+                    inherited={useDashboardDateControl}
+                    onRevert={() =>
+                      onGlobalControlSettingsChange?.({ dateRange: true })
+                    }
+                  />
+                ) : null}
               </Flex>
-            ) : (
+              {/* Editable while inheriting — the draft carries the dashboard's
+                  range, and applying a change claims it. */}
               <DateRangeCompareDropdown
                 fullWidth
-                showCompare
+                showCompare={activeType !== "journey" && !isRawTable}
                 showGranularity={isTimeSeriesChart}
                 value={dateRangeValue}
                 onChange={applyDateRange}
+                disabled={dateControlsDisabled}
               />
-            )}
-          </Flex>
+            </Flex>
+          </Tooltip>
         </Flex>
       )}
 
@@ -443,19 +427,28 @@ export default function ExplorerSideBar({
           <DatasourceConfigurator dataset={dataset} />
         </Flex>
       )}
-
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}
         {activeType === "data_source" && <DatasourceTabContent />}
+        {activeType === "sql" && showChartControls && <SqlTabContent />}
         {activeType === "funnel" && <FunnelTabContent />}
+        {activeType === "journey" && <JourneyTabContent />}
       </Box>
 
-      {activeType !== "funnel" &&
+      {showChartControls &&
+        activeType !== "funnel" &&
+        activeType !== "journey" &&
         showAsAppliesTo(draftExploreState, getFactMetricById) && (
           <ShowAsSection />
         )}
-      {hasInputs && <GroupBySection />}
+      {showChartControls && hasInputs && !isRawTable && <GroupBySection />}
+      {activeType === "funnel" && renderingInDashboardSidebar && (
+        <SaveFunnelMetricAction />
+      )}
+      {showChartControls &&
+        activeType !== "funnel" &&
+        activeType !== "journey" && <ChartSettingsSection />}
     </Flex>
   );
 }

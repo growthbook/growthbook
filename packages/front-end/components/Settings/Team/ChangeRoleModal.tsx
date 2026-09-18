@@ -2,14 +2,16 @@ import { FC, useState } from "react";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import RoleSelector from "./RoleSelector";
+import RoleRulesTable from "./RoleRulesTable";
+import { TeamRuleSource } from "./roleRules";
 
 const ChangeRoleModal: FC<{
   displayInfo: string;
   roleInfo: MemberRoleWithProjects;
+  teams?: TeamRuleSource[];
   close: () => void;
   onConfirm: (data: MemberRoleWithProjects) => Promise<void>;
-}> = ({ roleInfo, displayInfo, close, onConfirm }) => {
+}> = ({ roleInfo, displayInfo, teams, close, onConfirm }) => {
   const [value, setValue] = useState(roleInfo);
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -35,15 +37,12 @@ const ChangeRoleModal: FC<{
         </>
       }
       open={true}
+      size="xl"
       submit={async () => {
         await onConfirm(value);
       }}
     >
-      <RoleSelector
-        value={value}
-        setValue={setValue}
-        showUpgradeModal={() => setUpgradeModal(true)}
-      />
+      <RoleRulesTable value={value} setValue={setValue} teams={teams} />
     </ModalStandard>
   );
 };

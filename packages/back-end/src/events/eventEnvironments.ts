@@ -3,8 +3,11 @@ import { ApiFeature } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { getApiFeatureAllEnvs, getApiFeatureEnabledEnvs } from "shared/util";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import {
+  getApiFeatureAllEnvs,
+  getApiFeatureEnabledEnvs,
+  getApplicableEnvIds,
+} from "shared/util";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event `environments` semantics — one meaning, everywhere:
@@ -21,6 +24,11 @@ import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 //   point-in-time snapshot.
 // - An empty array means the event has no environment-scoped impact; such
 //   events are only delivered to subscriptions without an environment filter.
+//   A producer whose change has no environment BINDING but is felt in all of them
+//   — a Constant's base value, a base Config — must therefore resolve the reach
+//   ITSELF and emit those environments, because [] here means "nothing", not
+//   "everything". The delivery filter cannot tell the two apart, which is why it
+//   must not try (see handlers/utils.ts).
 //
 // All producers must derive the routing field through the helpers in this
 // module so the semantics can't fork per event family again.

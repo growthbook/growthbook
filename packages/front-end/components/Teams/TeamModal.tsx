@@ -1,12 +1,15 @@
 import { useForm } from "react-hook-form";
+import { Box } from "@radix-ui/themes";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { Team } from "@/services/UserContext";
-import RoleSelector from "@/components/Settings/Team/RoleSelector";
+import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 
 export default function TeamModal({
   existing,
@@ -38,6 +41,7 @@ export default function TeamModal({
         role: existing.role || "collaborator",
         limitAccessByEnvironment: existing.limitAccessByEnvironment || false,
         environments: existing.environments || [],
+        additionalRoles: existing.additionalRoles || [],
         projectRoles: existing.projectRoles || [],
       },
       defaultProject: existing.defaultProject || "",
@@ -50,7 +54,8 @@ export default function TeamModal({
       trackingEventModalType=""
       open={true}
       close={close}
-      header={existing.id ? "Edit Team Metadata" : "Create Team"}
+      header={existing.id ? "Edit Team Settings" : "Create Team"}
+      size={existing.id ? undefined : "xl"}
       submit={form.handleSubmit(async (value) => {
         await apiCall(existing.id ? `/teams/${existing.id}` : `/teams`, {
           method: existing.id ? "PUT" : "POST",
@@ -76,19 +81,11 @@ export default function TeamModal({
         size="legacy"
         label="Description"
         maxLength={100}
-        minRows={3}
+        minRows={1}
         maxRows={8}
         textarea={true}
         {...form.register("description")}
       />
-      {!existing.id && (
-        <div className="mb-3">
-          <RoleSelector
-            value={form.watch("roleInfo")}
-            setValue={(value) => form.setValue("roleInfo", value)}
-          />
-        </div>
-      )}
       {availableProjects.length > 0 && (
         <SelectField
           size="legacy"
@@ -99,6 +96,20 @@ export default function TeamModal({
           initialOption="All Projects"
           options={availableProjects}
         />
+      )}
+      {!existing.id && (
+        <Box mt="4">
+          <Heading as="h4" size="sm" mb="1">
+            Permissions
+          </Heading>
+          <Text as="p" size="sm" color="text-low" mb="3">
+            Members of this team get these on top of their own roles.
+          </Text>
+          <RoleRulesTable
+            value={form.watch("roleInfo")}
+            setValue={(value) => form.setValue("roleInfo", value)}
+          />
+        </Box>
       )}
     </ModalStandard>
   );

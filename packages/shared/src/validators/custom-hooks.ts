@@ -298,6 +298,12 @@ export const testCustomHookValidator = {
           "Arguments exposed to the function as named globals (e.g. `feature`, `config`, `revision`)",
         )
         .optional(),
+      originalFunctionArgs: z
+        .record(z.string(), z.unknown())
+        .describe(
+          "State before the change. When supplied, the hook also runs against it and Incremental Changes Only suppression is applied to the result.",
+        )
+        .optional(),
       // Authorization scope only — a feature-scoped test is authorized against
       // that feature instead of the org-level manageCustomHooks permission.
       entityType: z.enum(customHookEntityTypes).optional(),
@@ -316,6 +322,15 @@ export const testCustomHookValidator = {
       error: z.string().optional(),
       warnings: z.array(z.string()).optional(),
       log: z.string().describe("Captured console output").optional(),
+      suppressed: z
+        .object({
+          error: z.string().optional(),
+          warnings: z.array(z.string()).optional(),
+        })
+        .describe(
+          "Outcomes the previous state produced too, which Incremental Changes Only would hide on a real save",
+        )
+        .optional(),
     })
     .strict(),
   summary: "Dry-run hook code in the sandbox",

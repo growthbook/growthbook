@@ -7,6 +7,7 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
+  stringifyFeatureValue,
   validateFeatureValue,
   assertSchemaMatchesValueType,
   getValidation,
@@ -15,6 +16,7 @@ import {
   getLiveChangesSinceBase,
   evaluatePublishGovernance,
   isScheduledPublishPending,
+  pendingScheduleWarning,
   isScheduledPublishDue,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
@@ -25,9 +27,10 @@ import {
   checkEnvironmentsMatch,
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
+  getEnvsForRampTarget,
+  rampControlFootprint,
   getEnvsFromRampSchedule,
   liveRevisionFromFeature,
-  resetReviewOnChange,
   simpleToJSONSchema,
   inferSchemaField,
   inferSchemaFields,
@@ -50,8 +53,11 @@ import {
   stripDefaultsForSparse,
   expandSparseToFull,
   draftHasChangesOutsideTargetRef,
+  evaluatePrerequisiteState,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
+
+const toEnvs = (ids: string[]) => ids.map((id) => ({ id, description: "" }));
 
 const feature: FeatureInterface = {
   dateCreated: new Date("2020-04-20"),
@@ -1064,6 +1070,15 @@ describe("scheduled / deferred publish helpers", () => {
         false,
       );
     });
+    it("warns about a pending schedule, naming its date", () => {
+      expect(pendingScheduleWarning(rev())).toMatch(
+        new RegExp(`scheduled to publish on ${future.toUTCString()}`),
+      );
+      expect(pendingScheduleWarning(rev({ status: "published" }))).toBeNull();
+      expect(
+        pendingScheduleWarning(rev({ autoPublishOnApproval: false })),
+      ).toBeNull();
+    });
     it("false once published or discarded", () => {
       expect(isScheduledPublishPending(rev({ status: "published" }))).toBe(
         false,
@@ -2068,20 +2083,35 @@ describe("validateJSONFeatureValue", () => {
   });
 });
 
+describe("stringifyFeatureValue", () => {
+  it("leaves strings alone and JSON-encodes everything else", () => {
+    expect(stringifyFeatureValue('{"limit": 5}')).toBe('{"limit": 5}');
+    expect(stringifyFeatureValue(false)).toBe("false");
+    expect(stringifyFeatureValue(10)).toBe("10");
+    expect(stringifyFeatureValue(null)).toBe("null");
+    expect(stringifyFeatureValue({ limit: 5 })).toBe('{"limit":5}');
+  });
+});
+
 describe("validateFeatureValue", () => {
   beforeAll(() => {
     feature.valueType = "boolean";
   });
   describe("boolean values", () => {
-    it('returns "true" if value is truthy', () => {
+    it('returns "true" and "false" unchanged', () => {
       expect(validateFeatureValue(feature, "true", "testVal")).toEqual("true");
-      expect(validateFeatureValue(feature, "0", "testVal")).toEqual("true");
-    });
-    it('returns "false" if value is "false"', () => {
       expect(validateFeatureValue(feature, "false", "testVal")).toEqual(
         "false",
       );
     });
+    it.each(["False", "TRUE", "0", "1", "", "yes"])(
+      "throws for a non-canonical boolean string %j",
+      (value) => {
+        expect(() => validateFeatureValue(feature, value, "testVal")).toThrow(
+          'testVal: Must be "true" or "false"',
+        );
+      },
+    );
   });
 
   describe("number values", () => {
@@ -2795,7 +2825,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2816,7 +2846,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -2850,7 +2880,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2883,7 +2913,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -2949,7 +2979,7 @@ describe("check revision needs review", () => {
         feature: newFeature,
         baseRevision: filledLive,
         revision: effectiveRevision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toEqual(false);
@@ -2963,7 +2993,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2973,7 +3003,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -2998,7 +3028,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -3008,7 +3038,7 @@ describe("check revision needs review", () => {
         feature: { ...feature, targetingAllProjects: true },
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -3018,167 +3048,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision: { ...revision, metadata: { targetingAllProjects: true } },
-        allEnvironments: ["prod", "dev", "staging"],
-        settings,
-      }),
-    ).toEqual(true);
-  });
-});
-
-describe("reset review on change", () => {
-  it("require reset with single rule", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: ["prod"],
-          projects: [],
-        },
-      ],
-    };
-    const settingsOff: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: false,
-          environments: ["prod"],
-          projects: [],
-        },
-      ],
-    };
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(true);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-  });
-
-  it("require reset with multiple rules", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: ["prod"],
-          projects: [],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    const settingsOff: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: false,
-          environments: ["prod"],
-          projects: [],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(true);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-  });
-  it("turn off for first project", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: false,
-          resetReviewOnChange: false,
-          environments: [],
-          projects: ["a"],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    feature.project = "a";
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["env"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    feature.project = "b";
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -3639,7 +3509,191 @@ const noReviewSettings: OrganizationSettings = {
   ],
 };
 
+describe("getEnvsForRampTarget", () => {
+  const target = (patch: Record<string, unknown>) => ({
+    startActions: [],
+    steps: [{ actions: [{ targetId: "t1", patch }] }],
+    endActions: [],
+  });
+
+  it("is the environments the target's patches name", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 1, environments: ["dev"] }) as never,
+        "t1",
+      ),
+    ).toEqual(["dev"]);
+  });
+
+  // The patch REPLACES the rule's `environments`, so narrowing production→dev
+  // stops the rule serving production. Reading the patch alone made that a
+  // dev-only footprint, and a caller with publish in dev could strip a rule off
+  // production traffic. The union is what the revision-embedded ramp path already
+  // computes via `getDraftAffectedEnvironments`.
+  it("unions the environments the rule currently serves", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 0, environments: ["dev"] }) as never,
+        "t1",
+        ["production"],
+      ).sort(),
+    ).toEqual(["dev", "production"]);
+  });
+
+  it("is 'all' when the rule currently serves all environments", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 0, environments: ["dev"] }) as never,
+        "t1",
+        "all",
+      ),
+    ).toBe("all");
+  });
+
+  it("is 'all' for an explicitly all-environments patch", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 1, allEnvironments: true }) as never,
+        "t1",
+      ),
+    ).toBe("all");
+  });
+
+  // An unscoped patch inherits the target rule's environments.
+  it("answers for what the rule serves when the patch names nothing", () => {
+    expect(
+      getEnvsForRampTarget(target({ coverage: 1 }) as never, "t1", ["dev"]),
+    ).toEqual(["dev"]);
+  });
+
+  it("widens to 'all' when nothing is known — patch and rule both silent", () => {
+    expect(getEnvsForRampTarget(target({ coverage: 1 }) as never, "t1")).toBe(
+      "all",
+    );
+  });
+
+  // A target without matching patches still participates in schedule actions.
+  it("widens a target no patch names to 'all', never []", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 1, environments: ["production"] }) as never,
+        "t2",
+      ),
+    ).toBe("all");
+  });
+
+  it("widens a schedule with no patches at all to 'all'", () => {
+    expect(
+      getEnvsForRampTarget(
+        { startActions: [], steps: [], endActions: [] } as never,
+        "t1",
+      ),
+    ).toBe("all");
+  });
+});
+
+describe("rampControlFootprint", () => {
+  const ORG_ENVS = ["dev", "staging", "production"];
+
+  const schedule = (
+    patch: Record<string, unknown>,
+    targets: { id: string; ruleId?: string }[],
+  ) =>
+    ({
+      startActions: [],
+      steps: [{ actions: targets.map((t) => ({ targetId: t.id, patch })) }],
+      endActions: [],
+      targets,
+    }) as never;
+
+  // Runtime controls use the target rule's current environments.
+  it("answers for what the rule serves when the patch names no environments", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [{ id: "t1", ruleId: "fr_1" }]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => ["dev"],
+      }),
+    ).toEqual(["dev"]);
+  });
+
+  it("unions the patch's environments with the rule's", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0, environments: ["staging"] }, [
+          { id: "t1", ruleId: "fr_1" },
+        ]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => ["dev"],
+      }).sort(),
+    ).toEqual(["dev", "staging"]);
+  });
+
+  // Unresolved target rules widen the footprint to fail closed.
+  it("widens to every environment when a target's rule cannot be resolved", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [
+          { id: "t1", ruleId: "fr_1" },
+          { id: "t2", ruleId: "fr_other" },
+        ]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: (t) => (t.ruleId === "fr_1" ? ["dev"] : undefined),
+      }).sort(),
+    ).toEqual([...ORG_ENVS].sort());
+  });
+
+  it("widens when a target's rule serves every environment", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [{ id: "t1", ruleId: "fr_1" }]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => "all",
+      }).sort(),
+    ).toEqual([...ORG_ENVS].sort());
+  });
+
+  it("unions across resolvable targets rather than taking the first", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [
+          { id: "t1", ruleId: "fr_dev" },
+          { id: "t2", ruleId: "fr_prod" },
+        ]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: (t) =>
+          t.ruleId === "fr_dev" ? ["dev"] : ["production"],
+      }).sort(),
+    ).toEqual(["dev", "production"]);
+  });
+
+  it("falls back to the schedule-wide footprint with no targets", () => {
+    expect(
+      rampControlFootprint({
+        schedule: {
+          startActions: [],
+          steps: [],
+          endActions: [],
+          targets: [],
+        } as never,
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => undefined,
+      }).sort(),
+    ).toEqual([...ORG_ENVS].sort());
+  });
+});
+
 describe("getEnvsFromRampSchedule", () => {
+  it("widens a schedule with no patches to 'all', never []", () => {
+    expect(
+      getEnvsFromRampSchedule({
+        startActions: [],
+        steps: [],
+        endActions: [],
+      } as never),
+    ).toBe("all");
+  });
+
   it("collects all environments mentioned in any step patch", () => {
     const sched = makeSchedule([
       { environments: ["dev"] },
@@ -3659,9 +3713,10 @@ describe("getEnvsFromRampSchedule", () => {
     expect(getEnvsFromRampSchedule(sched)).toBe("all");
   });
 
-  it("returns empty array when no patches specify environments", () => {
+  it("widens to all when a patch names no environments", () => {
+    // Unscoped patches inherit rule scope, so an empty footprint would fail open.
     const sched = makeSchedule([{ environments: [] }, {}]);
-    expect(getEnvsFromRampSchedule(sched)).toEqual([]);
+    expect(getEnvsFromRampSchedule(sched)).toBe("all");
   });
 
   it("includes patches from startActions and endActions", () => {
@@ -3982,7 +4037,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -4015,7 +4070,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(false);
@@ -4072,7 +4127,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -4119,7 +4174,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftRemovesProd,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
         liveRampScheduleEnvs,
       }),
@@ -4166,7 +4221,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftRemovesProd,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
         // no liveRampScheduleEnvs
       }),
@@ -4199,7 +4254,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftDetach,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -4211,7 +4266,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: { ...baseRev },
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: noReviewSettings,
       }),
     ).toBe(false);
@@ -4463,6 +4518,88 @@ describe("sparse JSON rule helpers", () => {
         JSON.parse(full),
       );
     });
+  });
+});
+
+describe("evaluatePrerequisiteState", () => {
+  const makeFeature = (
+    id: string,
+    prerequisites: string[] = [],
+    overrides: Partial<FeatureInterface> = {},
+  ): FeatureInterface => ({
+    ...feature,
+    id,
+    environmentSettings: { production: { enabled: true } },
+    rules: [],
+    prerequisites: prerequisites.map((id) => ({
+      id,
+      condition: '{"value": true}',
+    })),
+    ...overrides,
+  });
+
+  const evaluate = (features: FeatureInterface[]) =>
+    evaluatePrerequisiteState(
+      features[0],
+      new Map(features.map((f) => [f.id, f])),
+      "production",
+      false,
+      true,
+    );
+
+  it("allows a prerequisite shared by separate branches", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["b", "c"]),
+        makeFeature("b", ["d"]),
+        makeFeature("c", ["d"]),
+        makeFeature("d"),
+      ]),
+    ).toEqual({ state: "deterministic", value: true });
+  });
+
+  it("allows repeated references to the same prerequisite", () => {
+    expect(evaluate([makeFeature("a", ["b", "b"]), makeFeature("b")])).toEqual({
+      state: "deterministic",
+      value: true,
+    });
+  });
+
+  it("propagates a cycle to a feature outside the cycle", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["b"]),
+        makeFeature("b", ["c"]),
+        makeFeature("c", ["b"]),
+      ]),
+    ).toEqual({ state: "cyclic", value: null });
+  });
+
+  it("stops at a disabled prerequisite before following its cycle", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["b"]),
+        makeFeature("b", ["a"], {
+          environmentSettings: { production: { enabled: false } },
+        }),
+      ]),
+    ).toEqual({ state: "deterministic", value: null });
+  });
+
+  it("stops at a missing prerequisite before following a later cycle", () => {
+    expect(
+      evaluate([makeFeature("a", ["missing", "b"]), makeFeature("b", ["a"])]),
+    ).toEqual({ state: "deterministic", value: null });
+  });
+
+  it("stops at a failed condition before following a later cycle", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["off", "b"]),
+        makeFeature("off", [], { defaultValue: "false" }),
+        makeFeature("b", ["a"]),
+      ]),
+    ).toEqual({ state: "deterministic", value: null });
   });
 });
 

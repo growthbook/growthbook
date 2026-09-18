@@ -1,4 +1,6 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { deleteConfigValidator } from "shared/validators";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -13,11 +15,19 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
     const config = await req.context.models.configs.getByKey(req.params.key);
     if (!config) {
       throw new NotFoundError(
-        `Unable to delete - could not find config with key ${req.params.key}`,
+        `Unable to delete - could not find Config with key ${req.params.key}`,
       );
     }
 
-    if (!req.context.permissions.canDeleteConfig(config)) {
+    if (
+      !req.context.permissions.canDeleteConfig(
+        config,
+        // Live deletion requires authority across the Config's serving footprint.
+        config.archived
+          ? NO_ENVIRONMENT_BINDING
+          : archiveServeFootprint(req.context, config),
+      )
+    ) {
       req.context.permissions.throwPermissionError();
     }
 
@@ -27,8 +37,8 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
     // backing), so require archiving first unless the org opted into bypass.
     if (!config.archived && !canUseRestApiBypassSetting(req)) {
       throw new BadRequestError(
-        "Cannot delete a live config via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
-          "Archive the config first (POST /configs/{key}/archive), or enable the bypass setting in organization settings.",
+        "Cannot delete a live Config via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
+          "Archive the Config first (POST /configs/{key}/archive), or enable the bypass setting in organization settings.",
       );
     }
 

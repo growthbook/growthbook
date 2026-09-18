@@ -48,7 +48,7 @@ export function getAggregatedFactTableSchema(
   const sortedMetrics = [...metrics].sort((a, b) => a.id.localeCompare(b.id));
 
   sortedMetrics.forEach((metric) => {
-    const includeNumerator = metric.numerator.factTableId === factTableId;
+    const includeNumerator = metric.numerator?.factTableId === factTableId;
     const includeDenominator =
       isRatioMetric(metric) && metric.denominator?.factTableId === factTableId;
 

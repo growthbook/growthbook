@@ -43,6 +43,7 @@ import {
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
+import { trackEventForContext } from "back-end/src/services/growthbook";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -50,6 +51,7 @@ export type StartChecklistItemStatus = {
   status: ChecklistStatus;
   manual: boolean;
   reason: string;
+  hardBlock?: boolean;
 };
 
 export type ExperimentStartChecklistResult = {
@@ -68,7 +70,7 @@ export async function validateExperimentChange({
   experiment: ExperimentInterface;
   changes: Changeset;
 }): Promise<void> {
-  if (!customHooksActive(context)) return;
+  if (!customHooksActive(context) || experiment.type === "holdout") return;
 
   const merged = { ...experiment, ...changes };
   const willRun =
@@ -285,6 +287,51 @@ export async function getExperimentStartChecklistStatus(
       }
     });
 
+  linkedFeatures
+    .filter((f) => f.state === "draft" && f.hasMergeConflict)
+    .forEach((f) => {
+      items.push({
+        key: `mergeConflict:${f.feature.id}`,
+        required: true,
+        status: "incomplete",
+        manual: false,
+        hardBlock: true,
+        reason: `Resolve the merge conflict in linked feature ${f.feature.id} before starting.`,
+      });
+    });
+
+  linkedFeatures
+    .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
+    .forEach((f) => {
+      items.push({
+        key: `pendingApproval:${f.feature.id}`,
+        required: true,
+        status:
+          f.draftRevisionStatus === "approved" ? "complete" : "incomplete",
+        manual: false,
+        hardBlock: true,
+        reason: `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
+      });
+    });
+
+  linkedFeatures
+    .filter(
+      (f) =>
+        f.state === "draft" &&
+        f.hasUnrelatedDraftChanges &&
+        !f.hasMergeConflict,
+    )
+    .forEach((f) => {
+      items.push({
+        key: `unrelatedDraftChanges:${f.feature.id}`,
+        required: true,
+        status: "incomplete",
+        manual: false,
+        hardBlock: true,
+        reason: `Remove unrelated changes to the experiment in linked feature ${f.feature.id} to auto-publish or manually publish the draft.`,
+      });
+    });
+
   if (orgHasPremiumFeature(context.org, "custom-launch-checklist")) {
     const checklist =
       (experiment.project &&
@@ -462,6 +509,13 @@ export async function executeExperimentStart(
     experiment,
     changes: { ...changes, nextScheduledStatusUpdate },
   });
+
+  trackEventForContext(context, "Experiment Started", {
+    source: context.auditUser?.type ?? "agenda-job",
+    hasDatasource: !!updated.datasource,
+    hasExperimentAssignmentQuery: !!updated.exposureQueryId,
+  });
+
   return { updated, publishResult };
 }
 
@@ -485,6 +539,20 @@ export async function getExperimentStartChecklist({
     checklistItems,
     status: hasIncompleteRequiredItems ? "notReady" : "ready",
   };
+}
+
+function assertNoIncompleteHardBlockers(
+  checklistItems: StartChecklistItemStatus[],
+): void {
+  const incompleteHardBlockers = checklistItems.filter(
+    (item) => item.hardBlock && item.status === "incomplete",
+  );
+  if (incompleteHardBlockers.length > 0) {
+    throw new ChecklistIncompleteError(
+      "Experiment cannot be started: linked feature draft issues must be resolved and cannot be bypassed",
+      incompleteHardBlockers,
+    );
+  }
 }
 
 export async function startExperiment({
@@ -520,6 +588,8 @@ export async function startExperiment({
       ["draft"],
     );
   }
+
+  assertNoIncompleteHardBlockers(checklistItems);
 
   if (status === "notReady" && !skipChecklist) {
     const incompleteRequiredItems = checklistItems.filter(
@@ -580,11 +650,14 @@ export async function approveScheduledExperimentStart({
     );
   }
 
+  const checklistItems = await getExperimentStartChecklistStatus(
+    context,
+    experiment,
+  );
+
+  assertNoIncompleteHardBlockers(checklistItems);
+
   if (!skipChecklist) {
-    const checklistItems = await getExperimentStartChecklistStatus(
-      context,
-      experiment,
-    );
     const incompleteRequired = checklistItems.filter(
       (item) => item.required && item.status === "incomplete",
     );
@@ -788,6 +861,14 @@ export async function stopExperiment({
     experiment,
     changes,
   });
+
+  // Only track true stop events; ignore results edits to already-stopped experiments.
+  if (isEnding) {
+    trackEventForContext(context, "Experiment Stopped", {
+      source: context.auditUser?.type ?? "agenda-job",
+      result: updated.results,
+    });
+  }
 
   return { experiment, updated, isEnding };
 }

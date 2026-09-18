@@ -1,0 +1,142 @@
+---
+title: Setting up Contextual Bandits
+description: "Checklist for running a contextual bandit: compatible SDK, tracking callback, and GrowthBook prerequisites."
+sidebarTitle: Setup
+slug: /bandits/contextual-config
+---
+
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="contextual-bandits" />
+
+<Badge color="purple">beta</Badge>
+
+Contextual bandits are in closed beta for enterprise customers and will evolve with customer feedback. If you're interested in trying them out, please [contact us](https://growthbook.com/contact).
+
+This page is a checklist of everything you need in place before running your first [Contextual Bandit](/bandits/contextual): upgrading to a compatible SDK, updating your tracking callback, and configuring GrowthBook prerequisites.
+
+## Requirements at a glance
+
+- **An Enterprise plan** — Contextual Bandits are an Enterprise-only beta feature.
+- **A supported SDK on a compatible version** — currently JavaScript, React, and Node.js (see below).
+- **A Fact Metric to use as the Decision Metric** — legacy (non-fact) metrics are not supported as decision metrics.
+
+## 1. Install or upgrade to a compatible SDK
+
+Contextual Bandit support ships in the following SDKs:
+
+| SDK        | Package                        | Compatible versions |
+| ---------- | ------------------------------ | ------------------- |
+| JavaScript | `@growthbook/growthbook`       | 1.7.0 or higher     |
+| React      | `@growthbook/growthbook-react` | 1.7.0 or higher     |
+| Node.js    | `@growthbook/growthbook`       | 1.7.0 or higher     |
+
+Install or upgrade to a compatible version with your package manager:
+
+```bash
+npm install --save @growthbook/growthbook
+# React apps
+npm install --save @growthbook/growthbook-react
+```
+
+Note: for JS-based SDKs, 1.7 is a backwards-compatible release.
+
+<Note>
+**What happens on older SDKs?**
+
+Contextual bandit rules degrade gracefully. SDKs below 1.7.0 (and all SDK languages without the capability) skip contextual bandit rules entirely and serve the feature's default value — they never bucket users with stale or global weights. This makes it safe to roll out a contextual bandit while part of your fleet is still on older SDK versions, but users on those versions won't enter the bandit.
+
+</Note>
+
+## 2. Check your SDK Connection
+
+Two things to verify on your SDK Connection, under **SDK Configuration → SDK Connections** in the GrowthBook app:
+
+1. **Language and version** — make sure the connection's SDK language is JavaScript, React, or Node.js and its version is set to 1.7.0 or higher. GrowthBook only includes contextual bandit definitions in the SDK payload for connections that support them.
+2. **Cache TTL** — contextual bandits change variation weights while running. If your SDK caches the payload longer than the bandit's update cadence, users will be bucketed with stale weights, which slows learning and can trigger SRM warnings. Make sure your SDK's `maxAge` / TTL settings refresh the payload significantly more often than the bandit reweights (or use streaming updates).
+
+## 3. Update your tracking callback
+
+Contextual bandits personalize variation weights based on unit attributes that are set on the GrowthBook SDK. The best way to ensure we log the attributes used to bucket units is to use the new `trackingCallback` signature (with a new `user` argument) that allows you to pull the unit attributes that were used at evaluation time.
+
+Furthermore, for offline debugging and for future health checks in GrowthBook, consider tracking three additional fields: `leafId`, `banditVersion`, and `variationWeights`. These three fields are only set for contextual bandit assignments.
+
+```js
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  trackingCallback: (experiment, result, user) => {
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+      // Directly pass through attributes used for contextual bandits (e.g. userRole)
+      deviceId: user.attributes.deviceId,
+      userRole: user.attributes.userRole,
+      // Contextual bandit fields (undefined for regular experiments)
+      leafId: result.leafId,
+      banditVersion: result.banditVersion,
+      variationWeights: result.variationWeights,
+    });
+  },
+});
+```
+
+This change is optional only if you already track user attributes in your tracking callback. We strongly recommend passing the explicit `user.attributes` object and its fields to ensure the attributes being logged are the same as the ones being used to bucket users.
+
+## 4. Create a Contextual Bandit Assignment Query
+
+To take advantage of the above attributes and additional contextual bandit fields, you need to create a dedicated **Contextual Bandit Assignment Query**. This query holds the assignment SQL plus the list of context columns the bandit is allowed to split on. Manage these on your GrowthBook Datasource page under **Contextual Bandit Assignment Queries**, or via the [REST API](https://docs.growthbook.io/api#tag/ContextualBanditAssignmentQueries/operation/createContextualBanditAssignmentQuery).
+
+The query must select one row per exposure event with the following columns:
+
+```sql
+SELECT
+  device_id,
+  timestamp,
+  experiment_id,
+  variation_id,
+  -- Context columns that match the new trackingCallback attribute
+  -- columns you're using for personalization, e.g. userRole
+  userRole,
+  -- Optional contextual bandit health-check columns, logged by your tracking callback
+  leaf_id,
+  bandit_version,
+  variation_weights
+FROM contextual_bandit_events
+```
+
+Requirements:
+
+- At least one context column (e.g. `userRole`) is required and ideally matches the columns you're sending from the `user` argument from your tracking callback. The set passed here must match your SDK Attributes in GrowthBook in order to be used to target the contextual bandit.
+- `leaf_id`, `bandit_version`, and `variation_weights` are the warehouse-side counterparts of the tracking callback fields from step 2. They are optional, but you should include them — later versions of contextual bandits will use them for health checks like SRM.
+
+## 5. Create the Contextual Bandit
+
+Create the bandit under **Experiments → Contextual Bandits** in the left navigation. You'll need:
+
+- **A hash attribute** — the attribute used to randomize users into variations, which should map to the user identifier in your assignment query. For short-lived bandits, we suggest a `session_id` or `device_id` that will re-generate on future visits to ensure you get the most power while managing when a session ends yourself.
+- **A Contextual Bandit Assignment Query** — the query you created in step 4. The attribute columns you pass there will dictate the attributes that will be used to target the contextual bandit. Future versions of contextual bandits will let you select a subset of these columns to use as targeting attributes.
+- **Exploration window and update cadence** — how long the bandit collects data before it starts reweighting, and how often it reweights after that. See the [bandit configuration guide](/bandits/config#4-set-the-exploration-window-and-update-cadence) for guidance.
+- **A Decision Metric** — the single Fact Metric the bandit optimizes toward. The same guidance as for [multi-armed bandits](/bandits/config#5-selecting-a-decision-metric) applies: prefer a metric with a short conversion window and a conversion rate that isn't extremely low or high.
+
+This step can also be done via the REST API using the [createContextualBandit](https://docs.growthbook.io/api#tag/ContextualBandits/operation/createContextualBandit) endpoint.
+
+## 6. Link a Feature Flag and start
+
+Once you've created a contextual bandit, you can link it to a feature flag and start it. A contextual bandit serves its variations through a **contextual bandit rule** on a feature flag, and needs at least one linked flag before it can start:
+
+1. Create (or pick) a feature flag and link it from the bandit's page. This adds a contextual bandit rule to the flag in a draft revision.
+2. Define the value each bandit variation should serve.
+3. Start the bandit. Pending drafts on linked flags are published automatically when the bandit starts.
+
+Once running, GrowthBook refreshes the bandit on its update cadence: each refresh queries your warehouse, refits the context tree, and pushes updated per-leaf weights to your SDKs. You can watch the current weights and per-context results on the bandit's page.
+
+This step can also be done via the REST API by:
+
+- Creating a feature flag via the [postFeatureV2](https://docs.growthbook.io/api#tag/features-v2/operation/postFeatureV2) endpoint.
+- Linking the feature flag to the contextual bandit via the [addContextualBanditLinkedFeature](https://docs.growthbook.io/api#tag/ContextualBandits/operation/addContextualBanditLinkedFeature) endpoint.
+- Starting the contextual bandit via the [startContextualBandit](https://docs.growthbook.io/api#tag/ContextualBandits/operation/startContextualBandit) endpoint.
+
+## Next steps
+
+- [Contextual Bandits overview](/bandits/contextual) — concepts, and when to use one over a multi-armed bandit

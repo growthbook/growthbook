@@ -1,32 +1,45 @@
 import type { Context } from "back-end/src/models/BaseModel";
 
-/**
- * Correlation fields for events emitted by a multi-entity publish. The commit
- * phase sets `context.bulkPublishId`; every revision lifecycle event emitted
- * while it is set carries it, so webhook consumers can group one release's
- * events. Leaf module — the event services import it, so it must not import
- * back into the event pipeline.
- */
+// Bare ids can collide across entity types.
+export function entityKey(entityType: string, id: string): string {
+  return `${entityType}:${id}`;
+}
+
+export type DeferredEventBuffer = {
+  entries: Array<{ owner: string; emit: () => Promise<unknown> }>;
+  closed?: boolean;
+  restored: Set<string>;
+};
+
 export function bulkPublishFields(context: Context): {
   bulkPublishId?: string;
 } {
   return context.bulkPublishId ? { bulkPublishId: context.bulkPublishId } : {};
 }
 
-/**
- * Emit an entity `*.updated`-style event now — or, during a bulk-publish
- * commit, defer it into `context.bulkPublishDeferredEvents` so it fires only
- * after the whole release commits (and never for a rolled-back one). The one
- * implementation of the defer decision, shared by every model's update hook.
- */
-export async function emitOrDeferBulkPublishEvent(
+// Capture the open landing's buffer at write time.
+export function captureEventBuffer(
   context: Context,
+): DeferredEventBuffer | null {
+  const buffer = context.bulkPublishDeferredEvents;
+  return buffer && !buffer.closed ? buffer : null;
+}
+
+export async function emitOrDeferBulkPublishEvent(
   emit: () => Promise<unknown>,
+  entityId: string,
+  // Explicitly nullable so every caller captures at write time.
+  captured: DeferredEventBuffer | null,
 ): Promise<void> {
-  const deferred = context.bulkPublishDeferredEvents;
-  if (deferred) {
-    deferred.push(emit);
-  } else {
-    await emit();
+  if (captured && !captured.closed) {
+    captured.entries.push({ owner: entityId, emit });
+    return;
   }
+  // Late events emit only when compensation did not restore this document.
+  if (captured?.closed) {
+    if (captured.restored.has(entityId)) return;
+    await emit();
+    return;
+  }
+  await emit();
 }
