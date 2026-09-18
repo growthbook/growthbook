@@ -1,21 +1,17 @@
 import React, { FC, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import { CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import {
-  filterCustomFieldsForSectionAndProject,
-  isCustomFieldBooleanTrue,
-  toCustomFieldBooleanString,
-} from "@/services/customFields";
-import Markdown from "@/components/Markdown/Markdown";
-import DataList, { DataListItem } from "@/ui/DataList";
+import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
+import DataList from "@/ui/DataList";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import { customFieldDataListItems } from "./renderCustomFieldValue";
 import CustomFieldEditModal, {
   CustomFieldDraftInfo,
 } from "./CustomFieldEditModal";
@@ -56,74 +52,10 @@ const CustomFieldDisplay: FC<{
     return null;
   }
 
-  const displayFieldsObj: DataListItem[] = [];
-  const currentValueMap = new Map(
-    Object.entries(currentCustomFields ?? {}).map(([fid, cValue]) => [
-      fid,
-      cValue ?? "",
-    ]),
+  const displayFieldsObj = customFieldDataListItems(
+    customFields,
+    currentCustomFields,
   );
-  const getMultiSelectValue = (value: string) => {
-    try {
-      return JSON.parse(value).join(", ");
-    } catch (e) {
-      return value;
-    }
-  };
-  const getDisplayValue = (v: CustomField, cValue: unknown) => {
-    const stringValue =
-      typeof cValue === "boolean"
-        ? toCustomFieldBooleanString(cValue)
-        : String(cValue ?? "");
-
-    switch (v.type) {
-      case "multiselect":
-        return getMultiSelectValue(stringValue);
-      case "markdown":
-        return <Markdown className="card-text">{stringValue}</Markdown>;
-      case "textarea":
-        return <div style={{ whiteSpace: "pre" }}>{stringValue}</div>;
-      case "url":
-        if (stringValue !== "") {
-          return (
-            <a href={stringValue} target="_blank" rel="noreferrer">
-              {stringValue}
-            </a>
-          );
-        }
-        break;
-      case "boolean":
-        return <>{isCustomFieldBooleanTrue(cValue) ? "yes" : "no"}</>;
-      case "date":
-        if (stringValue) {
-          return new Date(stringValue).toLocaleDateString();
-        }
-        break;
-      case "datetime":
-        if (stringValue) {
-          return new Date(stringValue).toLocaleString();
-        }
-        break;
-      case "text":
-      case "enum":
-      case "number":
-        break;
-      default: {
-        const exhaustiveCheck: never = v.type;
-        return exhaustiveCheck;
-      }
-    }
-
-    return stringValue || <Text color="text-mid">--</Text>;
-  };
-
-  customFields.forEach((v) => {
-    displayFieldsObj.push({
-      label: v.name,
-      value: getDisplayValue(v, currentValueMap.get(v.id) ?? ""),
-      tooltip: v.description,
-    });
-  });
 
   const editLink = canEdit ? (
     <Link onClick={() => setEditModal(true)}>

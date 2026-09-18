@@ -213,6 +213,7 @@ export type SDKAttribute = {
   projects?: string[];
   disableEqualityConditions?: boolean;
   tags?: string[];
+  customFields?: Record<string, string>;
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
