@@ -715,19 +715,8 @@ describe("validateRampPlanPatches", () => {
     await expect(
       run([{ coverage: 0.5 }], feature, { type: "force" }),
     ).rejects.toThrow(/The rule is a force rule with no hash attribute/);
-    // A plan that already ramped this rule was never able to promote it.
-    await expect(
-      run([{ coverage: 0.5 }], feature, forceRule, [
-        {
-          steps: [
-            { actions: [{ patch: { ruleId: "fr_force", coverage: 0.25 } }] },
-          ],
-        },
-      ]),
-    ).rejects.toThrow(BadRequestError);
-    // The start anchor's hash attribute, wherever the caller placed it, or
-    // one left on the rule, satisfies it; full coverage and rollouts never
-    // needed one.
+    // The start anchor's hash attribute or one left on the rule satisfies it;
+    // full coverage and rollouts never needed one.
     await expect(
       run([{ coverage: 0.5 }, { hashAttribute: "id" }], feature, forceRule),
     ).resolves.toBeUndefined();

@@ -162,8 +162,7 @@ const postRampScheduleValidator = {
     }),
 };
 
-// A step action is a start action without identity fields, so both shapes
-// pass through here; the schemas already keep identity off step patches.
+// Step actions pass through too: a step patch is a start patch minus identity.
 function normalizeAction(action: PostBodyStartAction): RampStartAction {
   return {
     targetType: "feature-rule" as const,

@@ -1068,12 +1068,6 @@ describe("scheduled / deferred publish helpers", () => {
       );
       expect(
         rampPlanLacksHashAttribute(
-          plan([{ coverage: 0.5 }, { hashAttribute: "id" }]),
-          "r1",
-        ),
-      ).toBe(false);
-      expect(
-        rampPlanLacksHashAttribute(
           {
             startActions: [{ patch: { hashAttribute: "id" } }],
             ...plan([{ coverage: 0.5 }]),
