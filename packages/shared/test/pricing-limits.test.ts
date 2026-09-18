@@ -4,6 +4,7 @@ import {
   OrgLimits,
   isLimitsFlagDisabled,
   resolveOrgLimitsConfig,
+  shouldStampOrgLimits,
 } from "shared/enterprise";
 
 describe("resolveOrgLimitsConfig", () => {
@@ -113,5 +114,31 @@ describe("isLimitsFlagDisabled", () => {
     ["a bare boolean", false],
   ])("stays enabled for %s", (_label, raw) => {
     expect(isLimitsFlagDisabled(raw)).toBe(false);
+  });
+});
+
+describe("shouldStampOrgLimits", () => {
+  it.each([
+    ["null", null],
+    ["undefined", undefined],
+    ["a string", "not-a-config"],
+    ["a number", 42],
+    ["an array", []],
+  ])("does not stamp when the flag served %s", (_label, raw) => {
+    expect(shouldStampOrgLimits(raw)).toBe(false);
+  });
+
+  it("does not stamp when the flag is explicitly disabled", () => {
+    expect(shouldStampOrgLimits({ enabled: false })).toBe(false);
+    expect(shouldStampOrgLimits({ enabled: false, ...FREE_ORG_LIMITS })).toBe(
+      false,
+    );
+  });
+
+  it("stamps when the flag served a config", () => {
+    expect(shouldStampOrgLimits({ enabled: true, ...FREE_ORG_LIMITS })).toBe(
+      true,
+    );
+    expect(shouldStampOrgLimits({})).toBe(true);
   });
 });

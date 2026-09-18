@@ -8,6 +8,7 @@ import {
   makeOrgLimits,
   planTierFor,
   resolveOrgLimitsConfig,
+  shouldStampOrgLimits,
 } from "shared/enterprise";
 import { OrganizationInterface } from "shared/types/organization";
 import { getEffectiveAccountPlan, getOrgLimits } from "back-end/src/enterprise";
@@ -20,7 +21,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 
 // Limits stamped onto a newly created org. Cloud reads the flag; self-hosted
 // always uses the hardcoded defaults.
-export async function getStampedOrgLimits(): Promise<OrgLimits> {
+export async function getStampedOrgLimits(): Promise<OrgLimits | undefined> {
   if (!IS_CLOUD) return { ...FREE_ORG_LIMITS };
 
   // Bounded by the client's 3s init timeout — orgs created right after boot
@@ -29,6 +30,9 @@ export async function getStampedOrgLimits(): Promise<OrgLimits> {
   const raw = getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
     attributes: {},
   }).value;
+
+  if (!shouldStampOrgLimits(raw)) return undefined;
+
   return resolveOrgLimitsConfig(raw);
 }
 

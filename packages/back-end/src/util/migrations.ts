@@ -9,7 +9,10 @@ import {
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { stringifyFeatureValue } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
-import { accountFeatures } from "shared/enterprise";
+import {
+  accountFeatures,
+  ORG_LIMITS_STAMP_VALID_FROM,
+} from "shared/enterprise";
 import {
   LegacyExperimentReportArgs,
   ExperimentReportInterface,
@@ -654,6 +657,20 @@ export function upgradeOrganizationDoc(
   }
 
   healPriorSettings(org.settings?.metricDefaults?.priorSettings);
+
+  // Orgs created before plan limits rolled out were stamped whether or not the
+  // flag served a config, so an early stamp doesn't mean limits were ever meant
+  // to apply. Dropping it restores the org to grandfathered (no limits, any
+  // plan) — notably so upgrading to a paid plan can never revoke a feature.
+  if (org.limits && org.dateCreated) {
+    const dateCreated = new Date(org.dateCreated);
+    if (
+      !isNaN(dateCreated.getTime()) &&
+      dateCreated < ORG_LIMITS_STAMP_VALID_FROM
+    ) {
+      delete org.limits;
+    }
+  }
 
   return org;
 }

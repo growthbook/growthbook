@@ -32,6 +32,12 @@ export function planTierFor(plan: AccountPlan): LimitedPlanTier | null {
   return null;
 }
 
+// Every cloud org created after #6325 was stamped regardless of whether the
+// pricing-phase-1-limits flag was actually serving a config, which permanently
+// opted it into plan limits. Stamps written before this date are not trusted;
+// see upgradeOrganizationDoc, which drops them on read.
+export const ORG_LIMITS_STAMP_VALID_FROM = new Date("2026-09-12T00:00:00.000Z");
+
 type LimitsInput = {
   effectivePlan: AccountPlan;
   // Stamped at org creation. Its absence means the org is grandfathered.
