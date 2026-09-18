@@ -33,9 +33,6 @@ import {
 } from "back-end/src/services/slack/slackWebApi";
 import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
 import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
-import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
-import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
-import { postExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
 
 const THINKING_TEXT = "_Thinking…_";
 
@@ -299,16 +296,6 @@ export async function handleSlackAssistantMention(
       return;
     }
     await finish(result.reply || "I couldn't find an answer to that.");
-
-    // Attach any experiment cards the agent asked for as threaded image blocks.
-    // Best-effort — a render/upload failure never affects the text answer.
-    await attachExperimentCards({
-      experimentIds: result.experimentCardIds,
-      context: target.context,
-      token,
-      channel: channelId,
-      threadTs: rootTs,
-    });
   } catch (e) {
     logger.error(e, "Slack assistant turn failed");
     await finish("Something went wrong answering that — please try again.");
@@ -378,41 +365,6 @@ async function postPendingApproval({
       blocks,
       threadTs: threadTs,
     });
-  }
-}
-
-async function attachExperimentCards({
-  experimentIds,
-  context,
-  token,
-  channel,
-  threadTs,
-}: {
-  experimentIds: string[];
-  context: Parameters<typeof buildExperimentCardData>[0];
-  token: string;
-  channel: string;
-  threadTs: string;
-}): Promise<void> {
-  for (const experimentId of experimentIds) {
-    try {
-      const card = await buildExperimentCardData(context, experimentId);
-      if (!card) continue;
-      const png = await renderExperimentCard(card);
-      await postExperimentCardImage({
-        token,
-        channel,
-        png,
-        altText: `${card.name} — experiment results`,
-        viewLink: `<${APP_ORIGIN}/experiment/${experimentId}|View experiment>`,
-        threadTs,
-      });
-    } catch (e) {
-      logger.error(
-        e,
-        `Slack assistant: failed to attach card for ${experimentId}`,
-      );
-    }
   }
 }
 
@@ -619,13 +571,6 @@ export async function handleSlackAssistantConfirmation({
         { appOrigin: APP_ORIGIN },
       ),
       threadTs,
-    });
-    await attachExperimentCards({
-      experimentIds: result.experimentCardIds,
-      context: target.context,
-      token,
-      channel: channelId,
-      threadTs: threadTs || "",
     });
   } catch (e) {
     logger.error(e, "Slack assistant confirmation failed");

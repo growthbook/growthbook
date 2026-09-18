@@ -42,16 +42,6 @@ jest.mock("back-end/src/services/slack/slackWebApi", () => ({
 jest.mock("back-end/src/services/slack/slackAgent", () => ({
   slackAgentConfig: {},
 }));
-jest.mock(
-  "back-end/src/services/notificationCards/experimentCardData",
-  () => ({}),
-);
-jest.mock(
-  "back-end/src/services/notificationCards/experimentCards",
-  () => ({}),
-);
-jest.mock("back-end/src/services/slack/cardDelivery", () => ({}));
-
 jest.mock("back-end/src/services/slack/slackThreadRouting", () => ({
   ...jest.requireActual("back-end/src/services/slack/slackThreadRouting"),
   getSlackThread: jest.fn(),
@@ -95,7 +85,6 @@ beforeEach(() => {
         organizationId: "org1",
         botToken: "token",
         assistantEnabled: true,
-        unfurlEnabled: false,
         eventWebHookId: "webhook1",
       }) as unknown as Awaited<ReturnType<typeof resolveSlackAssistantTarget>>,
   );
@@ -117,7 +106,6 @@ it.each(["confirm", "cancel"] as const)(
           { ok: true }
         >["pendingAction"]
       >,
-      experimentCardIds: [],
     });
     await handleSlackAssistantConfirmation({
       teamId: "T1",
@@ -359,7 +347,6 @@ it("continues the original question once after an authorized organization choice
     conversationId,
     reply: "Answer",
     pendingAction: null,
-    experimentCardIds: [],
   });
   const selection = {
     teamId: "T1",

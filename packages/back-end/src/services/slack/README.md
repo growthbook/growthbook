@@ -6,16 +6,14 @@ In the Slack app settings, configure:
 
 - Events Request URL: `https://YOUR_API_HOST/integrations/slack/events`
 - Interactivity Request URL: `https://YOUR_API_HOST/integrations/slack/interactions`
-- Optional `/growthbook` command URL: `https://YOUR_API_HOST/integrations/slack/commands`
-- Bot events: `app_mention`, `message.im`, `assistant_thread_started`, and
-  `link_shared` when link previews are enabled. Register your GrowthBook app
-  domain for link previews. General channel history is not requested; outside
-  DMs, users should explicitly mention the bot for follow-up questions.
+- Bot events: `app_mention`, `message.im`, and `assistant_thread_started`.
+  General channel history is not requested; outside DMs, users should explicitly
+  mention the bot for follow-up questions.
 
-The OAuth scopes are configured by the cards foundation PR, including
-`commands`, `links:read`, and `links:write`. Reconnect the workspace if an older
-installation lacks those grants. Enable assistant and/or link previews explicitly
-in GrowthBook's Slack workspace settings; both default off. GrowthBook's existing
+The OAuth scopes include `app_mentions:read`, `im:history`, and
+`assistant:write` for chat, alongside the existing notification scopes. Reconnect
+an older workspace installation if it lacks these grants. Enable the assistant
+in GrowthBook's Slack workspace settings; it defaults off. GrowthBook's existing
 AI access, usage limits, and the linked user's permissions still apply.
 
 Users link their Slack identity through a private signed link requiring GrowthBook

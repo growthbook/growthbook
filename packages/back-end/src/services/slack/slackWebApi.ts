@@ -201,25 +201,6 @@ export async function updateSlackMessage({
   return !!res?.ok;
 }
 
-export async function unfurlSlackLinks({
-  token,
-  channel,
-  ts,
-  unfurls,
-}: {
-  token: string;
-  channel: string;
-  ts: string;
-  unfurls: Record<string, { blocks: SlackBlock[] }>;
-}): Promise<boolean> {
-  const res = await slackApiCall<SlackApiResponse>(token, "chat.unfurl", {
-    channel,
-    ts,
-    unfurls,
-  });
-  return !!res?.ok;
-}
-
 /**
  * Upload a PNG as a private Slack file and share it into a channel. Slack's
  * external-upload flow keeps experiment data off public object storage.
@@ -231,7 +212,6 @@ export async function uploadSlackImageFile({
   title,
   channelId,
   initialComment,
-  threadTs,
 }: {
   token: string;
   png: Buffer;
@@ -239,7 +219,6 @@ export async function uploadSlackImageFile({
   title?: string;
   channelId: string;
   initialComment?: string;
-  threadTs?: string;
 }): Promise<string | null> {
   const getRes = await slackApiGet<
     SlackApiResponse & { upload_url?: string; file_id?: string }
@@ -274,7 +253,6 @@ export async function uploadSlackImageFile({
       files: [{ id: getRes.file_id, title: title || filename }],
       channel_id: channelId,
       ...(initialComment ? { initial_comment: initialComment } : {}),
-      ...(threadTs ? { thread_ts: threadTs } : {}),
     },
   );
   return completeRes?.ok ? getRes.file_id : null;

@@ -19,9 +19,6 @@ jest.mock("back-end/src/services/slack/slackAssistant", () => ({
   handleSlackAssistantConfirmation: jest.fn(),
   handleSlackOrganizationSelection: jest.fn(),
 }));
-jest.mock("back-end/src/services/slack/slackUnfurl", () => ({
-  handleSlackLinkShared: jest.fn(),
-}));
 jest.mock("back-end/src/services/slack/slackIdentity", () => ({
   resolveSlackAssistantTarget: jest.fn(),
 }));

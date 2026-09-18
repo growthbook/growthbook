@@ -600,11 +600,6 @@ export type RunAgentTurnResult =
       reply: string;
       /** A mutation the agent parked for confirmation, or null. */
       pendingAction: AIAgentPendingAction | null;
-      /**
-       * Experiment ids the agent asked to attach a results card for (via an
-       * `experiment-card` emit from a tool). The caller renders + delivers them.
-       */
-      experimentCardIds: string[];
     }
   | { ok: false; status: number; message: string; retryAfter?: number };
 
@@ -687,9 +682,8 @@ export async function runAgentTurnToCompletion<TParams>({
     config.agentType,
   );
 
-  // No SSE sink — keep the streamed-at timestamp fresh (so stale-stream
-  // detection matches the HTTP path) and collect experiment-card events.
-  const experimentCardIds: string[] = [];
+  // Keep the streamed-at timestamp fresh so stale-stream detection matches
+  // the HTTP path even without an SSE sink.
   const previousMessageCount = buffer.getMessages().length;
   let streamError: string | null = null;
   const emit: AgentEmit = (event, data) => {
@@ -704,12 +698,6 @@ export async function runAgentTurnToCompletion<TParams>({
           : "The assistant could not complete this request.";
     }
     buffer.touchStreamedAt();
-    if (event === "experiment-card" && data && typeof data === "object") {
-      const id = (data as { experimentId?: unknown }).experimentId;
-      if (typeof id === "string" && id && !experimentCardIds.includes(id)) {
-        experimentCardIds.push(id);
-      }
-    }
   };
 
   // Re-checks the cap with the resolved model (the BYOK exemption is per
@@ -750,7 +738,6 @@ export async function runAgentTurnToCompletion<TParams>({
       buffer.getMessages().slice(previousMessageCount),
     ),
     pendingAction: buffer.getPendingAction() ?? null,
-    experimentCardIds,
   };
 }
 

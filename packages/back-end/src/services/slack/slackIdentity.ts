@@ -54,7 +54,6 @@ type ResolvedSlackTarget = {
   eventWebHookId: string | null;
   botToken: string;
   assistantEnabled: boolean;
-  unfurlEnabled: boolean;
 };
 export type SlackAssistantTarget =
   | ResolvedSlackTarget
@@ -252,7 +251,6 @@ export async function resolveSlackAssistantTarget({
       eventWebHookId,
       botToken: token,
       assistantEnabled: connection.assistantEnabled === true,
-      unfurlEnabled: connection.unfurlEnabled === true,
     });
   }
   if (targets.length === 1) return targets[0];

@@ -2,18 +2,13 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import bodyParser from "body-parser";
 import express, { Request, Response } from "express";
-import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
 import { wrapController } from "back-end/src/routers/wrapController";
-import { APP_ORIGIN, SLACK_SIGNING_SECRET } from "back-end/src/util/secrets";
-import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
+import { SLACK_SIGNING_SECRET } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import {
   queueSlackAssistantMention,
   queueSlackAssistantConfirmation,
   queueSlackOrganizationSelection,
-  queueSlackLinkUnfurl,
 } from "back-end/src/jobs/slackAssistantTasks";
 import {
   slackOrganizationSelectionSchema,
@@ -51,7 +46,7 @@ const slackBodyParser = bodyParser.urlencoded({
   },
 });
 
-// The Events API posts JSON (slash commands/interactions are urlencoded).
+// The Events API posts JSON; interactions are URL-encoded.
 // Capture the raw body either way so the signature check works.
 const slackJsonParser = bodyParser.json({
   verify: (req: Request & { rawBody?: string }, _res, buf) => {
@@ -77,99 +72,6 @@ const verifySlackSignature = (req: SlackRequest) => {
     expectedBuffer.length === actualBuffer.length &&
     timingSafeEqual(expectedBuffer, actualBuffer)
   );
-};
-
-const findSlackWebhook = async ({
-  teamId,
-  channelId,
-}: {
-  teamId?: string;
-  channelId?: string;
-}) => {
-  if (!teamId) return null;
-  return EventWebHookModel.findOne({
-    payloadType: "slack",
-    "slack.teamId": teamId,
-    ...(channelId ? { "slack.channelId": channelId } : {}),
-  }).lean();
-};
-
-const commands = async (req: SlackRequest, res: Response) => {
-  if (!verifySlackSignature(req)) {
-    return res.status(401).json({ text: "Invalid Slack signature." });
-  }
-
-  const webhook = await findSlackWebhook({
-    teamId: req.body.team_id,
-    channelId: req.body.channel_id,
-  });
-  if (!webhook) {
-    return res.json({
-      response_type: "ephemeral",
-      text: "This Slack channel is not connected to GrowthBook yet.",
-    });
-  }
-
-  const [subcommand = "help", experimentId = ""] = (req.body.text || "")
-    .trim()
-    .split(/\s+/);
-
-  if (subcommand === "list") {
-    return res.json({
-      response_type: "ephemeral",
-      text: `This channel is subscribed to: ${webhook.events.join(", ")}`,
-    });
-  }
-
-  if (subcommand === "subscribe") {
-    return res.json({
-      response_type: "ephemeral",
-      text: `Open GrowthBook to configure this channel: ${APP_ORIGIN}/settings/webhooks/event/${webhook.id}`,
-    });
-  }
-
-  if (subcommand === "status" || subcommand === "results") {
-    if (!experimentId) {
-      return res.json({
-        response_type: "ephemeral",
-        text: `Usage: /growthbook ${subcommand} <experiment-id>`,
-      });
-    }
-
-    // Resolve the Slack user to their linked GrowthBook account + permission-
-    // scoped context, so experiment details go only to someone who can actually
-    // read it — not any (even unlinked) member of the channel.
-    const target = await resolveSlackAssistantTarget({
-      teamId: req.body.team_id,
-      channelId: req.body.channel_id,
-      slackUserId: req.body.user_id,
-    });
-    if (!target.ok) {
-      return res.json({ response_type: "ephemeral", text: target.message });
-    }
-    const experiment = await getExperimentById(target.context, experimentId);
-    if (!experiment) {
-      return res.json({
-        response_type: "ephemeral",
-        text: `Could not find experiment ${experimentId}.`,
-      });
-    }
-
-    return res.json({
-      response_type: "ephemeral",
-      text: toSlackMrkdwn(
-        `**${experiment.name}**\nStatus: ${experiment.status}\nResults: ${experiment.results || "not decided"}\n${APP_ORIGIN}/experiment/${experiment.id}#results`,
-        { appOrigin: APP_ORIGIN },
-      ),
-    });
-  }
-
-  return res.json({
-    response_type: "ephemeral",
-    text:
-      "GrowthBook commands: `/growthbook list`, `/growthbook subscribe`, " +
-      "`/growthbook status <experiment-id>`, `/growthbook results <experiment-id>`",
-  });
 };
 
 const interactions = async (req: SlackRequest, res: Response) => {
@@ -256,50 +158,7 @@ const interactions = async (req: SlackRequest, res: Response) => {
     return;
   }
 
-  if (action?.action_id !== "growthbook_snooze_experiment_24h") {
-    return res.json({ text: "GrowthBook action received." });
-  }
-
-  const experimentId = action.value;
-  if (!experimentId) {
-    return res.json({ text: "Unable to snooze this notification." });
-  }
-
-  // Authorize like the confirm/cancel path: the clicking Slack user must be a
-  // linked GrowthBook member of this channel's org AND able to read the
-  // experiment. Otherwise any (even unlinked) channel member could suppress a
-  // channel's notifications. resolveSlackAssistantTarget also gives us the
-  // channel's webhook + org, scoped to that user.
-  const target = await resolveSlackAssistantTarget({
-    teamId: payload.team?.id,
-    channelId: payload.channel?.id || "",
-    slackUserId: payload.user?.id || "",
-  });
-  if (!target.ok) {
-    return res.json({ response_type: "ephemeral", text: target.message });
-  }
-  if (!(await getExperimentById(target.context, experimentId))) {
-    return res.json({
-      response_type: "ephemeral",
-      text: "You don't have access to snooze notifications for this experiment.",
-    });
-  }
-
-  if (!target.eventWebHookId)
-    return res.json({
-      response_type: "ephemeral",
-      text: "This conversation has no notification subscription to snooze.",
-    });
-  await target.context.models.slackNotificationSnoozes.snoozeExperiment({
-    eventWebHookId: target.eventWebHookId,
-    experimentId,
-    snoozedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
-  });
-
-  return res.json({
-    response_type: "ephemeral",
-    text: "Snoozed GrowthBook notifications for this experiment for 24 hours.",
-  });
+  return res.status(200).send("");
 };
 
 // Events API — app_mention drives the interactive assistant.
@@ -324,9 +183,6 @@ type SlackEventPayload = {
       channel_id?: string;
       thread_ts?: string;
     };
-    // link_shared
-    message_ts?: string;
-    links?: { url?: string; domain?: string }[];
   };
 };
 
@@ -420,30 +276,6 @@ const events = async (req: SlackRequest, res: Response): Promise<void> => {
         );
         return;
       }
-
-      // Unfurl a shared GrowthBook experiment link into a results card
-      // (respecting the sharer's permissions).
-      if (event.type === "link_shared") {
-        logger.info(
-          {
-            channel: event.channel,
-            user: event.user,
-            links: event.links?.map((l) => l.url),
-          },
-          "Slack: link_shared event received",
-        );
-        if (!event.channel || !event.message_ts || !event.user) return;
-        await queueSlackLinkUnfurl(
-          {
-            teamId: payload.team_id || "",
-            channelId: event.channel,
-            messageTs: event.message_ts,
-            slackUserId: event.user,
-            links: event.links || [],
-          },
-          payload.event_id,
-        );
-      }
     })();
     res.status(200).send("");
   } catch (error) {
@@ -454,8 +286,7 @@ const events = async (req: SlackRequest, res: Response): Promise<void> => {
   }
 };
 
-const controller = wrapController({ commands, interactions, events });
-router.post("/commands", slackBodyParser, controller.commands);
+const controller = wrapController({ interactions, events });
 router.post("/interactions", slackBodyParser, controller.interactions);
 router.post("/events", slackJsonParser, controller.events);
 

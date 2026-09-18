@@ -39,7 +39,7 @@ import {
   isSlackOAuthConfigured,
   listSlackOAuthConnections,
   listSlackWorkspaceChannels,
-  setSlackWorkspaceOption,
+  setSlackAssistantEnabled,
   type SlackChannelOption,
   updateSlackOAuthIntegration,
 } from "back-end/src/services/slackIntegration";
@@ -401,28 +401,9 @@ export const postSlackAssistant = async (
     context.permissions.throwPermissionError();
   }
   return res.json(
-    await setSlackWorkspaceOption({
+    await setSlackAssistantEnabled({
       context,
       teamId: req.body.teamId,
-      field: "assistantEnabled",
-      enabled: req.body.enabled,
-    }),
-  );
-};
-
-export const postSlackUnfurl = async (
-  req: AuthRequest<{ teamId?: string; enabled: boolean }>,
-  res: Response<{ enabled: boolean } | ApiErrorResponse>,
-) => {
-  const context = getContextFromReq(req);
-  if (!context.permissions.canManageIntegrations()) {
-    context.permissions.throwPermissionError();
-  }
-  return res.json(
-    await setSlackWorkspaceOption({
-      context,
-      teamId: req.body.teamId,
-      field: "unfurlEnabled",
       enabled: req.body.enabled,
     }),
   );

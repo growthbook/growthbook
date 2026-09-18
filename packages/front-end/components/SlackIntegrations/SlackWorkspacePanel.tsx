@@ -38,8 +38,8 @@ export default function SlackWorkspacePanel({
   selectedChannelId,
   needsReconnect,
   connecting,
-  updatingSettings,
-  onSettingChange,
+  updatingAssistant,
+  onAssistantChange,
   onReconnect,
   onDisconnect,
   onAddChannel,
@@ -52,11 +52,8 @@ export default function SlackWorkspacePanel({
   selectedChannelId?: string;
   needsReconnect: boolean;
   connecting: boolean;
-  updatingSettings: boolean;
-  onSettingChange: (
-    setting: "assistant" | "unfurl",
-    enabled: boolean,
-  ) => Promise<void>;
+  updatingAssistant: boolean;
+  onAssistantChange: (enabled: boolean) => Promise<void>;
   onReconnect: () => Promise<void>;
   onDisconnect: () => void;
   onAddChannel: () => void;
@@ -208,33 +205,14 @@ export default function SlackWorkspacePanel({
             </DropdownMenu>
           </Flex>
           <Flex direction="column" gap="3" mt="4">
-            {(
-              [
-                {
-                  key: "assistant",
-                  label: "AI assistant",
-                  description: "Answer mentions in connected channels",
-                  enabled: workspace.assistantEnabled,
-                },
-                {
-                  key: "unfurl",
-                  label: "Link previews",
-                  description:
-                    "Show experiment summaries for shared GrowthBook links",
-                  enabled: workspace.unfurlEnabled,
-                },
-              ] as const
-            ).map((setting) => (
-              <Switch
-                key={setting.key}
-                size="sm"
-                label={setting.label}
-                description={setting.description}
-                value={setting.enabled === true}
-                disabled={updatingSettings}
-                onChange={(enabled) => onSettingChange(setting.key, enabled)}
-              />
-            ))}
+            <Switch
+              size="sm"
+              label="AI assistant"
+              description="Answer direct messages and mentions in connected channels"
+              value={workspace.assistantEnabled === true}
+              disabled={updatingAssistant}
+              onChange={onAssistantChange}
+            />
           </Flex>
         </Box>
         <div className={channels.length > 0 ? styles.content : undefined}>

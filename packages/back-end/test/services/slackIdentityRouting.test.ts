@@ -194,7 +194,7 @@ it("offers only enabled assistant organizations and never switches a disabled pi
     organizationId: "org1",
     assistantEnabled: false,
   });
-  // Non-assistant consumers such as unfurls still see both linked orgs.
+  // Recovery lookups can still find disabled assistants.
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
     ok: false,
     reason: "ambiguous_org",

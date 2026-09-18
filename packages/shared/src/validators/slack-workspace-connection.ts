@@ -14,7 +14,6 @@ export const slackWorkspaceConnectionSchema = createBaseSchemaWithPrimaryKey({
   scope: z.string().optional(),
   isEnterpriseInstall: z.boolean().optional(),
   assistantEnabled: z.boolean().optional(),
-  unfurlEnabled: z.boolean().optional(),
 });
 
 export type SlackWorkspaceConnectionInterface = z.infer<

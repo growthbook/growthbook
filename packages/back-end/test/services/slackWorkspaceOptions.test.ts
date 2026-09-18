@@ -1,4 +1,4 @@
-import { setSlackWorkspaceOption } from "back-end/src/services/slackIntegration";
+import { setSlackAssistantEnabled } from "back-end/src/services/slackIntegration";
 import type { ReqContext } from "back-end/types/request";
 
 const connection = { organization: "org-1", teamId: "T1" };
@@ -14,20 +14,18 @@ beforeEach(() => {
 });
 
 it("updates through the organization-scoped model, preserving its permission checks", async () => {
-  await setSlackWorkspaceOption({
+  await setSlackAssistantEnabled({
     context,
     teamId: "T1",
-    field: "assistantEnabled",
     enabled: true,
   });
   expect(update).toHaveBeenCalledWith(connection, { assistantEnabled: true });
 });
 it("rejects a workspace that is not in the current organization", async () => {
   await expect(
-    setSlackWorkspaceOption({
+    setSlackAssistantEnabled({
       context,
       teamId: "T_OTHER",
-      field: "unfurlEnabled",
       enabled: true,
     }),
   ).rejects.toThrow();
@@ -39,9 +37,8 @@ it("does not guess when the organization has multiple workspaces", async () => {
     { organization: "org-1", teamId: "T2" },
   ]);
   await expect(
-    setSlackWorkspaceOption({
+    setSlackAssistantEnabled({
       context,
-      field: "assistantEnabled",
       enabled: true,
     }),
   ).rejects.toThrow("Multiple Slack workspaces");

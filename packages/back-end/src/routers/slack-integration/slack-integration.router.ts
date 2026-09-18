@@ -155,16 +155,6 @@ router.post(
   slackIntegrationController.postSlackAssistant,
 );
 
-router.post(
-  "/unfurl",
-  validateRequestMiddleware({
-    body: z
-      .object({ teamId: z.string().optional(), enabled: z.boolean() })
-      .strict(),
-  }),
-  slackIntegrationController.postSlackUnfurl,
-);
-
 router.get(
   "/:id",
   validateRequestMiddleware({

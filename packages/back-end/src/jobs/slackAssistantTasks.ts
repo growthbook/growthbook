@@ -17,10 +17,6 @@ import {
   SlackAssistantMention,
   SlackAssistantConfirmation,
 } from "back-end/src/services/slack/slackAssistant";
-import {
-  handleSlackLinkShared,
-  SlackLinkShared,
-} from "back-end/src/services/slack/slackUnfurl";
 
 const SLACK_ASSISTANT_JOB_NAME = "slackAssistantTask";
 
@@ -31,7 +27,6 @@ type SlackAssistantTaskData = { dedupeKey?: string } & (
   | { kind: "mention"; mention: SlackAssistantMention }
   | { kind: "confirmation"; confirmation: SlackAssistantConfirmation }
   | { kind: "organization"; selection: SlackOrganizationSelection }
-  | { kind: "unfurl"; event: SlackLinkShared }
 );
 
 type SlackAssistantJob = Job<SlackAssistantTaskData>;
@@ -44,17 +39,13 @@ const processSlackAssistantTask = async (job: SlackAssistantJob) => {
       ? data.mention
       : data.kind === "confirmation"
         ? data.confirmation
-        : data.kind === "organization"
-          ? data.selection
-          : data.event;
+        : data.selection;
   const rootTs =
     data.kind === "mention"
       ? data.mention.threadTs || data.mention.messageTs
       : data.kind === "confirmation"
         ? data.confirmation.threadTs || ""
-        : data.kind === "organization"
-          ? data.selection.threadTs
-          : data.event.messageTs;
+        : data.selection.threadTs;
   const lockKey = `thread:${slackTaskKey([task.teamId, task.channelId, rootTs])}`;
   if (!(await claimSlackTask(lockKey))) {
     const age = await getSlackTaskClaimAge(lockKey);
@@ -93,9 +84,6 @@ const processSlackAssistantTask = async (job: SlackAssistantJob) => {
       case "organization":
         await handleSlackOrganizationSelection(data.selection);
         return;
-      case "unfurl":
-        await handleSlackLinkShared(data.event);
-        return;
     }
   } finally {
     // Do not expire a live lock: a paused worker could resume and replay a mutation.
@@ -109,8 +97,7 @@ let indexReady: Promise<string> | null = null;
 export default function addSlackAssistantJobs(ag: Agenda) {
   agenda = ag;
   indexReady = null;
-  // Default lock lifetime (10m) and concurrency are fine for the slow agent
-  // turn + PNG render.
+  // Thread claims serialize turns independently of Agenda job locks.
   agenda.define(SLACK_ASSISTANT_JOB_NAME, processSlackAssistantTask);
 }
 
@@ -170,16 +157,6 @@ export async function queueSlackAssistantConfirmation(
   // failure. The permanent action claim separately prevents mutation replay.
   const dedupeKey = `confirm:${slackTaskKey([confirmation.teamId, confirmation.channelId, confirmation.slackUserId, confirmation.conversationId, confirmation.actionId, confirmation.interactionTs])}`;
   await enqueue({ kind: "confirmation", confirmation }, dedupeKey);
-}
-
-export async function queueSlackLinkUnfurl(
-  event: SlackLinkShared,
-  dedupeKey?: string,
-): Promise<void> {
-  await enqueue(
-    { kind: "unfurl", event },
-    `unfurl:${slackTaskKey([event.teamId, dedupeKey || event.channelId + ":" + event.messageTs])}`,
-  );
 }
 
 export async function queueSlackOrganizationSelection(
