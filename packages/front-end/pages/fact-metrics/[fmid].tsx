@@ -405,7 +405,7 @@ export default function FactMetricPage() {
           </DropdownMenu>
           <div
             ref={setActionsContainer}
-            style={{ minHeight: isEditing ? 40 : 0 }}
+            style={{ minHeight: isEditing ? 40 : 0, minWidth: 1 }}
           />
         </Flex>
       </Flex>

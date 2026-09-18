@@ -5,7 +5,7 @@ import {
 } from "shared/types/fact-table";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
-import Switch from "@/ui/Switch";
+import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import {
   onRetentionDelayOrModeChange,
@@ -153,10 +153,10 @@ export default function RetentionFields({
       </Flex>
 
       <Flex direction="column" gap="3">
-        <Switch
+        <Checkbox
           label="Require a minimum amount (Threshold)"
           value={hasThreshold}
-          onChange={(checked) =>
+          setValue={(checked) =>
             onThresholdChange(
               checked
                 ? { aggregateFilterColumn: "$$count", aggregateFilter: "" }
