@@ -7,7 +7,7 @@
   &:hover {
     box-shadow:
       var(--shadow-4),
-      0 5px 26px rgba(0, 0, 0, 0.28);
+      0 5px 26px var(--black-a6);
 
     // Removes a default border from the last row of the table when hovering
     > :global(tr:last-of-type:not(.slice-expanded):not(.slice-expanded)) {
