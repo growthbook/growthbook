@@ -38,7 +38,8 @@ export type ApiClientInfo = {
 };
 
 /** `growthbook-cli/2.6.0 (go1.24.0; darwin/arm64)` → cli, 2.6.0 */
-const FIRST_PARTY_RE = /^growthbook-(cli|mcp|skills|coderefs)\/(\S+)/i;
+// Bounded like the raw User-Agent below — the version is caller-controlled too.
+const FIRST_PARTY_RE = /^growthbook-(cli|mcp|skills|coderefs)\/(\S{1,64})/i;
 
 // Order matters: the first match wins, so put specific tools above the generic
 // runtimes they are built on (Postman before curl, Terraform before Go).

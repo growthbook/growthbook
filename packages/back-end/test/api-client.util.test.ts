@@ -83,6 +83,14 @@ describe("parseApiClient", () => {
   it("keeps a versionless product token out of the first-party buckets", () => {
     expect(parseApiClient("growthbook-cli/").client).toBe("other");
   });
+
+  it("bounds the version, which is caller-controlled", () => {
+    const { client, clientVersion } = parseApiClient(
+      `growthbook-cli/${"9".repeat(300)}`,
+    );
+    expect(client).toBe("cli");
+    expect(clientVersion).toHaveLength(64);
+  });
 });
 
 describe("truncateUserAgent", () => {
