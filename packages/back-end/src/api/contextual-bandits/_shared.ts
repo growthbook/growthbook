@@ -1,4 +1,5 @@
 import { ContextualBanditInterface } from "shared/validators";
+import { getVisibleVariations } from "shared/experiments";
 import {
   ContextualBanditRefRule,
   FeatureInterface,
@@ -24,7 +25,9 @@ export async function loadContextualBanditForRead(
   }
   const contextualBandit = await context.models.contextualBandits.getById(id);
   if (!contextualBandit) {
-    return context.throwNotFoundError();
+    return context.throwNotFoundError(
+      `Contextual Bandit ${id} not found or not accessible`,
+    );
   }
   if (
     !context.permissions.canReadSingleProjectResource(contextualBandit.project)
@@ -44,7 +47,9 @@ export function assertVariationsCoverBandit(
   contextualBandit: ContextualBanditInterface,
   variations: VariationInput[],
 ): void {
-  const banditIds = contextualBandit.variations.map((v) => v.id);
+  const banditIds = getVisibleVariations(contextualBandit.variations).map(
+    (v) => v.id,
+  );
   const seen = new Set<string>();
 
   for (const v of variations) {

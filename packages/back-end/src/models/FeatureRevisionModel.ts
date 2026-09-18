@@ -943,6 +943,7 @@ export async function createInitialRevision(
   user: EventUser | null,
   environments: string[],
   date?: Date,
+  comment?: string,
 ) {
   const rules: FeatureRule[] = (feature.rules ?? [])
     .filter(isPlausibleFeatureRule)
@@ -966,7 +967,7 @@ export async function createInitialRevision(
     baseVersion: 0,
     status: "published",
     publishedBy: user,
-    comment: "",
+    comment: comment ?? "",
     defaultValue: feature.defaultValue,
     rules,
     environmentsEnabled,
