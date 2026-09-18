@@ -205,6 +205,12 @@ export async function updateSlackMessage({
  * Upload a PNG as a private Slack file and share it into a channel. Slack's
  * external-upload flow keeps experiment data off public object storage.
  */
+// Uploads an image and shares it to the channel in one message. The share
+// message is `blocks` when given (so the caption can be a small context
+// footer), falling back to `initialComment` if Slack rejects them; a card must
+// never degrade to text over caption formatting. Sharing on upload matters:
+// referencing a private file from a later message fails until Slack finishes
+// processing it, and channel members may not be able to see it at all.
 export async function uploadSlackImageFile({
   token,
   png,
@@ -212,6 +218,7 @@ export async function uploadSlackImageFile({
   title,
   channelId,
   initialComment,
+  blocks,
 }: {
   token: string;
   png: Buffer;
@@ -219,6 +226,7 @@ export async function uploadSlackImageFile({
   title?: string;
   channelId: string;
   initialComment?: string;
+  blocks?: unknown[];
 }): Promise<string | null> {
   const getRes = await slackApiGet<
     SlackApiResponse & { upload_url?: string; file_id?: string }
@@ -246,15 +254,25 @@ export async function uploadSlackImageFile({
     return null;
   }
 
-  const completeRes = await slackApiCall<SlackApiResponse>(
-    token,
-    "files.completeUploadExternal",
-    {
+  const complete = (share: Record<string, string>) =>
+    slackApiCall<SlackApiResponse>(token, "files.completeUploadExternal", {
       files: [{ id: getRes.file_id, title: title || filename }],
       channel_id: channelId,
-      ...(initialComment ? { initial_comment: initialComment } : {}),
-    },
+      ...share,
+    });
+  let completeRes = await complete(
+    blocks
+      ? { blocks: JSON.stringify(blocks) }
+      : initialComment
+        ? { initial_comment: initialComment }
+        : {},
   );
+  if (!completeRes?.ok && blocks && initialComment) {
+    logger.warn(
+      `Slack rejected the card caption blocks (${completeRes?.error ?? "unknown error"}); sharing with a plain comment`,
+    );
+    completeRes = await complete({ initial_comment: initialComment });
+  }
   return completeRes?.ok ? getRes.file_id : null;
 }
 

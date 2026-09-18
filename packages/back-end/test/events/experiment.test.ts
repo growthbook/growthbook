@@ -17,6 +17,9 @@ import { EventModel } from "back-end/src/models/EventModel";
 
 jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
+    static defineJob() {
+      return undefined;
+    }
     perform() {
       return undefined;
     }
@@ -966,6 +969,8 @@ describe("experiments events", () => {
         { name: "Control", users: 6200, weight: 0.5 },
         { name: "Variation 1", users: 3800, weight: 0.5 },
       ],
+      // The fixture's phase is still open, so the day count moves with the clock.
+      durationDays: expect.any(Number),
     };
 
     expect(rawPayload).toEqual(

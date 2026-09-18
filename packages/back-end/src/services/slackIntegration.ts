@@ -7,6 +7,7 @@ import {
 import { defaultSlackNotificationEvents } from "shared/notifications";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
+  parseNotificationSettings,
   SlackNotificationSettingsBody,
   SlackWorkspaceConnectionFrontEndInterface,
   SlackWorkspaceConnectionInterface,
@@ -401,7 +402,9 @@ export const slackEventWebhookToIntegration = (
   tags: eventWebHook.tags,
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,
-  notificationSettings: eventWebHook.notificationSettings,
+  notificationSettings: parseNotificationSettings(
+    eventWebHook.notificationSettings,
+  ),
   slack: eventWebHook.slack,
 });
 
@@ -534,7 +537,7 @@ export const updateSlackOAuthIntegration = async ({
 
   await updateEventWebHook(
     { eventWebHookId: id, organizationId: context.org.id },
-    updates,
+    { ...updates, events: [...new Set(updates.events)] },
   );
 
   const updated = await getEventWebHookById(id, context.org.id);

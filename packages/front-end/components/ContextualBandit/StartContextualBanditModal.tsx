@@ -65,7 +65,7 @@ function computeBlockers(
       hardBlock: true,
       display: (
         <>
-          Link at least one Feature Flag before this contextual bandit can start
+          Link at least one Feature Flag before this Contextual Bandit can start
         </>
       ),
     });
@@ -127,7 +127,7 @@ function computeBlockers(
         display: (
           <>
             The feature draft revision in {featureLink(f)} contains additional
-            changes unrelated to this contextual bandit.
+            changes unrelated to this Contextual Bandit.
           </>
         ),
       });
