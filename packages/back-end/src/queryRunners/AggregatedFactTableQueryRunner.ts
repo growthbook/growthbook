@@ -58,6 +58,8 @@ export type AggregatedFactTableQueryParams = {
   aggregatedFactTable: AggregatedFactTableInterface;
   // Schema state resolved by the driver, persisted onto the registry on success.
   factTableSettingsHash: string;
+  factTableNonSqlSettingsHash: string;
+  factTableColumnsFingerprint: string | null;
   metricState: AggregatedFactTableMetricStateInterface[];
   // How far back a full restate re-scans.
   lookbackWindowDays: number;
@@ -257,6 +259,8 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       executionId,
       aggregatedFactTable,
       factTableSettingsHash,
+      factTableNonSqlSettingsHash,
+      factTableColumnsFingerprint,
       metricState,
       lookbackWindowDays,
     } = params;
@@ -470,6 +474,8 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
             {
               tableFullName,
               factTableSettingsHash,
+              factTableNonSqlSettingsHash,
+              factTableColumnsFingerprint,
               metricState,
               lastMaxTimestamp: folded.lastMaxTimestamp,
               lastMaxTimestampRaw: folded.lastMaxTimestampRaw,
@@ -567,6 +573,10 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           ? {
               tableFullName: this.materializedTableFullName,
               factTableSettingsHash: this.params.factTableSettingsHash,
+              factTableNonSqlSettingsHash:
+                this.params.factTableNonSqlSettingsHash,
+              factTableColumnsFingerprint:
+                this.params.factTableColumnsFingerprint,
               metricState: this.params.metricState,
               lastMaxTimestamp: result.lastMaxTimestamp,
               lastMaxTimestampRaw: result.lastMaxTimestampRaw,
