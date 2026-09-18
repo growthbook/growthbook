@@ -39,6 +39,8 @@ export type ApiRequestLocals = PermissionFunctions & {
   audit: (data: AuditInterfaceInput) => Promise<void>;
   context: ApiReqContext;
   isJwtAuth?: boolean;
+  /** Set when the request authenticated with an OAuth-issued access token. */
+  oauthClientId?: string;
 };
 
 type ApiErrorResponseBase = {

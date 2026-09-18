@@ -6,6 +6,7 @@ import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
 import { parseEnvInt } from "shared/util";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
+import trackApiRequestMiddleware from "back-end/src/middleware/trackApiRequestMiddleware";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
@@ -102,6 +103,9 @@ router.get("/v1/openapi.yaml", (req, res) => {
   res.setHeader("Content-Type", "text/yaml");
   res.send(openapiSpec);
 });
+
+// Telemetry. Above auth and the rate limiter, so rejections count too once an org has resolved.
+router.use(trackApiRequestMiddleware as RequestHandler);
 
 router.use(authenticateApiRequestMiddleware as RequestHandler);
 
