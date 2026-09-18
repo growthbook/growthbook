@@ -152,20 +152,11 @@ export function getRoutePath(req: {
 }
 
 /**
- * Logs a "Request Completed" event with latency, payload sizes, and status once
- * the response finishes, using the per-request scoped client (`req.gb`, set in
- * auth/index.ts) so the event carries the same user attributes as feature events.
+ * Wraps res.write/res.end to sum the bytes written by handlers. This runs above
+ * the compression middleware, so it's the uncompressed payload size
+ * (independent of the client's Accept-Encoding), not the on-wire byte count.
  */
-export function trackRequestCompletion(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
-  const start = Date.now();
-
-  // Sum the bytes written by handlers. This runs above the compression
-  // middleware, so it's the uncompressed payload size (independent of the
-  // client's Accept-Encoding), not the on-wire byte count.
+export function countResponseBytes(res: Response): () => number {
   let resContentSize = 0;
   const origWrite = res.write.bind(res);
   const origEnd = res.end.bind(res);
@@ -179,21 +170,46 @@ export function trackRequestCompletion(
     return (origEnd as (...a: unknown[]) => Response)(chunk, ...rest);
   }) as typeof res.end;
 
-  // "close" also covers requests the client aborted before "finish" fired
-  const onComplete = () => {
-    res.removeListener("finish", onComplete);
-    res.removeListener("close", onComplete);
+  return () => resContentSize;
+}
+
+/**
+ * Runs `onComplete` once the response is done. "close" also covers requests the
+ * client aborted before "finish" fired.
+ */
+export function onResponseComplete(res: Response, onComplete: () => void) {
+  const handler = () => {
+    res.removeListener("finish", handler);
+    res.removeListener("close", handler);
+    onComplete();
+  };
+  res.on("finish", handler);
+  res.on("close", handler);
+}
+
+/**
+ * Logs a "Request Completed" event with latency, payload sizes, and status once
+ * the response finishes, using the per-request scoped client (`req.gb`, set in
+ * auth/index.ts) so the event carries the same user attributes as feature events.
+ */
+export function trackRequestCompletion(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  const start = Date.now();
+  const getResContentSize = countResponseBytes(res);
+
+  onResponseComplete(res, () => {
     req.gb?.logEvent(EVENT_REQUEST_COMPLETED, {
       path: getRoutePath(req),
       method: req.method,
       statusCode: res.statusCode,
       latencyMs: Date.now() - start,
       reqContentSize: parseContentLength(req.headers["content-length"]),
-      resContentSize,
+      resContentSize: getResContentSize(),
     });
-  };
-  res.on("finish", onComplete);
-  res.on("close", onComplete);
+  });
   next();
 }
 

@@ -231,6 +231,7 @@ function authenticateWithApiKey(
         throw new Error("This API key has been disabled");
       }
       req.apiKey = id || "";
+      req.oauthClientId = apiKeyDoc.oauthClientId;
 
       // If it's a personal access token API key, store the user ID in req
       if (userId) {
