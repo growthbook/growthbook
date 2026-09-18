@@ -55910,6 +55910,9 @@ paths:
                       targetId:
                         type: string
                       patch:
+                        description: >-
+                          The rule's pre-ramp state, and the only place a plan
+                          sets hashAttribute, seed or hashVersion.
                         type: object
                         properties:
                           ruleId:

@@ -640,11 +640,12 @@ export class RampScheduleModel extends BaseClass {
     // request context, so a static import trips initialization.
     const {
       collectRampPlanActions,
+      mergedRampPlan,
       rampPatchEntriesForTargets,
       validateRampPlanPatches,
     } = await import("back-end/src/api/features/validations");
-    const actions = collectRampPlanActions(updates);
-    if (!actions.length) return;
+    if (!collectRampPlanActions(updates).length) return;
+    const actions = collectRampPlanActions(mergedRampPlan(updates, schedule));
     const featureIds = [
       ...new Set(
         actions

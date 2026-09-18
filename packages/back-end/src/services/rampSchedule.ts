@@ -2299,11 +2299,11 @@ export async function jumpAheadToStep(
     jumpTarget,
   );
 
-  if (jumpActions.length > 0) {
-    await executeStepActions(ctx, schedule, jumpTarget, jumpActions, {
-      judgeTargeting: true,
-    });
-  }
+  const notes = jumpActions.length
+    ? await executeStepActions(ctx, schedule, jumpTarget, jumpActions, {
+        judgeTargeting: true,
+      })
+    : [];
 
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: "paused",
@@ -2319,6 +2319,7 @@ export async function jumpAheadToStep(
       previousStepIndex: schedule.currentStepIndex,
       status: "paused",
       previousStatus: schedule.status,
+      ...(notes.length ? { reason: notes.join(" ") } : {}),
     }),
   });
 

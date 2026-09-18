@@ -4,6 +4,7 @@ import {
   RevisionRampUpdateAction,
   RampStartState,
   putFeatureRevisionRuleRampScheduleValidator,
+  RampScheduleInterface,
 } from "shared/validators";
 import { getApplicableEnvIds } from "shared/util";
 import {
@@ -28,6 +29,8 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   assertValidEnvironment,
   collectRampPlanPatches,
+  mergedRampPlan,
+  withTemplatePlan,
   discardIfJustCreated,
   isDraftStatus,
   normalizeInlineRampSchedule,
@@ -63,10 +66,22 @@ export async function setRuleRampSchedule(
   // Runs before the draft is created for `version: "new"` so a refusal can't
   // orphan one; for an existing draft, below, once its rule and pending action
   // are known.
-  const checkPatches = (rule: FeatureRule | undefined, stored: unknown[]) =>
+  // `live` is the schedule this plan updates, if any: what the body omits
+  // stays as stored there.
+  const checkPatches = async (
+    rule: FeatureRule | undefined,
+    live: RampScheduleInterface | undefined,
+    stored: unknown[],
+  ) =>
     validateRampPlanPatches(
       context,
-      rampPatchEntries(collectRampPlanPatches(scheduleInput), feature, rule),
+      rampPatchEntries(
+        collectRampPlanPatches(
+          mergedRampPlan(await withTemplatePlan(context, scheduleInput), live),
+        ),
+        feature,
+        rule,
+      ),
       { stored },
     );
   if (params.version === "new") {
@@ -74,15 +89,13 @@ export async function setRuleRampSchedule(
       { ruleId, environment: environment ?? null },
       feature.rules ?? [],
     );
-    await checkPatches(
-      liveRule,
-      liveRule
-        ? await context.models.rampSchedules.findByTargetRule(
-            liveRule.id,
-            environment ?? undefined,
-          )
-        : [],
-    );
+    const liveSchedules = liveRule
+      ? await context.models.rampSchedules.findByTargetRule(
+          liveRule.id,
+          environment ?? undefined,
+        )
+      : [];
+    await checkPatches(liveRule, liveSchedules[0], liveSchedules);
   }
 
   const { revision, created } = await resolveOrCreateRevision(
@@ -133,7 +146,7 @@ export async function setRuleRampSchedule(
     );
     const existingLiveSchedule = liveSchedules[0];
     if (params.version !== "new") {
-      await checkPatches(match, [
+      await checkPatches(match, existingLiveSchedule, [
         existingLiveSchedule,
         ...(revision.rampActions ?? []).filter(
           (a) =>

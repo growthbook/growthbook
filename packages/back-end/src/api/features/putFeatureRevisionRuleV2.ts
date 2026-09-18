@@ -86,14 +86,15 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   );
   await validateRampPlanPatches(
     req.context,
-    rampPatchEntries(
-      collectRampPlanPatches(inlineRampSchedule),
-      feature,
+    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
+      ...rule,
+      ...pick(patch, ["type", "hashAttribute"]),
       // The patch's scope where it sets one, on the rule it lands on.
-      patch.allEnvironments !== undefined || patch.environments !== undefined
-        ? { ...pick(rule, ["type", "hashAttribute", "id"]), ...patch }
-        : rule,
-    ),
+      ...(patch.allEnvironments !== undefined ||
+      patch.environments !== undefined
+        ? pick(patch, ["allEnvironments", "environments"])
+        : {}),
+    }),
   );
 
   const { revision, created } = await resolveOrCreateRevision(

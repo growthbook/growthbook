@@ -227,6 +227,14 @@ describe("ramp schedule patch references", () => {
     const NO_HASH = /is a force rule with no hash attribute/;
     const auth = (r: request.Test) => r.set("Authorization", "Bearer foo");
 
+    afterEach(async () => {
+      for (const name of ["rampschedules", "rampscheduletemplates"]) {
+        await mongoose.connection
+          .collection(name)
+          .deleteMany({ organization: ORG_ID });
+      }
+    });
+
     it("is refused on the per-rule attach unless the start state names one; steps cannot", async () => {
       const put = (body: Record<string, unknown>) =>
         auth(
@@ -240,10 +248,16 @@ describe("ramp schedule patch references", () => {
       expect(refused.body.message).toMatch(NO_HASH);
       expect(refused.status).toBe(400);
       expect(await draftRampActions()).toEqual([]);
-      const onStep = await put({
-        steps: [step({ coverage: 0.5, hashAttribute: "id" })],
-      });
-      expect(onStep.status).toBe(400);
+      for (const identity of [
+        { hashAttribute: "id" },
+        { seed: "s1" },
+        { hashVersion: 2 },
+      ]) {
+        const onStep = await put({
+          steps: [step({ coverage: 0.5, ...identity })],
+        });
+        expect(onStep.status).toBe(400);
+      }
       expect(await draftRampActions()).toEqual([]);
       const anchored = await put({
         steps: [step({ coverage: 0.5 })],
@@ -252,6 +266,74 @@ describe("ramp schedule patch references", () => {
       expect(anchored.body.message).toBeUndefined();
       expect(anchored.status).toBe(200);
       expect(await draftRampActions()).toHaveLength(1);
+    });
+
+    it("judges a template's steps when the plan is built from one", async () => {
+      await mongoose.connection.collection("rampscheduletemplates").insertOne({
+        id: "rst_half",
+        organization: ORG_ID,
+        name: "half",
+        order: 0,
+        steps: [
+          {
+            interval: 3600,
+            actions: [
+              {
+                targetType: "feature-rule",
+                targetId: "",
+                patch: { ruleId: "", coverage: 0.5 },
+              },
+            ],
+          },
+        ],
+        dateCreated: now(),
+        dateUpdated: now(),
+      });
+      const res = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({ templateId: "rst_half" }),
+      );
+      expect(res.body.message).toMatch(NO_HASH);
+      expect(res.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+    });
+
+    it("keeps the stored anchor's hash attribute in view when an update sends only steps", async () => {
+      const create = await auth(
+        request(app)
+          .post("/api/v1/ramp-schedules")
+          .send({
+            name: "anchored",
+            featureId: FLAG,
+            ruleId: FORCE_RULE.id,
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            steps: [step({ coverage: 0.5 })],
+          }),
+      );
+      expect(create.body.message).toBeUndefined();
+      expect(create.status).toBe(200);
+      const id = create.body.rampSchedule.id;
+      const put = (body: Record<string, unknown>) =>
+        auth(request(app).put(`/api/v1/ramp-schedules/${id}`).send(body));
+      const action = (patch: Record<string, unknown>) => ({
+        targetType: "feature-rule",
+        targetId: "t1",
+        patch: { ruleId: FORCE_RULE.id, ...patch },
+      });
+      const stepsOnly = await put({
+        steps: [{ interval: 3600, actions: [action({ coverage: 0.25 })] }],
+      });
+      expect(stepsOnly.body.message).toBeUndefined();
+      expect(stepsOnly.status).toBe(200);
+      // Replacing the anchor without one leaves the stored steps unbucketed.
+      const unanchored = await put({
+        startActions: [action({ coverage: 0 })],
+      });
+      expect(unanchored.body.message).toMatch(NO_HASH);
+      expect(unanchored.status).toBe(400);
     });
 
     it("is refused on v2 rule add, where the rule has no id yet", async () => {

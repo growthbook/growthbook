@@ -248,6 +248,40 @@ type RampPlanInput = {
   endPatch?: unknown;
 };
 
+// The plan a partial update leaves behind: a body that omits startActions,
+// steps or endActions keeps the stored plan's, as the update itself does. A
+// `startState` is a new anchor and replaces the stored start actions.
+export function mergedRampPlan<P extends RampPlanInput>(
+  update: P,
+  stored: RampPlanInput | null | undefined,
+): P {
+  return {
+    ...update,
+    startActions:
+      update.startActions ??
+      (update.startState === undefined ? stored?.startActions : undefined),
+    steps: update.steps ?? stored?.steps,
+    endActions: update.endActions ?? stored?.endActions,
+  };
+}
+
+// A plan built from a template gets its steps at publish; judge the template's
+// now so a refusal lands on the write, not on the first step.
+export async function withTemplatePlan<
+  P extends RampPlanInput & { templateId?: string | null },
+>(context: ReqContext | ApiReqContext, plan: P): Promise<P> {
+  if (!plan.templateId || plan.steps?.length) return plan;
+  const template = await context.models.rampScheduleTemplates.getById(
+    plan.templateId,
+  );
+  if (!template) return plan;
+  return {
+    ...plan,
+    steps: template.steps,
+    endPatch: plan.endActions?.length ? undefined : template.endPatch,
+  };
+}
+
 // Every action in a ramp plan body, stored schedule or revision ramp action
 // that carries a patch, in plan order.
 export function collectRampPlanActions(plan: unknown): RampPlanAction[] {

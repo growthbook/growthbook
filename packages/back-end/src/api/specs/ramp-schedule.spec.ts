@@ -169,7 +169,12 @@ const putBodyAction = z
   .strict();
 
 const putBodyStartAction = putBodyAction.extend({
-  patch: rampStartPatch.strict().optional(),
+  patch: rampStartPatch
+    .strict()
+    .optional()
+    .describe(
+      "The rule's pre-ramp state, and the only place a plan sets hashAttribute, seed or hashVersion.",
+    ),
 });
 
 const putBodyStep = z

@@ -313,6 +313,7 @@ import {
 } from "back-end/src/util/custom-fields";
 import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
 import {
+  getStartPatchForRule,
   normalizeRampPlanForceValues,
   rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
@@ -382,7 +383,9 @@ async function stagedRevision(
 }
 
 // Same for the plan's targeting fields (condition, saved groups, environments,
-// prerequisites). Start actions are the editor's anchor and are not judged.
+// prerequisites). Start actions are the editor's anchor: what echoes the
+// rule's own state is not judged, and they are where a plan names the hash
+// attribute a coverage ramp on a force rule needs.
 async function validateRuleModalRampPatches(
   context: ReqContext,
   plan: InlineRampScheduleCreate | InlineRampScheduleUpdate,
@@ -392,12 +395,19 @@ async function validateRuleModalRampPatches(
 ): Promise<void> {
   await validateRampPlanPatches(
     context,
-    rampPatchEntries(
-      collectRampPlanPatches({ ...plan, startActions: undefined }),
-      feature,
-      rule,
-    ),
-    { stored },
+    rampPatchEntries(collectRampPlanPatches(plan), feature, rule),
+    {
+      stored: rule
+        ? [
+            ...stored,
+            {
+              startActions: [
+                { patch: { ...getStartPatchForRule(rule), ruleId: rule.id } },
+              ],
+            },
+          ]
+        : stored,
+    },
   );
 }
 
