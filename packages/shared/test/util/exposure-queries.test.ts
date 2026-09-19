@@ -17,6 +17,10 @@ import {
   getPastExperimentQueryName,
   withKeptIdentifierType,
   resolveAssignmentQuerySelectionChange,
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -928,5 +932,40 @@ describe("getDataSourceSaveChanges", () => {
         },
       }).changesOtherFields,
     ).toBe(true);
+  });
+});
+
+describe("exposure query column resolvers", () => {
+  it("fall back to canonical role names when unmapped", () => {
+    expect(getExposureQueryExperimentIdColumn({})).toBe("experiment_id");
+    expect(getExposureQueryVariationIdColumn({})).toBe("variation_id");
+    expect(getExposureQueryTimestampColumn({})).toBe("timestamp");
+    expect(getExposureQueryIdentifierColumn({}, "user_id")).toBe("user_id");
+  });
+
+  it("return the mapped column when set", () => {
+    expect(
+      getExposureQueryExperimentIdColumn({ experimentIdColumn: "exp" }),
+    ).toBe("exp");
+    expect(
+      getExposureQueryVariationIdColumn({ variationIdColumn: "var" }),
+    ).toBe("var");
+    expect(getExposureQueryTimestampColumn({ timestampColumn: "ts" })).toBe(
+      "ts",
+    );
+    expect(
+      getExposureQueryIdentifierColumn(
+        { userIdColumns: { user_id: "uid" } },
+        "user_id",
+      ),
+    ).toBe("uid");
+  });
+
+  it("resolve each identifier independently, unmapped by its own name", () => {
+    const query = { userIdColumns: { anonymous_id: "anon" } };
+    expect(getExposureQueryIdentifierColumn(query, "anonymous_id")).toBe(
+      "anon",
+    );
+    expect(getExposureQueryIdentifierColumn(query, "user_id")).toBe("user_id");
   });
 });
