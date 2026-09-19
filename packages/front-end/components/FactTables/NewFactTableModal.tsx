@@ -49,7 +49,7 @@ const INLINE_FILTER_CANDIDATES = [
 const validColumn = (options: DetectedFactTableColumn[], column: string) =>
   options.some((c) => c.column === column) ? column : "";
 
-function MappingRow({
+export function MappingRow({
   label,
   value,
   options,

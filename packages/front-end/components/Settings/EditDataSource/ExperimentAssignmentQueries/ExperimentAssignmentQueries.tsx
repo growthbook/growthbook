@@ -18,6 +18,7 @@ import {
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
+import { NewExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/NewExperimentAssignmentQueryModal";
 import Button from "@/ui/Button";
 import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -341,7 +342,15 @@ export const ExperimentAssignmentQueries: FC<
 
       {/* region Add/Edit modal */}
 
-      {uiMode === "edit" || uiMode === "add" ? (
+      {uiMode === "add" ? (
+        <NewExperimentAssignmentQueryModal
+          dataSource={dataSource}
+          onSave={handleSave(editingIndex)}
+          onCancel={handleCancel}
+        />
+      ) : null}
+
+      {uiMode === "edit" ? (
         <AddEditExperimentAssignmentQueryModal
           exposureQuery={experimentExposureQueries[editingIndex]}
           dataSource={dataSource}

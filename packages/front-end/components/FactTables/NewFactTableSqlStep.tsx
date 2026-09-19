@@ -7,7 +7,7 @@ import { isProjectListValidForProject, parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import { getColumnMappingError } from "@/services/factTables";
+import { getColumnMappingError as getFactTableColumnMappingError } from "@/services/factTables";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import {
@@ -47,6 +47,8 @@ export default function NewFactTableSqlStep({
   detectedSql,
   onColumnsDetected,
   validateRef,
+  getColumnMappingError = getFactTableColumnMappingError,
+  allowDatasourceChange = true,
 }: {
   datasourceId: string;
   setDatasourceId: (id: string) => void;
@@ -56,6 +58,10 @@ export default function NewFactTableSqlStep({
   detectedSql: string | null;
   onColumnsDetected: (columns: DetectedFactTableColumn[]) => void;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
+  // Column-completeness check for the current object type (fact table vs EAQ).
+  getColumnMappingError?: (columns: DetectedFactTableColumn[]) => string | null;
+  // EAQs are created within a fixed data source, so the selector is hidden.
+  allowDatasourceChange?: boolean;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById, datasources, project } = useDefinitions();
@@ -139,7 +145,13 @@ export default function NewFactTableSqlStep({
     return () => {
       validateRef.current = null;
     };
-  }, [validateRef, hasFreshResults, columnError, runQuery]);
+  }, [
+    validateRef,
+    hasFreshResults,
+    columnError,
+    runQuery,
+    getColumnMappingError,
+  ]);
 
   return (
     <PanelGroup direction="horizontal">
@@ -275,19 +287,25 @@ export default function NewFactTableSqlStep({
       <Panel defaultSize={30} minSize={20} maxSize={50}>
         <AreaWithHeader
           header={
-            <Select
-              label="Data Source"
-              labelSize="sm"
-              value={datasourceId}
-              setValue={setDatasourceId}
-              placeholder="Select..."
-            >
-              {validDatasources.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name}
-                </SelectItem>
-              ))}
-            </Select>
+            allowDatasourceChange ? (
+              <Select
+                label="Data Source"
+                labelSize="sm"
+                value={datasourceId}
+                setValue={setDatasourceId}
+                placeholder="Select..."
+              >
+                {validDatasources.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </Select>
+            ) : (
+              <Text weight="semibold" color="text-mid">
+                {datasource?.name || "Data Source"}
+              </Text>
+            )
           }
         >
           {datasource && supportsSchemaBrowser ? (
