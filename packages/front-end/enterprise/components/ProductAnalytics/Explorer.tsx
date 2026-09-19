@@ -6,6 +6,7 @@ import { PiDotsSix } from "react-icons/pi";
 import {
   ComparisonMode,
   DatasetType,
+  datasetTypeHasValues,
   ExplorationConfig,
   ExplorationDateRange,
 } from "shared/validators";
@@ -46,6 +47,7 @@ import {
   comparisonModeQueryParser,
   stripExplorerDraftFields,
 } from "./util";
+import { EXPLORER_AUTO_RUN_QUERY } from "./journeyFunnel";
 import styles from "./Explorer.module.scss";
 
 const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
@@ -54,6 +56,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   data_source: "Data Source",
   sql: "SQL",
   funnel: "Funnel",
+  journey: "User Journey",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -117,7 +120,7 @@ export function ExplorerContent({
   const {
     managedWarehouseUnavailable,
     draftExploreState,
-    ensureDefaultSqlValue,
+    ensureDefaultSqlExploreConfig,
   } = useExplorerContext();
   const sqlEditorContext = useOptionalSqlEditorContext();
   const isSql = draftExploreState.type === "sql";
@@ -206,7 +209,7 @@ export function ExplorerContent({
             onValueChange={(value) => {
               if (value === "dataset" || value === "explore") {
                 if (value === "explore") {
-                  ensureDefaultSqlValue();
+                  ensureDefaultSqlExploreConfig();
                   sqlEditorContext.markExploreSeen();
                 }
                 sqlEditorContext.setViewMode(value);
@@ -410,24 +413,24 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     () => configError,
   );
 
-  // Funnels seed their first step in createEmptyDataset. SQL starts without a
-  // value so running raw SQL does not also trigger an exploration query.
+  // Funnels/journeys seed their own shape in createEmptyDataset. SQL starts
+  // without a value so running raw SQL does not also trigger an exploration
+  // query. Those types also don't start with a date dimension.
   const defaultDataset = createEmptyDataset(type);
+  const seedsValues = datasetTypeHasValues(type) && type !== "sql";
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
-    dataset:
-      type === "funnel" || type === "sql"
-        ? defaultDataset
-        : { ...defaultDataset, values: [createEmptyValue(type)] },
-    // Funnels don't render time-series charts, so the default date dimension
-    // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
-    // let the user add one explicitly via "Group By".
-    // SQL starts as a table exploration with no dimensions until the user
-    // configures them after testing their query.
-    ...(type === "funnel" || type === "sql" ? { dimensions: [] } : {}),
-    ...(type === "sql" ? { chartType: "table" as const } : {}),
+    dataset: seedsValues
+      ? { ...defaultDataset, values: [createEmptyValue(type)] }
+      : defaultDataset,
+    ...(seedsValues ? {} : { dimensions: [] }),
+    ...(type === "journey"
+      ? { chartType: "bar" as const }
+      : type === "sql"
+        ? { chartType: "rawTable" as const }
+        : {}),
   } as ExplorerDraftConfig;
 
   let seedError: string | null = null;
@@ -563,6 +566,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         // they came from, so the dirty flag can say whether they were edited.
         initialLinkedFunnelMetricId={
           type === "funnel" ? (funnelMetricId ?? null) : null
+        }
+        autoSubmitOnLoad={
+          type === "funnel" &&
+          getQueryParam(router.query[EXPLORER_AUTO_RUN_QUERY]) === "1"
         }
         trackingSource="manual-explorer"
       >

@@ -36,6 +36,7 @@ import {
   postExperimentArchive,
   postExperimentUnarchive,
 } from "./archiveExperiment";
+import { postExperimentComment } from "./postExperimentComment";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
@@ -72,6 +73,7 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postVariationImageUpload,
   deleteVariationScreenshot,
   getExperimentNames,
+  postExperimentComment,
   // VisualChangeset Endpoints (mounted under /experiments)
   listVisualChangesets,
   postVisualChangesets,

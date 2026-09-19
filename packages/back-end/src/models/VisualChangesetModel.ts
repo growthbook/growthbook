@@ -164,6 +164,13 @@ export async function findVisualChangesetsByExperiment(
   return visualChangesets.map(toInterface);
 }
 
+export async function countVisualChangesetsByExperiment(
+  experiment: string,
+  organization: string,
+): Promise<number> {
+  return VisualChangesetModel.countDocuments({ experiment, organization });
+}
+
 export async function findVisualChangesetsByExperimentIds(
   experimentIds: string[],
   organization: string,

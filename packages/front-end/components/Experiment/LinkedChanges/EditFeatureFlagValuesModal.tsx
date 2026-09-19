@@ -58,7 +58,11 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
-import { formatJSON, getDefaultVariationValue } from "@/services/features";
+import {
+  formatJSON,
+  getDefaultValue,
+  getDefaultVariationValue,
+} from "@/services/features";
 import Button from "@/ui/Button";
 import track from "@/services/track";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
@@ -209,9 +213,10 @@ export default function EditFeatureFlagValuesModal({
   const initialVariations = useMemo<VariationRow[]>(
     () =>
       phaseVariations.map((v, i) => {
+        // A variation with no value on the rule still needs one valid for the type.
         const stored =
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
-          "";
+          getDefaultValue(valueType);
         return {
           id: v.id,
           name: v.name,
@@ -493,12 +498,12 @@ export default function EditFeatureFlagValuesModal({
         const rows = values.variations;
 
         const updatedRefVariations: ExperimentRefVariation[] = rows.map(
-          (r) => ({
+          (r, i) => ({
             variationId: r.id,
             value: validateFeatureValue(
               { valueType, jsonSchema: feature.jsonSchema },
               r.value ?? "",
-              "",
+              r.name || `Variation ${i + 1}`,
             ),
           }),
         );

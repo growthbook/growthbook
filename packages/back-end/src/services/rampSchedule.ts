@@ -27,6 +27,10 @@ import {
   rampRuleEnvKey,
   rampTargetFootprint,
   rampTargetRuleIds,
+  stemRuleId,
+  stringifyFeatureValue,
+  unanchoredRampTargets,
+  validateFeatureValue,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -48,6 +52,7 @@ import {
 import { isCurrentStepReadyForApproval } from "back-end/src/services/rampScheduleEvaluator";
 import {
   createRevision,
+  getRevision,
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -57,6 +62,7 @@ import {
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
+  BadRequestError,
   ConflictError,
   ManagedFeatureError,
   NotFoundError,
@@ -413,6 +419,7 @@ interface EntityHandler {
       stepLabel: string;
       user: EventUser;
       environment?: string | null;
+      judgeTargeting?: boolean;
     },
   ): Promise<void>;
 }
@@ -423,9 +430,18 @@ export function forceMatchesValueType(
 ): boolean {
   if (value === null || value === undefined) return false;
   const t = typeof value;
+  // A string is the form rule values are stored in; it matches when the
+  // feature's type accepts it ("false" for a boolean flag, "10" for a number).
+  if (t === "string") {
+    try {
+      validateFeatureValue({ valueType }, value as string);
+      return true;
+    } catch {
+      return false;
+    }
+  }
   if (valueType === "boolean") return t === "boolean";
   if (valueType === "number") return t === "number";
-  if (valueType === "string") return t === "string";
   if (valueType === "json") return t === "object";
   return false;
 }
@@ -443,6 +459,9 @@ export function remapTemplateActions(
     if ("force" in patch && !forceMatchesValueType(patch.force, valueType)) {
       const { force: _force, ...rest } = patch;
       return { targetType: "feature-rule" as const, targetId, patch: rest };
+    }
+    if ("force" in patch) {
+      patch.force = stringifyFeatureValue(patch.force);
     }
     return { targetType: "feature-rule" as const, targetId, patch };
   });
@@ -502,6 +521,130 @@ export function computeEffectivePatch(
   return byTarget;
 }
 
+type RampForceFeature = Pick<FeatureInterface, "valueType">;
+
+// Bring every feature-rule action's `force` to the string form rule values
+// are stored in and, given the feature, reject one its value TYPE rejects —
+// the type half of a rule write's check, so a value predating a JSON-schema
+// change is never refused. Without a feature, only stringify.
+export function normalizeRampActionsForceValues<
+  A extends { targetType?: string; patch: { force?: unknown } },
+>(
+  actions: A[],
+  feature?: RampForceFeature | null,
+  label = "Ramp value",
+  isEcho: (force: string, action: A) => boolean = () => false,
+): A[] {
+  return actions.map((action, i) => {
+    if (action.targetType !== undefined && action.targetType !== "feature-rule")
+      return action;
+    const { patch } = action;
+    if (!patch || !("force" in patch) || patch.force === undefined)
+      return action;
+    let force = stringifyFeatureValue(patch.force);
+    if (feature && !isEcho(force, action)) {
+      try {
+        force = validateFeatureValue(
+          { valueType: feature.valueType },
+          force,
+          `${label} (action ${i + 1})`,
+        );
+      } catch (e) {
+        throw new BadRequestError(e instanceof Error ? e.message : String(e));
+      }
+    }
+    return { ...action, patch: { ...patch, force } };
+  });
+}
+
+// The start values each target may echo without being judged: its rule's own
+// current value and its stored anchor, keyed by target id. Anything else in
+// `startActions` is the caller's and is checked like a step value. "t1" is
+// the single-target sentinel the REST body may use.
+export function rampStartValuesOf(
+  feature: Pick<FeatureInterface, "rules"> | null | undefined,
+  targets: { id: string; ruleId?: string | null }[],
+  stored?: RampStepAction[] | null,
+): Map<string, Set<string>> {
+  const known = new Map<string, Set<string>>();
+  for (const target of targets) {
+    const values = new Set<string>();
+    for (const rule of feature?.rules ?? []) {
+      const { value } = rule as { value?: unknown };
+      if (
+        value !== undefined &&
+        target.ruleId &&
+        stemRuleId(rule.id) === stemRuleId(target.ruleId)
+      ) {
+        values.add(stringifyFeatureValue(value));
+      }
+    }
+    for (const action of stored ?? []) {
+      if (action.targetId === target.id && action.patch.force !== undefined) {
+        values.add(stringifyFeatureValue(action.patch.force));
+      }
+    }
+    known.set(target.id, values);
+  }
+  if (targets.length === 1) known.set("t1", known.get(targets[0].id)!);
+  return known;
+}
+
+// Same, over a whole plan. Absent parts stay absent. `startActions` are the
+// rollback anchor: `validateStartActions: false` only stringifies them (the
+// anchor was derived by the server), and `knownStartValues` exempts values
+// that echo the rule's own (see rampStartValuesOf) while judging the rest.
+export function normalizeRampPlanForceValues<
+  A extends { targetType?: string; patch: { force?: unknown } },
+  P extends {
+    steps?: { actions?: A[] | null }[] | null;
+    startActions?: A[] | null;
+    endActions?: A[] | null;
+  },
+>(
+  plan: P,
+  feature?: RampForceFeature | null,
+  opts: {
+    validateStartActions?: boolean;
+    knownStartValues?: Map<string, Set<string>>;
+  } = {},
+): P {
+  const out = { ...plan };
+  if (plan.steps) {
+    out.steps = plan.steps.map((s, i) =>
+      s.actions
+        ? {
+            ...s,
+            actions: normalizeRampActionsForceValues(
+              s.actions,
+              feature,
+              `Step ${i + 1} value`,
+            ),
+          }
+        : s,
+    ) as P["steps"];
+  }
+  if (plan.startActions) {
+    out.startActions = normalizeRampActionsForceValues(
+      plan.startActions,
+      opts.validateStartActions === false ? undefined : feature,
+      "Start value",
+      (force, action) =>
+        opts.knownStartValues
+          ?.get((action as { targetId?: string }).targetId ?? "")
+          ?.has(force) ?? false,
+    ) as P["startActions"];
+  }
+  if (plan.endActions) {
+    out.endActions = normalizeRampActionsForceValues(
+      plan.endActions,
+      feature,
+      "End value",
+    ) as P["endActions"];
+  }
+  return out;
+}
+
 // Apply a patch to a rule. Uses "in" checks so injected undefined values clear the field.
 // null clears most fields, but force allows null (valid JSON feature value).
 export function applyPatchToRule(
@@ -536,7 +679,11 @@ export function applyPatchToRule(
     }
   }
   if ("force" in patch) {
-    (updated as { value?: unknown }).value = patch.force; // null is a valid JSON value
+    // null is a valid JSON value ("null"); undefined clears.
+    (updated as { value?: string }).value =
+      patch.force === undefined
+        ? undefined
+        : stringifyFeatureValue(patch.force);
   }
   if ("enabled" in patch) {
     updated.enabled = patch.enabled ?? undefined;
@@ -646,7 +793,7 @@ export function resolveRampStartState({
 
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
-    const { stepLabel, user, environment } = opts;
+    const { stepLabel, user, environment, judgeTargeting } = opts;
 
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
@@ -654,6 +801,36 @@ export const featureEntityHandler: EntityHandler = {
     const updatedRules: FeatureRule[] = (feature.rules ?? []).map((r) => ({
       ...r,
     }));
+
+    if (judgeTargeting) {
+      // A patch whose condition no longer parses or whose references are gone
+      // would serve everyone once landed; refuse the step instead. Lazy
+      // import: the validations module imports this one.
+      const { validateRampPlanPatches } = await import(
+        "back-end/src/api/features/validations"
+      );
+      const entries = actions.flatMap((action) => {
+        if (action.targetType !== "feature-rule") return [];
+        const { ruleId, ...patch } = action.patch;
+        return resolveRampTargets(
+          { ruleId, environment: environment ?? null },
+          updatedRules,
+        ).map((rule) => ({
+          patch: { ...patch, ruleId: rule.id },
+          feature,
+          rule,
+        }));
+      });
+      // The effective patch replays the start anchor too; only what the step
+      // changes on the live rule is judged.
+      await validateRampPlanPatches(ctx, entries, {
+        stored: entries.map(({ rule }) => ({
+          startActions: [
+            { patch: { ...getStartPatchForRule(rule), ruleId: rule.id } },
+          ],
+        })),
+      });
+    }
 
     for (const action of actions) {
       if (action.targetType !== "feature-rule") continue;
@@ -676,7 +853,26 @@ export const featureEntityHandler: EntityHandler = {
 
       for (const target of targets) {
         const idx = updatedRules.indexOf(target);
-        updatedRules[idx] = applyPatchToRule(target, patchFields);
+        // A value the feature's type rejects is logged, never refused:
+        // rollbacks and restarts re-apply the rule's own earlier value.
+        const patched = applyPatchToRule(target, patchFields);
+        if ("force" in patchFields && patchFields.force !== undefined) {
+          const value = (patched as { value?: string }).value ?? "";
+          try {
+            validateFeatureValue({ valueType: feature.valueType }, value);
+          } catch (e) {
+            logger.warn(
+              {
+                featureId: feature.id,
+                ruleId,
+                valueType: feature.valueType,
+                err: e instanceof Error ? e.message : String(e),
+              },
+              "Ramp step applied a value the feature type does not accept",
+            );
+          }
+        }
+        updatedRules[idx] = patched;
       }
     }
 
@@ -690,6 +886,11 @@ export const featureEntityHandler: EntityHandler = {
       comment: stepLabel,
       title: stepLabel,
       org: ctx.org,
+      // Start/rollback replay a persisted anchor or earlier step. As with the
+      // targeting validators above, scope must not prevent that restoration.
+      savedGroupScopeBaseline: judgeTargeting
+        ? undefined
+        : { ...feature, rules: updatedRules },
     });
 
     const forceResult: MergeResultChanges = { rules: updatedRules };
@@ -700,6 +901,7 @@ export const featureEntityHandler: EntityHandler = {
       result: forceResult,
       comment: stepLabel,
       bypassLockdown: true,
+      skipValueSchemaNet: true,
     });
   },
 };
@@ -930,7 +1132,9 @@ async function executeStepActions(
   actions: RampStepAction[],
   // fromStepIndex: position before a catch-up jump, so the published
   // revision's label shows the folded range instead of a normal single advance.
-  opts: { fromStepIndex?: number } = {},
+  // judgeTargeting: stored step or end patches are checked before they land.
+  // Rollbacks are not: refusing a retreat is worse than replaying a stale step.
+  opts: { fromStepIndex?: number; judgeTargeting?: boolean } = {},
 ): Promise<void> {
   const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
   if (!ruleActions.length) return;
@@ -1002,6 +1206,7 @@ async function executeStepActions(
         stepLabel,
         user,
         environment: group.environment,
+        judgeTargeting: opts.judgeTargeting,
       });
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
@@ -1215,6 +1420,7 @@ export async function advanceStep(
     }),
   );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions, {
+    judgeTargeting: true,
     fromStepIndex: schedule.currentStepIndex,
   });
 
@@ -1319,6 +1525,47 @@ export async function advanceStep(
   return updated;
 }
 
+// Restores missing rollback anchors from the revision that activated each
+// target. Its rules are the pre-step-0 state — the same input publish derives
+// the anchor from — because every step publishes its own revision on top.
+export async function ensureRampStartActions(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  const unanchored = unanchoredRampTargets(schedule);
+  if (!unanchored.length) return schedule;
+
+  const feature = await getFeature(ctx, schedule.entityId);
+  if (!feature) return schedule;
+
+  const restored: RampStepAction[] = [];
+  for (const target of unanchored) {
+    const version = target.activatingRevisionVersion ?? null;
+    if (version === null) continue;
+    const revision = await getRevision({
+      context: ctx,
+      organization: ctx.org.id,
+      featureId: feature.id,
+      feature,
+      version,
+    });
+    if (!revision?.rules) continue;
+    restored.push(
+      ...getStartActionsFromRules({
+        rules: revision.rules,
+        targetId: target.id,
+        ruleId: target.ruleId ?? "",
+        environment: target.environment,
+      }),
+    );
+  }
+
+  if (!restored.length) return schedule;
+  return ctx.models.rampSchedules.updateById(schedule.id, {
+    startActions: [...(schedule.startActions ?? []), ...restored],
+  });
+}
+
 export async function rollbackToStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -1330,7 +1577,15 @@ export async function rollbackToStep(
     syncSafeRollout?: boolean;
   } = {},
 ): Promise<RampScheduleInterface> {
+  schedule = await ensureRampStartActions(ctx, schedule);
   const isFullRollback = targetStepIndex === -1;
+  const unanchored = isFullRollback ? unanchoredRampTargets(schedule) : [];
+  if (unanchored.length) {
+    logger.warn(
+      { rampScheduleId: schedule.id, targetIds: unanchored.map((t) => t.id) },
+      "Full rollback has no start actions for some targets; their rules keep the last applied step",
+    );
+  }
   // An approval-gated schedule returns to the pre-start hold on a full
   // rollback (manual or auto) instead of terminating: it lands back at step -1
   // awaiting a fresh approval. The -1 → 0 edge is always re-gated.
@@ -1987,7 +2242,9 @@ export async function jumpAheadToStep(
   );
 
   if (jumpActions.length > 0) {
-    await executeStepActions(ctx, schedule, jumpTarget, jumpActions);
+    await executeStepActions(ctx, schedule, jumpTarget, jumpActions, {
+      judgeTargeting: true,
+    });
   }
 
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
@@ -2059,7 +2316,12 @@ async function applyEndActionsAndAwaitCutoff(
       schedule,
       schedule.steps.length,
       actionsToApply,
-      opts.autoCatchUp ? { fromStepIndex: schedule.currentStepIndex } : {},
+      {
+        judgeTargeting: true,
+        ...(opts.autoCatchUp
+          ? { fromStepIndex: schedule.currentStepIndex }
+          : {}),
+      },
     );
   }
 
@@ -2178,7 +2440,12 @@ export async function completeRollout(
       schedule,
       schedule.steps.length,
       actionsToApply,
-      opts.autoCatchUp ? { fromStepIndex: schedule.currentStepIndex } : {},
+      {
+        judgeTargeting: true,
+        ...(opts.autoCatchUp
+          ? { fromStepIndex: schedule.currentStepIndex }
+          : {}),
+      },
     );
   }
 
@@ -3187,4 +3454,42 @@ export async function assertCanControlRampSchedule(
       context.permissions.throwPermissionError();
     }
   }
+}
+
+// Config-edit gate for PUT-style updates of a not-yet-running schedule, shared
+// by the dashboard PUT /ramp-schedule/:id and the REST PUT /ramp-schedules/:id.
+// Fields the poller executes — fire times and the actions/steps it will apply —
+// are publish-class to touch on an ARMABLE schedule, for the same reason the
+// arm itself is: editing them re-aims a live transition the /actions endpoints
+// would refuse this caller. Name and monitoring edits stay draft-class.
+//
+// Armable is `computeNextProcessAt` answering non-null — the same function the
+// poller keys off. Checked BOTH before (`existing.nextProcessAt`) and after
+// (`updates.nextProcessAt`, which the caller has already recomputed): a
+// dateless or approval-gated schedule fires nothing, so editing its steps is
+// draft-class; but disarming a schedule that IS armed re-aims a live transition
+// just as arming one does. Both the PRE-edit and POST-edit aim are asserted:
+// checking `existing` alone would let a dateless schedule with dev-only steps
+// be armed in ONE put that also swapped in production steps — the incoming
+// steps are what will fire, so they answer too.
+export const RAMP_EXECUTION_FIELDS = [
+  "startDate",
+  "cutoffDate",
+  "startActions",
+  "steps",
+  "endActions",
+] as const;
+export async function assertCanEditRampScheduleConfig(
+  context: ReqContext | ApiReqContext,
+  existing: RampScheduleInterface,
+  updates: Record<string, unknown>,
+): Promise<void> {
+  const touchesExecution = RAMP_EXECUTION_FIELDS.some((k) => k in updates);
+  if (!touchesExecution) return;
+  if (!existing.nextProcessAt && !updates.nextProcessAt) return;
+  await assertCanControlRampSchedule(context, existing);
+  await assertCanControlRampSchedule(context, {
+    ...existing,
+    ...updates,
+  } as RampScheduleInterface);
 }

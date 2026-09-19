@@ -345,6 +345,17 @@ export function teamsForMember(
     .map((t) => ({ id: t.id, name: t.name }));
 }
 
+type ApproverTeamsOrg = { members?: { id: string; teams?: string[] }[] };
+type ApproverTeam = { id: string; name: string };
+export type RequiredApproverTeamsAssessment = {
+  satisfied: boolean;
+  // One entry per unsatisfied rule; any ONE of its teams would satisfy it.
+  unmet: { id: string; name: string }[][];
+  // The team sets actually enforced, after dropping implied rules. Callers that
+  // judge whether one approval contributes must use these, not the raw rules.
+  enforcedTeamIds: string[][];
+};
+
 // ANY team within a rule satisfies it; EVERY rule must be satisfied.
 export function assessRequiredApproverTeams({
   rules,
@@ -354,16 +365,9 @@ export function assessRequiredApproverTeams({
 }: {
   rules: { requiredApproverTeams?: string[] }[];
   coveringApproverIds: string[];
-  org: { members?: { id: string; teams?: string[] }[] };
-  teams: { id: string; name: string }[];
-}): {
-  satisfied: boolean;
-  // One entry per unsatisfied rule; any ONE of its teams would satisfy it.
-  unmet: { id: string; name: string }[][];
-  // The team sets actually enforced, after dropping implied rules. Callers that
-  // judge whether one approval contributes must use these, not the raw rules.
-  enforcedTeamIds: string[][];
-} {
+  org: ApproverTeamsOrg;
+  teams: ApproverTeam[];
+}): RequiredApproverTeamsAssessment {
   const approverTeamIds = new Set(
     coveringApproverIds.flatMap((id) =>
       teamsForMember(id, org, teams).map((t) => t.id),
@@ -438,18 +442,7 @@ export function nonContributingApproverIds({
   });
 }
 
-// Uses CURRENT rules — an approval is not a snapshot of authority. One
-// deliberate exception: restricted-project denial is NOT applied here, so an
-// approval keeps counting when a project later restricts access and the
-// approver has no role on it. Deferred and scheduled actions err permissive.
-export function assessApprovalCoverage({
-  org,
-  teams,
-  model,
-  projects,
-  footprint,
-  approvers,
-}: {
+export type ApprovalCoverageArgs = {
   org: OrganizationInterface;
   teams: RoleSourceTeam[];
   model: RevisionModel;
@@ -457,19 +450,127 @@ export function assessApprovalCoverage({
   projects: string[];
   footprint: ReviewAuthorityFootprint;
   approvers: { id: string; roleInfo: MemberRoleWithProjects | null }[];
-}): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
+};
+
+// Uses CURRENT rules — an approval is not a snapshot of authority. One
+// deliberate exception: restricted-project denial is NOT applied here, so an
+// approval keeps counting when a project later restricts access and the
+// approver has no role on it. Deferred and scheduled actions err permissive.
+export function assessApprovalCoverage(args: ApprovalCoverageArgs): {
+  hasCoveringApproval: boolean;
+  uncoveredApprovers: string[];
+} {
+  const { hasCoveringApproval, uncoveredApprovers } =
+    assessGoverningApprovalCoverage({ ...args, approverProjects: [] });
+  return { hasCoveringApproval, uncoveredApprovers };
+}
+
+// The primary's reviewers sanction the change (`hasCoveringApproval`); each
+// `approverProjects` entry also needs one of ITS reviewers. An approval counts
+// toward whatever it covers, so a targeting reviewer is neither uncovered nor
+// sufficient alone.
+export function assessGoverningApprovalCoverage({
+  org,
+  teams,
+  model,
+  projects,
+  approverProjects,
+  footprint,
+  approvers,
+}: ApprovalCoverageArgs & {
+  approverProjects: string[];
+}): GoverningApprovalCoverage {
   const uncoveredApprovers: string[] = [];
+  const primaryCoveringApproverIds: string[] = [];
+  const coveringApproverIdsByProject: Record<string, string[]> =
+    Object.fromEntries(approverProjects.map((p) => [p, [] as string[]]));
   let hasCoveringApproval = false;
 
   for (const { id, roleInfo } of approvers) {
-    const covers =
-      !!roleInfo &&
-      new Permissions(
-        getRolePermissions(roleInfo, org, teams),
-      ).canReviewRevision(model, projects, footprint);
-    if (covers) hasCoveringApproval = true;
-    else uncoveredApprovers.push(id);
+    const permissions = roleInfo
+      ? new Permissions(getRolePermissions(roleInfo, org, teams))
+      : null;
+    const coversPrimary =
+      !!permissions &&
+      permissions.canReviewRevision(model, projects, footprint);
+    const covered = permissions
+      ? approverProjects.filter((project) =>
+          permissions.canReviewRevision(model, [project], footprint),
+        )
+      : [];
+    if (coversPrimary) {
+      hasCoveringApproval = true;
+      primaryCoveringApproverIds.push(id);
+    }
+    covered.forEach((project) =>
+      coveringApproverIdsByProject[project].push(id),
+    );
+    if (!coversPrimary && !covered.length) uncoveredApprovers.push(id);
   }
 
-  return { hasCoveringApproval, uncoveredApprovers };
+  const unmet = approverProjects.filter(
+    (p) => coveringApproverIdsByProject[p].length === 0,
+  );
+  return {
+    hasCoveringApproval,
+    uncoveredApprovers,
+    primaryCoveringApproverIds,
+    coveringApproverIdsByProject,
+    requiredProjects: { satisfied: unmet.length === 0, unmet },
+  };
+}
+
+export type GoverningApprovalCoverage = {
+  hasCoveringApproval: boolean;
+  // Approvals that sanction nothing: neither the primary nor any approver project.
+  uncoveredApprovers: string[];
+  primaryCoveringApproverIds: string[];
+  // Keyed by approver project: the approvals that count for it.
+  coveringApproverIdsByProject: Record<string, string[]>;
+  requiredProjects: { satisfied: boolean; unmet: string[] };
+};
+
+// A team rule is judged against approvals that count for the project that
+// imposed it (inherited rules belong to the primary). One pool would let a
+// reviewer from one project satisfy another's team rule by membership alone.
+export function assessRequiredApproverTeamsByProject({
+  governing,
+  primaryProject,
+  coverage,
+  org,
+  teams,
+}: {
+  governing: { project: string; rule: { requiredApproverTeams?: string[] } }[];
+  primaryProject: string;
+  coverage: Pick<
+    GoverningApprovalCoverage,
+    "primaryCoveringApproverIds" | "coveringApproverIdsByProject"
+  >;
+  org: ApproverTeamsOrg;
+  teams: ApproverTeam[];
+}): RequiredApproverTeamsAssessment {
+  const pools = new Map<string, { requiredApproverTeams?: string[] }[]>();
+  for (const { project, rule } of governing) {
+    const key =
+      project !== primaryProject &&
+      project in coverage.coveringApproverIdsByProject
+        ? project
+        : "";
+    pools.set(key, [...(pools.get(key) ?? []), rule]);
+  }
+  const results = [...pools.entries()].map(([key, rules]) =>
+    assessRequiredApproverTeams({
+      rules,
+      coveringApproverIds: key
+        ? coverage.coveringApproverIdsByProject[key]
+        : coverage.primaryCoveringApproverIds,
+      org,
+      teams,
+    }),
+  );
+  return {
+    satisfied: results.every((r) => r.satisfied),
+    unmet: results.flatMap((r) => r.unmet),
+    enforcedTeamIds: results.flatMap((r) => r.enforcedTeamIds),
+  };
 }

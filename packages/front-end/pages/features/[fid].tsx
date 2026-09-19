@@ -315,6 +315,7 @@ export default function FeaturePage() {
 
         {editFeatureInfoModal && (
           <EditFeatureInfoModal
+            baseFeature={baseFeature}
             source="feature-header"
             dependents={dependents}
             feature={feature}

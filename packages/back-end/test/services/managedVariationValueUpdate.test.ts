@@ -259,20 +259,34 @@ describe("updateManagedVariationValues value handling", () => {
   const staged = () => mockUpdateRefs.mock.calls[0][0].updatedVariationValues;
 
   it("stages the normalized value, not the raw one", async () => {
-    mockGetFeature.mockResolvedValue(managedFeature("boolean"));
+    mockGetFeature.mockResolvedValue(managedFeature("json"));
 
     await update({
       variations: [
-        { variationId: "v0", value: "not-a-bool" },
-        { variationId: "v1", value: "false" },
+        { variationId: "v0", value: "{a: 1}" },
+        { variationId: "v1", value: '{"b": 2}' },
       ],
     });
 
-    // validateFeatureValue repairs booleans, so the repaired value must land.
+    // validateFeatureValue repairs loose JSON, so the repaired value must land.
     expect(staged()).toEqual([
-      { variationId: "v0", value: "true" },
-      { variationId: "v1", value: "false" },
+      { variationId: "v0", value: '{"a": 1}' },
+      { variationId: "v1", value: '{"b": 2}' },
     ]);
+  });
+
+  it("refuses a boolean that is not exactly true or false", async () => {
+    mockGetFeature.mockResolvedValue(managedFeature("boolean"));
+
+    await expect(
+      update({
+        variations: [
+          { variationId: "v0", value: "not-a-bool" },
+          { variationId: "v1", value: "false" },
+        ],
+      }),
+    ).rejects.toThrow(/"true" or "false"/i);
+    expect(mockUpdateRefs).not.toHaveBeenCalled();
   });
 
   it("refuses a value that cannot be repaired into the flag's type", async () => {

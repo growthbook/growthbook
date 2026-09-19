@@ -1,17 +1,22 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Flex } from "@radix-ui/themes";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import WatchButton from "@/components/WatchButton";
 import SortedTags from "@/components/Tags/SortedTags";
-import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import {
+  ExperimentDot,
+  ExperimentStatusDetailsWithDot,
+} from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/ui/Pagination";
 import { useManagedExperimentFlagStates } from "@/hooks/useManagedExperimentFlagStates";
 import {
   ImplementationTypeIcon,
   LIST_ICON_STYLE,
 } from "@/components/Experiment/ImplementationTypeSelect";
+import UITooltip from "@/ui/Tooltip";
 import Table, {
   TableHeader,
   TableBody,
@@ -20,6 +25,15 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
+import {
+  EXPERIMENT_HEALTH_STATE_LABELS,
+  getHealthStateFromDetailedStatus,
+  getTempRolloutTooltip,
+} from "@/services/experiments";
+import {
+  isTempRolloutHealthState,
+  TEMP_ROLLOUT_HEALTH,
+} from "@/services/health";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -74,6 +88,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
     tab === "stopped" || tab === "running" || tab === "all";
   // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && filtered.some((e) => e.project);
+  const showHealthColumn = filtered.some((e) => e.healthState !== null);
 
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
@@ -83,11 +98,9 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   const colSpan =
     5 +
     (showProjectColumn ? 1 : 0) +
-    (needsStatusColumn && needsResultColumn
-      ? 2
-      : needsStatusColumn || needsResultColumn
-        ? 1
-        : 0);
+    (needsStatusColumn ? 1 : 0) +
+    (needsResultColumn ? 1 : 0) +
+    (showHealthColumn ? 1 : 0);
 
   return (
     <>
@@ -112,18 +125,24 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
             <SortableTableColumnHeader field="date">
               Date
             </SortableTableColumnHeader>
-            {needsStatusColumn && needsResultColumn ? (
-              <>
-                <SortableTableColumnHeader field="statusSortOrder">
-                  Status
-                </SortableTableColumnHeader>
-                <TableColumnHeader></TableColumnHeader>
-              </>
-            ) : needsStatusColumn || needsResultColumn ? (
+            {needsStatusColumn && (
               <SortableTableColumnHeader field="statusSortOrder">
                 Status
               </SortableTableColumnHeader>
-            ) : null}
+            )}
+            {needsResultColumn &&
+              (needsStatusColumn ? (
+                <TableColumnHeader>Result</TableColumnHeader>
+              ) : (
+                <SortableTableColumnHeader field="statusSortOrder">
+                  Result
+                </SortableTableColumnHeader>
+              ))}
+            {showHealthColumn && (
+              <SortableTableColumnHeader field="healthSortOrder">
+                Health
+              </SortableTableColumnHeader>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -233,9 +252,31 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
               ) : null}
               {needsResultColumn ? (
                 <TableCell>
-                  <ExperimentStatusDetailsWithDot
-                    statusIndicatorData={e.statusIndicator}
-                  />
+                  {getHealthStateFromDetailedStatus(
+                    e.statusIndicator.detailedStatus,
+                  ) ? null : (
+                    <ExperimentStatusDetailsWithDot
+                      statusIndicatorData={e.statusIndicator}
+                    />
+                  )}
+                </TableCell>
+              ) : null}
+              {showHealthColumn ? (
+                <TableCell style={{ whiteSpace: "nowrap" }}>
+                  {isTempRolloutHealthState(e.healthState) ? (
+                    <UITooltip content={getTempRolloutTooltip(e)}>
+                      <Flex gap="1" align="center">
+                        <ExperimentDot
+                          color={TEMP_ROLLOUT_HEALTH[e.healthState].color}
+                        />
+                        {EXPERIMENT_HEALTH_STATE_LABELS[e.healthState]}
+                      </Flex>
+                    </UITooltip>
+                  ) : e.healthState ? (
+                    <ExperimentStatusDetailsWithDot
+                      statusIndicatorData={e.statusIndicator}
+                    />
+                  ) : null}
                 </TableCell>
               ) : null}
             </TableRow>

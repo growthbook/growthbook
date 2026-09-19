@@ -29,6 +29,7 @@ import {
   findAnalysisComputeFailure,
   fillRevisionFromFeature,
   generateVariationId,
+  getAffectedEnvsForExperiment,
   getExperimentAttributeScopeProjectIds,
   getFeatureAttributeScopeWithDrafts,
   getMatchingRules,
@@ -43,7 +44,11 @@ import {
   naiveFlattenV1Rules,
   validateCondition,
 } from "shared/util";
-import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
+import {
+  getBanditSRMValue,
+  getExperimentSRMValue,
+  getExperimentVariationUnitsFromHealth,
+} from "shared/health";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -69,6 +74,7 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
+  isVariationWeightsSumValid,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -126,6 +132,7 @@ import {
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
+  StagedRefDraft,
   Variation,
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -206,7 +213,10 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import {
+  getFeatureProjectsByIds,
+  getFeaturesByIds,
+} from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getActiveDraftMetadataByFeatureIds,
@@ -263,7 +273,7 @@ export async function createMetric(
   context: Context,
   data: Partial<MetricInterface>,
 ) {
-  const metric = insertMetric(context, {
+  const metric = await insertMetric(context, {
     id: uniqid("met_"),
     ...data,
     dateCreated: new Date(),
@@ -2367,9 +2377,162 @@ export function fillEmptyVariationKeys(
   }
 }
 
+const inUnitInterval = (n: number) => n >= 0 && n <= 1;
+
+// Only phases that differ from the stored phase at the same index are checked,
+// so an unrelated edit to an experiment with legacy data is not rejected.
+export function assertValidExperimentPhases(
+  phases: ExperimentPhase[],
+  existing: ExperimentPhase[] = [],
+): void {
+  phases.forEach((phase, i) => {
+    if (isEqual(phase, existing[i])) return;
+    if (!inUnitInterval(phase.coverage)) {
+      throw new BadRequestError(
+        `invalid_coverage: phase ${i} coverage must be between 0 and 1`,
+      );
+    }
+    const weights = phase.variationWeights;
+    if (
+      !weights.every(inUnitInterval) ||
+      !isVariationWeightsSumValid(weights)
+    ) {
+      throw new BadRequestError(
+        `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,
+      );
+    }
+  });
+}
+
+// Only some experiment fields reach SDK payloads. A change that touches any of
+// them needs run-experiments permission in the environments the experiment
+// affects (on both the current project and, if it moves, the new one); other
+// edits need only the update permission the caller has already been checked
+// for. Shared by the dashboard POST /experiment/:id and the REST
+// POST /api/v1/experiments/:id so the two agree on which fields count.
+const PAYLOAD_AFFECTING_EXPERIMENT_FIELDS: (keyof ExperimentInterface)[] = [
+  "phases",
+  "variations",
+  "project",
+  "name",
+  "trackingKey",
+  "archived",
+  "status",
+  "releasedVariationId",
+  "excludeFromPayload",
+  "type",
+  "banditStage",
+  "banditStageDateStarted",
+  "banditScheduleValue",
+  "banditScheduleUnit",
+  "banditBurnInValue",
+  "banditBurnInUnit",
+  // Bucketing fields. The REST route accepts these and they end up in the SDK
+  // payload, so changing bucketVersion re-buckets every user. The dashboard
+  // edits them on POST /experiment/:id/targeting, which always checks this.
+  "hashAttribute",
+  "fallbackAttribute",
+  "hashVersion",
+  "disableStickyBucketing",
+  "bucketVersion",
+  "minBucketVersion",
+];
+export async function assertCanRunExperimentChanges(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  changes: Changeset,
+): Promise<void> {
+  const needsRunExperimentsPermission =
+    PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.some((key) => key in changes);
+  if (!needsRunExperimentsPermission) return;
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  // getFeaturesByIds drops features the caller cannot read. A feature we cannot
+  // see still serves the experiment, so if any real one is missing we ask for
+  // permission in every environment. Ids of deleted features don't count.
+  let hasUnreadableFeature = false;
+  if (linkedFeatures.length < linkedFeatureIds.length) {
+    const existingFeatures = await getFeatureProjectsByIds(
+      context,
+      linkedFeatureIds,
+    );
+    hasUnreadableFeature = existingFeatures.size > linkedFeatures.length;
+  }
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    // Passing undefined here makes it return __ALL__ envs.
+    linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
+  });
+  if (envs.length > 0) {
+    const projects = [experiment.project || undefined];
+    if ("project" in changes) {
+      projects.push(changes.project || undefined);
+    }
+    // check user's permission on existing experiment project and the updated project, if changed
+    for (const project of projects) {
+      if (!context.permissions.canRunExperiment({ project }, envs)) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  }
+}
+
+type ReleasedVariationFields = Pick<
+  ExperimentInterface,
+  "releasedVariationId" | "variations"
+>;
+
+// A mismatched releasedVariationId silently drops the release from the SDK
+// payload. Only a write that introduces the mismatch is rejected; a
+// pre-existing one is left alone.
+export function assertValidReleasedVariationId(
+  updated: Partial<ReleasedVariationFields>,
+  existing?: ReleasedVariationFields,
+): void {
+  const releasedVariationId = updated.releasedVariationId || "";
+  if (!releasedVariationId) return;
+
+  const variationIds = new Set((updated.variations ?? []).map((v) => v.id));
+  if (variationIds.has(releasedVariationId)) return;
+
+  const previousReleasedVariationId = existing?.releasedVariationId || "";
+  const idChanged = previousReleasedVariationId !== releasedVariationId;
+  const wasValid =
+    !!existing && existing.variations.some((v) => v.id === releasedVariationId);
+
+  if (idChanged || wasValid) {
+    throw new BadRequestError(
+      "invalid_released_variation_id: releasedVariationId must match one of the experiment's variation ids",
+    );
+  }
+}
+
+// Assigns missing ids and keys, then checks both are unique. On an update
+// (`existing`), an omitted id keeps the stored one by key, else by position,
+// so linked feature rules keep pointing at the same variations.
 export function validateVariationIds(
   variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
+  existing?: Pick<Variation, "id" | "key">[],
 ) {
+  if (existing && existing.length === variations.length) {
+    const claimed = new Set(variations.map((v) => v.id || v.variationId));
+    const idByKey = new Map(existing.map((v) => [v.key, v.id]));
+    variations.forEach((v, i) => {
+      if (v.id || v.variationId) return;
+      const stored = [
+        v.key === undefined ? undefined : idByKey.get(v.key),
+        existing[i].id,
+      ].find((id) => id && !claimed.has(id));
+      if (stored) {
+        v.variationId = stored;
+        claimed.add(stored);
+      }
+    });
+  }
   variations.forEach((variation, i) => {
     if (!variation.id) {
       variation.id = variation.variationId || uniqid("var_");
@@ -5112,10 +5275,6 @@ export async function getRefLinkedFeatureInfo({
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
 
-      let matchedDraftRevision: (typeof revisions)[0] | undefined;
-      let draftMatches: MatchingRule[] = [];
-      let draftDiffersFromLive = false;
-
       // Newest wins.
       const draftsWithMatches = activeDrafts
         .map((r) => ({
@@ -5123,23 +5282,22 @@ export async function getRefLinkedFeatureInfo({
           matches: getMatchingRules(feature, matchRule, environments, r),
         }))
         .filter(({ matches }) => matches.length > 0);
-      if (draftsWithMatches[0]) {
-        matchedDraftRevision = draftsWithMatches[0].revision;
-        draftMatches = draftsWithMatches[0].matches;
-      }
+      const matchedDraftRevision = draftsWithMatches[0]?.revision;
+      const draftMatches: MatchingRule[] = draftsWithMatches[0]?.matches ?? [];
       const otherDraftCount = Math.max(0, draftsWithMatches.length - 1);
 
-      if (matchedDraftRevision) {
-        const draftRefRules = refRulesForEntity(matchedDraftRevision.rules);
-        // A re-type is a change even when values read the same; compared against live.
-        const draftRetypes =
-          isManagedFeature(feature) &&
-          matchedDraftRevision.metadata?.valueType !== undefined &&
-          matchedDraftRevision.metadata.valueType !== feature.valueType;
-        draftDiffersFromLive =
-          liveRefRules.length > 0 &&
-          (draftRetypes || !isEqual(draftRefRules, liveRefRules));
-      }
+      // A re-type is a change even when values read the same; compared against live.
+      const draftChangesRef = (revision: (typeof revisions)[0]) =>
+        liveRefRules.length > 0 &&
+        ((isManagedFeature(feature) &&
+          revision.metadata?.valueType !== undefined &&
+          revision.metadata.valueType !== feature.valueType) ||
+          !isEqual(refRulesForEntity(revision.rules), liveRefRules));
+      const differingDrafts = draftsWithMatches.filter((d) =>
+        draftChangesRef(d.revision),
+      );
+      const draftDiffersFromLive =
+        !!matchedDraftRevision && draftChangesRef(matchedDraftRevision);
 
       const lockedMatches =
         revisions
@@ -5260,6 +5418,44 @@ export async function getRefLinkedFeatureInfo({
         }
       }
 
+      const checkDraftCleanliness = async (
+        revision: (typeof revisions)[0],
+      ): Promise<{
+        hasMergeConflict?: boolean;
+        hasUnrelatedDraftChanges?: boolean;
+      }> => {
+        try {
+          const { live, base } = await getLiveAndBaseRevisionsForFeature({
+            context,
+            feature,
+            revision,
+          });
+          const filledLive = liveRevisionFromFeature(live, feature);
+          const mergeResult = autoMerge(
+            filledLive,
+            fillRevisionFromFeature(base, feature),
+            revision,
+            environments,
+            {},
+          );
+          if (!mergeResult.success) {
+            return { hasMergeConflict: true };
+          }
+          if (
+            draftHasChangesOutsideTargetRef(revision, filledLive, matchRule)
+          ) {
+            return { hasUnrelatedDraftChanges: true };
+          }
+          return {};
+        } catch (e) {
+          logger.warn(
+            { featureId: feature.id, err: e },
+            "[getRefLinkedFeatureInfo] draft cleanliness check failed",
+          );
+          return {};
+        }
+      };
+
       const refRuleValues = (rule: FeatureRule | undefined) =>
         (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
           ?.variations || [];
@@ -5306,6 +5502,21 @@ export async function getRefLinkedFeatureInfo({
       const statesRevision =
         state === "draft" ? matchedDraftRevision : undefined;
       const environmentStates = buildEnvironmentStates(matches, statesRevision);
+
+      const stagedDrafts: StagedRefDraft[] =
+        state === "live"
+          ? differingDrafts.map((d) => ({
+              version: d.revision.version,
+              status: d.revision.status,
+              values: refRuleValues(d.matches[0]?.rule),
+            }))
+          : [];
+      if (stagedDrafts.length > 0) {
+        Object.assign(
+          stagedDrafts[0],
+          await checkDraftCleanliness(differingDrafts[0].revision),
+        );
+      }
 
       // Envs the pending draft will turn on when it's auto-published on start.
       let environmentsToEnable: string[] | undefined;
@@ -5400,6 +5611,7 @@ export async function getRefLinkedFeatureInfo({
           draftHasMergeConflict && { hasMergeConflict: true }),
         ...(state === "draft" &&
           draftHasUnrelatedChanges && { hasUnrelatedDraftChanges: true }),
+        ...(stagedDrafts.length > 0 && { stagedDrafts }),
         ...(environmentsToEnable !== undefined && { environmentsToEnable }),
       };
 
@@ -5603,25 +5815,15 @@ export async function getExperimentAnalysisSummary({
     ),
   };
 
-  const overallTraffic = experimentSnapshot.health?.traffic?.overall;
   const snapshotHealthPower = experimentSnapshot.health?.power;
   const snapshotCovariateImbalance =
     experimentSnapshot.health?.covariateImbalance;
 
-  const standardSnapshot =
-    experimentSnapshot.type === "standard" &&
-    experimentSnapshot.analyses?.[0]?.results?.length === 1;
   const totalUsers =
-    (overallTraffic?.variationUnits.length
-      ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
-      : standardSnapshot
-        ? // fall back to first result for standard snapshots if overall traffic
-          // is missing
-          experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
-            (acc, a) => acc + a.users,
-            0,
-          )
-        : null) ?? null;
+    getExperimentVariationUnitsFromHealth(experimentSnapshot)?.reduce(
+      (acc, a) => acc + a,
+      0,
+    ) ?? null;
 
   const srm =
     experiment.type === "multi-armed-bandit"

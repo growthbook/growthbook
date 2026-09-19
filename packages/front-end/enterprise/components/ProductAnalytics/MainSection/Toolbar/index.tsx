@@ -13,6 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import GraphTypeSelector from "./GraphTypeSelector";
 import FunnelGraphTypeSelector from "./FunnelGraphTypeSelector";
 import FunnelYAxisSelector from "./FunnelYAxisSelector";
+import JourneyGraphTypeSelector from "./JourneyGraphTypeSelector";
 
 export default function Toolbar() {
   const {
@@ -23,6 +24,10 @@ export default function Toolbar() {
     managedWarehouseUnavailable,
   } = useExplorerContext();
   const isFunnel = draftExploreState.dataset?.type === "funnel";
+  const isJourney = draftExploreState.dataset?.type === "journey";
+  const isRawTable =
+    draftExploreState.dataset?.type === "sql" &&
+    draftExploreState.chartType === "rawTable";
   const viewMode = useOptionalSqlEditorContext()?.viewMode ?? "explore";
   const dateControlsDisabled = isTimelessSqlExploration(draftExploreState);
   const [dateTooltipArmed, setDateTooltipArmed] = useState(false);
@@ -51,6 +56,7 @@ export default function Toolbar() {
   // granularity to show.
   const showGranularity =
     !isFunnel &&
+    !isJourney &&
     ["line", "area", "timeseries-table"].includes(draftExploreState.chartType);
 
   const dateRangeValue: DateRangeCompareValue = {
@@ -108,7 +114,7 @@ export default function Toolbar() {
 
   const dateRangeDropdown = (
     <DateRangeCompareDropdown
-      showCompare
+      showCompare={!isJourney && !isRawTable}
       showGranularity={showGranularity}
       value={dateRangeValue}
       onChange={applyDateRange}
@@ -120,7 +126,13 @@ export default function Toolbar() {
     <Flex align="start" gap="3" width="100%" style={{ minHeight: "32px" }}>
       {/* Left Side */}
       <Flex align="center" gap="3" style={{ flexShrink: 0, height: "32px" }}>
-        {isFunnel ? <FunnelGraphTypeSelector /> : <GraphTypeSelector />}
+        {isFunnel ? (
+          <FunnelGraphTypeSelector />
+        ) : isJourney ? (
+          <JourneyGraphTypeSelector />
+        ) : (
+          <GraphTypeSelector />
+        )}
         {isFunnel && draftExploreState.chartType !== "table" && (
           <FunnelYAxisSelector />
         )}
@@ -136,7 +148,11 @@ export default function Toolbar() {
       >
         {dateControlsDisabled && viewMode !== "dataset" ? (
           <Tooltip
-            body="Update your SQL query to return a date or timestamp column to compare date ranges."
+            body={
+              isRawTable
+                ? "Update your SQL query to return a date or timestamp column to filter by date."
+                : "Update your SQL query to return a date or timestamp column to compare date ranges."
+            }
             shouldDisplay={dateTooltipArmed}
             ignoreMouseEvents={!dateTooltipArmed}
             usePortal

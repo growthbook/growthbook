@@ -33,6 +33,7 @@ const contextFor = (userId: string) =>
     org: { id: "org_1", settings: {} },
     userId,
     auditUser: { type: "system" },
+    hasPremiumFeature: () => false,
     permissions: {
       canReviewFeatureDrafts: () => true,
       canAddComment: () => true,

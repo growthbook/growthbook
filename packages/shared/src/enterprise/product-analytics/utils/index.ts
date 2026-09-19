@@ -1,10 +1,36 @@
-import type { FactMetricInterface } from "shared/types/fact-table";
+import type {
+  FactMetricInterface,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import type {
   ExplorationConfig,
   ExplorationDataset,
   ProductAnalyticsResultRow,
   ShowAs,
 } from "../../../validators/product-analytics";
+
+/**
+ * Narrows an already-classified warehouse column type to the smaller set an
+ * exploration dataset can hold. `json`, `binary` and the undetected `""` have
+ * no exploration equivalent.
+ */
+export function mapColumnTypeToExplorationType(
+  datatype: FactTableColumnType | undefined,
+): "string" | "number" | "date" | "boolean" | "other" {
+  switch (datatype) {
+    case "string":
+    case "number":
+    case "date":
+    case "boolean":
+      return datatype;
+    case "json":
+    case "binary":
+    case "other":
+    case "":
+    case undefined:
+      return "other";
+  }
+}
 
 export function mapDatabaseTypeToEnum(
   dbType: string,
@@ -326,6 +352,17 @@ export function getSharedUnit(config: ExplorationConfig | null): string | null {
   return units.every((u) => u === first) ? first : null;
 }
 
+/** Value-axis title when no custom `valueAxisLabel` is set. Empty when showAs does not apply. */
+export function getDefaultValueAxisName(
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (!showAsAppliesTo(config, getFactMetricById)) return "";
+  if (getEffectiveShowAs(config, getFactMetricById) === "total") return "Total";
+  const sharedUnit = getSharedUnit(config);
+  return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+}
+
 /**
  * Computes the effective numeric value for a single metric result cell, given
  * the effective showAs and whether the underlying metric is a ratio. Ratios
@@ -435,7 +472,9 @@ export function buildExplorationColumns(
   // dimension columns so the shared schema doesn't claim a value layout
   // that doesn't exist on the row.
   const values =
-    config?.dataset?.type === "funnel" ? [] : (config?.dataset?.values ?? []);
+    config?.dataset?.type === "funnel" || config?.dataset?.type === "journey"
+      ? []
+      : (config?.dataset?.values ?? []);
   if (values.length === 0) return cols;
 
   const isRatio = getIsRatioByIndex(config, getFactMetricById);

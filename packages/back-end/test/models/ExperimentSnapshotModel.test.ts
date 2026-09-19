@@ -803,8 +803,8 @@ describe("ExperimentSnapshotModel", () => {
         experimentUpdateExecutionLogger: executionLogger,
       });
 
-      expect(getExperimentById).not.toHaveBeenCalled();
       expect(updateExperimentAnalysisSummary).not.toHaveBeenCalled();
+      expect(notifyExperimentChange).not.toHaveBeenCalled();
       expect(info).toHaveBeenCalledWith(
         expect.objectContaining({
           event: "experiment_updated",

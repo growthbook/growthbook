@@ -101,6 +101,7 @@ export type ExperimentResultStatus =
   | DecisionFrameworkExperimentRecommendationStatus
   | { status: "no-data" }
   | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
+  | { status: "data-incomplete"; erroredMetrics: string[] }
   | { status: "before-min-duration" }
   // The scheduled end date has passed but there is no decision recommendation
   // (e.g. no goal metrics, no results yet, or the Experiment Decision
@@ -236,7 +237,16 @@ export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
   statusSortOrder: number;
   statusIndicator: StatusIndicatorData;
   isWatched?: boolean;
+  healthState: ExperimentHealthState | null;
+  // Higher = more urgent; 0 when healthState is null.
+  healthSortOrder: number;
 };
+
+export type ExperimentHealthState =
+  | "no-data"
+  | "unhealthy"
+  | "temp-rollout"
+  | "old-temp-rollout";
 
 export type Changeset = Partial<ExperimentInterface>;
 
@@ -278,6 +288,14 @@ export type LinkedFeatureEnvState =
   | "disabled-env"
   | "disabled-rule"
   | "active";
+
+export interface StagedRefDraft {
+  version: number;
+  status: RevisionStatus;
+  values: ExperimentRefVariation[];
+  hasMergeConflict?: boolean;
+  hasUnrelatedDraftChanges?: boolean;
+}
 
 export interface LinkedFeatureInfo {
   feature: FeatureInterface;
@@ -355,6 +373,12 @@ export interface LinkedFeatureInfo {
   draftRevisionStatus?: RevisionStatus;
   /** Whether that draft actually clears the publish gate, not just its status. */
   draftApprovalSatisfied?: boolean;
+  /**
+   * Open drafts changing this entity's ref rule while live still serves the
+   * old one (`state` stays "live", `values` shows what is serving), newest
+   * first. Lets the UI show staged values instead of reporting them missing.
+   */
+  stagedDrafts?: StagedRefDraft[];
   /** True when the draft cannot be auto-merged into live due to conflicting changes. */
   hasMergeConflict?: boolean;
   /** The draft also changes something outside this experiment's rule; publish from the feature page. */

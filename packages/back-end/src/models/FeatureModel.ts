@@ -11,11 +11,13 @@ import {
   computeHoldoutExperimentLinkageDelta,
   getApplicableEnvIds,
   getExperimentIdsFromRules,
+  getRulesForEnvironment,
   liveRevisionFromFeature,
   managedByExperimentId,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
   stemRuleId,
+  isScheduledRule,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -46,6 +48,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
@@ -57,6 +61,7 @@ import {
 import {
   getMergeResultPublishEnvs,
   addIdsToFlatRules,
+  assertFeatureValuesValidForPublish,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
@@ -79,6 +84,7 @@ import {
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
+  normalizeRampActionsForceValues,
   remapTemplateActions,
   runLockedRampScheduleAction,
   startReadyScheduleNow,
@@ -140,6 +146,7 @@ import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
+  holdoutLinkageOwner,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
@@ -576,9 +583,16 @@ export async function getAllFeatures(
 // need a complete feature.
 export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
-  { includeArchived = false }: { includeArchived?: boolean } = {},
+  {
+    includeArchived = false,
+    ids,
+  }: { includeArchived?: boolean; ids?: string[] } = {},
 ): Promise<FeatureInterface[]> {
-  const q = featureListQuery(context.org.id, { includeArchived });
+  if (ids && !ids.length) return [];
+  const q: FilterQuery<FeatureDocument> = {
+    ...featureListQuery(context.org.id, { includeArchived }),
+    ...(ids ? { id: { $in: ids } } : {}),
+  };
 
   const docs = await FeatureModel.find(q, {
     description: 0,
@@ -773,6 +787,82 @@ export async function migrateDraft(
   return null;
 }
 
+// Features whose legacy inline `experiment` rules currently allocate traffic
+// inside a namespace: not archived, and in at least one enabled environment an
+// enabled experiment rule with the namespace enabled — the same rules the
+// namespaces settings page counts as usage. Referential-integrity check for
+// namespace deletes / re-hashing, so deliberately NOT filtered by the caller's
+// project read access. Both storage shapes are matched (flat `rules` and the
+// pre-migration `environmentSettings.<env>.rules`) and normalized on read.
+//
+// An org environment id containing a "." would not match the dotted
+// `environmentSettings.<env>.rules` path, so that branch silently skips it.
+// That only affects unmigrated docs, and the flat `rules` branch still covers
+// every migrated one.
+export async function countFeaturesWithExperimentRuleInNamespace(
+  context: ReqContext | ApiReqContext,
+  namespaceId: string,
+): Promise<number> {
+  const environments = context.environments;
+  const ruleMatch = {
+    $elemMatch: {
+      type: "experiment",
+      "namespace.enabled": true,
+      "namespace.name": namespaceId,
+    },
+  };
+  const docs = await FeatureModel.find({
+    organization: context.org.id,
+    archived: { $ne: true },
+    $or: [
+      { rules: ruleMatch },
+      ...environments.map((env) => ({
+        [`environmentSettings.${env}.rules`]: ruleMatch,
+      })),
+    ],
+  }).lean<LegacyFeatureInterface[]>();
+
+  return docs
+    .map((raw) =>
+      migrateRawFeatureToV2(
+        omit(raw, ["__v", "_id"]) as LegacyFeatureInterface,
+        context,
+      ),
+    )
+    .filter((f) =>
+      environments.some(
+        (env) =>
+          f.environmentSettings?.[env]?.enabled &&
+          getRulesForEnvironment(f.rules ?? [], env).some(
+            (r) =>
+              r.enabled &&
+              r.type === "experiment" &&
+              r.namespace?.enabled &&
+              r.namespace.name === namespaceId,
+          ),
+      ),
+    ).length;
+}
+
+// jsonSchema is projected out of the list loaders; fetch the enabled ones
+// separately for value validation. Results are merged onto features that
+// already passed the read-permission filter, so none is applied here.
+export async function getFeatureJsonSchemasByIds(
+  context: ReqContext | ApiReqContext,
+  ids?: string[],
+): Promise<Map<string, FeatureInterface["jsonSchema"]>> {
+  if (ids && !ids.length) return new Map();
+  const docs = await FeatureModel.find(
+    {
+      ...featureListQuery(context.org.id, { includeArchived: false }),
+      "jsonSchema.enabled": true,
+      ...(ids ? { id: { $in: ids } } : {}),
+    },
+    { id: 1, jsonSchema: 1 },
+  ).lean<Pick<FeatureInterface, "id" | "jsonSchema">[]>();
+  return new Map(docs.map((d) => [d.id, d.jsonSchema]));
+}
+
 export async function getFeaturesByIds(
   context: ReqContext | ApiReqContext,
   ids: string[],
@@ -881,6 +971,7 @@ export async function getFeatureRuleEnvironmentsByIds(
 export async function createFeature(
   context: ReqContext | ApiReqContext,
   data: FeatureInterface,
+  { comment }: { comment?: string } = {},
 ) {
   const { org } = context;
 
@@ -890,6 +981,8 @@ export async function createFeature(
     ...data,
     linkedExperiments,
   });
+
+  await assertFeatureSavedGroupScope(context, data);
 
   if (Array.isArray(featureToCreate.rules)) {
     const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
@@ -937,6 +1030,8 @@ export async function createFeature(
     toInterface(feature, context),
     context.auditUser,
     getEnvironmentIdsFromOrg(org),
+    undefined,
+    comment,
   );
 
   if (linkedExperiments.length > 0) {
@@ -1322,6 +1417,11 @@ export async function updateFeature(
     // set-then-fetch, so its `dateUpdated` may already be a rival's, and
     // reading ownership from it says "still ours" at the moment it isn't.
     onStamped?: (stamp: Date) => void;
+    // Internal failed-write recovery only; a user-requested revert must still
+    // satisfy the current Saved Group scope.
+    isCompensation?: boolean;
+    // Preserve references already accepted in the draft being landed.
+    savedGroupScopeRevision?: FeatureRevisionInterface;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
@@ -1361,6 +1461,21 @@ export async function updateFeature(
   // `bulkPublishApplying` (not the correlation token) so genuine post-commit
   // writes — ramp activation etc., NOT covered by the plan gates — still run.
   if (!context.bulkPublishApplying) {
+    if (!options?.isCompensation) {
+      await assertFeatureSavedGroupScope(
+        context,
+        projected,
+        options?.savedGroupScopeRevision
+          ? [
+              feature,
+              featureForSavedGroupValidation(
+                feature,
+                options.savedGroupScopeRevision,
+              ),
+            ]
+          : feature,
+      );
+    }
     await runValidateFeatureHooks({
       context,
       feature: projected,
@@ -2114,7 +2229,11 @@ export async function applyRevisionChanges(
   // Every branch below is a landing, so its FIRST write is guarded on the
   // pre-image `feature` — same rule as the generic entities' guarded landings:
   // two publishes computed from the same read must not both apply.
-  const guard = { casOnDateUpdated: feature.dateUpdated, onStamped };
+  const guard = {
+    casOnDateUpdated: feature.dateUpdated,
+    onStamped,
+    savedGroupScopeRevision: revision,
+  };
 
   if (!hasChanges) {
     return await updateFeature(context, feature, changes, guard);
@@ -2408,6 +2527,8 @@ export async function applyHoldoutSideEffects(
 
 export type HoldoutExperimentLinkagePlan = {
   holdoutId: string;
+  // The feature whose publish produced this plan; owns the linkage event.
+  featureId: string;
   toLink: string[];
   toUnlink: string[];
   // "" is the clear sentinel `updateExperiment` expects.
@@ -2524,7 +2645,13 @@ async function planLinkageForHoldout(
     }),
   );
 
-  return { holdoutId, toLink, toUnlink, prevExperimentHoldoutIds };
+  return {
+    holdoutId,
+    featureId: feature.id,
+    toLink,
+    toUnlink,
+    prevExperimentHoldoutIds,
+  };
 }
 
 // `holdoutId` is a scalar last-writer-wins field, so `expectedPrior` turns the
@@ -2614,6 +2741,7 @@ export async function applyHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => applied.has(id)),
+    { eventOwner: holdoutPlanEventOwner(plan) },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
@@ -2687,12 +2815,23 @@ export async function reverseHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toUnlink.filter((id) => reverted.has(id)),
+    { notifyNewLinkage: false },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => reverted.has(id)),
   );
+  // With this plan's linkage put back, the landing must not announce it. An
+  // empty `reverted` means another owner holds the linkage now, and the event
+  // still describes what is live.
+  if (reverted.size) {
+    context.bulkPublishRestoredEntities?.add(holdoutPlanEventOwner(plan));
+  }
 }
+
+// Owner of the deferred linkage event for a plan's writes; see holdoutLinkageOwner.
+const holdoutPlanEventOwner = (plan: HoldoutExperimentLinkagePlan): string =>
+  holdoutLinkageOwner(plan.holdoutId, entityKey("feature", plan.featureId));
 
 // The linkage a holdout transition is about to write, captured before the forward
 // pass so its rewind can restore the pre-publish state instead of re-deriving it
@@ -2756,10 +2895,23 @@ export async function rewindHoldoutLinkage(
     // entry sitting there now. The comparison happens inside the model's own
     // read-modify-write, so it isn't check-then-act; the restore half below
     // declines on the same reasoning.
-    await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
-      featureId: pre.featureId,
-      expectFeatureEntry: pre.addedFeatureEntry,
-    });
+    const removed = await context.models.holdout.removeLinkageFromHoldout(
+      pre.newHoldoutId,
+      {
+        featureId: pre.featureId,
+        expectFeatureEntry: pre.addedFeatureEntry,
+      },
+    );
+    // Only when this rewind took the entry back: a declined removal means the
+    // linkage is live and its event should stand.
+    if (removed) {
+      context.bulkPublishRestoredEntities?.add(
+        holdoutLinkageOwner(
+          pre.newHoldoutId,
+          entityKey("feature", pre.featureId),
+        ),
+      );
+    }
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
@@ -2887,8 +3039,18 @@ async function createRampSchedulesForRevision(
   for (const action of actions) {
     if (action.mode !== "create" && action.mode !== "update") continue;
 
-    // Pro gate — see postRampSchedule.ts for rationale.
-    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+    // Pro gate on new schedules only; editing an existing one stays allowed on
+    // any plan — see .agents/guides/backend/api-patterns.md. A create that
+    // replaces a rule's legacy scheduleRules with a ramp is such an edit.
+    if (
+      action.mode === "create" &&
+      !context.hasPremiumFeature("schedule-feature-flag") &&
+      !isScheduledRule(
+        feature.rules?.find(
+          (r) => stemRuleId(r.id) === stemRuleId(action.ruleId),
+        ),
+      )
+    ) {
       context.throwPlanDoesNotAllowError(
         "Ramp schedules require a Pro plan or above.",
       );
@@ -2928,16 +3090,25 @@ async function createRampSchedulesForRevision(
     // Inject the generated targetId into every action and ensure targetType
     // is always set. Handles both correctly-typed actions and legacy drafts
     // that were stored without targetType.
+    // `force` is brought to the string form rule values are stored in and
+    // validated against the feature, so a plan staged with a raw JSON value
+    // (older UI drafts, REST callers) cannot put a non-string value on a rule.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
-    ): RampStepAction => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch: {
-        ...a.patch,
-        ruleId: action.ruleId,
-      },
-    });
+    ): RampStepAction =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule" as const,
+            targetId,
+            patch: {
+              ...a.patch,
+              ruleId: action.ruleId,
+            },
+          },
+        ],
+        feature,
+      )[0];
 
     // Template is used as a fallback; explicit steps/endActions win.
     let template: RampScheduleTemplateInterface | undefined;
@@ -2985,13 +3156,17 @@ async function createRampSchedulesForRevision(
             holdConditions: step.holdConditions ?? undefined,
           }))
         : template
-          ? template.steps.map((s) => ({
+          ? template.steps.map((s, i) => ({
               interval: s.interval,
-              actions: remapTemplateActions(
-                s.actions,
-                targetId,
-                action.ruleId,
-                feature.valueType,
+              actions: normalizeRampActionsForceValues(
+                remapTemplateActions(
+                  s.actions,
+                  targetId,
+                  action.ruleId,
+                  feature.valueType,
+                ),
+                feature,
+                `Template step ${i + 1} value`,
               ),
               approvalNotes: s.approvalNotes ?? undefined,
               monitored: !!s.monitored,
@@ -3011,31 +3186,53 @@ async function createRampSchedulesForRevision(
           ? action.endActions.map(normalizeAction)
           : []
         : template?.endPatch && Object.keys(template.endPatch).length > 0
-          ? [
-              {
-                targetType: "feature-rule" as const,
-                targetId,
-                patch: {
-                  ruleId: action.ruleId,
-                  ...template.endPatch,
+          ? normalizeRampActionsForceValues<RampStepAction>(
+              [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId,
+                  patch: {
+                    ruleId: action.ruleId,
+                    ...template.endPatch,
+                  },
                 },
-              },
-            ]
+              ],
+              feature,
+              "End value",
+            )
           : [];
 
-    const startActions: RampStepAction[] =
-      action.startActions !== undefined
-        ? Array.isArray(action.startActions)
-          ? action.startActions.map(normalizeAction)
-          : []
-        : getStartActionsFromRules({
-            rules: result.rules ?? feature.rules ?? [],
-            targetId,
-            ruleId: action.ruleId,
-            environment: action.environment,
-          });
+    // Like steps, empty startActions are "not provided": the rollback anchor
+    // is derived from the rule as published. A provided anchor is usually the
+    // rule's own earlier value captured by the editor, so its `force` is only
+    // stringified, not judged against the feature type.
+    const explicitStartActions = Array.isArray(action.startActions)
+      ? normalizeRampActionsForceValues(
+          action.startActions.map(
+            (a): RampStepAction => ({
+              targetType: "feature-rule" as const,
+              targetId,
+              patch: { ...a.patch, ruleId: action.ruleId },
+            }),
+          ),
+        )
+      : [];
+    const startActionsExplicit = explicitStartActions.length > 0;
+    const startActions: RampStepAction[] = startActionsExplicit
+      ? explicitStartActions
+      : getStartActionsFromRules({
+          rules: result.rules ?? feature.rules ?? [],
+          targetId,
+          ruleId: action.ruleId,
+          environment: action.environment,
+        });
 
     if (action.mode === "create") {
+      if (!startActions.length) {
+        throw new Error(
+          `Ramp target rule "${action.ruleId}" not found in the published revision`,
+        );
+      }
       // Guard against duplicate schedules: if the revision is re-published or
       // an older revision is published while a live schedule already targets
       // this rule, skip the create rather than producing a second schedule
@@ -3075,7 +3272,7 @@ async function createRampSchedulesForRevision(
             activatingRevisionVersion: revision.version,
           },
         ],
-        startActions: startActions.length > 0 ? startActions : undefined,
+        startActions,
         steps,
         endActions: endActions.length > 0 ? endActions : undefined,
         startDate: startDate ?? undefined,
@@ -3146,11 +3343,7 @@ async function createRampSchedulesForRevision(
         edited.push(key);
       };
       set(updateAction.name !== undefined, "name", updateAction.name);
-      set(
-        updateAction.startActions !== undefined,
-        "startActions",
-        startActions.length > 0 ? startActions : undefined,
-      );
+      set(startActionsExplicit, "startActions", startActions);
       set(stepsExplicit, "steps", steps);
       set(
         updateAction.endActions !== undefined,
@@ -3276,9 +3469,9 @@ async function createRampSchedulesForRevision(
           } else {
             set(stepsExplicit, "steps", steps);
             set(
-              canEditStartActions && updateAction.startActions !== undefined,
+              canEditStartActions && startActionsExplicit,
               "startActions",
-              startActions.length > 0 ? startActions : undefined,
+              startActions,
             );
             // Start strategy is a pre-start decision — only editable while the
             // ramp hasn't crossed into step 0. Toggling it on re-arms the
@@ -3567,6 +3760,7 @@ export async function prevalidatePublishRevision({
   result,
   comment,
   skipValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3574,14 +3768,25 @@ export async function prevalidatePublishRevision({
   result: MergeResultChanges;
   comment?: string;
   skipValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
+  await assertFeatureSavedGroupScope(context, proposedFeature, [
+    feature,
+    featureForSavedGroupValidation(feature, revision),
+  ]);
   if (skipValidation) return;
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
   if (defaultToCheck !== undefined || rulesToCheck.length) {
+    if (!skipValueSchemaNet) {
+      assertFeatureValuesValidForPublish(context, proposedFeature, {
+        defaultValue: defaultToCheck,
+        rules: rulesToCheck,
+      });
+    }
     await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
       defaultValue: defaultToCheck,
       rules: rulesToCheck,
@@ -3676,6 +3881,7 @@ async function restorePublishedFeatureDoc(
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
         onStamped,
+        isCompensation: true,
       });
       return;
     } catch (e) {
@@ -3695,6 +3901,7 @@ export async function collectPublishRevisionBlockers({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3703,6 +3910,7 @@ export async function collectPublishRevisionBlockers({
   comment?: string;
   bypassLockdown?: boolean;
   skipPrevalidateValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }): Promise<Error[]> {
   // Errors, not messages: SoftWarningError (422 + warnings) and BadRequestError
   // (400) reach the caller as themselves rather than a generic 500.
@@ -3741,6 +3949,7 @@ export async function collectPublishRevisionBlockers({
       result,
       comment,
       skipValidation: skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 
@@ -3813,6 +4022,7 @@ export async function publishRevision({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3823,6 +4033,10 @@ export async function publishRevision({
   // Set when this exact revision was already validated — as publish gates by the
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
+  // Set by the ramp engine: a step value is judged by type only and never
+  // refused, so rollbacks can re-apply the rule's own earlier values. The
+  // config-backed net below is unchanged; it has always run on ramp publishes.
+  skipValueSchemaNet?: boolean;
 }) {
   // One deduped SDK refresh per landing (feature applies are multi-step: ramp
   // schedules, the feature document, holdout linkage), flushed on success and
@@ -3836,6 +4050,7 @@ export async function publishRevision({
       comment,
       bypassLockdown,
       skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 }
@@ -3848,6 +4063,7 @@ async function publishRevisionInner({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
@@ -3891,6 +4107,7 @@ async function publishRevisionInner({
     comment,
     bypassLockdown,
     skipPrevalidateValidation,
+    skipValueSchemaNet,
   });
   if (blockers.length === 1) {
     throw blockers[0];

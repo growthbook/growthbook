@@ -57,6 +57,7 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Text from "@/ui/Text";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
+import EmptyStringConfirm from "@/components/Features/EmptyStringConfirm";
 import SparseTabbedEditor from "@/components/Features/SparseTabbedEditor";
 import InsertConstantButton, {
   UsedConstantTags,
@@ -118,6 +119,9 @@ export interface Props {
   // Rule mode: require a config (no "None" option) — a rule on a config-backed
   // feature always serves the default's config or a compatible child.
   lockConfigBacking?: boolean;
+  confirmEmptyString?: boolean;
+  emptyStringConfirmed?: boolean;
+  setEmptyStringConfirmed?: (confirmed: boolean) => void;
 }
 
 // One size for both JSON editors so toggling sparse doesn't resize.
@@ -151,6 +155,9 @@ export default function FeatureValueField({
   configBackingOptionKeys,
   configBackingShowPatch = false,
   lockConfigBacking = false,
+  confirmEmptyString = false,
+  emptyStringConfirmed = false,
+  setEmptyStringConfirmed,
 }: Props) {
   // Inline mode also suppresses the copy button.
   const copyHidden = hideCopyButton || inlineConstantButton;
@@ -829,6 +836,16 @@ export default function FeatureValueField({
     );
   }
 
+  const emptyStringConfirmField = confirmEmptyString ? (
+    <EmptyStringConfirm
+      id={`${id}-empty-string`}
+      valueType={valueType}
+      value={value}
+      checked={emptyStringConfirmed}
+      setChecked={(checked) => setEmptyStringConfirmed?.(checked)}
+    />
+  ) : null;
+
   // Schema-aware input for string/number flags; values are raw scalars, so bypass JSON encoding.
   if (
     validationEnabled &&
@@ -864,6 +881,7 @@ export default function FeatureValueField({
               {helpText}
             </Text>
           )}
+          {emptyStringConfirmField}
         </>
       );
     }
@@ -968,19 +986,22 @@ export default function FeatureValueField({
   const pinned = inlineConstantButtonAlign === "start";
   if (inlineConstantButton && stringInsertButton) {
     return (
-      <Flex align={pinned ? "start" : "center"} gap="2" width="100%">
-        <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
-        <Box
-          style={{
-            flexShrink: 0,
-            ...(pinned
-              ? { minHeight: 32, display: "flex", alignItems: "center" }
-              : {}),
-          }}
-        >
-          {stringInsertButton}
-        </Box>
-      </Flex>
+      <>
+        <Flex align={pinned ? "start" : "center"} gap="2" width="100%">
+          <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
+          <Box
+            style={{
+              flexShrink: 0,
+              ...(pinned
+                ? { minHeight: 32, display: "flex", alignItems: "center" }
+                : {}),
+            }}
+          >
+            {stringInsertButton}
+          </Box>
+        </Flex>
+        {emptyStringConfirmField}
+      </>
     );
   }
 
@@ -988,6 +1009,7 @@ export default function FeatureValueField({
     <>
       {stringLabelRow}
       {field}
+      {emptyStringConfirmField}
     </>
   );
 }
@@ -1352,7 +1374,6 @@ function SimpleSchemaEditor({
       <>
         {open ? (
           <Modal
-            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             header="Edit Value"

@@ -493,7 +493,9 @@ const SelectField: FC<SelectFieldProps> = ({
                     onChange(val);
                   }}
                   noOptionsMessage={() => null}
-                  value={selected}
+                  value={
+                    forceUndefinedValueToNull ? (selected ?? null) : selected
+                  }
                   formatOptionLabel={formatOptionLabel}
                   formatGroupLabel={formatGroupLabel}
                   isSearchable={!!isSearchable}

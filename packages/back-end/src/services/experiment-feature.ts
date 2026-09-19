@@ -58,6 +58,10 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
+import {
+  assertValidRuleWrite,
+  withStagedSchema,
+} from "back-end/src/api/features/validations";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -144,6 +148,22 @@ export async function linkFeatureToExperiment({
     );
   }
 
+  await assertValidRuleWrite(
+    context,
+    withStagedSchema(
+      feature,
+      draftVersion
+        ? await getRevision({
+            context,
+            organization: context.org.id,
+            featureId: feature.id,
+            feature,
+            version: draftVersion,
+          })
+        : null,
+    ),
+    scopedRule,
+  );
   const ruleEnvFootprint = scopedRule.allEnvironments
     ? environments
     : (scopedRule.environments ?? []);
@@ -819,6 +839,8 @@ export async function publishPendingFeatureDraftsForExperiment(
           status: revision.status,
           hasCoveringApproval: approval.hasCoveringApproval,
           requiredTeamsSatisfied: approval.requiredApproverTeams.satisfied,
+          requiredProjectApproversSatisfied:
+            approval.requiredProjectApprovers.satisfied,
         },
         "Cannot auto-publish pending feature draft: approval requirements not met",
       );
@@ -1062,6 +1084,8 @@ export async function publishPendingFeatureDraftsForContextualBandit(
           status: revision.status,
           hasCoveringApproval: approval.hasCoveringApproval,
           requiredTeamsSatisfied: approval.requiredApproverTeams.satisfied,
+          requiredProjectApproversSatisfied:
+            approval.requiredProjectApprovers.satisfied,
         },
         "Cannot auto-publish pending feature draft: approval requirements not met",
       );

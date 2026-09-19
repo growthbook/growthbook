@@ -26,7 +26,6 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
 
   return (
     <Modal
-      useRadixButton={false}
       open={true}
       header={editable ? "Modify Decision Criteria" : "View Decision Criteria"}
       subHeader="Define rules for automatic decision making based on experiment results"

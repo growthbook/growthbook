@@ -1,5 +1,9 @@
 import { canCommentOnRevisionEntity } from "shared/permissions";
-import { ANY_REVIEW_FOOTPRINT, getReviewSetting } from "shared/util";
+import {
+  ANY_REVIEW_FOOTPRINT,
+  featureReviewCandidateProjects,
+  getReviewSetting,
+} from "shared/util";
 import { FeatureInterface } from "shared/validators";
 import { EventUser } from "shared/types/events/event-types";
 import { ReqContext } from "back-end/types/request";
@@ -11,7 +15,10 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getFeatureReviewFootprint } from "back-end/src/services/features";
+import {
+  getFeatureReviewApproverProjects,
+  getFeatureReviewFootprint,
+} from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { maybeAutoPublishFeatureRevision } from "back-end/src/api/features/autoPublishOnApproval";
 
@@ -44,7 +51,11 @@ export async function submitFeatureRevisionReview({
   // Pre-fetch gate so callers can't probe revision versions.
   if (
     review !== "Comment" &&
-    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+    !context.permissions.canReviewFeatureDrafts(
+      feature,
+      ANY_REVIEW_FOOTPRINT,
+      featureReviewCandidateProjects(feature, context.org.settings),
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -66,7 +77,13 @@ export async function submitFeatureRevisionReview({
       feature,
       revision,
     });
-    if (!context.permissions.canReviewFeatureDrafts(feature, footprint)) {
+    if (
+      !context.permissions.canReviewFeatureDrafts(
+        feature,
+        footprint,
+        await getFeatureReviewApproverProjects({ context, feature, revision }),
+      )
+    ) {
       context.permissions.throwPermissionError();
     }
   }

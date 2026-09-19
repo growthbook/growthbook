@@ -210,11 +210,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireRegisteredAttributes,
       ),
       aiEnabled: settings.aiEnabled ?? false,
+      aiAskDataEnabled: settings.aiAskDataEnabled ?? false,
       // Seeding a model on Cloud would persist it on the next save of any
       // setting, silently taking the org off the managed default.
       defaultAIModel:
         settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
+      sttModel: settings.sttModel,
       visualEditorAIModel: settings.visualEditorAIModel,
       visualEditorImageModel: settings.visualEditorImageModel || "",
       visualEditorAIContext: settings.visualEditorAIContext || "",
@@ -228,6 +230,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       topValuesLookbackValue:
         settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
       savedGroupSizeLimit: undefined,
+      enforceSavedGroupProjectScope:
+        settings.enforceSavedGroupProjectScope ?? false,
       postStratificationEnabled:
         settings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
@@ -283,8 +287,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
+    aiAskDataEnabled: form.watch("aiAskDataEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
+    sttModel: form.watch("sttModel") || undefined,
     visualEditorAIModel: form.watch("visualEditorAIModel"),
     visualEditorImageModel: form.watch("visualEditorImageModel"),
     visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
@@ -294,6 +300,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     topValuesLookbackValue: form.watch("topValuesLookbackValue"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
+    enforceSavedGroupProjectScope: form.watch("enforceSavedGroupProjectScope"),
     approvalFlows: form.watch("approvalFlows"),
     learningStatuses: form.watch("learningStatuses"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
@@ -350,6 +357,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
             getRequireRegisteredAttributesSettings(
               settings?.requireRegisteredAttributes,
             );
+        } else if (k === "enforceSavedGroupProjectScope") {
+          newVal.enforceSavedGroupProjectScope =
+            settings.enforceSavedGroupProjectScope ?? false;
         } else if (k === "approvalFlows") {
           newVal.approvalFlows = applyApprovalFlowEntitlements(
             settings?.approvalFlows,

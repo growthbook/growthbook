@@ -95,7 +95,10 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, activeTab === "archived", "standard");
+    tempRolloutExperimentIds,
+  } = useExperiments(project, activeTab === "archived", "standard", {
+    includeTempRollouts: true,
+  });
   const { watchedExperiments } = useWatching();
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
@@ -114,14 +117,14 @@ const ExperimentsPage = (): React.ReactElement => {
   } = useExperimentSearch({
     allExperiments,
     watchedExperimentIds: watchedExperiments,
+    tempRolloutExperimentIds,
     localStorageKey: "experiments-page",
   });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     items.forEach((item) => {
-      counts[item.tab] = counts[item.tab] || 0;
-      counts[item.tab]++;
+      counts[item.tab] = (counts[item.tab] || 0) + 1;
     });
     return counts;
   }, [items]);
@@ -319,6 +322,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       syntaxFilters={syntaxFilters}
                       setSearchValue={setSearchValue}
                       experiments={allExperiments}
+                      includeTempRollouts
                     />
                   </Flex>
                   <TabsContent value="all">

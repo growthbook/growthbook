@@ -728,6 +728,8 @@ const SavedGroupForm: FC<{
                 form.setValue("condition", v);
               }}
               project={selectedProjects[0] || ""}
+              allowNestedSavedGroups={true}
+              excludeSavedGroupId={current.id}
               // Seeds its own state from defaultValue, so a resolved conflict
               // has to remount it to show the value that was applied.
               key={`${conditionKey}-${conflict.renderKey}`}
