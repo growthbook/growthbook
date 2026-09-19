@@ -46,7 +46,7 @@ export function evalCondition(
 }
 
 // Return value at dot-separated path of an object
-function getPath(obj: TestedObj, path: string) {
+export function getPath(obj: TestedObj, path: string) {
   const parts = path.split(".");
   let current: any = obj;
   for (let i = 0; i < parts.length; i++) {
