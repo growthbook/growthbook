@@ -1,5 +1,11 @@
 import { getValidDate } from "shared/dates";
-import { parseIntWithDefault } from "shared/util";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  parseIntWithDefault,
+} from "shared/util";
 import { format as formatDate, subDays } from "date-fns";
 import {
   ExperimentMetricInterface,
@@ -1743,6 +1749,21 @@ export default abstract class SqlIntegration
       },
     );
 
+    // Raw exposure-query column references for __filteredNewExposures (aliased `e`).
+    const newExpIdentifierCol = `e.${getExposureQueryIdentifierColumn(
+      exposureQuery,
+      baseIdType,
+    )}`;
+    const newExpVariationCol = `e.${getExposureQueryVariationIdColumn(
+      exposureQuery,
+    )}`;
+    const newExpTimestampCol = `e.${getExposureQueryTimestampColumn(
+      exposureQuery,
+    )}`;
+    const newExpExperimentIdCol = `e.${getExposureQueryExperimentIdColumn(
+      exposureQuery,
+    )}`;
+
     // TODO(incremental-refresh): activation metric
     if (activationMetric) {
       throw new Error(
@@ -1810,10 +1831,10 @@ export default abstract class SqlIntegration
           )}
         )
         , __filteredNewExposures AS (
-          SELECT 
-            ${this.getSqlDialect().castToString(`e.${baseIdType}`)} AS ${baseIdType}
-            , ${this.getSqlDialect().castToString(`e.variation_id`)} AS variation
-            , e.timestamp AS timestamp
+          SELECT
+            ${this.getSqlDialect().castToString(newExpIdentifierCol)} AS ${baseIdType}
+            , ${this.getSqlDialect().castToString(newExpVariationCol)} AS variation
+            , ${newExpTimestampCol} AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
               .map(
@@ -1823,13 +1844,13 @@ export default abstract class SqlIntegration
               .join("\n")}
           FROM __newExposures e
           WHERE
-            e.experiment_id = '${settings.experimentId}'
+            ${newExpExperimentIdCol} = '${settings.experimentId}'
             ${
               lastMaxTimestampBinds && params.lastMaxTimestamp
-                ? `AND ${afterWatermark(this.getSqlDialect(), "e.timestamp", params.lastMaxTimestamp, params.lastMaxTimestampRaw)}`
-                : `AND e.timestamp >= ${toTimestampWithMs(settings.startDate)}`
+                ? `AND ${afterWatermark(this.getSqlDialect(), newExpTimestampCol, params.lastMaxTimestamp, params.lastMaxTimestampRaw)}`
+                : `AND ${newExpTimestampCol} >= ${toTimestampWithMs(settings.startDate)}`
             }
-            ${endDate ? `AND e.timestamp <= ${toTimestampWithMs(endDate)}` : ""}
+            ${endDate ? `AND ${newExpTimestampCol} <= ${toTimestampWithMs(endDate)}` : ""}
             ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
         )
         , __jointExposures AS (

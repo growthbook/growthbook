@@ -2,6 +2,10 @@ import type { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import type { ResolvedExposureQuery } from "shared/types/integrations";
 import type { SegmentInterface } from "shared/types/segment";
 import type { SqlDialect } from "shared/types/sql";
+import {
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+} from "shared/util";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
@@ -38,14 +42,21 @@ export function getMetricAnalysisPopulationCTEs(
       __population AS (
         -- All recent users
         SELECT DISTINCT
-          ${settings.userIdType}
+          ${getExposureQueryIdentifierColumn(
+            populationExposureQuery,
+            settings.userIdType,
+          )} as ${settings.userIdType}
         FROM
             __rawExperiment
         WHERE
-            timestamp >= ${dialect.toTimestamp(settings.startDate)}
+            ${getExposureQueryTimestampColumn(
+              populationExposureQuery,
+            )} >= ${dialect.toTimestamp(settings.startDate)}
             ${
               settings.endDate
-                ? `AND timestamp <= ${dialect.toTimestamp(settings.endDate)}`
+                ? `AND ${getExposureQueryTimestampColumn(
+                    populationExposureQuery,
+                  )} <= ${dialect.toTimestamp(settings.endDate)}`
                 : ""
             }
         ),`;

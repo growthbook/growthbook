@@ -3,6 +3,10 @@ import { format } from "shared/sql";
 import type { DimensionSlicesQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import {
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+} from "shared/util";
+import {
   compileSqlTemplate,
   getBaseIdTypeAndJoins,
 } from "back-end/src/util/sql";
@@ -19,7 +23,7 @@ export function getDimensionSlicesQuery(
   const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
 
   const startDate = subDays(new Date(), params.lookbackDays);
-  const timestampColumn = "e.timestamp";
+  const timestampColumn = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
   return format(
     `-- Dimension Traffic Query
     WITH
@@ -35,8 +39,11 @@ export function getDimensionSlicesQuery(
       __experimentExposures AS (
         -- Viewed Experiment
         SELECT
-          e.${baseIdType} as ${baseIdType}
-          , e.timestamp
+          e.${getExposureQueryIdentifierColumn(
+            exposureQuery,
+            baseIdType,
+          )} as ${baseIdType}
+          , ${timestampColumn} as timestamp
           ${params.dimensions
             .map((d) => `, e.${d.id} AS dim_${d.id}`)
             .join("\n")}

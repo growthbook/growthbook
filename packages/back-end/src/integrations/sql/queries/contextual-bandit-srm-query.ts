@@ -4,6 +4,12 @@ import {
   CONTEXTUAL_BANDIT_EAQ_LEAF_ID_COLUMN,
   CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN,
 } from "shared/validators";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+} from "shared/util";
 import type { ContextualBanditSrmQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -52,7 +58,7 @@ export function getContextualBanditSrmQuery(
   }
 
   const userIdType = exposureQuery.userIdType;
-  const timestampColumn = "e.timestamp";
+  const timestampColumn = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
   const startDate: Date = settings.startDate;
   const endDate: Date | undefined = settings.endDate;
 
@@ -111,16 +117,20 @@ export function getContextualBanditSrmQuery(
       )
       , __cbExposures AS (
         SELECT
-          e.${userIdType} AS uid
+          e.${getExposureQueryIdentifierColumn(exposureQuery, userIdType)} AS uid
           , e.${leafCol} AS leaf_id
           , e.${banditVersionCol} AS bandit_version
-          , ${dialect.castToString("e.variation_id")} AS variation
+          , ${dialect.castToString(
+            `e.${getExposureQueryVariationIdColumn(exposureQuery)}`,
+          )} AS variation
           , ${timestampColumn} AS timestamp
           ${weightSelectCols}
         FROM
           __rawExperiment e
         WHERE
-          e.experiment_id = '${settings.experimentId}'
+          e.${getExposureQueryExperimentIdColumn(
+            exposureQuery,
+          )} = '${settings.experimentId}'
           AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate
