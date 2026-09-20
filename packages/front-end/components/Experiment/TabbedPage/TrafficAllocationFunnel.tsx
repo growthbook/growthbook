@@ -577,6 +577,10 @@ export default function TrafficAllocationFunnel({
               <Box pb="4">
                 <Flex direction="column" align="center" mb="2">
                   <Box className={styles.connectorLine} height="12px" />
+                  <Text size="sm" color="text-low">
+                    % Split
+                  </Text>
+                  <Box className={styles.connectorLine} height="12px" />
                 </Flex>
                 {/* Coverage is already shown above, so this bar is purely the
                     split between variations. */}
