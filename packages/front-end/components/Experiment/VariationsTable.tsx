@@ -307,16 +307,6 @@ export function VariationBox({
         height: "100%",
       }}
     >
-      <Box
-        className={`variation variation${i} with-variation-color`}
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          right: 0,
-          height: "6px",
-        }}
-      />
       <Flex direction="column" height="100%">
         <Box>
           <Flex gap="2" align="center" justify="between">
