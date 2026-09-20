@@ -37,7 +37,6 @@ jest.mock(
             png: Buffer.from("png"),
             objectUrl: "https://example.com/experiment",
             objectName: "Test",
-            eventLabel: "Warning",
             altText: "Warning",
           }
         : null,
@@ -80,7 +79,7 @@ it("uses the production renderer to decide which events have images", async () =
     (
       await buildSlackSettingsPreview(context, "experiment.warning", {
         type: "image",
-        cardFormat: "compact",
+        cardFormat: "light",
       })
     ).card?.png,
   ).not.toBeUndefined();
@@ -88,7 +87,7 @@ it("uses the production renderer to decide which events have images", async () =
     (
       await buildSlackSettingsPreview(context, "experiment.info.significance", {
         type: "image",
-        cardFormat: "compact",
+        cardFormat: "light",
       })
     ).card?.png,
   ).toBeUndefined();
@@ -101,7 +100,7 @@ it("rejects preview requests without integration management permission", async (
   await expect(
     buildSlackSettingsPreview(denied, "experiment.warning", {
       type: "image",
-      cardFormat: "compact",
+      cardFormat: "light",
     }),
   ).rejects.toThrow("Forbidden");
 });
@@ -110,7 +109,7 @@ it("does not deliver to an absent or another organization's channel", async () =
   await expect(
     sendSlackSettingsTest(context, "other-channel", "experiment.warning", {
       type: "image",
-      cardFormat: "compact",
+      cardFormat: "light",
     }),
   ).rejects.toThrow("Slack channel not found");
   expect(getEventWebHookById).toHaveBeenCalledWith(
@@ -133,7 +132,7 @@ it("falls back to the same text sample if the image upload fails", async () => {
   expect(
     await sendSlackSettingsTest(context, "channel", "experiment.warning", {
       type: "image",
-      cardFormat: "compact",
+      cardFormat: "light",
     }),
   ).toEqual({ deliveredAs: "text" });
   expect(postSlackMessageResult).toHaveBeenCalledWith(
@@ -159,7 +158,6 @@ it("picks up new image producers without a preview-specific event gate", async (
     png: Buffer.from("png"),
     objectUrl: "https://example.com/experiment",
     objectName: "Test",
-    eventLabel: "Significance",
     altText: "Significance",
   };
   jest.mocked(renderNotificationCard).mockResolvedValueOnce(card);
@@ -167,13 +165,13 @@ it("picks up new image producers without a preview-specific event gate", async (
     (
       await buildSlackSettingsPreview(context, "experiment.info.significance", {
         type: "image",
-        cardFormat: "detailed",
+        cardFormat: "dark",
       })
     ).card,
   ).toBe(card);
   expect(renderNotificationCard).toHaveBeenLastCalledWith(
     expect.objectContaining({ event: "experiment.info.significance" }),
-    "detailed",
+    "dark",
   );
 });
 it("test sends preserve the incoming webhook transport used in production", async () => {
@@ -191,7 +189,7 @@ it("test sends preserve the incoming webhook transport used in production", asyn
   expect(
     await sendSlackSettingsTest(context, "channel", "experiment.warning", {
       type: "image",
-      cardFormat: "compact",
+      cardFormat: "light",
     }),
   ).toEqual({ deliveredAs: "text" });
   expect(sendEventWebhook).toHaveBeenCalledWith(
@@ -219,12 +217,21 @@ it("test sends share the production image delivery path", async () => {
   expect(
     await sendSlackSettingsTest(context, "channel", "experiment.warning", {
       type: "image",
-      cardFormat: "compact",
+      cardFormat: "light",
     }),
   ).toEqual({ deliveredAs: "card" });
+  // The test prefix rides above the footer in the share message's blocks.
   expect(uploadSlackImageFile).toHaveBeenCalledWith(
     expect.objectContaining({
       channelId: "C1",
+      blocks: [
+        expect.objectContaining({
+          text: expect.objectContaining({
+            text: expect.stringContaining("Test notification — sample data"),
+          }),
+        }),
+        expect.objectContaining({ type: "context" }),
+      ],
       initialComment: expect.stringContaining(
         "Test notification — sample data",
       ),
@@ -249,7 +256,7 @@ it("checks permissions before looking up a test destination", async () => {
 it("previews sample data without sending it", async () => {
   await buildSlackSettingsPreview(context, "experiment.warning", {
     type: "image",
-    cardFormat: "compact",
+    cardFormat: "light",
   });
   expect(getEventWebHookById).not.toHaveBeenCalled();
   expect(sendEventWebhook).not.toHaveBeenCalled();

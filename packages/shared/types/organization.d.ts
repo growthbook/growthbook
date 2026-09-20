@@ -397,6 +397,8 @@ export interface OrganizationSettings {
   blockFileUploads?: boolean;
   defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
+  // Opt-in validation of Saved Group scope at consuming Feature Flags.
+  enforceSavedGroupProjectScope?: boolean;
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
