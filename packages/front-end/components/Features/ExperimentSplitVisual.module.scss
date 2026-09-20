@@ -89,9 +89,17 @@
   // Flat: at this height the recess would shade the whole bar rather than
   // reading as depth.
   box-shadow: none;
+  // Transparent, so the hairlines below show whatever the bar sits on.
+  background-color: transparent;
 
   .previewBar {
     background-image: none;
+    // A hairline on each edge that takes the background's colour, separating
+    // neighbouring segments without drawing a border of its own. Widths are
+    // border-box, so this eats into the segment instead of shifting it.
+    border-left: 0.5px solid transparent;
+    border-right: 0.5px solid transparent;
+    background-clip: padding-box;
   }
 }
 
