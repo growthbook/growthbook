@@ -83,13 +83,16 @@ const ExperimentPage = (): ReactElement => {
       router.replace(window.location.href.replace("experiment/", "bandit/"));
     }
     if (data?.experiment?.type === "holdout") {
-      const holdoutId = experimentToHoldoutsMap.get(data?.experiment?.id)?.id;
-      let url = window.location.href.replace(
+      const holdoutId = experimentToHoldoutsMap.get(data.experiment.id)?.id;
+      // The holdouts list often lands after the experiment, and redirecting
+      // without it sends the user to /holdout/undefined. This effect reruns
+      // when the list arrives.
+      if (!holdoutId) return;
+      const base = window.location.href.replace(
         /(.*)\/experiment\/.*/,
         "$1/holdout/",
       );
-      url += holdoutId;
-      router.replace(url);
+      router.replace(base + holdoutId);
     }
   }, [data, experimentToHoldoutsMap, router]);
 
