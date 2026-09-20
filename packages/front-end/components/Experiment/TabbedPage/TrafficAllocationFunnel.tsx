@@ -578,7 +578,7 @@ export default function TrafficAllocationFunnel({
                 <Flex direction="column" align="center" mb="2">
                   <Box className={styles.connectorLine} height="6px" />
                   <Text size="sm" color="text-low">
-                    % Split
+                    Split
                   </Text>
                   <Box className={styles.connectorLine} height="6px" />
                 </Flex>
