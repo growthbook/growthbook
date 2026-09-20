@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { reconcileInlineFilterPrompts } from "shared/experiments";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import {
@@ -283,16 +284,28 @@ export default function JourneyTabContent() {
             )}
             setValue={(rowFilters) =>
               setDraftExploreState((prev) =>
-                patchJourney(prev, (current) => ({
-                  ...current,
-                  rowFilters: [
-                    ...rowFilters,
-                    ...current.rowFilters.filter((rf) =>
-                      isStepExclusionFilter(rf, current.stepColumns),
-                    ),
-                  ],
-                  path: [],
-                })),
+                patchJourney(prev, (current) => {
+                  const exclusions = current.rowFilters.filter((rf) =>
+                    isStepExclusionFilter(rf, current.stepColumns),
+                  );
+                  const visible = current.rowFilters.filter(
+                    (rf) => !exclusions.includes(rf),
+                  );
+                  return {
+                    ...current,
+                    rowFilters: [
+                      ...(factTable
+                        ? reconcileInlineFilterPrompts(
+                            factTable,
+                            visible,
+                            rowFilters,
+                          )
+                        : rowFilters),
+                      ...exclusions,
+                    ],
+                    path: [],
+                  };
+                }),
               )
             }
             columnSource={columnSource}

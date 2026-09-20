@@ -28,6 +28,7 @@ import {
   MetricWindowSettings,
   RowFilter,
   StandardFactMetricInterface,
+  InlineFilterCondition,
 } from "shared/types/fact-table";
 import {
   MetricDefaults,
@@ -138,6 +139,85 @@ export function canInlineFilterColumn(
   }
 
   return true;
+}
+
+/**
+ * True when `rowFilters` already pin `condition.column` (via `=` / `in`) to
+ * values that are all in `condition.values`. Blank placeholder values don't
+ * count.
+ */
+export function isInlineFilterConditionMet(
+  condition: InlineFilterCondition,
+  rowFilters: RowFilter[],
+): boolean {
+  if (!condition.column || !condition.values.length) return false;
+  const allowed = new Set(condition.values);
+  return rowFilters.some((rf) => {
+    if (rf.column !== condition.column) return false;
+    if (rf.operator !== "=" && rf.operator !== "in") return false;
+    const values = (rf.values ?? []).filter((v) => v !== "");
+    return values.length > 0 && values.every((v) => allowed.has(v));
+  });
+}
+
+/**
+ * Columns to prompt a metric / exploration for, given its current filters:
+ * every eligible `alwaysInlineFilter` column whose `inlineFilterCondition`
+ * (if any) the filters already satisfy.
+ */
+export function getInlineFilterPromptColumns(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  rowFilters: RowFilter[] = [],
+): string[] {
+  return factTable.columns
+    .filter(
+      (c) =>
+        c.alwaysInlineFilter &&
+        !c.deleted &&
+        canInlineFilterColumn(factTable, c.column) &&
+        (!c.inlineFilterCondition ||
+          isInlineFilterConditionMet(c.inlineFilterCondition, rowFilters)),
+    )
+    .map((c) => c.column);
+}
+
+export function isEmptyInlineFilterPlaceholder(rf: RowFilter): boolean {
+  return rf.operator === "=" && (rf.values ?? []).every((v) => v === "");
+}
+
+/**
+ * Re-run after a filter edit: when the edit starts satisfying a conditional
+ * prompt, append its empty placeholder; when it stops satisfying one, drop
+ * that column's still-empty placeholder. Only transitions are acted on, so a
+ * prompt the user deliberately removed is not re-added on every keystroke.
+ */
+export function reconcileInlineFilterPrompts(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  previous: RowFilter[],
+  next: RowFilter[],
+): RowFilter[] {
+  const before = new Set(getInlineFilterPromptColumns(factTable, previous));
+  const after = new Set(getInlineFilterPromptColumns(factTable, next));
+  let result = next;
+  for (const column of before) {
+    if (after.has(column)) continue;
+    result = result.filter(
+      (rf) => !(rf.column === column && isEmptyInlineFilterPlaceholder(rf)),
+    );
+  }
+  for (const column of after) {
+    if (before.has(column)) continue;
+    if (!result.some((rf) => rf.column === column)) {
+      result = [...result, { column, operator: "=", values: [""] }];
+    }
+  }
+  return result;
 }
 
 // Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,

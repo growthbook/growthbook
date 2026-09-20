@@ -122,6 +122,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       datatype: existing?.datatype || "",
       jsonFields: existing?.jsonFields || {},
       alwaysInlineFilter: existing?.alwaysInlineFilter || false,
+      inlineFilterCondition: existing?.inlineFilterCondition ?? null,
       isAutoSliceColumn: existing?.isAutoSliceColumn || false,
       autoSlices: existing?.autoSlices || [],
       lockedAutoSlices: existing?.lockedAutoSlices || [],
@@ -257,6 +258,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     datatype: form.watch("datatype") ?? "",
     jsonFields: toPersistedJSONFields(form.watch("jsonFields")),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
+    inlineFilterCondition: form.watch("inlineFilterCondition"),
     isAutoSliceColumn: form.watch("isAutoSliceColumn"),
     autoSlices: form.watch("autoSlices"),
     lockedAutoSlices: form.watch("lockedAutoSlices"),
@@ -280,6 +282,9 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             numberFormat: value.numberFormat,
             datatype: value.datatype,
             alwaysInlineFilter: value.alwaysInlineFilter,
+            inlineFilterCondition: value.alwaysInlineFilter
+              ? value.inlineFilterCondition
+              : null,
             isAutoSliceColumn: value.isAutoSliceColumn,
             autoSlices: value.autoSlices,
             lockedAutoSlices: value.lockedAutoSlices,
@@ -1011,6 +1016,70 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             label="Prompt all metrics to filter on this column"
             description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
           />
+          {form.watch("alwaysInlineFilter") && (
+            <div className="mt-2 ml-4">
+              <Checkbox
+                value={!!form.watch("inlineFilterCondition")}
+                setValue={(v) =>
+                  form.setValue(
+                    "inlineFilterCondition",
+                    v === true ? { column: "", values: [] } : null,
+                  )
+                }
+                label="Only when another column has certain values"
+                description="For example, prompt for `path` only when `event_name` is `Page View`."
+              />
+              {form.watch("inlineFilterCondition") && (
+                <Flex gap="3" mt="2" wrap="wrap">
+                  <SelectField
+                    label="Column"
+                    value={form.watch("inlineFilterCondition")?.column ?? ""}
+                    onChange={(column) =>
+                      form.setValue("inlineFilterCondition", {
+                        column,
+                        values: [],
+                      })
+                    }
+                    options={factTable.columns
+                      .filter(
+                        (c) =>
+                          !c.deleted &&
+                          c.datatype === "string" &&
+                          c.column !== form.watch("column") &&
+                          canInlineFilterColumn(factTable, c.column),
+                      )
+                      .map((c) => ({
+                        label: c.name || c.column,
+                        value: c.column,
+                      }))}
+                    placeholder="Select column..."
+                    required
+                  />
+                  <MultiSelectField
+                    label="Has one of these values"
+                    value={form.watch("inlineFilterCondition")?.values ?? []}
+                    onChange={(values) =>
+                      form.setValue("inlineFilterCondition", {
+                        column:
+                          form.watch("inlineFilterCondition")?.column ?? "",
+                        values,
+                      })
+                    }
+                    options={(
+                      factTable.columns.find(
+                        (c) =>
+                          c.column ===
+                          form.watch("inlineFilterCondition")?.column,
+                      )?.topValues ?? []
+                    ).map((v) => ({ label: v, value: v }))}
+                    creatable
+                    placeholder="Select or enter values..."
+                    required
+                  />
+                </Flex>
+              )}
+            </div>
+          )}
         </div>
       )}
     </Modal>

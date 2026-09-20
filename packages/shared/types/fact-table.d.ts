@@ -32,6 +32,7 @@ import {
   funnelStepValidator,
   funnelOrderingValidator,
   funnelSettingsValidator,
+  inlineFilterConditionValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
@@ -58,6 +59,9 @@ export interface ColumnInterface {
   dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
+  // Narrows the alwaysInlineFilter prompt to metrics whose filters already
+  // satisfy it; see getInlineFilterPromptColumns in shared/experiments.
+  inlineFilterCondition?: InlineFilterCondition | null;
   topValues?: string[];
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;
@@ -173,6 +177,9 @@ export type LegacyColumnRef = ColumnRef & {
 };
 
 export type RowFilter = z.infer<typeof rowFilterValidator>;
+export type InlineFilterCondition = z.infer<
+  typeof inlineFilterConditionValidator
+>;
 
 export type LegacyFactMetricInterface = Omit<
   FactMetricInterface,

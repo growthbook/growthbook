@@ -80,6 +80,21 @@ export const jsonColumnFieldsInputValidator = z.record(
   }),
 );
 
+/**
+ * Restricts an `alwaysInlineFilter` prompt to metrics that already filter
+ * `column` (with `=` / `in`) to a subset of `values`, e.g. prompt for `path`
+ * only when `event_name` is "Page View".
+ */
+export const inlineFilterConditionValidator = z
+  .object({
+    column: z.string(),
+    values: z.array(z.string()),
+  })
+  .strict();
+export type InlineFilterCondition = z.infer<
+  typeof inlineFilterConditionValidator
+>;
+
 export const createColumnPropsValidator = z
   .object({
     column: z.string(),
@@ -91,6 +106,7 @@ export const createColumnPropsValidator = z
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    inlineFilterCondition: inlineFilterConditionValidator.nullable().optional(),
     topValues: z.array(z.string()).optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
@@ -127,6 +143,7 @@ export const updateColumnPropsValidator = z
     datatype: factTableColumnTypeValidator.optional(),
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    inlineFilterCondition: inlineFilterConditionValidator.nullable().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
     isAutoSliceColumn: z.boolean().optional(),
@@ -599,6 +616,12 @@ export const apiFactTableColumnValidator = namedSchema(
         )
         .optional()
         .meta({ default: false }),
+      inlineFilterCondition: inlineFilterConditionValidator
+        .nullable()
+        .describe(
+          'Only prompt for this column when the metric already filters `column` to one of `values` (e.g. prompt for `path` only when `event_name` is "Page View"). Requires alwaysInlineFilter.',
+        )
+        .optional(),
       deleted: z.boolean().optional().meta({ default: false }),
       isAutoSliceColumn: z
         .boolean()

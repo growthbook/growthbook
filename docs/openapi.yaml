@@ -66475,6 +66475,25 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        inlineFilterCondition:
+          description: >-
+            Only prompt for this column when the metric already filters `column`
+            to one of `values` (e.g. prompt for `path` only when `event_name` is
+            "Page View"). Requires alwaysInlineFilter.
+          anyOf:
+            - type: object
+              properties:
+                column:
+                  type: string
+                values:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - column
+                - values
+              additionalProperties: false
+            - type: 'null'
         deleted:
           default: false
           type: boolean
@@ -66600,6 +66619,25 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        inlineFilterCondition:
+          description: >-
+            Only prompt for this column when the metric already filters `column`
+            to one of `values` (e.g. prompt for `path` only when `event_name` is
+            "Page View"). Requires alwaysInlineFilter.
+          anyOf:
+            - type: object
+              properties:
+                column:
+                  type: string
+                values:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - column
+                - values
+              additionalProperties: false
+            - type: 'null'
         deleted:
           default: false
           type: boolean

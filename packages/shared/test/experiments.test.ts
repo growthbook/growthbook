@@ -10,6 +10,9 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
+  getInlineFilterPromptColumns,
+  isInlineFilterConditionMet,
+  reconcileInlineFilterPrompts,
   getAggregateFilters,
   getColumnExpression,
   expandVirtualColumnsInSql,
@@ -2882,5 +2885,147 @@ describe("isFactMetricJoinable", () => {
         },
       ),
     ).toBe(true);
+  });
+});
+
+describe("conditional inline filter prompts", () => {
+  const col = (column: string, extra: Partial<ColumnInterface> = {}) => ({
+    column,
+    name: column,
+    datatype: "string" as const,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    description: "",
+    numberFormat: "" as const,
+    deleted: false,
+    ...extra,
+  });
+  const factTable = {
+    userIdTypes: ["user_id"],
+    columns: [
+      col("user_id"),
+      col("event_name", { alwaysInlineFilter: true }),
+      col("path", {
+        alwaysInlineFilter: true,
+        inlineFilterCondition: { column: "event_name", values: ["Page View"] },
+      }),
+      col("amount", {
+        datatype: "number",
+        alwaysInlineFilter: true,
+        inlineFilterCondition: { column: "event_name", values: ["Order"] },
+      }),
+    ],
+  };
+  const pageView = {
+    column: "event_name",
+    operator: "=" as const,
+    values: ["Page View"],
+  };
+
+  describe("isInlineFilterConditionMet", () => {
+    const condition = { column: "event_name", values: ["Page View", "Click"] };
+    it("matches = and in with a subset of the allowed values", () => {
+      expect(isInlineFilterConditionMet(condition, [pageView])).toBe(true);
+      expect(
+        isInlineFilterConditionMet(condition, [
+          {
+            column: "event_name",
+            operator: "in",
+            values: ["Click", "Page View"],
+          },
+        ]),
+      ).toBe(true);
+    });
+    it("rejects supersets, other operators, blanks and other columns", () => {
+      expect(
+        isInlineFilterConditionMet(condition, [
+          {
+            column: "event_name",
+            operator: "in",
+            values: ["Page View", "Order"],
+          },
+        ]),
+      ).toBe(false);
+      expect(
+        isInlineFilterConditionMet(condition, [
+          { column: "event_name", operator: "!=", values: ["Page View"] },
+        ]),
+      ).toBe(false);
+      expect(
+        isInlineFilterConditionMet(condition, [
+          { column: "event_name", operator: "=", values: [""] },
+        ]),
+      ).toBe(false);
+      expect(
+        isInlineFilterConditionMet(condition, [
+          { column: "other", operator: "=", values: ["Page View"] },
+        ]),
+      ).toBe(false);
+      expect(isInlineFilterConditionMet(condition, [])).toBe(false);
+    });
+  });
+
+  describe("getInlineFilterPromptColumns", () => {
+    it("always includes unconditional prompts and adds conditional ones once met", () => {
+      expect(getInlineFilterPromptColumns(factTable, [])).toEqual([
+        "event_name",
+      ]);
+      expect(getInlineFilterPromptColumns(factTable, [pageView])).toEqual([
+        "event_name",
+        "path",
+      ]);
+    });
+    it("never prompts for columns that cannot be inline filtered", () => {
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "=", values: ["Order"] },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+  });
+
+  describe("reconcileInlineFilterPrompts", () => {
+    it("appends a placeholder when the condition becomes satisfied", () => {
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [{ column: "event_name", operator: "=", values: [""] }],
+          [pageView],
+        ),
+      ).toEqual([pageView, { column: "path", operator: "=", values: [""] }]);
+    });
+    it("drops the still-empty placeholder when the condition stops holding", () => {
+      const order = {
+        column: "event_name",
+        operator: "=" as const,
+        values: ["Order"],
+      };
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [pageView, { column: "path", operator: "=", values: [""] }],
+          [order, { column: "path", operator: "=", values: [""] }],
+        ),
+      ).toEqual([order]);
+    });
+    it("keeps a filled-in filter and does not re-add a removed prompt", () => {
+      const path = { column: "path", operator: "=" as const, values: ["/x"] };
+      const order = {
+        column: "event_name",
+        operator: "=" as const,
+        values: ["Order"],
+      };
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [pageView, path],
+          [order, path],
+        ),
+      ).toEqual([order, path]);
+      // Condition already met before and after: nothing is re-added.
+      expect(
+        reconcileInlineFilterPrompts(factTable, [pageView], [pageView]),
+      ).toEqual([pageView]);
+    });
   });
 });
