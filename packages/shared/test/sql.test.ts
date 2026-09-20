@@ -995,6 +995,29 @@ describe("projectFiltersOntoPartitionKey", () => {
     ).toEqual([[sqlExpr], [{ operator: "saved_filter", values: ["sf1"] }]]);
   });
 
+  it("matches raw SQL column mentions case-insensitively", () => {
+    // Most warehouses fold unquoted identifiers, so `EVENT_NAME` and
+    // `"Event_Name"` in user SQL refer to the same column.
+    const upper = {
+      operator: "sql_expr" as const,
+      values: ["EVENT_NAME = 'foo'"],
+    };
+    const quoted = {
+      operator: "sql_expr" as const,
+      values: [`"Event_Name" IN ('a', 'b')`],
+    };
+    expect(
+      projectFiltersOntoPartitionKey(
+        [[upper], [quoted]],
+        ["event_name"],
+        savedFilterSql,
+      ),
+    ).toEqual([[upper], [quoted]]);
+    expect(
+      projectFiltersOntoPartitionKey([[upper]], ["Event_Name"], savedFilterSql),
+    ).toEqual([[upper]]);
+  });
+
   it("returns null when any group is unconstrained on the key", () => {
     expect(
       projectFiltersOntoPartitionKey(
