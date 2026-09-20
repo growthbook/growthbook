@@ -85,21 +85,20 @@
 // directly on top of the thing the split describes.
 // The bar overhangs by half a grid gap so an even split's seams land in the
 // gaps between the columns underneath. Half of that overhang comes from the
-// widget sitting proud of its container and half from clipping, so only 4px of
-// each end is hidden and a very small leading segment still shows. The clip
-// also keeps the rounded ends the bar would otherwise lose.
+// widget sitting barely proud of its container and the rest from clipping.
+// The clip also keeps the rounded ends the bar would otherwise lose.
 .bar_clip {
   overflow: hidden;
   border-radius: 9999px;
-  margin-left: -4px;
-  margin-right: -4px;
+  margin-left: -2px;
+  margin-right: -2px;
 }
 
 .bar_holder_slim {
   height: 8px;
   border-radius: 9999px;
-  margin-left: -4px;
-  margin-right: -4px;
+  margin-left: -6px;
+  margin-right: -6px;
   // Flat: at this height the recess would shade the whole bar rather than
   // reading as depth.
   box-shadow: none;
