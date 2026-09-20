@@ -224,6 +224,12 @@ When you check this box, GrowthBook will run a quick query looking for the top 1
 
 Another example use of this checkbox is for a `Page Path` column in a `Page Views` Fact Table. This will streamline creation of metrics such as "Visited /checkout", "Visited /pricing", and more.
 
+#### Partition and Sort Key Columns
+
+When several metrics from one Fact Table are analyzed together, GrowthBook scans the table once and pushes a combined `WHERE` clause down to the warehouse. By default that clause is the `OR` of every metric's full filter list, which query planners often can't use to skip data.
+
+If you know which columns your warehouse table is partitioned, clustered, or ordered by, edit those columns and check "Part of the table's partition or sort key". The combined `WHERE` is then simplified to only those columns. For example, metrics filtering on `event_name = 'Purchase'` and `event_name = 'Signup' AND device = 'mobile'` produce `event_name IN ('Purchase', 'Signup')`, which lets the warehouse prune partitions or granules. Per-metric filters are still applied exactly inside the query, so results are unchanged. The Managed Warehouse's `Events` Fact Table marks `event_name` automatically.
+
 ### User Filters
 
 User Filters are applied AFTER aggregating by user. Instead of filtering individual rows, you are filtering the total value per user.

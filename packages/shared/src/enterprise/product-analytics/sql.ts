@@ -1,6 +1,7 @@
 import { getValidDate } from "shared/dates";
 import {
-  buildMinimalOrCondition,
+  buildMetricPushdownCondition,
+  getFactTablePartitionColumns,
   format,
   SQL_ROW_LIMIT,
   stripTrailingSemicolon,
@@ -1121,6 +1122,7 @@ function generateFactTableCTE(
 
   // Get a de-duped list of all filters across all metrics
   const allMetricFilters: string[][] = [];
+  const allMetricRowFilters: RowFilter[][] = [];
   factTableGroup.metrics.forEach((m) => {
     const columnRef = m.useDenominator
       ? m.metric.denominator
@@ -1135,6 +1137,7 @@ function generateFactTableCTE(
     );
 
     allMetricFilters.push(filterParts);
+    allMetricRowFilters.push(columnRef.rowFilters || []);
   });
 
   const whereClauses: string[] = [];
@@ -1146,7 +1149,13 @@ function generateFactTableCTE(
     );
   }
 
-  const metricsFilter = buildMinimalOrCondition(allMetricFilters);
+  const metricsFilter = buildMetricPushdownCondition({
+    compiledGroups: allMetricFilters,
+    rowFilterGroups: allMetricRowFilters,
+    partitionColumns: getFactTablePartitionColumns(factTable),
+    savedFilterSql: (id) => factTable.filters.find((f) => f.id === id)?.value,
+    compile: (filters) => generateRowFilterSQL(filters, factTable, helpers),
+  });
   if (metricsFilter) {
     whereClauses.push(metricsFilter);
   }

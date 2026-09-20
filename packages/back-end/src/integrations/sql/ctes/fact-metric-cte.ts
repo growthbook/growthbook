@@ -7,11 +7,15 @@ import {
   isRatioMetric,
   parseSliceMetricId,
 } from "shared/experiments";
-import { buildMinimalOrCondition } from "shared/sql";
+import {
+  buildMetricPushdownCondition,
+  getFactTablePartitionColumns,
+} from "shared/sql";
 import type { PhaseSQLVar, SqlDialect } from "shared/types/sql";
 import type {
   FactMetricInterface,
   FactTableInterface,
+  RowFilter,
 } from "shared/types/fact-table";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
@@ -109,6 +113,20 @@ export function getFactMetricCTE(
 
   const metricCols: string[] = [];
   const allMetricFilters: string[][] = [];
+  // Structured counterpart of allMetricFilters, so the scan-level WHERE can be
+  // projected onto the fact table's partition columns.
+  const allMetricRowFilters: RowFilter[][] = [];
+  const compileRowFilters = (rowFilters: RowFilter[]) =>
+    getColumnRefWhereClause({
+      factTable,
+      columnRef: { factTableId: factTable.id, column: "", rowFilters },
+      escapeStringLiteral: dialect.escapeStringLiteral,
+      stringMatch: dialect.stringMatch,
+      jsonExtract: dialect.jsonExtract,
+      evalBoolean: dialect.evalBoolean,
+      castToTimestamp: dialect.castToTimestamp,
+      identifierQuote: dialect.identifierQuote,
+    });
 
   metricsWithIndices.forEach((metricWithIndex) => {
     const m = metricWithIndex.metric;
@@ -144,6 +162,7 @@ export function getFactMetricCTE(
         ${column} AS ${funnelStepTimestampColumn(`m${index}`, stepIndex)}`);
 
         allMetricFilters.push(filters);
+        allMetricRowFilters.push(step.rowFilters);
       });
       return;
     }
@@ -202,6 +221,7 @@ export function getFactMetricCTE(
       }
 
       allMetricFilters.push(filters);
+      allMetricRowFilters.push(m.numerator.rowFilters || []);
     }
 
     if (isRatioMetric(m) && m.denominator) {
@@ -239,11 +259,18 @@ export function getFactMetricCTE(
         ${column} as m${index}_denominator`);
 
       allMetricFilters.push(filters);
+      allMetricRowFilters.push(m.denominator.rowFilters || []);
     }
   });
 
   if (addFiltersToWhere) {
-    const filters = buildMinimalOrCondition(allMetricFilters);
+    const filters = buildMetricPushdownCondition({
+      compiledGroups: allMetricFilters,
+      rowFilterGroups: allMetricRowFilters,
+      partitionColumns: getFactTablePartitionColumns(factTable),
+      savedFilterSql: (id) => factTable.filters.find((f) => f.id === id)?.value,
+      compile: compileRowFilters,
+    });
     if (filters) {
       where.push(filters);
     }

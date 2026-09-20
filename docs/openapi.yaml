@@ -66108,10 +66108,17 @@ components:
           type: string
           maxLength: 10000
         alwaysInlineFilter:
-          default: false
           description: >-
             Whether this column should always be included as an inline filter in
             queries
+          type: boolean
+        isPartitionKey:
+          default: false
+          description: >-
+            Whether this column is part of the underlying table's partition or
+            ordering key. Generated queries that read several metrics from this
+            fact table collapse their scan-level WHERE clause onto these columns
+            (e.g. `event_name IN (...)`) so the warehouse can prune.
           type: boolean
         deleted:
           default: false
@@ -66233,10 +66240,17 @@ components:
           type: string
           maxLength: 10000
         alwaysInlineFilter:
-          default: false
           description: >-
             Whether this column should always be included as an inline filter in
             queries
+          type: boolean
+        isPartitionKey:
+          default: false
+          description: >-
+            Whether this column is part of the underlying table's partition or
+            ordering key. Generated queries that read several metrics from this
+            fact table collapse their scan-level WHERE clause onto these columns
+            (e.g. `event_name IN (...)`) so the warehouse can prune.
           type: boolean
         deleted:
           default: false

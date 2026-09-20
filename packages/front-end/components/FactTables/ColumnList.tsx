@@ -9,6 +9,7 @@ import {
   PiClockBold,
   PiStackBold,
   PiFunnelBold,
+  PiKeyBold,
   PiPencilSimpleFill,
 } from "react-icons/pi";
 import { FaTriangleExclamation } from "react-icons/fa6";
@@ -279,6 +280,21 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                             radius="small"
                           >
                             <PiFunnelBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                      {col.isPartitionKey && (
+                        <Tooltip
+                          body="Part of the table's partition or sort key. Multi-metric queries simplify their WHERE clause to this column."
+                          tipPosition="left"
+                        >
+                          <Avatar
+                            size="sm"
+                            color="teal"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiKeyBold size={14} />
                           </Avatar>
                         </Tooltip>
                       )}

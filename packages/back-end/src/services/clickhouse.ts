@@ -338,12 +338,21 @@ export async function syncManagedWarehouseIdentifiers(
         description: "",
         numberFormat: "",
         alwaysInlineFilter: dc.alwaysInlineFilter,
+        isPartitionKey: dc.isPartitionKey,
       });
       columnsMutated = true;
-    } else if (existing.deleted) {
-      existing.deleted = false;
-      existing.dateUpdated = new Date();
-      columnsMutated = true;
+    } else {
+      if (existing.deleted) {
+        existing.deleted = false;
+        existing.dateUpdated = new Date();
+        columnsMutated = true;
+      }
+      // Backfill the partition-key flag on fact tables created before it existed.
+      if (dc.isPartitionKey && !existing.isPartitionKey) {
+        existing.isPartitionKey = true;
+        existing.dateUpdated = new Date();
+        columnsMutated = true;
+      }
     }
   });
 

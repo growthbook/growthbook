@@ -122,6 +122,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       datatype: existing?.datatype || "",
       jsonFields: existing?.jsonFields || {},
       alwaysInlineFilter: existing?.alwaysInlineFilter || false,
+      isPartitionKey: existing?.isPartitionKey || false,
       isAutoSliceColumn: existing?.isAutoSliceColumn || false,
       autoSlices: existing?.autoSlices || [],
       lockedAutoSlices: existing?.lockedAutoSlices || [],
@@ -257,6 +258,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     datatype: form.watch("datatype") ?? "",
     jsonFields: toPersistedJSONFields(form.watch("jsonFields")),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
+    isPartitionKey: form.watch("isPartitionKey"),
     isAutoSliceColumn: form.watch("isAutoSliceColumn"),
     autoSlices: form.watch("autoSlices"),
     lockedAutoSlices: form.watch("lockedAutoSlices"),
@@ -280,6 +282,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             numberFormat: value.numberFormat,
             datatype: value.datatype,
             alwaysInlineFilter: value.alwaysInlineFilter,
+            isPartitionKey: value.isPartitionKey,
             isAutoSliceColumn: value.isAutoSliceColumn,
             autoSlices: value.autoSlices,
             lockedAutoSlices: value.lockedAutoSlices,
@@ -1010,6 +1013,17 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
             label="Prompt all metrics to filter on this column"
             description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
+          />
+        </div>
+      )}
+
+      {!updatedColumn.isVirtual && (
+        <div className="px-3 pb-1 mb-4">
+          <Checkbox
+            value={form.watch("isPartitionKey") ?? false}
+            setValue={(v) => form.setValue("isPartitionKey", v === true)}
+            label="Part of the table's partition or sort key"
+            description="When several metrics read this table in one query, the WHERE clause is simplified to only this column (e.g. `event_name IN (...)`) so the warehouse can skip data."
           />
         </div>
       )}

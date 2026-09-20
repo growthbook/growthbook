@@ -1,6 +1,9 @@
 import {
   assertSafeReadOnlySQL,
   buildMinimalOrCondition,
+  buildMetricPushdownCondition,
+  collapsePartitionKeyFilters,
+  projectFiltersOntoPartitionKey,
   createLikeMatchFns,
   decodeSQLResults,
   encodeSQLResults,
@@ -557,7 +560,7 @@ describe("buildMinimalOrCondition", () => {
         ["A", "B"],
         ["B", "C"],
       ]),
-    ).toBe("((A AND B)\nOR\n(B AND C))");
+    ).toBe("(B AND (A\nOR\nC))");
   });
 
   it("dominates a group that is a superset of multiple independent minimals", () => {
@@ -929,4 +932,246 @@ it("compiles a glob to the same LIKE clause as the equivalent operator", () => {
       matchers.stringMatch("url", operator as "starts_with", value),
     );
   }
+});
+
+describe("buildMinimalOrCondition common-term factoring", () => {
+  it("pulls a condition shared by every group outside the OR", () => {
+    expect(
+      buildMinimalOrCondition([
+        ["N", "A"],
+        ["N", "B", "C"],
+      ]),
+    ).toBe("(N AND (A\nOR\n(B AND C)))");
+  });
+
+  it("returns just the common part when it is the whole clause", () => {
+    expect(buildMinimalOrCondition([["N"], ["N"]])).toBe("N");
+  });
+});
+
+describe("projectFiltersOntoPartitionKey", () => {
+  const savedFilterSql = (id: string) =>
+    id === "sf1"
+      ? "event_name = 'checkout'"
+      : id === "sf2"
+        ? "amount > 5"
+        : undefined;
+
+  it("drops non-partition conjuncts and keeps ANDs within a group", () => {
+    expect(
+      projectFiltersOntoPartitionKey(
+        [
+          [
+            { column: "event_name", operator: "=", values: ["a"] },
+            { column: "device", operator: "=", values: ["mobile"] },
+            { column: "env", operator: "=", values: ["prod"] },
+          ],
+          [{ column: "event_name", operator: "=", values: ["b"] }],
+        ],
+        ["event_name", "env"],
+        savedFilterSql,
+      ),
+    ).toEqual([
+      [
+        { column: "event_name", operator: "=", values: ["a"] },
+        { column: "env", operator: "=", values: ["prod"] },
+      ],
+      [{ column: "event_name", operator: "=", values: ["b"] }],
+    ]);
+  });
+
+  it("keeps raw SQL filters that mention a partition column", () => {
+    const sqlExpr = {
+      operator: "sql_expr" as const,
+      values: ["event_name = 'foo'"],
+    };
+    const unrelated = { operator: "sql_expr" as const, values: ["x > 1"] };
+    expect(
+      projectFiltersOntoPartitionKey(
+        [[sqlExpr, unrelated], [{ operator: "saved_filter", values: ["sf1"] }]],
+        ["event_name"],
+        savedFilterSql,
+      ),
+    ).toEqual([[sqlExpr], [{ operator: "saved_filter", values: ["sf1"] }]]);
+  });
+
+  it("returns null when any group is unconstrained on the key", () => {
+    expect(
+      projectFiltersOntoPartitionKey(
+        [
+          [{ column: "event_name", operator: "=", values: ["a"] }],
+          [{ column: "device", operator: "=", values: ["mobile"] }],
+        ],
+        ["event_name"],
+        savedFilterSql,
+      ),
+    ).toBeNull();
+    expect(
+      projectFiltersOntoPartitionKey(
+        [[{ operator: "saved_filter", values: ["sf2"] }]],
+        ["event_name"],
+        savedFilterSql,
+      ),
+    ).toBeNull();
+    expect(
+      projectFiltersOntoPartitionKey([[]], ["event_name"], savedFilterSql),
+    ).toBeNull();
+    expect(projectFiltersOntoPartitionKey([[]], [], savedFilterSql)).toBeNull();
+  });
+});
+
+describe("collapsePartitionKeyFilters", () => {
+  it("unions includes into one IN", () => {
+    expect(
+      collapsePartitionKeyFilters([
+        [{ column: "e", operator: "=", values: ["foo"] }],
+        [{ column: "e", operator: "in", values: ["bar", "foo"] }],
+      ]),
+    ).toEqual([{ column: "e", operator: "in", values: ["foo", "bar"] }]);
+  });
+
+  it("subtracts includes from the intersection of excludes", () => {
+    expect(
+      collapsePartitionKeyFilters([
+        [{ column: "e", operator: "not_in", values: ["Page View", "Ping"] }],
+        [{ column: "e", operator: "=", values: ["Page View"] }],
+      ]),
+    ).toEqual([{ column: "e", operator: "not_in", values: ["Ping"] }]);
+    expect(
+      collapsePartitionKeyFilters([
+        [{ column: "e", operator: "not_in", values: ["a", "b"] }],
+        [{ column: "e", operator: "!=", values: ["b"] }],
+      ]),
+    ).toEqual([{ column: "e", operator: "not_in", values: ["b"] }]);
+  });
+
+  it("returns an empty group when nothing remains excluded", () => {
+    expect(
+      collapsePartitionKeyFilters([
+        [{ column: "e", operator: "!=", values: ["a"] }],
+        [{ column: "e", operator: "=", values: ["a"] }],
+      ]),
+    ).toEqual([]);
+  });
+
+  it("returns null when groups cannot collapse", () => {
+    // two filters in one group
+    expect(
+      collapsePartitionKeyFilters([
+        [
+          { column: "e", operator: "=", values: ["a"] },
+          { column: "d", operator: "=", values: ["b"] },
+        ],
+        [{ column: "e", operator: "=", values: ["c"] }],
+      ]),
+    ).toBeNull();
+    // different columns
+    expect(
+      collapsePartitionKeyFilters([
+        [{ column: "e", operator: "=", values: ["a"] }],
+        [{ column: "d", operator: "=", values: ["b"] }],
+      ]),
+    ).toBeNull();
+    // non-set operator
+    expect(
+      collapsePartitionKeyFilters([
+        [{ column: "e", operator: "starts_with", values: ["a"] }],
+        [{ column: "e", operator: "=", values: ["b"] }],
+      ]),
+    ).toBeNull();
+    // raw sql
+    expect(
+      collapsePartitionKeyFilters([
+        [{ operator: "sql_expr", values: ["e = 'a'"] }],
+        [{ column: "e", operator: "=", values: ["b"] }],
+      ]),
+    ).toBeNull();
+  });
+});
+
+describe("buildMetricPushdownCondition", () => {
+  const compile = (filters: RowFilter[]) =>
+    filters.map((f) =>
+      f.operator === "sql_expr"
+        ? `(${f.values?.[0]})`
+        : `${f.column} ${f.operator} (${(f.values ?? []).map((v) => `'${v}'`).join(", ")})`,
+    );
+  const noSaved = () => undefined;
+
+  it("collapses to one IN on the partition column", () => {
+    expect(
+      buildMetricPushdownCondition({
+        compiledGroups: [["e = ('foo')"], ["e = ('bar')", "d = ('mobile')"]],
+        rowFilterGroups: [
+          [{ column: "e", operator: "=", values: ["foo"] }],
+          [
+            { column: "e", operator: "=", values: ["bar"] },
+            { column: "d", operator: "=", values: ["mobile"] },
+          ],
+        ],
+        partitionColumns: ["e"],
+        savedFilterSql: noSaved,
+        compile,
+      }),
+    ).toBe("e in ('foo', 'bar')");
+  });
+
+  it("ORs projected groups with two partition columns", () => {
+    expect(
+      buildMetricPushdownCondition({
+        compiledGroups: [],
+        rowFilterGroups: [
+          [
+            { column: "c1", operator: "=", values: ["a"] },
+            { column: "c2", operator: "=", values: ["b"] },
+            { column: "x", operator: "=", values: ["y"] },
+          ],
+          [{ column: "c1", operator: "=", values: ["c"] }],
+        ],
+        partitionColumns: ["c1", "c2"],
+        savedFilterSql: noSaved,
+        compile,
+      }),
+    ).toBe("((c1 = ('a') AND c2 = ('b'))\nOR\nc1 = ('c'))");
+  });
+
+  it("emits nothing when the collapsed exclusion is empty", () => {
+    expect(
+      buildMetricPushdownCondition({
+        compiledGroups: [["e != ('a')"], ["e = ('a')"]],
+        rowFilterGroups: [
+          [{ column: "e", operator: "!=", values: ["a"] }],
+          [{ column: "e", operator: "=", values: ["a"] }],
+        ],
+        partitionColumns: ["e"],
+        savedFilterSql: noSaved,
+        compile,
+      }),
+    ).toBe("");
+  });
+
+  it("falls back to the exact OR without partition columns or when a group is unconstrained", () => {
+    const compiledGroups = [["A"], ["B", "C"]];
+    expect(
+      buildMetricPushdownCondition({
+        compiledGroups,
+        rowFilterGroups: [[{ column: "e", operator: "=", values: ["a"] }], []],
+        partitionColumns: [],
+        savedFilterSql: noSaved,
+        compile,
+      }),
+    ).toBe("(A\nOR\n(B AND C))");
+    expect(
+      buildMetricPushdownCondition({
+        compiledGroups,
+        rowFilterGroups: [
+          [{ column: "e", operator: "=", values: ["a"] }],
+          [{ column: "d", operator: "=", values: ["b"] }],
+        ],
+        partitionColumns: ["e"],
+        savedFilterSql: noSaved,
+        compile,
+      }),
+    ).toBe("(A\nOR\n(B AND C))");
+  });
 });

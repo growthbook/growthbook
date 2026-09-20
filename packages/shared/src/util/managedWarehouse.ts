@@ -754,6 +754,7 @@ export type ManagedWarehouseFactColumn = {
   column: string;
   datatype: FactTableColumnType;
   alwaysInlineFilter?: boolean;
+  isPartitionKey?: boolean;
   jsonFields?: JSONColumnFields;
 };
 
@@ -765,7 +766,14 @@ const MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS: ManagedWarehouseFactColumn[] = [
   { column: "device_id", datatype: "string" },
   { column: "properties", datatype: "json" },
   { column: "attributes", datatype: "json" },
-  { column: "event_name", datatype: "string", alwaysInlineFilter: true },
+  // event_name leads the per-org table's ORDER BY, so scan-level WHERE clauses
+  // collapse onto it (see buildMetricPushdownCondition).
+  {
+    column: "event_name",
+    datatype: "string",
+    alwaysInlineFilter: true,
+    isPartitionKey: true,
+  },
   { column: "client_key", datatype: "string" },
   { column: "environment", datatype: "string" },
   { column: "sdk_language", datatype: "string" },

@@ -58,6 +58,10 @@ export interface ColumnInterface {
   dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
+  // Part of the underlying table's partition / ordering key. Multi-metric
+  // scans collapse their WHERE onto these columns; see
+  // buildMetricPushdownCondition in shared/sql.
+  isPartitionKey?: boolean;
   topValues?: string[];
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;

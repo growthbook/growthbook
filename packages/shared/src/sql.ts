@@ -7,6 +7,7 @@ import {
   StringMatchFn,
 } from "../types/sql";
 import { FormatError } from "../types/error";
+import type { FactTableInterface, RowFilter } from "../types/fact-table";
 import { parseEnvInt } from "./util/numbers";
 
 /** Escaping and LIKE-clause behavior for one dialect. Shared by the string-match
@@ -513,16 +514,166 @@ export function buildMinimalOrCondition(
     }
   }
 
-  const clauses: string[] = [];
-  for (let i = 0; i < cleanGroups.length; i++) {
-    if (dominated.has(i)) continue;
-    const parts = cleanGroups[i];
-    clauses.push(parts.length === 1 ? parts[0] : `(${parts.join(" AND ")})`);
+  const remaining = cleanGroups.filter((_, i) => !dominated.has(i));
+
+  // Factor out conditions shared by every remaining group so a filter common
+  // to all metrics (e.g. a fact table's default filter) is emitted once,
+  // outside the OR, where a query planner can use it directly.
+  if (remaining.length > 1) {
+    const common = remaining[0].filter((f) =>
+      remaining.every((g) => g.includes(f)),
+    );
+    if (common.length) {
+      const rests = remaining.map((g) => g.filter((f) => !common.includes(f)));
+      // Dominance removal above guarantees no rest is empty (an empty rest
+      // would mean that group subsumes every other), but guard anyway.
+      const orPart = rests.some((r) => !r.length) ? "" : joinOr(rests);
+      const parts = orPart ? [...common, orPart] : common;
+      return parts.length === 1 ? parts[0] : `(${parts.join(" AND ")})`;
+    }
   }
 
+  return joinOr(remaining);
+}
+
+function joinOr(groups: string[][]): string {
+  const clauses = groups.map((parts) =>
+    parts.length === 1 ? parts[0] : `(${parts.join(" AND ")})`,
+  );
   if (clauses.length === 0) return "";
   if (clauses.length === 1) return clauses[0];
   return `(${clauses.join("\nOR\n")})`;
+}
+
+// Operators whose values name a set of partition-key members, so groups on the
+// same column can collapse to one IN / NOT IN.
+const SET_OPERATORS = new Set(["=", "in", "!=", "not_in"]);
+
+function mentionsColumn(sql: string | undefined, columns: string[]): boolean {
+  if (!sql) return false;
+  const lower = sql.toLowerCase();
+  return columns.some((c) => lower.includes(c.toLowerCase()));
+}
+
+/**
+ * Keep, per group, only the row filters that constrain a partition (or
+ * ordering) key column. Dropping conjuncts from a conjunction only widens it,
+ * so the OR of the projected groups is a superset of every metric's rows —
+ * safe as a scan-level pre-filter while per-metric CASE WHENs keep results
+ * exact. Raw SQL filters (sql_expr / saved_filter) are kept when their text
+ * mentions a partition column: a false positive is harmless noise, a miss
+ * would kill the pushdown for the whole query.
+ *
+ * Returns null when any group has nothing left (that metric is unconstrained
+ * on the key, so no key-level pushdown is possible).
+ */
+export function projectFiltersOntoPartitionKey(
+  groups: RowFilter[][],
+  partitionColumns: string[],
+  savedFilterSql: (id: string) => string | undefined,
+): RowFilter[][] | null {
+  if (!partitionColumns.length || !groups.length) return null;
+  const projected: RowFilter[][] = [];
+  for (const group of groups) {
+    const kept = group.filter((f) => {
+      if (f.operator === "sql_expr") {
+        return mentionsColumn(f.values?.[0], partitionColumns);
+      }
+      if (f.operator === "saved_filter") {
+        return mentionsColumn(
+          savedFilterSql(f.values?.[0] ?? ""),
+          partitionColumns,
+        );
+      }
+      return !!f.column && partitionColumns.includes(f.column);
+    });
+    if (!kept.length) return null;
+    projected.push(kept);
+  }
+  return projected;
+}
+
+/**
+ * When every projected group is a single =/in/!=/not_in filter on the same
+ * column, replace the OR with set math: all includes → `col IN (∪)`; any
+ * exclude → `col NOT IN (∩ excludes − ∪ includes)`.
+ *
+ * Returns the collapsed filter as a one-element group, an empty group when
+ * the result imposes no constraint, or null when the groups can't collapse
+ * (caller falls back to OR-ing the projected groups).
+ */
+export function collapsePartitionKeyFilters(
+  groups: RowFilter[][],
+): RowFilter[] | null {
+  if (!groups.length) return null;
+  const column = groups[0][0]?.column;
+  if (!column) return null;
+  const includes = new Set<string>();
+  const excludeSets: Set<string>[] = [];
+  for (const group of groups) {
+    const f = group[0];
+    if (
+      group.length !== 1 ||
+      f.column !== column ||
+      !SET_OPERATORS.has(f.operator) ||
+      !f.values?.length
+    ) {
+      return null;
+    }
+    if (f.operator === "=" || f.operator === "in") {
+      f.values.forEach((v) => includes.add(v));
+    } else {
+      excludeSets.push(new Set(f.values));
+    }
+  }
+  if (!excludeSets.length) {
+    return [{ column, operator: "in", values: [...includes] }];
+  }
+  const values = [...excludeSets[0]].filter(
+    (v) => excludeSets.every((s) => s.has(v)) && !includes.has(v),
+  );
+  return values.length ? [{ column, operator: "not_in", values }] : [];
+}
+
+export function getFactTablePartitionColumns(
+  factTable: Pick<FactTableInterface, "columns">,
+): string[] {
+  return factTable.columns
+    .filter((c) => c.isPartitionKey && !c.deleted)
+    .map((c) => c.column);
+}
+
+/**
+ * Scan-level WHERE for a shared fact table read by several metrics. With
+ * partition columns configured and every group constraining one, emits the
+ * key-only projection (collapsed to IN / NOT IN when possible) instead of the
+ * exact OR of every metric's full filter list, which planners struggle to use.
+ */
+export function buildMetricPushdownCondition({
+  compiledGroups,
+  rowFilterGroups,
+  partitionColumns,
+  savedFilterSql,
+  compile,
+}: {
+  compiledGroups: (string | null)[][];
+  rowFilterGroups: RowFilter[][];
+  partitionColumns: string[];
+  savedFilterSql: (id: string) => string | undefined;
+  compile: (filters: RowFilter[]) => (string | null)[];
+}): string {
+  const projected = projectFiltersOntoPartitionKey(
+    rowFilterGroups,
+    partitionColumns,
+    savedFilterSql,
+  );
+  if (projected) {
+    const collapsed = collapsePartitionKeyFilters(projected);
+    return buildMinimalOrCondition(
+      (collapsed ? [collapsed] : projected).map(compile),
+    );
+  }
+  return buildMinimalOrCondition(compiledGroups);
 }
 
 function isSubsetOf(a: Set<string>, b: Set<string>): boolean {

@@ -91,6 +91,7 @@ export const createColumnPropsValidator = z
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    isPartitionKey: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
@@ -127,6 +128,7 @@ export const updateColumnPropsValidator = z
     datatype: factTableColumnTypeValidator.optional(),
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    isPartitionKey: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
     isAutoSliceColumn: z.boolean().optional(),
@@ -596,6 +598,12 @@ export const apiFactTableColumnValidator = namedSchema(
         .boolean()
         .describe(
           "Whether this column should always be included as an inline filter in queries",
+        )
+        .optional(),
+      isPartitionKey: z
+        .boolean()
+        .describe(
+          "Whether this column is part of the underlying table's partition or ordering key. Generated queries that read several metrics from this fact table collapse their scan-level WHERE clause onto these columns (e.g. `event_name IN (...)`) so the warehouse can prune.",
         )
         .optional()
         .meta({ default: false }),
