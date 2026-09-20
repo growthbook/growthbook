@@ -165,6 +165,7 @@ describe("syncManagedWarehouseIdentifiers", () => {
         ...(c.alwaysInlineFilter
           ? { alwaysInlineFilter: c.alwaysInlineFilter }
           : {}),
+        ...(c.isPartitionKey ? { isPartitionKey: c.isPartitionKey } : {}),
         ...(c.jsonFields ? { jsonFields: c.jsonFields } : {}),
       }),
     );
@@ -263,6 +264,24 @@ describe("syncManagedWarehouseIdentifiers", () => {
     await syncManagedWarehouseIdentifiers(context, schema);
 
     expect(mockSyncFactTable).not.toHaveBeenCalled();
+  });
+
+  it("backfills the partition-key flag on event_name", async () => {
+    const schema: SDKAttributeSchema = [];
+    mockGetFactTableById.mockResolvedValue(
+      makeManagedFactTable(schema, (cols) => {
+        const eventName = cols.find((c) => c.column === "event_name");
+        if (eventName) delete eventName.isPartitionKey;
+      }),
+    );
+
+    await syncManagedWarehouseIdentifiers(context, schema);
+
+    expect(mockSyncFactTable).toHaveBeenCalledTimes(1);
+    const written = mockSyncFactTable.mock.calls[0][2].columns.find(
+      (c: ColumnInterface) => c.column === "event_name",
+    );
+    expect(written?.isPartitionKey).toBe(true);
   });
 
   it("no-ops for legacy (materialized-column) warehouses", async () => {
