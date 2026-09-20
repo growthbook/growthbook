@@ -2622,6 +2622,9 @@ li.metrics a span img {
     justify-content: center;
     width: 32px;
     height: 32px;
+    // The control around it is a percentage of the slide, so in a narrow
+    // column it would otherwise squash the circle into an ellipse.
+    flex-shrink: 0;
     border-radius: 50%;
     background-image: none;
     background-color: var(--slate-a5);

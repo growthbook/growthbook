@@ -80,3 +80,15 @@
   color: var(--color-text-low);
   white-space: nowrap;
 }
+
+// Slim: a bare allocation bar with its percentages above it, for sitting
+// directly on top of the thing the split describes.
+.bar_holder_slim {
+  height: 8px;
+  border-radius: 9999px;
+}
+
+.labels_row_above {
+  margin-top: 0;
+  margin-bottom: 6px;
+}

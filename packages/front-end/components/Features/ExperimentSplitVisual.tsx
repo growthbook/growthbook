@@ -25,6 +25,8 @@ export interface Props {
   type: FeatureValueType;
   stackLeft?: boolean;
   showPercentages?: boolean;
+  /** A bare bar with its percentages above it, and no heading. */
+  slim?: boolean;
 }
 export default function ExperimentSplitVisual({
   label = "Traffic split preview",
@@ -35,6 +37,7 @@ export default function ExperimentSplitVisual({
   type,
   stackLeft = false,
   showPercentages = true,
+  slim = false,
 }: Props) {
   const totalWeights = parseFloat(
     values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(3),
@@ -59,6 +62,26 @@ export default function ExperimentSplitVisual({
     };
   });
 
+  const labelsRow = showPercentages ? (
+    <div className={clsx(styles.labels_row, slim && styles.labels_row_above)}>
+      {segments.map(({ i, left, width, name }) => (
+        <span
+          key={i}
+          className={styles.segmentLabel}
+          style={{ left: left + width / 2 + "%" }}
+        >
+          {parseFloat(width.toPrecision(4)) + "%"}
+          {showValues && (
+            <>
+              {" "}
+              - <strong>{name}</strong>
+            </>
+          )}
+        </span>
+      ))}
+    </div>
+  ) : null;
+
   return (
     <Box>
       {totalWeights !== 1 ? (
@@ -66,26 +89,35 @@ export default function ExperimentSplitVisual({
           Please adjust weights to sum to 100%.
         </Callout>
       ) : null}
-      <Flex align="center" gap="4">
-        <Box flexGrow="1">
-          <Text size="md" weight="medium">
-            {label}
-          </Text>{" "}
-          <Text as="span" size="md" color="text-low">
-            ({percentFormatter.format(coverageVal)} included)
-          </Text>
-        </Box>
-        {coverage < 1 && (
-          <Flex align="center" gap="2">
-            <Box className={styles.legend_box} />
-            <Text size="sm" color="text-mid">
-              {unallocated}
+      {slim ? null : (
+        <Flex align="center" gap="4">
+          <Box flexGrow="1">
+            <Text size="md" weight="medium">
+              {label}
+            </Text>{" "}
+            <Text as="span" size="md" color="text-low">
+              ({percentFormatter.format(coverageVal)} included)
             </Text>
-          </Flex>
-        )}
-      </Flex>
+          </Box>
+          {coverage < 1 && (
+            <Flex align="center" gap="2">
+              <Box className={styles.legend_box} />
+              <Text size="sm" color="text-mid">
+                {unallocated}
+              </Text>
+            </Flex>
+          )}
+        </Flex>
+      )}
       <Box className={styles.bar_wrapper}>
-        <div className={clsx(styles.bar_holder, "d-flex flex-row")}>
+        {slim ? labelsRow : null}
+        <div
+          className={clsx(
+            styles.bar_holder,
+            slim && styles.bar_holder_slim,
+            "d-flex flex-row",
+          )}
+        >
           {segments.map(({ i, left, width, gap, name }) => {
             const additionalStyles: CSSProperties = {
               width: width + "%",
@@ -120,25 +152,7 @@ export default function ExperimentSplitVisual({
             );
           })}
         </div>
-        {showPercentages && (
-          <div className={styles.labels_row}>
-            {segments.map(({ i, left, width, name }) => (
-              <span
-                key={i}
-                className={styles.segmentLabel}
-                style={{ left: left + width / 2 + "%" }}
-              >
-                {parseFloat(width.toPrecision(4)) + "%"}
-                {showValues && (
-                  <>
-                    {" "}
-                    - <strong>{name}</strong>
-                  </>
-                )}
-              </span>
-            ))}
-          </div>
-        )}
+        {slim ? null : labelsRow}
       </Box>
     </Box>
   );

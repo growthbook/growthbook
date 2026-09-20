@@ -24,6 +24,7 @@ import {
 import { PiCaretDownBold, PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import ExperimentSplitVisual from "@/components/Features/ExperimentSplitVisual";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
@@ -357,7 +358,8 @@ export default function TrafficAllocationFunnel({
   const includedLabel = namespaceCoverage
     ? `${percentFormatter.format(namespaceCoverage)} traffic included`
     : undefined;
-  const numVariations = getLatestPhaseVariations(experiment).length;
+  const phaseVariations = getLatestPhaseVariations(experiment);
+  const numVariations = phaseVariations.length;
 
   return (
     <Frame style={{ backgroundColor: "var(--gray-a2)" }}>
@@ -569,10 +571,28 @@ export default function TrafficAllocationFunnel({
         </Flex>
         {!isHoldout && (
           <>
-            <VariationFork
-              count={numVariations}
-              label={`${isBandit ? "" : "% Split"}`}
-            />
+            {isBandit ? (
+              <VariationFork count={numVariations} />
+            ) : (
+              <Box pb="4">
+                <Flex direction="column" align="center" mb="2">
+                  <Box className={styles.connectorLine} height="12px" />
+                </Flex>
+                {/* Coverage is already shown above, so this bar is purely the
+                    split between variations. */}
+                <ExperimentSplitVisual
+                  slim
+                  coverage={1}
+                  stackLeft
+                  type="string"
+                  values={phaseVariations.map((v, i) => ({
+                    value: v.key,
+                    weight: phase?.variationWeights?.[i] ?? 0,
+                    name: v.name,
+                  }))}
+                />
+              </Box>
+            )}
 
             <VariationsTable
               experiment={experiment}
@@ -580,6 +600,7 @@ export default function TrafficAllocationFunnel({
               mutate={mutate}
               noMargin
               centered
+              showSplit={false}
               onEditMetadata={
                 canEditExperiment && setEditVariationIndex
                   ? (index) => setEditVariationIndex(index)

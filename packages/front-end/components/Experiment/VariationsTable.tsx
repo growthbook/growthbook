@@ -137,6 +137,8 @@ interface Props {
   allowImages?: boolean;
   mutate?: () => void;
   noMargin?: boolean;
+  /** Defaults to hidden for bandits. Pass false where the split is shown elsewhere. */
+  showSplit?: boolean;
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";
@@ -454,6 +456,7 @@ const VariationsTable: FC<Props> = ({
   canEditExperiment,
   allowImages = true,
   noMargin = false,
+  showSplit,
   mutate,
   isPublic = false,
   shareUid,
@@ -529,6 +532,7 @@ const VariationsTable: FC<Props> = ({
               }}
               mutate={mutate}
               percent={percentages?.[i]}
+              showSplit={showSplit}
               isPublic={isPublic}
               shareUid={shareUid}
               shareType={shareType}
