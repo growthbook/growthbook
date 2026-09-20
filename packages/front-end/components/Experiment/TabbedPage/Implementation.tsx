@@ -203,7 +203,7 @@ export default function Implementation({
         />
       )}
       <div className="my-4">
-        <Heading as="h2" size="lg" color="text-high" mb="2">
+        <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation
         </Heading>
         {showTrafficFunnel ? (

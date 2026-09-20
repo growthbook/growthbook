@@ -26,6 +26,8 @@ export interface Props {
   setShowEditInfoModal: (value: boolean) => void;
   setEditInfoFocusSelector: (value: FocusSelector) => void;
   editTags?: (() => void) | null;
+  /** Stack the fields for the side panel instead of the header's wrapping row. */
+  vertical?: boolean;
 }
 
 export default function ProjectTagBar({
@@ -35,6 +37,7 @@ export default function ProjectTagBar({
   setEditInfoFocusSelector,
   editTags,
   isManaged,
+  vertical,
 }: Props) {
   const {
     projects,
@@ -235,9 +238,17 @@ export default function ProjectTagBar({
 
   const renderProject = () => {
     return (projects.length > 0 || projectIsDeReferenced) && !holdout ? (
-      <Metadata label="Project" value={renderProjectMetaDataValue()} />
+      <Metadata
+        stacked={vertical}
+        label="Project"
+        value={renderProjectMetaDataValue()}
+      />
     ) : holdout ? (
-      <Metadata label="Projects" value={renderHoldoutProjectMetaDataValue()} />
+      <Metadata
+        stacked={vertical}
+        label="Projects"
+        value={renderHoldoutProjectMetaDataValue()}
+      />
     ) : null;
   };
   const renderTagsValue = () => {
@@ -262,14 +273,26 @@ export default function ProjectTagBar({
             +Add
           </Link>
         )}
+        {!editTags && experiment.tags?.length === 0 && (
+          <Text weight="regular" color="text-mid">
+            None
+          </Text>
+        )}
       </Flex>
     );
   };
   return (
-    <div className="pb-3">
-      <Flex gap="3" mt="2" mb="1" wrap="wrap">
+    <div className={vertical ? undefined : "pb-3"}>
+      <Flex
+        direction={vertical ? "column" : "row"}
+        gap={vertical ? "4" : "3"}
+        mt={vertical ? "0" : "2"}
+        mb={vertical ? "0" : "1"}
+        wrap={vertical ? "nowrap" : "wrap"}
+      >
         {experiment.holdoutId && (
           <Metadata
+            stacked={vertical}
             label="Holdout"
             value={
               <Link href={`/holdout/${experiment.holdoutId}`}>
@@ -280,10 +303,15 @@ export default function ProjectTagBar({
         )}
         {renderProject()}
         {experiment.type !== "holdout" && (
-          <Metadata label="Experiment Key" value={trackingKey || "None"} />
+          <Metadata
+            stacked={vertical}
+            label="Experiment Key"
+            value={trackingKey || "None"}
+          />
         )}
         {experiment.type !== "holdout" && (
           <Metadata
+            stacked={vertical}
             label="Implementation"
             value={
               implementationType
@@ -292,10 +320,11 @@ export default function ProjectTagBar({
             }
           />
         )}
-        <Metadata label="Owner" value={renderOwner()} />
-        <Metadata label="Created" value={createdDate} />
+        <Metadata stacked={vertical} label="Owner" value={renderOwner()} />
+        <Metadata stacked={vertical} label="Created" value={createdDate} />
         {showRuntime && (
           <Metadata
+            stacked={vertical}
             label={
               hasMultiplePhases && experiment.type !== "holdout"
                 ? "Latest Phase"
@@ -310,12 +339,21 @@ export default function ProjectTagBar({
             }
           />
         )}
+        {vertical && (
+          <Metadata stacked={vertical} label="Tags" value={renderTagsValue()} />
+        )}
       </Flex>
-      <div className="row mt-2">
-        <div className="col-auto">
-          <Metadata label="Tags" value={renderTagsValue()} />
+      {!vertical && (
+        <div className="row mt-2">
+          <div className="col-auto">
+            <Metadata
+              stacked={vertical}
+              label="Tags"
+              value={renderTagsValue()}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

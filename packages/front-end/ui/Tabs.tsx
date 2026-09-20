@@ -11,6 +11,7 @@ import {
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
 import { radixSize, Size } from "@/ui/sizes";
+import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 
 /**
  * See more examples in design-system/index.tsx
@@ -144,7 +145,6 @@ type StickyTabsListProps = { pinnedClass?: string } & TabsListProps;
 export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
   function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
     // NB: Keep in sync with .experiment-tabs top property in global.scss
-    const TABS_HEADER_HEIGHT_PX = 55;
     const tabsRef = useRef<HTMLDivElement>(null);
     const [headerPinned, setHeaderPinned] = useState(false);
 

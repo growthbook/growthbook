@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiPlus } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import {
@@ -16,6 +17,7 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import Metadata from "@/ui/Metadata";
 import CustomFieldEditModal, {
   CustomFieldDraftInfo,
 } from "./CustomFieldEditModal";
@@ -30,6 +32,13 @@ const CustomFieldDisplay: FC<{
   mt?: "1" | "2" | "3" | "4" | "5" | "6";
   /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
   draftInfo?: CustomFieldDraftInfo;
+  /**
+   * With every field empty, collapse to a "+ {label}" button. A required field
+   * is always shown, so it can't be missed behind the button.
+   */
+  collapseWhenEmpty?: boolean;
+  /** Label above each value, to sit alongside other metadata in a narrow column. */
+  stacked?: boolean;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -39,6 +48,8 @@ const CustomFieldDisplay: FC<{
   target,
   mt,
   draftInfo,
+  collapseWhenEmpty,
+  stacked,
 }) => {
   const [editModal, setEditModal] = useState(false);
 
@@ -63,6 +74,18 @@ const CustomFieldDisplay: FC<{
       cValue ?? "",
     ]),
   );
+  const hasAnyValue = customFields.some((v) => {
+    const cValue = currentValueMap.get(v.id);
+    return typeof cValue === "boolean" ? true : !!String(cValue ?? "").trim();
+  });
+  // Stacked mode gives every field its own row with its own "+Add", matching
+  // the metadata beside it, so there is nothing to collapse behind a button.
+  const showAddButton =
+    !stacked &&
+    !!collapseWhenEmpty &&
+    !hasAnyValue &&
+    !customFields.some((v) => v.required);
+
   const getMultiSelectValue = (value: string) => {
     try {
       return JSON.parse(value).join(", ");
@@ -125,11 +148,72 @@ const CustomFieldDisplay: FC<{
     });
   });
 
+  if (showAddButton) {
+    return canEdit ? (
+      <>
+        {editModal && (
+          <CustomFieldEditModal
+            section={section}
+            target={target}
+            close={() => setEditModal(false)}
+            mutate={mutate}
+            draftInfo={draftInfo}
+          />
+        )}
+        <Box py="1">
+          <Link onClick={() => setEditModal(true)}>
+            <Flex align="center" gap="1">
+              <PiPlus size="15" />
+              <Text weight="semibold">{label}</Text>
+            </Flex>
+          </Link>
+        </Box>
+      </>
+    ) : null;
+  }
+
   const editLink = canEdit ? (
     <Link onClick={() => setEditModal(true)}>
       <Text weight="semibold">Edit</Text>
     </Link>
   ) : null;
+
+  const editModalNode = editModal ? (
+    <CustomFieldEditModal
+      section={section}
+      target={target}
+      close={() => setEditModal(false)}
+      mutate={mutate}
+      draftInfo={draftInfo}
+    />
+  ) : null;
+
+  if (stacked) {
+    return (
+      <>
+        {editModalNode}
+        <Flex direction="column" gap="4">
+          {customFields.map((field) => {
+            const value = currentValueMap.get(field.id) ?? "";
+            return (
+              <Metadata
+                stacked
+                key={field.id}
+                label={field.name}
+                value={
+                  value === "" && canEdit ? (
+                    <Link onClick={() => setEditModal(true)}>+Add</Link>
+                  ) : (
+                    getDisplayValue(field, value)
+                  )
+                }
+              />
+            );
+          })}
+        </Flex>
+      </>
+    );
+  }
 
   return (
     <>

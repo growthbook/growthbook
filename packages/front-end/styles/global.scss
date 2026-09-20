@@ -72,8 +72,13 @@ body {
 .contents {
   padding: 15px;
 }
+:root {
+  // Otherwise things start to look odd when very wide. Read from TS too, by
+  // anything that has to size a frame around page content.
+  --page-content-max-width: 1340px;
+}
 .pagecontents {
-  max-width: 1340px; /* add otherwise things start to look odd when very wide */
+  max-width: var(--page-content-max-width);
 }
 pre {
   font-size: 100%;
@@ -526,18 +531,28 @@ pre {
 .public.experiment,
 .public.bandit,
 .public.holdout {
+  background-color: var(--color-panel-solid);
   .experiment-header {
     .border {
       border-bottom: 1px solid var(--border-color-200);
     }
   }
   .experiment-tabs {
-    background-color: var(--color-background);
+    // Sticky, so it has to match the page it scrolls over.
+    background-color: var(--color-panel-solid);
     // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
     // also, make sure shared reports & shared experiments look good
     top: 55px;
     height: 40px;
     transition: 150ms all;
+    // The underline belongs to the whole row so it runs past the tab list and
+    // under the buttons beside it.
+    .header-tabs.has-tab-actions {
+      box-shadow: inset 0 -1px 0 0 var(--gray-a5);
+      .rt-BaseTabList {
+        box-shadow: none;
+      }
+    }
     .header-tabs {
       flex-wrap: nowrap;
       .date-dropdown {
@@ -584,8 +599,8 @@ pre {
       box-shadow:
         0 1px 2px rgba(0, 0, 0, 0.1),
         0 4px 4px rgba(0, 0, 0, 0.025);
-      .header-tabs .tab-wrapper {
-        overflow: hidden;
+      .header-tabs.has-tab-actions {
+        box-shadow: none;
       }
       .rt-BaseTabList {
         box-shadow: none !important;

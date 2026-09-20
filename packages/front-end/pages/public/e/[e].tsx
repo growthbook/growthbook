@@ -20,6 +20,7 @@ import {ExperimentTab} from "@/components/Experiment/TabbedPage";
 import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
 import PublicExperimentResults from "@/components/Experiment/Public/PublicExperimentResults";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
+import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 
 export async function getServerSideProps(context) {
   const { e } = context.params;
@@ -67,7 +68,6 @@ interface PublicExperimentPageProps {
   ssrData: ExperimentReportSSRData | null;
 }
 
-const TABS_HEADER_HEIGHT_PX = 55;
 
 export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const { userId, organization: userOrganization, superAdmin} = useUser();

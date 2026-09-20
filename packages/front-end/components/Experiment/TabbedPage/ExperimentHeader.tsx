@@ -22,7 +22,13 @@ import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCheck, PiEye, PiLink, PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiCheck,
+  PiEye,
+  PiLink,
+  PiPencilSimpleFill,
+  PiSidebarSimple,
+} from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
@@ -32,6 +38,7 @@ import {
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
@@ -78,18 +85,16 @@ import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
-import ProjectTagBar from "./ProjectTagBar";
-import EditExperimentInfoModal, {
-  FocusSelector,
-} from "./EditExperimentInfoModal";
+import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import EditHoldoutInfoModal from "./EditHoldoutInfoModal";
 import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
   setTab: (tab: ExperimentTab, scrollToId?: string) => void;
+  detailsOpen?: boolean;
+  setDetailsOpen?: (open: boolean) => void;
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
   mutate: () => void;
@@ -103,7 +108,6 @@ export interface Props {
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
-  editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -142,7 +146,6 @@ const DisabledHealthTabTooltip = ({
 };
 
 // NB: Keep in sync with .experiment-tabs top property in global.scss
-const TABS_HEADER_HEIGHT_PX = 55;
 
 type ShareLevel = "public" | "organization";
 const SAVE_SETTING_TIMEOUT_MS = 3000;
@@ -150,6 +153,8 @@ const SAVE_SETTING_TIMEOUT_MS = 3000;
 export default function ExperimentHeader({
   tab,
   setTab,
+  detailsOpen,
+  setDetailsOpen,
   experiment,
   envs,
   mutate,
@@ -163,7 +168,6 @@ export default function ExperimentHeader({
   editTargeting,
   newPhase,
   editPhases,
-  editTags,
   healthNotificationCount,
   linkedFeatures,
   visualChangesets,
@@ -298,9 +302,6 @@ export default function ExperimentHeader({
   ];
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
-  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
-  const [editInfoFocusSelector, setEditInfoFocusSelector] =
-    useState<FocusSelector>("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAddToHoldoutModal, setShowAddToHoldoutModal] = useState(false);
   const [showRemoveFromHoldoutModal, setShowRemoveFromHoldoutModal] =
@@ -404,9 +405,7 @@ export default function ExperimentHeader({
   );
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
-  const shouldHideTabs =
-    (experiment.status === "draft" && !hasResults && phases.length === 1) ||
-    showDashboardView;
+  const shouldHideTabs = showDashboardView;
 
   useEffect(() => {
     if (shouldHideTabs) return;
@@ -625,23 +624,6 @@ export default function ExperimentHeader({
 
   return (
     <>
-      {showEditInfoModal && !isHoldout ? (
-        <EditExperimentInfoModal
-          experiment={experiment}
-          setShowEditInfoModal={setShowEditInfoModal}
-          mutate={mutate}
-          focusSelector={editInfoFocusSelector}
-        />
-      ) : null}
-      {showEditInfoModal && isHoldout && holdout ? (
-        <EditHoldoutInfoModal
-          experiment={experiment}
-          holdout={holdout}
-          setShowEditInfoModal={setShowEditInfoModal}
-          mutate={mutate}
-          focusSelector={editInfoFocusSelector}
-        />
-      ) : null}
       {showSdkForm && (
         <InitialSDKConnectionForm
           close={() => setShowSdkForm(false)}
@@ -999,11 +981,7 @@ export default function ExperimentHeader({
         />
       ) : null}
 
-      <div
-        className={
-          "container-fluid pagecontents position-relative px-3 pt-3 pb-0"
-        }
-      >
+      <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-0">
         <Flex direction="row" align="start" justify="between" gap="5">
           <Flex align="center" gap="2">
             <Heading
@@ -1115,16 +1093,6 @@ export default function ExperimentHeader({
               menuPlacement="end"
             >
               <DropdownMenuGroup>
-                {canEditExperiment ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setEditInfoFocusSelector("name");
-                      setShowEditInfoModal(true);
-                    }}
-                  >
-                    Edit info
-                  </DropdownMenuItem>
-                ) : null}
                 {canRunExperiment &&
                   !isBandit &&
                   !isHoldout &&
@@ -1415,16 +1383,6 @@ export default function ExperimentHeader({
             </DropdownMenu>
           </Flex>
         </Flex>
-        <ProjectTagBar
-          experiment={experiment}
-          holdout={holdout}
-          setShowEditInfoModal={setShowEditInfoModal}
-          setEditInfoFocusSelector={setEditInfoFocusSelector}
-          editTags={editTags}
-          isManaged={linkedFeatures.some((f) =>
-            isManagedByExperiment(f.feature, experiment.id),
-          )}
-        />
 
         {runningExperimentDecisionBanner ? (
           <Box pt="1" pb="1">
@@ -1455,22 +1413,22 @@ export default function ExperimentHeader({
               pinned: headerPinned,
             })}
           >
-            <div className="position-relative container-fluid pagecontents px-3">
-              <div className="d-flex header-tabs">
+            <div className="position-relative container-fluid pagecontents px-4">
+              <div className="d-flex align-items-center header-tabs has-tab-actions">
                 <Tabs
                   value={tab}
                   onValueChange={setTab}
-                  style={{ width: "100%" }}
+                  style={{ flex: 1, minWidth: 0 }}
                 >
                   <TabsList size="lg">
                     <Flex align="center" className="flex-1">
-                      <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="overview">Setup</TabsTrigger>
                       <TabsTrigger value="results">Results</TabsTrigger>
                       {isBandit ? (
                         <TabsTrigger value="explore">Explore</TabsTrigger>
                       ) : null}
                       {!isBandit && !isHoldout && (
-                        <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
+                        <TabsTrigger value="dashboards">Dashboard</TabsTrigger>
                       )}
                       {disableHealthTab ? (
                         <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
@@ -1512,6 +1470,34 @@ export default function ExperimentHeader({
                     </Flex>
                   </TabsList>
                 </Tabs>
+                {setDetailsOpen ? (
+                  <UITooltip
+                    content={detailsOpen ? "Hide details" : "Show details"}
+                  >
+                    <IconButton
+                      size="1"
+                      variant="ghost"
+                      color={detailsOpen ? undefined : "gray"}
+                      style={{
+                        // Ghost sizes itself from its padding; pin the box so
+                        // the toggle does not shift as it flips.
+                        margin: 0,
+                        marginLeft: "var(--space-3)",
+                        padding: 0,
+                        width: "var(--space-5)",
+                        height: "var(--space-5)",
+                      }}
+                      aria-label={detailsOpen ? "Hide details" : "Show details"}
+                      onClick={() => setDetailsOpen(!detailsOpen)}
+                    >
+                      {/* Flipped so the small bar sits on the right, like the panel. */}
+                      <PiSidebarSimple
+                        size={16}
+                        style={{ transform: "scaleX(-1)" }}
+                      />
+                    </IconButton>
+                  </UITooltip>
+                ) : null}
               </div>
             </div>
           </div>

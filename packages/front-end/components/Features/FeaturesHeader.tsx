@@ -57,6 +57,7 @@ import {
 import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
+import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -162,7 +163,6 @@ export default function FeaturesHeader({
 
   // Sticky tabs header — mirrors the experiment page pattern
   // NB: Keep in sync with .feature-tabs top property in global.scss
-  const TABS_HEADER_HEIGHT_PX = 55;
   const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();

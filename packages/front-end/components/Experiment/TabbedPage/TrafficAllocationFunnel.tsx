@@ -37,7 +37,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import Text from "@/ui/Text";
-import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -361,7 +360,7 @@ export default function TrafficAllocationFunnel({
   const numVariations = getLatestPhaseVariations(experiment).length;
 
   return (
-    <Frame>
+    <Frame style={{ backgroundColor: "var(--gray-a2)" }}>
       {editEnvironments && servedValueFeature && (
         <EditExperimentEnvironmentsModal
           experiment={experiment}
@@ -370,10 +369,7 @@ export default function TrafficAllocationFunnel({
           mutate={() => mutate?.()}
         />
       )}
-      <Flex justify="between" align="center" mb="4">
-        <Heading color="text-high" as="h4" size="sm" mb="0">
-          Traffic Allocation
-        </Heading>
+      <Flex justify="end" align="center" mb="4">
         <Flex align="center" gap="3">
           {servedValueFeature && !hasDraftChanges ? (
             <Text size="sm" color="text-mid">
