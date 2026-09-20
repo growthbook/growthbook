@@ -1,0 +1,171 @@
+// Lexical ships no styles. Everything the editor renders is themed here, so it
+// reads as one of the Radix surfaces around it rather than a bolted-on editor.
+
+.wrapper {
+  position: relative;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-3);
+  background-color: var(--color-panel-solid);
+  transition:
+    border-color 100ms ease,
+    box-shadow 100ms ease;
+
+  &:focus-within {
+    border-color: var(--accent-8);
+    box-shadow: 0 0 0 1px var(--accent-8);
+  }
+}
+
+.readOnly {
+  border-color: transparent;
+  background-color: transparent;
+
+  &:focus-within {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.editable {
+  outline: none;
+  overflow-y: auto;
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  tab-size: 2;
+
+  // The caret needs somewhere to sit before the first keystroke.
+  > :first-child {
+    margin-top: 0;
+  }
+  > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+.placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  user-select: none;
+  color: var(--gray-a9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Sizes. Padding and type scale only: height is the caller's to set.
+.md {
+  .editable,
+  .placeholder {
+    padding: var(--space-3);
+    font-size: var(--font-size-2);
+    line-height: var(--line-height-2);
+  }
+}
+
+.sm {
+  .editable,
+  .placeholder {
+    padding: var(--space-2);
+    font-size: var(--font-size-1);
+    line-height: var(--line-height-1);
+  }
+}
+
+// Node styling, mapped from the theme object in the component.
+
+.paragraph {
+  margin: 0 0 var(--space-2);
+}
+
+.h1,
+.h2,
+.h3,
+.h4,
+.h5,
+.h6 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-2);
+  color: var(--gray-12);
+}
+.h1 {
+  font-size: var(--font-size-5);
+}
+.h2 {
+  font-size: var(--font-size-4);
+}
+.h3 {
+  font-size: var(--font-size-3);
+}
+.h4,
+.h5,
+.h6 {
+  font-size: var(--font-size-2);
+}
+
+.quote {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--gray-a6);
+  color: var(--gray-11);
+}
+
+.ul,
+.ol {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-5);
+}
+
+.li {
+  margin: 0;
+}
+
+// Lexical keeps nested lists as list items, which would otherwise show a
+// marker beside the list they contain.
+.nestedLi {
+  list-style-type: none;
+
+  &::before,
+  &::after {
+    display: none;
+  }
+}
+
+.link {
+  color: var(--accent-11);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.bold {
+  font-weight: var(--font-weight-bold);
+}
+
+.italic {
+  font-style: italic;
+}
+
+.strikethrough {
+  text-decoration: line-through;
+}
+
+.inlineCode {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-2);
+  background-color: var(--gray-a3);
+  font-family: var(--code-font-family);
+  font-size: 0.9em;
+}
+
+.codeBlock {
+  display: block;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-2);
+  background-color: var(--gray-a3);
+  font-family: var(--code-font-family);
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
