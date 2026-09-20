@@ -86,6 +86,13 @@
 .bar_holder_slim {
   height: 8px;
   border-radius: 9999px;
+  // Flat: at this height the recess would shade the whole bar rather than
+  // reading as depth.
+  box-shadow: none;
+
+  .previewBar {
+    background-image: none;
+  }
 }
 
 .labels_row_above {
