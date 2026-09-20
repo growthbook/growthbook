@@ -50,7 +50,10 @@ export default function ProjectTagBar({
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
-  const { holdoutsMap } = useHoldouts();
+  // Only needed to name the holdout this experiment belongs to.
+  const { holdoutsMap } = useHoldouts(undefined, false, {
+    enabled: !!experiment.holdoutId,
+  });
 
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
@@ -184,11 +187,13 @@ export default function ProjectTagBar({
       );
     }
   };
+  const showAddLinks = !vertical;
+
   const renderProjectMetaDataValue = () => {
     return (
       <Flex gap="1">
         {RenderToolTipsAndValue()}
-        {canUpdateExperimentProject(project) && !projectId && (
+        {showAddLinks && canUpdateExperimentProject(project) && !projectId && (
           <Link
             onClick={(e) => {
               e.preventDefault();
@@ -199,7 +204,9 @@ export default function ProjectTagBar({
             +Add
           </Link>
         )}
-        {!canUpdateExperimentProject(project) && !projectId && "None"}
+        {(!showAddLinks || !canUpdateExperimentProject(project)) &&
+          !projectId &&
+          "None"}
       </Flex>
     );
   };
@@ -214,7 +221,8 @@ export default function ProjectTagBar({
         {holdout.projects.length > 0 && (
           <ProjectBadges resourceType="holdout" projectIds={holdout.projects} />
         )}
-        {canUpdateHoldoutProjects(holdout.projects) &&
+        {showAddLinks &&
+          canUpdateHoldoutProjects(holdout.projects) &&
           holdout.projects.length === 0 && (
             <Link
               onClick={(e) => {
@@ -226,7 +234,7 @@ export default function ProjectTagBar({
               +Add
             </Link>
           )}
-        {!canUpdateHoldoutProjects(holdout.projects) &&
+        {(!showAddLinks || !canUpdateHoldoutProjects(holdout.projects)) &&
           holdout.projects.length === 0 && (
             <Text weight="regular" color="text-mid">
               None
@@ -262,7 +270,7 @@ export default function ProjectTagBar({
             {...tagLinkProps("experiments")}
           />
         )}
-        {editTags && experiment.tags?.length === 0 && (
+        {showAddLinks && editTags && experiment.tags?.length === 0 && (
           <Link
             onClick={(e) => {
               e.preventDefault();
@@ -273,7 +281,7 @@ export default function ProjectTagBar({
             +Add
           </Link>
         )}
-        {!editTags && experiment.tags?.length === 0 && (
+        {(!showAddLinks || !editTags) && experiment.tags?.length === 0 && (
           <Text weight="regular" color="text-mid">
             None
           </Text>

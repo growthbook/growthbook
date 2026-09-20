@@ -89,9 +89,18 @@ export default function InlineMarkdownField({
 
   let body: ReactNode;
   if (!editable) {
-    // Nothing to say and no way to add it: the row would be noise.
-    if (!savedValue) return null;
-    body = <Markdown>{savedValue}</Markdown>;
+    if (!savedValue) {
+      // In a column of metadata an empty row still reads as a field; on the
+      // page on its own it would just be noise.
+      if (!stacked) return null;
+      body = (
+        <Text weight="regular" color="text-mid">
+          None
+        </Text>
+      );
+    } else {
+      body = <Markdown>{savedValue}</Markdown>;
+    }
   } else {
     body = (
       // Saved on blur instead of behind a modal. React blur bubbles, so this

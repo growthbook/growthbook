@@ -78,8 +78,8 @@ const CustomFieldDisplay: FC<{
     const cValue = currentValueMap.get(v.id);
     return typeof cValue === "boolean" ? true : !!String(cValue ?? "").trim();
   });
-  // Stacked mode gives every field its own row with its own "+Add", matching
-  // the metadata beside it, so there is nothing to collapse behind a button.
+  // Stacked mode gives every field its own metadata row, edited from whatever
+  // owns the column, so there is nothing to collapse behind a button.
   const showAddButton =
     !stacked &&
     !!collapseWhenEmpty &&
@@ -201,8 +201,10 @@ const CustomFieldDisplay: FC<{
                 key={field.id}
                 label={field.name}
                 value={
-                  value === "" && canEdit ? (
-                    <Link onClick={() => setEditModal(true)}>+Add</Link>
+                  value === "" ? (
+                    <Text weight="regular" color="text-mid">
+                      None
+                    </Text>
                   ) : (
                     getDisplayValue(field, value)
                   )

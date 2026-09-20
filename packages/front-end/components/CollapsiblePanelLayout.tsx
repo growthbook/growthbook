@@ -94,7 +94,9 @@ export default function CollapsiblePanelLayout({
     window.addEventListener("pointercancel", onUp);
   };
 
-  if (!open || previewCollapsed) return <>{children}</>;
+  // Never branch around `children`: moving it to a different position in the
+  // tree would remount the whole page on every toggle, refetching its data.
+  const showPanel = open && !previewCollapsed;
 
   // Overlaying keeps the content column at full width: the panel gives back the
   // space it occupies and floats over the right of the content instead.
@@ -115,58 +117,60 @@ export default function CollapsiblePanelLayout({
       <Box flexGrow="1" style={{ minWidth: 0 }}>
         {children}
       </Box>
-      <Box
-        position="sticky"
-        flexShrink="0"
-        width={`${panelWidth}px`}
-        style={{
-          top,
-          height: `calc(100vh - ${top}px)`,
-          background: "var(--color-panel-solid)",
-          // Matches the tab row's underline.
-          borderLeft: "1px solid var(--gray-a5)",
-          ...overlaid,
-        }}
-      >
-        {onWidthChange ? (
-          <Box
-            onPointerDown={startDrag}
-            style={{
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              left: -HANDLE_WIDTH_PX / 2,
-              width: HANDLE_WIDTH_PX,
-              cursor: "col-resize",
-              touchAction: "none",
-              zIndex: 1,
-            }}
-          >
-            {/* Sticky so the grip holds its place on screen while the page scrolls. */}
-            <Flex
-              align="center"
-              justify="center"
+      {showPanel ? (
+        <Box
+          position="sticky"
+          flexShrink="0"
+          width={`${panelWidth}px`}
+          style={{
+            top,
+            height: `calc(100vh - ${top}px)`,
+            background: "var(--color-panel-solid)",
+            // Matches the tab row's underline.
+            borderLeft: "1px solid var(--gray-a5)",
+            ...overlaid,
+          }}
+        >
+          {onWidthChange ? (
+            <Box
+              onPointerDown={startDrag}
               style={{
-                position: "sticky",
-                top: `calc(50vh - ${GRIP_HEIGHT_PX / 2}px)`,
-                width: HANDLE_WIDTH_PX - 6,
-                height: GRIP_HEIGHT_PX,
-                margin: "0 auto",
-                borderRadius: "999px",
-                background: "var(--color-panel-solid)",
-                border: "1px solid var(--gray-a5)",
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: -HANDLE_WIDTH_PX / 2,
+                width: HANDLE_WIDTH_PX,
+                cursor: "col-resize",
+                touchAction: "none",
+                zIndex: 1,
               }}
             >
-              <PiDotsSixVerticalBold
-                style={{ color: "var(--accent-11)", height: 12, width: 12 }}
-              />
-            </Flex>
+              {/* Sticky so the grip holds its place on screen while the page scrolls. */}
+              <Flex
+                align="center"
+                justify="center"
+                style={{
+                  position: "sticky",
+                  top: `calc(50vh - ${GRIP_HEIGHT_PX / 2}px)`,
+                  width: HANDLE_WIDTH_PX - 6,
+                  height: GRIP_HEIGHT_PX,
+                  margin: "0 auto",
+                  borderRadius: "999px",
+                  background: "var(--color-panel-solid)",
+                  border: "1px solid var(--gray-a5)",
+                }}
+              >
+                <PiDotsSixVerticalBold
+                  style={{ color: "var(--accent-11)", height: 12, width: 12 }}
+                />
+              </Flex>
+            </Box>
+          ) : null}
+          <Box height="100%" style={{ overflowY: "auto" }}>
+            {panel}
           </Box>
-        ) : null}
-        <Box height="100%" style={{ overflowY: "auto" }}>
-          {panel}
         </Box>
-      </Box>
+      ) : null}
     </Flex>
   );
 }

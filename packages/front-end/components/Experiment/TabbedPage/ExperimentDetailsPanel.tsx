@@ -105,7 +105,7 @@ export default function ExperimentDetailsPanel({
                 stacked
                 experiment={experiment}
                 mutate={mutate}
-                editable={editInline}
+                editable={false}
               />
             )}
             <CustomFieldDisplay

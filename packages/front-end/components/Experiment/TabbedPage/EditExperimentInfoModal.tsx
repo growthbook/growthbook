@@ -12,6 +12,14 @@ import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import {
+  filterCustomFieldsForSectionAndProject,
+  reconcileCustomFieldValues,
+} from "@/services/customFields";
+import { getExperimentDescriptionPlaceholder } from "@/components/Experiment/EditDescriptionModal";
 
 export type FocusSelector = "project" | "tags" | "name" | "projects";
 
@@ -34,6 +42,13 @@ export default function EditExperimentInfoModal({
     permissionsUtil.canUpdateExperiment({ project }, {});
   const initialProjectOption = canUpdateExperimentProject("") ? "None" : "";
 
+  const customFields =
+    filterCustomFieldsForSectionAndProject(
+      useCustomFields(),
+      "experiment",
+      experiment.project,
+    ) ?? [];
+
   const form = useForm({
     defaultValues: {
       name: experiment.name,
@@ -41,6 +56,12 @@ export default function EditExperimentInfoModal({
       owner: experiment.owner || "",
       tags: experiment.tags,
       project: experiment.project || "",
+      description: experiment.description || "",
+      customFields: reconcileCustomFieldValues(
+        customFields,
+        experiment.customFields,
+        false,
+      ),
     },
   });
 
@@ -110,12 +131,34 @@ export default function EditExperimentInfoModal({
         )}
         initialOption={initialProjectOption}
       />
-      {experiment.project !== form.watch("project") ? (
+      {(experiment.project || "") !== form.watch("project") ? (
         <Callout status="warning">
           Moving to a different Project may prevent your linked Feature Flags,
           Visual Changes, and URL Redirects from being sent to users, and could
           restrict use of some Data Sources and Metrics.
         </Callout>
+      ) : null}
+      <Box mt="4">
+        <Box mb="2">
+          <Text weight="semibold">Description</Text>
+        </Box>
+        <MarkdownInput
+          value={form.watch("description")}
+          setValue={(description) => form.setValue("description", description)}
+          placeholder={getExperimentDescriptionPlaceholder(
+            experiment.type ?? "standard",
+          )}
+          showButtons={false}
+        />
+      </Box>
+      {customFields.length > 0 ? (
+        <Box mt="4">
+          <CustomFieldInput
+            fields={customFields}
+            value={form.watch("customFields")}
+            onChange={(value) => form.setValue("customFields", value)}
+          />
+        </Box>
       ) : null}
     </ModalStandard>
   );
