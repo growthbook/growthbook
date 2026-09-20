@@ -29,9 +29,9 @@ import {
   canInlineFilterColumn,
   getAggregateFilters,
   getColumnRefWhereClause,
+  previewRowFilterDialect,
   getSelectedColumnDatatype,
 } from "shared/experiments";
-import { createLikeStringMatchFn } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -715,14 +715,7 @@ function getWHERE({
       ? getColumnRefWhereClause({
           factTable,
           columnRef,
-          escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-          stringMatch: createLikeStringMatchFn({
-            escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-            emitEscapeClause: false,
-          }),
-          // This isn't real SQL syntax for most dialects, but it should get the point across
-          jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
-          evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+          dialect: previewRowFilterDialect,
           showSourceComment: true,
         })
       : [];
@@ -1052,13 +1045,7 @@ function getFunnelPreviewSQL({
         column: "",
         rowFilters: step.rowFilters,
       },
-      escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-      stringMatch: createLikeStringMatchFn({
-        escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-        emitEscapeClause: false,
-      }),
-      jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
-      evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+      dialect: previewRowFilterDialect,
     });
 
     // Ordering against exposure is already covered by the CTE's WHERE.

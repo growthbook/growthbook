@@ -113,12 +113,7 @@ export function buildRowFilterWhereClause({
     const sql = getRowFilterSQL({
       rowFilter,
       factTable,
-      jsonExtract: dialect.jsonExtract,
-      escapeStringLiteral: dialect.escapeStringLiteral,
-      stringMatch: dialect.stringMatch,
-      evalBoolean: dialect.evalBoolean,
-      castToTimestamp: dialect.castToTimestamp,
-      identifierQuote: dialect.identifierQuote,
+      dialect,
     });
 
     // Incomplete/deleted filters would silently widen the preview.

@@ -187,6 +187,13 @@ describe("Experiments", () => {
       return `${col} IS ${value ? "TRUE" : "FALSE"}`;
     };
     const castToTimestamp = (col: string) => `CAST(${col} AS TIMESTAMP)`;
+    const dialect = {
+      escapeStringLiteral,
+      stringMatch,
+      jsonExtract,
+      evalBoolean,
+      castToTimestamp,
+    };
 
     describe("canInlineFilterColumn", () => {
       it("returns true for string columns with alwaysInlineFilter", () => {
@@ -237,10 +244,7 @@ describe("Experiments", () => {
               column: "event_name",
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([]);
 
@@ -252,10 +256,7 @@ describe("Experiments", () => {
               rowFilters: [],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([]);
 
@@ -273,10 +274,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([]);
 
@@ -315,10 +313,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([]);
       });
@@ -352,10 +347,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([
           "(unknown_column = 'unknown_value')",
@@ -378,10 +370,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([`(${filter.value})`]);
       });
@@ -403,10 +392,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([`(${filter.value})`, `(${filter2.value})`]);
       });
@@ -425,10 +411,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
@@ -452,10 +435,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([
           `(${column.column} = 'login')`,
@@ -478,10 +458,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
@@ -501,10 +478,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
@@ -536,10 +510,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([
           `(${column.column} = 'login')`,
@@ -572,10 +543,7 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
@@ -590,10 +558,7 @@ describe("Experiments", () => {
                 column: column.column,
                 values: ["login's"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} = 'login''s')`);
         });
@@ -607,10 +572,7 @@ describe("Experiments", () => {
                 operator: "=",
                 values: ["hello"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${jsonColumn.column}:'b'::float = 'hello')`);
         });
@@ -623,10 +585,7 @@ describe("Experiments", () => {
                 operator: "=",
                 values: ["true"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${boolColumn.column} IS TRUE)`);
         });
@@ -639,10 +598,7 @@ describe("Experiments", () => {
                 operator: "=",
                 values: ["false"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${boolColumn.column} IS FALSE)`);
         });
@@ -655,10 +611,7 @@ describe("Experiments", () => {
                 operator: "=",
                 values: ["true"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${jsonColumn.column}:'bool' IS TRUE)`);
         });
@@ -673,9 +626,7 @@ describe("Experiments", () => {
                   operator,
                   values: ["foo"],
                 },
-                escapeStringLiteral,
-                jsonExtract,
-                evalBoolean,
+                dialect,
               }),
             ).toStrictEqual(`(${column.column} ${operator} 'foo')`);
           }
@@ -691,11 +642,7 @@ describe("Experiments", () => {
                   operator,
                   values: ["2024-01-01T17:00:00.000Z"],
                 },
-                escapeStringLiteral,
-                jsonExtract,
-                evalBoolean,
-                stringMatch,
-                castToTimestamp,
+                dialect,
               }),
             ).toStrictEqual(
               `(CAST(${dateColumn.column} AS TIMESTAMP) ${operator} CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
@@ -715,11 +662,7 @@ describe("Experiments", () => {
                   operator,
                   values: ["2024-01-01T17:00"],
                 },
-                escapeStringLiteral,
-                jsonExtract,
-                evalBoolean,
-                stringMatch,
-                castToTimestamp,
+                dialect,
               }),
             ).toStrictEqual(
               `(CAST(${dateColumn.column} AS TIMESTAMP) ${operator} CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
@@ -735,11 +678,7 @@ describe("Experiments", () => {
                 operator,
                 values: ["2024-01-01"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             });
           expect(call(">=")).toStrictEqual(
             `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-01-01' AS TIMESTAMP))`,
@@ -757,11 +696,7 @@ describe("Experiments", () => {
                 operator,
                 values: ["2024-01-01"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             });
           // "on or before Jan 1" runs through the whole of Jan 1
           expect(call("<=")).toStrictEqual(
@@ -782,11 +717,7 @@ describe("Experiments", () => {
                 operator: "=",
                 values: ["2024-01-01"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(
             `(${col} >= CAST('2024-01-01' AS TIMESTAMP) AND ${col} < CAST('2024-01-02' AS TIMESTAMP))`,
@@ -799,11 +730,7 @@ describe("Experiments", () => {
                 operator: "!=",
                 values: ["2024-01-01"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(
             `(NOT (${col} >= CAST('2024-01-01' AS TIMESTAMP) AND ${col} < CAST('2024-01-02' AS TIMESTAMP)))`,
@@ -819,11 +746,7 @@ describe("Experiments", () => {
                 operator: "=",
                 values: [value],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             });
           // leap day
           expect(call("2024-02-29")).toStrictEqual(
@@ -845,11 +768,7 @@ describe("Experiments", () => {
                 operator: "in",
                 values: ["2024-01-01", "2024-02-01"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(
             `(${day("2024-01-01", "2024-01-02")} OR ${day("2024-02-01", "2024-02-02")})`,
@@ -862,11 +781,7 @@ describe("Experiments", () => {
                 operator: "not_in",
                 values: ["2024-01-01", "2024-02-01"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(
             `(NOT (${day("2024-01-01", "2024-01-02")} OR ${day("2024-02-01", "2024-02-02")}))`,
@@ -881,11 +796,7 @@ describe("Experiments", () => {
                 operator: "in",
                 values: ["2024-01-01T09:00:00Z", "2024-02-01T09:00:00Z"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(
             `(CAST(${dateColumn.column} AS TIMESTAMP) IN (\n  CAST('2024-01-01 09:00:00' AS TIMESTAMP),\n  CAST('2024-02-01 09:00:00' AS TIMESTAMP)\n))`,
@@ -899,11 +810,7 @@ describe("Experiments", () => {
                 column: dateColumn.column,
                 operator: "is_null",
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(`(${dateColumn.column} IS NULL)`);
         });
@@ -916,11 +823,7 @@ describe("Experiments", () => {
                 operator: ">",
                 values: [""],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toBeNull();
         });
@@ -938,11 +841,7 @@ describe("Experiments", () => {
                   operator: ">",
                   values,
                 },
-                escapeStringLiteral,
-                jsonExtract,
-                evalBoolean,
-                stringMatch,
-                castToTimestamp,
+                dialect,
               }),
             ).toStrictEqual("(1 = 0)");
           }
@@ -956,11 +855,7 @@ describe("Experiments", () => {
                 operator: ">",
                 values: [value],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             });
 
           // `Date.toISOString()` always emits a fraction; dropping an all-zero
@@ -996,11 +891,7 @@ describe("Experiments", () => {
                   operator,
                   values: ["2024-01-01", "foo", "2024-02-01"],
                 },
-                escapeStringLiteral,
-                jsonExtract,
-                evalBoolean,
-                stringMatch,
-                castToTimestamp,
+                dialect,
               }),
             ).toStrictEqual("(1 = 0)");
           }
@@ -1014,11 +905,7 @@ describe("Experiments", () => {
                 operator: "between",
                 values: ["2024-01-01", "2024-02-01T17:00:00.000Z"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(
             `(CAST(${dateColumn.column} AS TIMESTAMP) BETWEEN CAST('2024-01-01' AS TIMESTAMP) AND CAST('2024-02-01 17:00:00' AS TIMESTAMP))`,
@@ -1034,11 +921,7 @@ describe("Experiments", () => {
                 operator: "between",
                 values: ["2024-01-01", "2024-02-01"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(
             `(${col} >= CAST('2024-01-01' AS TIMESTAMP) AND ${col} < CAST('2024-02-02' AS TIMESTAMP))`,
@@ -1054,11 +937,7 @@ describe("Experiments", () => {
                 operator: "not_between",
                 values: ["2024-01-01", "2024-02-01"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(
             `(${col} < CAST('2024-01-01' AS TIMESTAMP) OR ${col} >= CAST('2024-02-02' AS TIMESTAMP))`,
@@ -1074,11 +953,7 @@ describe("Experiments", () => {
                   operator: "between",
                   values,
                 },
-                escapeStringLiteral,
-                jsonExtract,
-                evalBoolean,
-                stringMatch,
-                castToTimestamp,
+                dialect,
               }),
             ).toBeNull();
           }
@@ -1092,11 +967,7 @@ describe("Experiments", () => {
                 operator: "between",
                 values: ["foo", "bar"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual("(1 = 0)");
         });
@@ -1109,11 +980,7 @@ describe("Experiments", () => {
                 operator: "between",
                 values,
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             });
           // only lower bound -> >=
           expect(call(["2024-01-01", ""])).toStrictEqual(
@@ -1135,11 +1002,7 @@ describe("Experiments", () => {
                 operator: "not_between",
                 values,
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             });
           // not_between [lower, ∞) -> < lower
           expect(call(["2024-01-01", ""])).toStrictEqual(
@@ -1159,28 +1022,9 @@ describe("Experiments", () => {
                 operator: "between",
                 values: ["1", "10"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${numericColumn.column} BETWEEN 1 AND 10)`);
-        });
-        it("falls back to lexicographic comparison without a timestamp cast", () => {
-          expect(
-            getRowFilterSQL({
-              factTable,
-              rowFilter: {
-                column: dateColumn.column,
-                operator: ">",
-                values: ["2024-01-01"],
-              },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-            }),
-          ).toStrictEqual(`(${dateColumn.column} > '2024-01-01')`);
         });
         it("does not cast string columns even when a timestamp cast is available", () => {
           expect(
@@ -1191,11 +1035,7 @@ describe("Experiments", () => {
                 operator: ">",
                 values: ["2024-01-01"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} > '2024-01-01')`);
         });
@@ -1210,9 +1050,7 @@ describe("Experiments", () => {
                   operator,
                   values: ["42"],
                 },
-                escapeStringLiteral,
-                jsonExtract,
-                evalBoolean,
+                dialect,
               }),
             ).toStrictEqual(`(${numericColumn.column} ${operator} 42)`);
           }
@@ -1228,9 +1066,7 @@ describe("Experiments", () => {
                   operator,
                   values: ["-42.5"],
                 },
-                escapeStringLiteral,
-                jsonExtract,
-                evalBoolean,
+                dialect,
               }),
             ).toStrictEqual(`(${numericColumn.column} ${operator} -42.5)`);
           }
@@ -1244,10 +1080,7 @@ describe("Experiments", () => {
                 operator: "=",
                 values: ["123a"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${numericColumn.column} = '123a')`);
         });
@@ -1260,10 +1093,7 @@ describe("Experiments", () => {
                 operator: "=",
                 values: ["123"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} = '123')`);
         });
@@ -1276,10 +1106,7 @@ describe("Experiments", () => {
                 operator: "not_in",
                 values: ["foo", "bar"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} NOT IN (\n  'foo',\n  'bar'\n))`);
         });
@@ -1292,10 +1119,7 @@ describe("Experiments", () => {
                 operator: "not_in",
                 values: ["1", "-2", "3.5", "5c"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(
             `(${numericColumn.column} NOT IN (\n  1,\n  -2,\n  3.5,\n  '5c'\n))`,
@@ -1309,10 +1133,7 @@ describe("Experiments", () => {
                 column: column.column,
                 operator: "is_null",
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} IS NULL)`);
         });
@@ -1324,10 +1145,7 @@ describe("Experiments", () => {
                 column: column.column,
                 operator: "not_null",
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} IS NOT NULL)`);
         });
@@ -1340,10 +1158,7 @@ describe("Experiments", () => {
                 operator: "starts_with",
                 values: ["foo"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} LIKE 'foo%')`);
         });
@@ -1356,10 +1171,7 @@ describe("Experiments", () => {
                 operator: "ends_with",
                 values: ["foo"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} LIKE '%foo')`);
         });
@@ -1372,10 +1184,7 @@ describe("Experiments", () => {
                 operator: "contains",
                 values: ["foo"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} LIKE '%foo%')`);
         });
@@ -1388,10 +1197,7 @@ describe("Experiments", () => {
                 operator: "not_contains",
                 values: ["foo"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} NOT LIKE '%foo%')`);
         });
@@ -1404,10 +1210,7 @@ describe("Experiments", () => {
                 operator: "contains",
                 values: ["f_o'o%"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
+              dialect,
             }),
           ).toStrictEqual(`(${column.column} LIKE '%f\\_o''o\\%%')`);
         });
@@ -1422,10 +1225,7 @@ describe("Experiments", () => {
                   operator,
                   values: ["/items/*/detail?"],
                 },
-                escapeStringLiteral,
-                jsonExtract,
-                evalBoolean,
-                stringMatch,
+                dialect,
               }),
             ).toBe(
               `(${column.column} ${operator === "matches_pattern" ? "LIKE" : "NOT LIKE"} '/items/%/detail_')`,
@@ -1447,13 +1247,14 @@ describe("Experiments", () => {
                 operator: "starts_with",
                 values: ["foo_bar"],
               },
-              escapeStringLiteral: backslashEscapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch: createLikeStringMatchFn({
+              dialect: {
+                ...dialect,
                 escapeStringLiteral: backslashEscapeStringLiteral,
-                emitEscapeClause: false,
-              }),
+                stringMatch: createLikeStringMatchFn({
+                  escapeStringLiteral: backslashEscapeStringLiteral,
+                  emitEscapeClause: false,
+                }),
+              },
             }),
           ).toStrictEqual(`(${column.column} LIKE 'foo\\\\_bar%')`);
         });
@@ -1466,13 +1267,14 @@ describe("Experiments", () => {
                 operator: "contains",
                 values: ["50%off"],
               },
-              escapeStringLiteral: backslashEscapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch: createLikeStringMatchFn({
+              dialect: {
+                ...dialect,
                 escapeStringLiteral: backslashEscapeStringLiteral,
-                emitEscapeClause: false,
-              }),
+                stringMatch: createLikeStringMatchFn({
+                  escapeStringLiteral: backslashEscapeStringLiteral,
+                  emitEscapeClause: false,
+                }),
+              },
             }),
           ).toStrictEqual(`(${column.column} LIKE '%50\\\\%off%')`);
         });
@@ -1488,13 +1290,13 @@ describe("Experiments", () => {
                 operator: "starts_with",
                 values: ["a\\b"],
               },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch: createLikeStringMatchFn({
-                escapeStringLiteral,
-                emitEscapeClause: true,
-              }),
+              dialect: {
+                ...dialect,
+                stringMatch: createLikeStringMatchFn({
+                  escapeStringLiteral,
+                  emitEscapeClause: true,
+                }),
+              },
             }),
           ).toStrictEqual(`(${column.column} LIKE 'a\\\\b%' ESCAPE '\\')`);
         });
@@ -1509,13 +1311,14 @@ describe("Experiments", () => {
                 operator: "starts_with",
                 values: ["foo_bar"],
               },
-              escapeStringLiteral: backslashEscapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch: createLikeStringMatchFn({
+              dialect: {
+                ...dialect,
                 escapeStringLiteral: backslashEscapeStringLiteral,
-                emitEscapeClause: true,
-              }),
+                stringMatch: createLikeStringMatchFn({
+                  escapeStringLiteral: backslashEscapeStringLiteral,
+                  emitEscapeClause: true,
+                }),
+              },
             }),
           ).toStrictEqual(
             `(${column.column} LIKE 'foo\\\\_bar%' ESCAPE '\\\\')`,
@@ -1531,9 +1334,6 @@ describe("Experiments", () => {
               column: "foo",
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
             sliceInfo: {
               isSliceMetric: true,
               baseMetricId: "fact__abc123",
@@ -1550,7 +1350,7 @@ describe("Experiments", () => {
                 },
               ],
             },
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([
           `(${column.column} = 'l1')`,
@@ -1566,9 +1366,6 @@ describe("Experiments", () => {
               column: "foo",
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
             sliceInfo: {
               isSliceMetric: true,
               baseMetricId: "fact__abc123",
@@ -1580,7 +1377,7 @@ describe("Experiments", () => {
                 },
               ],
             },
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([`(${boolColumn.column} IS TRUE)`]);
       });
@@ -1592,9 +1389,6 @@ describe("Experiments", () => {
               column: "foo",
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
             sliceInfo: {
               isSliceMetric: true,
               baseMetricId: "fact__abc123",
@@ -1606,7 +1400,7 @@ describe("Experiments", () => {
                 },
               ],
             },
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([
           `(${column.column} NOT IN (\n  's1',\n  's2',\n  's3'\n))`,
@@ -1630,9 +1424,6 @@ describe("Experiments", () => {
               ],
               factTableId: "",
             },
-            escapeStringLiteral,
-            jsonExtract,
-            evalBoolean,
             sliceInfo: {
               isSliceMetric: true,
               baseMetricId: "fact__abc123",
@@ -1644,7 +1435,7 @@ describe("Experiments", () => {
                 },
               ],
             },
-            stringMatch,
+            dialect,
           }),
         ).toStrictEqual([
           `(${column.column} = 'l1')`,

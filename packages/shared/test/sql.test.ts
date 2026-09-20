@@ -1119,31 +1119,41 @@ describe("buildMetricPushdownCondition", () => {
         ? `(${f.values?.[0]})`
         : `${f.column} ${f.operator} (${(f.values ?? []).map((v) => `'${v}'`).join(", ")})`,
     );
-  const noSaved = () => undefined;
+  const table = (partitionColumns: string[]) => ({
+    filters: [],
+    columns: ["e", "d", "c1", "c2", "x"].map((column) => ({
+      column,
+      name: column,
+      datatype: "string" as const,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      numberFormat: "" as const,
+      deleted: false,
+      isPartitionKey: partitionColumns.includes(column),
+    })),
+  });
 
   it("collapses to one IN on the partition column", () => {
     expect(
-      buildMetricPushdownCondition({
-        compiledGroups: [["e = ('foo')"], ["e = ('bar')", "d = ('mobile')"]],
-        rowFilterGroups: [
+      buildMetricPushdownCondition(
+        [
           [{ column: "e", operator: "=", values: ["foo"] }],
           [
             { column: "e", operator: "=", values: ["bar"] },
             { column: "d", operator: "=", values: ["mobile"] },
           ],
         ],
-        partitionColumns: ["e"],
-        savedFilterSql: noSaved,
+        table(["e"]),
         compile,
-      }),
+      ),
     ).toBe("e in ('foo', 'bar')");
   });
 
   it("ORs projected groups with two partition columns", () => {
     expect(
-      buildMetricPushdownCondition({
-        compiledGroups: [],
-        rowFilterGroups: [
+      buildMetricPushdownCondition(
+        [
           [
             { column: "c1", operator: "=", values: ["a"] },
             { column: "c2", operator: "=", values: ["b"] },
@@ -1151,50 +1161,39 @@ describe("buildMetricPushdownCondition", () => {
           ],
           [{ column: "c1", operator: "=", values: ["c"] }],
         ],
-        partitionColumns: ["c1", "c2"],
-        savedFilterSql: noSaved,
+        table(["c1", "c2"]),
         compile,
-      }),
+      ),
     ).toBe("((c1 = ('a') AND c2 = ('b'))\nOR\nc1 = ('c'))");
   });
 
   it("emits nothing when the collapsed exclusion is empty", () => {
     expect(
-      buildMetricPushdownCondition({
-        compiledGroups: [["e != ('a')"], ["e = ('a')"]],
-        rowFilterGroups: [
+      buildMetricPushdownCondition(
+        [
           [{ column: "e", operator: "!=", values: ["a"] }],
           [{ column: "e", operator: "=", values: ["a"] }],
         ],
-        partitionColumns: ["e"],
-        savedFilterSql: noSaved,
+        table(["e"]),
         compile,
-      }),
+      ),
     ).toBe("");
   });
 
   it("falls back to the exact OR without partition columns or when a group is unconstrained", () => {
-    const compiledGroups = [["A"], ["B", "C"]];
-    expect(
-      buildMetricPushdownCondition({
-        compiledGroups,
-        rowFilterGroups: [[{ column: "e", operator: "=", values: ["a"] }], []],
-        partitionColumns: [],
-        savedFilterSql: noSaved,
-        compile,
-      }),
-    ).toBe("(A\nOR\n(B AND C))");
-    expect(
-      buildMetricPushdownCondition({
-        compiledGroups,
-        rowFilterGroups: [
-          [{ column: "e", operator: "=", values: ["a"] }],
-          [{ column: "d", operator: "=", values: ["b"] }],
-        ],
-        partitionColumns: ["e"],
-        savedFilterSql: noSaved,
-        compile,
-      }),
-    ).toBe("(A\nOR\n(B AND C))");
+    const groups: RowFilter[][] = [
+      [{ column: "e", operator: "=", values: ["a"] }],
+      [
+        { column: "d", operator: "=", values: ["b"] },
+        { column: "x", operator: "=", values: ["c"] },
+      ],
+    ];
+    const exact = "(e = ('a')\nOR\n(d = ('b') AND x = ('c')))";
+    expect(buildMetricPushdownCondition(groups, table([]), compile)).toBe(
+      exact,
+    );
+    expect(buildMetricPushdownCondition(groups, table(["e"]), compile)).toBe(
+      exact,
+    );
   });
 });

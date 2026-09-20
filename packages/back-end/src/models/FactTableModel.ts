@@ -656,6 +656,15 @@ export async function updateColumn({
     throw new Error("Only string columns are eligible for inline filtering");
   }
 
+  // Partition keys are for low-cardinality string keys like event_name, not
+  // timestamps (date bounds already handle those).
+  if (
+    changes.isPartitionKey &&
+    (changes.datatype || factTable.columns[columnIndex]?.datatype) !== "string"
+  ) {
+    throw new Error("Only string columns can be marked as a partition key");
+  }
+
   const originalColumn = factTable.columns[columnIndex];
   const updatedColumn = ensureAutoSliceDefaults({
     ...originalColumn,

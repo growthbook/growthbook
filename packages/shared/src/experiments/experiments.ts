@@ -59,10 +59,10 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   SqlDialect,
   SqlIdentifierQuote,
-  StringMatchFn,
   TemplateVariables,
 } from "shared/types/sql";
 import { stringToBoolean } from "../util";
+import { createLikeStringMatchFn } from "../sql";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -571,29 +571,55 @@ export function getColumnExpression(
   return alias ? `${alias}.${column}` : column;
 }
 
+/**
+ * The subset of a SqlDialect that row filter compilation needs. Any full
+ * SqlDialect satisfies it; tests and display-only previews can pass a
+ * minimal object. `identifierQuote` defaults to the SQL standard `"`.
+ */
+export type RowFilterDialect = Pick<
+  SqlDialect,
+  | "escapeStringLiteral"
+  | "stringMatch"
+  | "jsonExtract"
+  | "evalBoolean"
+  | "castToTimestamp"
+> &
+  Partial<Pick<SqlDialect, "identifierQuote">>;
+
+/**
+ * Display-only dialect for showing a row filter as readable SQL in the UI.
+ * The JSON syntax isn't real for most warehouses, but it gets the point across.
+ */
+export const previewRowFilterDialect: RowFilterDialect = {
+  escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+    emitEscapeClause: false,
+  }),
+  jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+  evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+  castToTimestamp: (col) => col,
+};
+
 export function getColumnRefWhereClause({
   factTable,
   columnRef,
-  escapeStringLiteral,
-  stringMatch,
-  jsonExtract,
-  evalBoolean,
-  castToTimestamp,
+  dialect,
   showSourceComment = false,
   sliceInfo,
-  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 }: {
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   columnRef: ColumnRef;
-  escapeStringLiteral: (s: string) => string;
-  stringMatch: StringMatchFn;
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
-  evalBoolean: (col: string, value: boolean) => string;
-  castToTimestamp?: (column: string) => string;
+  dialect: RowFilterDialect;
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
-  identifierQuote?: SqlIdentifierQuote;
 }): string[] {
+  const {
+    escapeStringLiteral,
+    jsonExtract,
+    evalBoolean,
+    identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  } = dialect;
   const where = new Set<string>();
 
   // First add slice filters if this is a slice metric
@@ -653,13 +679,8 @@ export function getColumnRefWhereClause({
     const filterSQL = getRowFilterSQL({
       rowFilter: filter,
       factTable,
-      jsonExtract,
-      escapeStringLiteral,
-      stringMatch,
-      evalBoolean,
-      castToTimestamp,
+      dialect,
       showSourceComment,
-      identifierQuote,
     });
     if (filterSQL) {
       where.add(filterSQL);
@@ -780,28 +801,25 @@ const MATCH_NO_ROWS_SQL = "(1 = 0)";
 export function getRowFilterSQL({
   rowFilter,
   factTable,
-  jsonExtract,
-  escapeStringLiteral,
-  stringMatch,
-  evalBoolean,
-  castToTimestamp,
+  dialect,
   showSourceComment = false,
-  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 }: {
   rowFilter: RowFilter;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
-  escapeStringLiteral: (s: string) => string;
-  stringMatch: StringMatchFn;
-  evalBoolean: (col: string, value: boolean) => string;
-  // Casts an expression to the dialect's TIMESTAMP type. When provided, `date`
-  // columns compared with </<=/>/>=/=/!=/between/not_between/in/not_in cast both
-  // the column and the value literal so the comparison is temporal (UTC) rather
-  // than lexicographic.
-  castToTimestamp?: (column: string) => string;
+  dialect: RowFilterDialect;
   showSourceComment?: boolean;
-  identifierQuote?: SqlIdentifierQuote;
 }): string | null {
+  const {
+    jsonExtract,
+    escapeStringLiteral,
+    stringMatch,
+    evalBoolean,
+    // `date` columns compared with </<=/>/>=/=/!=/between/not_between/in/
+    // not_in cast both the column and the value literal so the comparison is
+    // temporal (UTC) rather than lexicographic.
+    castToTimestamp,
+    identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  } = dialect;
   // Some operators do not require a column
   if (rowFilter.operator === "saved_filter") {
     const filter = factTable.filters.find(
@@ -877,8 +895,8 @@ export function getRowFilterSQL({
     return null;
   }
   // Date columns compare as UTC timestamps (temporal) rather than as quoted
-  // strings (lexicographic), when the dialect provides a timestamp cast.
-  const castDates = columnType === "date" && !!castToTimestamp;
+  // strings (lexicographic).
+  const castDates = columnType === "date";
 
   let filterValues = rowFilter.values;
   if (castDates) {
@@ -911,7 +929,7 @@ export function getRowFilterSQL({
       return v;
     }
 
-    if (castDates && castToTimestamp) {
+    if (castDates) {
       return castToTimestamp(
         "'" + escapeStringLiteral(normalizeRowFilterDateValue(v)) + "'",
       );
@@ -932,8 +950,7 @@ export function getRowFilterSQL({
   const firstEscapedValue = escapedValues[0];
 
   // For date comparisons, cast the column so both sides are timestamps
-  const comparisonColumn =
-    castDates && castToTimestamp ? castToTimestamp(columnExpr) : columnExpr;
+  const comparisonColumn = castDates ? castToTimestamp(columnExpr) : columnExpr;
 
   // A `yyyy-MM-dd` value names a calendar day, not the instant at its midnight.
   // Against a timestamp column, comparing to that instant directly means

@@ -351,10 +351,7 @@ describe("bigquery integration", () => {
           operator: "starts_with",
           values: [value],
         },
-        escapeStringLiteral: dialect.escapeStringLiteral,
-        jsonExtract: dialect.jsonExtract,
-        evalBoolean: dialect.evalBoolean,
-        stringMatch: dialect.stringMatch,
+        dialect,
       });
 
     it("emits a valid BigQuery pattern with no ESCAPE clause", () => {

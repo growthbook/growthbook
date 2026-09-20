@@ -119,13 +119,8 @@ export function getMetricCTE(
     getColumnRefWhereClause({
       factTable,
       columnRef,
-      escapeStringLiteral: dialect.escapeStringLiteral,
-      stringMatch: dialect.stringMatch,
-      jsonExtract: dialect.jsonExtract,
-      evalBoolean: dialect.evalBoolean,
-      castToTimestamp: dialect.castToTimestamp,
+      dialect,
       sliceInfo,
-      identifierQuote: dialect.identifierQuote,
     }).forEach((filterSQL) => {
       where.push(filterSQL);
     });

@@ -168,6 +168,17 @@ describe("stripIncompatibleFields", () => {
     });
   });
 
+  it("clears isPartitionKey when the datatype is not string", () => {
+    const column = makeConstraintColumn({
+      datatype: "date",
+      isPartitionKey: true,
+    });
+    expect(stripIncompatibleFields(column)).toEqual({
+      ...column,
+      isPartitionKey: false,
+    });
+  });
+
   it("clears isAutoSliceColumn and autoSlices when the datatype is not string or boolean", () => {
     const column = makeConstraintColumn({
       datatype: "number",

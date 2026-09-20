@@ -7,10 +7,7 @@ import {
   isRatioMetric,
   parseSliceMetricId,
 } from "shared/experiments";
-import {
-  buildMetricPushdownCondition,
-  getFactTablePartitionColumns,
-} from "shared/sql";
+import { buildMetricPushdownCondition } from "shared/sql";
 import type { PhaseSQLVar, SqlDialect } from "shared/types/sql";
 import type {
   FactMetricInterface,
@@ -112,20 +109,15 @@ export function getFactMetricCTE(
   }
 
   const metricCols: string[] = [];
-  const allMetricFilters: string[][] = [];
-  // Structured counterpart of allMetricFilters, so the scan-level WHERE can be
-  // projected onto the fact table's partition columns.
+  // Each metric's structured row filters, for the scan-level WHERE. Slice
+  // filters (added to the per-metric CASE WHEN below) are not included; the
+  // scan-level clause only needs to be a superset of each metric's rows.
   const allMetricRowFilters: RowFilter[][] = [];
   const compileRowFilters = (rowFilters: RowFilter[]) =>
     getColumnRefWhereClause({
       factTable,
       columnRef: { factTableId: factTable.id, column: "", rowFilters },
-      escapeStringLiteral: dialect.escapeStringLiteral,
-      stringMatch: dialect.stringMatch,
-      jsonExtract: dialect.jsonExtract,
-      evalBoolean: dialect.evalBoolean,
-      castToTimestamp: dialect.castToTimestamp,
-      identifierQuote: dialect.identifierQuote,
+      dialect,
     });
 
   metricsWithIndices.forEach((metricWithIndex) => {
@@ -146,12 +138,7 @@ export function getFactMetricCTE(
             column: "",
             rowFilters: step.rowFilters,
           },
-          escapeStringLiteral: dialect.escapeStringLiteral,
-          stringMatch: dialect.stringMatch,
-          jsonExtract: dialect.jsonExtract,
-          evalBoolean: dialect.evalBoolean,
-          castToTimestamp: dialect.castToTimestamp,
-          identifierQuote: dialect.identifierQuote,
+          dialect,
         });
 
         const column = filters.length
@@ -160,8 +147,6 @@ export function getFactMetricCTE(
 
         metricCols.push(`-- ${m.name} (step ${stepIndex + 1}: ${step.name})
         ${column} AS ${funnelStepTimestampColumn(`m${index}`, stepIndex)}`);
-
-        allMetricFilters.push(filters);
         allMetricRowFilters.push(step.rowFilters);
       });
       return;
@@ -182,13 +167,8 @@ export function getFactMetricCTE(
       const filters = getColumnRefWhereClause({
         factTable,
         columnRef: m.numerator,
-        escapeStringLiteral: dialect.escapeStringLiteral,
-        stringMatch: dialect.stringMatch,
-        jsonExtract: dialect.jsonExtract,
-        evalBoolean: dialect.evalBoolean,
-        castToTimestamp: dialect.castToTimestamp,
+        dialect,
         sliceInfo,
-        identifierQuote: dialect.identifierQuote,
       });
 
       const column =
@@ -219,8 +199,6 @@ export function getFactMetricCTE(
         metricCols.push(`-- ${m.name} (paired n_events for kll merge)
         ${nEventsCol} as m${index}_n_events`);
       }
-
-      allMetricFilters.push(filters);
       allMetricRowFilters.push(m.numerator.rowFilters || []);
     }
 
@@ -243,13 +221,8 @@ export function getFactMetricCTE(
       const filters = getColumnRefWhereClause({
         factTable,
         columnRef: m.denominator,
-        escapeStringLiteral: dialect.escapeStringLiteral,
-        stringMatch: dialect.stringMatch,
-        jsonExtract: dialect.jsonExtract,
-        evalBoolean: dialect.evalBoolean,
-        castToTimestamp: dialect.castToTimestamp,
+        dialect,
         sliceInfo,
-        identifierQuote: dialect.identifierQuote,
       });
       const column =
         filters.length > 0
@@ -257,20 +230,16 @@ export function getFactMetricCTE(
           : value;
       metricCols.push(`-- ${m.name} (denominator)
         ${column} as m${index}_denominator`);
-
-      allMetricFilters.push(filters);
       allMetricRowFilters.push(m.denominator.rowFilters || []);
     }
   });
 
   if (addFiltersToWhere) {
-    const filters = buildMetricPushdownCondition({
-      compiledGroups: allMetricFilters,
-      rowFilterGroups: allMetricRowFilters,
-      partitionColumns: getFactTablePartitionColumns(factTable),
-      savedFilterSql: (id) => factTable.filters.find((f) => f.id === id)?.value,
-      compile: compileRowFilters,
-    });
+    const filters = buildMetricPushdownCondition(
+      allMetricRowFilters,
+      factTable,
+      compileRowFilters,
+    );
     if (filters) {
       where.push(filters);
     }

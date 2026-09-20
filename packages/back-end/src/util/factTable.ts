@@ -32,6 +32,10 @@ export function stripIncompatibleFields(
     next.alwaysInlineFilter = false;
   }
 
+  if (next.isPartitionKey && next.datatype !== "string") {
+    next.isPartitionKey = false;
+  }
+
   if (
     next.isAutoSliceColumn &&
     next.datatype !== "string" &&

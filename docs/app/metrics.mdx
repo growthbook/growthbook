@@ -228,7 +228,7 @@ Another example use of this checkbox is for a `Page Path` column in a `Page View
 
 When several metrics from one Fact Table are analyzed together, GrowthBook scans the table once and pushes a combined `WHERE` clause down to the warehouse. By default that clause is the `OR` of every metric's full filter list, which query planners often can't use to skip data.
 
-If you know which columns your warehouse table is partitioned, clustered, or ordered by, edit those columns and check "Part of the table's partition or sort key". The combined `WHERE` is then simplified to only those columns. For example, metrics filtering on `event_name = 'Purchase'` and `event_name = 'Signup' AND device = 'mobile'` produce `event_name IN ('Purchase', 'Signup')`, which lets the warehouse prune partitions or granules. Per-metric filters are still applied exactly inside the query, so results are unchanged. The Managed Warehouse's `Events` Fact Table marks `event_name` automatically.
+If you know which string columns your warehouse table is partitioned, clustered, or ordered by (an event type column, for example), edit those columns and check "Part of the table's partition or sort key". Timestamp columns don't need this: date bounds are always pushed down. The combined `WHERE` is then simplified to only those columns. For example, metrics filtering on `event_name = 'Purchase'` and `event_name = 'Signup' AND device = 'mobile'` produce `event_name IN ('Purchase', 'Signup')`, which lets the warehouse prune partitions or granules. Per-metric filters are still applied exactly inside the query, so results are unchanged. The Managed Warehouse's `Events` Fact Table marks `event_name` automatically.
 
 ### User Filters
 

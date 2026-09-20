@@ -603,7 +603,7 @@ export const apiFactTableColumnValidator = namedSchema(
       isPartitionKey: z
         .boolean()
         .describe(
-          "Whether this column is part of the underlying table's partition or ordering key. Generated queries that read several metrics from this fact table collapse their scan-level WHERE clause onto these columns (e.g. `event_name IN (...)`) so the warehouse can prune.",
+          "Whether this string column is part of the underlying table's partition or ordering key. Generated queries that read several metrics from this fact table collapse their scan-level WHERE clause onto these columns (e.g. `event_name IN (...)`) so the warehouse can prune. Not for timestamp columns: date bounds are always applied.",
         )
         .optional()
         .meta({ default: false }),

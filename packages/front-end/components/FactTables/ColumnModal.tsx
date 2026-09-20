@@ -282,7 +282,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             numberFormat: value.numberFormat,
             datatype: value.datatype,
             alwaysInlineFilter: value.alwaysInlineFilter,
-            isPartitionKey: value.isPartitionKey,
+            isPartitionKey: value.isPartitionKey && value.datatype === "string",
             isAutoSliceColumn: value.isAutoSliceColumn,
             autoSlices: value.autoSlices,
             lockedAutoSlices: value.lockedAutoSlices,
@@ -1017,7 +1017,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         </div>
       )}
 
-      {!updatedColumn.isVirtual && (
+      {!updatedColumn.isVirtual && updatedColumn.datatype === "string" && (
         <Box px="3" pb="1" mb="4">
           <Checkbox
             value={form.watch("isPartitionKey") ?? false}

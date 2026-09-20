@@ -639,7 +639,7 @@ export function getFactTablePartitionColumns(
   factTable: Pick<FactTableInterface, "columns">,
 ): string[] {
   return factTable.columns
-    .filter((c) => c.isPartitionKey && !c.deleted)
+    .filter((c) => c.isPartitionKey && !c.deleted && c.datatype === "string")
     .map((c) => c.column);
 }
 
@@ -649,23 +649,15 @@ export function getFactTablePartitionColumns(
  * key-only projection (collapsed to IN / NOT IN when possible) instead of the
  * exact OR of every metric's full filter list, which planners struggle to use.
  */
-export function buildMetricPushdownCondition({
-  compiledGroups,
-  rowFilterGroups,
-  partitionColumns,
-  savedFilterSql,
-  compile,
-}: {
-  compiledGroups: (string | null)[][];
-  rowFilterGroups: RowFilter[][];
-  partitionColumns: string[];
-  savedFilterSql: (id: string) => string | undefined;
-  compile: (filters: RowFilter[]) => (string | null)[];
-}): string {
+export function buildMetricPushdownCondition(
+  rowFilterGroups: RowFilter[][],
+  factTable: Pick<FactTableInterface, "columns" | "filters">,
+  compile: (filters: RowFilter[]) => (string | null)[],
+): string {
   const projected = projectFiltersOntoPartitionKey(
     rowFilterGroups,
-    partitionColumns,
-    savedFilterSql,
+    getFactTablePartitionColumns(factTable),
+    (id) => factTable.filters.find((f) => f.id === id)?.value,
   );
   if (projected) {
     const collapsed = collapsePartitionKeyFilters(projected);
@@ -673,7 +665,7 @@ export function buildMetricPushdownCondition({
       (collapsed ? [collapsed] : projected).map(compile),
     );
   }
-  return buildMinimalOrCondition(compiledGroups);
+  return buildMinimalOrCondition(rowFilterGroups.map(compile));
 }
 
 function isSubsetOf(a: Set<string>, b: Set<string>): boolean {

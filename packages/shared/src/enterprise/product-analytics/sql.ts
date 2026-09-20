@@ -1,7 +1,6 @@
 import { getValidDate } from "shared/dates";
 import {
   buildMetricPushdownCondition,
-  getFactTablePartitionColumns,
   format,
   SQL_ROW_LIMIT,
   stripTrailingSemicolon,
@@ -532,12 +531,7 @@ export function generateRowFilterSQL(
       const sql = getRowFilterSQL({
         rowFilter: filter,
         factTable,
-        escapeStringLiteral: helpers.escapeStringLiteral,
-        stringMatch: helpers.stringMatch,
-        jsonExtract: helpers.jsonExtract,
-        evalBoolean: helpers.evalBoolean,
-        castToTimestamp: helpers.castToTimestamp,
-        identifierQuote: helpers.identifierQuote,
+        dialect: helpers,
       });
       return sql;
     })
@@ -1120,8 +1114,7 @@ function generateFactTableCTE(
 
   const baseSql = factTable.sql;
 
-  // Get a de-duped list of all filters across all metrics
-  const allMetricFilters: string[][] = [];
+  // Each metric's row filters, OR'd together for the scan-level WHERE
   const allMetricRowFilters: RowFilter[][] = [];
   factTableGroup.metrics.forEach((m) => {
     const columnRef = m.useDenominator
@@ -1130,13 +1123,6 @@ function generateFactTableCTE(
 
     if (!columnRef) return;
 
-    const filterParts = generateRowFilterSQL(
-      columnRef.rowFilters || [],
-      factTable,
-      helpers,
-    );
-
-    allMetricFilters.push(filterParts);
     allMetricRowFilters.push(columnRef.rowFilters || []);
   });
 
@@ -1149,13 +1135,11 @@ function generateFactTableCTE(
     );
   }
 
-  const metricsFilter = buildMetricPushdownCondition({
-    compiledGroups: allMetricFilters,
-    rowFilterGroups: allMetricRowFilters,
-    partitionColumns: getFactTablePartitionColumns(factTable),
-    savedFilterSql: (id) => factTable.filters.find((f) => f.id === id)?.value,
-    compile: (filters) => generateRowFilterSQL(filters, factTable, helpers),
-  });
+  const metricsFilter = buildMetricPushdownCondition(
+    allMetricRowFilters,
+    factTable,
+    (filters) => generateRowFilterSQL(filters, factTable, helpers),
+  );
   if (metricsFilter) {
     whereClauses.push(metricsFilter);
   }
