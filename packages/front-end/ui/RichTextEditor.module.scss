@@ -169,3 +169,26 @@
   font-size: 0.9em;
   white-space: pre-wrap;
 }
+
+.imageWrapper {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.image {
+  display: block;
+  max-width: 100%;
+  border-radius: var(--radius-2);
+}
+
+.uploading {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-2);
+  background-color: var(--gray-a3);
+  color: var(--gray-11);
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+}

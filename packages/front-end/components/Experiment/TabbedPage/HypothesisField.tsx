@@ -77,7 +77,6 @@ export default function HypothesisField({
       }}
       aiSuggestFunction={suggestHypothesis}
       aiButtonText="Check Hypothesis"
-      aiSuggestionHeader="Suggested Hypothesis"
       onAISuggestionReceived={(result) => {
         aiSuggestion.current = result;
       }}

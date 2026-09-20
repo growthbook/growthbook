@@ -1,15 +1,16 @@
 import {
   forwardRef,
   MutableRefObject,
+  ReactNode,
   Ref,
   useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
 import clsx from "clsx";
 import { CodeHighlightNode, CodeNode } from "@lexical/code";
-import { LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
 import {
   $convertFromMarkdownString,
@@ -27,8 +28,25 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import type { EditorState } from "lexical";
+import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
+import {
+  $getSelection,
+  $insertNodes,
+  $isRangeSelection,
+  COMMAND_PRIORITY_LOW,
+  PASTE_COMMAND,
+  type EditorState,
+} from "lexical";
+import { useDropzone } from "react-dropzone";
+import { useAuth } from "@/services/auth";
+import { uploadFile } from "@/services/files";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { Size } from "@/ui/sizes";
+import {
+  $createImageNode,
+  ImageNode,
+  IMAGE_TRANSFORMER,
+} from "./RichTextEditorImageNode";
 import styles from "./RichTextEditor.module.scss";
 
 export interface RichTextEditorHandle {
@@ -53,6 +71,10 @@ export interface Props {
   autoGrow?: boolean;
   readOnly?: boolean;
   autoFocus?: boolean;
+  /** Drop or paste images to upload them. Off where uploads make no sense. */
+  allowImageUpload?: boolean;
+  /** Rendered under the editable area, for a caller's own controls. */
+  footer?: ReactNode;
   className?: string;
   id?: string;
 }
@@ -66,7 +88,21 @@ const NODES = [
   LinkNode,
   CodeNode,
   CodeHighlightNode,
+  ImageNode,
 ];
+
+/** Images first: their `![...]` would otherwise match as a link. */
+const MARKDOWN_TRANSFORMERS = [IMAGE_TRANSFORMER, ...TRANSFORMERS];
+
+const IMAGE_TYPES = "image/png, image/jpeg, image/gif";
+
+function linkLabelFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || "Link";
+  } catch {
+    return "Link";
+  }
+}
 
 const THEME = {
   paragraph: styles.paragraph,
@@ -115,10 +151,10 @@ function EditorBridge({
       getMarkdown: () =>
         editor
           .getEditorState()
-          .read(() => $convertToMarkdownString(TRANSFORMERS)),
+          .read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS)),
       setMarkdown: (markdown: string) => {
         editor.update(() => {
-          $convertFromMarkdownString(markdown, TRANSFORMERS);
+          $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS);
         });
         lastMarkdown.current = markdown;
       },
@@ -141,6 +177,112 @@ function EditorBridge({
   return null;
 }
 
+/**
+ * Pasting: image files upload and become image nodes, and a bare URL becomes a
+ * link rather than the URL's text.
+ */
+function PasteHandling({
+  onFiles,
+  allowImages,
+}: {
+  onFiles: (files: File[]) => void;
+  allowImages: boolean;
+}) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(
+    () =>
+      editor.registerCommand(
+        PASTE_COMMAND,
+        (event: ClipboardEvent) => {
+          const data = event.clipboardData;
+          if (!data) return false;
+
+          const files = Array.from(data.files).filter((f) =>
+            f.type.startsWith("image/"),
+          );
+          if (allowImages && files.length) {
+            event.preventDefault();
+            onFiles(files);
+            return true;
+          }
+
+          const text = data.getData("text/plain").trim();
+          if (!/^https?:\/\/\S+$/i.test(text)) return false;
+
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection)) return false;
+          event.preventDefault();
+
+          // With nothing selected there is no text to become the link, so
+          // seed it from the URL the way the markdown editor does.
+          if (selection.isCollapsed()) {
+            selection.insertText(linkLabelFromUrl(text));
+          }
+          editor.dispatchCommand(TOGGLE_LINK_COMMAND, text);
+          return true;
+        },
+        COMMAND_PRIORITY_LOW,
+      ),
+    [editor, onFiles, allowImages],
+  );
+
+  return null;
+}
+
+/** Hands the editor a way to drop uploaded images in at the caret. */
+function useImageInsert() {
+  const [editor] = useLexicalComposerContext();
+  return useCallback(
+    (images: { src: string; alt: string }[]) => {
+      editor.update(() => {
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection)) return;
+        $insertNodes(images.map(({ src, alt }) => $createImageNode(src, alt)));
+      });
+    },
+    [editor],
+  );
+}
+
+/** Uploads dropped or pasted images, then inserts them. */
+function ImageUploads({
+  allowImages,
+  setUploading,
+  registerDrop,
+}: {
+  allowImages: boolean;
+  setUploading: (uploading: boolean) => void;
+  registerDrop: (handler: (files: File[]) => void) => void;
+}) {
+  const insertImages = useImageInsert();
+  const { apiCall } = useAuth();
+
+  const upload = useCallback(
+    async (files: File[]) => {
+      if (!allowImages || !files.length) return;
+      setUploading(true);
+      try {
+        const uploaded = await Promise.all(
+          files.map(async (file) => {
+            const alt = file.name.replace(/[^a-zA-Z0-9_\-.\s]*/g, "");
+            const { fileURL } = await uploadFile(apiCall, file);
+            return { src: fileURL, alt };
+          }),
+        );
+        insertImages(uploaded);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [allowImages, apiCall, insertImages, setUploading],
+  );
+
+  useEffect(() => registerDrop(upload), [registerDrop, upload]);
+
+  return <PasteHandling onFiles={upload} allowImages={allowImages} />;
+}
+
 /** Applies `value` when it changes underneath us, e.g. an AI suggestion. */
 function ValueSync({
   value,
@@ -155,7 +297,7 @@ function ValueSync({
     if (value === lastMarkdown.current) return;
     lastMarkdown.current = value;
     editor.update(() => {
-      $convertFromMarkdownString(value, TRANSFORMERS);
+      $convertFromMarkdownString(value, MARKDOWN_TRANSFORMERS);
     });
   }, [value, editor, lastMarkdown]);
 
@@ -179,6 +321,8 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     autoGrow = false,
     readOnly = false,
     autoFocus = false,
+    allowImageUpload = true,
+    footer,
     className,
     id,
   },
@@ -186,11 +330,29 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
 ) {
   // What the editor last held, so a value we emitted doesn't loop back in.
   const lastMarkdown = useRef(value);
+  const [uploading, setUploading] = useState(false);
+  const { blockFileUploads } = useOrgSettings();
+  const allowImages = allowImageUpload && !readOnly && !blockFileUploads;
+
+  // The dropzone sits outside the composer, so it reaches the upload handler
+  // through a ref rather than the editor context.
+  const dropHandler = useRef<(files: File[]) => void>(() => undefined);
+  const registerDrop = useCallback((handler: (files: File[]) => void) => {
+    dropHandler.current = handler;
+  }, []);
+
+  const { getRootProps, getInputProps } = useDropzone({
+    onDrop: (files: File[]) => dropHandler.current(files),
+    noClick: true,
+    noKeyboard: true,
+    disabled: !allowImages,
+    accept: IMAGE_TYPES,
+  });
 
   const handleChange = useCallback(
     (editorState: EditorState) => {
       editorState.read(() => {
-        const markdown = $convertToMarkdownString(TRANSFORMERS);
+        const markdown = $convertToMarkdownString(MARKDOWN_TRANSFORMERS);
         if (markdown === lastMarkdown.current) return;
         lastMarkdown.current = markdown;
         onChange?.(markdown);
@@ -210,13 +372,17 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         nodes: NODES,
         theme: THEME,
         editable: !readOnly,
-        editorState: () => $convertFromMarkdownString(value, TRANSFORMERS),
+        editorState: () =>
+          $convertFromMarkdownString(value, MARKDOWN_TRANSFORMERS),
         onError: (error) => {
           throw error;
         },
       }}
     >
       <div
+        {...(allowImages
+          ? (getRootProps() as React.HTMLAttributes<HTMLDivElement>)
+          : {})}
         className={clsx(
           styles.wrapper,
           styles[size],
@@ -225,6 +391,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         )}
         onBlur={handleBlur}
       >
+        {allowImages ? <input {...getInputProps()} /> : null}
         <RichTextPlugin
           contentEditable={
             <ContentEditable
@@ -247,8 +414,13 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         <HistoryPlugin />
         <ListPlugin />
         <LinkPlugin />
-        <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+        <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
         <OnChangePlugin ignoreSelectionChange onChange={handleChange} />
+        <ImageUploads
+          allowImages={allowImages}
+          setUploading={setUploading}
+          registerDrop={registerDrop}
+        />
         <ValueSync value={value} lastMarkdown={lastMarkdown} />
         <EditorBridge
           handleRef={ref}
@@ -256,6 +428,10 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           autoFocus={autoFocus}
           lastMarkdown={lastMarkdown}
         />
+        {uploading ? (
+          <div className={styles.uploading}>Uploading\u2026</div>
+        ) : null}
+        {footer}
       </div>
     </LexicalComposer>
   );

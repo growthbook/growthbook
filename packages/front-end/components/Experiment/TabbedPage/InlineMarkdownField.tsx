@@ -3,7 +3,8 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { AISuggestionType } from "shared/ai";
 import Markdown from "@/components/Markdown/Markdown";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import AISuggestButton from "@/components/Markdown/AISuggestButton";
+import RichTextEditor, { RichTextEditorHandle } from "@/ui/RichTextEditor";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
@@ -25,7 +26,6 @@ export interface Props {
   addLabel?: string;
   aiSuggestFunction?: (type: AISuggestionType) => Promise<string>;
   aiButtonText?: string;
-  aiSuggestionHeader?: string;
   onAISuggestionReceived?: (result: string) => void;
   trackingSource?: string;
   /** Label above the field, to sit alongside the other metadata in a narrow column. */
@@ -45,12 +45,14 @@ export default function InlineMarkdownField({
   addLabel,
   aiSuggestFunction,
   aiButtonText,
-  aiSuggestionHeader,
   onAISuggestionReceived,
   trackingSource,
   stacked,
 }: Props) {
   const [value, setValue] = useState(savedValue);
+  const editor = useRef<RichTextEditorHandle>(null);
+  // What the field held before a suggestion replaced it, so it can be undone.
+  const [beforeSuggestion, setBeforeSuggestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   // What the server holds, so a blur that changed nothing writes nothing.
@@ -104,22 +106,44 @@ export default function InlineMarkdownField({
   } else {
     body = (
       // Saved on blur instead of behind a modal. React blur bubbles, so this
-      // covers the textarea, the preview tab and any AI controls.
+      // covers the editor and the AI controls below it.
       <Box onBlur={save}>
-        <MarkdownInput
+        <RichTextEditor
+          ref={editor}
           value={value}
-          setValue={setValue}
+          onChange={setValue}
           placeholder={placeholder}
-          showButtons={false}
-          autofocus={revealed}
-          autofocusAtEnd={revealed}
-          aiSuggestFunction={
-            aiSuggestFunction ? () => aiSuggestFunction("suggest") : undefined
+          autoFocus={revealed}
+          height={stacked ? 120 : 160}
+          autoGrow
+          footer={
+            aiSuggestFunction ? (
+              <Flex align="center" gap="2" p="2" pt="0">
+                <AISuggestButton
+                  suggest={aiSuggestFunction}
+                  label={aiButtonText}
+                  trackingSource={trackingSource}
+                  onSuggestion={(suggestion) => {
+                    onAISuggestionReceived?.(suggestion);
+                    setBeforeSuggestion(value);
+                    setValue(suggestion);
+                    editor.current?.setMarkdown(suggestion);
+                  }}
+                />
+                {beforeSuggestion !== null ? (
+                  <Link
+                    onClick={() => {
+                      setValue(beforeSuggestion);
+                      editor.current?.setMarkdown(beforeSuggestion);
+                      setBeforeSuggestion(null);
+                    }}
+                  >
+                    <Text weight="semibold">Undo suggestion</Text>
+                  </Link>
+                ) : null}
+              </Flex>
+            ) : null
           }
-          aiButtonText={aiButtonText}
-          aiSuggestionHeader={aiSuggestionHeader}
-          onAISuggestionReceived={onAISuggestionReceived}
-          trackingSource={trackingSource}
         />
       </Box>
     );

@@ -11,7 +11,9 @@ If we **shorten** the checkout form, more people will finish it.
 - Fewer fields to read
 - Less to type on a phone
 
-See the [prior test](https://example.com) for context.`;
+See the [prior test](https://example.com) for context.
+
+![a mockup](https://placehold.co/320x80/png)`;
 
 export default function RichTextEditorStories() {
   const [md, setMd] = useState(SAMPLE);

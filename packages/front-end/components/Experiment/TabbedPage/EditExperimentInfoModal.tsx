@@ -12,7 +12,7 @@ import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import RichTextEditor from "@/ui/RichTextEditor";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import {
@@ -142,13 +142,14 @@ export default function EditExperimentInfoModal({
         <Box mb="2">
           <Text weight="semibold">Description</Text>
         </Box>
-        <MarkdownInput
+        <RichTextEditor
           value={form.watch("description")}
-          setValue={(description) => form.setValue("description", description)}
+          onChange={(description) => form.setValue("description", description)}
           placeholder={getExperimentDescriptionPlaceholder(
             experiment.type ?? "standard",
           )}
-          showButtons={false}
+          height={140}
+          autoGrow
         />
       </Box>
       {customFields.length > 0 ? (
