@@ -111,46 +111,48 @@ export default function ExperimentSplitVisual({
       )}
       <Box className={styles.bar_wrapper}>
         {slim ? labelsRow : null}
-        <div
-          className={clsx(
-            styles.bar_holder,
-            slim && styles.bar_holder_slim,
-            "d-flex flex-row",
-          )}
-        >
-          {segments.map(({ i, left, width, gap, name }) => {
-            const additionalStyles: CSSProperties = {
-              width: width + "%",
-              backgroundColor: getVariationColor(i, true),
-            };
-            if (!stackLeft) {
-              additionalStyles.position = "absolute";
-              additionalStyles.left = left + "%";
-            }
+        <div className={clsx(slim && styles.bar_clip)}>
+          <div
+            className={clsx(
+              styles.bar_holder,
+              slim && styles.bar_holder_slim,
+              "d-flex flex-row",
+            )}
+          >
+            {segments.map(({ i, left, width, gap, name }) => {
+              const additionalStyles: CSSProperties = {
+                width: width + "%",
+                backgroundColor: getVariationColor(i, true),
+              };
+              if (!stackLeft) {
+                additionalStyles.position = "absolute";
+                additionalStyles.left = left + "%";
+              }
 
-            return (
-              <Fragment key={i}>
-                <div className={styles.previewBar} style={additionalStyles}>
-                  <Tooltip
-                    body={`${name} (${parseFloat(width.toPrecision(5))}%)`}
-                    style={{ width: "100%", height: "100%" }}
-                  >
-                    <></>
-                  </Tooltip>
-                </div>
-                {stackLeft && gap > 0 && (
-                  <div className={styles.gapBar} style={{ width: gap + "%" }}>
+              return (
+                <Fragment key={i}>
+                  <div className={styles.previewBar} style={additionalStyles}>
                     <Tooltip
-                      body={`Not included: ${parseFloat(gap.toPrecision(5))}%`}
+                      body={`${name} (${parseFloat(width.toPrecision(5))}%)`}
                       style={{ width: "100%", height: "100%" }}
                     >
                       <></>
                     </Tooltip>
                   </div>
-                )}
-              </Fragment>
-            );
-          })}
+                  {stackLeft && gap > 0 && (
+                    <div className={styles.gapBar} style={{ width: gap + "%" }}>
+                      <Tooltip
+                        body={`Not included: ${parseFloat(gap.toPrecision(5))}%`}
+                        style={{ width: "100%", height: "100%" }}
+                      >
+                        <></>
+                      </Tooltip>
+                    </div>
+                  )}
+                </Fragment>
+              );
+            })}
+          </div>
         </div>
         {slim ? null : labelsRow}
       </Box>

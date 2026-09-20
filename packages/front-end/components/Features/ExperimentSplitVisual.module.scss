@@ -83,9 +83,19 @@
 
 // Slim: a bare allocation bar with its percentages above it, for sitting
 // directly on top of the thing the split describes.
+// Clips the bar's outer edges: it hides the hairline at each end, and pulls
+// the seams out by half a grid gap so an even split lines up with the columns
+// underneath. Keeps the rounded ends the bar would otherwise lose.
+.bar_clip {
+  overflow: hidden;
+  border-radius: 9999px;
+}
+
 .bar_holder_slim {
   height: 8px;
   border-radius: 9999px;
+  margin-left: -8px;
+  margin-right: -8px;
   // Flat: at this height the recess would shade the whole bar rather than
   // reading as depth.
   box-shadow: none;
