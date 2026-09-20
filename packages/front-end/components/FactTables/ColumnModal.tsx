@@ -19,7 +19,7 @@ import {
   PiLightning,
   PiLightningSlash,
 } from "react-icons/pi";
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { differenceInDays } from "date-fns";
 import Link from "@/ui/Link";
@@ -1018,14 +1018,14 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       )}
 
       {!updatedColumn.isVirtual && (
-        <div className="px-3 pb-1 mb-4">
+        <Box px="3" pb="1" mb="4">
           <Checkbox
             value={form.watch("isPartitionKey") ?? false}
             setValue={(v) => form.setValue("isPartitionKey", v === true)}
             label="Part of the table's partition or sort key"
-            description="When several metrics read this table in one query, the WHERE clause is simplified to only this column (e.g. `event_name IN (...)`) so the warehouse can skip data."
+            description="Lets the warehouse skip data when several metrics are queried together, by filtering on just this column (e.g. `event_name IN (...)`)"
           />
-        </div>
+        </Box>
       )}
     </Modal>
   );

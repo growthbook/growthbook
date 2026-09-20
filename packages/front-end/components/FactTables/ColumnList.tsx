@@ -290,7 +290,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                         >
                           <Avatar
                             size="sm"
-                            color="teal"
+                            color="violet"
                             variant="soft"
                             radius="small"
                           >
