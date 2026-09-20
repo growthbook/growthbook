@@ -19,7 +19,7 @@ import {
   PiLightning,
   PiLightningSlash,
 } from "react-icons/pi";
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { differenceInDays } from "date-fns";
 import Link from "@/ui/Link";
@@ -264,6 +264,17 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     lockedAutoSlices: form.watch("lockedAutoSlices"),
     deleted: false,
   };
+
+  // Other string columns a conditional prompt can key off.
+  const conditionColumnOptions = factTable.columns
+    .filter(
+      (c) =>
+        !c.deleted &&
+        c.datatype === "string" &&
+        c.column !== form.watch("column") &&
+        canInlineFilterColumn(factTable, c.column),
+    )
+    .map((c) => ({ label: c.name || c.column, value: c.column }));
 
   return (
     <Modal
@@ -1013,11 +1024,11 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           <Checkbox
             value={form.watch("alwaysInlineFilter") ?? false}
             setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
-            label="Prompt all metrics to filter on this column"
+            label="Prompt metrics to filter on this column"
             description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
           />
           {form.watch("alwaysInlineFilter") && (
-            <div className="mt-2 ml-4">
+            <Box mt="2" ml="4">
               <Checkbox
                 value={!!form.watch("inlineFilterCondition")}
                 setValue={(v) =>
@@ -1026,11 +1037,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                     v === true ? { column: "", values: [] } : null,
                   )
                 }
+                disabled={!conditionColumnOptions.length}
                 label="Only when another column has certain values"
-                description="For example, prompt for `path` only when `event_name` is `Page View`."
+                description={
+                  conditionColumnOptions.length
+                    ? "For example, prompt for `path` only when `event_name` is `Page View`."
+                    : "Requires another string column that can be used as a filter."
+                }
               />
               {form.watch("inlineFilterCondition") && (
-                <Flex gap="3" mt="2" wrap="wrap">
+                <Flex direction="column" gap="3" mt="2">
                   <SelectField
                     label="Column"
                     value={form.watch("inlineFilterCondition")?.column ?? ""}
@@ -1040,18 +1056,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         values: [],
                       })
                     }
-                    options={factTable.columns
-                      .filter(
-                        (c) =>
-                          !c.deleted &&
-                          c.datatype === "string" &&
-                          c.column !== form.watch("column") &&
-                          canInlineFilterColumn(factTable, c.column),
-                      )
-                      .map((c) => ({
-                        label: c.name || c.column,
-                        value: c.column,
-                      }))}
+                    options={conditionColumnOptions}
                     placeholder="Select column..."
                     required
                   />
@@ -1078,7 +1083,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                   />
                 </Flex>
               )}
-            </div>
+            </Box>
           )}
         </div>
       )}

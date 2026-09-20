@@ -271,8 +271,8 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                         <Tooltip
                           body={
                             col.inlineFilterCondition
-                              ? `Prompt metrics to filter on this column when ${col.inlineFilterCondition.column} is ${col.inlineFilterCondition.values.join(", ")}`
-                              : "Prompt all metrics to filter on this column"
+                              ? `Prompt metrics to filter on this column when ${col.inlineFilterCondition.column} is one of: ${col.inlineFilterCondition.values.join(", ") || "(none)"}`
+                              : "Prompt metrics to filter on this column"
                           }
                           tipPosition="left"
                         >
