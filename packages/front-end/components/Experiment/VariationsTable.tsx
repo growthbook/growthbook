@@ -569,10 +569,10 @@ const VariationsTable: FC<Props> = ({
                 <Box
                   style={{
                     position: "absolute",
-                    // Against the card's corner: the room past the last card
-                    // is narrower than this button, so a full gap outside puts
-                    // it over the frame's edge.
-                    left: "100%",
+                    // Barely off the card's corner: the room past the last
+                    // card is narrower than this button, so a full gap outside
+                    // puts it over the frame's edge.
+                    left: "calc(100% + var(--space-1))",
                     top: "50%",
                     transform: "translateY(-50%)",
                   }}
