@@ -40,6 +40,7 @@ export type ContextualBanditVariationStatus =
 
 // Only the stored document carries status; the server owns transitions.
 const contextualBanditVariation = variation.extend({
+  key: z.string().regex(/\S/, "Variation key cannot be empty."),
   status: z.enum(contextualBanditVariationStatus).optional(),
 });
 export type ContextualBanditVariation = z.infer<
