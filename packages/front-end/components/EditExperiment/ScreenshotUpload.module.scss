@@ -1,7 +1,9 @@
 @import "../../styles/colors.scss";
 
 .droparea {
-  z-index: 910;
+  // Only needs to sit above its own card's content: anything higher paints
+  // over the page's docked panels.
+  z-index: 1;
   position: relative;
   box-sizing: border-box;
   border: 1px solid transparent;
