@@ -216,9 +216,7 @@ function getEventForwarderDraft(
         catalog: params.catalog || "",
         schema: "",
         tablePrefix: DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
-        zerobusEndpoint: suggestDatabricksEventForwarderZerobusEndpoint(
-          params.host,
-        ),
+        zerobusEndpoint: "",
       },
     };
   }
@@ -396,6 +394,8 @@ function EventForwarderModal({
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const databricksParams =
+    dataSource.params as Partial<DatabricksConnectionParams>;
   const dataRegionOptions = useDataRegionOptions();
   const [datasourceDraft, setDatasourceDraft] =
     useState<EventForwarderDatasourceDraft>(() => ({
@@ -514,9 +514,12 @@ function EventForwarderModal({
               <DatabricksEventForwarderForm
                 eventForwarderConfig={eventForwarderConfig}
                 setEventForwarderConfig={setEventForwarderConfig}
-                catalogReadOnly={
-                  !!(dataSource.params as Partial<DatabricksConnectionParams>)
-                    .catalog
+                catalogReadOnly={!!databricksParams.catalog}
+                zerobusPlaceholder={
+                  suggestDatabricksEventForwarderZerobusEndpoint(
+                    databricksParams.host,
+                  ) ||
+                  "https://<workspace-id>.zerobus.<region>.cloud.databricks.com"
                 }
               />
             ) : null}
@@ -764,18 +767,13 @@ export default function EventForwarder({
             Event Forwarder is not configured for this datasource.
             {canEdit ? (
               <Box mt="3">
-                <Tooltip
-                  body={databricksAuthMessage}
-                  shouldDisplay={databricksAuthBlocked}
+                <Button
+                  color="inherit"
+                  disabled={databricksAuthBlocked}
+                  onClick={() => setShowEditModal(true)}
                 >
-                  <Button
-                    color="inherit"
-                    disabled={databricksAuthBlocked}
-                    onClick={() => setShowEditModal(true)}
-                  >
-                    Set Up Event Forwarder
-                  </Button>
-                </Tooltip>
+                  Set Up Event Forwarder
+                </Button>
               </Box>
             ) : null}
           </Callout>

@@ -38,10 +38,7 @@ export function buildDatabricksEventForwarderCreateTableSql(
 ) USING DELTA CLUSTER BY (${EVENT_FORWARDER_AVRO_PARTITION_FIELD})`;
 }
 
-/**
- * Idempotently creates the three Delta tables for a Databricks event forwarder.
- * Zerobus never creates or evolves tables, so this runs before provisioning.
- */
+// Zerobus never creates or evolves tables, so the app does before provisioning.
 export async function ensureEventForwarderDatabricksTables(
   params: DatabricksConnectionParams,
   destination: { catalog: string; schema: string; tablePrefix: string },

@@ -8,9 +8,14 @@ const DatabricksEventForwarderForm: FC<{
   setEventForwarderConfig: (
     eventForwarderConfig: EventForwarderConfigDraft | null,
   ) => void;
-  // True when the datasource connection already names a catalog.
-  catalogReadOnly: boolean;
-}> = ({ eventForwarderConfig, setEventForwarderConfig, catalogReadOnly }) => {
+  catalogReadOnly: boolean; // connection already names a catalog
+  zerobusPlaceholder: string;
+}> = ({
+  eventForwarderConfig,
+  setEventForwarderConfig,
+  catalogReadOnly,
+  zerobusPlaceholder,
+}) => {
   const databricksEventForwarderConfig =
     eventForwarderConfig.sinkType === "databricks"
       ? eventForwarderConfig
@@ -27,7 +32,7 @@ const DatabricksEventForwarderForm: FC<{
   };
 
   return (
-    <Flex direction="column" gap="2" className="form-group col-md-12 px-0">
+    <Flex direction="column" gap="2">
       <EventForwarderTableNameField
         label="Catalog"
         name="eventForwarderDatabricksCatalog"
@@ -65,9 +70,9 @@ const DatabricksEventForwarderForm: FC<{
         name="eventForwarderDatabricksZerobusEndpoint"
         value={config.zerobusEndpoint}
         onChange={(zerobusEndpoint) => updateConfig({ zerobusEndpoint })}
-        placeholder="https://<workspace-id>.zerobus.<region>.cloud.databricks.com"
-        tooltip="Zerobus Ingest endpoint for your workspace: https://<workspace-id>.zerobus.<region>.cloud.databricks.com or https://<workspace-id>.zerobus.<region>.azuredatabricks.net."
-        helpText="Pre-filled from your connection where possible. Replace <workspace-id> with the number after ?o= in your workspace URL, and <region> with the workspace's cloud region (e.g. us-east-1, eastus)."
+        placeholder={zerobusPlaceholder}
+        tooltip="Zerobus Ingest endpoint for your workspace."
+        helpText="<workspace-id> is the number after ?o= in your workspace URL; <region> is the workspace's cloud region (e.g. us-east-1, eastus)."
       />
     </Flex>
   );
