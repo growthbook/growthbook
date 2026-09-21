@@ -158,6 +158,7 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   const safeToEdit =
     experiment.status !== "running" ||
@@ -368,19 +369,23 @@ export default function Implementation({
               : "The implementation, traffic, and targeting may be managed by an external system."}
           </Callout>
         ) : null}
-        {!isHoldout ? (
+        {/* Bandits and holdouts keep the old card: their analysis is a decision
+            metric and a schedule, not this plan. */}
+        {!isHoldout && !isBandit ? (
           <AnalysisPlan
             experiment={experiment}
             mutate={mutate}
             canEdit={canEditExperiment}
+            envs={envs}
           />
-        ) : null}
-        <AnalysisSettings
-          experiment={experiment}
-          mutate={mutate}
-          envs={envs}
-          canEdit={!!editTargeting && !pendingScheduledStart}
-        />
+        ) : (
+          <AnalysisSettings
+            experiment={experiment}
+            mutate={mutate}
+            envs={envs}
+            canEdit={!!editTargeting && !pendingScheduledStart}
+          />
+        )}
         <DecisionMakingSettings
           experiment={experiment}
           mutate={mutate}

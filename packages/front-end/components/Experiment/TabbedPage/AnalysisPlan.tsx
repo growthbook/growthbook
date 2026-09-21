@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiCaretDownFill, PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiCaretDownFill,
+  PiPencilSimpleFill,
+  PiSlidersHorizontal,
+} from "react-icons/pi";
 import isEqual from "lodash/isEqual";
+import { getMetricLink } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -14,6 +19,7 @@ import {
   getAutoExposureQueryId,
 } from "@/components/Experiment/SimpleNewExperimentForm";
 import { getExposureQueriesForAttribute } from "@/services/datasources";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -35,6 +41,8 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   canEdit: boolean;
+  /** Passed through to the advanced settings modal. */
+  envs: string[];
 }
 
 /**
@@ -42,9 +50,18 @@ export interface Props {
  * as a participant, and which metrics are being watched. Held as a draft and
  * written by the page's save bar.
  */
-export default function AnalysisPlan({ experiment, mutate, canEdit }: Props) {
-  const { datasources, getDatasourceById, getExperimentMetricById } =
-    useDefinitions();
+export default function AnalysisPlan({
+  experiment,
+  mutate,
+  canEdit,
+  envs,
+}: Props) {
+  const {
+    datasources,
+    getDatasourceById,
+    getExperimentMetricById,
+    getSegmentById,
+  } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
@@ -52,6 +69,7 @@ export default function AnalysisPlan({ experiment, mutate, canEdit }: Props) {
   // Settled plans are read-only until someone asks to change them.
   const started = experiment.status !== "draft";
   const [unlocked, setUnlocked] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const editable = canEdit && (!started || unlocked);
 
   const suggestedDatasource = useMemo(
@@ -175,10 +193,19 @@ export default function AnalysisPlan({ experiment, mutate, canEdit }: Props) {
 
   // Read-only lists the metrics by name: the selector renders nothing when it
   // has no setters and nothing selected, which would hide the row entirely.
-  const metricNames = (ids: string[]) =>
-    ids.length
-      ? ids.map((id) => getExperimentMetricById(id)?.name || id).join(", ")
-      : "None";
+  const metricList = (ids: string[]) =>
+    ids.length ? (
+      <Flex gap="2" wrap="wrap">
+        {ids.map((id, i) => (
+          <Link key={id} href={getMetricLink(id)}>
+            {getExperimentMetricById(id)?.name || id}
+            {i < ids.length - 1 ? "," : ""}
+          </Link>
+        ))}
+      </Flex>
+    ) : (
+      <Text color="text-high">None</Text>
+    );
 
   const metricRow = (
     label: string,
@@ -201,13 +228,26 @@ export default function AnalysisPlan({ experiment, mutate, canEdit }: Props) {
           includeGroups
         />
       ) : (
-        <Text color="text-high">{metricNames(selected)}</Text>
+        metricList(selected)
       )}
     </SetupFieldRow>
   );
 
   return (
     <>
+      {advancedOpen ? (
+        <AnalysisForm
+          cancel={() => setAdvancedOpen(false)}
+          experiment={experiment}
+          mutate={mutate}
+          phase={experiment.phases.length - 1}
+          editDates={true}
+          editVariationIds={false}
+          editMetrics={true}
+          source="analysis-plan"
+          envs={envs}
+        />
+      ) : null}
       <Separator size="4" my="3" />
       <Box py="4">
         <Flex align="center" justify="between" mb="1">
@@ -266,6 +306,15 @@ export default function AnalysisPlan({ experiment, mutate, canEdit }: Props) {
                 onClick={() => setUnlocked(true)}
               >
                 <PiPencilSimpleFill /> Edit
+              </Button>
+            ) : null}
+            {canEdit ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setAdvancedOpen(true)}
+              >
+                <PiSlidersHorizontal /> Advanced
               </Button>
             ) : null}
           </Flex>
@@ -349,6 +398,26 @@ export default function AnalysisPlan({ experiment, mutate, canEdit }: Props) {
             </HelperText>
           ) : null}
         </SetupFieldRow>
+
+        {experiment.activationMetric ? (
+          <SetupFieldRow
+            label="Activation metric"
+            tooltip="Only users who convert on this metric are included in the analysis."
+          >
+            {metricList([experiment.activationMetric])}
+          </SetupFieldRow>
+        ) : null}
+
+        {experiment.segment ? (
+          <SetupFieldRow
+            label="Segment"
+            tooltip="Limits the analysis to users in this segment."
+          >
+            <Text color="text-high">
+              {getSegmentById(experiment.segment)?.name || experiment.segment}
+            </Text>
+          </SetupFieldRow>
+        ) : null}
 
         {metricRow(
           "Goal metrics",
