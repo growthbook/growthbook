@@ -28,7 +28,6 @@ import {
   MetricWindowSettings,
   RowFilter,
   StandardFactMetricInterface,
-  InlineFilterCondition,
 } from "shared/types/fact-table";
 import {
   MetricDefaults,
@@ -142,28 +141,14 @@ export function canInlineFilterColumn(
 }
 
 /**
- * True when `rowFilters` already pin `condition.column` (via `=` / `in`) to
- * values that are all in `condition.values`. Blank placeholder values don't
- * count.
- */
-export function isInlineFilterConditionMet(
-  condition: InlineFilterCondition,
-  rowFilters: RowFilter[],
-): boolean {
-  if (!condition.column || !condition.values.length) return false;
-  const allowed = new Set(condition.values);
-  return rowFilters.some((rf) => {
-    if (rf.column !== condition.column) return false;
-    if (rf.operator !== "=" && rf.operator !== "in") return false;
-    const values = (rf.values ?? []).filter((v) => v !== "");
-    return values.length > 0 && values.every((v) => allowed.has(v));
-  });
-}
-
-/**
  * Columns to prompt a metric / exploration for, given its current filters:
- * every eligible `alwaysInlineFilter` column whose `inlineFilterCondition`
- * (if any) the filters already satisfy.
+ * every eligible `alwaysInlineFilter` column, plus, for each of those pinned
+ * to exactly one value (`=`, or `in` with a single value), the extra column
+ * that value maps to via `conditionalInlineFilters` (e.g. event_name =
+ * "Page View" -> path). A multi-value `in` never prompts: the mapped column
+ * only applies to some of those events, and filtering on it would drop the
+ * rest. Mapped columns may be JSON field paths, which slim fact table
+ * definitions can't type-check, so they are trusted as configured.
  */
 export function getInlineFilterPromptColumns(
   factTable: Pick<
@@ -172,16 +157,31 @@ export function getInlineFilterPromptColumns(
   >,
   rowFilters: RowFilter[] = [],
 ): string[] {
-  return factTable.columns
-    .filter(
-      (c) =>
-        c.alwaysInlineFilter &&
-        !c.deleted &&
-        canInlineFilterColumn(factTable, c.column) &&
-        (!c.inlineFilterCondition ||
-          isInlineFilterConditionMet(c.inlineFilterCondition, rowFilters)),
-    )
-    .map((c) => c.column);
+  const columns: string[] = [];
+  const add = (c: string) => {
+    if (!columns.includes(c)) columns.push(c);
+  };
+  factTable.columns.forEach((c) => {
+    if (
+      !c.alwaysInlineFilter ||
+      c.deleted ||
+      !canInlineFilterColumn(factTable, c.column)
+    ) {
+      return;
+    }
+    add(c.column);
+    const mapping = c.conditionalInlineFilters;
+    if (!mapping) return;
+    rowFilters.forEach((rf) => {
+      if (rf.column !== c.column) return;
+      if (rf.operator !== "=" && rf.operator !== "in") return;
+      const values = (rf.values ?? []).filter((v) => v !== "");
+      if (values.length !== 1) return;
+      const mapped = mapping[values[0]];
+      if (mapped) add(mapped);
+    });
+  });
+  return columns;
 }
 
 export function isEmptyInlineFilterPlaceholder(rf: RowFilter): boolean {
@@ -189,10 +189,10 @@ export function isEmptyInlineFilterPlaceholder(rf: RowFilter): boolean {
 }
 
 /**
- * Re-run after a filter edit: when the edit starts satisfying a conditional
- * prompt, append its empty placeholder; when it stops satisfying one, drop
- * that column's still-empty placeholder. Only transitions are acted on, so a
- * prompt the user deliberately removed is not re-added on every keystroke.
+ * Re-run after a filter edit: when the edit starts mapping to an extra prompt,
+ * append its empty placeholder; when it stops, drop that column's still-empty
+ * placeholder. Only transitions are acted on, so a prompt the user
+ * deliberately removed is not re-added on every keystroke.
  */
 export function reconcileInlineFilterPrompts(
   factTable: Pick<

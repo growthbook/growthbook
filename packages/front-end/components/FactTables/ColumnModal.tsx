@@ -19,7 +19,7 @@ import {
   PiLightning,
   PiLightningSlash,
 } from "react-icons/pi";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { differenceInDays } from "date-fns";
 import Link from "@/ui/Link";
@@ -28,7 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
@@ -41,6 +41,7 @@ import track from "@/services/track";
 import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -59,6 +60,14 @@ function toPersistedJSONFields(
       field,
       { ...value, datatype: value.datatype ?? "" },
     ]),
+  );
+}
+
+function toConditionalInlineFilters(
+  mappings: { value: string; column: string }[],
+): Record<string, string> {
+  return Object.fromEntries(
+    mappings.filter((m) => m.value && m.column).map((m) => [m.value, m.column]),
   );
 }
 
@@ -113,6 +122,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     }
   };
 
+  const [valueMappings, setValueMappings] = useState<
+    { value: string; column: string }[]
+  >(() =>
+    Object.entries(existing?.conditionalInlineFilters ?? {}).map(
+      ([value, column]) => ({ value, column }),
+    ),
+  );
   const form = useForm<CreateColumnProps>({
     defaultValues: {
       column: existing?.column || "",
@@ -122,7 +138,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       datatype: existing?.datatype || "",
       jsonFields: existing?.jsonFields || {},
       alwaysInlineFilter: existing?.alwaysInlineFilter || false,
-      inlineFilterCondition: existing?.inlineFilterCondition ?? null,
       isAutoSliceColumn: existing?.isAutoSliceColumn || false,
       autoSlices: existing?.autoSlices || [],
       lockedAutoSlices: existing?.lockedAutoSlices || [],
@@ -258,7 +273,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     datatype: form.watch("datatype") ?? "",
     jsonFields: toPersistedJSONFields(form.watch("jsonFields")),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
-    inlineFilterCondition: form.watch("inlineFilterCondition"),
     isAutoSliceColumn: form.watch("isAutoSliceColumn"),
     autoSlices: form.watch("autoSlices"),
     lockedAutoSlices: form.watch("lockedAutoSlices"),
@@ -266,15 +280,29 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   };
 
   // Other string columns a conditional prompt can key off.
-  const conditionColumnOptions = factTable.columns
-    .filter(
-      (c) =>
-        !c.deleted &&
-        c.datatype === "string" &&
-        c.column !== form.watch("column") &&
-        canInlineFilterColumn(factTable, c.column),
-    )
-    .map((c) => ({ label: c.name || c.column, value: c.column }));
+  // Columns (or JSON fields) that can be prompted for alongside this one
+  const mappingColumnOptions: SingleValue[] = [];
+  factTable.columns.forEach((c) => {
+    if (c.deleted || c.column === form.watch("column")) return;
+    if (c.datatype === "json") {
+      Object.entries(c.jsonFields ?? {}).forEach(([field, f]) => {
+        if (
+          f.datatype === "string" ||
+          f.datatype === "boolean" ||
+          !f.datatype
+        ) {
+          mappingColumnOptions.push({
+            label: `${c.name || c.column}.${field}`,
+            value: `${c.column}.${field}`,
+          });
+        }
+      });
+      return;
+    }
+    if (canInlineFilterColumn(factTable, c.column)) {
+      mappingColumnOptions.push({ label: c.name || c.column, value: c.column });
+    }
+  });
 
   return (
     <Modal
@@ -293,9 +321,9 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             numberFormat: value.numberFormat,
             datatype: value.datatype,
             alwaysInlineFilter: value.alwaysInlineFilter,
-            inlineFilterCondition: value.alwaysInlineFilter
-              ? value.inlineFilterCondition
-              : null,
+            conditionalInlineFilters: value.alwaysInlineFilter
+              ? toConditionalInlineFilters(valueMappings)
+              : {},
             isAutoSliceColumn: value.isAutoSliceColumn,
             autoSlices: value.autoSlices,
             lockedAutoSlices: value.lockedAutoSlices,
@@ -349,7 +377,12 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
           await apiCall(`/fact-tables/${factTable.id}/column`, {
             method: "POST",
-            body: JSON.stringify(value),
+            body: JSON.stringify({
+              ...value,
+              conditionalInlineFilters: value.alwaysInlineFilter
+                ? toConditionalInlineFilters(valueMappings)
+                : undefined,
+            }),
           });
         }
         mutateDefinitions();
@@ -1028,62 +1061,72 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
           />
           {form.watch("alwaysInlineFilter") && (
-            <Box mt="2" ml="4">
-              <Checkbox
-                value={!!form.watch("inlineFilterCondition")}
-                setValue={(v) =>
-                  form.setValue(
-                    "inlineFilterCondition",
-                    v === true ? { column: "", values: [] } : null,
-                  )
-                }
-                disabled={!conditionColumnOptions.length}
-                label="Only when another column has certain values"
-                description={
-                  conditionColumnOptions.length
-                    ? "For example, prompt for `path` only when `event_name` is `Page View`."
-                    : "Requires another string column that can be used as a filter."
-                }
-              />
-              {form.watch("inlineFilterCondition") && (
-                <Flex direction="column" gap="3" mt="2">
-                  <SelectField
-                    label="Column"
-                    value={form.watch("inlineFilterCondition")?.column ?? ""}
-                    onChange={(column) =>
-                      form.setValue("inlineFilterCondition", {
-                        column,
-                        values: [],
-                      })
+            <Frame mt="2" ml="4" py="4" px="4">
+              <Text size="2" weight="medium">
+                Secondary filters
+              </Text>
+              <Text as="p" size="1" color="gray" mb="2">
+                When certain values are chosen, prompt for an additional filter.
+              </Text>
+              <Flex direction="column" gap="2">
+                {valueMappings.map((m, i) => (
+                  <Flex key={i} gap="2" align="center">
+                    <SelectField
+                      containerStyle={{ flex: 1, minWidth: 0, marginBottom: 0 }}
+                      value={m.value}
+                      createable
+                      onChange={(value) =>
+                        setValueMappings((prev) =>
+                          prev.map((x, j) => (j === i ? { ...x, value } : x)),
+                        )
+                      }
+                      options={topValues.map((v) => ({ label: v, value: v }))}
+                      placeholder="Value..."
+                    />
+                    <Text>→</Text>
+                    <SelectField
+                      containerStyle={{ flex: 1, minWidth: 0, marginBottom: 0 }}
+                      value={m.column}
+                      onChange={(column) =>
+                        setValueMappings((prev) =>
+                          prev.map((x, j) => (j === i ? { ...x, column } : x)),
+                        )
+                      }
+                      options={mappingColumnOptions}
+                      placeholder="Filter on..."
+                    />
+                    <RadixButton
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Remove"
+                      onClick={() =>
+                        setValueMappings((prev) =>
+                          prev.filter((_, j) => j !== i),
+                        )
+                      }
+                    >
+                      <PiX size={14} />
+                    </RadixButton>
+                  </Flex>
+                ))}
+                <Flex>
+                  <RadixButton
+                    variant="ghost"
+                    size="sm"
+                    icon={<PiPlus size={14} />}
+                    disabled={!mappingColumnOptions.length}
+                    onClick={() =>
+                      setValueMappings((prev) => [
+                        ...prev,
+                        { value: "", column: "" },
+                      ])
                     }
-                    options={conditionColumnOptions}
-                    placeholder="Select column..."
-                    required
-                  />
-                  <MultiSelectField
-                    label="Has one of these values"
-                    value={form.watch("inlineFilterCondition")?.values ?? []}
-                    onChange={(values) =>
-                      form.setValue("inlineFilterCondition", {
-                        column:
-                          form.watch("inlineFilterCondition")?.column ?? "",
-                        values,
-                      })
-                    }
-                    options={(
-                      factTable.columns.find(
-                        (c) =>
-                          c.column ===
-                          form.watch("inlineFilterCondition")?.column,
-                      )?.topValues ?? []
-                    ).map((v) => ({ label: v, value: v }))}
-                    creatable
-                    placeholder="Select or enter values..."
-                    required
-                  />
+                  >
+                    Add value
+                  </RadixButton>
                 </Flex>
-              )}
-            </Box>
+              </Flex>
+            </Frame>
           )}
         </div>
       )}

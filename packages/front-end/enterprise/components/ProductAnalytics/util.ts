@@ -201,17 +201,12 @@ export function getValueTypeLabel(
   );
 }
 
-/** Unconditional always-filter columns (conditional prompts depend on the
- *  current filters, so they can't act as a table-wide identity). */
 export function getAlwaysInlineFilterColumns(
   factTable: FactTableDefinition,
 ): string[] {
   return factTable.columns
     .filter(
-      (c) =>
-        c.alwaysInlineFilter &&
-        !c.inlineFilterCondition &&
-        canInlineFilterColumn(factTable, c.column),
+      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
     )
     .map((c) => c.column);
 }

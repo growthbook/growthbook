@@ -224,7 +224,7 @@ When you check this box, GrowthBook will run a quick query looking for the top 1
 
 Another example use of this checkbox is for a `Page Path` column in a `Page Views` Fact Table. This will streamline creation of metrics such as "Visited /checkout", "Visited /pricing", and more.
 
-The prompt can also be conditional. On a broad `events` table, a `path` column only matters for page views, so check "Only when another column has certain values" and pick `event_name` = `Page View`. GrowthBook then prompts for `path` as soon as a metric or exploration filters `event_name` to `Page View`, and removes the empty prompt again if that filter changes. Properties that live inside a JSON column can be exposed this way through a virtual column on the fact table.
+Prompts can also depend on the value chosen. On a broad `events` table, a `path` column only matters for page views and `properties.modalType` only for modal events. Under the checkbox, map values of this column to the extra column or JSON field to prompt for, such as `Page View` → `path`. As soon as a metric or exploration filters `event_name` to exactly one mapped value, GrowthBook adds the extra prompt, and removes it again while still empty if the value changes. Filtering to several events at once never adds a prompt, since a column like `path` only exists for some of them.
 
 ### User Filters
 

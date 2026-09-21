@@ -11,7 +11,6 @@ import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
   getInlineFilterPromptColumns,
-  isInlineFilterConditionMet,
   reconcileInlineFilterPrompts,
   getAggregateFilters,
   getColumnExpression,
@@ -2904,16 +2903,15 @@ describe("conditional inline filter prompts", () => {
     userIdTypes: ["user_id"],
     columns: [
       col("user_id"),
-      col("event_name", { alwaysInlineFilter: true }),
-      col("path", {
+      col("event_name", {
         alwaysInlineFilter: true,
-        inlineFilterCondition: { column: "event_name", values: ["Page View"] },
+        conditionalInlineFilters: {
+          "Page View": "path",
+          "Modal Open": "properties.modalType",
+        },
       }),
-      col("amount", {
-        datatype: "number",
-        alwaysInlineFilter: true,
-        inlineFilterCondition: { column: "event_name", values: ["Order"] },
-      }),
+      col("path"),
+      col("properties", { datatype: "json" }),
     ],
   };
   const pageView = {
@@ -2922,70 +2920,52 @@ describe("conditional inline filter prompts", () => {
     values: ["Page View"],
   };
 
-  describe("isInlineFilterConditionMet", () => {
-    const condition = { column: "event_name", values: ["Page View", "Click"] };
-    it("matches = and in with a subset of the allowed values", () => {
-      expect(isInlineFilterConditionMet(condition, [pageView])).toBe(true);
+  describe("getInlineFilterPromptColumns", () => {
+    it("prompts for the base columns only until a mapped value is chosen", () => {
+      expect(getInlineFilterPromptColumns(factTable, [])).toEqual([
+        "event_name",
+      ]);
       expect(
-        isInlineFilterConditionMet(condition, [
-          {
-            column: "event_name",
-            operator: "in",
-            values: ["Click", "Page View"],
-          },
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "=", values: ["Purchase"] },
         ]),
-      ).toBe(true);
+      ).toEqual(["event_name"]);
     });
-    it("rejects supersets, other operators, blanks and other columns", () => {
+    it("adds the mapped column (including JSON paths) for a single pinned value", () => {
+      expect(getInlineFilterPromptColumns(factTable, [pageView])).toEqual([
+        "event_name",
+        "path",
+      ]);
+      // `in` with one value is equivalent to `=`
       expect(
-        isInlineFilterConditionMet(condition, [
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "in", values: ["Modal Open"] },
+        ]),
+      ).toEqual(["event_name", "properties.modalType"]);
+    });
+    it("does not prompt for a multi-value in: the mapped column would exclude the other events", () => {
+      expect(
+        getInlineFilterPromptColumns(factTable, [
           {
             column: "event_name",
             operator: "in",
             values: ["Page View", "Order"],
           },
         ]),
-      ).toBe(false);
-      expect(
-        isInlineFilterConditionMet(condition, [
-          { column: "event_name", operator: "!=", values: ["Page View"] },
-        ]),
-      ).toBe(false);
-      expect(
-        isInlineFilterConditionMet(condition, [
-          { column: "event_name", operator: "=", values: [""] },
-        ]),
-      ).toBe(false);
-      expect(
-        isInlineFilterConditionMet(condition, [
-          { column: "other", operator: "=", values: ["Page View"] },
-        ]),
-      ).toBe(false);
-      expect(isInlineFilterConditionMet(condition, [])).toBe(false);
+      ).toEqual(["event_name"]);
     });
-  });
-
-  describe("getInlineFilterPromptColumns", () => {
-    it("always includes unconditional prompts and adds conditional ones once met", () => {
-      expect(getInlineFilterPromptColumns(factTable, [])).toEqual([
-        "event_name",
-      ]);
-      expect(getInlineFilterPromptColumns(factTable, [pageView])).toEqual([
-        "event_name",
-        "path",
-      ]);
-    });
-    it("never prompts for columns that cannot be inline filtered", () => {
+    it("ignores other operators and blank placeholders", () => {
       expect(
         getInlineFilterPromptColumns(factTable, [
-          { column: "event_name", operator: "=", values: ["Order"] },
+          { column: "event_name", operator: "!=", values: ["Page View"] },
+          { column: "event_name", operator: "=", values: [""] },
         ]),
       ).toEqual(["event_name"]);
     });
   });
 
   describe("reconcileInlineFilterPrompts", () => {
-    it("appends a placeholder when the condition becomes satisfied", () => {
+    it("appends a placeholder when a mapped value is chosen", () => {
       expect(
         reconcileInlineFilterPrompts(
           factTable,
@@ -2994,7 +2974,7 @@ describe("conditional inline filter prompts", () => {
         ),
       ).toEqual([pageView, { column: "path", operator: "=", values: [""] }]);
     });
-    it("drops the still-empty placeholder when the condition stops holding", () => {
+    it("drops the still-empty placeholder when the value changes", () => {
       const order = {
         column: "event_name",
         operator: "=" as const,
@@ -3022,7 +3002,6 @@ describe("conditional inline filter prompts", () => {
           [order, path],
         ),
       ).toEqual([order, path]);
-      // Condition already met before and after: nothing is re-added.
       expect(
         reconcileInlineFilterPrompts(factTable, [pageView], [pageView]),
       ).toEqual([pageView]);
