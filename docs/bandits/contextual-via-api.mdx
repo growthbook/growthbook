@@ -15,10 +15,10 @@ This runbook walks through the full lifecycle of a Contextual Bandit driven enti
 
 Contextual Bandits use two REST resources:
 
-- `/v1/contextual-bandit-queries` — the assignment SQL plus the targeting (context) columns the bandit splits on. This is the bandit-specific replacement for borrowing an Experiment Assignment Query off the datasource.
-- `/v1/contextual-bandits` — the bandit itself, which references a query by id.
+- [`/v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/listContextualBanditQueries) — the assignment SQL plus the targeting (context) columns the bandit splits on. This is the bandit-specific replacement for borrowing an Experiment Assignment Query off the datasource.
+- [`/v1/contextual-bandits`](/api/ContextualBandits/operation/listContextualBandits) — the bandit itself, which references a query by id.
 
-See the [REST API reference](https://docs.growthbook.io/api) for the full schema.
+See the [REST API reference](/api) for the full schema of each resource.
 
 <Info>
 Contextual Bandits are an Enterprise-only feature. Every endpoint below returns `402 Plan Does Not Allow` on Pro / Free plans.
@@ -72,7 +72,7 @@ The response includes the new Contextual Bandit id (`cb_…`). The CB is provisi
 
 ## 3. Link a Feature Flag
 
-A Contextual Bandit serves its variations through a `contextual-bandit-ref` rule on a Feature Flag, and it needs at least one linked Feature Flag before it can start. Create the flag first with `POST /v2/features`, then link it:
+A Contextual Bandit serves its variations through a `contextual-bandit-ref` rule on a Feature Flag, and it needs at least one linked Feature Flag before it can start. Create the flag first with [`POST /v2/features`](/api/features-v2/operation/postFeatureV2), then link it:
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/linked-feature/homepage-cta' \

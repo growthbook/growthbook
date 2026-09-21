@@ -19,7 +19,9 @@ This page is a checklist of everything you need in place before running your fir
 
 - **An Enterprise plan** — Contextual Bandits are an Enterprise-only beta feature.
 - **A supported SDK on a compatible version** — currently JavaScript, React, and Node.js (see below).
+- **A connected Data Source** with a warehouse the bandit can query, plus a dedicated Contextual Bandit Assignment Query that selects your user id, timestamp, and one or more context columns (see step 4).
 - **A Fact Metric to use as the Decision Metric** — legacy (non-fact) metrics are not supported as decision metrics.
+- **Two or more variations** to test, and the Bayesian statistics engine (contextual bandits are not available under the frequentist engine).
 
 ## 1. Install or upgrade to a compatible SDK
 
@@ -53,11 +55,11 @@ Contextual bandit rules degrade gracefully. SDKs below 1.7.0 (and all SDK langua
 Two things to verify on your SDK Connection, under **SDK Configuration → SDK Connections** in the GrowthBook app:
 
 1. **Language and version** — make sure the connection's SDK language is JavaScript, React, or Node.js and its version is set to 1.7.0 or higher. GrowthBook only includes contextual bandit definitions in the SDK payload for connections that support them.
-2. **Cache TTL** — contextual bandits change variation weights while running. If your SDK caches the payload longer than the bandit's update cadence, users will be bucketed with stale weights, which slows learning and can trigger SRM warnings. Make sure your SDK's `maxAge` / TTL settings refresh the payload significantly more often than the bandit reweights (or use streaming updates).
+2. **Cache TTL** — contextual bandits change variation weights while running. If your SDK caches the payload longer than the bandit's update cadence, users will be bucketed with stale weights, which slows learning and can trigger SRM warnings. Make sure your SDK's `maxAge` / TTL settings refresh the payload significantly more often than the bandit reweights (or use streaming updates). The [cache max-age recommendations for multi-armed bandits](/bandits/config#8-prerequisite-double-check-sdk-cache-settings) apply here too.
 
 ## 3. Update your tracking callback
 
-Contextual bandits personalize variation weights based on unit attributes that are set on the GrowthBook SDK. The best way to ensure we log the attributes used to bucket units is to use the new `trackingCallback` signature (with a new `user` argument) that allows you to pull the unit attributes that were used at evaluation time.
+Contextual bandits personalize variation weights based on unit attributes that are set on the GrowthBook SDK. The best way to ensure we log the attributes used to bucket units is to use the new `trackingCallback` signature (with a new `user` argument) that allows you to pull the unit attributes that were used at evaluation time. See the [JavaScript SDK docs](/lib/js) for the full callback reference.
 
 Furthermore, for offline debugging and for future health checks in GrowthBook, consider tracking three additional fields: `leafId`, `banditVersion`, and `variationWeights`. These three fields are only set for contextual bandit assignments.
 
@@ -85,7 +87,7 @@ This change is optional only if you already track user attributes in your tracki
 
 ## 4. Create a Contextual Bandit Assignment Query
 
-To take advantage of the above attributes and additional contextual bandit fields, you need to create a dedicated **Contextual Bandit Assignment Query**. This query holds the assignment SQL plus the list of context columns the bandit is allowed to split on. Manage these on your GrowthBook Datasource page under **Contextual Bandit Assignment Queries**, or via the [REST API](https://docs.growthbook.io/api#tag/ContextualBanditAssignmentQueries/operation/createContextualBanditAssignmentQuery).
+To take advantage of the above attributes and additional contextual bandit fields, you need to create a dedicated **Contextual Bandit Assignment Query**. This query holds the assignment SQL plus the list of context columns the bandit is allowed to split on. Manage these on your GrowthBook Datasource page under **Contextual Bandit Assignment Queries**, or via the [createContextualBanditQuery](/api/ContextualBanditQueries/operation/createContextualBanditQuery) REST endpoint.
 
 The query must select one row per exposure event with the following columns:
 
@@ -107,8 +109,8 @@ FROM contextual_bandit_events
 
 Requirements:
 
-- At least one context column (e.g. `userRole`) is required and ideally matches the columns you're sending from the `user` argument from your tracking callback. The set passed here must match your SDK Attributes in GrowthBook in order to be used to target the contextual bandit.
-- `leaf_id`, `bandit_version`, and `variation_weights` are the warehouse-side counterparts of the tracking callback fields from step 2. They are optional, but you should include them — later versions of contextual bandits will use them for health checks like SRM.
+- At least one context column (e.g. `userRole`) is required — a bandit with no context to split on is just a multi-armed bandit. It should ideally match the columns you're sending from the `user` argument from your tracking callback. The set passed here must match your SDK Attributes in GrowthBook in order to be used to target the contextual bandit.
+- `leaf_id`, `bandit_version`, and `variation_weights` are the warehouse-side counterparts of the tracking callback fields from [step 3](#3-update-your-tracking-callback). They are optional, but you should include them — later versions of contextual bandits will use them for health checks like SRM.
 
 ## 5. Create the Contextual Bandit
 
@@ -119,7 +121,7 @@ Create the bandit under **Experiments → Contextual Bandits** in the left navig
 - **Exploration window and update cadence** — how long the bandit collects data before it starts reweighting, and how often it reweights after that. See the [bandit configuration guide](/bandits/config#4-set-the-exploration-window-and-update-cadence) for guidance.
 - **A Decision Metric** — the single Fact Metric the bandit optimizes toward. The same guidance as for [multi-armed bandits](/bandits/config#5-selecting-a-decision-metric) applies: prefer a metric with a short conversion window and a conversion rate that isn't extremely low or high.
 
-This step can also be done via the REST API using the [createContextualBandit](https://docs.growthbook.io/api#tag/ContextualBandits/operation/createContextualBandit) endpoint.
+This step can also be done via the REST API using the [createContextualBandit](/api/ContextualBandits/operation/createContextualBandit) endpoint.
 
 ## 6. Link a Feature Flag and start
 
@@ -133,10 +135,12 @@ Once running, GrowthBook refreshes the bandit on its update cadence: each refres
 
 This step can also be done via the REST API by:
 
-- Creating a feature flag via the [postFeatureV2](https://docs.growthbook.io/api#tag/features-v2/operation/postFeatureV2) endpoint.
-- Linking the feature flag to the contextual bandit via the [addContextualBanditLinkedFeature](https://docs.growthbook.io/api#tag/ContextualBandits/operation/addContextualBanditLinkedFeature) endpoint.
-- Starting the contextual bandit via the [startContextualBandit](https://docs.growthbook.io/api#tag/ContextualBandits/operation/startContextualBandit) endpoint.
+- Creating a feature flag via the [postFeatureV2](/api/features-v2/operation/postFeatureV2) endpoint.
+- Linking the feature flag to the contextual bandit via the [addContextualBanditLinkedFeature](/api/ContextualBandits/operation/addContextualBanditLinkedFeature) endpoint.
+- Starting the contextual bandit via the [startContextualBandit](/api/ContextualBandits/operation/startContextualBandit) endpoint.
 
 ## Next steps
 
-- [Contextual Bandits overview](/bandits/contextual) — concepts, and when to use one over a multi-armed bandit
+- [Driving a Contextual Bandit via API](/bandits/contextual-via-api) — run the same lifecycle entirely from the REST API, including refreshing and reading results.
+- [Contextual Bandits overview](/bandits/contextual) — concepts, and when to use one over a multi-armed bandit.
+- [Contextual Bandit technical details](/statistics/contextual-bandit-technical) — how per-context weights are computed.
