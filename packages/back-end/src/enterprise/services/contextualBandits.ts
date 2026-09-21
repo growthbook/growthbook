@@ -2018,11 +2018,11 @@ export function buildSnapshotSettingsForCb(
 
 export function getContextualBanditSettingsForStatsEngine(
   cb: ContextualBanditInterface,
-  variationIds: string[],
+  variations: { id: string; key: string }[],
   contextualAttributes: string[],
 ): ContextualBanditStatsSettings {
   return {
-    varIds: variationIds,
+    variations,
     contextualAttributes,
     maxLeaves: cb.maxLeaves,
     minUsersPerLeaf: cb.minUsersPerLeaf,
