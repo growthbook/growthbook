@@ -90,11 +90,11 @@ export default function CommentCard({
           }}
         />
         <Box px="1">
-          {/* Compact headers wrap to two lines, so a centered action drifts
-              down the card — pin it to the first line instead. */}
+          {/* A header wraps to two lines in any narrow column, and a centred
+              action then drifts down the card — pin it to the first line. */}
           <Flex
             justify="between"
-            align={compact ? "start" : "center"}
+            align="start"
             mb={body ? (compact ? "1" : "2") : "0"}
             gap="2"
           >

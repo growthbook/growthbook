@@ -27,6 +27,8 @@ const DiscussionThread: FC<{
   allowNewComments?: boolean;
   showTitle?: boolean;
   title?: string;
+  /** Slim chrome for a narrow column: see `CommentCard`. */
+  compact?: boolean;
 }> = ({
   type,
   id,
@@ -34,6 +36,7 @@ const DiscussionThread: FC<{
   showTitle = false,
   title = "Add comment",
   projects,
+  compact = false,
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -92,6 +95,7 @@ const DiscussionThread: FC<{
                     />
                   ) : (
                     <CommentCard
+                      compact={compact}
                       user={eventUser}
                       metadata={`commented on ${datetime(comment.date)}`}
                       metadataExtra={

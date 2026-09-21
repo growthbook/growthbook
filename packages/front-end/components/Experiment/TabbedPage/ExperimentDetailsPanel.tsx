@@ -128,6 +128,7 @@ export default function ExperimentDetailsPanel({
         <TabsContent value="comments">
           <Box px="5" py="4">
             <DiscussionThread
+              compact
               type="experiment"
               id={experiment.id}
               allowNewComments={!experiment.archived}
