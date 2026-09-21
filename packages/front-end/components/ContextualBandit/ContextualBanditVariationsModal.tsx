@@ -116,6 +116,17 @@ export default function ContextualBanditVariationsModal({
           const removeVariationIds = [...originalIds].filter(
             (id) => !currentIds.has(id),
           );
+          const existingWithChangedKey = data.variations
+            .filter((v) => originalIds.has(v.id))
+            .filter((v) => {
+              const prev = originalById.get(v.id);
+              return !!prev && v.key !== prev.key;
+            });
+          if (existingWithChangedKey.length > 0) {
+            throw new Error(
+              "Keys can only be set when adding a variation. Please revert the key edits on existing variations before saving.",
+            );
+          }
           const updateVariations = data.variations
             .filter((v) => originalIds.has(v.id))
             .flatMap((v) => {
@@ -195,12 +206,11 @@ export default function ContextualBanditVariationsModal({
       >
         <FeatureVariationsInput
           label={null}
-          valueAsId
-          hideVariationIds
           hideSplits
           hideCoverage
           showDescriptions
           showPreview={false}
+          startEditingIndexes
           // Splits are hidden and weights are reconciled server-side, so the
           // weight is a placeholder the input requires but never shows. The
           // no-op setWeight is needed because FeatureVariationsInput only
