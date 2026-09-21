@@ -5,7 +5,6 @@ import {
   useState,
 } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiDotsSixVerticalBold } from "react-icons/pi";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import styles from "./CollapsiblePanelLayout.module.scss";
@@ -16,7 +15,6 @@ const MAX_PANEL_WIDTH_PX = 560;
 /** Drag this far past the minimum width to close the panel instead. */
 const COLLAPSE_DELTA_PX = 60;
 const HANDLE_WIDTH_PX = 20;
-const GRIP_HEIGHT_PX = 28;
 
 export interface Props {
   /** The main content. */
@@ -146,27 +144,7 @@ export default function CollapsiblePanelLayout({
                 touchAction: "none",
                 zIndex: 1,
               }}
-            >
-              {/* Sticky so the grip holds its place on screen while the page scrolls. */}
-              <Flex
-                align="center"
-                justify="center"
-                style={{
-                  position: "sticky",
-                  top: `calc(50vh - ${GRIP_HEIGHT_PX / 2}px)`,
-                  width: HANDLE_WIDTH_PX - 6,
-                  height: GRIP_HEIGHT_PX,
-                  margin: "0 auto",
-                  borderRadius: "999px",
-                  background: "var(--color-panel-solid)",
-                  border: "1px solid var(--gray-a5)",
-                }}
-              >
-                <PiDotsSixVerticalBold
-                  style={{ color: "var(--accent-11)", height: 12, width: 12 }}
-                />
-              </Flex>
-            </Box>
+            ></Box>
           ) : null}
           <Box height="100%" style={{ overflowY: "auto" }}>
             {panel}
