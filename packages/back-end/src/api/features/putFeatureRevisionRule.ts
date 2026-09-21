@@ -41,6 +41,9 @@ import {
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  validateRampPlanPatches,
 } from "./validations";
 import {
   assertCanUseRuleScheduling,
@@ -210,6 +213,15 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
   const patch = req.body.rule;
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
+      ...(feature.rules ?? []).find((r) => r.id === req.params.ruleId),
+      ...patch,
+      id: req.params.ruleId,
+      environments: [environment],
+    }),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -383,7 +395,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
+      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id, feature)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       const hasLegacySchedule =

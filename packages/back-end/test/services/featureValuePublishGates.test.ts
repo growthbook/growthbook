@@ -23,7 +23,7 @@ const plan: FeatureMergePlan = {
 };
 
 const revision = { version: 2, status: "draft" } as FeatureRevisionInterface;
-const context = {} as ReqContext;
+const context = { org: { settings: {} } } as unknown as ReqContext;
 
 describe("feature value publish gates", () => {
   it.each(["json", "boolean", "number"] as const)(

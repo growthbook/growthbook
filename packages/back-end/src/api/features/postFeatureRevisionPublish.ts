@@ -8,7 +8,6 @@ import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
-  assertFeatureValuesValidForPublish,
   getMergeResultPublishEnvs,
   toApiRevision,
 } from "back-end/src/services/features";
@@ -220,21 +219,6 @@ export async function publishFeatureRevision(
     environments: envsToCheck,
     mergeChanges,
   });
-
-  // Armed/scheduled path only: the feature's own-schema value net still throws
-  // here (interactive publishes ran it above as a gate). The config-backed net +
-  // custom hooks run in publishRevision -> prevalidatePublishRevision below.
-  if (!inlineValidationGates) {
-    assertFeatureValuesValidForPublish(
-      req.context,
-      feature,
-      {
-        defaultValue: mergeChanges.defaultValue,
-        rules: mergeChanges.rules,
-      },
-      feature,
-    );
-  }
 
   // Armed/scheduled path only: the same archive-dependents check as a throw
   // (interactive publishes emitted it as a gate above). Features have no arm-time

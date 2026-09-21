@@ -253,6 +253,26 @@ describe("isPureFeatureRevert", () => {
     ).toBe(false);
   });
 
+  it("accepts unarchiving against a sparse target — restoring it restores an active flag", () => {
+    expect(
+      isPureFeatureRevert({
+        feature: { ...feature, archived: true } as FeatureInterface,
+        draft: draft({ archived: false }),
+        target,
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects archiving against a sparse target on an active flag", () => {
+    expect(
+      isPureFeatureRevert({
+        feature,
+        draft: draft({ archived: true }),
+        target,
+      }),
+    ).toBe(false);
+  });
+
   it("accepts a draft that records no metadata at all (inherits live)", () => {
     expect(
       isPureFeatureRevert({

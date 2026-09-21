@@ -35,6 +35,8 @@ export function buildDatabricksConnectionOptions(
       authType: "databricks-oauth",
       oauthClientId: conn.oauthClientId,
       oauthClientSecret: conn.oauthClientSecret,
+      // Without this the driver uses the Entra ID flow on *.azuredatabricks.net hosts
+      useDatabricksOAuthInAzure: true,
     };
   }
 

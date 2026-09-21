@@ -41,6 +41,11 @@ import {
   RevisionReview,
   reviewerKeyForEventUser,
 } from "shared/validators";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import {
+  featureForSavedGroupValidation,
+  Feature as SavedGroupScopeFeature,
+} from "back-end/src/util/savedGroupProjectScope.util";
 import { ConflictError } from "back-end/src/util/errors";
 import {
   getFeatureRevisionValueUpdatesForPublish,
@@ -947,6 +952,7 @@ export async function createInitialRevision(
   user: EventUser | null,
   environments: string[],
   date?: Date,
+  comment?: string,
 ) {
   const rules: FeatureRule[] = (feature.rules ?? [])
     .filter(isPlausibleFeatureRule)
@@ -970,7 +976,7 @@ export async function createInitialRevision(
     baseVersion: 0,
     status: "published",
     publishedBy: user,
-    comment: "",
+    comment: comment ?? "",
     defaultValue: feature.defaultValue,
     rules,
     environmentsEnabled,
@@ -1158,11 +1164,14 @@ export async function createRevision({
   canBypassApprovalChecks,
   revertedFrom,
   preInsertValidation,
+  savedGroupScopeBaseline,
 }: PrepareFeatureRevisionParams & {
   publish?: boolean;
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
   preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>;
+  // Internal ramp restoration of persisted targeting; never request-supplied.
+  savedGroupScopeBaseline?: SavedGroupScopeFeature;
 }) {
   const prepared = await prepareFeatureRevision({
     context,
@@ -1177,6 +1186,12 @@ export async function createRevision({
   });
   const { revision, baseRevision } = prepared;
   baseVersion = prepared.baseVersion;
+
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, revision),
+    savedGroupScopeBaseline ? [feature, savedGroupScopeBaseline] : feature,
+  );
 
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -1481,6 +1496,11 @@ export async function prevalidateRevisionUpdate(
     revision,
     changes,
   );
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, proposedRevision),
+    featureForSavedGroupValidation(feature, revision),
+  );
   await runValidateFeatureRevisionHooks({
     context,
     feature,
@@ -1535,6 +1555,12 @@ export async function updateRevision(
     clearRevertedFrom,
     staleReviews,
   } = computeRevisionUpdate(context, feature, revision, changes, { rebase });
+
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, proposedRevision),
+    featureForSavedGroupValidation(feature, revision),
+  );
 
   await runValidateFeatureRevisionHooks({
     context,

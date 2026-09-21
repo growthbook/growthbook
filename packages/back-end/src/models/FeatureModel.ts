@@ -48,6 +48,8 @@ import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
@@ -59,6 +61,7 @@ import {
 import {
   getMergeResultPublishEnvs,
   addIdsToFlatRules,
+  assertFeatureValuesValidForPublish,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
@@ -81,6 +84,7 @@ import {
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
+  normalizeRampActionsForceValues,
   remapTemplateActions,
   runLockedRampScheduleAction,
   startReadyScheduleNow,
@@ -142,6 +146,7 @@ import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
+  holdoutLinkageOwner,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
@@ -928,6 +933,7 @@ export async function getFeatureRuleEnvironmentsByIds(
 export async function createFeature(
   context: ReqContext | ApiReqContext,
   data: FeatureInterface,
+  { comment }: { comment?: string } = {},
 ) {
   const { org } = context;
 
@@ -937,6 +943,8 @@ export async function createFeature(
     { valueType: data.valueType },
     buildFeatureUpdate({ ...data, linkedExperiments }),
   );
+
+  await assertFeatureSavedGroupScope(context, data);
 
   if (Array.isArray(featureToCreate.rules)) {
     const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
@@ -984,6 +992,8 @@ export async function createFeature(
     toInterface(feature, context),
     context.auditUser,
     getEnvironmentIdsFromOrg(org),
+    undefined,
+    comment,
   );
 
   if (linkedExperiments.length > 0) {
@@ -1368,6 +1378,11 @@ export async function updateFeature(
     onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void;
     // Internal recovery only: restore values from an already-persisted snapshot.
     preserveStoredValues?: boolean;
+    // Internal failed-write recovery only; a user-requested revert must still
+    // satisfy the current Saved Group scope.
+    isCompensation?: boolean;
+    // Preserve references already accepted in the draft being landed.
+    savedGroupScopeRevision?: FeatureRevisionInterface;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
@@ -1423,6 +1438,21 @@ export async function updateFeature(
   // `bulkPublishApplying` (not the correlation token) so genuine post-commit
   // writes — ramp activation etc., NOT covered by the plan gates — still run.
   if (!context.bulkPublishApplying) {
+    if (!options?.isCompensation) {
+      await assertFeatureSavedGroupScope(
+        context,
+        projected,
+        options?.savedGroupScopeRevision
+          ? [
+              feature,
+              featureForSavedGroupValidation(
+                feature,
+                options.savedGroupScopeRevision,
+              ),
+            ]
+          : feature,
+      );
+    }
     await runValidateFeatureHooks({
       context,
       feature: projected,
@@ -2170,7 +2200,11 @@ export async function applyRevisionChanges(
   // Every branch below is a landing, so its FIRST write is guarded on the
   // pre-image `feature` — same rule as the generic entities' guarded landings:
   // two publishes computed from the same read must not both apply.
-  const guard = { casOnDateUpdated: feature.dateUpdated, onStamped };
+  const guard = {
+    casOnDateUpdated: feature.dateUpdated,
+    onStamped,
+    savedGroupScopeRevision: revision,
+  };
 
   if (!hasChanges) {
     return await updateFeature(context, feature, changes, guard);
@@ -2464,6 +2498,8 @@ export async function applyHoldoutSideEffects(
 
 export type HoldoutExperimentLinkagePlan = {
   holdoutId: string;
+  // The feature whose publish produced this plan; owns the linkage event.
+  featureId: string;
   toLink: string[];
   toUnlink: string[];
   // "" is the clear sentinel `updateExperiment` expects.
@@ -2580,7 +2616,13 @@ async function planLinkageForHoldout(
     }),
   );
 
-  return { holdoutId, toLink, toUnlink, prevExperimentHoldoutIds };
+  return {
+    holdoutId,
+    featureId: feature.id,
+    toLink,
+    toUnlink,
+    prevExperimentHoldoutIds,
+  };
 }
 
 // `holdoutId` is a scalar last-writer-wins field, so `expectedPrior` turns the
@@ -2670,6 +2712,7 @@ export async function applyHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => applied.has(id)),
+    { eventOwner: holdoutPlanEventOwner(plan) },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
@@ -2743,12 +2786,23 @@ export async function reverseHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toUnlink.filter((id) => reverted.has(id)),
+    { notifyNewLinkage: false },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => reverted.has(id)),
   );
+  // With this plan's linkage put back, the landing must not announce it. An
+  // empty `reverted` means another owner holds the linkage now, and the event
+  // still describes what is live.
+  if (reverted.size) {
+    context.bulkPublishRestoredEntities?.add(holdoutPlanEventOwner(plan));
+  }
 }
+
+// Owner of the deferred linkage event for a plan's writes; see holdoutLinkageOwner.
+const holdoutPlanEventOwner = (plan: HoldoutExperimentLinkagePlan): string =>
+  holdoutLinkageOwner(plan.holdoutId, entityKey("feature", plan.featureId));
 
 // The linkage a holdout transition is about to write, captured before the forward
 // pass so its rewind can restore the pre-publish state instead of re-deriving it
@@ -2812,10 +2866,23 @@ export async function rewindHoldoutLinkage(
     // entry sitting there now. The comparison happens inside the model's own
     // read-modify-write, so it isn't check-then-act; the restore half below
     // declines on the same reasoning.
-    await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
-      featureId: pre.featureId,
-      expectFeatureEntry: pre.addedFeatureEntry,
-    });
+    const removed = await context.models.holdout.removeLinkageFromHoldout(
+      pre.newHoldoutId,
+      {
+        featureId: pre.featureId,
+        expectFeatureEntry: pre.addedFeatureEntry,
+      },
+    );
+    // Only when this rewind took the entry back: a declined removal means the
+    // linkage is live and its event should stand.
+    if (removed) {
+      context.bulkPublishRestoredEntities?.add(
+        holdoutLinkageOwner(
+          pre.newHoldoutId,
+          entityKey("feature", pre.featureId),
+        ),
+      );
+    }
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
@@ -2994,16 +3061,25 @@ async function createRampSchedulesForRevision(
     // Inject the generated targetId into every action and ensure targetType
     // is always set. Handles both correctly-typed actions and legacy drafts
     // that were stored without targetType.
+    // `force` is brought to the string form rule values are stored in and
+    // validated against the feature, so a plan staged with a raw JSON value
+    // (older UI drafts, REST callers) cannot put a non-string value on a rule.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
-    ): RampStepAction => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch: {
-        ...a.patch,
-        ruleId: action.ruleId,
-      },
-    });
+    ): RampStepAction =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule" as const,
+            targetId,
+            patch: {
+              ...a.patch,
+              ruleId: action.ruleId,
+            },
+          },
+        ],
+        feature,
+      )[0];
 
     // Template is used as a fallback; explicit steps/endActions win.
     let template: RampScheduleTemplateInterface | undefined;
@@ -3051,13 +3127,17 @@ async function createRampSchedulesForRevision(
             holdConditions: step.holdConditions ?? undefined,
           }))
         : template
-          ? template.steps.map((s) => ({
+          ? template.steps.map((s, i) => ({
               interval: s.interval,
-              actions: remapTemplateActions(
-                s.actions,
-                targetId,
-                action.ruleId,
-                feature.valueType,
+              actions: normalizeRampActionsForceValues(
+                remapTemplateActions(
+                  s.actions,
+                  targetId,
+                  action.ruleId,
+                  feature.valueType,
+                ),
+                feature,
+                `Template step ${i + 1} value`,
               ),
               approvalNotes: s.approvalNotes ?? undefined,
               monitored: !!s.monitored,
@@ -3077,22 +3157,36 @@ async function createRampSchedulesForRevision(
           ? action.endActions.map(normalizeAction)
           : []
         : template?.endPatch && Object.keys(template.endPatch).length > 0
-          ? [
-              {
-                targetType: "feature-rule" as const,
-                targetId,
-                patch: {
-                  ruleId: action.ruleId,
-                  ...template.endPatch,
+          ? normalizeRampActionsForceValues<RampStepAction>(
+              [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId,
+                  patch: {
+                    ruleId: action.ruleId,
+                    ...template.endPatch,
+                  },
                 },
-              },
-            ]
+              ],
+              feature,
+              "End value",
+            )
           : [];
 
     // Like steps, empty startActions are "not provided": the rollback anchor
-    // is derived from the rule as published.
+    // is derived from the rule as published. A provided anchor is usually the
+    // rule's own earlier value captured by the editor, so its `force` is only
+    // stringified, not judged against the feature type.
     const explicitStartActions = Array.isArray(action.startActions)
-      ? action.startActions.map(normalizeAction)
+      ? normalizeRampActionsForceValues(
+          action.startActions.map(
+            (a): RampStepAction => ({
+              targetType: "feature-rule" as const,
+              targetId,
+              patch: { ...a.patch, ruleId: action.ruleId },
+            }),
+          ),
+        )
       : [];
     const startActionsExplicit = explicitStartActions.length > 0;
     const startActions: RampStepAction[] = startActionsExplicit
@@ -3643,6 +3737,7 @@ export async function prevalidatePublishRevision({
   result,
   comment,
   skipValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3650,14 +3745,30 @@ export async function prevalidatePublishRevision({
   result: MergeResultChanges;
   comment?: string;
   skipValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
+  await assertFeatureSavedGroupScope(context, proposedFeature, [
+    feature,
+    featureForSavedGroupValidation(feature, revision),
+  ]);
   if (skipValidation) return;
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
   if (defaultToCheck !== undefined || rulesToCheck.length) {
+    if (!skipValueSchemaNet) {
+      assertFeatureValuesValidForPublish(
+        context,
+        proposedFeature,
+        {
+          defaultValue: defaultToCheck,
+          rules: rulesToCheck,
+        },
+        feature,
+      );
+    }
     await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
       defaultValue: defaultToCheck,
       rules: rulesToCheck,
@@ -3758,6 +3869,7 @@ async function restorePublishedFeatureDoc(
         casOnDateUpdated: current.dateUpdated,
         onStamped,
         preserveStoredValues: true,
+        isCompensation: true,
       });
       return;
     } catch (e) {
@@ -3777,6 +3889,7 @@ export async function collectPublishRevisionBlockers({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3785,6 +3898,7 @@ export async function collectPublishRevisionBlockers({
   comment?: string;
   bypassLockdown?: boolean;
   skipPrevalidateValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }): Promise<Error[]> {
   // Errors, not messages: SoftWarningError (422 + warnings) and BadRequestError
   // (400) reach the caller as themselves rather than a generic 500.
@@ -3823,6 +3937,7 @@ export async function collectPublishRevisionBlockers({
       result,
       comment,
       skipValidation: skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 
@@ -3895,6 +4010,7 @@ export async function publishRevision({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3905,6 +4021,10 @@ export async function publishRevision({
   // Set when this exact revision was already validated — as publish gates by the
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
+  // Set by the ramp engine: a step value is judged by type only and never
+  // refused, so rollbacks can re-apply the rule's own earlier values. The
+  // config-backed net below is unchanged; it has always run on ramp publishes.
+  skipValueSchemaNet?: boolean;
 }) {
   // One deduped SDK refresh per landing (feature applies are multi-step: ramp
   // schedules, the feature document, holdout linkage), flushed on success and
@@ -3918,6 +4038,7 @@ export async function publishRevision({
       comment,
       bypassLockdown,
       skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 }
@@ -3930,6 +4051,7 @@ async function publishRevisionInner({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
@@ -3973,6 +4095,7 @@ async function publishRevisionInner({
     comment,
     bypassLockdown,
     skipPrevalidateValidation,
+    skipValueSchemaNet,
   });
   if (blockers.length === 1) {
     throw blockers[0];
