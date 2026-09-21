@@ -263,11 +263,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Experiment/EditPhaseModal.tsx": {
     "no-restricted-syntax": {
       "count": 3

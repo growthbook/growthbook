@@ -8,8 +8,8 @@ import RichTextEditor, { RichTextEditorHandle } from "@/ui/RichTextEditor";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
-import Heading from "@/ui/Heading";
 import { useRegisterExperimentEdit } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Metadata from "@/ui/Metadata";
 
 export interface Props {
@@ -60,6 +60,13 @@ export default function InlineMarkdownField({
   // What the server holds, so a blur that changed nothing writes nothing.
   const saved = useRef(savedValue);
 
+  // State and editor together: the editor holds its own document, so setting
+  // one without the other leaves the two disagreeing.
+  const replaceValue = (next: string) => {
+    setValue(next);
+    editor.current?.setMarkdown(next);
+  };
+
   // The page's save bar writes this, so a field losing focus no longer posts.
   const dirty = editable && value.trim() !== savedValue.trim();
   useRegisterExperimentEdit(`inline:${label}`, dirty, {
@@ -77,9 +84,8 @@ export default function InlineMarkdownField({
       }
     },
     discard: () => {
-      setValue(savedValue);
+      replaceValue(savedValue);
       setError(null);
-      editor.current?.setMarkdown(savedValue);
     },
   });
 
@@ -146,15 +152,13 @@ export default function InlineMarkdownField({
                     setAiError(null);
                     onAISuggestionReceived?.(suggestion);
                     setBeforeSuggestion(value);
-                    setValue(suggestion);
-                    editor.current?.setMarkdown(suggestion);
+                    replaceValue(suggestion);
                   }}
                 />
                 {beforeSuggestion !== null ? (
                   <Link
                     onClick={() => {
-                      setValue(beforeSuggestion);
-                      editor.current?.setMarkdown(beforeSuggestion);
+                      replaceValue(beforeSuggestion);
                       setBeforeSuggestion(null);
                     }}
                   >
@@ -193,16 +197,9 @@ export default function InlineMarkdownField({
   }
 
   return (
-    <Flex align="start" gap="4" py="4">
-      <Box flexShrink="0" width="180px">
-        <Heading color="text-high" as="h4" size="sm" mb="0">
-          {label}
-        </Heading>
-      </Box>
-      <Box flexGrow="1" minWidth="0">
-        {body}
-        {errorCallout}
-      </Box>
-    </Flex>
+    <SetupFieldRow label={label} labelSize="lg">
+      {body}
+      {errorCallout}
+    </SetupFieldRow>
   );
 }

@@ -13,7 +13,7 @@ import {
   getImplementationType,
 } from "shared/util";
 import { getActivePhaseIndex } from "shared/experiments";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -202,6 +202,7 @@ export default function Implementation({
           source="implementation-tab"
         />
       )}
+      <Separator size="4" my="3" />
       <div className="my-4">
         <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation

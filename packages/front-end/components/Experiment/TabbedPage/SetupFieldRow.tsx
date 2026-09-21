@@ -1,0 +1,64 @@
+import { ReactNode } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
+import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
+
+/** Width of the label column. Every setup field shares it, so they line up. */
+export const LABEL_WIDTH = "180px";
+
+/** Half the difference between a control's height and its own text. */
+const LABEL_OFFSET: Record<LabelSize, string> = { md: "10px", lg: "6px" };
+
+type LabelSize = "md" | "lg";
+
+/**
+ * One field on the setup tab: its name on the left, the control on the right.
+ * Anything explaining the field belongs in `tooltip`, not under the label.
+ */
+export default function SetupFieldRow({
+  label,
+  labelSize = "md",
+  tooltip,
+  children,
+}: {
+  label: string;
+  /** `lg` for a field whose label doubles as the section's title. */
+  labelSize?: LabelSize;
+  tooltip?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Flex align="start" gap="4" py="3">
+      <Box
+        flexShrink="0"
+        width={LABEL_WIDTH}
+        // Nudged down so the label reads level with the control beside it,
+        // which centres its own text inside a taller box.
+        style={{ paddingTop: LABEL_OFFSET[labelSize] }}
+      >
+        <Flex align="center" gap="1">
+          <Text
+            as="label"
+            size={labelSize}
+            weight="medium"
+            color="text-high"
+            mb="0"
+          >
+            {label}
+          </Text>
+          {tooltip ? (
+            <Tooltip content={<Text align="left">{tooltip}</Text>}>
+              <span style={{ display: "flex", color: "var(--color-text-mid)" }}>
+                <PiInfo />
+              </span>
+            </Tooltip>
+          ) : null}
+        </Flex>
+      </Box>
+      <Box flexGrow="1" minWidth="0">
+        {children}
+      </Box>
+    </Flex>
+  );
+}
