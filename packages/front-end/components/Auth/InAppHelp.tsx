@@ -1,8 +1,9 @@
 import { useFeature } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
-import { BsQuestionLg, BsXLg } from "react-icons/bs";
+import { BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { PiChatTeardropFill } from "react-icons/pi";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
@@ -191,6 +192,9 @@ export default function InAppHelp() {
         size="4"
         radius="full"
         color="violet"
+        // Closed it is the chat mark itself; open it becomes a button to
+        // dismiss, so the X has something to sit in.
+        variant={showFreeHelpWidget ? "solid" : "ghost"}
         aria-label={showFreeHelpWidget ? "Close help" : "Help"}
         aria-expanded={showFreeHelpWidget}
         onClick={() => {
@@ -207,7 +211,11 @@ export default function InAppHelp() {
           cursor: "pointer",
         }}
       >
-        {showFreeHelpWidget ? <BsXLg size={20} /> : <BsQuestionLg size={22} />}
+        {showFreeHelpWidget ? (
+          <BsXLg size={20} />
+        ) : (
+          <PiChatTeardropFill size={46} />
+        )}
       </IconButton>
     </>
   );
