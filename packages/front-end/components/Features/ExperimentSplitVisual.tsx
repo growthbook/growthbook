@@ -57,7 +57,9 @@ function SegmentConnector({ centers }: { centers: number[] }) {
   //
   // Each arm leaves the stem on a slope — a flat exit reads as a bus bar — and
   // its second control sits directly above the target, which makes the curve
-  // vertical by the time it reaches the straight run into the head.
+  // vertical by the time it reaches the straight run into the head. That
+  // control sits well up the arm: a short tangent there spikes the curvature
+  // and the arm kinks just before its head.
   const d = centers
     .map((center) => {
       const x = (center / 100) * width;
@@ -66,8 +68,8 @@ function SegmentConnector({ centers }: { centers: number[] }) {
       const arm =
         Math.abs(dx) < 1
           ? `M ${midX} ${stem} L ${x} ${endY}`
-          : `M ${midX} ${stem} C ${midX + dx * 0.4} ${stem + dy * 0.35},` +
-            ` ${x} ${turnY - dy * 0.22}, ${x} ${turnY} L ${x} ${endY}`;
+          : `M ${midX} ${stem} C ${midX + dx * 0.45} ${stem + dy * 0.3},` +
+            ` ${x} ${turnY - dy * 0.75}, ${x} ${turnY} L ${x} ${endY}`;
       return (
         arm +
         ` M ${x - head} ${endY - head} L ${x} ${endY} L ${x + head} ${endY - head}`
