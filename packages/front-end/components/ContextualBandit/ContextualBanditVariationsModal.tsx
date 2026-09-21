@@ -45,6 +45,9 @@ export default function ContextualBanditVariationsModal({
 
   const originalIds = new Set(cb.variations.map((v) => v.id));
   const originalById = new Map(cb.variations.map((v) => [v.id, v]));
+  // Keys are what SDKs report in exposure events, so the server only lets them
+  // change while the bandit is still a draft (never served).
+  const keysEditable = cb.status === "draft";
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -116,17 +119,6 @@ export default function ContextualBanditVariationsModal({
           const removeVariationIds = [...originalIds].filter(
             (id) => !currentIds.has(id),
           );
-          const existingWithChangedKey = data.variations
-            .filter((v) => originalIds.has(v.id))
-            .filter((v) => {
-              const prev = originalById.get(v.id);
-              return !!prev && v.key !== prev.key;
-            });
-          if (existingWithChangedKey.length > 0) {
-            throw new Error(
-              "Keys can only be set when adding a variation. Please revert the key edits on existing variations before saving.",
-            );
-          }
           const updateVariations = data.variations
             .filter((v) => originalIds.has(v.id))
             .flatMap((v) => {
@@ -136,6 +128,7 @@ export default function ContextualBanditVariationsModal({
                 id: string;
                 name?: string;
                 description?: string;
+                key?: string;
               } = { id: v.id };
               if (v.name !== prev.name) patch.name = v.name;
               const prevDescription = prev.description ?? "";
@@ -143,9 +136,8 @@ export default function ContextualBanditVariationsModal({
               if (nextDescription !== prevDescription) {
                 patch.description = nextDescription;
               }
-              return patch.name !== undefined || patch.description !== undefined
-                ? [patch]
-                : [];
+              if (keysEditable && v.key !== prev.key) patch.key = v.key;
+              return Object.keys(patch).length > 1 ? [patch] : [];
             });
 
           if (addedVariations.length > 0 && linkedFeatures.length > 0) {
@@ -211,6 +203,7 @@ export default function ContextualBanditVariationsModal({
           showDescriptions
           showPreview={false}
           startEditingIndexes
+          lockedValueIds={keysEditable ? [] : [...originalIds]}
           // Splits are hidden and weights are reconciled server-side, so the
           // weight is a placeholder the input requires but never shows. The
           // no-op setWeight is needed because FeatureVariationsInput only

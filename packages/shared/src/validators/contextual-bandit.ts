@@ -357,11 +357,17 @@ export const apiContextualBanditUpdateVariationsValidator = {
           id: z.string(),
           name: z.string().optional(),
           description: z.string().optional(),
+          key: z
+            .string()
+            .optional()
+            .describe(
+              "New key for the arm. Only allowed while the contextual bandit is a draft; once running, the key is what SDKs report in exposure events and cannot change.",
+            ),
         }),
       )
       .optional()
       .describe(
-        "Metadata edits to existing active arms. Only `name` and `description` may be changed; key, values, weights, screenshots, and status are preserved.",
+        "Metadata edits to existing active arms. `name` and `description` may always be changed; `key` only while the contextual bandit is a draft. Values, weights, screenshots, and status are preserved.",
       ),
   }),
   querySchema: z.never(),

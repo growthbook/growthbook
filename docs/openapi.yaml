@@ -47756,9 +47756,10 @@ paths:
                     type: string
                 updateVariations:
                   description: >-
-                    Metadata edits to existing active arms. Only `name` and
-                    `description` may be changed; key, values, weights,
-                    screenshots, and status are preserved.
+                    Metadata edits to existing active arms. `name` and
+                    `description` may always be changed; `key` only while the
+                    contextual bandit is a draft. Values, weights, screenshots,
+                    and status are preserved.
                   type: array
                   items:
                     type: object
@@ -47768,6 +47769,12 @@ paths:
                       name:
                         type: string
                       description:
+                        type: string
+                      key:
+                        description: >-
+                          New key for the arm. Only allowed while the contextual
+                          bandit is a draft; once running, the key is what SDKs
+                          report in exposure events and cannot change.
                         type: string
                     required:
                       - id
