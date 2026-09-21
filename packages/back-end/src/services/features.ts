@@ -44,6 +44,7 @@ import {
   getSavedGroupPayloadStrategy,
   withoutUnsupportedSavedGroupCapabilities,
   findAllReferencedSavedGroupIds,
+  readSavedGroupReferenceId,
   SavedGroupPayloadStrategy,
   SDKCapability,
   buildConstantValueMap,
@@ -711,10 +712,12 @@ export function getUsedSavedGroupIds(
 ): Set<string> {
   const seedIds = new Set<string>();
   const addToUsedGroupIds: NodeHandler = ([key, value]) => {
-    if (
+    if (key === "$savedGroup") {
+      const id = readSavedGroupReferenceId(value);
+      if (id) seedIds.add(id);
+    } else if (
       key === "$inGroup" ||
       key === "$notInGroup" ||
-      key === "$savedGroup" ||
       key === "$savedGroups"
     ) {
       // `$savedGroups` should already have been rewritten by now. Accept it
@@ -3306,6 +3309,15 @@ any {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newObj: any = {};
     for (const key in obj) {
+      // A saved group id, or an object holding one. Nothing under here is an
+      // attribute value, and `$savedGroup`'s own key is `id`, which is a
+      // common secure attribute — so copy the whole value through untouched
+      // rather than walking into it.
+      if (SAVED_GROUP_ID_OPERATORS.includes(key)) {
+        newObj[key] = obj[key];
+        continue;
+      }
+
       // check if a new attribute is referenced, and whether we need to hash it
       // otherwise, inherit the previous attribute and hashing status
       attribute = attributes.find((a) => a.property === key) ?? attribute;

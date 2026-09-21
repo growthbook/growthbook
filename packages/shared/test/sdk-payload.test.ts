@@ -372,19 +372,22 @@ describe("createV2SavedGroupsOperatorHandler", () => {
 
   it("turns a one-id array into a single $savedGroup", () => {
     expect(rewrite({ $savedGroups: ["cond_1"] })).toEqual({
-      $savedGroup: "cond_1",
+      $savedGroup: { id: "cond_1" },
     });
   });
 
   it("turns a multi-id array into an $and of $savedGroup", () => {
     expect(rewrite({ $savedGroups: ["cond_1", "list_1"] })).toEqual({
-      $and: [{ $savedGroup: "cond_1" }, { $savedGroup: "list_1" }],
+      $and: [
+        { $savedGroup: { id: "cond_1" } },
+        { $savedGroup: { id: "list_1" } },
+      ],
     });
   });
 
   it("accepts a hand-written scalar", () => {
     expect(rewrite({ $savedGroups: "cond_1" })).toEqual({
-      $savedGroup: "cond_1",
+      $savedGroup: { id: "cond_1" },
     });
   });
 
@@ -394,19 +397,24 @@ describe("createV2SavedGroupsOperatorHandler", () => {
 
   it("references list groups instead of using $inGroup", () => {
     expect(rewrite({ $savedGroups: ["list_1"] })).toEqual({
-      $savedGroup: "list_1",
+      $savedGroup: { id: "list_1" },
     });
   });
 
   it("preserves negation as NOT(A AND B), not per-group", () => {
     expect(rewrite({ $not: { $savedGroups: ["cond_1", "list_1"] } })).toEqual({
-      $not: { $and: [{ $savedGroup: "cond_1" }, { $savedGroup: "list_1" }] },
+      $not: {
+        $and: [
+          { $savedGroup: { id: "cond_1" } },
+          { $savedGroup: { id: "list_1" } },
+        ],
+      },
     });
   });
 
   it("merges sibling keys into $and", () => {
     expect(rewrite({ country: "US", $savedGroups: ["cond_1"] })).toEqual({
-      $and: [{ country: "US" }, { $savedGroup: "cond_1" }],
+      $and: [{ country: "US" }, { $savedGroup: { id: "cond_1" } }],
     });
   });
 
@@ -435,7 +443,7 @@ describe("createV2SavedGroupsOperatorHandler", () => {
   it("does not go deeper, so nested references stay for the SDK", () => {
     // cond_2 references list_1. That stays inside cond_2's own entry.
     expect(rewrite({ $savedGroups: ["cond_2"] })).toEqual({
-      $savedGroup: "cond_2",
+      $savedGroup: { id: "cond_2" },
     });
   });
 
@@ -482,13 +490,13 @@ describe("referencesV2 finalizeCondition", () => {
 
   it("rewrites a lone $inGroup into a $savedGroup reference", () => {
     expect(finalize({ country: { $inGroup: "list_country" } })).toEqual({
-      $savedGroup: "list_country",
+      $savedGroup: { id: "list_country" },
     });
   });
 
   it("rewrites a lone $notInGroup into a negated reference", () => {
     expect(finalize({ country: { $notInGroup: "list_country" } })).toEqual({
-      $not: { $savedGroup: "list_country" },
+      $not: { $savedGroup: { id: "list_country" } },
     });
   });
 
@@ -496,7 +504,10 @@ describe("referencesV2 finalizeCondition", () => {
     expect(
       finalize({ country: { $inGroup: "list_country", $ne: "CA" } }),
     ).toEqual({
-      $and: [{ country: { $ne: "CA" } }, { $savedGroup: "list_country" }],
+      $and: [
+        { country: { $ne: "CA" } },
+        { $savedGroup: { id: "list_country" } },
+      ],
     });
   });
 
@@ -504,7 +515,7 @@ describe("referencesV2 finalizeCondition", () => {
     expect(
       finalize({ country: { $inGroup: "list_country" }, plan: "pro" }),
     ).toEqual({
-      $and: [{ plan: "pro" }, { $savedGroup: "list_country" }],
+      $and: [{ plan: "pro" }, { $savedGroup: { id: "list_country" } }],
     });
   });
 
@@ -515,7 +526,7 @@ describe("referencesV2 finalizeCondition", () => {
         country: { $inGroup: "list_country" },
       }),
     ).toEqual({
-      $and: [{ plan: "pro" }, { $savedGroup: "list_country" }],
+      $and: [{ plan: "pro" }, { $savedGroup: { id: "list_country" } }],
     });
   });
 
@@ -527,8 +538,8 @@ describe("referencesV2 finalizeCondition", () => {
       }),
     ).toEqual({
       $and: [
-        { $savedGroup: "list_country" },
-        { $not: { $savedGroup: "list_id" } },
+        { $savedGroup: { id: "list_country" } },
+        { $not: { $savedGroup: { id: "list_id" } } },
       ],
     });
   });
@@ -543,8 +554,8 @@ describe("referencesV2 finalizeCondition", () => {
       }),
     ).toEqual({
       $or: [
-        { $savedGroup: "list_country" },
-        { $not: { $savedGroup: "list_id" } },
+        { $savedGroup: { id: "list_country" } },
+        { $not: { $savedGroup: { id: "list_id" } } },
       ],
     });
   });
@@ -559,28 +570,51 @@ describe("referencesV2 finalizeCondition", () => {
       }),
     ).toEqual({
       $and: [
-        { $or: [{ $savedGroup: "list_id" }] },
-        { $savedGroup: "list_country" },
+        { $or: [{ $savedGroup: { id: "list_id" } }] },
+        { $savedGroup: { id: "list_country" } },
       ],
     });
   });
 
-  it("leaves a group on a different attribute alone", () => {
-    // $savedGroup would check `country`, so the two differ
+  it("omits the override when the attribute already matches", () => {
+    expect(finalize({ country: { $inGroup: "list_country" } })).toEqual({
+      $savedGroup: { id: "list_country" },
+    });
+  });
+
+  it("carries an override when the attribute differs from the entry's", () => {
+    // The condition asks about `id`; the entry's own attribute is `country`
     expect(finalize({ id: { $inGroup: "list_country" } })).toEqual({
-      id: { $inGroup: "list_country" },
+      $savedGroup: { id: "list_country", attributeKey: "id" },
     });
   });
 
-  it("leaves a Condition Group alone, since it has no attribute", () => {
+  it("carries an override on a negated reference too", () => {
+    expect(finalize({ id: { $notInGroup: "list_country" } })).toEqual({
+      $not: { $savedGroup: { id: "list_country", attributeKey: "id" } },
+    });
+  });
+
+  it("marks a Condition Group, which has no values to compare", () => {
     expect(finalize({ country: { $inGroup: "cond_1" } })).toEqual({
-      country: { $inGroup: "cond_1" },
+      [SAVED_GROUP_ERROR_INVALID]: "cond_1",
     });
   });
 
-  it("leaves an unknown group alone", () => {
+  it("marks an unknown group", () => {
     expect(finalize({ country: { $inGroup: "nope" } })).toEqual({
-      country: { $inGroup: "nope" },
+      [SAVED_GROUP_ERROR_UNKNOWN]: "nope",
+    });
+  });
+
+  // A bare marker would match nobody. v1 passes everyone for a reference it
+  // cannot resolve, so the negation has to survive.
+  it("negates the marker for $notInGroup, so it still passes everyone", () => {
+    expect(finalize({ country: { $notInGroup: "cond_1" } })).toEqual({
+      $not: { [SAVED_GROUP_ERROR_INVALID]: "cond_1" },
+    });
+    expect(finalize({ country: { $notInGroup: "nope" } })).toEqual({
+      $not: { [SAVED_GROUP_ERROR_UNKNOWN]: "nope" },
     });
   });
 
@@ -608,7 +642,7 @@ describe("referencesV2 finalizeCondition", () => {
       {
         id: "parent",
         gate: true,
-        condition: { $savedGroup: "list_country" },
+        condition: { $savedGroup: { id: "list_country" } },
       },
     ]);
   });
@@ -635,7 +669,7 @@ describe("findAllReferencedSavedGroupIds", () => {
       "b",
       {
         type: "condition",
-        condition: JSON.stringify({ $savedGroup: "list_1" }),
+        condition: JSON.stringify({ $savedGroup: { id: "list_1" } }),
       },
     ],
     [
@@ -755,7 +789,10 @@ describe("buildV2SavedGroupsPayload", () => {
     expect(defs["cond_nested"]).toEqual({
       type: "condition",
       condition: {
-        $and: [{ $savedGroup: "cond_1" }, { $savedGroup: "list_1" }],
+        $and: [
+          { $savedGroup: { id: "cond_1" } },
+          { $savedGroup: { id: "list_1" } },
+        ],
       },
     });
     // $savedGroups must never reach the payload
@@ -766,7 +803,7 @@ describe("buildV2SavedGroupsPayload", () => {
     const defs = buildV2SavedGroupsPayload(groups, org, groupMap);
     expect(defs["cond_legacy"]).toEqual({
       type: "condition",
-      condition: { $savedGroup: "list_1" },
+      condition: { $savedGroup: { id: "list_1" } },
     });
   });
 
@@ -1000,7 +1037,7 @@ describe("getSavedGroupPayloadStrategy", () => {
           organization: org,
         }),
         rendering: "referencesV2",
-        expected: { $savedGroup: "list_1" },
+        expected: { $savedGroup: { id: "list_1" } },
       },
     ];
     cases.forEach(({ strategy, rendering, expected }) => {

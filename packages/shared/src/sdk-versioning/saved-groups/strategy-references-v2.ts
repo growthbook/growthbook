@@ -15,6 +15,7 @@ import {
   recursiveWalk,
 } from "../../util";
 import { SDKCapability } from "../types";
+import { SAVED_GROUP_ERROR_INVALID, SAVED_GROUP_ERROR_UNKNOWN } from "./errors";
 import { SavedGroupPayloadStrategy } from "./types";
 import {
   andConditionsInto,
@@ -33,12 +34,20 @@ export const SAVED_GROUP_TYPE_CAPABILITY: Record<
   condition: "savedGroupReferencesV2",
 };
 
-/** Builds a `$savedGroup` reference, negated when `include` is false. */
+/**
+ * Builds a `$savedGroup` reference, negated when `include` is false.
+ *
+ * `attributeKey` is only passed when it differs from the entry's own, so the
+ * common case has one spelling.
+ */
 function createGroupReference(
   groupId: string,
   include: boolean,
+  attributeKey?: string,
 ): ConditionInterface {
-  const ref = { $savedGroup: groupId };
+  const ref = {
+    $savedGroup: attributeKey ? { id: groupId, attributeKey } : { id: groupId },
+  };
   return include ? ref : { $not: ref };
 }
 
@@ -75,7 +84,7 @@ function createV2Condition({
 const createV2NestedCondition: NestedGroupRenderer = ({ groupId, group }) => {
   if (group.type === "list") {
     if (!group.attributeKey) return { status: "invalid" };
-    return { status: "condition", condition: { $savedGroup: groupId } };
+    return { status: "condition", condition: { $savedGroup: { id: groupId } } };
   }
 
   if (!group.condition || group.condition === "{}") return { status: "skip" };
@@ -87,7 +96,7 @@ const createV2NestedCondition: NestedGroupRenderer = ({ groupId, group }) => {
     return { status: "invalid" };
   }
 
-  return { status: "condition", condition: { $savedGroup: groupId } };
+  return { status: "condition", condition: { $savedGroup: { id: groupId } } };
 };
 
 /** Returns a handler that rewrites `$savedGroups` into `$savedGroup`. */
@@ -104,14 +113,37 @@ const LEGACY_OPERATOR_INCLUDES = {
 } as const;
 
 /**
+ * Builds the always-false stand-in for a reference with no v2 equivalent: a
+ * Condition Group, or an id that is not in the map.
+ *
+ * The marker is an operator no SDK knows, so it matches nobody. `$notInGroup`
+ * is negated on top of it, which keeps today's behaviour of passing everyone
+ * rather than flipping to passing nobody.
+ */
+function markerFor(
+  groupId: string,
+  groupExists: boolean,
+  include: boolean,
+): ConditionInterface {
+  const marker = {
+    [groupExists ? SAVED_GROUP_ERROR_INVALID : SAVED_GROUP_ERROR_UNKNOWN]:
+      groupId,
+  };
+  return include ? marker : { $not: marker };
+}
+
+/**
  * Rewrites `$inGroup` and `$notInGroup` into `$savedGroup` references, in
- * place. For example:
+ * place, so a v2 payload carries no v1 operators at all. For example:
  *
  *   {"id": {"$inGroup": "grp_beta"}, "country": "US"}
- *     ->  {"$and": [{"country": "US"}, {"$savedGroup": "grp_beta"}]}
+ *     ->  {"$and": [{"country": "US"}, {"$savedGroup": {"id": "grp_beta"}}]}
  *
- * Only an ID List on that same attribute is rewritten, since that is the one
- * case where the two forms mean the same thing.
+ * The attribute the operator sits under wins over the entry's own, carried as
+ * an `attributeKey` override when the two differ.
+ *
+ * A reference with no equivalent — a Condition Group, or an id that is not in
+ * the map — becomes an error marker instead. See `markerFor`.
  */
 export function rewriteLegacySavedGroupOperators(
   node: unknown,
@@ -146,13 +178,24 @@ export function rewriteLegacySavedGroupOperators(
       const groupId = operators[operator];
       if (typeof groupId !== "string") continue;
 
-      // A group on another attribute, or a Condition Group, would not mean
-      // the same thing as a reference
-      const group = groupMap.get(groupId);
-      if (group?.type !== "list" || group.attributeKey !== field) continue;
-
       delete operators[operator];
-      references.push(createGroupReference(groupId, include));
+
+      const group = groupMap.get(groupId);
+      // Only an ID List has values for these operators to compare against, and
+      // only one with an `attributeKey` reaches the payload map at all.
+      if (group?.type === "list" && group.attributeKey) {
+        references.push(
+          createGroupReference(
+            groupId,
+            include,
+            // The condition's own attribute wins, so only record the override
+            // when it is not the entry's.
+            group.attributeKey === field ? undefined : field,
+          ),
+        );
+      } else {
+        references.push(markerFor(groupId, group !== undefined, include));
+      }
     }
 
     if (!Object.keys(operators).length) delete object[field];

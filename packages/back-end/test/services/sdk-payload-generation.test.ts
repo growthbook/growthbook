@@ -20,6 +20,7 @@ import { ConditionInterface } from "@growthbook/growthbook";
 import { getSDKCapabilities } from "shared/sdk-versioning";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  hashStrings,
   buildSDKPayloadForConnection,
   getFeatureDefinitionsResponse,
   applySavedGroupHashing,
@@ -493,7 +494,7 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
         expect(cond).not.toHaveProperty("id");
         expect(cond.$and).toEqual([
           { browser: F1_FINGERPRINT },
-          { $savedGroup: "sg1" },
+          { $savedGroup: { id: "sg1" } },
         ]);
         expect(JSON.stringify(out.features)).not.toContain("$inGroup");
         expect(out.savedGroups?.sg1).toEqual({
@@ -2241,7 +2242,7 @@ describe("getUsedSavedGroupIds", () => {
   it("collects ids from the wire operator", () => {
     expect(
       getUsedSavedGroupIds(
-        featureWith({ $savedGroup: "list_1" }),
+        featureWith({ $savedGroup: { id: "list_1" } }),
         [],
         groupMap,
       ),
@@ -2262,7 +2263,7 @@ describe("getUsedSavedGroupIds", () => {
     // cond_1 references list_1, which no walk of the feature tree can see
     expect(
       getUsedSavedGroupIds(
-        featureWith({ $savedGroup: "cond_1" }),
+        featureWith({ $savedGroup: { id: "cond_1" } }),
         [],
         groupMap,
       ),
@@ -2271,11 +2272,108 @@ describe("getUsedSavedGroupIds", () => {
 
   it("excludes groups nothing references", () => {
     const used = getUsedSavedGroupIds(
-      featureWith({ $savedGroup: "list_1" }),
+      featureWith({ $savedGroup: { id: "list_1" } }),
       [],
       groupMap,
     );
     expect(used.has("unused")).toBe(false);
+  });
+});
+
+describe("hashStrings leaves saved group references alone", () => {
+  it("does not hash a $savedGroup id, even when `id` is a secure attribute", () => {
+    // The reference's own key is `id`, so a walk that inherits attributes by
+    // key name would hash the group id and break the lookup.
+    const attributes: SDKAttributeSchema = [
+      { property: "id", datatype: "secureString" },
+    ];
+    expect(
+      hashStrings({
+        obj: {
+          $savedGroup: { id: "grp_1", attributeKey: "backup_id" },
+          $and: [{ id: { $notInGroup: "grp_2" } }],
+        },
+        salt: "salt",
+        attributes,
+      }),
+    ).toEqual({
+      $savedGroup: { id: "grp_1", attributeKey: "backup_id" },
+      $and: [{ id: { $notInGroup: "grp_2" } }],
+    });
+  });
+});
+
+describe("a v2 payload carries no v1 saved group operators", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
+    ["grp_other", { type: "list", attributeKey: "country", values: ["US"] }],
+    [
+      "grp_cond",
+      { type: "condition", condition: JSON.stringify({ plan: "pro" }) },
+    ],
+  ]);
+  const organization = { id: "org", settings: {} } as OrganizationInterface;
+
+  // Every shape the rewrite has to deal with, in one feature
+  const feature = {
+    id: "f",
+    organization: "org",
+    defaultValue: "off",
+    valueType: "string",
+    prerequisites: [
+      {
+        id: "parent",
+        condition: JSON.stringify({ value: { $inGroup: "grp_list" } }),
+      },
+    ],
+    environmentSettings: {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            id: "r1",
+            type: "force",
+            value: "on",
+            enabled: true,
+            description: "",
+            condition: JSON.stringify({
+              // matching attribute, mismatched attribute, Condition Group,
+              // unknown id, and both operators
+              id: { $inGroup: "grp_list" },
+              country: { $notInGroup: "grp_other" },
+              $and: [
+                { backup_id: { $inGroup: "grp_other" } },
+                { plan: { $inGroup: "grp_cond" } },
+                { region: { $notInGroup: "grp_missing" } },
+              ],
+            }),
+            savedGroups: [{ match: "all", ids: ["grp_list", "grp_cond"] }],
+          },
+        ],
+      },
+    },
+  } as unknown as FeatureInterface;
+
+  it("rewrites every $inGroup and $notInGroup", () => {
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap: new Map(),
+      organization,
+      capabilities: [
+        "prerequisites",
+        "savedGroupReferences",
+        "savedGroupReferencesV2",
+      ] as ConnectionPayloadOptions["capabilities"],
+      savedGroupReferencesEnabled: true,
+    });
+
+    const serialized = JSON.stringify(def);
+    expect(serialized).not.toContain("$inGroup");
+    expect(serialized).not.toContain("$notInGroup");
+    expect(serialized).not.toContain("$savedGroups");
   });
 });
 
@@ -2320,7 +2418,7 @@ describe("feature-level prerequisites saved groups", () => {
         "savedGroupReferences",
         "savedGroupReferencesV2",
       ]),
-    ).toEqual({ $savedGroup: "grp_value" });
+    ).toEqual({ $savedGroup: { id: "grp_value" } });
   });
 
   it("keeps a stored $inGroup under v1", () => {
@@ -2366,7 +2464,9 @@ describe("generateHoldoutsPayload saved groups", () => {
   const inGroup = JSON.stringify({ id: { $inGroup: "grp_list" } });
 
   it("rewrites a stored $inGroup under v2, like every other rule path", () => {
-    expect(conditionFor(V2, inGroup)).toEqual({ $savedGroup: "grp_list" });
+    expect(conditionFor(V2, inGroup)).toEqual({
+      $savedGroup: { id: "grp_list" },
+    });
   });
 
   it("keeps a stored $inGroup under v1", () => {
@@ -2376,7 +2476,7 @@ describe("generateHoldoutsPayload saved groups", () => {
   it("rewrites $savedGroups under v2", () => {
     expect(
       conditionFor(V2, JSON.stringify({ $savedGroups: ["grp_list"] })),
-    ).toEqual({ $savedGroup: "grp_list" });
+    ).toEqual({ $savedGroup: { id: "grp_list" } });
   });
 
   it("leaves a condition with no saved groups alone", () => {

@@ -707,7 +707,10 @@ describe("Hashing secureString types", () => {
     const condition: any = hashStrings({
       obj: {
         id: { $inGroup: "grp_1" },
-        $and: [{ $savedGroup: "grp_2" }, { $not: { $savedGroup: "grp_3" } }],
+        $and: [
+          { $savedGroup: { id: "grp_2" } },
+          { $not: { $savedGroup: { id: "grp_3" } } },
+        ],
       },
       salt: secureAttributeSalt,
       attributes,
@@ -715,7 +718,10 @@ describe("Hashing secureString types", () => {
 
     expect(condition).toEqual({
       id: { $inGroup: "grp_1" },
-      $and: [{ $savedGroup: "grp_2" }, { $not: { $savedGroup: "grp_3" } }],
+      $and: [
+        { $savedGroup: { id: "grp_2" } },
+        { $not: { $savedGroup: { id: "grp_3" } } },
+      ],
     });
   });
 });
@@ -3991,7 +3997,10 @@ describe("mergeConditionAndSavedGroups with referencesV2", () => {
         savedGroups: [{ match: "all", ids: ["list_a", "cond_a"] }],
       }),
     ).toEqual({
-      $and: [{ $savedGroup: "list_a" }, { $savedGroup: "cond_a" }],
+      $and: [
+        { $savedGroup: { id: "list_a" } },
+        { $savedGroup: { id: "cond_a" } },
+      ],
     });
   });
 
@@ -4003,7 +4012,10 @@ describe("mergeConditionAndSavedGroups with referencesV2", () => {
         savedGroups: [{ match: "any", ids: ["list_a", "list_b"] }],
       }),
     ).toEqual({
-      $or: [{ $savedGroup: "list_a" }, { $savedGroup: "list_b" }],
+      $or: [
+        { $savedGroup: { id: "list_a" } },
+        { $savedGroup: { id: "list_b" } },
+      ],
     });
   });
 
@@ -4014,14 +4026,14 @@ describe("mergeConditionAndSavedGroups with referencesV2", () => {
         condition: "",
         savedGroups: [{ match: "any", ids: ["list_a"] }],
       }),
-    ).toEqual({ $savedGroup: "list_a" });
+    ).toEqual({ $savedGroup: { id: "list_a" } });
     expect(
       mergeConditionAndSavedGroups({
         savedGroupStrategy: v2Strategy(groupMap),
         condition: "",
         savedGroups: [{ match: "all", ids: ["list_a"] }],
       }),
-    ).toEqual({ $savedGroup: "list_a" });
+    ).toEqual({ $savedGroup: { id: "list_a" } });
   });
 
   it("builds match: none as an AND of NOTs, not a negated group", () => {
@@ -4033,8 +4045,8 @@ describe("mergeConditionAndSavedGroups with referencesV2", () => {
     // "in neither", not "not in both"
     expect(condition).toEqual({
       $and: [
-        { $not: { $savedGroup: "list_a" } },
-        { $not: { $savedGroup: "cond_a" } },
+        { $not: { $savedGroup: { id: "list_a" } } },
+        { $not: { $savedGroup: { id: "cond_a" } } },
       ],
     });
   });
@@ -4052,8 +4064,8 @@ describe("mergeConditionAndSavedGroups with referencesV2", () => {
     ).toEqual({
       $and: [
         { country: "US" },
-        { $savedGroup: "list_a" },
-        { $not: { $savedGroup: "cond_a" } },
+        { $savedGroup: { id: "list_a" } },
+        { $not: { $savedGroup: { id: "cond_a" } } },
       ],
     });
   });
@@ -4141,7 +4153,7 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
     const sg: SavedGroupTargeting[] = [{ match: "all", ids: ["list_a"] }];
     expect(build(inline(), "", sg)).toEqual({ id: { $in: ["1", "2"] } });
     expect(build(v1(), "", sg)).toEqual({ id: { $inGroup: "list_a" } });
-    expect(build(v2(), "", sg)).toEqual({ $savedGroup: "list_a" });
+    expect(build(v2(), "", sg)).toEqual({ $savedGroup: { id: "list_a" } });
   });
 
   it("one condition group", () => {
@@ -4149,7 +4161,7 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
     // Only v2 has a reference form for condition groups
     expect(build(inline(), "", sg)).toEqual({ browser: "chrome" });
     expect(build(v1(), "", sg)).toEqual({ browser: "chrome" });
-    expect(build(v2(), "", sg)).toEqual({ $savedGroup: "cond_a" });
+    expect(build(v2(), "", sg)).toEqual({ $savedGroup: { id: "cond_a" } });
   });
 
   it("attribute targeting plus both group types", () => {
@@ -4174,8 +4186,8 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
     expect(build(v2(), cond, sg)).toEqual({
       $and: [
         { country: "US" },
-        { $savedGroup: "list_a" },
-        { $savedGroup: "cond_a" },
+        { $savedGroup: { id: "list_a" } },
+        { $savedGroup: { id: "cond_a" } },
       ],
     });
   });
@@ -4194,7 +4206,10 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
       ],
     });
     expect(build(v2(), "", sg)).toEqual({
-      $or: [{ $savedGroup: "list_a" }, { $savedGroup: "list_b" }],
+      $or: [
+        { $savedGroup: { id: "list_a" } },
+        { $savedGroup: { id: "list_b" } },
+      ],
     });
   });
 
@@ -4213,8 +4228,8 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
     });
     expect(build(v2(), "", sg)).toEqual({
       $and: [
-        { $not: { $savedGroup: "list_a" } },
-        { $not: { $savedGroup: "cond_a" } },
+        { $not: { $savedGroup: { id: "list_a" } } },
+        { $not: { $savedGroup: { id: "cond_a" } } },
       ],
     });
   });
@@ -4228,9 +4243,14 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
     expect(build(v2(), JSON.stringify({ country: "US" }), sg)).toEqual({
       $and: [
         { country: "US" },
-        { $savedGroup: "list_a" },
-        { $or: [{ $savedGroup: "list_b" }, { $savedGroup: "cond_a" }] },
-        { $not: { $savedGroup: "cond_a" } },
+        { $savedGroup: { id: "list_a" } },
+        {
+          $or: [
+            { $savedGroup: { id: "list_b" } },
+            { $savedGroup: { id: "cond_a" } },
+          ],
+        },
+        { $not: { $savedGroup: { id: "cond_a" } } },
       ],
     });
   });
@@ -4349,7 +4369,7 @@ describe("experiment-ref phase prerequisites", () => {
         true,
       ),
     ).toEqual([
-      { id: "parent_feature", condition: { $savedGroup: "grp_cond" } },
+      { id: "parent_feature", condition: { $savedGroup: { id: "grp_cond" } } },
     ]);
   });
 

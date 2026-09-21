@@ -15,6 +15,17 @@ import { recursiveWalk } from "../../util";
  *   findAllReferencedSavedGroupIds(["grp_a"], groupMap)
  *     -> Set {"grp_a", "grp_b", "grp_c"}
  */
+/**
+ * The id inside a `$savedGroup` operator, or null if it is not a reference.
+ * Missing one drops a group from the payload map, and every reference to it
+ * then matches nobody.
+ */
+export function readSavedGroupReferenceId(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const id = (value as { id?: unknown }).id;
+  return typeof id === "string" ? id : null;
+}
+
 export function findAllReferencedSavedGroupIds(
   seedIds: Iterable<string>,
   savedGroups: GroupMap,
@@ -39,11 +50,10 @@ export function findAllReferencedSavedGroupIds(
           (Array.isArray(value) ? value : [value]).forEach((v) => {
             if (typeof v === "string") queue.push(v);
           });
-        } else if (
-          key === "$savedGroup" ||
-          key === "$inGroup" ||
-          key === "$notInGroup"
-        ) {
+        } else if (key === "$savedGroup") {
+          const id = readSavedGroupReferenceId(value);
+          if (id) queue.push(id);
+        } else if (key === "$inGroup" || key === "$notInGroup") {
           if (typeof value === "string") queue.push(value);
         }
       });

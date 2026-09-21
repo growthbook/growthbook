@@ -65,6 +65,7 @@ export type {
 export type {
   ConditionInterface,
   ParentConditionInterface,
+  SavedGroupReference,
 } from "./types/mongrule";
 
 export {

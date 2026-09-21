@@ -111,8 +111,8 @@ export function walkSavedGroups(
  * one condition is left. For example:
  *
  *   object          {"country": "US"}
- *   newConditions   [{"$savedGroup": "grp_beta"}]
- *     ->  {"$and": [{"country": "US"}, {"$savedGroup": "grp_beta"}]}
+ *   newConditions   [{"$savedGroup": {"id": "grp_beta"}}]
+ *     ->  {"$and": [{"country": "US"}, {"$savedGroup": {"id": "grp_beta"}}]}
  */
 export function andConditionsInto(
   object: Record<string, unknown>,

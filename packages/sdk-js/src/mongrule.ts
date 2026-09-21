@@ -3,6 +3,7 @@
 import { SavedGroupsPayload } from "./types/growthbook";
 import {
   ConditionInterface,
+  SavedGroupReference,
   TestedObj,
   ConditionValue,
   Operator,
@@ -57,14 +58,27 @@ export function evalCondition(
   return true;
 }
 
-/** Resolves a `$savedGroup` reference. Anything unrecognized matches nobody. */
+/**
+ * Resolves a `$savedGroup` reference. Anything unrecognized matches nobody.
+ *
+ * The operator takes an object, never a bare id. Unknown keys inside it are
+ * ignored, so a later field cannot break this SDK.
+ */
 function evalSavedGroup(
   obj: TestedObj,
-  id: unknown,
+  reference: unknown,
   savedGroups: SavedGroupsPayload,
   visited: Set<string>,
 ): boolean {
+  if (!reference || typeof reference !== "object" || Array.isArray(reference))
+    return false;
+
+  const { id, attributeKey } = reference as SavedGroupReference;
   if (typeof id !== "string" || visited.has(id)) return false;
+  // Present but not a string. Falling back to the entry's own attribute would
+  // check a different population than the reference asked for.
+  if (attributeKey !== undefined && typeof attributeKey !== "string")
+    return false;
 
   const entry = savedGroups[id];
   // Absent, or a v1 bare array
@@ -73,12 +87,16 @@ function evalSavedGroup(
   const next = new Set(visited).add(id);
 
   if (entry.type === "list") {
-    if (typeof entry.attributeKey !== "string") return false;
+    // The reference wins over the entry's own attribute
+    const key = attributeKey ?? entry.attributeKey;
+    if (typeof key !== "string") return false;
     if (!Array.isArray(entry.values)) return false;
-    return isIn(getPath(obj, entry.attributeKey), entry.values);
+    return isIn(getPath(obj, key), entry.values);
   }
 
   if (entry.type === "condition") {
+    // A condition group has no single attribute, so an override means nothing
+    // here. Ignore it rather than fail, same as any other unknown key.
     if (!entry.condition || typeof entry.condition !== "object") return false;
     return evalCondition(obj, entry.condition, savedGroups, next);
   }

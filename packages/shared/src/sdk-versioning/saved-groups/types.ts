@@ -51,7 +51,7 @@ export interface SavedGroupPayloadStrategy {
    * come out as:
    *
    *   referencesV1  ->  {"id": {"$inGroup": "grp_beta"}}
-   *   referencesV2  ->  {"$savedGroup": "grp_beta"}
+   *   referencesV2  ->  {"$savedGroup": {"id": "grp_beta"}}
    *
    * `include: false` negates whatever form is used.
    */
@@ -67,7 +67,7 @@ export interface SavedGroupPayloadStrategy {
    * ["grp_beta"]}` might become:
    *
    *   referencesV1  ->  {"id": {"$inGroup": "grp_beta"}}
-   *   referencesV2  ->  {"$savedGroup": "grp_beta"}
+   *   referencesV2  ->  {"$savedGroup": {"id": "grp_beta"}}
    */
   createSavedGroupsOperatorHandler(): NodeHandler;
 

@@ -11,12 +11,24 @@ type NotCondition = {
   $not: ConditionInterface;
 };
 /**
+ * Names one saved group, and optionally the attribute to check it against
+ * instead of the one on the group's own payload entry.
+ *
+ * An object rather than a bare id so a field can be added later without a new
+ * capability. Readers must ignore keys they do not know.
+ */
+export type SavedGroupReference = {
+  id: string;
+  attributeKey?: string;
+};
+
+/**
  * A reference to one saved group. Top level like `$and`, not scoped to an
  * attribute. The plural authoring operator `$savedGroups` never reaches an
  * SDK, so it has no type here.
  */
 type SavedGroupCondition = {
-  $savedGroup: string;
+  $savedGroup: SavedGroupReference;
 };
 export type Operator =
   | "$in"
