@@ -140,16 +140,6 @@ export function canInlineFilterColumn(
   return true;
 }
 
-/**
- * Columns to prompt a metric / exploration for, given its current filters:
- * every eligible `alwaysInlineFilter` column, plus, for each of those pinned
- * to exactly one value (`=`, or `in` with a single value), the extra column
- * that value maps to via `conditionalInlineFilters` (e.g. event_name =
- * "Page View" -> path). A multi-value `in` never prompts: the mapped column
- * only applies to some of those events, and filtering on it would drop the
- * rest. Mapped columns may be JSON field paths, which slim fact table
- * definitions can't type-check, so they are trusted as configured.
- */
 export function getInlineFilterPromptColumns(
   factTable: Pick<
     FactTableInterface,
@@ -188,12 +178,7 @@ export function isEmptyInlineFilterPlaceholder(rf: RowFilter): boolean {
   return rf.operator === "=" && (rf.values ?? []).every((v) => v === "");
 }
 
-/**
- * Re-run after a filter edit: when the edit starts mapping to an extra prompt,
- * append its empty placeholder; when it stops, drop that column's still-empty
- * placeholder. Only transitions are acted on, so a prompt the user
- * deliberately removed is not re-added on every keystroke.
- */
+// Runs after a filter edit - add secondary filters if needed
 export function reconcileInlineFilterPrompts(
   factTable: Pick<
     FactTableInterface,

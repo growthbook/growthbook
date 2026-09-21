@@ -31,7 +31,7 @@ export function stripIncompatibleFields(
   if (next.alwaysInlineFilter && next.datatype !== "string") {
     next.alwaysInlineFilter = false;
   }
-  // The condition only narrows the prompt; without a prompt it is meaningless.
+
   if (!next.alwaysInlineFilter && next.conditionalInlineFilters) {
     next.conditionalInlineFilters = undefined;
   }

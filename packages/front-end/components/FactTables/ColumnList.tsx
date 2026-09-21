@@ -269,16 +269,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                       )}
                       {col.alwaysInlineFilter && (
                         <Tooltip
-                          body={
-                            Object.keys(col.conditionalInlineFilters ?? {})
-                              .length
-                              ? `Prompt metrics to filter on this column. Also prompts for: ${Object.entries(
-                                  col.conditionalInlineFilters ?? {},
-                                )
-                                  .map(([v, c]) => `${v} → ${c}`)
-                                  .join(", ")}`
-                              : "Prompt metrics to filter on this column"
-                          }
+                          body="Prompt all metrics to filter on this column"
                           tipPosition="left"
                         >
                           <Avatar

@@ -283,7 +283,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   // Columns (or JSON fields) that can be prompted for alongside this one
   const mappingColumnOptions: SingleValue[] = [];
   factTable.columns.forEach((c) => {
-    if (c.deleted || c.column === form.watch("column")) return;
+    if (c.deleted || c.column === existing?.column) return;
     if (c.datatype === "json") {
       Object.entries(c.jsonFields ?? {}).forEach(([field, f]) => {
         if (
