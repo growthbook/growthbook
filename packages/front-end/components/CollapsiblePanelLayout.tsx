@@ -12,7 +12,8 @@ import styles from "./CollapsiblePanelLayout.module.scss";
 
 export const PANEL_WIDTH_PX = 360;
 const MIN_PANEL_WIDTH_PX = 280;
-const MAX_PANEL_WIDTH_PX = 560;
+/** The panel can take at most this share of the layout. */
+const MAX_PANEL_SHARE = 2 / 3;
 /** Drag this far past the minimum width to close the panel instead. */
 const COLLAPSE_DELTA_PX = 60;
 const HANDLE_WIDTH_PX = 20;
@@ -54,24 +55,41 @@ export default function CollapsiblePanelLayout({
     `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
   );
   const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const layout = useRef<HTMLDivElement>(null);
+  const [layoutWidth, setLayoutWidth] = useState(0);
+  useEffect(() => {
+    const el = layout.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setLayoutWidth(entry.contentRect.width),
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
   const dragged = useRef(width);
   const rawDrag = useRef(width);
-  const panelWidth = dragWidth ?? width;
+  // A window that shrinks holds the panel to its share without rewriting the
+  // width the user dragged: widen the window again and it comes back.
+  const maxPanelWidth = layoutWidth
+    ? Math.max(MIN_PANEL_WIDTH_PX, Math.round(layoutWidth * MAX_PANEL_SHARE))
+    : Infinity;
+  const panelWidth = Math.min(dragWidth ?? width, maxPanelWidth);
   const collapseBelow = MIN_PANEL_WIDTH_PX - COLLAPSE_DELTA_PX;
 
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!onWidthChange) return;
     e.preventDefault();
     const startX = e.clientX;
-    dragged.current = width;
-    rawDrag.current = width;
+    dragged.current = panelWidth;
+    rawDrag.current = panelWidth;
 
     const clamp = (value: number, min: number) =>
-      Math.round(Math.min(MAX_PANEL_WIDTH_PX, Math.max(min, value)));
+      Math.round(Math.min(maxPanelWidth, Math.max(min, value)));
 
+    const startWidth = panelWidth;
     const onMove = (move: PointerEvent) => {
-      rawDrag.current = width + (startX - move.clientX);
+      rawDrag.current = startWidth + (startX - move.clientX);
       dragged.current = clamp(rawDrag.current, MIN_PANEL_WIDTH_PX);
       setDragWidth(dragged.current);
       // Drag on past the minimum and the panel vanishes, so the close is
@@ -151,7 +169,7 @@ export default function CollapsiblePanelLayout({
     : {};
 
   return (
-    <Flex align="start" width="100%">
+    <Flex align="start" width="100%" ref={layout}>
       <Box flexGrow="1" style={{ minWidth: 0 }}>
         {children}
       </Box>
