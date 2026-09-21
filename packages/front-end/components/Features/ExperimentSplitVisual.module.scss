@@ -118,5 +118,28 @@
 
 .labels_row_above {
   margin-top: 0;
-  margin-bottom: 6px;
+  // Room for the pill and the stem hanging off it.
+  margin-bottom: 10px;
+  height: 20px;
+
+  // A pill on a stem, so each figure reads as a label attached to its segment
+  // rather than as text floating over the bar.
+  .segmentLabel {
+    padding: 1px var(--space-2);
+    border: 1px solid var(--gray-a6);
+    border-radius: 999px;
+    background-color: var(--color-panel-solid);
+    color: var(--color-text-mid);
+
+    &::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 100%;
+      width: 1px;
+      height: 6px;
+      background-color: var(--gray-a6);
+      transform: translateX(-50%);
+    }
+  }
 }
