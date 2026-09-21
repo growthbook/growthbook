@@ -338,14 +338,23 @@ export async function provisionEventForwarderThroughLicenseServer(
         );
     }
 
+    // Databricks has no connector to wait on: tables exist and write access
+    // passed, so it is ready now. The consumer reports errors through status.
+    const isDatabricks = eventForwarderConfig.sinkType === "databricks";
     const currentEventForwarderConfig =
       await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
         schemaId: result.schemaId,
-        status: "pending",
+        status: isDatabricks ? "ready" : "pending",
         connectorName: result.connectorName,
         connectorId: result.connectorId,
         lastProvisioningError: "",
       });
+    if (isDatabricks) {
+      await queueInitialWarehouseSyncIfNeeded(
+        context,
+        currentEventForwarderConfig,
+      );
+    }
 
     try {
       await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
