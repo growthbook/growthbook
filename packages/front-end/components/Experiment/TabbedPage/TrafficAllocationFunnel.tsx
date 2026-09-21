@@ -350,7 +350,7 @@ export default function TrafficAllocationFunnel({
   const numVariations = phaseVariations.length;
 
   return (
-    <Frame style={{ backgroundColor: "var(--gray-a2)" }}>
+    <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
       {editEnvironments && servedValueFeature && (
         <EditExperimentEnvironmentsModal
           experiment={experiment}
