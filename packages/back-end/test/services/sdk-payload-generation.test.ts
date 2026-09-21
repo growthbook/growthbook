@@ -2280,6 +2280,32 @@ describe("getUsedSavedGroupIds", () => {
   });
 });
 
+describe("applySavedGroupHashing leaves saved group ids alone", () => {
+  it("does not hash ids nested in a Condition Group's own condition", () => {
+    // A secure attribute earlier in the same object turns hashing on, and the
+    // walk carries that into the ids unless they are exempt.
+    const [hashed] = applySavedGroupHashing(
+      [
+        savedGroupFixture({
+          id: "cond_1",
+          type: "condition",
+          condition: JSON.stringify({
+            email: "a@b.com",
+            $savedGroups: ["grp_a"],
+            $not: { $savedGroups: ["grp_b"] },
+          }),
+        }),
+      ],
+      [{ property: "email", datatype: "secureString" }] as SDKAttributeSchema,
+      "salt",
+    );
+    const condition = JSON.parse(hashed.condition as string);
+    expect(condition.email).not.toBe("a@b.com");
+    expect(condition.$savedGroups).toEqual(["grp_a"]);
+    expect(condition.$not.$savedGroups).toEqual(["grp_b"]);
+  });
+});
+
 describe("hashStrings leaves saved group references alone", () => {
   it("does not hash a $savedGroup id, even when `id` is a secure attribute", () => {
     // The reference's own key is `id`, so a walk that inherits attributes by

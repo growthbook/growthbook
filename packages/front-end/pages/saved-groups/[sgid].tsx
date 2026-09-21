@@ -46,7 +46,6 @@ import SavedGroupDeleteModal from "@/components/SavedGroups/SavedGroupDeleteModa
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
@@ -119,7 +118,6 @@ export default function EditSavedGroupPage() {
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
-  const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const [showReferencesModal, setShowReferencesModal] =
     useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
@@ -444,13 +442,6 @@ export default function EditSavedGroupPage() {
 
   return (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="large-saved-groups"
-          commercialFeature="large-saved-groups"
-        />
-      )}
       {showAuditModal && savedGroup && (
         <AuditHistoryExplorerModal<SavedGroupInterface>
           entityId={savedGroup.id}
@@ -752,7 +743,6 @@ export default function EditSavedGroupPage() {
             <IdListItemInput
               values={itemsToAdd}
               setValues={(newValues) => setItemsToAdd(newValues)}
-              openUpgradeModal={() => setUpgradeModal(true)}
               listAboveSizeLimit={listAboveSizeLimit}
               bypassSizeLimit={adminBypassSizeLimit}
               setBypassSizeLimit={setAdminBypassSizeLimit}
@@ -1401,7 +1391,6 @@ export default function EditSavedGroupPage() {
             <LargeSavedGroupPerformanceWarning
               {...largeSavedGroupSupport}
               type={savedGroup.type === "condition" ? "condition" : "list"}
-              openUpgradeModal={() => setUpgradeModal(true)}
             />
             {savedGroup.type === "condition" ? (
               <>

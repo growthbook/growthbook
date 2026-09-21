@@ -3,12 +3,13 @@ import {
   getSDKCapabilityVersion,
 } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import React from "react";
+import React, { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import { IncompatibleSDKsPopover } from "@/components/Features/SDKCapabilityWarning";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Text from "@/ui/Text";
 
 interface LargeSavedGroupSupport {
@@ -71,6 +72,10 @@ export function useLargeSavedGroupSupport(
 }
 
 type LargeSavedGroupSupportWarningProps = LargeSavedGroupSupport & {
+  /**
+   * Optional. Only for a caller that has to replace its own modal rather than
+   * stack one on top. Everyone else gets the modal from here.
+   */
   openUpgradeModal?: () => void;
   // Which kind of Saved Group is being edited. Condition Groups need
   // savedGroupReferencesV2; ID Lists only need savedGroupReferences.
@@ -85,20 +90,29 @@ export default function LargeSavedGroupPerformanceWarning({
   connections,
   type = "list",
 }: LargeSavedGroupSupportWarningProps) {
+  const [ownUpgradeModal, setOwnUpgradeModal] = useState(false);
+
   if (!hasLargeSavedGroupFeature) {
     return (
-      <Callout status="info" mb="4" size="sm">
-        Performance improvements for Saved Groups are available with an
-        Enterprise plan.
-        {openUpgradeModal && (
-          <>
-            {" "}
-            <a role="button" onClick={openUpgradeModal}>
-              Upgrade &gt;
-            </a>
-          </>
+      <>
+        {ownUpgradeModal && (
+          <UpgradeModal
+            close={() => setOwnUpgradeModal(false)}
+            source="large-saved-groups"
+            commercialFeature="large-saved-groups"
+          />
         )}
-      </Callout>
+        <Callout status="info" mb="4" size="sm">
+          Performance improvements for Saved Groups are available with an
+          Enterprise plan.{" "}
+          <a
+            role="button"
+            onClick={openUpgradeModal ?? (() => setOwnUpgradeModal(true))}
+          >
+            Upgrade &gt;
+          </a>
+        </Callout>
+      </>
     );
   }
   const isCondition = type === "condition";

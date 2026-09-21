@@ -3361,8 +3361,15 @@ any {
   }
 }
 
-/** Operators whose value is a saved group id, not an attribute value. */
-const SAVED_GROUP_ID_OPERATORS = ["$inGroup", "$notInGroup", "$savedGroup"];
+/** Operators whose value holds saved group ids, not attribute values. */
+const SAVED_GROUP_ID_OPERATORS = [
+  "$inGroup",
+  "$notInGroup",
+  "$savedGroup",
+  // Authoring form. Never on the wire, but a Condition Group's stored
+  // condition still holds it when that condition is hashed.
+  "$savedGroups",
+];
 
 function shouldHash(attribute: SDKAttribute, operator?: string) {
   return !!(
