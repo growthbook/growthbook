@@ -67,3 +67,35 @@ it("still parks Slack mutations for explicit confirmation", async () => {
   });
   expect(emit).toHaveBeenCalledWith("confirm-action", expect.anything());
 });
+
+it("uses Slack guidance without web page context or question controls", async () => {
+  const prompt = await slackAgentConfig.buildSystemPrompt(context, {});
+  expect(prompt).toContain("# Talking in Slack");
+  expect(prompt).toContain("# GrowthBook concepts");
+  expect(prompt).not.toContain("# Page context");
+  expect(prompt).not.toContain("askUser");
+  expect(prompt).not.toContain("sidebar");
+  expect(prompt).toContain(
+    "Existing dashboards cannot be updated or deleted from Slack",
+  );
+  expect(slackAgentConfig.injectDatasourceHint).toBe(false);
+  expect(generalAgentConfig.injectDatasourceHint).toBe(true);
+});
+
+it("refuses existing dashboard writes from Slack before requesting confirmation", async () => {
+  const buffer = conversation();
+  const emit = jest.fn();
+  const tools = slackAgentConfig.buildTools(context, buffer, {}, emit);
+  if (!tools.callApi.execute) throw new Error("Missing callApi implementation");
+  const result = await tools.callApi.execute(
+    {
+      method: "PUT",
+      path: "/api/v1/dashboards/dash_123",
+      body: { title: "Updated" },
+    },
+    { toolCallId: "call1", messages: [] },
+  );
+  expect(result).toMatchObject({ status: "rejected" });
+  expect(buffer.getPendingAction()).toBeUndefined();
+  expect(emit).not.toHaveBeenCalled();
+});

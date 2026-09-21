@@ -1,25 +1,35 @@
 import type { AgentConfig } from "back-end/src/enterprise/services/agent-handler";
-import { generalAgentConfig } from "back-end/src/agent/general-agent";
+import {
+  AGENT_CORE_GUIDANCE,
+  GROWTHBOOK_CONCEPTS_GUIDANCE,
+  buildAgentSystemPrompt,
+  buildCoreAgentTools,
+  sharedAgentSettings,
+} from "back-end/src/agent/general-agent";
 
-const SLACK_PROMPT_APPENDIX = `
+const SLACK_REPLY_GUIDANCE = `
 # Talking in Slack
 
-You are replying to a person in Slack, not driving the GrowthBook app. Adjust
-how you write accordingly — this OVERRIDES the sidebar-assistant guidance above.
+You are replying to a person in Slack.
 
 - Ask clarification questions in your reply text and wait for the user's next
-  message. The \`askUser\` tool is not available in Slack.
+  message.
+- Existing dashboards cannot be updated or deleted from Slack. Creating a new
+  dashboard is allowed.
 - **Never expose implementation details.** Don't mention API endpoints, HTTP
   methods/verbs, status codes, tool names, or raw query strings. The reader
   doesn't care that you called \`GET /api/v1/experiments\` — they care about the
   answer. Speak in product terms ("I found 8 running experiments"), never in
   terms of the calls you made to get it.
-- **Link generously here** (unlike the sidebar, where links are kept sparse).
+
+# Linking to pages
+
+- **Link generously.**
   When you name an experiment, feature, metric, or other entity, link it. In a
   list, link every item.
 - Use a **bulleted list** when returning more than ~2 entities — one bullet per
   item, each with a linked name — rather than a comma-separated sentence.
-- Links are same-origin **relative paths** exactly as documented above (e.g.
+- Links are same-origin **relative paths** from the loaded skills (e.g.
   \`[my-exp](/experiment/exp_abc123)\`). They're rewritten into absolute Slack
   links automatically — do not build absolute URLs or guess a host.
 - **Always wrap a path in markdown link syntax** \`[label](/path)\` with a
@@ -59,18 +69,15 @@ When you name a metric (e.g. an experiment's goal/primary metric):
 `.trim();
 
 export const slackAgentConfig: AgentConfig<Record<string, never>> = {
-  ...generalAgentConfig,
-  // Keep Slack conversations grouped separately from the in-app assistant.
+  ...sharedAgentSettings,
   agentType: "slack",
-
-  buildTools: (ctx, buffer, params, emit) => {
-    const tools = generalAgentConfig.buildTools(ctx, buffer, params, emit);
-    delete tools.askUser;
-    return tools;
-  },
-
-  buildSystemPrompt: async (ctx, params) =>
-    (await generalAgentConfig.buildSystemPrompt(ctx, params)) +
-    "\n\n" +
-    SLACK_PROMPT_APPENDIX,
+  injectDatasourceHint: false,
+  buildSystemPrompt: async () =>
+    buildAgentSystemPrompt([
+      AGENT_CORE_GUIDANCE,
+      SLACK_REPLY_GUIDANCE,
+      GROWTHBOOK_CONCEPTS_GUIDANCE,
+    ]),
+  buildTools: (ctx, buffer, ...[, emit]) =>
+    buildCoreAgentTools(ctx, buffer, emit),
 };
