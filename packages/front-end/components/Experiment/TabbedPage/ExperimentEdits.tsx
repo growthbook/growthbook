@@ -23,9 +23,6 @@ interface ExperimentEditsValue {
   error: string | null;
   saveAll: () => Promise<void>;
   discardAll: () => void;
-  /** Draws attention to the save bar, for a blocked action. */
-  flash: () => void;
-  flashing: boolean;
   register: (id: string, edit: PendingEdit | null) => void;
 }
 
@@ -40,7 +37,6 @@ export function ExperimentEditsProvider({ children }: { children: ReactNode }) {
   const [dirtyIds, setDirtyIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [flashing, setFlashing] = useState(false);
 
   const register = useCallback((id: string, edit: PendingEdit | null) => {
     if (edit) edits.current.set(id, edit);
@@ -74,11 +70,6 @@ export function ExperimentEditsProvider({ children }: { children: ReactNode }) {
     setError(null);
   }, []);
 
-  const flash = useCallback(() => {
-    setFlashing(true);
-    window.setTimeout(() => setFlashing(false), 1200);
-  }, []);
-
   const value = useMemo(
     () => ({
       dirty: dirtyIds.length > 0,
@@ -86,11 +77,9 @@ export function ExperimentEditsProvider({ children }: { children: ReactNode }) {
       error,
       saveAll,
       discardAll,
-      flash,
-      flashing,
       register,
     }),
-    [dirtyIds, saving, error, saveAll, discardAll, flash, flashing, register],
+    [dirtyIds, saving, error, saveAll, discardAll, register],
   );
 
   return (
@@ -135,19 +124,15 @@ export function useRegisterExperimentEdit(
   }, [ctx, id]);
 }
 
-/**
- * Wraps an action that opens another editing surface. While the page holds
- * unsaved edits the action is refused, and the save bar asks for a decision.
- */
-export function useGuardedEdit<
-  T extends ((...args: never[]) => void) | null | undefined,
->(action: T): T {
-  const ctx = useContext(ExperimentEditsContext);
-  const dirty = !!ctx?.dirty;
-  const flash = ctx?.flash;
+export const EDITS_BLOCKED_REASON =
+  "Finish your current edits — save or discard them — before changing these values";
 
-  return useMemo(() => {
-    if (!action || !dirty || !flash) return action;
-    return (() => flash()) as T;
-  }, [action, dirty, flash]);
+/**
+ * Why another editing surface cannot open yet, or null when it can. Controls
+ * that would open one disable themselves and say so, rather than opening a
+ * second draft over the page's own.
+ */
+export function useEditsBlockedReason(): string | null {
+  const ctx = useContext(ExperimentEditsContext);
+  return ctx?.dirty ? EDITS_BLOCKED_REASON : null;
 }

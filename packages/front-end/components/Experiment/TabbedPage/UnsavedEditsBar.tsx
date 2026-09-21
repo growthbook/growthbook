@@ -1,5 +1,5 @@
+import { useEffect, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import clsx from "clsx";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import { useExperimentEdits } from "./ExperimentEdits";
@@ -8,10 +8,36 @@ import styles from "./UnsavedEditsBar.module.scss";
 /** Appears once something on the page is edited, and is the only way to write it. */
 export default function UnsavedEditsBar() {
   const edits = useExperimentEdits();
-  if (!edits?.dirty) return null;
+  const bar = useRef<HTMLDivElement>(null);
+  const shown = !!edits?.dirty;
+
+  // Anything anchored to the bottom of the page sits above this bar, so its
+  // height is published rather than guessed.
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = bar.current;
+    if (!shown || !el) {
+      root.style.setProperty("--experiment-save-bar-height", "0px");
+      return;
+    }
+    const publish = () =>
+      root.style.setProperty(
+        "--experiment-save-bar-height",
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      );
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.setProperty("--experiment-save-bar-height", "0px");
+    };
+  }, [shown]);
+
+  if (!shown) return null;
 
   return (
-    <div className={clsx(styles.bar, edits.flashing && styles.flashing)}>
+    <div className={styles.bar} ref={bar}>
       <Box
         mx="auto"
         width="100%"

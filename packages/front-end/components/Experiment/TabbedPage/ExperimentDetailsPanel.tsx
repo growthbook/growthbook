@@ -13,7 +13,7 @@ import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldout
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionField";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
-import { useGuardedEdit } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import Tooltip from "@/ui/Tooltip";
 
 export interface Props {
@@ -35,12 +35,9 @@ export default function ExperimentDetailsPanel({
   disableEditing,
 }: Props) {
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
-  // Opening another editing surface while the page holds unsaved edits asks for
-  // a decision first. Closing is never guarded.
-  const openEditInfo = useGuardedEdit((value: boolean) =>
-    setShowEditInfoModal(value),
-  );
-  const guardedEditTags = useGuardedEdit(editTags);
+  // Another editing surface cannot open over the page's own unsaved edits, so
+  // the controls that would open one say why instead.
+  const editsBlocked = useEditsBlockedReason();
   const [focusSelector, setFocusSelector] = useState<FocusSelector>("name");
   const isHoldout = experiment.type === "holdout";
   const { canEdit, editInline } = useExperimentEditing(
@@ -74,11 +71,12 @@ export default function ExperimentDetailsPanel({
             <TabsTrigger value="comments">Comments</TabsTrigger>
           </TabsList>
           {canEdit ? (
-            <Tooltip content="Edit details">
+            <Tooltip content={editsBlocked ?? "Edit details"}>
               <IconButton
                 size="1"
                 variant="ghost"
                 color="gray"
+                disabled={!!editsBlocked}
                 aria-label="Edit details"
                 style={{
                   margin: 0,
@@ -88,7 +86,7 @@ export default function ExperimentDetailsPanel({
                 }}
                 onClick={() => {
                   setFocusSelector("name");
-                  openEditInfo(true);
+                  setShowEditInfoModal(true);
                 }}
               >
                 <PiPencilSimple size={16} />
@@ -102,9 +100,10 @@ export default function ExperimentDetailsPanel({
               vertical
               experiment={experiment}
               holdout={holdout}
-              setShowEditInfoModal={openEditInfo}
+              setShowEditInfoModal={setShowEditInfoModal}
               setEditInfoFocusSelector={setFocusSelector}
-              editTags={guardedEditTags}
+              editTags={editTags}
+              editsBlockedReason={editsBlocked}
               isManaged={isManaged}
             />
             {!isHoldout && (
@@ -129,6 +128,7 @@ export default function ExperimentDetailsPanel({
           <Box px="5" py="4">
             <DiscussionThread
               compact
+              stickyComposer
               type="experiment"
               id={experiment.id}
               allowNewComments={!experiment.archived}

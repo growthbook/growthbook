@@ -25,6 +25,8 @@ export interface Props {
   holdout?: HoldoutInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   setEditInfoFocusSelector: (value: FocusSelector) => void;
+  /** Set while the page holds unsaved edits: the add links say so instead. */
+  editsBlockedReason?: string | null;
   editTags?: (() => void) | null;
   /** Stack the fields for the side panel instead of the header's wrapping row. */
   vertical?: boolean;
@@ -35,6 +37,7 @@ export default function ProjectTagBar({
   holdout,
   setShowEditInfoModal,
   setEditInfoFocusSelector,
+  editsBlockedReason,
   editTags,
   isManaged,
   vertical,
@@ -197,21 +200,33 @@ export default function ProjectTagBar({
   };
   const showAddLinks = !vertical;
 
+  const addLink = (focus: FocusSelector) =>
+    editsBlockedReason ? (
+      <Tooltip body={editsBlockedReason}>
+        <Text color="text-disabled" size="sm">
+          +Add
+        </Text>
+      </Tooltip>
+    ) : (
+      <Link
+        onClick={(e) => {
+          e.preventDefault();
+          setEditInfoFocusSelector(focus);
+          setShowEditInfoModal(true);
+        }}
+      >
+        +Add
+      </Link>
+    );
+
   const renderProjectMetaDataValue = () => {
     return (
       <Flex gap="1">
         {RenderToolTipsAndValue()}
-        {showAddLinks && canUpdateExperimentProject(project) && !projectId && (
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              setEditInfoFocusSelector("project");
-              setShowEditInfoModal(true);
-            }}
-          >
-            +Add
-          </Link>
-        )}
+        {showAddLinks &&
+          canUpdateExperimentProject(project) &&
+          !projectId &&
+          addLink("project")}
         {(!showAddLinks || !canUpdateExperimentProject(project)) &&
           !projectId && (
             <Text weight="regular" color="text-mid" size="sm">
@@ -234,17 +249,8 @@ export default function ProjectTagBar({
         )}
         {showAddLinks &&
           canUpdateHoldoutProjects(holdout.projects) &&
-          holdout.projects.length === 0 && (
-            <Link
-              onClick={(e) => {
-                e.preventDefault();
-                setEditInfoFocusSelector("projects");
-                setShowEditInfoModal(true);
-              }}
-            >
-              +Add
-            </Link>
-          )}
+          holdout.projects.length === 0 &&
+          addLink("projects")}
         {(!showAddLinks || !canUpdateHoldoutProjects(holdout.projects)) &&
           holdout.projects.length === 0 && (
             <Text weight="regular" color="text-mid" size="sm">
@@ -284,17 +290,10 @@ export default function ProjectTagBar({
             {...tagLinkProps("experiments")}
           />
         )}
-        {showAddLinks && editTags && experiment.tags?.length === 0 && (
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              setEditInfoFocusSelector("tags");
-              setShowEditInfoModal(true);
-            }}
-          >
-            +Add
-          </Link>
-        )}
+        {showAddLinks &&
+          editTags &&
+          experiment.tags?.length === 0 &&
+          addLink("tags")}
         {(!showAddLinks || !editTags) && experiment.tags?.length === 0 && (
           <Text weight="regular" color="text-mid" size="sm">
             None

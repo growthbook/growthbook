@@ -29,6 +29,12 @@ const DiscussionThread: FC<{
   title?: string;
   /** Slim chrome for a narrow column: see `CommentCard`. */
   compact?: boolean;
+  /**
+   * Hold the composer at the bottom of the scrolling column, clear of the
+   * page's save bar. The thread scrolls behind it, and it keeps its own space
+   * so the last comment is never left underneath.
+   */
+  stickyComposer?: boolean;
 }> = ({
   type,
   id,
@@ -37,6 +43,7 @@ const DiscussionThread: FC<{
   title = "Add comment",
   projects,
   compact = false,
+  stickyComposer = false,
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -167,7 +174,21 @@ const DiscussionThread: FC<{
         </Text>
       )}
       {allowNewComments && (
-        <Box mt="4">
+        <Box
+          mt="4"
+          style={
+            stickyComposer
+              ? {
+                  position: "sticky",
+                  // The save bar publishes its own height, and sits over
+                  // everything the page owns.
+                  bottom: "var(--experiment-save-bar-height, 0px)",
+                  background: "var(--color-panel-solid)",
+                  paddingBottom: "var(--space-3)",
+                }
+              : undefined
+          }
+        >
           {!showTitle ? (
             <Separator size="4" mb="4" />
           ) : (
