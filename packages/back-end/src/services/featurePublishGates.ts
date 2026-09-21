@@ -48,6 +48,11 @@ import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDepe
 import { MergeConflictError } from "back-end/src/util/errors";
 import { pendingScheduleGate } from "back-end/src/revisions/pendingScheduleGuard";
 import {
+  assertFeatureSavedGroupScope,
+  collectSavedGroupScopeGate,
+} from "back-end/src/services/savedGroupProjectScope";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
+import {
   PublishGate,
   hookResultsToGates,
   makeBlockingGate,
@@ -351,8 +356,8 @@ export async function planFeatureRevisionMerge({
 }
 
 // The interactive publish handler's gate set: stale-base, approval-required,
-// holdout transition, and (when `includeValidationGates`) publish-time value
-// validation, custom hooks, and archive-dependents. Throws on a config-backed
+// holdout transition, Saved Group Project scope, and (when
+// `includeValidationGates`) value validation, custom hooks, and archive-dependents. Throws on a config-backed
 // default carrying its own override patch — a structural payload error no
 // override clears (the bulk adapter catches it and reports it as a no-override
 // gate).
@@ -473,11 +478,6 @@ export async function collectFeaturePublishGates({
     })),
   );
 
-  if (!includeValidationGates) return gates;
-
-  const scheduleGate = pendingScheduleGate(revision);
-  if (scheduleGate) gates.push(scheduleGate);
-
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(
       context,
@@ -485,6 +485,20 @@ export async function collectFeaturePublishGates({
       revision,
       plan.mergeResult,
     );
+
+  gates.push(
+    ...(await collectSavedGroupScopeGate(() =>
+      assertFeatureSavedGroupScope(context, proposedFeature, [
+        feature,
+        featureForSavedGroupValidation(feature, revision),
+      ]),
+    )),
+  );
+
+  if (!includeValidationGates) return gates;
+
+  const scheduleGate = pendingScheduleGate(revision);
+  if (scheduleGate) gates.push(scheduleGate);
 
   // Structural payload guard: a config-backed default carrying its own override
   // patch breaks the SDK payload (the override ships verbatim, the backing

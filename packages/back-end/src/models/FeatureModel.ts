@@ -47,6 +47,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
@@ -143,6 +145,7 @@ import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
+  holdoutLinkageOwner,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
@@ -940,6 +943,8 @@ export async function createFeature(
     linkedExperiments,
   });
 
+  await assertFeatureSavedGroupScope(context, data);
+
   if (Array.isArray(featureToCreate.rules)) {
     const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
       featureToCreate.rules as FeatureRule[],
@@ -1370,6 +1375,11 @@ export async function updateFeature(
     // set-then-fetch, so its `dateUpdated` may already be a rival's, and
     // reading ownership from it says "still ours" at the moment it isn't.
     onStamped?: (stamp: Date) => void;
+    // Internal failed-write recovery only; a user-requested revert must still
+    // satisfy the current Saved Group scope.
+    isCompensation?: boolean;
+    // Preserve references already accepted in the draft being landed.
+    savedGroupScopeRevision?: FeatureRevisionInterface;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
@@ -1408,6 +1418,21 @@ export async function updateFeature(
   // `bulkPublishApplying` (not the correlation token) so genuine post-commit
   // writes — ramp activation etc., NOT covered by the plan gates — still run.
   if (!context.bulkPublishApplying) {
+    if (!options?.isCompensation) {
+      await assertFeatureSavedGroupScope(
+        context,
+        projected,
+        options?.savedGroupScopeRevision
+          ? [
+              feature,
+              featureForSavedGroupValidation(
+                feature,
+                options.savedGroupScopeRevision,
+              ),
+            ]
+          : feature,
+      );
+    }
     await runValidateFeatureHooks({
       context,
       feature: projected,
@@ -2152,7 +2177,11 @@ export async function applyRevisionChanges(
   // Every branch below is a landing, so its FIRST write is guarded on the
   // pre-image `feature` — same rule as the generic entities' guarded landings:
   // two publishes computed from the same read must not both apply.
-  const guard = { casOnDateUpdated: feature.dateUpdated, onStamped };
+  const guard = {
+    casOnDateUpdated: feature.dateUpdated,
+    onStamped,
+    savedGroupScopeRevision: revision,
+  };
 
   if (!hasChanges) {
     return await updateFeature(context, feature, changes, guard);
@@ -2446,6 +2475,8 @@ export async function applyHoldoutSideEffects(
 
 export type HoldoutExperimentLinkagePlan = {
   holdoutId: string;
+  // The feature whose publish produced this plan; owns the linkage event.
+  featureId: string;
   toLink: string[];
   toUnlink: string[];
   // "" is the clear sentinel `updateExperiment` expects.
@@ -2562,7 +2593,13 @@ async function planLinkageForHoldout(
     }),
   );
 
-  return { holdoutId, toLink, toUnlink, prevExperimentHoldoutIds };
+  return {
+    holdoutId,
+    featureId: feature.id,
+    toLink,
+    toUnlink,
+    prevExperimentHoldoutIds,
+  };
 }
 
 // `holdoutId` is a scalar last-writer-wins field, so `expectedPrior` turns the
@@ -2652,6 +2689,7 @@ export async function applyHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => applied.has(id)),
+    { eventOwner: holdoutPlanEventOwner(plan) },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
@@ -2725,12 +2763,23 @@ export async function reverseHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toUnlink.filter((id) => reverted.has(id)),
+    { notifyNewLinkage: false },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => reverted.has(id)),
   );
+  // With this plan's linkage put back, the landing must not announce it. An
+  // empty `reverted` means another owner holds the linkage now, and the event
+  // still describes what is live.
+  if (reverted.size) {
+    context.bulkPublishRestoredEntities?.add(holdoutPlanEventOwner(plan));
+  }
 }
+
+// Owner of the deferred linkage event for a plan's writes; see holdoutLinkageOwner.
+const holdoutPlanEventOwner = (plan: HoldoutExperimentLinkagePlan): string =>
+  holdoutLinkageOwner(plan.holdoutId, entityKey("feature", plan.featureId));
 
 // The linkage a holdout transition is about to write, captured before the forward
 // pass so its rewind can restore the pre-publish state instead of re-deriving it
@@ -2794,10 +2843,23 @@ export async function rewindHoldoutLinkage(
     // entry sitting there now. The comparison happens inside the model's own
     // read-modify-write, so it isn't check-then-act; the restore half below
     // declines on the same reasoning.
-    await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
-      featureId: pre.featureId,
-      expectFeatureEntry: pre.addedFeatureEntry,
-    });
+    const removed = await context.models.holdout.removeLinkageFromHoldout(
+      pre.newHoldoutId,
+      {
+        featureId: pre.featureId,
+        expectFeatureEntry: pre.addedFeatureEntry,
+      },
+    );
+    // Only when this rewind took the entry back: a declined removal means the
+    // linkage is live and its event should stand.
+    if (removed) {
+      context.bulkPublishRestoredEntities?.add(
+        holdoutLinkageOwner(
+          pre.newHoldoutId,
+          entityKey("feature", pre.featureId),
+        ),
+      );
+    }
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
@@ -3658,6 +3720,10 @@ export async function prevalidatePublishRevision({
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
+  await assertFeatureSavedGroupScope(context, proposedFeature, [
+    feature,
+    featureForSavedGroupValidation(feature, revision),
+  ]);
   if (skipValidation) return;
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),
@@ -3763,6 +3829,7 @@ async function restorePublishedFeatureDoc(
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
         onStamped,
+        isCompensation: true,
       });
       return;
     } catch (e) {
