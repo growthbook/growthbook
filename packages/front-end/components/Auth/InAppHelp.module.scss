@@ -14,13 +14,21 @@
   cursor: pointer;
   transition: filter 100ms ease;
 
-  // A halo the filter traces from the glyph's own alpha, so it follows the
-  // bubble instead of boxing it — and reads as an outline rather than as a
-  // heavier icon, which stacked hard shadows did.
+  // An outline the filter traces from the glyph's own alpha, so it follows the
+  // bubble instead of boxing it. Hard shadows at eight angles rather than one
+  // blurred pass: a blur fades out into a smudge, these stop at their edge.
+  // Translucent, so the ring reads as an outline and not as a heavier icon.
   &:hover,
   &:focus-visible {
     outline: none;
-    filter: drop-shadow(0 0 3px var(--violet-a8));
+    filter: drop-shadow(2px 0 0 var(--violet-a6))
+      drop-shadow(-2px 0 0 var(--violet-a6))
+      drop-shadow(0 2px 0 var(--violet-a6))
+      drop-shadow(0 -2px 0 var(--violet-a6))
+      drop-shadow(1.4px 1.4px 0 var(--violet-a6))
+      drop-shadow(-1.4px 1.4px 0 var(--violet-a6))
+      drop-shadow(1.4px -1.4px 0 var(--violet-a6))
+      drop-shadow(-1.4px -1.4px 0 var(--violet-a6));
   }
 }
 
