@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import RichTextEditor from "@/ui/RichTextEditor";
+import Button from "@/ui/Button";
+import HelperText from "@/ui/HelperText";
 
 export interface CommentComposerProps {
   /**
@@ -21,10 +24,11 @@ export interface CommentComposerProps {
 }
 
 /**
- * Shared markdown comment composer used by `DiscussionThread` (via
- * `CommentForm`) and `ReviewAndPublish`. Wraps `MarkdownInput` in a form
- * with internal value/loading/error state. The caller only needs to
- * provide the network call via `onSubmit`.
+ * Shared comment composer used by `DiscussionThread` (via `CommentForm`) and
+ * `ReviewAndPublish`. Wraps the rich text editor in a form with internal
+ * value/loading/error state. The caller only needs to provide the network
+ * call via `onSubmit`. Formatting starts out of the way: most comments are a
+ * sentence, so the ribbon waits behind its button.
  */
 export default function CommentComposer({
   onSubmit,
@@ -57,17 +61,34 @@ export default function CommentComposer({
       }}
     >
       {loading && <LoadingOverlay />}
-      <MarkdownInput
+      <RichTextEditor
         value={value}
-        setValue={setValue}
-        autofocus={autofocus}
-        autofocusAtEnd={autofocusAtEnd}
-        cta={cta}
-        ctaDisabled={value.trim().length < 1}
-        onCancel={onCancel}
-        error={error || ""}
+        onChange={setValue}
         placeholder={placeholder}
+        height="sm"
+        autoFocus={autofocus}
+        autoFocusAtEnd={autofocusAtEnd}
+        simpleToolbar
+        collapsibleToolbar
       />
+      <Flex align="center" mt="3" gap="2">
+        {error ? (
+          <HelperText status="error" size="sm">
+            {error}
+          </HelperText>
+        ) : null}
+        <Box flexGrow="1" />
+        {onCancel ? (
+          <Button variant="ghost" color="gray" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
+        {cta ? (
+          <Button type="submit" disabled={value.trim().length < 1}>
+            {cta}
+          </Button>
+        ) : null}
+      </Flex>
     </form>
   );
 }

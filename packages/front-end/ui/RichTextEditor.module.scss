@@ -21,6 +21,37 @@
   }
 }
 
+// The ribbon ends before the toggle rather than under it.
+.toolbarInset {
+  padding-right: 28px;
+}
+
+// Holds the toggle against the seam above the text, wherever that falls: the
+// ribbon wraps to two rows in a narrow column, so its height is not fixed.
+.editableWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+// Straddles that seam, on the surface so the line does not run through it.
+.toolbarToggle {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  z-index: 1;
+  margin: 0;
+  width: 18px;
+  height: 14px;
+  min-width: 18px;
+  transform: translateY(-50%);
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-1);
+  background-color: var(--color-surface);
+}
+
 .readOnly {
   border-color: transparent;
   background-color: transparent;

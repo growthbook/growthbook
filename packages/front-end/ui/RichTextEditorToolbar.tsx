@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Flex, IconButton, Separator } from "@radix-ui/themes";
+import clsx from "clsx";
 import {
   PiCodeBold,
   PiImageBold,
@@ -85,9 +86,18 @@ const HEADINGS: {
 
 export default function RichTextEditorToolbar({
   onPickImage,
+  simple = false,
+  inset = false,
 }: {
   /** Omit to leave the image button out. */
   onPickImage?: () => void;
+  /**
+   * The short ribbon: no headings or strikethrough, for a field where a
+   * comment is the unit rather than a document.
+   */
+  simple?: boolean;
+  /** Leave room at the end of the row for the editor's own corner button. */
+  inset?: boolean;
 }) {
   const [editor] = useLexicalComposerContext();
   const [active, setActive] = useState<ActiveState>({
@@ -264,8 +274,15 @@ export default function RichTextEditorToolbar({
   );
 
   return (
-    <Flex className={styles.toolbar} align="center" gap="1" wrap="wrap">
-      {TEXT_FORMATS.map(({ format, label, Icon }) =>
+    <Flex
+      className={clsx(styles.toolbar, inset && styles.toolbarInset)}
+      align="center"
+      gap="1"
+      wrap="wrap"
+    >
+      {TEXT_FORMATS.filter(
+        ({ format }) => !simple || format !== "strikethrough",
+      ).map(({ format, label, Icon }) =>
         button(
           format,
           label,
@@ -277,17 +294,19 @@ export default function RichTextEditorToolbar({
 
       <Separator orientation="vertical" size="1" />
 
-      {HEADINGS.map(({ tag, label, Icon }) =>
-        button(
-          tag,
-          label,
-          active.block === tag,
-          () => toggleHeading(tag),
-          Icon,
-        ),
-      )}
+      {simple
+        ? null
+        : HEADINGS.map(({ tag, label, Icon }) =>
+            button(
+              tag,
+              label,
+              active.block === tag,
+              () => toggleHeading(tag),
+              Icon,
+            ),
+          )}
 
-      <Separator orientation="vertical" size="1" />
+      {simple ? null : <Separator orientation="vertical" size="1" />}
 
       {button(
         "ul",

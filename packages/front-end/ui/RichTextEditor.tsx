@@ -30,6 +30,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import {
+  $getRoot,
   $getSelection,
   $insertNodes,
   $isRangeSelection,
@@ -38,10 +39,13 @@ import {
   type EditorState,
 } from "lexical";
 import { useDropzone } from "react-dropzone";
+import { IconButton } from "@radix-ui/themes";
+import { PiCaretDownBold, PiCaretUpBold } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { Size } from "@/ui/sizes";
+import Tooltip from "@/ui/Tooltip";
 import {
   $createImageNode,
   ImageNode,
@@ -80,6 +84,15 @@ export interface Props {
   footer?: ReactNode;
   /** Hide the formatting ribbon, e.g. for a one-line note. */
   hideToolbar?: boolean;
+  /** The short ribbon: no headings, no strikethrough. */
+  simpleToolbar?: boolean;
+  /**
+   * Start with the ribbon hidden behind a button in the corner, for a field
+   * where formatting is the exception — a comment, say.
+   */
+  collapsibleToolbar?: boolean;
+  /** Put the caret after the value rather than before it. */
+  autoFocusAtEnd?: boolean;
   className?: string;
   id?: string;
 }
@@ -155,11 +168,13 @@ function EditorBridge({
   handleRef,
   readOnly,
   autoFocus,
+  autoFocusAtEnd,
   lastMarkdown,
 }: {
   handleRef: Ref<RichTextEditorHandle>;
   readOnly: boolean;
   autoFocus: boolean;
+  autoFocusAtEnd: boolean;
   lastMarkdown: MutableRefObject<string>;
 }) {
   const [editor] = useLexicalComposerContext();
@@ -187,7 +202,15 @@ function EditorBridge({
   }, [editor, readOnly]);
 
   useEffect(() => {
-    if (autoFocus && !readOnly) editor.focus();
+    if (autoFocus && !readOnly) {
+      editor.focus();
+      // Seeded text the writer is meant to continue, rather than type in front of.
+      if (autoFocusAtEnd) {
+        editor.update(() => {
+          $getRoot().selectEnd();
+        });
+      }
+    }
     // Only on mount: refocusing whenever the flag is recomputed would steal
     // the caret back from whatever the user moved to.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -344,11 +367,15 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     allowImageUpload = true,
     footer,
     hideToolbar = false,
+    simpleToolbar = false,
+    collapsibleToolbar = false,
+    autoFocusAtEnd = false,
     className,
     id,
   },
   ref,
 ) {
+  const [toolbarOpen, setToolbarOpen] = useState(!collapsibleToolbar);
   // What the editor last held, so a value we emitted doesn't loop back in.
   const lastMarkdown = useRef(value);
   const [uploading, setUploading] = useState(false);
@@ -429,26 +456,55 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         onBlur={handleBlur}
       >
         {allowImages ? <input {...getInputProps()} /> : null}
-        {readOnly || hideToolbar ? null : (
+        {readOnly || hideToolbar || !toolbarOpen ? null : (
           <RichTextEditorToolbar
             onPickImage={allowImages ? openFilePicker : undefined}
+            simple={simpleToolbar}
+            inset={collapsibleToolbar}
           />
         )}
-        <RichTextPlugin
-          contentEditable={
-            <ContentEditable
-              id={id}
-              className={styles.editable}
-              aria-placeholder={placeholder ?? ""}
-              placeholder={
-                placeholder ? (
-                  <div className={styles.placeholder}>{placeholder}</div>
-                ) : null
-              }
-            />
-          }
-          ErrorBoundary={LexicalErrorBoundary}
-        />
+        <div className={styles.editableWrap}>
+          {!readOnly && !hideToolbar && collapsibleToolbar ? (
+            <Tooltip
+              content={toolbarOpen ? "Hide formatting" : "Show formatting"}
+            >
+              <IconButton
+                type="button"
+                size="1"
+                variant="soft"
+                color="gray"
+                className={styles.toolbarToggle}
+                aria-label={toolbarOpen ? "Hide formatting" : "Show formatting"}
+                aria-expanded={toolbarOpen}
+                // Keeps the caret where it is, so the ribbon acts on the
+                // selection the writer already had.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setToolbarOpen((open) => !open)}
+              >
+                {toolbarOpen ? (
+                  <PiCaretUpBold size={10} />
+                ) : (
+                  <PiCaretDownBold size={10} />
+                )}
+              </IconButton>
+            </Tooltip>
+          ) : null}
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                id={id}
+                className={styles.editable}
+                aria-placeholder={placeholder ?? ""}
+                placeholder={
+                  placeholder ? (
+                    <div className={styles.placeholder}>{placeholder}</div>
+                  ) : null
+                }
+              />
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+        </div>
         <HistoryPlugin />
         <ListPlugin />
         <LinkPlugin />
@@ -464,6 +520,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           handleRef={ref}
           readOnly={readOnly}
           autoFocus={autoFocus}
+          autoFocusAtEnd={autoFocusAtEnd}
           lastMarkdown={lastMarkdown}
         />
         {uploading ? (
