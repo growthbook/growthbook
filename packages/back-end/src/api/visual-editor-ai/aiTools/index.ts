@@ -7,6 +7,7 @@ import { getDesignTokensTool } from "./getDesignTokens";
 import { searchPastExperimentsTool } from "./searchPastExperiments";
 import { getExperimentVariationsTool } from "./getExperimentVariations";
 import {
+  deferredDomTools,
   getComputedStylesTool,
   findElementsTool,
   getInnerHTMLTool,
@@ -30,6 +31,10 @@ export interface VisualEditorToolsetOptions {
   // through the client. When omitted, only server-side tools are
   // included — the handler runs as a single HTTP request.
   job?: ClientJob<unknown>;
+  // Stateless alternative to `job`: the DOM-side tools are declared without
+  // execute(), so a call to one ends the run and is handed back to the
+  // extension with a signed transcript. Ignored when `job` is set.
+  deferDomTools?: boolean;
   // Page-structure snapshot for the server-side `findElements` tool. When
   // present, the model can locate uncatalogued containers (sections, layout
   // wrappers) without a client round-trip — so it works on Cloud.
@@ -52,6 +57,7 @@ export function newImageTurnState(): ImageTurnState {
 export function buildVisualEditorTools({
   context,
   job,
+  deferDomTools = false,
   pageStructure,
   disabled = false,
   imageState,
@@ -90,6 +96,15 @@ export function buildVisualEditorTools({
         }
       : {}),
   };
+  if (!job && deferDomTools) {
+    const deferred = deferredDomTools();
+    return {
+      ...serverTools,
+      getComputedStyles: deferred.getComputedStyles,
+      getInnerHTML: deferred.getInnerHTML,
+      ...(hasStructure ? {} : { findElements: deferred.findElements }),
+    };
+  }
   if (!job) return serverTools;
   return {
     ...serverTools,
