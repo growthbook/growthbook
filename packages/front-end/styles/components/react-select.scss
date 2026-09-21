@@ -232,6 +232,12 @@
 
 .gb-select__single-value {
   color: var(--text-color-main) !important;
+
+  // Trailing option detail (identifier type, event name, …) is menu-only: the
+  // closed control has no room for it and it reads as part of the value.
+  .float-right {
+    display: none;
+  }
 }
 .gb-multi-select__multi-value {
   // This one is dynamic. Style it in JS.
@@ -324,7 +330,8 @@
   .gb-multi-select__raw-text-mode-indicator,
   .gb-select__raw-text-mode-indicator,
   .gb-select__copy-button,
-  .gb-multi-select__copy-button {
+  .gb-multi-select__copy-button,
+  .gb-multi-select__tag-button {
     opacity: 0 !important;
     transition: opacity 0.1s ease-in-out;
   }
@@ -336,7 +343,8 @@
   .gb-multi-select__raw-text-mode-indicator,
   .gb-select__raw-text-mode-indicator,
   .gb-select__copy-button,
-  .gb-multi-select__copy-button {
+  .gb-multi-select__copy-button,
+  .gb-multi-select__tag-button {
     opacity: 1 !important;
   }
 }
@@ -346,6 +354,7 @@
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
+.gb-multi-select__tag-button,
 .gb-select__scope-toggle {
   width: 22px;
   height: 22px;
@@ -369,6 +378,7 @@
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
+.gb-multi-select__tag-button,
 .gb-select__scope-toggle {
   display: flex;
   align-items: center;
@@ -394,11 +404,18 @@
 .gb-multi-select__control--is-focused .gb-select__raw-text-mode-indicator,
 .gb-select__control--is-focused .gb-select__copy-button,
 .gb-multi-select__control--is-focused .gb-multi-select__copy-button,
+.gb-multi-select__control--is-focused .gb-multi-select__tag-button,
 .gb-select__control--is-focused .gb-select__scope-toggle {
   color: hsl(0, 0%, 40%);
   &:hover {
     color: hsl(0, 0%, 20%);
   }
+}
+
+// Stays put while its menu is open, even once the pointer leaves the control.
+.gb-multi-select__tag-button[aria-expanded="true"] {
+  opacity: 1 !important;
+  background-color: var(--gray-a3) !important;
 }
 
 // Always visible, unlike the hover-only indicators — it carries state.

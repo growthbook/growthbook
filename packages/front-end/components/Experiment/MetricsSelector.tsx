@@ -11,7 +11,7 @@ import {
 } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import { FactMetricType } from "shared/types/fact-table";
-import { PiInfo } from "react-icons/pi";
+import { PiInfo, PiTag } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -20,10 +20,16 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import RadixTooltip from "@/ui/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 
 type MetricOption = {
   id: string;
@@ -40,6 +46,54 @@ type MetricOption = {
   disabled?: boolean;
   disabledReason?: string;
 };
+
+/**
+ * Adds every metric carrying a tag, from inside the select's own indicator row.
+ */
+function MetricTagPicker({
+  tagCounts,
+  onSelect,
+}: {
+  tagCounts: Record<string, number>;
+  onSelect: (tag: string) => void;
+}) {
+  return (
+    <DropdownMenu
+      menuPlacement="end"
+      variant="soft"
+      trigger={
+        <button
+          type="button"
+          className="gb-multi-select__tag-button"
+          aria-label="Add metrics by tag"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <RadixTooltip content={<Text align="left">Add metrics by tag</Text>}>
+            <span style={{ display: "flex" }}>
+              <PiTag />
+            </span>
+          </RadixTooltip>
+        </button>
+      }
+    >
+      <DropdownMenuLabel>Add metrics by tag</DropdownMenuLabel>
+      {Object.keys(tagCounts)
+        .sort((a, b) => a.localeCompare(b))
+        .map((tag) => (
+          <DropdownMenuItem key={tag} onClick={() => onSelect(tag)}>
+            <Flex align="center" gap="2" justify="between" width="100%">
+              <span>{tag}</span>
+              <Text color="text-low">{tagCounts[tag]}</Text>
+            </Flex>
+          </DropdownMenuItem>
+        ))}
+    </DropdownMenu>
+  );
+}
 
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
@@ -557,59 +611,23 @@ const MetricsSelector: FC<{
               )}
             </Flex>
           ) : null}
-          <div className="d-flex align-items-center justify-content-end">
-            <div>
-              {!forceSingleMetric &&
-                filteredOptions.length > 0 &&
-                !disabled && (
-                  <div className="metric-from-tag text-muted form-inline">
-                    <span
-                      style={{
-                        color: "var(--color-text-low)",
-                        fontWeight: 500,
-                      }}
-                    >
-                      Select metric by tag
-                      <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-                        <PiInfo
-                          color="var(--color-text-low)"
-                          className="ml-1"
-                        />
-                      </Tooltip>
-                    </span>
-                    <SelectField
-                      size="legacy"
-                      value="choose"
-                      placeholder="choose"
-                      className="ml-3"
-                      containerClassName="select-dropdown-underline"
-                      style={{ minWidth: 140 }}
-                      onChange={(v) => {
-                        const newValue = new Set(selected);
-                        const tag = v;
-                        filteredOptions.forEach((m) => {
-                          if (m.tags && m.tags.includes(tag)) {
-                            newValue.add(m.id);
-                          }
-                        });
-                        onChange(Array.from(newValue));
-                      }}
-                      options={[
-                        {
-                          value: "...",
-                          label: "...",
-                        },
-                        ...Object.keys(tagCounts).map((k) => ({
-                          value: k,
-                          label: `${k} (${tagCounts[k]})`,
-                        })),
-                      ]}
-                    />
-                  </div>
-                )}
-            </div>
-          </div>
         </>
+      }
+      extraIndicator={
+        !disabled && Object.keys(tagCounts).length > 0 ? (
+          <MetricTagPicker
+            tagCounts={tagCounts}
+            onSelect={(tag) => {
+              const newValue = new Set(selected);
+              filteredOptions.forEach((m) => {
+                if (m.tags?.includes(tag)) {
+                  newValue.add(m.id);
+                }
+              });
+              onChange(Array.from(newValue));
+            }}
+          />
+        ) : null
       }
     />
   ) : (

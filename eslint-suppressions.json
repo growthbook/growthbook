@@ -343,7 +343,7 @@
   },
   "packages/front-end/components/Experiment/MetricsSelector.tsx": {
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/NamespaceModal.tsx": {

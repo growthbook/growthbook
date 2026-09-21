@@ -197,27 +197,28 @@ function CopyButton({ value }: { value: string[] }) {
   );
 }
 
-function IndicatorsContainerWithCopyButton(
+function IndicatorsContainerWithExtras(
   props: React.ComponentProps<typeof components.IndicatorsContainer>,
 ) {
   const selectProps = props.selectProps as unknown as {
     showCopyButton?: boolean;
+    extraIndicator?: ReactNode;
     value?: Array<{ value: string; label: string }>;
   };
 
-  const showCopy = selectProps?.showCopyButton === true;
   const options = selectProps?.value;
+  const values = options?.map((opt) => opt.value) ?? [];
+  const showCopy = selectProps?.showCopyButton === true && values.length > 0;
+  const extra = selectProps?.extraIndicator;
 
-  if (!showCopy || !options || options.length === 0) {
+  if (!showCopy && !extra) {
     return <components.IndicatorsContainer {...props} />;
   }
 
-  // Extract just the value strings from the option objects
-  const values = options.map((opt) => opt.value);
-
   return (
     <components.IndicatorsContainer {...props}>
-      <CopyButton value={values} />
+      {extra}
+      {showCopy ? <CopyButton value={values} /> : null}
       {props.children}
     </components.IndicatorsContainer>
   );
@@ -294,6 +295,8 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
+  /** Rendered before the copy button and dropdown caret. */
+  extraIndicator?: ReactNode;
   size?: MultiSelectFieldSize;
   /** Preserve the pre-design-system 36px control height. */
   legacyHeight?: boolean;
@@ -325,6 +328,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
+  extraIndicator,
   size,
   legacyHeight,
   valueTitles = true,
@@ -505,6 +509,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   })}
                   onPaste={handlePaste}
                   showCopyButton={showCopyButton}
+                  extraIndicator={extraIndicator}
                   classNamePrefix="gb-multi-select"
                   helperClass={`multi-select-container gb-multi-select--${styleSize}`}
                   axis="xy"
@@ -549,11 +554,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     Input,
                     ClearIndicator: CustomClearIndicator,
                     GroupHeading,
-                    ...(showCopyButton
-                      ? {
-                          IndicatorsContainer:
-                            IndicatorsContainerWithCopyButton,
-                        }
+                    ...(showCopyButton || extraIndicator
+                      ? { IndicatorsContainer: IndicatorsContainerWithExtras }
                       : {}),
                     ...(creatable && noMenu
                       ? {
