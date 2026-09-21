@@ -156,6 +156,7 @@ export default function ProjectTagBar({
       <Owner
         ownerId={experiment.owner}
         gap="1"
+        size="xs"
         textColor="text-mid"
         textSize="sm"
       />
