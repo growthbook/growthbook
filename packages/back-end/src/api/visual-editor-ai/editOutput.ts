@@ -18,25 +18,45 @@ export function mergeGlobalCss({
   const extra = append?.trim() ?? "";
   // Stronger models sometimes re-emit a rule they already added.
   const merged =
-    extra && !containsRule(base, extra)
+    extra && !isRuleInEffect(base, extra)
       ? [base.trim(), extra].filter(Boolean).join("\n\n")
       : base;
   return merged && merged !== current ? merged : undefined;
 }
 
-// Whole-rule match only: `.nav button {…}` must not count as containing
-// `button {…}`, so the match has to start the stylesheet or follow the end
-// of a previous rule or comment.
-function containsRule(css: string, rule: string): boolean {
-  let at = css.indexOf(rule);
+// A rule (or bare selector) only counts where it starts the stylesheet or
+// follows the end of a previous rule or comment: `.nav button {…}` must not
+// match `button {…}`.
+const atRuleBoundary = (css: string, at: number): boolean => {
+  const before = css.slice(0, at).trimEnd();
+  return before === "" || before.endsWith("}") || before.endsWith("*/");
+};
+
+// Index of the last whole-rule occurrence of `text` — a full rule, or with
+// `asSelector` a selector that opens a block — or -1.
+function findRule(css: string, text: string, asSelector = false): number {
+  let found = -1;
+  let at = css.indexOf(text);
   while (at !== -1) {
-    const before = css.slice(0, at).trimEnd();
-    if (before === "" || before.endsWith("}") || before.endsWith("*/")) {
-      return true;
-    }
-    at = css.indexOf(rule, at + 1);
+    const opensBlock =
+      !asSelector || /^\s*\{/.test(css.slice(at + text.length));
+    if (opensBlock && atRuleBoundary(css, at)) found = at;
+    at = css.indexOf(text, at + 1);
   }
-  return false;
+  return found;
+}
+
+// An appended rule is redundant only while it is still in effect: present
+// whole, with no later rule re-targeting its selector. A rule that a later
+// rule overrides is not "already there" — appending it again is exactly how
+// the cascade gets it back.
+function isRuleInEffect(css: string, rule: string): boolean {
+  const at = findRule(css, rule);
+  if (at === -1) return false;
+  const brace = rule.indexOf("{");
+  const selector = brace === -1 ? "" : rule.slice(0, brace).trim();
+  if (!selector) return true;
+  return findRule(css.slice(at + rule.length), selector, true) === -1;
 }
 
 export interface SkippedItem {

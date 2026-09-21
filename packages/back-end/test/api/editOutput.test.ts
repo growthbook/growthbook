@@ -80,6 +80,25 @@ describe("mergeGlobalCss", () => {
       }),
     ).toBe(`${nav}\n\nbutton { color: pink; }`);
   });
+
+  it("re-appends a rule that a later rule for the same selector overrides", () => {
+    const sheet = "button { color: pink; }\n\nbutton { color: black; }";
+    expect(
+      mergeGlobalCss({
+        existing: sheet,
+        replace: null,
+        append: "button { color: pink; }",
+      }),
+    ).toBe(`${sheet}\n\nbutton { color: pink; }`);
+    // A later rule for a different selector leaves it in effect.
+    expect(
+      mergeGlobalCss({
+        existing: "button { color: pink; }\n\n.nav button { color: black; }",
+        replace: null,
+        append: "button { color: pink; }",
+      }),
+    ).toBeUndefined();
+  });
 });
 
 describe("appendSkipped", () => {
