@@ -125,9 +125,8 @@ export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
 }
 
-// The rule a per-rule write lands on, as staged: the draft's copy when the
-// version names an existing draft (a rule may exist only there), else live.
-// Read without creating a draft, so a refusal cannot orphan one.
+// The rule as staged: the draft's copy when the version names one, else live.
+// Read-only, so a refusal cannot orphan a draft.
 export async function stagedRule(
   context: ApiReqContext,
   feature: FeatureInterface,
@@ -253,9 +252,8 @@ type RampPlanInput = {
   endPatch?: unknown;
 };
 
-// The plan a partial update leaves behind: a body that omits startActions,
-// steps or endActions keeps the stored plan's, as the update itself does. A
-// `startState` is a new anchor and replaces the stored start actions.
+// What a partial update leaves stored: omitted startActions, steps or
+// endActions keep the stored ones; a `startState` replaces the start actions.
 export function mergedRampPlan<P extends RampPlanInput>(
   update: P,
   stored: RampPlanInput | null | undefined,
@@ -424,9 +422,8 @@ function changedRampPatchTargeting(
 
 const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 
-// A partial-coverage step turns a force rule into a rollout, which needs a
-// hash attribute from the rule or the plan's start anchor. No default is
-// guessed: a plan that brings neither is refused at write and at fire time.
+// A partial-coverage step turns a force rule into a rollout, which needs a hash
+// attribute from the rule or the plan's anchor; none is guessed.
 function assertRampCoverageHashProvided(entries: RampPatchEntry[]): void {
   // A new rule has no id yet: its entries all share one scope object.
   const byRule = new Map<string | RuleScope, RampPatchEntry[]>();

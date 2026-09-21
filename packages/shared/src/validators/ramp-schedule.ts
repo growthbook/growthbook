@@ -32,9 +32,8 @@ export const featureRulePatch = z.object({
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
-// The rule's pre-ramp state: the rollback anchor, the base every step
-// accumulates on, and the only place a plan names how a rule buckets (a
-// partial-coverage step turns a force rule into a rollout).
+// The rule's pre-ramp state: the rollback anchor, the base every step builds
+// on, and the only place a plan names how a rule buckets.
 export const rampStartPatch = featureRulePatch.extend({
   hashAttribute: z
     .string()

@@ -597,10 +597,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           featureRuleContext
         />,
       );
-      // A plan written outside the rule editor can ramp a force rule's
-      // coverage, which turns it into a rollout. That needs a Sample by
-      // attribute from the rule or the plan; without one the engine refuses
-      // the step.
+      // A plan attached outside the rule editor can ramp a force rule that has
+      // no Sample by attribute; the engine will refuse that step.
       if (
         rule.type === "force" &&
         !("hashAttribute" in rule && rule.hashAttribute) &&

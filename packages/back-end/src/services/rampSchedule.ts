@@ -689,10 +689,8 @@ export function applyPatchToRule(
   if ("enabled" in patch) {
     updated.enabled = patch.enabled ?? undefined;
   }
-  // The payload reads coverage only on rollout rules, so a force rule the
-  // ramp buckets (an anchor naming a hash attribute, or partial coverage on a
-  // rule that already has one) becomes a rollout, as the rule modal does.
-  // Without a hash attribute anywhere the engine refuses the step beforehand.
+  // The payload reads coverage only on rollout rules, so a force rule the ramp
+  // buckets becomes one, as the rule modal does.
   const identity = updated as {
     hashAttribute?: string;
     seed?: string;
@@ -2261,9 +2259,8 @@ export function isTransientRampError(e: unknown): boolean {
   return false;
 }
 
-// A structural failure while a schedule is running: pause it and record the
-// reason in its event history, so the next tick does not retry the same step
-// and the UI shows why it stopped.
+// Pause a schedule the engine cannot advance and record why, so the next tick
+// does not retry it and the UI shows the reason.
 export async function errorPauseRampSchedule(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
@@ -2303,9 +2300,8 @@ export async function errorPauseRampSchedule(
   });
 }
 
-// Advance out of a start; a first step the engine refuses (a stored plan a
-// rule write would now reject) must not leave the schedule running for the
-// poller to retry, so it is paused here with the reason before rethrowing.
+// A refused first step must not leave the schedule running for the poller to
+// retry: pause it with the reason, then rethrow.
 async function advanceOrErrorPause(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,

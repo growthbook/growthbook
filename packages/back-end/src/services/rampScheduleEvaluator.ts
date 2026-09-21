@@ -51,9 +51,8 @@ export type EvalDecision =
       // This is what makes approval the final gate: the UI only prompts and the
       // API only accepts an approval once awaitingApproval is set.
       awaitingApproval?: boolean;
-      // The health check holding the step, when one is. Reported outward once
-      // per check per step; the reason text carries per-snapshot numbers and
-      // is not the dedupe key.
+      // The health check holding the step. Reported once per check per step;
+      // the reason text is not the dedupe key.
       health?: RampHealthHoldKind;
     }
   | { action: "rollback"; reason: string }

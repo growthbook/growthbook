@@ -360,9 +360,8 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
-  // Body and template patches alike, on the rule they will land on. Start
-  // actions derived from the rule (none in the body) are its own state and
-  // are not judged.
+  // Body and template patches alike, on the rule they will land on; an anchor
+  // derived from the rule is its own state and is not judged.
   await validateRampPlanPatches(
     req.context,
     hasTarget

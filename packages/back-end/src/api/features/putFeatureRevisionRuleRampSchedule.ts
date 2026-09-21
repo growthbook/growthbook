@@ -67,9 +67,8 @@ export async function setRuleRampSchedule(
   // Runs before the draft is created for `version: "new"` so a refusal can't
   // orphan one; for an existing draft, below, once its rule and pending action
   // are known.
-  // `live` is the schedule this plan updates, if any: what the body omits
-  // stays as stored there, and a new anchor only counts while it can still
-  // change (see the warning below).
+  // `live` is the schedule this plan updates: what the body omits stays as
+  // stored, and a new anchor only counts while the stored one can still change.
   const checkPatches = async (
     rule: FeatureRule | undefined,
     live: RampScheduleInterface | undefined,
