@@ -35,6 +35,8 @@ import CollapsedSteps, {
   type CollapsedStepItem,
 } from "@/enterprise/components/AIChat/CollapsedSteps";
 import { useCollapsibleActiveTurnItems } from "@/enterprise/components/AIChat/useCollapsibleActiveTurnItems";
+import { useAutoScroll } from "@/enterprise/components/AIChat/useAutoScroll";
+import { useRatchetedMinHeight } from "@/enterprise/components/AIChat/useRatchetedMinHeight";
 import ToolUsageDetails from "@/enterprise/components/AIChat/ToolUsageDetails";
 import {
   AIChatFeedback,
@@ -42,7 +44,6 @@ import {
 } from "@/enterprise/components/AIChat/AIChatFeedback";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
-import { useAutoScroll } from "@/enterprise/components/AIChat/useAutoScroll";
 import { isWaitingForMarkdownLink } from "@/enterprise/hooks/useAIChat/useTypewriter";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import { extractExplorationResultData } from "@/enterprise/hooks/useAIChat/extractExplorationResultData";
@@ -200,6 +201,7 @@ export default function AgentPanel({
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
+  const stepsExpandedRef = useRef(false);
   const router = useRouter();
   const { defaultAIModel } = useAISettings();
   // Read latest pathname inside the callback (not at render) so the URL
@@ -379,18 +381,25 @@ export default function AgentPanel({
     },
   });
 
-  const { scrollContainerRef, messagesEndRef, handleScroll, resumeAutoScroll } =
-    useAutoScroll({
-      messages,
-      activeTurnItems,
-      displayedTextMap,
-      conversationId,
-      enabled: open,
-    });
-
   // Keep the feedback hook's ref in sync with the current conversation id.
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
+
+  // The panel stays mounted while closed, so gate on `open` to attach the
+  // scroll listeners only once the container actually exists.
+  const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({
+    messages,
+    activeTurnItems,
+    displayedTextMap,
+    conversationId,
+    enabled: open,
+  });
+
+  // Steps folding into the drawer and the status spinner come and go
+  // mid-turn; holding the region's floor height stops those from yanking
+  // the scroll position. Released once the turn settles.
+  const { ref: activeTurnRef, minHeight: activeTurnMinHeight } =
+    useRatchetedMinHeight(loading);
 
   const { collapsedItems, visibleItems, fadingTextIds } =
     useCollapsibleActiveTurnItems(activeTurnItems, displayedTextMap, {
@@ -428,6 +437,10 @@ export default function AgentPanel({
     });
   }, [defaultAIModel, messages.length]);
 
+  const handleStepsToggle = useCallback((expanded: boolean) => {
+    stepsExpandedRef.current = expanded;
+  }, []);
+
   const handleSend = useCallback(
     (
       submission: ComposerSubmission = {
@@ -438,9 +451,10 @@ export default function AgentPanel({
     ) => {
       const text = submission.text.trim();
       if (!text || loading) return;
+      stepsExpandedRef.current = false;
       pendingSubmissionRef.current = submission;
-      resumeAutoScroll();
       resolveOnUserMessage();
+      resumeAutoScroll();
       trackMessageSent();
       sendMessage(text, {
         mentions: submission.mentions,
@@ -451,8 +465,8 @@ export default function AgentPanel({
       input,
       loading,
       sendMessage,
-      resumeAutoScroll,
       resolveOnUserMessage,
+      resumeAutoScroll,
       trackMessageSent,
     ],
   );
@@ -478,8 +492,8 @@ export default function AgentPanel({
   const handleConfirmAction = useCallback(
     (decision: "confirm" | "cancel") => {
       if (loading || !resolveConfirm(decision)) return;
-      // The decision is a control signal — don't render it as a user bubble.
       resumeAutoScroll();
+      // The decision is a control signal — don't render it as a user bubble.
       trackMessageSent();
       sendMessage(decision === "confirm" ? "Confirm" : "Cancel", {
         suppressUserMessage: true,
@@ -492,6 +506,7 @@ export default function AgentPanel({
     track("AI Assistant New Conversation", {
       previousConversationMessageCount: messages.length,
     });
+    stepsExpandedRef.current = false;
     newChat();
     resetTransientState();
     clearFeedback();
@@ -507,6 +522,7 @@ export default function AgentPanel({
   const handleSelectConversation = useCallback(
     (id: string) => {
       track("AI Assistant Load Conversation");
+      stepsExpandedRef.current = false;
       void loadConversation(id);
       resetTransientState();
       focusInput();
@@ -755,47 +771,68 @@ export default function AgentPanel({
               feedbackMap={feedbackMap}
               onFeedbackSubmit={handleFeedbackSubmit}
               feedbackTrackingEventName="AI Assistant Feedback"
+              stepsExpanded={
+                idx === persistedTurns.length - 1 && stepsExpandedRef.current
+              }
+              onStepsToggle={
+                idx === persistedTurns.length - 1
+                  ? handleStepsToggle
+                  : undefined
+              }
               awaitingInteraction={
                 interactionPending && idx === persistedTurns.length - 1
               }
             />
           ))}
 
-          {/* Keep completed work, visible results, and the current status in a
-              stable order throughout the active turn. */}
-          {collapsedActiveSteps.length > 0 && (
-            <CollapsedSteps
-              count={collapsedActiveSteps.length}
-              items={collapsedActiveSteps}
-            />
-          )}
+          {(loading ||
+            collapsedActiveSteps.length > 0 ||
+            visibleItems.length > 0 ||
+            activeStatus) && (
+            <Flex
+              ref={activeTurnRef}
+              direction="column"
+              gap="3"
+              style={{ minHeight: activeTurnMinHeight }}
+            >
+              {collapsedActiveSteps.length > 0 && (
+                <CollapsedSteps
+                  count={collapsedActiveSteps.length}
+                  items={collapsedActiveSteps}
+                  defaultExpanded={stepsExpandedRef.current}
+                  onToggle={handleStepsToggle}
+                />
+              )}
 
-          {visibleItems.map((item) => {
-            if (item === latestActivityItem) return null;
-            const rendered = (
-              <ActiveTurnItemRow
-                item={item}
-                displayedTextMap={displayedTextMap}
-                toolDetailsOpenRef={toolDetailsOpenRef}
-              />
-            );
-            const key = item.kind === "tool-status" ? item.toolCallId : item.id;
-            return (
-              <div
-                key={key}
-                className={`${aiChatStyles.activeTurnItemWrapper}${
-                  item.kind === "text" && fadingTextIds.has(item.id)
-                    ? ` ${aiChatStyles.collapsingItem}`
-                    : ""
-                }`}
-              >
-                {rendered}
-              </div>
-            );
-          })}
+              {visibleItems.map((item) => {
+                if (item === latestActivityItem) return null;
+                const rendered = (
+                  <ActiveTurnItemRow
+                    item={item}
+                    displayedTextMap={displayedTextMap}
+                    toolDetailsOpenRef={toolDetailsOpenRef}
+                  />
+                );
+                const key =
+                  item.kind === "tool-status" ? item.toolCallId : item.id;
+                return (
+                  <div
+                    key={key}
+                    className={`${aiChatStyles.activeTurnItemWrapper}${
+                      item.kind === "text" && fadingTextIds.has(item.id)
+                        ? ` ${aiChatStyles.collapsingItem}`
+                        : ""
+                    }`}
+                  >
+                    {rendered}
+                  </div>
+                );
+              })}
 
-          {activeStatus && (
-            <CollapsedSteps count={0} items={[]} active={activeStatus} />
+              {activeStatus && (
+                <CollapsedSteps count={0} items={[]} active={activeStatus} />
+              )}
+            </Flex>
           )}
 
           {error && <ErrorBubble>{error}</ErrorBubble>}
@@ -815,8 +852,6 @@ export default function AgentPanel({
               onDecide={handleConfirmAction}
             />
           )}
-
-          <div ref={messagesEndRef} />
         </Flex>
       </Box>
 
@@ -962,6 +997,8 @@ function PersistedTurn({
   feedbackMap,
   onFeedbackSubmit,
   feedbackTrackingEventName,
+  stepsExpanded,
+  onStepsToggle,
   awaitingInteraction,
 }: {
   turn: MessageTurn;
@@ -973,6 +1010,8 @@ function PersistedTurn({
     comment: string,
   ) => void;
   feedbackTrackingEventName?: string;
+  stepsExpanded: boolean;
+  onStepsToggle?: (expanded: boolean) => void;
   awaitingInteraction: boolean;
 }) {
   const { preWork, replyContent, replyMessageId, replyIsError } = classifyTurn(
@@ -1031,7 +1070,12 @@ function PersistedTurn({
       )}
 
       {steps.length > 0 && (
-        <CollapsedSteps count={steps.length} items={steps} />
+        <CollapsedSteps
+          count={steps.length}
+          items={steps}
+          defaultExpanded={stepsExpanded}
+          onToggle={onStepsToggle}
+        />
       )}
 
       {charts}

@@ -14,6 +14,29 @@ import type { ActiveTurnItem } from "./types";
 const TYPEWRITER_INTERVAL_MS = 30;
 const TYPEWRITER_CHARS_PER_TICK = 3;
 const TYPEWRITER_FAST_CHARS_PER_TICK = 15;
+// Spreading each SSE chunk over this many ticks keeps the reveal rate steady
+// instead of dumping a chunk on arrival and trickling until the next one.
+const TYPEWRITER_DRAIN_TICKS = 8;
+
+export function getTypewriterCharsPerTick({
+  contentLength,
+  revealedLength,
+  hasSuccessor,
+}: {
+  contentLength: number;
+  revealedLength: number;
+  hasSuccessor: boolean;
+}): number {
+  const bufferedCharacters = Math.max(contentLength - revealedLength, 0);
+  const baseRate = hasSuccessor
+    ? TYPEWRITER_FAST_CHARS_PER_TICK
+    : TYPEWRITER_CHARS_PER_TICK;
+
+  return Math.min(
+    bufferedCharacters,
+    Math.max(baseRate, Math.ceil(bufferedCharacters / TYPEWRITER_DRAIN_TICKS)),
+  );
+}
 
 function findClosingLinkParenthesis(
   content: string,
@@ -38,10 +61,34 @@ function findClosingLinkParenthesis(
   return null;
 }
 
+function findClosingBacktickRun(
+  content: string,
+  openingStart: number,
+  delimiterLength: number,
+): number | null {
+  for (let i = openingStart + delimiterLength; i < content.length; i++) {
+    if (content[i] !== "`") continue;
+
+    let runLength = 1;
+    while (content[i + runLength] === "`") runLength++;
+    if (runLength === delimiterLength) return i + runLength - 1;
+    i += runLength - 1;
+  }
+
+  return null;
+}
+
+/**
+ * `destinationStart` is null while the label is still streaming in (no `]`
+ * yet, or `]` is the last buffered character so `(` may still follow).
+ */
 function findMarkdownLinkStarts(
   content: string,
-): Array<{ syntaxStart: number; destinationStart: number }> {
-  const starts: Array<{ syntaxStart: number; destinationStart: number }> = [];
+): Array<{ syntaxStart: number; destinationStart: number | null }> {
+  const starts: Array<{
+    syntaxStart: number;
+    destinationStart: number | null;
+  }> = [];
 
   for (let i = 0; i < content.length; i++) {
     if (content[i] === "\\") {
@@ -55,13 +102,33 @@ function findMarkdownLinkStarts(
     const syntaxStart = i;
     const labelStart = isImage ? i + 1 : i;
     let nestedBrackets = 0;
+    let labelClosed = false;
 
     for (let j = labelStart + 1; j < content.length; j++) {
       if (content[j] === "\\") {
         j++;
         continue;
       }
-      if (content[j] === "\n") break;
+      if (content[j] === "`") {
+        let delimiterLength = 1;
+        while (content[j + delimiterLength] === "`") delimiterLength++;
+
+        const closingDelimiterEnd = findClosingBacktickRun(
+          content,
+          j,
+          delimiterLength,
+        );
+        if (closingDelimiterEnd !== null) {
+          j = closingDelimiterEnd;
+          continue;
+        }
+        j += delimiterLength - 1;
+        continue;
+      }
+      if (content[j] === "\n") {
+        labelClosed = true;
+        break;
+      }
       if (content[j] === "[") {
         nestedBrackets++;
         continue;
@@ -71,22 +138,39 @@ function findMarkdownLinkStarts(
         nestedBrackets--;
         continue;
       }
-      if (content[j + 1] === "(") {
+      labelClosed = true;
+      if (j + 1 >= content.length) {
+        starts.push({ syntaxStart, destinationStart: null });
+      } else if (content[j + 1] === "(") {
         starts.push({ syntaxStart, destinationStart: j + 2 });
         i = j + 1;
       }
       break;
+    }
+
+    if (!labelClosed) {
+      starts.push({ syntaxStart, destinationStart: null });
     }
   }
 
   return starts;
 }
 
+function isMarkdownLinkIncomplete(
+  content: string,
+  destinationStart: number | null,
+): boolean {
+  return (
+    destinationStart === null ||
+    findClosingLinkParenthesis(content, destinationStart) === null
+  );
+}
+
 function getIncompleteMarkdownLinkStart(content: string): number | null {
   for (const { syntaxStart, destinationStart } of findMarkdownLinkStarts(
     content,
   )) {
-    if (findClosingLinkParenthesis(content, destinationStart) === null) {
+    if (isMarkdownLinkIncomplete(content, destinationStart)) {
       return syntaxStart;
     }
   }
@@ -103,8 +187,9 @@ export function isWaitingForMarkdownLink(
 }
 
 /**
- * Prevents an incomplete inline Markdown link destination from being exposed
- * while the typewriter waits for its closing parenthesis.
+ * Holds the reveal at `[` until the whole link has streamed in, so neither a
+ * half-typed label nor a raw destination is ever shown. An unclosed `[` is
+ * treated as a possible link until the character after `]` rules it out.
  */
 export function adjustRevealLengthForMarkdownLinks(
   content: string,
@@ -115,6 +200,10 @@ export function adjustRevealLengthForMarkdownLinks(
     content,
   )) {
     if (syntaxStart >= proposedLength) break;
+
+    if (destinationStart === null) {
+      return Math.max(revealedLength, syntaxStart);
+    }
 
     const closingParenthesis = findClosingLinkParenthesis(
       content,
@@ -172,9 +261,11 @@ export function useTypewriter(
         const revealed = current.get(item.id) ?? "";
         if (revealed.length < item.content.length) {
           const hasSuccessor = idx < items.length - 1;
-          const charsPerTick = hasSuccessor
-            ? TYPEWRITER_FAST_CHARS_PER_TICK
-            : TYPEWRITER_CHARS_PER_TICK;
+          const charsPerTick = getTypewriterCharsPerTick({
+            contentLength: item.content.length,
+            revealedLength: revealed.length,
+            hasSuccessor,
+          });
           const nextLen = Math.min(
             revealed.length + charsPerTick,
             item.content.length,
