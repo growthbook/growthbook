@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
 import CommentCard from "./Comments/CommentCard";
 import CommentForm from "./CommentForm";
+import styles from "./DiscussionThread.module.scss";
 import Markdown from "./Markdown/Markdown";
 
 const DiscussionThread: FC<{
@@ -67,23 +68,9 @@ const DiscussionThread: FC<{
 
   const comments: Comment[] = data.discussion ? data.discussion.comments : [];
 
-  const fill = fillHeight
-    ? ({
-        display: "flex",
-        flexDirection: "column",
-        flex: 1,
-        minHeight: 0,
-      } as const)
-    : undefined;
-
   return (
-    <Box style={fill}>
-      {/* The thread takes the height the composer leaves, and scrolls in it. */}
-      <Box
-        style={
-          fillHeight ? { flex: 1, minHeight: 0, overflowY: "auto" } : undefined
-        }
-      >
+    <Box className={fillHeight ? styles.fill : undefined}>
+      <Box className={fillHeight ? styles.thread : undefined}>
         {comments.length > 0 ? (
           <Flex direction="column" gap="4">
             {comments.map((comment, i) => {
@@ -193,22 +180,7 @@ const DiscussionThread: FC<{
         )}
       </Box>
       {allowNewComments && (
-        <Box
-          mt="4"
-          style={
-            fillHeight
-              ? {
-                  flexShrink: 0,
-                  background: "var(--color-panel-solid)",
-                  // Clear of the save bar, which publishes its own height.
-                  // The help launcher's corner is left to it: the composer's
-                  // controls sit on the other side.
-                  paddingBottom:
-                    "calc(var(--space-3) + var(--experiment-save-bar-height, 0px))",
-                }
-              : undefined
-          }
-        >
+        <Box mt="4" className={fillHeight ? styles.composer : undefined}>
           {!showTitle ? (
             <Separator size="4" mb="4" />
           ) : (
