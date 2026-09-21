@@ -32,6 +32,19 @@ export interface LinkTarget {
   mode: "preview" | "edit";
 }
 
+/** A bare domain or address, with or without a scheme. */
+const URL_LIKE = /^(https?:\/\/\S+|(www\.)?[\w-]+(\.[\w-]+)+([/?#]\S*)?)$/i;
+
+/**
+ * Treats a link-shaped selection as the destination, so selecting an address
+ * and reaching for the link button fills the URL in rather than asking twice.
+ */
+export function urlFromText(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed || /\s/.test(trimmed) || !URL_LIKE.test(trimmed)) return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 /**
  * Reads whatever link a selection or an element sits in, so the toolbar
  * button, a hover and a click all open the same card with the same content.
@@ -49,15 +62,14 @@ export function useLinkTarget() {
       const selection = $getSelection();
       if (!$isRangeSelection(selection)) return;
       const link = $findMatchingParent(selection.anchor.getNode(), $isLinkNode);
+      const selected = selection.getTextContent();
       target = {
         rect,
         mode: "edit",
         selection: selection.clone(),
         node: $isLinkNode(link) ? link : null,
-        url: $isLinkNode(link) ? link.getURL() : "",
-        title: $isLinkNode(link)
-          ? link.getTextContent()
-          : selection.getTextContent(),
+        url: $isLinkNode(link) ? link.getURL() : urlFromText(selected),
+        title: $isLinkNode(link) ? link.getTextContent() : selected,
       };
     });
     return target;
@@ -179,6 +191,9 @@ export default function RichTextEditorLinkEditor({
       side="bottom"
       align="start"
       showArrow={false}
+      // The preview is a hover affordance, so it must not take focus: doing so
+      // leaves Edit looking pressed when the card reopens.
+      onOpenAutoFocus={editing ? undefined : (e) => e.preventDefault()}
       contentStyle={
         editing ? { padding: "12px", minWidth: 320 } : { padding: "4px" }
       }

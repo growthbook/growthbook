@@ -327,6 +327,11 @@ export default function RichTextEditorToolbar({
 
       {linkTarget ? (
         <RichTextEditorLinkEditor
+          // A fresh instance per link and per mode, so nothing carries over
+          // from the last time the card was open.
+          key={`${linkTarget.mode}:${linkTarget.url}:${Math.round(
+            linkTarget.rect.top,
+          )}:${Math.round(linkTarget.rect.left)}`}
           target={linkTarget}
           onEdit={() => setLinkTarget({ ...linkTarget, mode: "edit" })}
           onClose={() => setLinkTarget(null)}
