@@ -8,6 +8,7 @@ import {
   MergeResultChanges,
   featureMetadataEnvelope,
   getEffectiveRevisionHoldout,
+  getRevertTargetArchived,
   normalizeMetadataValue,
 } from "./features";
 
@@ -111,6 +112,17 @@ function liveValueFor(
   }
 }
 
+// What restoring `target` puts back for a field. Unlike `prerequisites`, a
+// revert restores `archived` even from a revision that predates recording it —
+// see getRevertTargetArchived — so a draft that unarchives against such a target
+// is still a restoration, not an edit.
+function restoredValueFor(
+  field: (typeof CONTENT_FIELDS)[number],
+  target: FeatureRevisionInterface,
+): unknown {
+  return field === "archived" ? getRevertTargetArchived(target) : target[field];
+}
+
 // `metadata` is a sparse patch, not an envelope: absent inherits live, present
 // keys overlay it. Only the keys the draft carries can differ, and comparing
 // the whole object would read every draft as impure the moment either side
@@ -162,7 +174,8 @@ export function draftRevertedFromVersion(draft: {
 //
 // Each content field must equal the target's value (a restoration) or live's (a
 // no-op). The no-op branch covers sparse legacy targets, whose unrecorded
-// envelopes `createRevision` fills from the live feature.
+// envelopes `createRevision` fills from the live feature — except `archived`,
+// which a revert restores as "not archived" (see restoredValueFor).
 //
 // `rampActions` and `holdout` must be no-ops even when the target recorded
 // something different — "restoring" them still fires a side effect beyond this
@@ -202,7 +215,7 @@ export function isPureFeatureRevert({
   return CONTENT_FIELDS.every((field) => {
     const proposed = draft[field];
     if (proposed === undefined && INHERITED_WHEN_ABSENT.has(field)) return true;
-    if (isEqual(proposed, target[field])) return true;
+    if (isEqual(proposed, restoredValueFor(field, target))) return true;
     return isEqual(proposed, liveValueFor(field, feature));
   });
 }

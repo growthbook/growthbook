@@ -1,10 +1,37 @@
-import type { FactMetricInterface } from "shared/types/fact-table";
+import { deflateSync, inflateSync, strFromU8, strToU8 } from "fflate";
+import type {
+  FactMetricInterface,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import type {
   ExplorationConfig,
   ExplorationDataset,
   ProductAnalyticsResultRow,
   ShowAs,
 } from "../../../validators/product-analytics";
+
+/**
+ * Narrows an already-classified warehouse column type to the smaller set an
+ * exploration dataset can hold. `json`, `binary` and the undetected `""` have
+ * no exploration equivalent.
+ */
+export function mapColumnTypeToExplorationType(
+  datatype: FactTableColumnType | undefined,
+): "string" | "number" | "date" | "boolean" | "other" {
+  switch (datatype) {
+    case "string":
+    case "number":
+    case "date":
+    case "boolean":
+      return datatype;
+    case "json":
+    case "binary":
+    case "other":
+    case "":
+    case undefined:
+      return "other";
+  }
+}
 
 export function mapDatabaseTypeToEnum(
   dbType: string,
@@ -162,8 +189,71 @@ export function getInitialConfigByBlockType(
   }
 }
 
+// `~` is not in either base64 alphabet, so its presence unambiguously marks the
+// compressed format and lets us keep decoding links shared before it existed.
+// It is also unreserved in a URL, so it survives without percent-encoding.
+const COMPRESSED_CONFIG_PREFIX = "~";
+const MAX_ENCODED_CONFIG_LENGTH = 16 * 1024;
+const MAX_DECODED_CONFIG_BYTES = 100 * 1024;
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  // Chunked because String.fromCharCode(...bytes) overflows the call stack on
+  // the payload sizes that made this compression necessary.
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function base64UrlToBytes(encoded: string): Uint8Array {
+  const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export function encodeExplorationConfig(config: ExplorationConfig): string {
-  return btoa(encodeURIComponent(JSON.stringify(config)));
+  const deflated = deflateSync(strToU8(JSON.stringify(config)), { level: 9 });
+  return COMPRESSED_CONFIG_PREFIX + bytesToBase64Url(deflated);
+}
+
+function inflateExplorationConfig(deflated: Uint8Array): Uint8Array {
+  // Streaming Inflate still grows an internal buffer before ondata; `out` is
+  // what caps allocation.
+  const out = new Uint8Array(MAX_DECODED_CONFIG_BYTES + 1);
+  const inflated = inflateSync(deflated, { out });
+  if (inflated.length > MAX_DECODED_CONFIG_BYTES) {
+    throw new Error("Exploration config is too large");
+  }
+  return inflated;
+}
+
+/**
+ * Parses an encoded `?config=` payload into untrusted JSON. Callers validate the
+ * result. Throws on a malformed payload.
+ */
+export function decodeExplorationConfigJson(encoded: string): unknown {
+  if (encoded.length > MAX_ENCODED_CONFIG_LENGTH) {
+    throw new Error("Exploration config is too large");
+  }
+  if (encoded.startsWith(COMPRESSED_CONFIG_PREFIX)) {
+    const deflated = base64UrlToBytes(
+      encoded.slice(COMPRESSED_CONFIG_PREFIX.length),
+    );
+    return JSON.parse(strFromU8(inflateExplorationConfig(deflated)));
+  }
+  const json = decodeURIComponent(atob(encoded));
+  if (json.length > MAX_DECODED_CONFIG_BYTES) {
+    throw new Error("Exploration config is too large");
+  }
+  return JSON.parse(json);
 }
 
 // ---- showAs inference & applicability ---------------------------------------
@@ -446,7 +536,9 @@ export function buildExplorationColumns(
   // dimension columns so the shared schema doesn't claim a value layout
   // that doesn't exist on the row.
   const values =
-    config?.dataset?.type === "funnel" ? [] : (config?.dataset?.values ?? []);
+    config?.dataset?.type === "funnel" || config?.dataset?.type === "journey"
+      ? []
+      : (config?.dataset?.values ?? []);
   if (values.length === 0) return cols;
 
   const isRatio = getIsRatioByIndex(config, getFactMetricById);

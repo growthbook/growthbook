@@ -76,6 +76,7 @@ export default function ExperimentRefNewFields({
   feature,
   project,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   environments,
   defaultValues,
@@ -116,6 +117,7 @@ export default function ExperimentRefNewFields({
   feature?: FeatureInterface;
   project?: string;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
@@ -519,6 +521,7 @@ export default function ExperimentRefNewFields({
           <TargetingFieldsGroup
             project={project || ""}
             attributeProjects={attributeProjects}
+            savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}

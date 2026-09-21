@@ -1,10 +1,6 @@
 import { z } from "zod";
 
-export const notificationCardFormats = [
-  "compact",
-  "compact-dark",
-  "detailed",
-] as const;
+export const notificationCardFormats = ["light", "dark"] as const;
 
 export const notificationCardFormatSchema = z.enum(notificationCardFormats);
 export type NotificationCardFormat = z.infer<
@@ -24,5 +20,14 @@ export type NotificationSettings = z.infer<typeof notificationSettingsSchema>;
 
 export const DEFAULT_NOTIFICATION_SETTINGS = {
   type: "image",
-  cardFormat: "compact",
+  cardFormat: "light",
 } satisfies NotificationSettings;
+
+// Stored settings as the current schema reads them; unset or unreadable
+// values fall back to the default.
+export function parseNotificationSettings(
+  value: unknown,
+): NotificationSettings {
+  const parsed = notificationSettingsSchema.safeParse(value);
+  return parsed.success ? parsed.data : DEFAULT_NOTIFICATION_SETTINGS;
+}

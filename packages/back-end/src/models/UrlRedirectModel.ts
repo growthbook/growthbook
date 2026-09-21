@@ -42,6 +42,10 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     return this._find({ experiment }, { bypassReadPermissionChecks: true });
   }
 
+  public countByExperiment(experiment: string): Promise<number> {
+    return this._countDocuments({ experiment });
+  }
+
   protected canRead(doc: URLRedirectInterface): boolean {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) throw new Error("Could not find experiment");

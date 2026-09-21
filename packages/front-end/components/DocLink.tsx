@@ -34,7 +34,7 @@ const docSections = {
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
   webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
-  contextualBandits: "/contextual-bandits/overview",
+  contextualBandits: "/bandits/contextual",
   targeting: "/features/targeting",
   namespaces: "/features/rules#namespaces",
   environments: "/features/environments",

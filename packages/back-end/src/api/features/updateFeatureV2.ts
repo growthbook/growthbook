@@ -59,8 +59,7 @@ import {
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
 import {
-  assertValidRuleEnvironments,
-  validateChangedRuleReferences,
+  assertValidFeatureRules,
   validateCustomFields,
   validateRuleAttributes,
 } from "./validations";
@@ -73,10 +72,7 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidChangedRuleProjectIds,
   assertUniqueRuleIds,
-  assertValidChangedRuleExperimentIds,
-  validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -317,25 +313,9 @@ export const updateFeatureV2 = createApiRequestHandler(
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
     assertUniqueRuleIds(inboundFlatRules);
-    assertValidRuleEnvironments(req.context, inboundFlatRules);
-    await assertValidChangedRuleProjectIds(
-      inboundFlatRules,
-      feature.rules ?? [],
+    await assertValidFeatureRules(
       req.context,
-    );
-    await assertValidChangedRuleExperimentIds(
       inboundFlatRules,
-      feature.rules ?? [],
-      req.context,
-    );
-    await validateChangedRuleReferences(
-      inboundFlatRules,
-      feature.rules ?? [],
-      req.context,
-    );
-    validateRulesScheduleRules(
-      inboundFlatRules,
-      req.context,
       feature.rules ?? [],
     );
     // Request-supplied config keys must exist, be live, and belong to the
@@ -357,9 +337,12 @@ export const updateFeatureV2 = createApiRequestHandler(
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
     // here (against the effective schema, opt-out via ?skipSchemaValidation).
-    assertFeatureValuesValid(req.context, effectiveFeature, {
-      rules: inboundFlatRules,
-    });
+    assertFeatureValuesValid(
+      req.context,
+      effectiveFeature,
+      { rules: inboundFlatRules },
+      jsonSchema === null ? feature : undefined,
+    );
   }
 
   // Config-backed values (default + rules) validate against the backing config's
@@ -549,7 +532,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       user: req.eventAudit,
       org: req.organization,
       changes: revisionChanges,
-      comment: "Created via REST API",
+      comment: req.body.comment ?? "Created via REST API",
       canBypassApprovalChecks: canBypass,
     });
 
