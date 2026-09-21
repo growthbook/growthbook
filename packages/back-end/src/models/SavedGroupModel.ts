@@ -10,6 +10,7 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
@@ -31,6 +32,7 @@ import { MakeModelClass } from "./BaseModel";
 // or archived from the org schema. Normal create/update paths leave it unset.
 type WriteOptions = {
   skipAttributeValidation?: boolean;
+  isCompensation?: boolean;
 };
 
 const BaseClass = MakeModelClass({
@@ -57,7 +59,7 @@ const BaseClass = MakeModelClass({
 });
 
 export class SavedGroupModel extends BaseClass<WriteOptions> {
-  // Substitutes proposed (unwritten) saved-group docs into getAll() reads so a
+  // Substitutes proposed (unwritten) saved-group docs into full and metadata reads so a
   // publish-time scan (the archive-dependents gate resolves saved-group →
   // saved-group condition references) sees the batch's combined end-state.
   // Only ever set on a dedicated plan-scoped scan context — never a request
@@ -144,6 +146,9 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     previousDoc?: SavedGroupInterface,
     writeOptions?: WriteOptions,
   ) {
+    if (!this.context.bulkPublishApplying && !writeOptions?.isCompensation) {
+      await assertSavedGroupProjectScope(this.context, doc, previousDoc);
+    }
     if (writeOptions?.skipAttributeValidation) return;
     if (doc.type === "condition" && doc.condition) {
       assertRegisteredAttributes(
@@ -223,7 +228,11 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
 
   public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
     const groups = await this._find({}, { projection: { values: 0 } });
-    return groups as SavedGroupWithoutValues[];
+    return overlayDocsById(
+      groups as SavedGroupWithoutValues[],
+      this.scanOverlay,
+      (group) => omit(group, "values"),
+    );
   }
 
   /**

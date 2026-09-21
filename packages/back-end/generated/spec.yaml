@@ -2300,6 +2300,11 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                comment:
+                  description: >-
+                    Comment to record on the feature's initial revision.
+                    Defaults to an empty comment.
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -3862,6 +3867,11 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                comment:
+                  description: >-
+                    Comment to record on the revision this update publishes,
+                    when it publishes one. Defaults to "Created via REST API".
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -3984,6 +3994,12 @@ paths:
               type: object
               properties:
                 reason:
+                  type: string
+                comment:
+                  description: >-
+                    Comment to record on the revision this toggle publishes,
+                    when it changes any environment. Defaults to "Created via
+                    REST API". (`reason` is recorded in the audit log only.)
                   type: string
                 environments:
                   type: object
@@ -8794,6 +8810,11 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                comment:
+                  description: >-
+                    Comment to record on the feature's initial revision.
+                    Defaults to an empty comment.
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -9687,6 +9708,11 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                comment:
+                  description: >-
+                    Comment to record on the revision this update publishes,
+                    when it publishes one. Defaults to "Created via REST API".
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -9799,6 +9825,12 @@ paths:
               type: object
               properties:
                 reason:
+                  type: string
+                comment:
+                  description: >-
+                    Comment to record on the revision this toggle publishes,
+                    when it changes any environment. Defaults to "Created via
+                    REST API". (`reason` is recorded in the audit log only.)
                   type: string
                 environments:
                   type: object

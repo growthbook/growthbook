@@ -48,6 +48,7 @@ export async function toggleFeatureCore(
   body: {
     environments: Record<string, boolean | string | number>;
     reason?: string;
+    comment?: string;
   },
   audit: (input: AuditInterfaceInput) => Promise<void>,
   canUseRestApiBypass: boolean,
@@ -175,7 +176,7 @@ export async function toggleFeatureCore(
     feature,
     user: eventAudit,
     baseVersion: feature.version,
-    comment: "Created via REST API",
+    comment: body.comment ?? "Created via REST API",
     environments: environmentIds,
     publish: true,
     changes: { environmentsEnabled: changedToggles },

@@ -529,7 +529,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       user: req.eventAudit,
       org: req.organization,
       changes: revisionChanges,
-      comment: "Created via REST API",
+      comment: req.body.comment ?? "Created via REST API",
       canBypassApprovalChecks: canBypass,
     });
 

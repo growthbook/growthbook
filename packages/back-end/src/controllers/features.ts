@@ -314,6 +314,7 @@ import {
 } from "back-end/src/util/custom-fields";
 import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
 import {
+  getStartPatchForRule,
   normalizeRampPlanForceValues,
   rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
@@ -383,22 +384,31 @@ async function stagedRevision(
 }
 
 // Same for the plan's targeting fields (condition, saved groups, environments,
-// prerequisites). Start actions are the editor's anchor and are not judged.
+// prerequisites). The rule's existing targeting remains a valid rollback anchor.
 async function validateRuleModalRampPatches(
   context: ReqContext,
   plan: InlineRampScheduleCreate | InlineRampScheduleUpdate,
   feature: FeatureInterface,
-  rule: Pick<FeatureRule, "allEnvironments" | "environments"> | null,
+  rule: FeatureRule | null,
   stored: unknown[],
 ): Promise<void> {
   await validateRampPlanPatches(
     context,
-    rampPatchEntries(
-      collectRampPlanPatches({ ...plan, startActions: undefined }),
-      feature,
-      rule,
-    ),
-    { stored },
+    rampPatchEntries(collectRampPlanPatches(plan), feature, rule),
+    {
+      stored: [
+        ...stored,
+        ...(rule
+          ? [
+              {
+                startActions: [
+                  { patch: { ...getStartPatchForRule(rule), ruleId: rule.id } },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
   );
 }
 

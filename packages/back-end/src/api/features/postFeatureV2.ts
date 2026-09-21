@@ -241,7 +241,9 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
 
     addIdsToFlatRules(feature.rules, feature.id);
 
-    await createFeature(req.context, feature);
+    await createFeature(req.context, feature, {
+      comment: req.body.comment,
+    });
 
     await req.audit({
       event: "feature.create",

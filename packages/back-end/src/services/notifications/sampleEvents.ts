@@ -477,8 +477,80 @@ const sampleEvents = {
       object: {
         type: "srm",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         threshold: 0.001,
+        // A 62/38 split on a 50/50 phase: clearly beyond the threshold.
+        pValue: 0.00042,
+        durationDays: 12,
+        variations: [
+          { name: "Control", users: 6213, weight: 0.5 },
+          { name: "Treatment", users: 3787, weight: 0.5 },
+        ],
+      },
+    },
+  }),
+  "experiment.status.started": () => ({
+    event: "experiment.status.started",
+    object: "experiment",
+    data: {
+      object: {
+        type: "started",
+        experimentId: "exp_checkout_cta",
+        experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
+        phaseName: "Main",
+        goalMetricNames: ["Checkout starts", "Revenue per visitor"],
+        linkedFeatureCount: 1,
+        visualChangesetCount: 0,
+        urlRedirectCount: 0,
+      },
+    },
+  }),
+  "experiment.status.stopped": () => ({
+    event: "experiment.status.stopped",
+    object: "experiment",
+    data: {
+      object: {
+        type: "stopped",
+        experimentId: "exp_checkout_cta",
+        experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
+        results: "won",
+        enableTemporaryRollout: true,
+        releasedVariationName: "Treatment",
+        reason: "Treatment increased checkout starts.",
+        winningVariationName: "Treatment",
+        winningVariationIndex: 1,
+        totalUsers: 48200,
+        durationDays: 21,
+        goalMetric: {
+          metricId: "met_checkout_start",
+          metricName: "Checkout starts",
+          snapshotId: "snp_sample",
+          statsEngine: "bayesian",
+          differenceType: "relative",
+          control: {
+            variationId: "var_control",
+            variationName: "Control",
+            users: 24100,
+            value: 0.051,
+          },
+          variations: [
+            {
+              variationId: "var_treatment",
+              variationName: "Treatment",
+              variationIndex: 1,
+              users: 24100,
+              value: 0.0541,
+              uplift: 0.061,
+              upliftStddev: 0.012,
+              ci: [0.038, 0.084],
+              chanceToWin: 0.991,
+              significant: true,
+            },
+          ],
+        },
       },
     },
   }),
@@ -488,6 +560,7 @@ const sampleEvents = {
     data: {
       object: {
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         variationId: "var_treatment",
         variationName: "Treatment",
@@ -506,6 +579,7 @@ const sampleEvents = {
       object: {
         source: "analysis",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         decisionDescription: "The treatment is above the decision threshold.",
       },
@@ -518,6 +592,7 @@ const sampleEvents = {
       object: {
         source: "analysis",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         decisionDescription: "The treatment is underperforming the baseline.",
       },
@@ -530,6 +605,7 @@ const sampleEvents = {
       object: {
         source: "analysis",
         experimentName: "Checkout CTA",
+        ownerEmail: "notification-test@example.com",
         experimentId: "exp_checkout_cta",
         decisionDescription:
           "The result reached power but needs stakeholder review.",

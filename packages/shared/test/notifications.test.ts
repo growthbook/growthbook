@@ -222,6 +222,10 @@ it.each(["config", "constant", "savedGroup"] as const)(
 
 it("keeps the current Default memberships explicit", () => {
   expect(notificationEventsForLevel("experiment", "default")).toEqual([
+    "experiment.status.started",
+    "experiment.status.stopped",
+    "experiment.status.endingSoon",
+    "experiment.status.stale",
     "experiment.decision.ship",
     "experiment.decision.rollback",
     "experiment.decision.review",
@@ -260,7 +264,11 @@ it("describes every valid event and hides only internal events from public lists
     "webhook.test",
   );
   expect(previewNotificationEventNames).not.toContain("webhook.test");
-  expect(cardNotificationEventNames).toEqual(["experiment.warning"]);
+  expect(cardNotificationEventNames).toEqual([
+    "experiment.warning",
+    "experiment.status.started",
+    "experiment.status.stopped",
+  ]);
 });
 
 it.each(Object.keys(notificationCategories) as NotificationEventCategory[])(
