@@ -22,7 +22,7 @@ interface AgentPanelContextValue {
 
 const AgentPanelContext = createContext<AgentPanelContextValue | null>(null);
 
-/** Above the panel. Dropping the root theme to auto (global.scss) also puts the panel over its own body portals. */
+/** Above the panel. Portaling the panel to body also puts it over its own body portals. */
 export const AGENT_PANEL_Z_INDEX = 10001;
 export const AGENT_PANEL_PORTAL_Z_INDEX = AGENT_PANEL_Z_INDEX + 1;
 

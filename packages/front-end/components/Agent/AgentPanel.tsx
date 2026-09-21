@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -19,6 +20,7 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
@@ -253,6 +255,13 @@ export default function AgentPanel({
   // `@media (max-width: 1180px)`), so the docked expanded panel must run to
   // the left edge instead of clearing the 240px sidebar.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Portaled to body so the panel stacks against body-portaled page controls
+  // instead of being sealed inside the root theme's stacking context. Tradeoff:
+  // #portal-root stays sealed, so legacy modals render under an open panel.
+  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
+  useEffect(() => setPortalHost(document.body), []);
+
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(max-width: 1180px)");
@@ -530,7 +539,7 @@ export default function AgentPanel({
     [loadConversation, resetTransientState, focusInput],
   );
 
-  if (!open) return null;
+  if (!open || !portalHost) return null;
 
   const latestActivityItem = [...visibleItems]
     .reverse()
@@ -585,11 +594,10 @@ export default function AgentPanel({
   const interactionPending =
     (askPrompt !== null && !askPrompt.resolved) || confirmationPending;
 
-  return (
+  const panel = (
     <Box
       role="dialog"
       aria-label="GrowthBook AI assistant"
-      data-agent-panel="true"
       style={{
         position: "fixed",
         right: 0,
@@ -873,6 +881,8 @@ export default function AgentPanel({
       />
     </Box>
   );
+
+  return createPortal(<RadixTheme>{panel}</RadixTheme>, portalHost);
 }
 
 // ---------------------------------------------------------------------------

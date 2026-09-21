@@ -2828,11 +2828,6 @@ html {
   }
 }
 
-// Let the agent panel outrank body-portaled page controls only while it is open.
-.radix-themes[data-is-root-theme="true"]:has([data-agent-panel="true"]) {
-  z-index: auto;
-}
-
 #modal,
 #portal-root {
   position: relative;
