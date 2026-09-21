@@ -297,6 +297,7 @@ describe("ramp schedule patch references", () => {
             ],
           },
         ],
+        endPatch: { coverage: 0.5 },
         dateCreated: now(),
         dateUpdated: now(),
       });
@@ -324,6 +325,33 @@ describe("ramp schedule patch references", () => {
       );
       expect(inline.body.message).toMatch(NO_HASH);
       expect(inline.status).toBe(400);
+      // Explicit steps still inherit the template's end action.
+      const endOnly = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({ templateId: "rst_half", steps: [step({ coverage: 1 })] }),
+      );
+      expect(endOnly.body.message).toMatch(NO_HASH);
+      expect(endOnly.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+    });
+
+    it("does not count start actions a startState replaces", async () => {
+      const res = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({
+            steps: [step({ coverage: 0.5 })],
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            startState: { coverage: 0 },
+          }),
+      );
+      expect(res.body.message).toMatch(NO_HASH);
+      expect(res.status).toBe(400);
       expect(await draftRampActions()).toEqual([]);
     });
 

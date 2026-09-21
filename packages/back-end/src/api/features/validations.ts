@@ -253,7 +253,7 @@ type RampPlanInput = {
 };
 
 // What a partial update leaves stored: omitted startActions, steps or
-// endActions keep the stored ones; a `startState` replaces the start actions.
+// endActions keep the stored ones; a `startState` replaces any start actions.
 export function mergedRampPlan<P extends RampPlanInput>(
   update: P,
   stored: RampPlanInput | null | undefined,
@@ -261,30 +261,31 @@ export function mergedRampPlan<P extends RampPlanInput>(
   return {
     ...update,
     startActions:
-      update.startActions ??
-      (update.startState === undefined ? stored?.startActions : undefined),
+      update.startState !== undefined
+        ? undefined
+        : (update.startActions ?? stored?.startActions),
     steps: update.steps ?? stored?.steps,
     endActions: update.endActions ?? stored?.endActions,
   };
 }
 
-// A plan built from a template gets its steps at publish; judge the template's
-// now so a refusal lands on the write, not on the first step.
+// A plan built from a template gets its steps and end action at publish where
+// the body has none; judge the template's now so a refusal lands on the write.
 export async function withTemplatePlan<
   P extends RampPlanInput & { templateId?: string | null },
 >(
   context: ReqContext | ApiReqContext,
   plan: P | undefined,
 ): Promise<P | undefined> {
-  if (!plan?.templateId || plan.steps?.length) return plan;
+  if (!plan?.templateId) return plan;
   const template = await context.models.rampScheduleTemplates.getById(
     plan.templateId,
   );
   if (!template) return plan;
   return {
     ...plan,
-    steps: template.steps,
-    endPatch: plan.endActions?.length ? undefined : template.endPatch,
+    steps: plan.steps?.length ? plan.steps : template.steps,
+    endPatch: plan.endActions === undefined ? template.endPatch : undefined,
   };
 }
 
