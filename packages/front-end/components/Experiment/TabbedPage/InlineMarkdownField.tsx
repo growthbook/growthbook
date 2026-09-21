@@ -114,7 +114,7 @@ export default function InlineMarkdownField({
           onChange={setValue}
           placeholder={placeholder}
           autoFocus={revealed}
-          height={stacked ? 120 : 160}
+          height={stacked ? "sm" : "md"}
           autoGrow
         />
         {aiSuggestFunction ? (

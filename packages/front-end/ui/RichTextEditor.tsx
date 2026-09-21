@@ -66,10 +66,12 @@ export interface Props {
   onBlur?: (markdown: string) => void;
   placeholder?: string;
   size?: Size<"sm" | "md">;
-  /** Height of the editable area. A number is px; a string passes through. */
-  height?: number | string;
-  /** Grow past `height` with the content instead of scrolling. */
+  /** Resting height of the editable area, and its minimum when `autoGrow` is set. */
+  height?: RichTextHeight;
+  /** Grow past `height` with the content, up to `maxHeight`, instead of scrolling. */
   autoGrow?: boolean;
+  /** Where growing stops and the content scrolls. Only applies with `autoGrow`. */
+  maxHeight?: RichTextHeight | "none";
   readOnly?: boolean;
   autoFocus?: boolean;
   /** Drop or paste images to upload them. Off where uploads make no sense. */
@@ -81,6 +83,19 @@ export interface Props {
   className?: string;
   id?: string;
 }
+
+/**
+ * Editable-area heights, on the shared size names. One ladder serves both the
+ * resting height and the cap, so a field cannot be given a mismatched pair.
+ */
+export const RICH_TEXT_HEIGHTS = {
+  sm: 120,
+  md: 160,
+  lg: 240,
+  xl: 400,
+} as const;
+
+export type RichTextHeight = keyof typeof RICH_TEXT_HEIGHTS;
 
 /** The node types the editor understands. Anything else is dropped on paste. */
 const NODES = [
@@ -320,8 +335,9 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     onBlur,
     placeholder,
     size = "md",
-    height = 120,
+    height = "md",
     autoGrow = false,
+    maxHeight = "lg",
     readOnly = false,
     autoFocus = false,
     allowImageUpload = true,
@@ -415,8 +431,12 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
               id={id}
               className={styles.editable}
               style={{
-                height: autoGrow ? undefined : height,
-                minHeight: autoGrow ? height : undefined,
+                height: autoGrow ? undefined : RICH_TEXT_HEIGHTS[height],
+                minHeight: autoGrow ? RICH_TEXT_HEIGHTS[height] : undefined,
+                maxHeight:
+                  autoGrow && maxHeight !== "none"
+                    ? RICH_TEXT_HEIGHTS[maxHeight]
+                    : undefined,
               }}
               aria-placeholder={placeholder ?? ""}
               placeholder={

@@ -24,12 +24,12 @@ export default function RichTextEditorStories() {
     <Flex direction="column" gap="5">
       <Grid columns="1fr 1fr" gap="4">
         <Flex direction="column" gap="2">
-          <Text weight="medium">md, height 200</Text>
+          <Text weight="medium">md size, lg height, fixed</Text>
           <RichTextEditor
             ref={editor}
             value={md}
             onChange={setMd}
-            height={200}
+            height="lg"
             placeholder="What do you expect to happen, and why?"
           />
           <Flex gap="2">
@@ -66,20 +66,21 @@ export default function RichTextEditorStories() {
 
       <Grid columns="1fr 1fr" gap="4">
         <Flex direction="column" gap="2">
-          <Text weight="medium">sm, auto-grows from 60</Text>
+          <Text weight="medium">sm size, grows from sm to md</Text>
           <RichTextEditor
             size="sm"
             value={small}
             onChange={setSmall}
-            height={60}
+            height="sm"
             autoGrow
+            maxHeight="md"
             placeholder="Add a note"
           />
         </Flex>
 
         <Flex direction="column" gap="2">
           <Text weight="medium">Read only</Text>
-          <RichTextEditor readOnly value={md} height={120} />
+          <RichTextEditor readOnly value={md} height="sm" />
         </Flex>
       </Grid>
     </Flex>

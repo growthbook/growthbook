@@ -148,7 +148,7 @@ export default function EditExperimentInfoModal({
           placeholder={getExperimentDescriptionPlaceholder(
             experiment.type ?? "standard",
           )}
-          height={140}
+          height="md"
           autoGrow
         />
       </Box>
