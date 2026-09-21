@@ -188,6 +188,23 @@ export const NewExperimentAssignmentQueryModal = ({
       throw new Error("Map at least one identifier column");
     }
 
+    // A physical column can't play two roles (e.g. experiment id and variation
+    // id) — that would make the generated SQL filter/group on the wrong thing.
+    const mappedColumns = [
+      experimentId,
+      variationId,
+      timestamp,
+      ...userIdTypes.map((t) => userIdColumns[t]),
+    ];
+    const duplicate = mappedColumns.find(
+      (c, i) => mappedColumns.indexOf(c) !== i,
+    );
+    if (duplicate) {
+      throw new Error(
+        `Column "${duplicate}" is mapped to more than one role. Each role must map to a distinct column.`,
+      );
+    }
+
     // Only store mappings that differ from the canonical role name; anything
     // named canonically resolves without a mapping.
     const remappedUserIds = Object.fromEntries(

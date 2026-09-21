@@ -33,6 +33,10 @@ import {
   AssignmentQuerySelection,
   assertValidAssignmentQuerySelection,
   hasAssignmentQuerySelectionChanged,
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
 } from "shared/util";
 import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
 import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
@@ -472,11 +476,15 @@ export async function testQueryValidity(
     return undefined;
   }
 
+  // Require the physical columns the query actually declares (roles may map to
+  // non-canonical column names); dimensions and name columns stay canonical.
   const requiredColumns = new Set([
-    "experiment_id",
-    "variation_id",
-    "timestamp",
-    ...query.userIdTypes,
+    getExposureQueryExperimentIdColumn(query),
+    getExposureQueryVariationIdColumn(query),
+    getExposureQueryTimestampColumn(query),
+    ...query.userIdTypes.map((idType) =>
+      getExposureQueryIdentifierColumn(query, idType),
+    ),
     ...query.dimensions,
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);
@@ -485,7 +493,7 @@ export async function testQueryValidity(
     query.query,
     testDays,
     undefined,
-    "timestamp",
+    getExposureQueryTimestampColumn(query),
   );
   try {
     const results = await integration.runTestQuery(sql, undefined, "testQuery");
