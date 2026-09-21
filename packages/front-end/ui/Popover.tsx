@@ -28,6 +28,8 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
   sideOffset?: number;
+  /** Shift along the alignment axis, for anchors whose edge is not their box. */
+  alignOffset?: number;
   showCloseButton?: boolean;
   showArrow?: boolean;
   disableDismiss?: boolean;
@@ -59,6 +61,7 @@ export function Popover({
   side = "bottom",
   align = "center",
   sideOffset,
+  alignOffset,
   showCloseButton = false,
   showArrow = true,
   disableDismiss = false,
@@ -153,6 +156,7 @@ export function Popover({
               side={side}
               align={align}
               sideOffset={sideOffset}
+              alignOffset={alignOffset}
               className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
               style={appliedContentStyle}
               {...hoverHandlers}

@@ -117,6 +117,10 @@ export default function InAppHelp() {
         triggerAsChild
         side="top"
         align="end"
+        // Off the launcher's own edges, which the chat mark's tail makes look
+        // further out than they are.
+        sideOffset={5}
+        alignOffset={5}
         showArrow={false}
         contentStyle={{ padding: 0, width: 300, overflow: "hidden" }}
         trigger={
