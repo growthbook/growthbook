@@ -58,12 +58,7 @@ export function evalCondition(
   return true;
 }
 
-/**
- * Resolves a `$savedGroup` reference. Anything unrecognized matches nobody.
- *
- * The operator takes an object, never a bare id. Unknown keys inside it are
- * ignored, so a later field cannot break this SDK.
- */
+/** Resolves a `$savedGroup` reference. Anything unrecognized matches nobody. */
 function evalSavedGroup(
   obj: TestedObj,
   reference: unknown,
@@ -75,8 +70,7 @@ function evalSavedGroup(
 
   const { id, attributeKey } = reference as SavedGroupReference;
   if (typeof id !== "string" || visited.has(id)) return false;
-  // Present but not a string. Falling back to the entry's own attribute would
-  // check a different population than the reference asked for.
+  // Falling back to the entry's attribute would check a different population
   if (attributeKey !== undefined && typeof attributeKey !== "string")
     return false;
 
@@ -87,7 +81,7 @@ function evalSavedGroup(
   const next = new Set(visited).add(id);
 
   if (entry.type === "list") {
-    // The reference wins over the entry's own attribute
+    // The override wins over the entry's own attribute
     const key = attributeKey ?? entry.attributeKey;
     if (typeof key !== "string") return false;
     if (!Array.isArray(entry.values)) return false;
@@ -95,8 +89,7 @@ function evalSavedGroup(
   }
 
   if (entry.type === "condition") {
-    // A condition group has no single attribute, so an override means nothing
-    // here. Ignore it rather than fail, same as any other unknown key.
+    // A condition group has no single attribute, so any override is ignored
     if (!entry.condition || typeof entry.condition !== "object") return false;
     return evalCondition(obj, entry.condition, savedGroups, next);
   }
@@ -248,21 +241,18 @@ function isIn(
 function getSavedGroupArrayValues(
   entry: SavedGroupsPayload[string] | undefined,
 ): Array<string | number> | null {
-  // An unknown id has always behaved like an empty list. A present but
-  // malformed entry has not, and must not, since $notInGroup would pass
-  // everyone.
+  // An unknown id has always behaved like an empty list. A malformed entry
+  // has not, and must not: $notInGroup would pass everyone.
   if (entry === undefined) return [];
 
   if (Array.isArray(entry)) return entry;
 
-  // These operators take their attribute from the condition they sit on, so
-  // only the entry's values are needed
+  // These operators take their attribute from the condition they sit on
   if (entry && typeof entry === "object" && entry.type === "list") {
     return Array.isArray(entry.values) ? entry.values : null;
   }
 
-  // A condition group, a malformed entry, or a type added after this SDK was
-  // built
+  // A condition group, a malformed entry, or an unknown type
   return null;
 }
 

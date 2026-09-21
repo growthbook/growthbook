@@ -11453,7 +11453,7 @@
         }
       ],
       [
-        "match none: an AND of NOTs fails when in one group, unlike a negated pair",
+        "match none: an AND of NOTs fails when in one group",
         {
           "$and": [
             {
@@ -11473,6 +11473,39 @@
           "plan": "free"
         },
         false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "a negated pair passes when in only one group, where an AND of NOTs fails",
+        {
+          "$not": {
+            "$and": [
+              {
+                "$savedGroup": { "id": "grp_list" }
+              },
+              {
+                "$savedGroup": { "id": "grp_cond" }
+              }
+            ]
+          }
+        },
+        {
+          "id": "u_1",
+          "plan": "free"
+        },
+        true,
         {
           "grp_list": {
             "type": "list",

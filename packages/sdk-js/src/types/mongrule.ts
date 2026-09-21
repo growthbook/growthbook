@@ -10,15 +10,10 @@ type AndCondition = {
 type NotCondition = {
   $not: ConditionInterface;
 };
-/**
- * Names one saved group, and optionally the attribute to check it against
- * instead of the one on the group's own payload entry.
- *
- * An object rather than a bare id so a field can be added later without a new
- * capability. Readers must ignore keys they do not know.
- */
+/** Names one saved group. Unknown keys are ignored. */
 export type SavedGroupReference = {
   id: string;
+  /** Optional. Checks this attribute instead of the entry's own. */
   attributeKey?: string;
 };
 
