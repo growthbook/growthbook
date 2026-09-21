@@ -54,9 +54,6 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
-  // Variations whose value/key is shown read-only (name, description, etc.
-  // stay editable). Useful when keys are immutable once persisted.
-  lockedValueIds?: string[];
   // When set, the variation with this id has its Name field auto-focused on
   // mount.
   autoFocusVariationId?: string | null;
@@ -97,7 +94,6 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
-  lockedValueIds,
   autoFocusVariationId,
   autoAddVariationOnMount,
   sparse,
@@ -474,7 +470,6 @@ export default function FeatureVariationsInput({
                         onlySafeToEditVariationMetadata={
                           onlySafeToEditVariationMetadata
                         }
-                        valueReadOnly={lockedValueIds?.includes(variation.id)}
                         customSplit={editingSplits}
                         valueType={valueType}
                         valueAsId={valueAsId}

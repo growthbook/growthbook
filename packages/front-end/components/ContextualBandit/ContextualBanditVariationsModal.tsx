@@ -45,9 +45,6 @@ export default function ContextualBanditVariationsModal({
 
   const originalIds = new Set(cb.variations.map((v) => v.id));
   const originalById = new Map(cb.variations.map((v) => [v.id, v]));
-  // Keys are what SDKs report in exposure events, so the server only lets them
-  // change while the bandit is still a draft (never served).
-  const keysEditable = cb.status === "draft";
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -136,7 +133,7 @@ export default function ContextualBanditVariationsModal({
               if (nextDescription !== prevDescription) {
                 patch.description = nextDescription;
               }
-              if (keysEditable && v.key !== prev.key) patch.key = v.key;
+              if (v.key !== prev.key) patch.key = v.key;
               return Object.keys(patch).length > 1 ? [patch] : [];
             });
 
@@ -203,7 +200,6 @@ export default function ContextualBanditVariationsModal({
           showDescriptions
           showPreview={false}
           startEditingIndexes
-          lockedValueIds={keysEditable ? [] : [...originalIds]}
           // Splits are hidden and weights are reconciled server-side, so the
           // weight is a placeholder the input requires but never shows. The
           // no-op setWeight is needed because FeatureVariationsInput only

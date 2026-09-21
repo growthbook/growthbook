@@ -1060,7 +1060,6 @@ export async function executeContextualBanditVariationChange(
       id: string;
       name?: string;
       description?: string;
-      // Only honored while the bandit is a draft; see keyChangesRequested.
       key?: string;
     }>;
   },
