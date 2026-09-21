@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import {
   PiCaretDown,
   PiCaretRight,
   PiDotsThreeVertical,
+  PiPlus,
   PiUserFill,
   PiX,
 } from "react-icons/pi";
@@ -20,6 +21,7 @@ import {
   suggestJourneyStepGroups,
 } from "shared/journeys";
 import Button from "@/ui/Button";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SelectField from "@/components/Forms/SelectField";
@@ -43,6 +45,15 @@ function withoutStepColumnFilters(
   const cols = new Set(stepColumns.filter(Boolean));
   if (cols.size === 0) return rowFilters;
   return rowFilters.filter((rf) => !rf.column || !cols.has(rf.column));
+}
+
+function isStepExclusionFilter(
+  rf: JourneyDataset["rowFilters"][number],
+  stepColumns: string[],
+): boolean {
+  return (
+    rf.operator === "not_in" && !!rf.column && stepColumns.includes(rf.column)
+  );
 }
 
 function suggestedGroupsForColumns(
@@ -140,11 +151,22 @@ export default function JourneyTabContent() {
 
   const unitOptions = factTable?.userIdTypes ?? [];
 
+  // The exclude control is open whenever a not_in filter on the column exists
+  const exclusionFilter = (column: string) =>
+    dataset.rowFilters.find(
+      (rf) => rf.column === column && rf.operator === "not_in",
+    ) ?? null;
+  const excludedValues = (column: string): string[] =>
+    exclusionFilter(column)?.values ?? [];
+
   const groupedOptionValues = (column: string): string[] => {
     const rules = stepGroupsForColumn(dataset.stepGroups, column);
+    const excluded = new Set(excludedValues(column));
     return Array.from(
       new Set(
-        (stepColumnSamples[column] ?? []).map((v) => applyStepGroups(v, rules)),
+        (stepColumnSamples[column] ?? [])
+          .filter((v) => !excluded.has(v))
+          .map((v) => applyStepGroups(v, rules)),
       ),
     );
   };
@@ -249,10 +271,21 @@ export default function JourneyTabContent() {
         />
         {columnSource && (
           <ExplorerRowFilterInput
-            value={dataset.rowFilters}
+            value={dataset.rowFilters.filter(
+              (rf) => !isStepExclusionFilter(rf, dataset.stepColumns),
+            )}
             setValue={(rowFilters) =>
               setDraftExploreState((prev) =>
-                patchJourney(prev, { rowFilters, path: [] }),
+                patchJourney(prev, (current) => ({
+                  ...current,
+                  rowFilters: [
+                    ...rowFilters,
+                    ...current.rowFilters.filter((rf) =>
+                      isStepExclusionFilter(rf, current.stepColumns),
+                    ),
+                  ],
+                  path: [],
+                })),
               )
             }
             columnSource={columnSource}
@@ -377,6 +410,95 @@ export default function JourneyTabContent() {
                     </Button>
                   )}
                 </Flex>
+              );
+            })}
+            {stepColumns.filter(Boolean).map((col) => {
+              const excluded = excludedValues(col);
+              const setExcluded = (values: string[] | null) =>
+                setDraftExploreState((prev) =>
+                  patchJourney(prev, (current) => {
+                    // Clear an anchor whose values are all excluded
+                    const rules = stepGroupsForColumn(current.stepGroups, col);
+                    const excludedSet = new Set(values ?? []);
+                    const remainingLabels = new Set(
+                      (stepColumnSamples[col] ?? [])
+                        .filter((v) => !excludedSet.has(v))
+                        .map((v) => applyStepGroups(v, rules)),
+                    );
+                    const anchorStepValues = current.anchorStepValues?.map(
+                      (v, i) =>
+                        current.stepColumns[i] === col &&
+                        v &&
+                        !remainingLabels.has(v)
+                          ? ""
+                          : v,
+                    );
+                    return {
+                      ...current,
+                      anchorStepValues: anchorStepValues ?? null,
+                      rowFilters: [
+                        ...current.rowFilters.filter(
+                          (rf) =>
+                            !(rf.column === col && rf.operator === "not_in"),
+                        ),
+                        ...(values
+                          ? [
+                              {
+                                column: col,
+                                operator: "not_in" as const,
+                                values,
+                              },
+                            ]
+                          : []),
+                      ],
+                      path: [],
+                    };
+                  }),
+                );
+              if (!exclusionFilter(col)) {
+                return (
+                  <Flex key={col} direction="row">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!canRun}
+                      icon={<PiPlus size={14} />}
+                      onClick={() => setExcluded([])}
+                    >
+                      Exclude{" "}
+                      {stepColumns.filter(Boolean).length > 1 ? `${col} ` : ""}
+                      values
+                    </Button>
+                  </Flex>
+                );
+              }
+              return (
+                <Box
+                  key={col}
+                  onBlur={(e) => {
+                    if (
+                      !excluded.length &&
+                      !e.currentTarget.contains(e.relatedTarget as Node | null)
+                    ) {
+                      setExcluded(null);
+                    }
+                  }}
+                >
+                  <MultiSelectField
+                    label={`Exclude ${col} values`}
+                    value={excluded}
+                    onChange={setExcluded}
+                    options={(stepColumnSamples[col] ?? []).map((v) => ({
+                      label: v,
+                      value: v,
+                    }))}
+                    creatable
+                    autoFocus
+                    disabled={!canRun}
+                    placeholder="Select or enter values..."
+                    containerClassName="mb-0"
+                  />
+                </Box>
               );
             })}
           </Flex>
