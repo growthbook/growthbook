@@ -38,21 +38,28 @@ import {
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import JourneyStepGroups from "./JourneyStepGroups";
 
-function withoutStepColumnFilters(
-  rowFilters: JourneyDataset["rowFilters"],
-  stepColumns: string[],
-): JourneyDataset["rowFilters"] {
-  const cols = new Set(stepColumns.filter(Boolean));
-  if (cols.size === 0) return rowFilters;
-  return rowFilters.filter((rf) => !rf.column || !cols.has(rf.column));
-}
-
 function isStepExclusionFilter(
   rf: JourneyDataset["rowFilters"][number],
   stepColumns: string[],
 ): boolean {
   return (
     rf.operator === "not_in" && !!rf.column && stepColumns.includes(rf.column)
+  );
+}
+
+// Drops filters on step columns when the step columns change, except the
+// exclusions edited from the "Exclude values" control, which stay meaningful
+function withoutStepColumnFilters(
+  rowFilters: JourneyDataset["rowFilters"],
+  stepColumns: string[],
+): JourneyDataset["rowFilters"] {
+  const cols = stepColumns.filter(Boolean);
+  if (cols.length === 0) return rowFilters;
+  return rowFilters.filter(
+    (rf) =>
+      !rf.column ||
+      !cols.includes(rf.column) ||
+      isStepExclusionFilter(rf, cols),
   );
 }
 
