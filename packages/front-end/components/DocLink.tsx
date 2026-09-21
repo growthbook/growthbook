@@ -36,9 +36,9 @@ const docSections = {
   bandits: "/bandits/overview",
   contextualBandits: "/bandits/contextual",
   targeting: "/features/targeting",
-  namespaces: "/features/rules#namespaces",
+  namespaces: "/features/feature-flag-experiments#namespaces",
   environments: "/features/environments",
-  archetypes: "/features/rules#archetype",
+  archetypes: "/features/rules#archetypes",
   team: "/account/user-permissions#teams",
   codeReferences: "/features/code-references",
   featureBasics: "/features/basics",
@@ -57,7 +57,7 @@ const docSections = {
   "customHooks#validateexperiment": "/features/custom-hooks#validateexperiment",
   customRoles: "/account/user-permissions#custom-roles",
   //DataSourceType
-  athena: "/app/datasources#aws-athena",
+  athena: "/warehouses/athena",
   mixpanel: "/guide/mixpanel",
   bigquery: "/guide/bigquery",
   presto: "/warehouses/prestodb-or-trino",
@@ -71,7 +71,7 @@ const docSections = {
   mysql: "/warehouses/mysql-or-mariadb",
   mssql: "/warehouses/ms-sql-or-sql-server",
   redshift: "/warehouses/redshift",
-  google_analytics: "/app/datasources#google-analytics",
+  google_analytics: "/guide/GA4-google-analytics",
   growthbook_clickhouse: "/app/managed-warehouse",
   //Language
   buildYourOwn: "/lib/build-your-own",
@@ -98,7 +98,7 @@ const docSections = {
   edge: "/lib/edge/other",
   roku: "/lib/roku",
   //Other
-  user_guide: "/app",
+  user_guide: "/overview",
   config: "/self-host/config",
   config_yml: "/self-host/config",
   config_domains_and_ports: "/self-host/env#domains-and-ports",
@@ -106,8 +106,9 @@ const docSections = {
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
   url_redirects: "/app/url-redirects",
-  temporaryRollout: "/app/visual#stopping-an-experiment",
-  encryptedSDKEndpoints: "/lib/js#loading-features",
+  temporaryRollout:
+    "/app/visual/running-on-your-site#a-note-on-temporary-rollouts",
+  encryptedSDKEndpoints: "/lib/js#loading-features-and-experiments",
   hashSecureAttributes: "/lib/js#secure-attributes",
   autoMetrics: "/app/metrics/legacy#auto-generate-metrics",
   targetingChanges:
@@ -133,7 +134,7 @@ const docSections = {
   gtmSetup: "/guide/google-tag-manager-and-growthbook",
   gtmCustomTracking:
     "/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm",
-  apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
+  apiPostEnvironment: "/api/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
   queryOptimization: "/app/query-optimization",
   metricGroups: "/app/metrics#metric-groups",
