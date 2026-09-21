@@ -126,3 +126,42 @@ export function appendSkipped(
   if (lines.length === 0) return explanation;
   return [explanation.trim(), lines.join("\n")].filter(Boolean).join("\n\n");
 }
+
+// Why a position move can't be applied, or null when it's well-formed. Read
+// once before the self-correct retry, so the model gets to fix it, and again
+// when sanitizing, so a bad one is dropped and reported rather than silently
+// no-op'd. Worded for both audiences.
+export function movePlacementProblem(m: {
+  attribute: string;
+  selector: string;
+  parentSelector?: string | null;
+  insertBeforeSelector?: string | null;
+}): string | null {
+  if (m.attribute !== "position") return null;
+  if (!m.parentSelector) {
+    return "no destination container (parentSelector) was given";
+  }
+  if (m.parentSelector === m.selector) {
+    return "its destination container (parentSelector) is the element itself";
+  }
+  if (m.insertBeforeSelector === m.selector) {
+    return "it would be inserted before itself (insertBeforeSelector is the element itself)";
+  }
+  return null;
+}
+
+// Model-written JS that adds nodes without first checking whether they
+// already exist. The SDK re-runs variation JS on every re-apply (SPA
+// navigation, re-evaluation) and its undo only removes the <script>, so
+// unguarded inserts duplicate. Heuristic: an insert call with no existence
+// check in a conditional and no marker attribute. Only the model's `js` is
+// linted — our compiled insert snippets carry their own guard.
+const DOM_INSERT_RE =
+  /\.(?:insertAdjacentHTML|insertAdjacentElement|appendChild|insertBefore|replaceChildren|append|prepend|after|before)\s*\(|\.innerHTML\s*\+=/;
+const INSERT_GUARD_RE =
+  /if\s*\(\s*!?\s*[\w.]*(?:querySelector(?:All)?|getElementById|getElementsByClassName|closest|contains)\s*\(|\bdataset\.\w+|data-gb/;
+
+export function hasUnguardedDomInsert(js: string | null | undefined): boolean {
+  if (!js) return false;
+  return DOM_INSERT_RE.test(js) && !INSERT_GUARD_RE.test(js);
+}

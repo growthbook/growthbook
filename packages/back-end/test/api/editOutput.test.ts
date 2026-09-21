@@ -1,6 +1,8 @@
 import {
   appendSkipped,
+  hasUnguardedDomInsert,
   mergeGlobalCss,
+  movePlacementProblem,
 } from "back-end/src/api/visual-editor-ai/editOutput";
 
 describe("mergeGlobalCss", () => {
@@ -153,5 +155,84 @@ describe("appendSkipped", () => {
     expect(appendSkipped("Done.", [{ request: "  ", reason: "x" }])).toBe(
       "Done.",
     );
+  });
+});
+
+describe("movePlacementProblem", () => {
+  const move = (over: Record<string, unknown>) => ({
+    attribute: "position",
+    selector: ".pricing",
+    parentSelector: "main",
+    insertBeforeSelector: ".features",
+    ...over,
+  });
+
+  it("accepts a well-formed move and ignores non-moves", () => {
+    expect(movePlacementProblem(move({}))).toBeNull();
+    expect(
+      movePlacementProblem(move({ insertBeforeSelector: null })),
+    ).toBeNull();
+    expect(
+      movePlacementProblem({
+        attribute: "html",
+        selector: ".x",
+        parentSelector: ".x",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a move with no destination container", () => {
+    expect(movePlacementProblem(move({ parentSelector: null }))).toMatch(
+      /parentSelector/,
+    );
+  });
+
+  it("rejects a move whose destination is the element itself", () => {
+    expect(movePlacementProblem(move({ parentSelector: ".pricing" }))).toMatch(
+      /element itself/,
+    );
+    expect(
+      movePlacementProblem(move({ insertBeforeSelector: ".pricing" })),
+    ).toMatch(/before itself/);
+  });
+});
+
+describe("hasUnguardedDomInsert", () => {
+  it("flags inserts with no existence check", () => {
+    expect(
+      hasUnguardedDomInsert(
+        `document.querySelector('.hero').insertAdjacentHTML('beforeend', '<div class="badge">New</div>');`,
+      ),
+    ).toBe(true);
+    expect(
+      hasUnguardedDomInsert(
+        `const el = document.createElement('div'); document.body.appendChild(el);`,
+      ),
+    ).toBe(true);
+    expect(hasUnguardedDomInsert(`el.innerHTML += '<li>x</li>';`)).toBe(true);
+  });
+
+  it("passes inserts guarded by an existence check or a marker", () => {
+    expect(
+      hasUnguardedDomInsert(
+        `if (document.querySelector('[data-gb-badge]')) return; hero.insertAdjacentHTML('beforeend', '<div data-gb-badge>New</div>');`,
+      ),
+    ).toBe(false);
+    expect(
+      hasUnguardedDomInsert(
+        `if (!document.getElementById('gb-promo')) { document.body.appendChild(node); }`,
+      ),
+    ).toBe(false);
+    expect(
+      hasUnguardedDomInsert(`if (el.dataset.gbDone) return; el.append(x);`),
+    ).toBe(false);
+  });
+
+  it("ignores JS that doesn't insert anything", () => {
+    expect(
+      hasUnguardedDomInsert(`el.textContent = 'Hi'; el.style.color = 'red';`),
+    ).toBe(false);
+    expect(hasUnguardedDomInsert(null)).toBe(false);
+    expect(hasUnguardedDomInsert("")).toBe(false);
   });
 });
