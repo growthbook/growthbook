@@ -1060,74 +1060,98 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             label="Prompt metrics to filter on this column"
             description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
           />
-          {form.watch("alwaysInlineFilter") && (
-            <Frame mt="2" ml="4" py="4" px="4">
-              <Text size="2" weight="medium">
-                Secondary filters
-              </Text>
-              <Text as="p" size="1" color="gray" mb="2">
-                When certain values are chosen, prompt for an additional filter.
-              </Text>
-              <Flex direction="column" gap="2">
-                {valueMappings.map((m, i) => (
-                  <Flex key={i} gap="2" align="center">
-                    <SelectField
-                      containerStyle={{ flex: 1, minWidth: 0, marginBottom: 0 }}
-                      value={m.value}
-                      createable
-                      onChange={(value) =>
-                        setValueMappings((prev) =>
-                          prev.map((x, j) => (j === i ? { ...x, value } : x)),
-                        )
-                      }
-                      options={topValues.map((v) => ({ label: v, value: v }))}
-                      placeholder="Value..."
-                    />
-                    <Text>→</Text>
-                    <SelectField
-                      containerStyle={{ flex: 1, minWidth: 0, marginBottom: 0 }}
-                      value={m.column}
-                      onChange={(column) =>
-                        setValueMappings((prev) =>
-                          prev.map((x, j) => (j === i ? { ...x, column } : x)),
-                        )
-                      }
-                      options={mappingColumnOptions}
-                      placeholder="Filter on..."
-                    />
-                    <RadixButton
-                      variant="ghost"
-                      size="sm"
-                      aria-label="Remove"
-                      onClick={() =>
-                        setValueMappings((prev) =>
-                          prev.filter((_, j) => j !== i),
-                        )
-                      }
-                    >
-                      <PiX size={14} />
-                    </RadixButton>
-                  </Flex>
-                ))}
-                <Flex>
-                  <RadixButton
-                    variant="ghost"
-                    size="sm"
-                    icon={<PiPlus size={14} />}
-                    disabled={!mappingColumnOptions.length}
-                    onClick={() =>
-                      setValueMappings((prev) => [
-                        ...prev,
-                        { value: "", column: "" },
-                      ])
-                    }
-                  >
-                    Add value
-                  </RadixButton>
+          {form.watch("alwaysInlineFilter") &&
+            mappingColumnOptions.length > 0 && (
+              <Frame mt="2" ml="4" py="4" px="4">
+                <Text size="2" weight="medium">
+                  Secondary filters
+                </Text>
+                <Text as="p" size="1" color="gray" mb="2">
+                  When certain values are chosen, prompt for an additional
+                  filter.
+                </Text>
+                <Flex direction="column" gap="2">
+                  {valueMappings.map((m, i) => (
+                    <Flex key={i} gap="2" align="center">
+                      <SelectField
+                        containerStyle={{
+                          flex: 1,
+                          minWidth: 0,
+                          marginBottom: 0,
+                        }}
+                        value={m.value}
+                        createable
+                        onChange={(value) =>
+                          setValueMappings((prev) =>
+                            // A value maps once; a duplicate would overwrite on save
+                            prev.some((x, j) => j !== i && x.value === value)
+                              ? prev
+                              : prev.map((x, j) =>
+                                  j === i ? { ...x, value } : x,
+                                ),
+                          )
+                        }
+                        options={topValues
+                          .filter(
+                            (v) =>
+                              v === m.value ||
+                              !valueMappings.some((x) => x.value === v),
+                          )
+                          .map((v) => ({ label: v, value: v }))}
+                        placeholder="Value..."
+                      />
+                      <Text>→</Text>
+                      <SelectField
+                        containerStyle={{
+                          flex: 1,
+                          minWidth: 0,
+                          marginBottom: 0,
+                        }}
+                        value={m.column}
+                        onChange={(column) =>
+                          setValueMappings((prev) =>
+                            prev.map((x, j) =>
+                              j === i ? { ...x, column } : x,
+                            ),
+                          )
+                        }
+                        options={mappingColumnOptions}
+                        placeholder="Filter on..."
+                      />
+                      <RadixButton
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Remove"
+                        onClick={() =>
+                          setValueMappings((prev) =>
+                            prev.filter((_, j) => j !== i),
+                          )
+                        }
+                      >
+                        <PiX size={14} />
+                      </RadixButton>
+                    </Flex>
+                  ))}
+                  {valueMappings.every((m) => m.value && m.column) && (
+                    <Flex>
+                      <RadixButton
+                        variant="ghost"
+                        size="sm"
+                        icon={<PiPlus size={14} />}
+                        onClick={() =>
+                          setValueMappings((prev) => [
+                            ...prev,
+                            { value: "", column: "" },
+                          ])
+                        }
+                      >
+                        Add value
+                      </RadixButton>
+                    </Flex>
+                  )}
                 </Flex>
-              </Flex>
-            </Frame>
-          )}
+              </Frame>
+            )}
         </div>
       )}
     </Modal>
