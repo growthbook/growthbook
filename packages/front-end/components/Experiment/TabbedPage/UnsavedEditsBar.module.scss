@@ -5,11 +5,8 @@
   // otherwise cover the only way to save.
   z-index: 1001;
   padding: var(--space-2) var(--space-4);
-  border-top: 1px solid var(--gray-a6);
-  // Translucent, but opaque enough that the page scrolling under it reads as a
-  // shadow rather than as text. The same surface the pinned analysis bar uses.
-  background-color: var(--color-panel-translucent);
-  background-image: linear-gradient(var(--gray-a2), var(--gray-a2));
+  border-top: 1px solid var(--gray-a5);
+  background-color: var(--color-panel-solid);
   box-shadow:
     0 -1px 2px rgba(0, 0, 0, 0.1),
     0 -4px 4px rgba(0, 0, 0, 0.025);
