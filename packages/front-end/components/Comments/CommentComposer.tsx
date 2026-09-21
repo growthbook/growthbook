@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import RichTextEditor from "@/ui/RichTextEditor";
 import Button from "@/ui/Button";
@@ -72,22 +72,22 @@ export default function CommentComposer({
         simpleToolbar
         collapsibleToolbar
       />
+      {/* Left aligned: the bottom-right corner belongs to the help launcher. */}
       <Flex align="center" mt="3" gap="2">
-        {error ? (
-          <HelperText status="error" size="sm">
-            {error}
-          </HelperText>
+        {cta ? (
+          <Button type="submit" disabled={value.trim().length < 1}>
+            {cta}
+          </Button>
         ) : null}
-        <Box flexGrow="1" />
         {onCancel ? (
           <Button variant="ghost" color="gray" onClick={onCancel}>
             Cancel
           </Button>
         ) : null}
-        {cta ? (
-          <Button type="submit" disabled={value.trim().length < 1}>
-            {cta}
-          </Button>
+        {error ? (
+          <HelperText status="error" size="sm">
+            {error}
+          </HelperText>
         ) : null}
       </Flex>
     </form>

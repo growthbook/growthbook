@@ -196,10 +196,11 @@ const DiscussionThread: FC<{
               ? {
                   flexShrink: 0,
                   background: "var(--color-panel-solid)",
-                  // Clear of the save bar and of the help launcher, both of
-                  // which publish the room they take.
+                  // Clear of the save bar, which publishes its own height.
+                  // The help launcher's corner is left to it: the composer's
+                  // controls sit on the other side.
                   paddingBottom:
-                    "calc(var(--space-3) + var(--experiment-save-bar-height, 0px) + var(--help-launcher-clearance, 0px))",
+                    "calc(var(--space-3) + var(--experiment-save-bar-height, 0px))",
                 }
               : undefined
           }
