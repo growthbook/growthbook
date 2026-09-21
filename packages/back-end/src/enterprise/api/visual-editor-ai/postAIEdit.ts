@@ -260,13 +260,13 @@ const outputSchema = z.object({
     // Missing key → null; see `options`.
     .catch(null)
     .describe(
-      "NEW global CSS rules to add after the variation's existing global CSS, which is kept as-is. This is the default way to change global CSS — use it whenever the result is correct, including overriding an earlier value (a later rule with the same selector wins). Null when adding nothing.",
+      "NEW global CSS rules to add after the variation's existing global CSS, which is kept as-is. Use this for every ADD. Null when adding nothing.",
     ),
   css: z
     .string()
     .nullable()
     .describe(
-      "Complete REPLACEMENT for the variation's global CSS: existing rules verbatim, with your edits. Use ONLY when a rule must be removed or rewritten and `cssAppend` would not take effect. Never use it just to add rules. Null otherwise — null never changes anything; a partial fragment here wipes the rest.",
+      "Complete REPLACEMENT for the variation's global CSS: existing rules verbatim, with your edits. Use it to MODIFY or REMOVE an existing rule, edited in place. Never use it just to add rules. Null otherwise — null never changes anything; a partial fragment here wipes the rest.",
     ),
   js: z
     .string()
@@ -455,12 +455,12 @@ Iterating on existing mutations:
 - This dedupe only applies when the (selector, attribute, action) triple matches exactly. If the user asks for a genuinely additive change (e.g. existing mutation sets the color; user now wants to also change the font-size), emit a separate mutation for the new property — those won't collide.
 
 Iterating on existing global CSS / JS (different rule from mutations — read carefully):
-- Two ways to change global CSS. \`cssAppend\` ADDS rules: they are appended after the current stylesheet, which is kept as-is. \`css\` REPLACES the whole stylesheet: return the complete intended CSS — existing rules verbatim, with your edits. Prefer \`cssAppend\` whenever the result is correct, including changing a value (a later rule with the same selector wins). Use \`css\` only when a rule must be REMOVED, or an appended override would not take effect. Adding a rule through \`css\` forces you to re-emit everything and risks dropping rules — never do that.
+- Two ways to change global CSS. \`cssAppend\` ADDS rules: they are appended after the current stylesheet, which is kept as-is. \`css\` REPLACES the whole stylesheet: return the complete intended CSS — existing rules verbatim, with your edits. ADD a rule → \`cssAppend\`. MODIFY or REMOVE an existing rule → \`css\`, edited in place; don't append an overriding copy, it leaves the old rule behind. Adding a rule through \`css\` forces you to re-emit everything and risks dropping rules — never do that.
 - \`js\` REPLACES the variation's prior global JS entirely — return the complete intended JS (existing code verbatim plus/minus your change). There is NO merge for js.
 - The "Current variation global CSS" / "Current variation global JS" blocks above are the AUTHORITATIVE record of what is currently applied. Build \`css\`/\`js\` from those blocks — never from earlier in the conversation. A rule you proposed in a previous turn is only applied if it appears in the Current block; if it doesn't (e.g. the user rejected or undid it), do NOT re-add it.
 - Examples (assume existing CSS is \`body { background: red; }\`):
   • "Also make buttons pink" → cssAppend: \`button { color: pink; }\`, css: null.
-  • "Make the background blue instead" → cssAppend: \`body { background: blue; }\`, css: null (the later rule wins).
+  • "Make the background blue instead" → css: \`body { background: blue; }\`, cssAppend: null.
   • "Take out the background" → css: the rest of the stylesheet without that rule, cssAppend: null. If nothing would remain, leave css null and put it in \`skipped\` — clearing all CSS needs the manual editor.
 - Set \`cssAppend\`, \`css\`, and \`js\` to null when the request doesn't touch them. Null is always SAFE (no change). A partial fragment in \`css\` when CSS exists is UNSAFE (it clobbers the rest).
 

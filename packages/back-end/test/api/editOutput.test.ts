@@ -61,6 +61,24 @@ describe("mergeGlobalCss", () => {
     expect(
       mergeGlobalCss({ existing, replace: null, append: existing }),
     ).toBeUndefined();
+    expect(
+      mergeGlobalCss({
+        existing: `/* hero */\n${existing}\n\na { color: red; }`,
+        replace: null,
+        append: existing,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("keeps a rule that only appears as the tail of a longer selector", () => {
+    const nav = ".nav button { color: pink; }";
+    expect(
+      mergeGlobalCss({
+        existing: nav,
+        replace: null,
+        append: "button { color: pink; }",
+      }),
+    ).toBe(`${nav}\n\nbutton { color: pink; }`);
   });
 });
 

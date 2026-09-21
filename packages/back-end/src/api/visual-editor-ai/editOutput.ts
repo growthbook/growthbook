@@ -18,10 +18,25 @@ export function mergeGlobalCss({
   const extra = append?.trim() ?? "";
   // Stronger models sometimes re-emit a rule they already added.
   const merged =
-    extra && !base.includes(extra)
+    extra && !containsRule(base, extra)
       ? [base.trim(), extra].filter(Boolean).join("\n\n")
       : base;
   return merged && merged !== current ? merged : undefined;
+}
+
+// Whole-rule match only: `.nav button {…}` must not count as containing
+// `button {…}`, so the match has to start the stylesheet or follow the end
+// of a previous rule or comment.
+function containsRule(css: string, rule: string): boolean {
+  let at = css.indexOf(rule);
+  while (at !== -1) {
+    const before = css.slice(0, at).trimEnd();
+    if (before === "" || before.endsWith("}") || before.endsWith("*/")) {
+      return true;
+    }
+    at = css.indexOf(rule, at + 1);
+  }
+  return false;
 }
 
 export interface SkippedItem {
