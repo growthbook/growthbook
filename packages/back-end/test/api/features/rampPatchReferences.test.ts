@@ -279,7 +279,7 @@ describe("ramp schedule patch references", () => {
       }
     });
 
-    it("judges a template's steps when the plan is built from one", async () => {
+    it("judges a template's steps when the plan is built from one, on the ramp route and inline", async () => {
       await mongoose.connection.collection("rampscheduletemplates").insertOne({
         id: "rst_half",
         organization: ORG_ID,
@@ -300,12 +300,63 @@ describe("ramp schedule patch references", () => {
         dateCreated: now(),
         dateUpdated: now(),
       });
-      const res = await auth(
+      const attach = await auth(
         request(app)
           .put(
             `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
           )
           .send({ templateId: "rst_half" }),
+      );
+      expect(attach.body.message).toMatch(NO_HASH);
+      expect(attach.status).toBe(400);
+      const inline = await auth(
+        request(app)
+          .post(`/api/v2/features/${FLAG}/revisions/2/rules`)
+          .send({
+            rule: {
+              type: "force",
+              value: "true",
+              allEnvironments: true,
+              enabled: false,
+            },
+            rampSchedule: { templateId: "rst_half" },
+          }),
+      );
+      expect(inline.body.message).toMatch(NO_HASH);
+      expect(inline.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+    });
+
+    it("ignores a new anchor on a running schedule, as publish does", async () => {
+      const created = await auth(
+        request(app)
+          .post("/api/v1/ramp-schedules")
+          .send({
+            name: "running",
+            featureId: FLAG,
+            ruleId: FORCE_RULE.id,
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            steps: [step({ coverage: 0.5 })],
+          }),
+      );
+      expect(created.status).toBe(200);
+      // A plan stored before the requirement, already running.
+      await mongoose.connection.collection("rampschedules").updateOne(
+        { id: created.body.rampSchedule.id },
+        {
+          $set: { status: "running", currentStepIndex: -1 },
+          $unset: { "startActions.0.patch.hashAttribute": "" },
+        },
+      );
+      const res = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({
+            steps: [step({ coverage: 0.5 })],
+            startActions: [{ patch: { hashAttribute: "id" } }],
+          }),
       );
       expect(res.body.message).toMatch(NO_HASH);
       expect(res.status).toBe(400);

@@ -44,6 +44,7 @@ import {
   rampPatchEntries,
   stagedRule,
   validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
 import {
@@ -85,11 +86,17 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   );
   await validateRampPlanPatches(
     req.context,
-    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
-      ...rule,
-      ...patch,
-      id: req.params.ruleId,
-    }),
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      feature,
+      {
+        ...rule,
+        ...patch,
+        id: req.params.ruleId,
+      },
+    ),
   );
 
   const { revision, created } = await resolveOrCreateRevision(

@@ -56,6 +56,7 @@ import {
   collectRampPlanPatches,
   rampPatchEntries,
   validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import {
   assertRuleVariationsMatchExperiment,
@@ -167,13 +168,19 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   const ruleId = uuidv4();
   await validateRampPlanPatches(
     req.context,
-    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
-      id: ruleId,
-      type: ruleInput.type,
-      hashAttribute:
-        ruleInput.type === "rollout" ? ruleInput.hashAttribute : undefined,
-      environments: [environment],
-    }),
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      feature,
+      {
+        id: ruleId,
+        type: ruleInput.type,
+        hashAttribute:
+          ruleInput.type === "rollout" ? ruleInput.hashAttribute : undefined,
+        environments: [environment],
+      },
+    ),
   );
 
   const { revision, created } = await resolveOrCreateRevision(

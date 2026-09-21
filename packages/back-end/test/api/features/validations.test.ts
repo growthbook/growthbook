@@ -732,6 +732,31 @@ describe("validateRampPlanPatches", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("holds an anchor's hash attribute to the organization's registered attributes", async () => {
+    const forceRule = { id: "fr_force", type: "force" };
+    const strict = {
+      ...ctx,
+      org: {
+        ...ctx.org,
+        settings: {
+          requireRegisteredAttributes: true,
+          attributeSchema: [{ property: "userId", datatype: "string" }],
+        },
+      },
+    } as ApiReqContext;
+    const runStrict = (patches: Parameters<typeof rampPatchEntries>[0]) =>
+      validateRampPlanPatches(
+        strict,
+        rampPatchEntries(patches, feature, forceRule),
+      );
+    await expect(
+      runStrict([{ coverage: 0.5, hashAttribute: "userID" }]),
+    ).rejects.toThrow(/userID/);
+    await expect(
+      runStrict([{ coverage: 0.5, hashAttribute: "userId" }]),
+    ).resolves.toBeUndefined();
+  });
+
   it("checks only existence for a plan with no target feature", async () => {
     await expect(run([prereqOnParent], null)).resolves.toBeUndefined();
     loadFeatures.mockResolvedValue([]);

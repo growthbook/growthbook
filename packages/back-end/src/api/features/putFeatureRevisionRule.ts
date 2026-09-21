@@ -45,6 +45,7 @@ import {
   rampPatchEntries,
   stagedRule,
   validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import {
   assertCanUseRuleScheduling,
@@ -216,17 +217,23 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   const patch = req.body.rule;
   await validateRampPlanPatches(
     req.context,
-    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
-      ...(await stagedRule(
-        req.context,
-        feature,
-        req.params.version,
-        req.params.ruleId,
-      )),
-      ...patch,
-      id: req.params.ruleId,
-      environments: [environment],
-    }),
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      feature,
+      {
+        ...(await stagedRule(
+          req.context,
+          feature,
+          req.params.version,
+          req.params.ruleId,
+        )),
+        ...patch,
+        id: req.params.ruleId,
+        environments: [environment],
+      },
+    ),
   );
 
   const { revision, created } = await resolveOrCreateRevision(

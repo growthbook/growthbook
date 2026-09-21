@@ -68,8 +68,8 @@ export async function setRuleRampSchedule(
   // orphan one; for an existing draft, below, once its rule and pending action
   // are known.
   // `live` is the schedule this plan updates, if any: what the body omits
-  // stays as stored there, and a startState only counts while the anchor can
-  // still change (see the warning below).
+  // stays as stored there, and a new anchor only counts while it can still
+  // change (see the warning below).
   const checkPatches = async (
     rule: FeatureRule | undefined,
     live: RampScheduleInterface | undefined,
@@ -78,13 +78,13 @@ export async function setRuleRampSchedule(
     const anchorFrozen =
       live && live.status !== "pending" && live.status !== "ready";
     const plan = anchorFrozen
-      ? omit(scheduleInput, "startState")
+      ? omit(scheduleInput, ["startState", "startActions"])
       : scheduleInput;
     await validateRampPlanPatches(
       context,
       rampPatchEntries(
         collectRampPlanPatches(
-          mergedRampPlan(await withTemplatePlan(context, plan), live),
+          mergedRampPlan((await withTemplatePlan(context, plan)) ?? plan, live),
         ),
         feature,
         rule,

@@ -13,6 +13,7 @@ import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import {
   rampPlanLacksHashAttribute,
+  getRuleAttributeScopeProjectIds,
   findStoredRuleCounterpart,
   stemRuleId,
   validateCondition,
@@ -273,8 +274,11 @@ export function mergedRampPlan<P extends RampPlanInput>(
 // now so a refusal lands on the write, not on the first step.
 export async function withTemplatePlan<
   P extends RampPlanInput & { templateId?: string | null },
->(context: ReqContext | ApiReqContext, plan: P): Promise<P> {
-  if (!plan.templateId || plan.steps?.length) return plan;
+>(
+  context: ReqContext | ApiReqContext,
+  plan: P | undefined,
+): Promise<P | undefined> {
+  if (!plan?.templateId || plan.steps?.length) return plan;
   const template = await context.models.rampScheduleTemplates.getById(
     plan.templateId,
   );
@@ -405,6 +409,7 @@ function changedRampPatchTargeting(
     );
   return {
     ruleId: patch.ruleId,
+    ...(echoed("hashAttribute") ? {} : { hashAttribute: patch.hashAttribute }),
     ...(echoed("condition") ? {} : { condition: patch.condition }),
     ...(echoed("savedGroups") ? {} : { savedGroups: patch.savedGroups }),
     ...(echoed("prerequisites") ? {} : { prerequisites: patch.prerequisites }),
@@ -464,16 +469,30 @@ export async function validateRampPlanPatches(
   { stored = [] }: { stored?: unknown[] } = {},
 ): Promise<void> {
   const storedPatches = stored.flatMap((plan) => collectRampPlanPatches(plan));
-  const checked = entries
-    .filter(({ patch }) => hasRampPatchTargeting(patch))
-    .map((entry) => ({
-      ...entry,
-      changed: changedRampPatchTargeting(entry.patch, storedPatches),
-    }))
-    .filter(({ changed }) => hasRampPatchTargeting(changed));
+  const withChanges = entries.map((entry) => ({
+    ...entry,
+    changed: changedRampPatchTargeting(entry.patch, storedPatches),
+  }));
+  const checked = withChanges.filter(({ changed }) =>
+    hasRampPatchTargeting(changed),
+  );
 
   try {
     assertRampCoverageHashProvided(entries);
+    // A hash attribute the anchor names gets the rule write's registration
+    // check: a typo would bucket nobody once the rule is a rollout.
+    for (const { changed, feature, rule } of withChanges) {
+      if (!changed.hashAttribute) continue;
+      assertRegisteredAttributes(
+        context,
+        { hashAttribute: changed.hashAttribute },
+        "ramp start state",
+        undefined,
+        (feature &&
+          getRuleAttributeScopeProjectIds(feature, undefined, rule ?? {})) ??
+          undefined,
+      );
+    }
     if (!checked.length) return;
 
     assertValidRuleEnvironments(
