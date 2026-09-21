@@ -23,6 +23,15 @@ export type EventForwarderDatasourceParams =
 export const DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE =
   "Databricks event forwarder requires Databricks OAuth (machine-to-machine) authentication. Personal access tokens are supported for Databricks queries, but Zerobus ingestion requires a Databricks-issued OAuth client ID and secret.";
 
+// Entra ID was briefly offered as a connection option; stored datasources may still carry it.
+export function getDatabricksEventForwarderAuthMessage(
+  params: Partial<Pick<DatabricksConnectionParams, "authType">> | undefined,
+): string {
+  return String(params?.authType) === "azure-entra"
+    ? "Azure Entra ID service principals are not supported for the Databricks Event Forwarder. Zerobus ingestion only accepts Databricks-issued OAuth tokens. Switch the connection to Databricks OAuth (machine-to-machine) with a client ID and secret generated in Databricks."
+    : DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE;
+}
+
 export function databricksParamsSupportEventForwarder(
   params: Partial<Pick<DatabricksConnectionParams, "authType">> | undefined,
 ): boolean {

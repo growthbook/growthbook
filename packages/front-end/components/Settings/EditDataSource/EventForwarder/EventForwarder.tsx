@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import {
-  DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
   databricksParamsSupportEventForwarder,
+  getDatabricksEventForwarderAuthMessage,
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   formatDatabricksEventForwarderTablePrefix,
   normalizeBigQueryTablePrefixForEventForwarder,
@@ -287,7 +287,7 @@ function getEventForwarderValidationErrors(
   if (cfg.sinkType === "databricks") {
     const p = rawParams as Partial<DatabricksConnectionParams>;
     if (!databricksParamsSupportEventForwarder(p)) {
-      errors.push(DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE);
+      errors.push(getDatabricksEventForwarderAuthMessage(p));
     }
     try {
       parseDatabricksEventForwarderTablePrefix(databricksDestination);
@@ -662,11 +662,13 @@ export default function EventForwarder({
           !!primaryConnectorErrorMessage)));
   const canToggle = canEdit && (isReady || isPaused);
   const action = isReady ? "pause" : "resume";
+  const databricksParams =
+    dataSource.params as Partial<DatabricksConnectionParams>;
   const databricksAuthBlocked =
     dataSource.type === "databricks" &&
-    !databricksParamsSupportEventForwarder(
-      dataSource.params as Partial<DatabricksConnectionParams>,
-    );
+    !databricksParamsSupportEventForwarder(databricksParams);
+  const databricksAuthMessage =
+    getDatabricksEventForwarderAuthMessage(databricksParams);
 
   return (
     <Box>
@@ -745,6 +747,12 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
+      {databricksAuthBlocked ? (
+        <Callout status="warning" mb="3">
+          {databricksAuthMessage}
+        </Callout>
+      ) : null}
+
       {!eventForwarderConfig ? (
         eventsForwarderFlag === "VISIBLE" ? (
           <Callout status="info">
@@ -765,7 +773,7 @@ export default function EventForwarder({
             {canEdit ? (
               <Box mt="3">
                 <Tooltip
-                  body={DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE}
+                  body={databricksAuthMessage}
                   shouldDisplay={databricksAuthBlocked}
                 >
                   <Button
