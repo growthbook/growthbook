@@ -75,7 +75,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     this.snapshotSettings = params.snapshotSettings;
     this.variationNames = params.variationNames;
 
-    await this.loadCbDoc();
+    const cb = await this.loadCbDoc();
 
     // TODO(query-runner): remove need for snapshotSettings
     const expSnapshotSettings = buildSnapshotSettingsForCb(
@@ -170,6 +170,9 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     ) {
       const srmSql = this.integration.getContextualBanditSrmQuery({
         settings: cbUnitsSettings,
+        variationKeys: Object.fromEntries(
+          cb.variations.map((v) => [v.id, v.key]),
+        ),
       });
       queries.push(
         await this.startQuery({
