@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
 import { PiChatCircleFill } from "react-icons/pi";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import Button from "@/ui/Button";
@@ -20,6 +20,9 @@ import styles from "./InAppHelp.module.scss";
  * cannot take ourselves.
  */
 const PYLON_CLEARANCE_PX = 76;
+
+/** The launcher's box, whichever face it is showing. */
+const LAUNCHER_SIZE_PX = 56;
 
 export default function InAppHelp() {
   const router = useRouter();
@@ -188,39 +191,31 @@ export default function InAppHelp() {
         </Box>
       )}
       {showFreeHelpWidget ? (
-        <IconButton
+        <button
           ref={launcher}
           type="button"
-          size="4"
-          radius="full"
-          color="violet"
+          className={styles.closeLauncher}
+          style={{ width: LAUNCHER_SIZE_PX, height: LAUNCHER_SIZE_PX }}
           aria-label="Close help"
           aria-expanded
           onClick={() => setShowFreeHelpWidget(false)}
-          style={{
-            position: "fixed",
-            right: "15px",
-            bottom: "15px",
-            zIndex: 10,
-            height: "50px",
-            width: "50px",
-            margin: 0,
-            cursor: "pointer",
-          }}
         >
-          <BsXLg size={20} />
-        </IconButton>
+          <span className={styles.closeCircle}>
+            <BsXLg size={18} />
+          </span>
+        </button>
       ) : (
         <button
           ref={launcher}
           type="button"
           className={styles.chatLauncher}
+          style={{ width: LAUNCHER_SIZE_PX, height: LAUNCHER_SIZE_PX }}
           aria-label="Help"
           aria-expanded={false}
           onClick={() => setShowFreeHelpWidget(true)}
         >
           <span className={styles.chatMark}>
-            <PiChatCircleFill size={56} />
+            <PiChatCircleFill size={LAUNCHER_SIZE_PX} />
             <BsQuestionLg className={styles.chatMarkGlyph} size={20} />
           </span>
         </button>

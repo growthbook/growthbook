@@ -12,24 +12,42 @@
   line-height: 0;
   color: var(--violet-9);
   cursor: pointer;
-  transition: color 100ms ease;
+  transition: filter 100ms ease;
 
-  // An outline that follows the bubble rather than a box around it: four
-  // hard shadows, one per side, which `filter` traces from the glyph's alpha.
+  // A halo the filter traces from the glyph's own alpha, so it follows the
+  // bubble instead of boxing it — and reads as an outline rather than as a
+  // heavier icon, which stacked hard shadows did.
   &:hover,
   &:focus-visible {
     outline: none;
-    color: var(--violet-10);
-    filter: drop-shadow(1px 0 0 var(--violet-11))
-      drop-shadow(-1px 0 0 var(--violet-11))
-      drop-shadow(0 1px 0 var(--violet-11))
-      drop-shadow(0 -1px 0 var(--violet-11));
+    filter: drop-shadow(0 0 3px var(--violet-a8));
   }
 }
 
+// The close button keeps the chat mark's footprint, so the launcher does not
+// move when it opens, and its circle matches the bubble's: Phosphor draws that
+// circle at r=104 in a 256 viewBox, which is 81.25% of the icon's box.
+.closeLauncher {
+  composes: chatLauncher;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeCircle {
+  width: 81.25%;
+  height: 81.25%;
+  border-radius: 50%;
+  background: var(--violet-9);
+  color: var(--violet-contrast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 // The mark is two glyphs: the chat bubble, and the question sitting inside it.
-// The bubble is the upper part of the shape — the tail takes the bottom — so
-// the question sits above the geometric centre.
+// Phosphor centres that bubble on the icon's box — only its tail hangs below —
+// so the question sits dead centre too.
 .chatMark {
   position: relative;
   display: block;
@@ -38,7 +56,7 @@
 .chatMarkGlyph {
   position: absolute;
   left: 50%;
-  top: 45%;
+  top: 50%;
   transform: translate(-50%, -50%);
   color: var(--violet-contrast);
 }
