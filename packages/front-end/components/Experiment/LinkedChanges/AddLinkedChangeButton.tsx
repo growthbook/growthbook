@@ -145,6 +145,8 @@ const LinkedChangeMenuItem = ({
 };
 
 type Props = {
+  /** A chosen single kind keeps the menu of other kinds closed. */
+  allowOtherKinds?: boolean;
   onFeatureFlag: () => void;
   onVisualEditor: () => void;
   onUrlRedirect: () => void;
@@ -208,6 +210,7 @@ export default function AddLinkedChangeButton({
   onVisualEditor,
   onUrlRedirect,
   experiment,
+  allowOtherKinds = true,
 }: Props) {
   // Determine the type of implementation. If there are multiple types, return multiple
   const implementationType =
@@ -245,6 +248,14 @@ export default function AddLinkedChangeButton({
         onUrlRedirect={onUrlRedirect}
         experiment={experiment}
       />
+    );
+  }
+
+  if (!allowOtherKinds) {
+    return (
+      <Button onClick={() => handleAddClick()}>
+        {LINKED_CHANGE_CONTAINER_PROPERTIES[implementationType].addButtonCopy}
+      </Button>
     );
   }
 

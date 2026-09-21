@@ -39,6 +39,11 @@ export interface CommentCardProps {
    */
   leading?: React.ReactNode;
   avatarSize?: Size;
+  /**
+   * Tighter chrome for narrow surfaces (popovers, side panels): drops the
+   * email from the header so the name and verb fit on one line.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -56,15 +61,24 @@ export default function CommentCard({
   stripeColor = "violet",
   leading,
   avatarSize = "sm",
+  compact = false,
 }: CommentCardProps) {
   return (
-    <Flex align="start" gap="3">
-      <Box flexShrink="0" pt="2">
+    <Flex align="start" gap={compact ? "2" : "3"}>
+      <Box flexShrink="0" pt={compact ? "1" : "2"}>
         {leading ?? (
           <EventUser user={user} display="avatar" size={avatarSize} />
         )}
       </Box>
-      <Card size="1" style={{ overflow: "hidden", flexGrow: 1 }}>
+      <Card
+        size="1"
+        style={{
+          overflow: "hidden",
+          flexGrow: 1,
+          // Radix's own card padding is generous for a card this small.
+          ...(compact ? { padding: "var(--space-2)" } : {}),
+        }}
+      >
         <div
           style={{
             position: "absolute",
@@ -76,9 +90,27 @@ export default function CommentCard({
           }}
         />
         <Box px="1">
-          <Flex justify="between" align="center" mb={body ? "2" : "0"} gap="2">
-            <Flex align="center" gap="2" wrap="wrap">
-              <EventUser user={user} display="name-email" size="sm" />
+          {/* Compact headers wrap to two lines, so a centered action drifts
+              down the card — pin it to the first line instead. */}
+          <Flex
+            justify="between"
+            align={compact ? "start" : "center"}
+            mb={body ? (compact ? "1" : "2") : "0"}
+            gap="2"
+          >
+            {/* Row gap only when there is room: `gap` applies to the wrapped
+                line too, which pads the header out in a narrow column. */}
+            <Flex
+              align="center"
+              gapX="2"
+              gapY={compact ? "0" : "2"}
+              wrap="wrap"
+            >
+              <EventUser
+                user={user}
+                display={compact ? "name" : "name-email"}
+                size="sm"
+              />
               <Text color="text-low" size="sm">
                 {metadata}
               </Text>

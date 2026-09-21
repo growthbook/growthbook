@@ -50,7 +50,7 @@ function SizeStory() {
     <Flex direction="column" gap="3">
       <SelectField
         label="Size x-small"
-        size="x-small"
+        size="xs"
         legacyLabelFormatting={false}
         value={v1}
         options={FRUIT_OPTIONS}
@@ -58,7 +58,7 @@ function SizeStory() {
       />
       <SelectField
         label="Size small"
-        size="small"
+        size="md"
         legacyLabelFormatting={false}
         value={v2}
         options={FRUIT_OPTIONS}
@@ -73,7 +73,7 @@ function SizeStory() {
       />
       <SelectField
         label="Size medium"
-        size="medium"
+        size="lg"
         legacyLabelFormatting={false}
         value={v4}
         options={FRUIT_OPTIONS}

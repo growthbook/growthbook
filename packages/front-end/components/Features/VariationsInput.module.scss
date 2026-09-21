@@ -45,6 +45,22 @@
   }
 }
 
+// The grid rows pair an md field with a fixed-width column, so the input fills
+// the column and the "%" centres on it, rather than the 7em/36px pairing above.
+.percentInputWrapMd {
+  input {
+    width: 100%;
+  }
+
+  span {
+    position: absolute;
+    right: 26px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--slate-11);
+  }
+}
+
 .hideArrows {
   /* Chrome, Safari, Edge, Opera */
   input::-webkit-outer-spin-button,
@@ -56,5 +72,15 @@
   /* Firefox */
   input[type="number"] {
     -moz-appearance: textfield;
+  }
+}
+
+// A value cell in a grid row: the row's own padding separates it from the next
+// row, so the field's trailing margin (Bootstrap's .form-group, or the code
+// editor's wrapper) just pads the row out.
+.tightValueCell {
+  > :global(.rt-Box),
+  :global(.form-group) {
+    margin-bottom: 0;
   }
 }

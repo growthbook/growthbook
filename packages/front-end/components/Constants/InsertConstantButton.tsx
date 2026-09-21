@@ -1,4 +1,5 @@
 import React, {
+  ComponentProps,
   ReactElement,
   cloneElement,
   useMemo,
@@ -226,6 +227,7 @@ export default function InsertConstantButton({
   disabled,
   excludeKeys,
   iconOnly = false,
+  iconMt = "2",
 }: {
   valueType: "string" | "json";
   project?: string;
@@ -236,6 +238,12 @@ export default function InsertConstantButton({
   excludeKeys?: string[];
   // Compact icon-only trigger for inline (beside-the-field) layouts.
   iconOnly?: boolean;
+  /**
+   * Top margin on the icon trigger. Defaults to the offset that lines it up
+   * under a field's label row; pass "0" when the button sits beside a field
+   * with no label above it, where that offset reads as misalignment.
+   */
+  iconMt?: ComponentProps<typeof IconButton>["mt"];
 }) {
   const { constants } = useDefinitions();
 
@@ -283,7 +291,7 @@ export default function InsertConstantButton({
       color="gray"
       disabled={disabled}
       ml="1"
-      mt="2"
+      mt={iconMt}
     >
       <Tooltip content="Insert Constant">
         <Flex align="center" justify="center">

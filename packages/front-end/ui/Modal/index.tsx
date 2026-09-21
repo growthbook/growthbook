@@ -1,11 +1,13 @@
 import {
   Box,
   Flex,
+  IconButton,
   Inset,
   Dialog,
   ScrollArea,
   Separator,
 } from "@radix-ui/themes";
+import { PiX } from "react-icons/pi";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import {
   createContext,
@@ -17,6 +19,7 @@ import {
   useMemo,
   useRef,
   useState,
+  ComponentProps,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
@@ -24,7 +27,13 @@ import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-export type Size = SharedSize<"md" | "lg"> | "xl" | "fill";
+// "max" and "fill" are not steps on the t-shirt scale; both fill the viewport
+// ("fill" with no chrome at all).
+export type Size = SharedSize<"md" | "lg" | "xl"> | "max" | "fill";
+
+// "gutter" leaves the right edge unpadded for Modal.Body's scrollbar, and each
+// section adds it back. "even" pads the content box on all four sides.
+export type Padding = "gutter" | "even";
 
 // Modal does not use the shared Radix map. Radix Dialog's size drives padding
 // and border radius rather than a step on the control scale, its own default is
@@ -36,6 +45,7 @@ function getRadixSize(size: Size): Responsive<"3" | "4"> {
       return "3";
     case "lg":
     case "xl":
+    case "max":
     case "fill":
       return "4";
   }
@@ -49,6 +59,8 @@ function getMaxWidth(size: Size) {
       return "800px";
     case "xl":
       return "1100px";
+    case "max":
+      return "95vw";
     case "fill":
       return "calc(100vw - 32px)";
   }
@@ -64,6 +76,7 @@ function getMaxWidth(size: Size) {
 // ---------------------------------------------------------------------------
 
 type ModalContextValue = {
+  padding: Padding;
   error: string | null;
   setError: (error: string | null) => void;
   scrollBodyToTop: () => void;
@@ -102,8 +115,17 @@ type RootProps = TrackingEventModalProps & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   size?: Size;
+  padding?: Padding;
   dismissible?: boolean;
+  // Radix's corner close, for a composition with no other way out.
+  showCloseButton?: boolean;
   hasDescription?: boolean;
+  /**
+   * Radix focuses the first focusable element (usually the close button) once
+   * the dialog opens. A modal that places focus itself passes this and calls
+   * `e.preventDefault()`, otherwise its own focus is stolen on mount.
+   */
+  onOpenAutoFocus?: ComponentProps<typeof Dialog.Content>["onOpenAutoFocus"];
   children: ReactNode;
 };
 
@@ -111,8 +133,11 @@ function Root({
   open,
   onOpenChange,
   size = "md",
+  padding = "gutter",
   dismissible = false,
+  showCloseButton = false,
   hasDescription = true,
+  onOpenAutoFocus,
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
@@ -166,13 +191,14 @@ function Root({
 
   const ctx = useMemo<ModalContextValue>(
     () => ({
+      padding,
       error,
       setError,
       scrollBodyToTop,
       bodyRef,
       sendTrackingEvent,
     }),
-    [error, scrollBodyToTop, sendTrackingEvent],
+    [padding, error, scrollBodyToTop, sendTrackingEvent],
   );
 
   const ariaDescribedBy = hasDescription
@@ -183,10 +209,23 @@ function Root({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content
         ref={contentRef}
+        // Radix's scrolling wrapper is padded; at this height that overflows
+        // the viewport, so global-radix-overrides drops it.
+        className={size === "max" ? "rt-DialogContent--max" : undefined}
         size={getRadixSize(size)}
+        width={size === "max" ? "95vw" : undefined}
         maxWidth={getMaxWidth(size)}
-        maxHeight={size === "fill" ? "calc(100vh - 32px)" : "85vh"}
+        // Claim the height too, so the body sizes against the viewport.
+        height={size === "max" ? "95vh" : undefined}
+        maxHeight={
+          size === "max"
+            ? "95vh"
+            : size === "fill"
+              ? "calc(100vh - 32px)"
+              : "85vh"
+        }
         {...ariaDescribedBy}
+        onOpenAutoFocus={onOpenAutoFocus}
         onEscapeKeyDown={(e) => {
           if (!dismissible) e.preventDefault();
         }}
@@ -198,9 +237,11 @@ function Root({
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            paddingTop: size === "fill" ? "0" : "32px",
-            paddingLeft: size === "fill" ? "0" : "40px",
-            paddingRight: "0",
+            paddingTop:
+              size === "fill" ? "0" : padding === "even" ? "20px" : "32px",
+            paddingLeft:
+              size === "fill" ? "0" : padding === "even" ? "20px" : "40px",
+            paddingRight: padding === "even" ? "20px" : "0",
             paddingBottom: size === "fill" ? "0" : "20px",
             ...(size === "fill"
               ? {
@@ -208,10 +249,28 @@ function Root({
                   height: "calc(100vh - 32px)",
                 }
               : {}),
-            "--inset-padding-left": "40px",
+            "--inset-padding-left": padding === "even" ? "20px" : "40px",
           } as CSSProperties
         }
       >
+        {showCloseButton ? (
+          <Box position="absolute" top="2" right="2" style={{ zIndex: 1 }}>
+            <Dialog.Close>
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+                aria-label="Close"
+                // Driven explicitly, like the footer's Cancel.
+                onClick={() => onOpenChange(false)}
+              >
+                <PiX size={20} />
+              </IconButton>
+            </Dialog.Close>
+          </Box>
+        ) : null}
         <ModalContext.Provider value={ctx}>{children}</ModalContext.Provider>
       </Dialog.Content>
     </Dialog.Root>
@@ -259,13 +318,23 @@ function Description({ children }: { children: ReactNode }) {
 // so ModalForm consumers get error handling for free.
 // ---------------------------------------------------------------------------
 
-function Body({ children }: { children: ReactNode }) {
+function Body({
+  children,
+  // The default clears the header; a modal without one starts at the top.
+  mt = "5",
+  // Space before the footer's separator.
+  mb = "3",
+}: {
+  children: ReactNode;
+  mt?: "0" | "5";
+  mb?: "0" | "3";
+}) {
   const { bodyRef, error } = useModalContext();
   return (
     <ScrollArea
       type="auto"
-      mt="5"
-      mb="3"
+      mt={mt}
+      mb={mb}
       ml="-1"
       ref={bodyRef}
       scrollbars="vertical"
@@ -288,16 +357,27 @@ function Body({ children }: { children: ReactNode }) {
 function Footer({
   children,
   justify = "end",
+  align,
 }: {
   children: ReactNode;
   justify?: "start" | "center" | "end" | "between";
+  /** Cross-axis alignment, for footers holding more than a row of buttons. */
+  align?: "start" | "center" | "end" | "baseline" | "stretch";
 }) {
+  // Adds back the padding gutter mode leaves off; even mode already has it.
+  const { padding } = useModalContext();
+  const evenlyPadded = padding === "even";
   return (
-    <Box flexShrink="0" ml="-3">
+    <Box flexShrink="0" ml={evenlyPadded ? "0" : "-3"}>
       <Inset side="x">
         <Separator size="4" mt="5" style={{ marginBottom: "20px" }} />
       </Inset>
-      <Flex gap="3" justify={justify} pr="7">
+      <Flex
+        gap="3"
+        justify={justify}
+        align={align}
+        pr={evenlyPadded ? "0" : "7"}
+      >
         {children}
       </Flex>
     </Box>

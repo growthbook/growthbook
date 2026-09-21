@@ -285,7 +285,7 @@
   },
   "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/ExperimentGraph.tsx": {
@@ -645,11 +645,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeatureModal/ValueTypeField.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/FeatureModal/index.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -810,11 +805,6 @@
   "packages/front-end/components/Features/SavedGroupTargetingField.tsx": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SortableFeatureVariationRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
     }
   },
   "packages/front-end/components/Features/ValueDisplay.tsx": {

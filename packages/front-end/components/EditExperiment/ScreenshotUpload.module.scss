@@ -6,8 +6,11 @@
   box-sizing: border-box;
   border: 1px solid transparent;
   overflow: hidden;
-  width: 100%;
-  height: 100%;
+  // Hugs the placeholder it wraps, so only that box is clickable rather than
+  // the whole row. The auto margin keeps it right-aligned in the card column.
+  width: fit-content;
+  height: fit-content;
+  margin-left: auto;
   text-align: center;
   display: flex;
   align-items: center;
@@ -23,7 +26,9 @@
     padding: 0 4px;
     overflow: hidden;
     line-height: 1.3;
-    font-size: 1.2em;
+    // Sized to fit the placeholder's own height without clipping.
+    font-size: 0.8em;
+    white-space: nowrap;
     color: var(--violet-a11);
   }
   .textlink {

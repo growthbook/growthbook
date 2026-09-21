@@ -1,33 +1,82 @@
-@import "../../styles/colors.scss";
+// Shading, borders and label sizes follow NamespaceUsageGraph so the two
+// allocation bars read as the same control.
+:global(.light-theme) {
+  --esv-bar-bg: var(--slate-5);
+  --esv-bar-shadow-top: var(--black-a3);
+  --esv-bar-shadow-bottom: var(--slate-a3);
+  --esv-bar-outline: transparent;
+  --esv-segment-shadow-top: var(--black-a2);
+  --esv-legend-outline: var(--slate-a8);
+}
 
-.legend {
-  font-size: 0.8em;
+:global(.dark-theme) {
+  --esv-bar-bg: var(--black-a3);
+  --esv-bar-shadow-top: var(--black-a5);
+  --esv-bar-shadow-bottom: var(--slate-a2);
+  --esv-bar-outline: var(--slate-a3);
+  --esv-segment-shadow-top: var(--black-a4);
+  --esv-legend-outline: var(--white-a4);
 }
 
 .legend_box {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
   display: inline-block;
   vertical-align: middle;
-  border: 1px solid $gray3;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1.5px var(--esv-legend-outline);
+  background-color: var(--esv-bar-bg);
+}
+
+.bar_wrapper {
+  position: relative;
+  margin-top: 6px;
+}
+
+.bar_holder {
+  position: relative;
+  height: 24px;
+  border-radius: 4px;
+  // Clips the segments, so an end segment that stops short of the bar keeps a
+  // square edge instead of a stray rounded one.
+  overflow: hidden;
+  background-color: var(--esv-bar-bg);
+  box-shadow:
+    inset 0px 6px 4px -3px var(--esv-bar-shadow-top),
+    inset 0px 1px 2px 0px var(--esv-bar-shadow-top),
+    inset 0px -1px 0px 0px var(--esv-bar-shadow-bottom),
+    0px 0px 0px 1px var(--esv-bar-outline);
 }
 
 .previewBar {
   position: relative;
-  font-size: 0.8em;
+  height: 100%;
+  // The variation's own colour is set inline; this only adds the recess.
+  background-image: linear-gradient(
+    to bottom,
+    var(--esv-segment-shadow-top) 0px,
+    transparent 8px
+  );
 }
 
-.percentMarker {
+.gapBar {
+  position: relative;
+  height: 100%;
+}
+
+.labels_row {
+  position: relative;
+  height: 16px;
+  margin-top: 4px;
+}
+
+.segmentLabel {
   position: absolute;
-  bottom: -8px;
-  height: 8px;
-  width: 100%;
-  text-align: center;
-  border-radius: 0 0 6px 6px;
-  border: 2px solid $gray2;
-  border-top: 0;
-  span {
-    position: relative;
-    bottom: -10px;
-  }
+  top: 0;
+  transform: translateX(-50%);
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--color-text-low);
+  white-space: nowrap;
 }

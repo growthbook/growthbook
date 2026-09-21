@@ -1,16 +1,16 @@
 import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
-import { RxDesktop } from "react-icons/rx";
-import { BsFlag } from "react-icons/bs";
-import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
-import { TbCloudOff } from "react-icons/tb";
-import React, { useMemo, useState } from "react";
+import { PiArrowSquareOutBold } from "react-icons/pi";
+import React, { useEffect, useMemo, useState } from "react";
 import { isFactMetricId, getAllVariations } from "shared/experiments";
 import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import {
+  ImplementationTypeIcon,
+  LIST_ICON_STYLE,
+} from "@/components/Experiment/ImplementationTypeSelect";
 import Pagination from "@/components/Pagination";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -21,6 +21,7 @@ import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import CollapsibleDiscussion from "@/components/CollapsibleDiscussion";
 import useApi from "@/hooks/useApi";
+import { useManagedExperimentFlagStates } from "@/hooks/useManagedExperimentFlagStates";
 
 const maxImageHeight = 200;
 const maxImageWidth = 300;
@@ -46,6 +47,23 @@ const CompletedExperimentList = ({
 
   const { getOwnerDisplay } = useUser();
   const { getMetricById, getFactMetricById } = useDefinitions();
+
+  // Same just-in-time fetch the running list does: ownership lives on the
+  // Feature Flag, not the experiment row.
+  const { fetchSome, getManagedFlag } = useManagedExperimentFlagStates();
+  const managedLookupKey = useMemo(
+    () =>
+      experiments
+        .slice(start, end)
+        .filter((e) => (e.linkedFeatures || []).length > 0)
+        .map((e) => e.id)
+        .join(","),
+    [experiments, start, end],
+  );
+  useEffect(() => {
+    if (!managedLookupKey) return;
+    fetchSome(managedLookupKey.split(","));
+  }, [managedLookupKey, fetchSome]);
 
   // Batch-fetch comment counts for the current page of experiments so each
   // card doesn't fire its own discussion fetch just to render a count.
@@ -141,47 +159,41 @@ const CompletedExperimentList = ({
             const expTypes: JSX.Element[] = [];
             if (e.hasVisualChangesets) {
               expTypes.push(
-                <Tooltip
+                <ImplementationTypeIcon
                   key={e.id + "-visual"}
-                  className="d-flex align-items-center ml-2"
-                  body="Visual experiment"
-                >
-                  <RxDesktop className="text-blue" />
-                </Tooltip>,
+                  type="visual"
+                  style={LIST_ICON_STYLE}
+                />,
               );
             }
             if ((e.linkedFeatures || []).length > 0) {
               expTypes.push(
-                <Tooltip
+                <ImplementationTypeIcon
                   key={e.id + "-feature-flag"}
-                  className="d-flex align-items-center ml-2"
-                  body="Linked Feature Flag"
-                >
-                  <BsFlag className="text-blue" />
-                </Tooltip>,
+                  type={getManagedFlag(e.id) ? "values" : "feature"}
+                  style={LIST_ICON_STYLE}
+                />,
               );
             }
             if (e.hasURLRedirects) {
               expTypes.push(
-                <Tooltip
+                <ImplementationTypeIcon
                   key={e.id + "-url-redirect"}
-                  className="d-flex align-items-center ml-2"
-                  body="URL Redirect experiment"
-                >
-                  <PiShuffle className="text-blue" />
-                </Tooltip>,
+                  type="urlredirect"
+                  style={LIST_ICON_STYLE}
+                />,
               );
             }
 
             if (expTypes.length === 0) {
               expTypes.push(
-                <Tooltip
+                <ImplementationTypeIcon
                   key={e.id + "-no-type"}
-                  className="d-flex align-items-center ml-2"
-                  body="Implemented outside of GrowthBook"
-                >
-                  <TbCloudOff className="text-blue" />
-                </Tooltip>,
+                  type="none"
+                  title="Analysis only"
+                  description="Nothing to implement"
+                  style={LIST_ICON_STYLE}
+                />,
               );
             }
 

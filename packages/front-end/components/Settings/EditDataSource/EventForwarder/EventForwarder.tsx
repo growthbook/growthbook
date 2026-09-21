@@ -450,7 +450,7 @@ function EventForwarderModal({
             ) : null}
             {eventForwarderConfig ? (
               <SelectField
-                size="small"
+                size="md"
                 legacyLabelFormatting={false}
                 label="Data region"
                 value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}

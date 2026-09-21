@@ -29,6 +29,7 @@ import {
 import {
   autoMerge,
   generateVariationId,
+  isManagedFeature,
   reconcileMergeBaselines,
   validateFeatureValue,
 } from "shared/util";
@@ -74,7 +75,11 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ManagedFeatureError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import {
   PendingDraftFailure,
   PendingDraftFailureReason,
@@ -326,6 +331,19 @@ export async function linkFeatureToContextualBandit({
     !rule.variations.length
   ) {
     throw new Error("Invalid contextual bandit rule");
+  }
+
+  // Guarded here rather than on the route: the REST routes address the feature
+  // as :featureId, which the route-level managed guard (keyed on :id) cannot
+  // see. A bandit must not append rules to a flag an experiment owns.
+  if (isManagedFeature(feature)) {
+    throw new ManagedFeatureError({
+      featureId: feature.id,
+      experimentId:
+        feature.managedBy?.type === "experiment"
+          ? feature.managedBy.experimentId
+          : "",
+    });
   }
 
   if (!environments.length) {

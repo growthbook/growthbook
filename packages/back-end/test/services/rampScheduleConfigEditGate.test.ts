@@ -10,6 +10,8 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
   getFeatureProjectsByIds: jest.fn(async () => new Map([["feat_1", "prj_1"]])),
   getFeatureRuleEnvironmentsByIds: jest.fn(async () => new Map()),
+  // No managed flags among these targets; the lockdown is exercised elsewhere.
+  getManagedByExperimentForFeatureIds: jest.fn(async () => new Map()),
 }));
 jest.mock("back-end/src/services/safeRolloutSnapshots", () => ({
   createSafeRolloutSnapshot: jest.fn(),

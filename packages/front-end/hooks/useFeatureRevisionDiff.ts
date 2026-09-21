@@ -2,14 +2,15 @@ import { useMemo, ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { RevisionMetadata } from "shared/validators";
+import { RevisionMetadata, stripUnknownRuleFields } from "shared/validators";
 import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,
   renderFeatureRules,
   normalizeFeatureRules,
   featureRuleChangeBadges,
-  renderEnvironmentsEnabled,
+  renderEnvironmentToggles,
+  type DiffRenderMode,
   renderPrerequisites,
   renderRevisionMetadata,
   prerequisiteChangeBadges,
@@ -39,10 +40,8 @@ export function normalizeRevisionMetadata(
   };
 }
 
-// Bookkeeping fields the snapshot records but that aren't user-editable revision
-// settings and aren't rendered by the human diff — including them in the raw
-// JSON diff only produces phantom churn when an older snapshot predates them.
-const NON_SETTING_METADATA_FIELDS = new Set(["valueType", "baseConfig"]);
+// Bookkeeping the human diff never renders.
+const NON_SETTING_METADATA_FIELDS = new Set(["baseConfig"]);
 
 // Canonical JSON for the raw "Feature Settings" diff: keys sorted (so a differing
 // snapshot key order doesn't read as churn) and bookkeeping fields dropped, so
@@ -77,10 +76,24 @@ export const revisionToFeatureRevisionDiffInput = (
     prerequisites: r.prerequisites ?? fallback?.prerequisites,
     archived: r.archived ?? fallback?.archived,
     holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
-    metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
+    metadata: withValueType(
+      normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
+      fallback?.metadata?.valueType,
+    ),
     rampActions: r.rampActions ?? undefined,
   };
 };
+
+// Older snapshots carry no `valueType`; read it as unchanged.
+function withValueType(
+  m: RevisionMetadata | undefined,
+  fallbackValueType: RevisionMetadata["valueType"] | undefined,
+): RevisionMetadata | undefined {
+  if (!m || m.valueType !== undefined || fallbackValueType === undefined) {
+    return m;
+  }
+  return { ...m, valueType: fallbackValueType };
+}
 
 export const featureToFeatureRevisionDiffInput = (
   feature: FeatureInterface,
@@ -110,8 +123,8 @@ export const featureToFeatureRevisionDiffInput = (
       neverStale: feature.neverStale,
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
-      // valueType is intentionally excluded: it is immutable after feature creation
-      // and is never written into a revision metadata envelope.
+      // A managed flag re-types through the draft's metadata.
+      valueType: feature.valueType,
     }),
   };
 };
@@ -205,9 +218,12 @@ function fillEnabledByInheritance(
 export function useFeatureRevisionDiff({
   current,
   draft,
+  renderMode = "feature",
 }: {
   current: FeatureRevisionDiffInput;
   draft: FeatureRevisionDiffInput;
+  /** See DiffRenderMode. */
+  renderMode?: DiffRenderMode;
 }): FeatureRevisionDiff[] {
   const orgEnvs = useEnvironments();
   const { holdoutsMap } = useHoldouts();
@@ -311,27 +327,34 @@ export function useFeatureRevisionDiff({
       draft.environmentsEnabled,
       orgEnvs,
     );
-    const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
-    draftEnabledEnvs.forEach((envId) => {
-      const currentVal = inheritedCurrent[envId] ?? false;
-      const draftVal = inheritedDraft[envId] ?? false;
-      if (currentVal !== draftVal) {
-        const direction = draftVal ? "on" : "off";
-        diffs.push({
-          key: `environmentsEnabled.${envId}`,
-          title: `Environment Toggle - ${envId}`,
-          a: String(currentVal),
-          b: String(draftVal),
-          customRender: renderEnvironmentsEnabled(currentVal, draftVal),
-          badges: [
-            {
-              label: `Toggled ${envId} ${direction}`,
-              action: `toggle environment ${envId}`,
-            },
-          ],
-        });
-      }
-    });
+    const toggled = Object.keys(draft.environmentsEnabled || {})
+      .map((envId) => ({
+        envId,
+        from: inheritedCurrent[envId] ?? false,
+        to: inheritedDraft[envId] ?? false,
+      }))
+      .filter(({ from, to }) => from !== to);
+    // One section for every toggle, so twenty environments don't bury the diff.
+    if (toggled.length) {
+      const asMap = (side: "from" | "to") =>
+        Object.fromEntries(toggled.map((t) => [t.envId, t[side]]));
+      // A managed flag is born with every environment off; the first draft is the flag arriving.
+      const arriving =
+        renderMode === "experiment" && !(current.rules ?? []).length;
+      diffs.push({
+        key: "environmentsEnabled",
+        title: toggled.length === 1 ? "Environment" : "Environments",
+        a: JSON.stringify(asMap("from"), null, 2),
+        b: JSON.stringify(asMap("to"), null, 2),
+        customRender: renderEnvironmentToggles(toggled, {
+          endStateOnly: arriving,
+        }),
+        badges: toggled.map(({ envId, to }) => ({
+          label: `Toggled ${envId} ${to ? "on" : "off"}`,
+          action: `toggle environment ${envId}`,
+        })),
+      });
+    }
 
     // 3. Prerequisites (feature-level)
     if (draft.prerequisites !== undefined) {
@@ -371,12 +394,12 @@ export function useFeatureRevisionDiff({
       }
     }
 
-    // 5. Default value
+    // A managed flag's default is its control value, stated by the rule below.
     const currentDefault = current.defaultValue ?? "";
     const draftDefault = draft.defaultValue ?? "";
     const aValue = parseDefaultValue(currentDefault);
     const bValue = parseDefaultValue(draftDefault);
-    if (!isEqual(aValue, bValue)) {
+    if (!isEqual(aValue, bValue) && renderMode !== "experiment") {
       diffs.push({
         key: "defaultValue",
         title: "Default Value",
@@ -401,8 +424,13 @@ export function useFeatureRevisionDiff({
     // footprint is empty (`environments: []`, pending) or universal
     // (`allEnvironments: true`) — all of which were invisible in the old
     // per-env projection layout.
-    const draftRulesArr = Array.isArray(draft.rules) ? draft.rules : [];
-    const currentRulesArr = Array.isArray(current.rules) ? current.rules : [];
+    // Fields the rule type never declared would diff as changes nobody made.
+    const draftRulesArr = (Array.isArray(draft.rules) ? draft.rules : []).map(
+      stripUnknownRuleFields,
+    );
+    const currentRulesArr = (
+      Array.isArray(current.rules) ? current.rules : []
+    ).map(stripUnknownRuleFields);
     const draftRampActions = draft.rampActions ?? undefined;
     // Force the Rules section to render when an unchanged rule has a pending
     // ramp create action queued — without this, a draft whose only change is
@@ -421,7 +449,8 @@ export function useFeatureRevisionDiff({
     ) {
       diffs.push({
         key: "rules",
-        title: "Rules",
+        // The experiment surface already names its one rule.
+        title: renderMode === "experiment" ? "" : "Rules",
         a: JSON.stringify(normalizeFeatureRules(currentRulesArr), null, 2),
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
         customRender: renderFeatureRules(currentRulesArr, draftRulesArr, {
@@ -432,13 +461,14 @@ export function useFeatureRevisionDiff({
           // rules list shows Rule #1, #2, … with no holdout row.
           preHasHoldout: holdoutOccupiesRuleSlot(current.holdout, holdoutsMap),
           postHasHoldout: holdoutOccupiesRuleSlot(draft.holdout, holdoutsMap),
+          renderMode,
         }),
         badges: featureRuleChangeBadges(currentRulesArr, draftRulesArr),
       });
     }
 
     return diffs;
-  }, [current, draft, orgEnvs, holdoutsMap]);
+  }, [current, draft, orgEnvs, holdoutsMap, renderMode]);
 }
 
 /**

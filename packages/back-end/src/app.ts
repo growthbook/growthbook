@@ -98,6 +98,8 @@ const subscriptionController = wrapController(subscriptionControllerRaw);
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
 
+import { blockManagedFeatureWrites } from "./services/managedFeatures";
+
 import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
 const informationSchemasController = wrapController(
   informationSchemasControllerRaw,
@@ -118,6 +120,7 @@ import {
   SoftWarningError,
   SQLExecutionError,
 } from "./util/errors";
+import { PublishBlockedError } from "./revisions/publishGates";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -160,6 +163,7 @@ import {
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
+import { managedFlagRouter } from "./routers/managed-flag/managed-flag.router";
 import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
 import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
@@ -729,6 +733,7 @@ app.use(populationDataRouter);
 
 // Experiments
 app.get("/experiments", experimentsController.getExperiments);
+app.get("/experiments/managed", experimentsController.getManagedExperiments);
 app.post("/experiments", experimentsController.postExperiments);
 app.get(
   "/experiments/frequency/month/:num",
@@ -805,10 +810,6 @@ app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
 app.put(
   "/experiment/:id/variation/:variation/screenshot",
   experimentsController.addScreenshot,
-);
-app.delete(
-  "/experiment/:id/variation/:variation/screenshot",
-  experimentsController.deleteScreenshot,
 );
 app.post(
   "/experiment/:id/archive",
@@ -908,6 +909,9 @@ app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
 // Holdouts
 app.use("/holdout", holdoutRouter);
 
+// Mounted under /experiment, outside the /feature/* lockdown.
+app.use("/experiment/:id/managed-flag", managedFlagRouter);
+
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
@@ -938,6 +942,9 @@ app.use("/revision", revisionRouter);
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
+// Ahead of the route table so feature routes added later are covered too.
+app.all("/feature/:id", blockManagedFeatureWrites);
+app.all("/feature/:id/*", blockManagedFeatureWrites);
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
@@ -999,6 +1006,10 @@ app.delete(
   featuresController.deleteFeatureRevisionLogEntry,
 );
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
+app.post(
+  "/feature/:id/eject-managed",
+  featuresController.postFeatureEjectManaged,
+);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/draft", featuresController.postFeatureCreateDraft);
 app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
@@ -1020,6 +1031,10 @@ app.post(
 app.delete(
   "/experiment/:id/linked-feature/:featureId",
   experimentsController.deleteExperimentLinkedFeature,
+);
+app.post(
+  "/experiment/:id/linked-feature/:featureId/environments",
+  experimentsController.postExperimentLinkedFeatureEnvironments,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
@@ -1351,6 +1366,7 @@ const errorHandler: ErrorRequestHandler = (
     code?: string;
     details?: unknown;
     sql?: string;
+    gates?: unknown;
   } = {
     status: status,
     message: err.message || "An error occurred",
@@ -1369,6 +1385,12 @@ const errorHandler: ErrorRequestHandler = (
   if (err instanceof ApiError) {
     body.code = err.code;
     body.details = err.details;
+  }
+  // Same shape the REST handler gives a blocked publish. Warnings only when
+  // some gate is actually clearable, or the client offers an empty "Save anyway".
+  if (err instanceof PublishBlockedError) {
+    body.gates = err.gates;
+    if (err.warnings.length) body.warnings = err.warnings;
   }
   res.status(status).json(body);
 };

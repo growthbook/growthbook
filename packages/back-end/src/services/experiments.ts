@@ -19,7 +19,11 @@ import {
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
+  getImplementationType,
+  evaluatePublishGovernance,
+  requireFreshBaseForPublish,
   autoMerge,
+  mergeResultHasChanges,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
   findAnalysisComputeFailure,
@@ -31,7 +35,7 @@ import {
   getMatchingRules,
   getRequireRegisteredAttributesSettings,
   getNamespaceRanges,
-  getReviewSetting,
+  isManagedFeature,
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
@@ -131,6 +135,7 @@ import {
   StagedRefDraft,
   Variation,
 } from "shared/types/experiment";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   ExperimentUpdateSchedule,
   Namespaces,
@@ -192,6 +197,11 @@ import {
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import {
+  assessRevisionApprovalForAutoPublish,
+  featureReviewRequired,
+} from "back-end/src/services/experiment-feature";
+import type { RevisionApprovalState } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -3336,6 +3346,7 @@ export async function toExperimentApiInterface(
     attributeScopeAllProjects: experiment.attributeScopeAllProjects || false,
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
+    implementationType: getImplementationType(experiment) ?? null,
     customFields: experiment.customFields ?? {},
     customMetricSlices: experiment.customMetricSlices ?? [],
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
@@ -4614,6 +4625,9 @@ export function postExperimentApiPayloadToInterface(
       "",
     name: payload.name || "",
     type: payload.type || "standard",
+    ...(payload.implementationType
+      ? { implementationType: payload.implementationType }
+      : {}),
     phases,
     tags: payload.tags || [],
     description: payload.description || "",
@@ -4941,6 +4955,7 @@ export function updateExperimentApiPayloadToInterface(
     minBucketVersion,
     name,
     type,
+    implementationType,
     tags,
     description,
     hypothesis,
@@ -4998,6 +5013,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
     ...(name ? { name } : {}),
     ...(type ? { type } : {}),
+    ...(implementationType ? { implementationType } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
@@ -5259,32 +5275,29 @@ export async function getRefLinkedFeatureInfo({
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
 
-      type DraftMatch = {
-        revision: (typeof revisions)[0];
-        matches: MatchingRule[];
-      };
-      const differingDrafts: DraftMatch[] = [];
-      let unchangedDraft: DraftMatch | undefined;
+      // Newest wins.
+      const draftsWithMatches = activeDrafts
+        .map((r) => ({
+          revision: r,
+          matches: getMatchingRules(feature, matchRule, environments, r),
+        }))
+        .filter(({ matches }) => matches.length > 0);
+      const matchedDraftRevision = draftsWithMatches[0]?.revision;
+      const draftMatches: MatchingRule[] = draftsWithMatches[0]?.matches ?? [];
+      const otherDraftCount = Math.max(0, draftsWithMatches.length - 1);
 
-      for (const r of activeDrafts) {
-        const m = getMatchingRules(feature, matchRule, environments, r);
-        if (m.length === 0) continue;
-        const draftRefRules = refRulesForEntity(r.rules);
-        if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
-          differingDrafts.push({ revision: r, matches: m });
-          continue;
-        }
-        // Remember the first draft with matches as a fallback if no draft
-        // actually modifies the rule.
-        if (!unchangedDraft) {
-          unchangedDraft = { revision: r, matches: m };
-        }
-      }
-
-      const primaryDraft = differingDrafts[0] ?? unchangedDraft;
-      const matchedDraftRevision = primaryDraft?.revision;
-      const draftMatches: MatchingRule[] = primaryDraft?.matches ?? [];
-      const draftDiffersFromLive = differingDrafts.length > 0;
+      // A re-type is a change even when values read the same; compared against live.
+      const draftChangesRef = (revision: (typeof revisions)[0]) =>
+        liveRefRules.length > 0 &&
+        ((isManagedFeature(feature) &&
+          revision.metadata?.valueType !== undefined &&
+          revision.metadata.valueType !== feature.valueType) ||
+          !isEqual(refRulesForEntity(revision.rules), liveRefRules));
+      const differingDrafts = draftsWithMatches.filter((d) =>
+        draftChangesRef(d.revision),
+      );
+      const draftDiffersFromLive =
+        !!matchedDraftRevision && draftChangesRef(matchedDraftRevision);
 
       const lockedMatches =
         revisions
@@ -5314,23 +5327,94 @@ export async function getRefLinkedFeatureInfo({
         matches = lockedMatches;
       }
 
+      // `state` stays live-first for existing consumers.
+      const hasPendingDraft =
+        !!matchedDraftRevision &&
+        (draftDiffersFromLive || liveRefRules.length === 0);
+
       // Feature-scope approval check: requires review AND draft not yet approved.
-      let pendingApproval: boolean | undefined;
-      if (state === "draft" && matchedDraftRevision) {
-        const requiresReviews = context.org.settings?.requireReviews;
-        const requireApprovalsLicensed =
-          context.hasPremiumFeature("require-approvals");
-        const reviewSetting = requireApprovalsLicensed
-          ? Array.isArray(requiresReviews)
-            ? getReviewSetting(requiresReviews, feature)
-            : undefined
+      // Also when `state` is "draft": the two can disagree when a live rule is
+      // scoped to a deleted environment.
+      const needsDraftFacts = hasPendingDraft || state === "draft";
+      const reviewRequired =
+        needsDraftFacts && featureReviewRequired(context, feature);
+      // Keyed on `state`: the checklist filters this without a state gate.
+      const pendingApproval =
+        state === "draft" && matchedDraftRevision && reviewRequired
+          ? true
           : undefined;
-        const reviewRequired = requireApprovalsLicensed
-          ? requiresReviews === true ||
-            (!!reviewSetting && reviewSetting.requireReviewOn)
-          : false;
-        if (reviewRequired) {
-          pendingApproval = true;
+
+      let draftHasMergeConflict = false;
+      let draftHasUnrelatedChanges = false;
+      // Not `revision.status`: an approved draft can still be short of a
+      // required team or an environment.
+      let draftApproval: RevisionApprovalState | undefined;
+      // The publish gate's own test.
+      let draftHasChanges = true;
+      let draftRebaseRequired = false;
+      let draftStaleApproval = false;
+      if (needsDraftFacts && matchedDraftRevision) {
+        try {
+          const { live, base } = await getLiveAndBaseRevisionsForFeature({
+            context,
+            feature,
+            revision: matchedDraftRevision,
+          });
+          const filledLive = liveRevisionFromFeature(live, feature);
+          const mergeResult = autoMerge(
+            filledLive,
+            fillRevisionFromFeature(base, feature),
+            matchedDraftRevision,
+            environments,
+            {},
+          );
+          draftHasChanges = mergeResultHasChanges(mergeResult);
+          const governance = evaluatePublishGovernance({
+            revisionStatus: matchedDraftRevision.status,
+            baseVersion: matchedDraftRevision.baseVersion,
+            liveVersion: live.version,
+            mergeSuccess: mergeResult.success,
+            liveChanges: [],
+            approvedBaseVersion:
+              matchedDraftRevision.approvedBaseVersion ?? null,
+            requireRebaseBeforePublish: requireFreshBaseForPublish({
+              feature,
+              reviewRequired,
+              orgSetting: !!context.org.settings?.requireRebaseBeforePublish,
+            }),
+          });
+          draftRebaseRequired =
+            mergeResult.success && governance.rebaseRequired;
+          draftStaleApproval = governance.staleApproval;
+          if (!mergeResult.success) {
+            draftHasMergeConflict = true;
+          } else if (
+            // Guards a shared flag: a managed flag has nothing that isn't the experiment's.
+            !isManagedFeature(feature) &&
+            draftHasChangesOutsideTargetRef(
+              matchedDraftRevision,
+              filledLive,
+              matchRule,
+            )
+          ) {
+            draftHasUnrelatedChanges = true;
+          }
+          // Last: a failure here must not cost the conflict flags above.
+          if (reviewRequired) {
+            draftApproval = await assessRevisionApprovalForAutoPublish(
+              context,
+              feature,
+              matchedDraftRevision,
+              live,
+              base,
+              mergeResult,
+            );
+          }
+        } catch (e) {
+          logger.warn(
+            { featureId: feature.id, err: e },
+            "[getRefLinkedFeatureInfo] draft cleanliness check failed",
+          );
         }
       }
 
@@ -5372,13 +5456,6 @@ export async function getRefLinkedFeatureInfo({
         }
       };
 
-      let hasMergeConflict: boolean | undefined;
-      let hasUnrelatedDraftChanges: boolean | undefined;
-      if (state === "draft" && matchedDraftRevision) {
-        ({ hasMergeConflict, hasUnrelatedDraftChanges } =
-          await checkDraftCleanliness(matchedDraftRevision));
-      }
-
       const refRuleValues = (rule: FeatureRule | undefined) =>
         (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
           ?.variations || [];
@@ -5393,26 +5470,38 @@ export async function getRefLinkedFeatureInfo({
         ),
       );
 
-      const envEnabled = (environmentId: string): boolean =>
-        (state === "draft"
-          ? matchedDraftRevision?.environmentsEnabled?.[environmentId]
-          : undefined) ??
+      // `getMatchingRules` reports live enablement even for a revision, which stages its own.
+      const envEnabledIn = (
+        environmentId: string,
+        revision?: FeatureRevisionInterface,
+      ): boolean =>
+        revision?.environmentsEnabled?.[environmentId] ??
         !!feature.environmentSettings?.[environmentId]?.enabled;
 
-      const environmentStates: Record<string, LinkedFeatureEnvState> = {};
-      environments.forEach((env) => (environmentStates[env] = "missing"));
-      matches.forEach((match) => {
-        if (!envEnabled(match.environmentId)) {
-          environmentStates[match.environmentId] = "disabled-env";
-        } else if (
-          match.rule.enabled === false &&
-          environmentStates[match.environmentId] !== "active"
-        ) {
-          environmentStates[match.environmentId] = "disabled-rule";
-        } else if (match.rule.enabled !== false) {
-          environmentStates[match.environmentId] = "active";
-        }
-      });
+      const buildEnvironmentStates = (
+        from: MatchingRule[],
+        revision?: FeatureRevisionInterface,
+      ) => {
+        const states: Record<string, LinkedFeatureEnvState> = {};
+        environments.forEach((env) => (states[env] = "missing"));
+        from.forEach((match) => {
+          if (!envEnabledIn(match.environmentId, revision)) {
+            states[match.environmentId] = "disabled-env";
+          } else if (
+            match.rule.enabled === false &&
+            states[match.environmentId] !== "active"
+          ) {
+            states[match.environmentId] = "disabled-rule";
+          } else if (match.rule.enabled !== false) {
+            states[match.environmentId] = "active";
+          }
+        });
+        return states;
+      };
+      // Only a draft the feature actually resolved to stages its own enablement.
+      const statesRevision =
+        state === "draft" ? matchedDraftRevision : undefined;
+      const environmentStates = buildEnvironmentStates(matches, statesRevision);
 
       const stagedDrafts: StagedRefDraft[] =
         state === "live"
@@ -5441,7 +5530,7 @@ export async function getRefLinkedFeatureInfo({
         const enabled = new Set<string>();
         matches.forEach((match) => {
           if (
-            envEnabled(match.environmentId) &&
+            envEnabledIn(match.environmentId, statesRevision) &&
             !feature.environmentSettings?.[match.environmentId]?.enabled
           ) {
             enabled.add(match.environmentId);
@@ -5466,19 +5555,63 @@ export async function getRefLinkedFeatureInfo({
         rulesAbove: matches.some((m) => m.i > 0),
         inconsistentValues: uniqueValues.size > 1,
         liveHasMatchingRule: liveMatches.length > 0,
+        ...(liveMatches.length > 0 && {
+          liveValues: refRuleValues(liveMatches[0]?.rule),
+          liveSparse: !!(liveMatches[0]?.rule as ExperimentRefRule)?.sparse,
+          liveAllEnvironments: !!(liveMatches[0]?.rule as ExperimentRefRule)
+            ?.allEnvironments,
+          liveEnvironmentStates: buildEnvironmentStates(liveMatches),
+        }),
+        ...(hasPendingDraft &&
+          matchedDraftRevision && {
+            pendingDraft: {
+              version: matchedDraftRevision.version,
+              status: matchedDraftRevision.status,
+              values: refRuleValues(draftMatches[0]?.rule),
+              sparse: !!(draftMatches[0]?.rule as ExperimentRefRule)?.sparse,
+              allEnvironments: !!(draftMatches[0]?.rule as ExperimentRefRule)
+                ?.allEnvironments,
+              title: matchedDraftRevision.title,
+              otherDraftCount,
+              pendingApproval: reviewRequired,
+              // A re-typed draft restates the default.
+              valueType:
+                matchedDraftRevision.metadata?.valueType ?? feature.valueType,
+              defaultValue: matchedDraftRevision.defaultValue,
+              ...(draftApproval && {
+                approval: {
+                  satisfied: draftApproval.satisfied,
+                  footprint: draftApproval.footprint,
+                  unmetTeams: draftApproval.requiredApproverTeams.unmet,
+                  insufficientApprovers: draftApproval.insufficientApprovers,
+                },
+              }),
+              hasChanges: draftHasChanges,
+              hasMergeConflict: draftHasMergeConflict,
+              hasUnrelatedDraftChanges: draftHasUnrelatedChanges,
+              rebaseRequired: draftRebaseRequired,
+              staleApproval: draftStaleApproval,
+              // From the draft's matches: where the unpublished edit would run.
+              environmentStates: buildEnvironmentStates(
+                draftMatches,
+                matchedDraftRevision,
+              ),
+            },
+          }),
         ...(pendingApproval !== undefined && { pendingApproval }),
         ...(matchedDraftRevision &&
           state === "draft" && {
             draftRevisionVersion: matchedDraftRevision.version,
             draftRevisionStatus: matchedDraftRevision.status,
+            ...(draftApproval && {
+              draftApprovalSatisfied: draftApproval.satisfied,
+            }),
           }),
-        // `state` is "live" whenever the live revision has the rule, even if a
-        // draft is changing it, so report that draft separately.
+        ...(state === "draft" &&
+          draftHasMergeConflict && { hasMergeConflict: true }),
+        ...(state === "draft" &&
+          draftHasUnrelatedChanges && { hasUnrelatedDraftChanges: true }),
         ...(stagedDrafts.length > 0 && { stagedDrafts }),
-        ...(hasMergeConflict !== undefined && { hasMergeConflict }),
-        ...(hasUnrelatedDraftChanges !== undefined && {
-          hasUnrelatedDraftChanges,
-        }),
         ...(environmentsToEnable !== undefined && { environmentsToEnable }),
       };
 
@@ -5490,7 +5623,7 @@ export async function getRefLinkedFeatureInfo({
 }
 
 export async function getLinkedFeatureInfo(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) {
   return getRefLinkedFeatureInfo({

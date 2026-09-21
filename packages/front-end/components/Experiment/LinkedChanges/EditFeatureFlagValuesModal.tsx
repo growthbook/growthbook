@@ -58,7 +58,11 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
-import { getDefaultValue, getDefaultVariationValue } from "@/services/features";
+import {
+  formatJSON,
+  getDefaultValue,
+  getDefaultVariationValue,
+} from "@/services/features";
 import Button from "@/ui/Button";
 import track from "@/services/track";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
@@ -68,6 +72,8 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatureInfo: LinkedFeatureInfo;
   numLinkedChanges: number;
+  /** Variation whose value field should take focus on open. */
+  focusVariationId?: string | null;
   close: () => void;
   mutate: () => void;
 }
@@ -88,6 +94,11 @@ type VariationRow = {
 };
 
 type FormValues = { variations: VariationRow[] };
+
+/** Upper bound on waiting for the dynamically-imported value editor to mount. */
+const FOCUS_WAIT_MS = 2000;
+/** Timers, not rAF: rAF is suspended while the tab is in the background. */
+const FOCUS_POLL_MS = 50;
 
 function SplitField({
   index,
@@ -146,6 +157,7 @@ export default function EditFeatureFlagValuesModal({
   feature,
   experiment,
   linkedFeatureInfo,
+  focusVariationId,
   numLinkedChanges,
   close,
   mutate,
@@ -175,8 +187,16 @@ export default function EditFeatureFlagValuesModal({
     if (linkedFeatureInfo.draftRevisionVersion != null) {
       set.add(linkedFeatureInfo.draftRevisionVersion);
     }
+    if (linkedFeatureInfo.pendingDraft) {
+      set.add(linkedFeatureInfo.pendingDraft.version);
+    }
     return set;
-  }, [data?.revisions, experiment.id, linkedFeatureInfo.draftRevisionVersion]);
+  }, [
+    data?.revisions,
+    experiment.id,
+    linkedFeatureInfo.draftRevisionVersion,
+    linkedFeatureInfo.pendingDraft,
+  ]);
 
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
 
@@ -185,27 +205,34 @@ export default function EditFeatureFlagValuesModal({
     [experiment],
   );
 
+  // The type the draft lands as, so values render in the right editor.
+  const valueType =
+    linkedFeatureInfo.pendingDraft?.valueType ?? feature.valueType;
+  const draftDefaultValue =
+    linkedFeatureInfo.pendingDraft?.defaultValue ?? feature.defaultValue;
   const initialVariations = useMemo<VariationRow[]>(
     () =>
-      phaseVariations.map((v, i) => ({
-        id: v.id,
-        name: v.name,
-        description: v.description,
-        key: v.key,
-        screenshots: v.screenshots,
-        weight: latestPhase?.variationWeights?.[i] ?? 0,
-        // A variation with no value on the linked rule (e.g. added to the
-        // experiment after the rule, or no matching rule at all) must still
-        // seed a valid value for the feature's type — "" is not one.
-        value:
+      phaseVariations.map((v, i) => {
+        // A variation with no value on the rule still needs one valid for the type.
+        const stored =
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
-          getDefaultValue(feature.valueType),
-      })),
+          getDefaultValue(valueType);
+        return {
+          id: v.id,
+          name: v.name,
+          description: v.description,
+          key: v.key,
+          screenshots: v.screenshots,
+          weight: latestPhase?.variationWeights?.[i] ?? 0,
+          // A value stored compact opens expanded in the multiline editor.
+          value: valueType === "json" ? (formatJSON(stored) ?? stored) : stored,
+        };
+      }),
     [
       phaseVariations,
       latestPhase?.variationWeights,
       linkedFeatureInfo.values,
-      feature.valueType,
+      valueType,
     ],
   );
 
@@ -241,15 +268,51 @@ export default function EditFeatureFlagValuesModal({
     linkedFeatureInfo.liveHasMatchingRule === false &&
     linkedFeatureInfo.draftRevisionVersion != null;
 
+  const targetDraftVersion = linkedFeatureInfo.draftRevisionVersion ?? null;
+
   const initialMode: DraftMode =
-    linkedFeatureInfo.draftRevisionVersion != null ? "existing" : "new";
-  const initialSelectedDraft = linkedFeatureInfo.draftRevisionVersion ?? null;
+    targetDraftVersion != null ? "existing" : "new";
+  const initialSelectedDraft = targetDraftVersion;
 
   const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     initialSelectedDraft,
   );
   const [isEditingVariations, setIsEditingVariations] = useState(false);
+
+  // The field mounts behind two async boundaries, so poll for it.
+  useEffect(() => {
+    if (!focusVariationId || !data) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const giveUpAt = Date.now() + FOCUS_WAIT_MS;
+    const tryFocus = () => {
+      const row = document.getElementById(
+        `variation-value-${focusVariationId}`,
+      );
+      const field = row?.querySelector<HTMLElement>(
+        "textarea, input:not([type='hidden']), [contenteditable='true']",
+      );
+      if (field) {
+        if (document.activeElement === field) return;
+        // Radix re-targets focus while mounting, so re-apply until it holds.
+        const active = document.activeElement as HTMLElement | null;
+        const dialog = row?.closest("[role='dialog']");
+        const userMovedFocus =
+          !!active &&
+          !!dialog?.contains(active) &&
+          active.matches(
+            "input, textarea, select, button, a[href], [contenteditable='true']",
+          );
+        if (!userMovedFocus) {
+          row?.scrollIntoView({ block: "center" });
+          field.focus();
+        }
+      }
+      if (Date.now() < giveUpAt) timer = setTimeout(tryFocus, FOCUS_POLL_MS);
+    };
+    tryFocus();
+    return () => clearTimeout(timer);
+  }, [focusVariationId, data, fields.length]);
 
   // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
   // and the dropdown can't render revision labels. Re-apply the
@@ -268,7 +331,7 @@ export default function EditFeatureFlagValuesModal({
       track("Edit Feature Flag Values: Draft Mode Change", {
         fromMode: mode,
         toMode: newMode,
-        valueType: feature.valueType,
+        valueType,
         eligibleDraftCount: eligibleDraftVersions.size,
       });
     }
@@ -279,7 +342,7 @@ export default function EditFeatureFlagValuesModal({
     if (v !== selectedDraft) {
       track("Edit Feature Flag Values: Selected Draft Revision Change", {
         changedFromInitial: v !== initialSelectedDraft,
-        valueType: feature.valueType,
+        valueType,
         eligibleDraftCount: eligibleDraftVersions.size,
       });
     }
@@ -291,8 +354,8 @@ export default function EditFeatureFlagValuesModal({
   // variation value (strip keys equal to the default ⇄ expand onto the default)
   // and the new flag is persisted alongside the values on save.
   const sparseEligible =
-    feature.valueType === "json" &&
-    parsePlainJSONObject(feature.defaultValue ?? "") !== null;
+    valueType === "json" &&
+    parsePlainJSONObject(draftDefaultValue ?? "") !== null;
   // Config-backed JSON flags always merge object arm values onto the resolved
   // config, so they're inherently sparse patches that serve the default's
   // config: default the toggle on (even for rules created via the v2 REST API
@@ -392,7 +455,7 @@ export default function EditFeatureFlagValuesModal({
       key: "",
       screenshots: [],
       weight: 0,
-      value: getDefaultVariationValue(feature.defaultValue ?? ""),
+      value: getDefaultVariationValue(draftDefaultValue ?? ""),
     });
 
     const newLength = currentWeights.length + 1;
@@ -438,7 +501,7 @@ export default function EditFeatureFlagValuesModal({
           (r, i) => ({
             variationId: r.id,
             value: validateFeatureValue(
-              feature,
+              { valueType, jsonSchema: feature.jsonSchema },
               r.value ?? "",
               r.name || `Variation ${i + 1}`,
             ),
@@ -499,7 +562,7 @@ export default function EditFeatureFlagValuesModal({
 
         track("Edit Feature Flag Values: Save", {
           draftMode: mode,
-          valueType: feature.valueType,
+          valueType,
           numVariations: rows.length,
           hasNewVariations: rows.some((r) => !existingVariationIds.has(r.id)),
           eligibleDraftCount: eligibleDraftVersions.size,
@@ -511,6 +574,10 @@ export default function EditFeatureFlagValuesModal({
       cta="Save to draft"
       close={close}
       open={true}
+      // This modal places focus itself; Radix would take the close button.
+      onOpenAutoFocus={(e) => {
+        if (focusVariationId) e.preventDefault();
+      }}
       size={"lg"}
     >
       {error ? (
@@ -532,7 +599,7 @@ export default function EditFeatureFlagValuesModal({
                     // Rewrite every variation value so the editor isn't left
                     // with a default-laden patch (on) or a bare patch shown as
                     // the full value (off).
-                    const def = feature.defaultValue ?? "";
+                    const def = draftDefaultValue ?? "";
                     (form.getValues("variations") || []).forEach((v, i) => {
                       form.setValue(
                         `variations.${i}.value`,
@@ -604,7 +671,7 @@ export default function EditFeatureFlagValuesModal({
                             setValue={(val) =>
                               form.setValue(`variations.${i}.value`, val)
                             }
-                            valueType={feature.valueType}
+                            valueType={valueType}
                             feature={feature}
                             renderJSONInline={true}
                             useCodeInput={true}
@@ -700,7 +767,7 @@ export default function EditFeatureFlagValuesModal({
                           track(
                             "Edit Feature Flag Values: Enter Edit Variation Mode",
                             {
-                              valueType: feature.valueType,
+                              valueType,
                             },
                           );
                           setIsEditingVariations(true);
@@ -726,23 +793,25 @@ export default function EditFeatureFlagValuesModal({
                       </DropdownMenuItem>
                     </DropdownMenu>
                   </Flex>
-                  <FeatureValueField
-                    id={`variation-${row.id}`}
-                    value={row.value ?? ""}
-                    setValue={(val) =>
-                      form.setValue(`variations.${i}.value`, val)
-                    }
-                    valueType={feature.valueType}
-                    feature={feature}
-                    renderJSONInline={true}
-                    useCodeInput={true}
-                    showFullscreenButton={true}
-                    sparse={sparse}
-                    allowConfigBacking={isConfigBacked}
-                    configBackingOptionKeys={configBackingOptionKeys}
-                    configBackingShowPatch={isConfigBacked}
-                    lockConfigBacking={isConfigBacked}
-                  />
+                  <Box id={`variation-value-${row.id}`}>
+                    <FeatureValueField
+                      id={`variation-${row.id}`}
+                      value={row.value ?? ""}
+                      setValue={(val) =>
+                        form.setValue(`variations.${i}.value`, val)
+                      }
+                      valueType={valueType}
+                      feature={feature}
+                      renderJSONInline={true}
+                      useCodeInput={true}
+                      showFullscreenButton={true}
+                      sparse={sparse}
+                      allowConfigBacking={isConfigBacked}
+                      configBackingOptionKeys={configBackingOptionKeys}
+                      configBackingShowPatch={isConfigBacked}
+                      lockConfigBacking={isConfigBacked}
+                    />
+                  </Box>
                   {isNewVariation && numLinkedChanges > 1 && (
                     <Callout status="warning" mt="2">
                       <Text weight="semibold">Don&apos;t forget!</Text> Define

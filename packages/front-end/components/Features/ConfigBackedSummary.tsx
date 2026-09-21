@@ -30,14 +30,16 @@ function ServeConfigHeader({
   configKey,
   name,
   suffix,
+  label = "SERVE",
 }: {
   configKey: string;
   name: string;
   suffix?: string;
+  label?: string | null;
 }) {
   return (
     <Flex direction="row" gap="4" align="center">
-      <Text weight="medium">SERVE</Text>
+      {label !== null && <Text weight="medium">{label}</Text>}
       <Flex as="span" align="center" gap="1">
         <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
           {name}
@@ -87,9 +89,11 @@ export default function ConfigBackedSummary({
   sparse = false,
   isDefault = false,
   environment,
+  label = "SERVE",
 }: {
   value: string;
   configKey: string;
+  label?: string | null;
   feature: FeatureInterface;
   maxHeight?: number;
   sparse?: boolean;
@@ -284,6 +288,7 @@ export default function ConfigBackedSummary({
   return (
     <>
       <ServeConfigHeader
+        label={label}
         configKey={configKey}
         name={config?.name ?? configKey}
         suffix={

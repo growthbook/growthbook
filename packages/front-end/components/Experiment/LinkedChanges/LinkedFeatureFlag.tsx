@@ -2,7 +2,6 @@ import { useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
-  LinkedFeatureEnvState,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -10,7 +9,9 @@ import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
-import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import EnvironmentStatesGrid, {
+  getEnvironmentStates,
+} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import EditFeatureFlagValuesModal from "@/components/Experiment/LinkedChanges/EditFeatureFlagValuesModal";
 import {
   revisionStatusColor,
@@ -29,33 +30,9 @@ type Props = {
   numLinkedChanges: number;
   onReAdd?: () => void;
   mutate?: () => void;
+  /** The variation cards are already showing these values. */
+  valuesShownOnVariations?: boolean;
 };
-
-function getEnvironmentStateTooltip(
-  state: LinkedFeatureEnvState,
-  experimentStarted: boolean,
-): string {
-  switch (state) {
-    case "active":
-      return experimentStarted
-        ? "The experiment is active in this environment"
-        : "The experiment will be active in this environment once started";
-    case "disabled-env":
-      return experimentStarted
-        ? "The environment is disabled for this feature, so the experiment is not active"
-        : "The environment is disabled for this feature, so the experiment will not be active once started";
-    case "disabled-rule":
-      return experimentStarted
-        ? "The experiment is disabled in this environment and is not active"
-        : "The experiment is disabled in this environment and will not be active once started";
-    case "missing":
-      return "The experiment is not present in this environment";
-    default: {
-      const _exhaustiveCheck: never = state;
-      return _exhaustiveCheck;
-    }
-  }
-}
 
 export default function LinkedFeatureFlag({
   info,
@@ -63,6 +40,7 @@ export default function LinkedFeatureFlag({
   numLinkedChanges,
   onReAdd,
   mutate,
+  valuesShownOnVariations,
 }: Props) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -132,14 +110,15 @@ export default function LinkedFeatureFlag({
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
 
-  const environmentStates = Object.entries(info.environmentStates || {}).map(
-    ([env, state]) => ({
-      env,
-      state,
-      isActive: state === "active",
-      tooltip: getEnvironmentStateTooltip(state, experiment.status !== "draft"),
-    }),
-  );
+  const environmentStates = getEnvironmentStates(info, {
+    future: experiment.status === "draft" ? "started" : false,
+  });
+
+  // With values on the variation cards, this only earns space for a warning.
+  const hasValueWarnings =
+    (info.state === "live" || info.state === "draft") &&
+    (info.inconsistentValues || info.rulesAbove);
+  const showValueSection = !valuesShownOnVariations || hasValueWarnings;
 
   const showEditButton =
     canEditFeatureDraft &&
@@ -306,50 +285,53 @@ export default function LinkedFeatureFlag({
           )}
         {info.state !== "discarded" && info.state !== "archived" && (
           <Box className="appbox" style={{ backgroundColor: "transparent" }}>
-            <Flex width="100%" gap="4" py="4" px="5" direction="column">
-              <Box flexGrow="1">
-                <LinkedChangeVariationRows
-                  alignContent={
-                    info.feature.valueType === "json" ? "start" : "center"
-                  }
-                  experiment={experiment}
-                  renderContent={(j) =>
-                    !configuredVariationIds.has(variations[j].id) ? (
-                      <HelperText status="warning">
-                        Define missing values
-                      </HelperText>
-                    ) : (
-                      <ForceSummary
-                        value={orderedValues[j]}
-                        feature={info.feature}
-                        sparse={info.sparse}
-                        maxHeight={60}
-                      />
-                    )
-                  }
-                />
-              </Box>
+            {showValueSection && (
+              <Flex width="100%" gap="4" py="4" px="5" direction="column">
+                <Box flexGrow="1">
+                  <LinkedChangeVariationRows
+                    alignContent={
+                      info.feature.valueType === "json" ? "start" : "center"
+                    }
+                    experiment={experiment}
+                    renderContent={(j) =>
+                      !configuredVariationIds.has(variations[j].id) ? (
+                        <HelperText status="warning">
+                          Define missing values
+                        </HelperText>
+                      ) : (
+                        <ForceSummary
+                          value={orderedValues[j]}
+                          feature={info.feature}
+                          sparse={info.sparse}
+                          maxHeight={60}
+                        />
+                      )
+                    }
+                  />
+                </Box>
 
-              {(info.state === "live" || info.state === "draft") && (
-                <>
-                  {info.inconsistentValues && (
-                    <Callout status="warning">
-                      <strong>Warning:</strong> This experiment is included
-                      multiple times with different values. The values above are
-                      from the first matching experiment in{" "}
-                      <strong>{info.valuesFrom}</strong>.
-                    </Callout>
-                  )}
+                {(info.state === "live" || info.state === "draft") && (
+                  <>
+                    {info.inconsistentValues && (
+                      <Callout status="warning">
+                        <strong>Warning:</strong> This experiment is included
+                        multiple times with different values. The values above
+                        are from the first matching experiment in{" "}
+                        <strong>{info.valuesFrom}</strong>.
+                      </Callout>
+                    )}
 
-                  {info.rulesAbove && (
-                    <Callout status="info">
-                      <strong>Notice:</strong> There are Feature Flag rules
-                      above this experiment so some users might not be included.
-                    </Callout>
-                  )}
-                </>
-              )}
-            </Flex>
+                    {info.rulesAbove && (
+                      <Callout status="info">
+                        <strong>Notice:</strong> There are Feature Flag rules
+                        above this experiment so some users might not be
+                        included.
+                      </Callout>
+                    )}
+                  </>
+                )}
+              </Flex>
+            )}
 
             {info.state !== "locked" && (
               <>

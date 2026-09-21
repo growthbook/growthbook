@@ -1,3 +1,4 @@
+import { Box } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -158,9 +159,17 @@ function EditTrafficForm({
       submit={submit}
       size="lg"
     >
-      <div className="pt-2">
+      <Box pt="2">
         <FeatureVariationsInput
           label={null}
+          // The default copy is written for a feature rule. Here the traffic
+          // belongs to the experiment, and excluded users fall past its rules
+          // to whatever the flag serves next.
+          coverageTooltip={
+            experiment.linkedFeatures?.length
+              ? "Users not included in this experiment will flow through to subsequent feature flag rules"
+              : undefined
+          }
           valueAsId={isBandit}
           hideSplits={isBandit}
           coverage={form.watch("coverage")}
@@ -202,7 +211,7 @@ function EditTrafficForm({
           autoFocusVariationId={focusVariationId}
           autoAddVariationOnMount={addVariationOnOpen}
         />
-      </div>
+      </Box>
     </ModalStandard>
   );
 }

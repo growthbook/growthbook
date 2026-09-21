@@ -5,6 +5,8 @@ import {
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
+import { ImplementationType } from "shared/validators";
+import { getImplementationType } from "shared/util";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -13,6 +15,12 @@ import Text from "@/ui/Text";
 import Avatar from "@/ui/Avatar";
 import Button from "@/ui/Button";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
+
+const KIND_FOR_TYPE: Partial<Record<ImplementationType, LinkedChange>> = {
+  feature: "feature-flag",
+  visual: "visual-editor",
+  urlredirect: "redirects",
+};
 
 export const LINKED_CHANGES: Record<
   LinkedChange,
@@ -150,10 +158,13 @@ export default function AddLinkedChanges({
   setFeatureModal,
   setVisualEditorModal,
   setUrlRedirectModal,
+  onChooseType,
 }: {
   experiment: ExperimentInterfaceStringDates;
   numLinkedChanges: number;
   hasLinkedFeatures?: boolean;
+  /** Opens the type chooser; absent when the type is locked. */
+  onChooseType?: () => void;
   setVisualEditorModal: (state: boolean) => unknown;
   setFeatureModal: (state: boolean) => unknown;
   setUrlRedirectModal: (state: boolean) => unknown;
@@ -163,6 +174,30 @@ export default function AddLinkedChanges({
   if (experiment.archived) return null;
   // Already has linked changes
   if (numLinkedChanges && numLinkedChanges > 0) return null;
+
+  const implementationType = getImplementationType(experiment);
+  // Values are wired up from the traffic card, not from here.
+  if (implementationType === "values") return null;
+  if (!implementationType || implementationType === "none") {
+    return (
+      <Box className="appbox mb-0" p="4" mt="2" mb="0">
+        <Flex justify="between" align="center" gap="4">
+          <Text color="text-mid">
+            {implementationType === "none"
+              ? "This experiment is analysis only."
+              : "Choose how this experiment delivers its variations."}
+          </Text>
+          {onChooseType && (
+            <Button variant="outline" onClick={onChooseType}>
+              {implementationType === "none"
+                ? "Change implementation type"
+                : "Select implementation type"}
+            </Button>
+          )}
+        </Flex>
+      </Box>
+    );
+  }
 
   const sections = {
     "feature-flag": {
@@ -179,7 +214,10 @@ export default function AddLinkedChanges({
     },
   };
 
-  const possibleSections = Object.keys(sections);
+  const onlyKind = KIND_FOR_TYPE[implementationType];
+  const possibleSections = Object.keys(sections).filter(
+    (s) => !onlyKind || s === onlyKind,
+  );
 
   return (
     <Box className="appbox mb-0" p="4" mt="2" mb="0">

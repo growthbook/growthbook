@@ -97,6 +97,7 @@ export default function ApprovalStatusBand({
   recallDisabled,
   onRecallReview,
   coverageMessage,
+  subtle,
 }: {
   // draft: review will be required; waiting: review requested, viewer can't
   // review; gated: approved but a publish gate (teams/coverage) is unmet.
@@ -112,6 +113,8 @@ export default function ApprovalStatusBand({
   recallDisabled?: boolean;
   onRecallReview?: () => Promise<void> | void;
   coverageMessage?: string | null;
+  // Passed through to NoticeBanner; see its own note.
+  subtle?: boolean;
 }) {
   const [recalling, setRecalling] = useState(false);
 
@@ -146,6 +149,7 @@ export default function ApprovalStatusBand({
   if (phase === "gated") {
     return (
       <NoticeBanner
+        subtle={subtle}
         icon={<PiWarningBold />}
         iconColor="amber"
         title="Publishing is blocked"
@@ -167,6 +171,7 @@ export default function ApprovalStatusBand({
   return (
     <>
       <NoticeBanner
+        subtle={subtle}
         icon={<PiSpinnerGap />}
         iconColor="amber"
         title="Waiting for a reviewer"
