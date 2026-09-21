@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
 import { PiChatCircleFill } from "react-icons/pi";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import Button from "@/ui/Button";
+import { Popover } from "@/ui/Popover";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { GBPremiumBadge } from "@/components/Icons";
@@ -110,116 +111,107 @@ export default function InAppHelp() {
         />
       )}
 
-      {showFreeHelpWidget && (
-        <Box
-          style={{
-            position: "fixed",
-            right: "15px",
-            // Above the launcher, which sits 15px off the bottom.
-            bottom: "80px",
-            width: "300px",
-            zIndex: 10,
-            background: "var(--color-panel-solid)",
-            border: "1px solid var(--gray-a5)",
-            borderRadius: "var(--radius-4)",
-            boxShadow: "var(--shadow-4)",
-            overflow: "hidden",
-          }}
-        >
-          <Flex
-            align="center"
-            gap="2"
-            px="4"
-            py="3"
-            // The heading takes its colour from here: on the violet bar it is
-            // white, and `Heading` styles its own only for the text scales.
-            style={{ background: "var(--violet-9)", color: "white" }}
+      <Popover
+        open={showFreeHelpWidget}
+        onOpenChange={setShowFreeHelpWidget}
+        triggerAsChild
+        side="top"
+        align="end"
+        showArrow={false}
+        contentStyle={{ padding: 0, width: 300, overflow: "hidden" }}
+        trigger={
+          <button
+            ref={launcher}
+            type="button"
+            className={
+              showFreeHelpWidget ? styles.closeLauncher : styles.chatLauncher
+            }
+            style={{ width: LAUNCHER_SIZE_PX, height: LAUNCHER_SIZE_PX }}
+            aria-label={showFreeHelpWidget ? "Close help" : "Help"}
           >
-            <img
-              alt="GrowthBook"
-              src="/logo/growth-book-logomark-white.svg"
-              style={{ height: 22 }}
-            />
-            <Heading as="h4" size="sm" mb="0">
-              How can we help?
-            </Heading>
-          </Flex>
-          <Flex direction="column" gap="3" p="4">
-            <Text weight="medium" color="text-high">
-              Have a question?
-            </Text>
-            <Button
-              icon={<FaArrowRight />}
-              iconPosition="right"
-              onClick={() =>
-                window.open(
-                  "https://slack.growthbook.io/?ref=app-top-nav",
-                  "_blank",
-                  "noopener",
-                )
-              }
-            >
-              Join the Slack community
-            </Button>
-            <Button
-              variant="outline"
-              icon={<FaArrowRight />}
-              iconPosition="right"
-              onClick={() =>
-                window.open("https://docs.growthbook.io/", "_blank", "noopener")
-              }
-            >
-              View docs
-            </Button>
-            {showUpgradeModal && (
-              <>
-                <Separator size="4" />
-                <Text weight="medium" color="text-high">
-                  Upgrade to unlock live chat support and premium features.
-                </Text>
-                <Button
-                  variant="soft"
-                  icon={<GBPremiumBadge />}
-                  iconPosition="right"
-                  onClick={() => setUpgradeModal(true)}
-                >
-                  Upgrade now
-                </Button>
-              </>
+            {showFreeHelpWidget ? (
+              <span className={styles.closeCircle}>
+                <BsXLg size={18} />
+              </span>
+            ) : (
+              <span className={styles.chatMark}>
+                <PiChatCircleFill size={LAUNCHER_SIZE_PX} />
+                <BsQuestionLg className={styles.chatMarkGlyph} size={20} />
+              </span>
             )}
-          </Flex>
-        </Box>
-      )}
-      {showFreeHelpWidget ? (
-        <button
-          ref={launcher}
-          type="button"
-          className={styles.closeLauncher}
-          style={{ width: LAUNCHER_SIZE_PX, height: LAUNCHER_SIZE_PX }}
-          aria-label="Close help"
-          aria-expanded
-          onClick={() => setShowFreeHelpWidget(false)}
-        >
-          <span className={styles.closeCircle}>
-            <BsXLg size={18} />
-          </span>
-        </button>
-      ) : (
-        <button
-          ref={launcher}
-          type="button"
-          className={styles.chatLauncher}
-          style={{ width: LAUNCHER_SIZE_PX, height: LAUNCHER_SIZE_PX }}
-          aria-label="Help"
-          aria-expanded={false}
-          onClick={() => setShowFreeHelpWidget(true)}
-        >
-          <span className={styles.chatMark}>
-            <PiChatCircleFill size={LAUNCHER_SIZE_PX} />
-            <BsQuestionLg className={styles.chatMarkGlyph} size={20} />
-          </span>
-        </button>
-      )}
+          </button>
+        }
+        content={
+          <>
+            <Flex
+              align="center"
+              gap="2"
+              px="4"
+              py="3"
+              // The heading takes its colour from here: on the violet bar it is
+              // white, and `Heading` styles its own only for the text scales.
+              style={{ background: "var(--violet-9)", color: "white" }}
+            >
+              <img
+                alt="GrowthBook"
+                src="/logo/growth-book-logomark-white.svg"
+                style={{ height: 22 }}
+              />
+              <Heading as="h4" size="sm" mb="0">
+                How can we help?
+              </Heading>
+            </Flex>
+            <Flex direction="column" gap="3" p="4">
+              <Text weight="medium" color="text-high">
+                Have a question?
+              </Text>
+              <Button
+                icon={<FaArrowRight />}
+                iconPosition="right"
+                onClick={() =>
+                  window.open(
+                    "https://slack.growthbook.io/?ref=app-top-nav",
+                    "_blank",
+                    "noopener",
+                  )
+                }
+              >
+                Join the Slack community
+              </Button>
+              <Button
+                variant="outline"
+                icon={<FaArrowRight />}
+                iconPosition="right"
+                onClick={() =>
+                  window.open(
+                    "https://docs.growthbook.io/",
+                    "_blank",
+                    "noopener",
+                  )
+                }
+              >
+                View docs
+              </Button>
+              {showUpgradeModal && (
+                <>
+                  <Separator size="4" />
+                  <Text weight="medium" color="text-high">
+                    Upgrade to unlock live chat support and premium features.
+                  </Text>
+                  <Button
+                    variant="soft"
+                    icon={<GBPremiumBadge />}
+                    iconPosition="right"
+                    onClick={() => setUpgradeModal(true)}
+                  >
+                    Upgrade now
+                  </Button>
+                </>
+              )}
+            </Flex>
+          </>
+        }
+      />
     </>
   );
 }
