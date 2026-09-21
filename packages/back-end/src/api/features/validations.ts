@@ -253,7 +253,8 @@ type RampPlanInput = {
 };
 
 // What a partial update leaves stored: omitted startActions, steps or
-// endActions keep the stored ones; a `startState` replaces any start actions.
+// endActions keep the stored ones (a template's end patch applies only on
+// create); a `startState` replaces any start actions.
 export function mergedRampPlan<P extends RampPlanInput>(
   update: P,
   stored: RampPlanInput | null | undefined,
@@ -266,6 +267,7 @@ export function mergedRampPlan<P extends RampPlanInput>(
         : (update.startActions ?? stored?.startActions),
     steps: update.steps ?? stored?.steps,
     endActions: update.endActions ?? stored?.endActions,
+    endPatch: stored ? undefined : update.endPatch,
   };
 }
 

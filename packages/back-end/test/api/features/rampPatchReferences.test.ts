@@ -336,6 +336,35 @@ describe("ramp schedule patch references", () => {
       expect(endOnly.body.message).toMatch(NO_HASH);
       expect(endOnly.status).toBe(400);
       expect(await draftRampActions()).toEqual([]);
+      // On an existing schedule the template's end action is not applied, so
+      // it is not judged either.
+      const created = await auth(
+        request(app)
+          .post("/api/v1/ramp-schedules")
+          .send({
+            name: "existing",
+            featureId: FLAG,
+            ruleId: FORCE_RULE.id,
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            steps: [step({ coverage: 0.5 })],
+          }),
+      );
+      expect(created.status).toBe(200);
+      await mongoose.connection
+        .collection("rampschedules")
+        .updateOne(
+          { id: created.body.rampSchedule.id },
+          { $unset: { "startActions.0.patch.hashAttribute": "" } },
+        );
+      const update = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({ templateId: "rst_half", steps: [step({ coverage: 1 })] }),
+      );
+      expect(update.body.message).toBeUndefined();
+      expect(update.status).toBe(200);
     });
 
     it("does not count start actions a startState replaces", async () => {
