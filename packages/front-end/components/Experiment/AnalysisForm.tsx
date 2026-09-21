@@ -71,6 +71,17 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
+  /**
+   * Hands the changes over instead of writing them, for a page that holds its
+   * own draft and writes everything together.
+   */
+  stageChanges?: (
+    changes: Partial<ExperimentInterfaceStringDates> & {
+      phaseStartDate: string;
+      phaseEndDate?: string;
+      currentPhase?: number;
+    },
+  ) => void;
 }> = ({
   experiment,
   envs,
@@ -81,6 +92,7 @@ const AnalysisForm: FC<{
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
+  stageChanges,
 }) => {
   const {
     segments,
@@ -501,6 +513,11 @@ const AnalysisForm: FC<{
               "Enter a conversion window override or disable the conversion window override",
             );
           }
+        }
+
+        if (stageChanges) {
+          stageChanges(body);
+          return;
         }
 
         await apiCall(`/experiment/${experiment.id}`, {

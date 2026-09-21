@@ -70,6 +70,11 @@ export default function AnalysisPlan({
   const started = experiment.status !== "draft";
   const [unlocked, setUnlocked] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // What the settings modal handed over, waiting on the page's save bar with
+  // everything else. The fields this section shows are held in their own state
+  // so the page keeps reading as one draft.
+  const [advanced, setAdvanced] =
+    useState<Partial<ExperimentInterfaceStringDates> | null>(null);
   const editable = canEdit && (!started || unlocked);
 
   const suggestedDatasource = useMemo(
@@ -103,7 +108,8 @@ export default function AnalysisPlan({
 
   const dirty =
     touched &&
-    (datasource !== (experiment.datasource || "") ||
+    (advanced !== null ||
+      datasource !== (experiment.datasource || "") ||
       exposureQueryId !== (experiment.exposureQueryId || "") ||
       !isEqual(goalMetrics, experiment.goalMetrics || []) ||
       !isEqual(secondaryMetrics, experiment.secondaryMetrics || []) ||
@@ -116,6 +122,7 @@ export default function AnalysisPlan({
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({
+            ...advanced,
             datasource,
             exposureQueryId,
             goalMetrics,
@@ -124,6 +131,7 @@ export default function AnalysisPlan({
           }),
         });
         setTouched(false);
+        setAdvanced(null);
         mutate();
       } catch (e) {
         const message = e.message || "Could not save the analysis plan";
@@ -132,6 +140,7 @@ export default function AnalysisPlan({
       }
     },
     discard: () => {
+      setAdvanced(null);
       setDatasource(experiment.datasource || suggestedDatasource);
       setExposureQueryId(experiment.exposureQueryId || "");
       setGoalMetrics(experiment.goalMetrics || []);
@@ -193,6 +202,13 @@ export default function AnalysisPlan({
 
   // Read-only lists the metrics by name: the selector renders nothing when it
   // has no setters and nothing selected, which would hide the row entirely.
+  const activationMetric =
+    advanced && "activationMetric" in advanced
+      ? advanced.activationMetric
+      : experiment.activationMetric;
+  const segment =
+    advanced && "segment" in advanced ? advanced.segment : experiment.segment;
+
   const metricList = (ids: string[]) =>
     ids.length ? (
       <Flex gap="2" wrap="wrap">
@@ -246,6 +262,25 @@ export default function AnalysisPlan({
           editMetrics={true}
           source="analysis-plan"
           envs={envs}
+          stageChanges={(changes) => {
+            const {
+              datasource: nextDatasource,
+              exposureQueryId: nextExposureQueryId,
+              goalMetrics: nextGoalMetrics,
+              secondaryMetrics: nextSecondaryMetrics,
+              guardrailMetrics: nextGuardrailMetrics,
+              ...rest
+            } = changes;
+            setTouched(true);
+            if (nextDatasource !== undefined) setDatasource(nextDatasource);
+            if (nextExposureQueryId !== undefined)
+              setExposureQueryId(nextExposureQueryId);
+            if (nextGoalMetrics) setGoalMetrics(nextGoalMetrics);
+            if (nextSecondaryMetrics) setSecondaryMetrics(nextSecondaryMetrics);
+            if (nextGuardrailMetrics) setGuardrailMetrics(nextGuardrailMetrics);
+            setAdvanced((prev) => ({ ...(prev ?? {}), ...rest }));
+            setAdvancedOpen(false);
+          }}
         />
       ) : null}
       <Separator size="4" my="3" />
@@ -314,7 +349,7 @@ export default function AnalysisPlan({
                 variant="ghost"
                 onClick={() => setAdvancedOpen(true)}
               >
-                <PiSlidersHorizontal /> Advanced
+                <PiSlidersHorizontal /> Analysis settings
               </Button>
             ) : null}
           </Flex>
@@ -399,22 +434,22 @@ export default function AnalysisPlan({
           ) : null}
         </SetupFieldRow>
 
-        {experiment.activationMetric ? (
+        {activationMetric ? (
           <SetupFieldRow
             label="Activation metric"
             tooltip="Only users who convert on this metric are included in the analysis."
           >
-            {metricList([experiment.activationMetric])}
+            {metricList([activationMetric])}
           </SetupFieldRow>
         ) : null}
 
-        {experiment.segment ? (
+        {segment ? (
           <SetupFieldRow
             label="Segment"
             tooltip="Limits the analysis to users in this segment."
           >
             <Text color="text-high">
-              {getSegmentById(experiment.segment)?.name || experiment.segment}
+              {getSegmentById(segment)?.name || segment}
             </Text>
           </SetupFieldRow>
         ) : null}
