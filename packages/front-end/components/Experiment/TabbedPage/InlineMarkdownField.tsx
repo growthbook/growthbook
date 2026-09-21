@@ -9,6 +9,7 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
+import { useRegisterExperimentEdit } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import Metadata from "@/ui/Metadata";
 
 export interface Props {
@@ -58,17 +59,28 @@ export default function InlineMarkdownField({
   // What the server holds, so a blur that changed nothing writes nothing.
   const saved = useRef(savedValue);
 
-  const save = async () => {
-    const next = value.trim();
-    if (next === saved.current.trim()) return;
-    setError(null);
-    try {
-      await onSave(next);
-      saved.current = next;
-    } catch (e) {
-      setError(e.message || `Could not save the ${label.toLowerCase()}`);
-    }
-  };
+  // The page's save bar writes this, so a field losing focus no longer posts.
+  const dirty = editable && value.trim() !== savedValue.trim();
+  useRegisterExperimentEdit(`inline:${label}`, dirty, {
+    save: async () => {
+      const next = value.trim();
+      setError(null);
+      try {
+        await onSave(next);
+        saved.current = next;
+      } catch (e) {
+        const message =
+          e.message || `Could not save the ${label.toLowerCase()}`;
+        setError(message);
+        throw new Error(message);
+      }
+    },
+    discard: () => {
+      setValue(savedValue);
+      setError(null);
+      editor.current?.setMarkdown(savedValue);
+    },
+  });
 
   if (editable && addLabel && !saved.current && !revealed) {
     return stacked ? (
@@ -105,9 +117,7 @@ export default function InlineMarkdownField({
     }
   } else {
     body = (
-      // Saved on blur instead of behind a modal. React blur bubbles, so this
-      // covers the editor and the AI controls below it.
-      <Box onBlur={save}>
+      <Box>
         <RichTextEditor
           ref={editor}
           value={value}

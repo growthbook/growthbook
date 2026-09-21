@@ -62,6 +62,8 @@ import {
 } from "@/components/Layout/constants";
 import ExperimentHeader from "./ExperimentHeader";
 import ExperimentDetailsPanel from "./ExperimentDetailsPanel";
+import { ExperimentEditsProvider, useGuardedEdit } from "./ExperimentEdits";
+import UnsavedEditsBar from "./UnsavedEditsBar";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
@@ -108,7 +110,16 @@ export interface Props {
   urlRedirectEnvStates?: LinkedChangeEnvStates;
 }
 
-export default function TabbedPage({
+/** The provider has to sit outside, so the page itself can read its state. */
+export default function TabbedPage(props: Props) {
+  return (
+    <ExperimentEditsProvider>
+      <TabbedPageContents {...props} />
+    </ExperimentEditsProvider>
+  );
+}
+
+function TabbedPageContents({
   experiment,
   holdout,
   linkedFeatures,
@@ -494,6 +505,17 @@ export default function TabbedPage({
   const showStoppedBanner =
     experiment.status === "stopped" && tab !== "dashboards";
 
+  // Opening another editing surface with unsaved edits on the page would strand
+  // them, so these ask for a decision instead.
+  const guardedEditVariations = useGuardedEdit(editVariations);
+  const guardedEditPhases = useGuardedEdit(editPhases);
+  const guardedEditTargeting = useGuardedEdit(editTargeting);
+  const guardedEditTraffic = useGuardedEdit(editTraffic);
+  const guardedEditResult = useGuardedEdit(editResult);
+  const guardedEditSchedule = useGuardedEdit(editSchedule);
+  const guardedEditMetrics = useGuardedEdit(editMetrics);
+  const guardedEditNamespace = useGuardedEdit(editNamespace);
+
   return (
     <PreLaunchChecklistProvider
       experiment={experiment}
@@ -502,7 +524,7 @@ export default function TabbedPage({
       urlRedirects={urlRedirects}
       connections={connections}
       mutateExperiment={mutate}
-      editTargeting={editTargeting}
+      editTargeting={guardedEditTargeting}
       openManagedApproval={
         managedFlagWithDraft ? () => setManagedApprovalOpen(true) : undefined
       }
@@ -593,18 +615,18 @@ export default function TabbedPage({
         duplicate={duplicate}
         usersWatching={usersWatching}
         mutateWatchers={mutateWatchers}
-        editResult={editResult || undefined}
-        editTargeting={editTargeting}
+        editResult={guardedEditResult || undefined}
+        editTargeting={guardedEditTargeting}
         detailsOpen={detailsOpen}
         setDetailsOpen={showDetailsPanel ? setDetailsOpen : undefined}
         newPhase={newPhase}
-        editPhases={editPhases}
+        editPhases={guardedEditPhases}
         healthNotificationCount={healthNotificationCount}
         linkedFeatures={linkedFeatures}
         visualChangesets={visualChangesets}
         urlRedirects={urlRedirects}
         showDashboardView={showDashboardView}
-        editSchedule={editSchedule}
+        editSchedule={guardedEditSchedule}
       />
 
       <Box
@@ -696,7 +718,7 @@ export default function TabbedPage({
                   experiment={experiment}
                   linkedFeatures={linkedFeatures}
                   mutate={mutate}
-                  editResult={editResult || undefined}
+                  editResult={guardedEditResult || undefined}
                 />
               </div>
             )}
@@ -742,7 +764,7 @@ export default function TabbedPage({
                 holdoutExperiments={holdoutExperiments}
                 mutate={mutate}
                 disableEditing={viewingOldPhase}
-                editSchedule={editSchedule}
+                editSchedule={guardedEditSchedule}
               />
               <Implementation
                 experiment={experiment}
@@ -750,17 +772,17 @@ export default function TabbedPage({
                 holdoutFeatures={holdoutFeatures}
                 holdoutExperiments={holdoutExperiments}
                 mutate={mutate}
-                editVariations={editVariations}
+                editVariations={guardedEditVariations}
                 setFeatureModal={setFeatureModal}
                 setVisualEditorModal={setVisualEditorModal}
                 setUrlRedirectModal={setUrlRedirectModal}
                 visualChangesets={visualChangesets}
                 urlRedirects={urlRedirects}
-                editTargeting={editTargeting}
-                editTraffic={editTraffic}
+                editTargeting={guardedEditTargeting}
+                editTraffic={guardedEditTraffic}
                 addVariation={addVariation}
                 addVariationValues={addVariationValues}
-                editNamespace={editNamespace}
+                editNamespace={guardedEditNamespace}
                 linkedFeatures={linkedFeatures}
                 envs={envs}
                 visualChangesetEnvStates={visualChangesetEnvStates}
@@ -821,14 +843,14 @@ export default function TabbedPage({
             <ResultsTab
               experiment={experiment}
               mutate={mutate}
-              editMetrics={editMetrics}
-              editResult={editResult}
+              editMetrics={guardedEditMetrics}
+              editResult={guardedEditResult}
               newPhase={newPhase}
               connections={connections}
               envs={envs}
               setTab={setTabAndScroll}
               visualChangesets={visualChangesets}
-              editTargeting={editTargeting}
+              editTargeting={guardedEditTargeting}
               isTabActive={tab === "results"}
               metricTagFilter={metricTagFilter}
               metricsFilter={metricsFilter}
@@ -884,6 +906,7 @@ export default function TabbedPage({
             />
           </div>
         </CollapsiblePanelLayout>
+        <UnsavedEditsBar />
       </Box>
     </PreLaunchChecklistProvider>
   );
