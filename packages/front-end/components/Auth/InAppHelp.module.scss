@@ -1,0 +1,44 @@
+// The chat mark is the button: no box around it, so its click area is the glyph
+// itself and its hover outline follows the teardrop, not a circle around it.
+.chatLauncher {
+  position: fixed;
+  right: 15px;
+  bottom: 15px;
+  z-index: 10;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  color: var(--violet-9);
+  cursor: pointer;
+  transition: color 100ms ease;
+
+  // An outline that follows the teardrop rather than a box around it: four
+  // hard shadows, one per side, which `filter` traces from the glyph's alpha.
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    color: var(--violet-10);
+    filter: drop-shadow(1px 0 0 var(--violet-11))
+      drop-shadow(-1px 0 0 var(--violet-11))
+      drop-shadow(0 1px 0 var(--violet-11))
+      drop-shadow(0 -1px 0 var(--violet-11));
+  }
+}
+
+// The mark is two glyphs: the teardrop, and the question sitting in its bubble.
+// The bubble is the upper part of the shape — the tail takes the bottom — so
+// the question sits above the geometric centre.
+.chatMark {
+  position: relative;
+  display: block;
+}
+
+.chatMarkGlyph {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  color: var(--violet-contrast);
+}
