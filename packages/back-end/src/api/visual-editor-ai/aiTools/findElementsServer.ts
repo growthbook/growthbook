@@ -26,7 +26,7 @@ const findInputSchema = z.object({
 export function findElementsServerTool(nodes: PageStructureNode[]) {
   return aiTool({
     description:
-      "Find a page container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list <section>s or layout wrapper <div>s. Use this to locate such a container by its visible text or class name (e.g. to move/reorder a whole section). Each match returns a durable `selector` (use it verbatim), its `parentSelector` (the destination parent for a sibling move), and the visible siblings around it as `prevSiblingSelector` / `nextSiblingSelector` (the insert-before targets for moving it up or down). If it returns no matches, ask the user to click the element so its selector can be captured.",
+      "Find a page container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list <section>s or layout wrapper <div>s. Use this to locate such a container by its visible text or class name (e.g. to move/reorder a whole section, or a card/plan by its title). Each match returns a durable `selector` (use it verbatim), its `parentSelector` (the destination parent for a sibling move — pass it to describeContainer to list ALL the siblings in page order), and the visible siblings around it as `prevSiblingSelector` / `nextSiblingSelector` (the insert-before targets for moving it up or down). If it returns no matches, ask the user to click the element so its selector can be captured.",
     inputSchema: findInputSchema,
     execute: async ({ query, limit }: { query: string; limit?: number }) => {
       const q = query.trim().toLowerCase();
@@ -74,21 +74,21 @@ const describeInputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "A container selector copied verbatim from the Page outline or a findElements match.",
+      "A container selector copied verbatim from the Page outline or a findElements match — either a match's `selector` or its `parentSelector`.",
     ),
 });
 
 export function describeContainerServerTool(nodes: PageStructureNode[]) {
   return aiTool({
     description:
-      "Describe one container from the Page outline or a findElements match: its `parentSelector`, the visible sibling immediately BEFORE it (`prevSiblingSelector`) and AFTER it (`nextSiblingSelector`), and its direct child containers in page order. This is how to build a position move — to move X up one place: parentSelector = X's parentSelector, insertBeforeSelector = X's prevSiblingSelector; to move X above Y: insertBeforeSelector = Y's selector; to move X after Y: insertBeforeSelector = Y's nextSiblingSelector (null appends). Returns ok:false when the selector isn't a captured container.",
+      "Describe one container from the Page outline or a findElements match: its `parentSelector`, the visible sibling immediately BEFORE it (`prevSiblingSelector`) and AFTER it (`nextSiblingSelector`), and its direct child containers in page order. Passing a match's `parentSelector` lists every sibling in order — one call is enough to plan a reorder of several items. This is how to build a position move — to move X up one place: parentSelector = X's parentSelector, insertBeforeSelector = X's prevSiblingSelector; to move X above Y: insertBeforeSelector = Y's selector; to move X after Y: insertBeforeSelector = Y's nextSiblingSelector (null appends). Returns ok:false when nothing is known about the selector.",
     inputSchema: describeInputSchema,
     execute: async ({ selector }: { selector: string }) => {
       const described = describeContainer(nodes, selector.trim());
       if (!described) {
         return {
           ok: false,
-          note: "That selector isn't a captured container. Copy one verbatim from the Page outline or a findElements match.",
+          note: "Nothing is known about that selector. Copy one verbatim from the Page outline or a findElements match (its selector or parentSelector).",
         } as const;
       }
       return { ok: true, ...described } as const;

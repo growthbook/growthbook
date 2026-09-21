@@ -121,8 +121,10 @@ export function buildVisualEditorTools({
 }
 
 // How many LLM round-trips the chat handler permits before forcing a
-// final structured output. Each tool call adds a step. Raised from 8 after
-// real edits exhausted the budget exploring the DOM and returned no change
-// at all — every extra step is a full round-trip with the conversation
-// resent, so this trades worst-case cost and latency for fewer dead ends.
-export const VISUAL_EDITOR_MAX_STEPS = 14;
+// final structured output. Each tool call adds a step (one call per step on
+// Claude, whose json-tool mode disables parallel calls). The ceiling is
+// latency, not cost: every step is a full round-trip with the conversation
+// resent, lookup steps take a few seconds each, and the extension aborts the
+// request at 180s — so 20 leaves room for a long multi-part edit and its
+// final, larger answer step, but not for an unbounded exploration.
+export const VISUAL_EDITOR_MAX_STEPS = 20;

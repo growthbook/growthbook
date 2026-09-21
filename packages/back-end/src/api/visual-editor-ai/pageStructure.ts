@@ -118,11 +118,13 @@ export interface ContainerSummary {
   layout?: PageStructureNode["layout"];
 }
 
-export interface ContainerDescription extends ContainerSummary {
+export interface ContainerDescription extends Omit<ContainerSummary, "tag"> {
+  tag?: string;
   parentSelector?: string;
   prevSiblingSelector?: string;
   nextSiblingSelector?: string;
   children: ContainerSummary[];
+  note?: string;
 }
 
 const summarize = (n: PageStructureNode): ContainerSummary => ({
@@ -140,7 +142,21 @@ export function describeContainer(
   selector: string,
 ): ContainerDescription | null {
   const node = nodes.find((n) => n.selector === selector);
-  if (!node) return null;
+  if (!node) {
+    // findElements hands out each match's parentSelector, but the parent is
+    // often not a captured node itself (a card grid whose headings sit one
+    // level down). Its captured children are still known, and listing them
+    // in order is exactly what a reorder needs.
+    const children = nodes
+      .filter((n) => n.parentSelector === selector)
+      .sort((a, b) => (a.docOrder ?? 0) - (b.docOrder ?? 0));
+    if (children.length === 0) return null;
+    return {
+      selector,
+      children: children.map(summarize),
+      note: "This container wasn't captured itself, so its tag, layout and siblings are unknown; `children` are its captured direct children in page order.",
+    };
+  }
   const find = (list: StructureTreeNode[]): StructureTreeNode | null => {
     for (const tn of list) {
       if (tn.node.selector === selector) return tn;
