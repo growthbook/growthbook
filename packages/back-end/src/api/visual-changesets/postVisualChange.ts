@@ -24,7 +24,7 @@ export const postVisualChange = createApiRequestHandler(
   }
   // The opt-in flag gates the write; it is not part of the visual change.
   const { allowRunningExperiment, ...body } = req.body;
-  await requireVisualChangeWrite(req, experiment, {
+  const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
     allowRunning: !!allowRunningExperiment,
     visualChangesetId: req.params.id,
   });
@@ -38,6 +38,7 @@ export const postVisualChange = createApiRequestHandler(
     css: body.css ?? "",
     domMutations: body.domMutations ?? [],
   });
+  await auditLiveEdit();
 
   return { ...res, visualChangeId };
 });

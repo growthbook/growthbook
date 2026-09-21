@@ -37,7 +37,7 @@ export const putVisualChangeset = createApiRequestHandler(
   // stale editor can't clobber an experiment that was started after it loaded
   // the (then-draft) changeset — unless the caller opted into editing the
   // running experiment.
-  await requireVisualChangeWrite(req, experiment, {
+  const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
     allowRunning: !!req.body.allowRunningExperiment,
     visualChangesetId: visualChangeset.id,
   });
@@ -61,6 +61,7 @@ export const putVisualChangeset = createApiRequestHandler(
     context: req.context,
     updates,
   });
+  await auditLiveEdit();
 
   const updatedVisualChangeset = await findVisualChangesetById(
     req.params.id,

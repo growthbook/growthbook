@@ -27,7 +27,7 @@ export const putVisualChange = createApiRequestHandler(
   if (!req.context.permissions.canUpdateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
-  await requireVisualChangeWrite(req, experiment, {
+  const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
     allowRunning: !!allowRunningExperiment,
     visualChangesetId: changesetId,
   });
@@ -38,6 +38,7 @@ export const putVisualChange = createApiRequestHandler(
     organization: orgId,
     payload,
   });
+  await auditLiveEdit();
 
   return res;
 });

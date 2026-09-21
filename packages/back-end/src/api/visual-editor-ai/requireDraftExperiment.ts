@@ -2,7 +2,6 @@ import type { AuditInterfaceInput } from "shared/types/audit";
 import type { ExperimentInterface } from "shared/types/experiment";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 
 // The visual editor edits DRAFT experiments. Once an experiment is running
 // or stopped (or archived), its variations, traffic split, and analysis are
@@ -31,9 +30,10 @@ export function requireDraftExperiment(
 // Gate for writing visual changes. Editing a running experiment is the
 // GrowthBook app's own policy — anyone with runExperiments on the affected
 // environments can do it there — so mirror that bar rather than the weaker
-// canUpdateVisualChange, and audit the write: it reaches live traffic
-// immediately.
-export async function requireVisualChangeWrite(
+// canUpdateVisualChange. Returns the audit step for the caller to run once
+// its write has succeeded: the record says a live edit happened, so it must
+// not precede a write that fails. A no-op for draft experiments.
+export function requireVisualChangeWrite(
   req: {
     context: ApiReqContext;
     audit: (data: AuditInterfaceInput) => Promise<void>;
@@ -43,25 +43,30 @@ export async function requireVisualChangeWrite(
     allowRunning,
     visualChangesetId,
   }: { allowRunning: boolean; visualChangesetId: string },
-): Promise<void> {
+): () => Promise<void> {
   requireDraftExperiment(req.context, experiment, { allowRunning });
-  if (experiment.status !== "running") return;
+  if (experiment.status !== "running") return async () => {};
 
-  const linkedFeatures = await getFeaturesByIds(
-    req.context,
-    experiment.linkedFeatures || [],
-  );
+  // A visual change is served in every environment the experiment runs in,
+  // however its linked features are scoped. Deriving the environments from
+  // those features would shrink the check whenever the stored
+  // hasVisualChangesets flag is stale: unreadable features are filtered out
+  // and an empty list passes vacuously. Ask for all of them instead, as the
+  // app does for any experiment with visual changes.
   const envs = getAffectedEnvsForExperiment({
-    experiment,
-    linkedFeatures,
+    experiment: { ...experiment, hasVisualChangesets: true },
     orgEnvironments: req.context.org.settings?.environments || [],
   });
   if (!req.context.permissions.canRunExperiment(experiment, envs)) {
     req.context.permissions.throwPermissionError();
   }
-  await req.audit({
-    event: "experiment.update",
-    entity: { object: "experiment", id: experiment.id },
-    details: JSON.stringify({ visualChangesetId, liveVisualChangeEdit: true }),
-  });
+  return () =>
+    req.audit({
+      event: "experiment.update",
+      entity: { object: "experiment", id: experiment.id },
+      details: JSON.stringify({
+        visualChangesetId,
+        liveVisualChangeEdit: true,
+      }),
+    });
 }
