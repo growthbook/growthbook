@@ -7,6 +7,9 @@ import Tooltip from "@/ui/Tooltip";
 /** Width of the label column. Every setup field shares it, so they line up. */
 export const LABEL_WIDTH = "180px";
 
+/** Below this a control has no usable room, and the row stacks instead. */
+const MIN_FIELD_WIDTH = "260px";
+
 /** Half the difference between a control's height and its own text. */
 const LABEL_OFFSET: Record<LabelSize, string> = { md: "10px", lg: "6px" };
 
@@ -29,7 +32,9 @@ export default function SetupFieldRow({
   children: ReactNode;
 }) {
   return (
-    <Flex align="start" gap="4" py="3">
+    // Wraps rather than squeezing: below the width the field needs, the label
+    // takes a row of its own. Driven by the row's own width, not the window's.
+    <Flex align="start" gap="4" py="3" wrap="wrap">
       <Box
         flexShrink="0"
         width={LABEL_WIDTH}
@@ -56,7 +61,7 @@ export default function SetupFieldRow({
           ) : null}
         </Flex>
       </Box>
-      <Box flexGrow="1" minWidth="0">
+      <Box flexGrow="1" style={{ minWidth: `min(100%, ${MIN_FIELD_WIDTH})` }}>
         {children}
       </Box>
     </Flex>
