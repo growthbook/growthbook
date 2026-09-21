@@ -4,6 +4,7 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
+  RampStartAction,
   RampStepAction,
   RampTarget,
   StepHoldConditions,
@@ -26,6 +27,7 @@ import {
   withStringForce,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   appendRampEvent,
   assertCanEditRampScheduleConfig,
@@ -326,7 +328,7 @@ type LegacyApiRampTrigger =
 type PostBodyAction = {
   targetType?: "feature-rule";
   targetId?: string;
-  patch: Partial<RampStepAction["patch"]>;
+  patch: Partial<RampStartAction["patch"]>;
 };
 
 // Accepts both the new `{ interval, holdConditions }` shape and the legacy
@@ -629,6 +631,40 @@ export class RampScheduleModel extends BaseClass {
     );
   }
 
+  private async validateApiPlanPatches(
+    context: ApiReqContext,
+    schedule: RampScheduleInterface,
+    updates: Record<string, unknown>,
+  ) {
+    // Lazy: the validations module reaches back into this model through the
+    // request context, so a static import trips initialization.
+    const {
+      collectRampPlanActions,
+      mergedRampPlan,
+      rampPatchEntriesForTargets,
+      validateRampPlanPatches,
+    } = await import("back-end/src/api/features/validations");
+    if (!collectRampPlanActions(updates).length) return;
+    const actions = collectRampPlanActions(mergedRampPlan(updates, schedule));
+    const featureIds = [
+      ...new Set(
+        actions
+          .map(
+            (a) => schedule.targets.find((t) => t.id === a.targetId)?.entityId,
+          )
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    await context.populateForeignRefs({ feature: featureIds });
+    await validateRampPlanPatches(
+      context,
+      rampPatchEntriesForTargets(actions, schedule.targets, (id) =>
+        context.foreignRefs.feature.get(id),
+      ),
+      { stored: [schedule] },
+    );
+  }
+
   private async applyApiUpdateLocked(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
     schedule: RampScheduleInterface,
@@ -782,6 +818,9 @@ export class RampScheduleModel extends BaseClass {
     // Same publish-class gate as the dashboard PUT; canUpdate() alone passes
     // with draft access, which is right for name/monitoring edits only.
     await assertCanEditRampScheduleConfig(this.context, schedule, updates);
+    // In-lock, after the permission gate: targets resolve against the in-lock
+    // document.
+    await this.validateApiPlanPatches(req.context, schedule, updates);
 
     // Rule values are strings; bring any raw JSON `force` in the new plan to
     // that form and reject a value the feature's type does not accept. A

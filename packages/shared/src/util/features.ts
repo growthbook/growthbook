@@ -564,6 +564,46 @@ export function expandSparseToFull(
   return serializeExtendsObject(mergedRefs, ownKeys);
 }
 
+type RampRulePatch = {
+  ruleId?: string | null;
+  coverage?: number | null;
+  hashAttribute?: string | null;
+};
+
+// A partial-coverage patch for `ruleId` with no patch naming a hash attribute;
+// on a force rule such a plan is refused at write and at fire time.
+export function rampPlanLacksHashAttribute(
+  plan: {
+    startActions?: { patch?: RampRulePatch }[] | null;
+    steps?: { actions?: { patch?: RampRulePatch }[] | null }[] | null;
+    endActions?: { patch?: RampRulePatch }[] | null;
+  },
+  ruleId: string,
+): boolean {
+  const patches = [
+    ...(plan.startActions ?? []),
+    ...(plan.steps ?? []).flatMap((s) => s.actions ?? []),
+    ...(plan.endActions ?? []),
+  ]
+    .map((a) => a.patch)
+    .filter((p): p is RampRulePatch => !!p && (p.ruleId ?? ruleId) === ruleId);
+  return (
+    patches.some((p) => (p.coverage ?? 1) < 1) &&
+    !patches.some((p) => p.hashAttribute)
+  );
+}
+
+// The attribute a new rollout buckets on when none is chosen: `id` when it is
+// marked as a hash attribute, else the first marked one, else `id`.
+export function getDefaultHashAttribute(
+  attributeSchema: SDKAttributeSchema | undefined,
+): string {
+  const marked = (attributeSchema ?? [])
+    .filter((a) => a.hashAttribute)
+    .map((a) => a.property);
+  return marked.includes("id") ? "id" : marked[0] || "id";
+}
+
 // Validate the values a revert restores against the value type / JSON schema
 // that will be live afterward. Returns one warning per value that no longer
 // parses/validates; callers surface these as a bypassable soft warning.
@@ -1263,6 +1303,18 @@ export function getRevertTargetHoldout(
   return revision.holdout ?? null;
 }
 
+// The archived state a revert restores. Revisions only record `archived` since
+// they became full snapshots; a published revision from before that carries no
+// value, and restoring it restores an active flag rather than carrying the live
+// value forward. Same reasoning as the holdout above: carrying forward makes an
+// archive published after this revision un-revertable — the revert reports
+// nothing to revert, or lands with the flag still archived.
+export function getRevertTargetArchived(
+  revision: Pick<RevisionFields, "archived">,
+): boolean {
+  return revision.archived ?? false;
+}
+
 // An open draft that is already the feature's live version: a publish advanced
 // the feature but never marked the revision published. Publishing it reconciles.
 export function isStrandedLiveRevision({
@@ -1302,8 +1354,10 @@ export function featureMetadataEnvelope(
     description: feature.description ?? "",
     owner: feature.owner ?? "",
     project: feature.project ?? "",
-    targetingAllProjects: feature.targetingAllProjects,
-    targetingProjects: feature.targetingProjects,
+    // Persist defaults so a stored snapshot cannot inherit a later expansion
+    // of live targeting when the revision is edited or published.
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags ?? [],
     neverStale: feature.neverStale,
     customFields: feature.customFields,
@@ -1693,6 +1747,7 @@ export function evaluatePublishGovernance({
 // the specific file (not a barrel) to avoid a runtime import cycle.
 export {
   isScheduledPublishPending,
+  pendingScheduleWarning,
   isScheduledPublishDue,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,

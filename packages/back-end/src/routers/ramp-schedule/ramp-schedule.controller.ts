@@ -4,6 +4,12 @@ import {
   isAwaitingStartApproval,
 } from "shared/validators";
 import { PermissionError, isRampScheduleServing } from "shared/util";
+import {
+  collectRampPlanActions,
+  mergedRampPlan,
+  rampPatchEntriesForTargets,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -152,6 +158,14 @@ export const postRampSchedule = async (
     normalizeRampPlanForceValues(body, feature, {
       knownStartValues: rampStartValuesOf(feature, body.targets ?? []),
     }),
+  );
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntriesForTargets(
+      collectRampPlanActions(body),
+      body.targets ?? [],
+      () => feature,
+    ),
   );
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
@@ -315,6 +329,15 @@ export const putRampSchedule = async (
             ),
           },
         ),
+      );
+      await validateRampPlanPatches(
+        context,
+        rampPatchEntriesForTargets(
+          collectRampPlanActions(mergedRampPlan(updates, fresh)),
+          fresh.targets,
+          () => feature,
+        ),
+        { stored: [fresh] },
       );
 
       const editedFields = Object.keys(updates).filter(

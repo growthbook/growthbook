@@ -4,8 +4,10 @@ import {
   apiRampScheduleInterface,
   experimentHealthAction,
   featureRulePatch,
+  rampStartPatch,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
+  RampStartAction,
   RampStepAction,
   stepHoldConditions,
   isAwaitingStartApproval,
@@ -23,6 +25,12 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { assertRampPlanChangeAllowed } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  collectRampPlanPatches,
+  rampPatchEntries,
+  rampPatchEntriesForTargets,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -36,7 +44,11 @@ const postBodyAction = z
     patch: featureRulePatch.partial({ ruleId: true }).strict(),
   })
   .strict();
-type PostBodyAction = z.infer<typeof postBodyAction>;
+// Start actions alone carry bucketing identity (hashAttribute, seed, hashVersion).
+const postBodyStartAction = postBodyAction.extend({
+  patch: rampStartPatch.partial({ ruleId: true }).strict(),
+});
+type PostBodyStartAction = z.infer<typeof postBodyStartAction>;
 
 function normalizeMonitoringConfig(
   monitoringConfig:
@@ -81,7 +93,7 @@ const postRampScheduleValidator = {
       ruleId: z.string().optional(),
       environment: z.string().optional(),
       steps: z.array(postBodyStep).optional(),
-      startActions: z.array(postBodyAction).optional(),
+      startActions: z.array(postBodyStartAction).optional(),
       endActions: z.array(postBodyAction).optional(),
       startDate: z.string().datetime().optional().nullable(),
       cutoffDate: z.string().datetime().optional().nullable(),
@@ -150,20 +162,21 @@ const postRampScheduleValidator = {
     }),
 };
 
-function normalizeAction(action: PostBodyAction): RampStepAction {
+// Step actions pass through too: a step patch is a start patch minus identity.
+function normalizeAction(action: PostBodyStartAction): RampStartAction {
   return {
     targetType: "feature-rule" as const,
     targetId: action.targetId ?? "",
-    patch: action.patch as RampStepAction["patch"],
+    patch: action.patch as RampStartAction["patch"],
   };
 }
 
 // Overrides targetId/ruleId from the top-level shorthand fields.
 function injectTarget(
-  action: PostBodyAction,
+  action: PostBodyStartAction,
   targetId: string,
   ruleId: string,
-): RampStepAction {
+): RampStartAction {
   return {
     targetType: "feature-rule" as const,
     targetId,
@@ -327,7 +340,7 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
-  const resolvedStartActions: RampStepAction[] | undefined = (() => {
+  const resolvedStartActions: RampStartAction[] | undefined = (() => {
     if (body.startActions !== undefined) {
       return body.startActions.map((a) =>
         hasTarget
@@ -346,6 +359,32 @@ export const postRampSchedule = createApiRequestHandler(
     }
     return undefined;
   })();
+
+  // Body and template patches alike, on the rule they will land on; an anchor
+  // derived from the rule is its own state and is not judged.
+  await validateRampPlanPatches(
+    req.context,
+    hasTarget
+      ? rampPatchEntriesForTargets(
+          [
+            ...(body.startActions !== undefined
+              ? (resolvedStartActions ?? [])
+              : []),
+            ...resolvedSteps.flatMap((s) => s.actions),
+            ...(resolvedEndActions ?? []),
+          ],
+          [
+            {
+              id: targetId!,
+              entityId: feature!.id,
+              ruleId: body.ruleId,
+              environment: body.environment ?? null,
+            },
+          ],
+          () => feature,
+        )
+      : rampPatchEntries(collectRampPlanPatches(body), null),
+  );
 
   // startActions derived from the live rule (none in the body) are its own
   // value and are only stringified; everything else is checked.

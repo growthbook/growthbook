@@ -27,6 +27,7 @@ import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
+import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
   startExperiment,
   validateExperimentChange,
@@ -362,6 +363,11 @@ export const updateExperiment = createApiRequestHandler(
   // earlier phases are history, so any parent the stored experiment already
   // references is not re-validated when they are echoed or reordered.
   if (changes.phases) {
+    await validateChangedPhaseReferences(
+      changes.phases,
+      experiment.phases,
+      req.context,
+    );
     await assertValidExperimentPrerequisites(
       req.context,
       changes.phases[changes.phases.length - 1]?.prerequisites,

@@ -2297,6 +2297,11 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                comment:
+                  description: >-
+                    Comment to record on the feature's initial revision.
+                    Defaults to an empty comment.
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -3857,6 +3862,11 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                comment:
+                  description: >-
+                    Comment to record on the revision this update publishes,
+                    when it publishes one. Defaults to "Created via REST API".
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -3979,6 +3989,12 @@ paths:
               properties:
                 reason:
                   type: string
+                comment:
+                  description: >-
+                    Comment to record on the revision this toggle publishes,
+                    when it changes any environment. Defaults to "Created via
+                    REST API". (`reason` is recorded in the audit log only.)
+                  type: string
                 environments:
                   type: object
                   propertyNames:
@@ -4053,8 +4069,10 @@ paths:
 
 
         If the restored values no longer match the Feature Flag's current value
-        type or JSON schema, the API returns 422 with `warnings`. Send
-        `"ignoreWarnings": true` to acknowledge those warnings and continue.
+        type or JSON schema, or restoring an archived state would archive a flag
+        that live flags or experiments still depend on, the API returns 422 with
+        `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings
+        and continue.
       deprecated: true
       tags:
         - features
@@ -5595,6 +5613,33 @@ paths:
                                 anyOf:
                                   - type: boolean
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
+                                  - type: 'null'
                             additionalProperties: false
                         required:
                           - patch
@@ -6242,6 +6287,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -6938,6 +7010,32 @@ paths:
                             anyOf:
                               - type: boolean
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
+                              - type: 'null'
                         additionalProperties: false
                     required:
                       - patch
@@ -7286,6 +7384,13 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV1'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was
+                      interpreted.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - revision
                 additionalProperties: false
@@ -8783,6 +8888,11 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                comment:
+                  description: >-
+                    Comment to record on the feature's initial revision.
+                    Defaults to an empty comment.
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -9674,6 +9784,11 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                comment:
+                  description: >-
+                    Comment to record on the revision this update publishes,
+                    when it publishes one. Defaults to "Created via REST API".
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -9786,6 +9901,12 @@ paths:
               properties:
                 reason:
                   type: string
+                comment:
+                  description: >-
+                    Comment to record on the revision this toggle publishes,
+                    when it changes any environment. Defaults to "Created via
+                    REST API". (`reason` is recorded in the audit log only.)
+                  type: string
                 environments:
                   type: object
                   propertyNames:
@@ -9854,8 +9975,10 @@ paths:
 
 
         If the restored values no longer match the Feature Flag's current value
-        type or JSON schema, the API returns 422 with `warnings`. Send
-        `"ignoreWarnings": true` to acknowledge those warnings and continue.
+        type or JSON schema, or restoring an archived state would archive a flag
+        that live flags or experiments still depend on, the API returns 422 with
+        `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings
+        and continue.
       tags:
         - features-v2
       parameters:
@@ -11330,6 +11453,33 @@ paths:
                                 anyOf:
                                   - type: boolean
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
+                                  - type: 'null'
                             additionalProperties: false
                         required:
                           - patch
@@ -12002,6 +12152,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -12708,6 +12885,32 @@ paths:
                             anyOf:
                               - type: boolean
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
+                              - type: 'null'
                         additionalProperties: false
                     required:
                       - patch
@@ -13035,11 +13238,13 @@ paths:
                     The rule state to roll back to (the rollback/jump-to-start
                     anchor). Merged onto the rule's current state, so `{
                     "coverage": 0 }` keeps existing targeting but rolls back to
-                    0%. This affects rollbacks only — it is NOT applied when the
-                    ramp starts. On create, omitting it infers the anchor from
-                    the rule's current coverage (and returns a warning if that
-                    isn't 0%); on update of a live schedule, omitting it leaves
-                    the existing anchor unchanged.
+                    0%. Steps accumulate on it, and it is the only place a plan
+                    sets `hashAttribute` (plus optional `seed` and
+                    `hashVersion`), which a partial-coverage step on a force
+                    rule requires unless the rule has one. On create, omitting
+                    it infers the anchor from the rule's current coverage (and
+                    returns a warning if that isn't 0%); on update of a live
+                    schedule, omitting it leaves the existing anchor unchanged.
                   type: object
                   properties:
                     coverage:
@@ -13117,6 +13322,32 @@ paths:
                     enabled:
                       anyOf:
                         - type: boolean
+                        - type: 'null'
+                    hashAttribute:
+                      description: >-
+                        Attribute the rule buckets on. Required (here or on the
+                        rule) when a step sets partial coverage on a force rule,
+                        which becomes a rollout.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    seed:
+                      description: >-
+                        Hash seed for a promoted force rule. Defaults to the
+                        rule id.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    hashVersion:
+                      description: >-
+                        Hash algorithm version for a promoted force rule.
+                        Defaults to 2.
+                      anyOf:
+                        - anyOf:
+                            - type: number
+                              const: 1
+                            - type: number
+                              const: 2
                         - type: 'null'
                   additionalProperties: false
                 revisionTitle:
@@ -29686,6 +29917,8 @@ paths:
                                   - is_false
                                   - contains
                                   - not_contains
+                                  - matches_pattern
+                                  - not_matches_pattern
                                   - starts_with
                                   - ends_with
                                   - sql_expr
@@ -29805,6 +30038,8 @@ paths:
                               - is_false
                               - contains
                               - not_contains
+                              - matches_pattern
+                              - not_matches_pattern
                               - starts_with
                               - ends_with
                               - sql_expr
@@ -29921,6 +30156,8 @@ paths:
                                     - is_false
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - sql_expr
@@ -30366,6 +30603,8 @@ paths:
                                   - is_false
                                   - contains
                                   - not_contains
+                                  - matches_pattern
+                                  - not_matches_pattern
                                   - starts_with
                                   - ends_with
                                   - sql_expr
@@ -30485,6 +30724,8 @@ paths:
                               - is_false
                               - contains
                               - not_contains
+                              - matches_pattern
+                              - not_matches_pattern
                               - starts_with
                               - ends_with
                               - sql_expr
@@ -30601,6 +30842,8 @@ paths:
                                     - is_false
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - sql_expr
@@ -31362,6 +31605,8 @@ paths:
                                             - is_false
                                             - contains
                                             - not_contains
+                                            - matches_pattern
+                                            - not_matches_pattern
                                             - starts_with
                                             - ends_with
                                             - sql_expr
@@ -31486,6 +31731,8 @@ paths:
                                         - is_false
                                         - contains
                                         - not_contains
+                                        - matches_pattern
+                                        - not_matches_pattern
                                         - starts_with
                                         - ends_with
                                         - sql_expr
@@ -31608,6 +31855,8 @@ paths:
                                               - is_false
                                               - contains
                                               - not_contains
+                                              - matches_pattern
+                                              - not_matches_pattern
                                               - starts_with
                                               - ends_with
                                               - sql_expr
@@ -32746,6 +32995,32 @@ paths:
                             anyOf:
                               - type: boolean
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
+                              - type: 'null'
                         additionalProperties: false
                     required:
                       - patch
@@ -33801,7 +34076,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -33816,7 +34093,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -34181,7 +34458,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -34196,7 +34475,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -34623,7 +34902,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -34638,7 +34919,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -35006,7 +35287,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -35021,7 +35304,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -38339,6 +38622,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -38465,6 +38750,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -38731,6 +39018,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -38861,6 +39150,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -39132,6 +39423,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -39276,6 +39569,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -39550,6 +39845,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -39683,6 +39980,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -39968,6 +40267,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -40112,6 +40413,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -41691,6 +41994,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -41817,6 +42122,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -42075,6 +42382,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -42205,6 +42514,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -42468,6 +42779,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -42612,6 +42925,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -42878,6 +43193,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -43011,6 +43328,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -43288,6 +43607,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -43432,6 +43753,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -45218,6 +45541,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -45344,6 +45669,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -45602,6 +45929,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -45732,6 +46061,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -45995,6 +46326,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -46139,6 +46472,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -46405,6 +46740,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -46538,6 +46875,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -46815,6 +47154,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -46959,6 +47300,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -47189,43 +47532,6 @@ paths:
                   type: string
                 hashAttribute:
                   type: string
-                variations:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      name:
-                        type: string
-                      description:
-                        type: string
-                        maxLength: 10000
-                      key:
-                        type: string
-                      screenshots:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            path:
-                              type: string
-                            width:
-                              type: number
-                            height:
-                              type: number
-                            description:
-                              type: string
-                              maxLength: 10000
-                          required:
-                            - path
-                          additionalProperties: false
-                    required:
-                      - id
-                      - name
-                      - key
-                      - screenshots
-                    additionalProperties: false
                 datasource:
                   type: string
                 contextualBanditQueryId:
@@ -47316,19 +47622,6 @@ paths:
                     additionalProperties: false
                 seed:
                   type: string
-                variationWeights:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      variationId:
-                        type: string
-                      weight:
-                        type: number
-                    required:
-                      - variationId
-                      - weight
-                    additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -47604,6 +47897,134 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/refresh' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/variations:
+    post:
+      operationId: updateContextualBanditVariations
+      summary: Add or remove Contextual Bandit variations
+      description: >-
+        Adds and/or removes variations on a Contextual Bandit. Send
+        `addVariations` and `removeVariationIds` independently; both are
+        optional. New arms must carry a `values` entry for each linked feature.
+        Running CBs publish the linked-feature updates; draft CBs stage them
+        until start. Under an approval flow, unapproved drafts leave the added
+        arm `pending` (zero weight, filtered from the SDK) until every linked
+        feature's draft is live. Removed arms are tombstoned; their ids can
+        never be re-added. Weights are reconciled server-side.
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                addVariations:
+                  description: >-
+                    New arms to add. Omit `id` to have the server generate one
+                    and `key` to have the server assign the next integer.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      key:
+                        type: string
+                      screenshots:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            path:
+                              type: string
+                            width:
+                              type: number
+                            height:
+                              type: number
+                            description:
+                              type: string
+                              maxLength: 10000
+                          required:
+                            - path
+                          additionalProperties: false
+                      values:
+                        description: >-
+                          Value this new arm serves on each currently-linked
+                          feature, keyed by feature id. Required for every
+                          linked feature. Encode as a string for every
+                          `valueType` (`"true"`, `"5"`, `"{\"a\":1}"`), matching
+                          how `feature.defaultValue` is set.
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                    required:
+                      - name
+                    additionalProperties: false
+                removeVariationIds:
+                  description: >-
+                    Ids of active arms to remove. Removed arms are tombstoned in
+                    place and their ids can never be re-added.
+                  type: array
+                  items:
+                    type: string
+                updateVariations:
+                  description: >-
+                    Metadata edits to existing active arms. Only `name` and
+                    `description` may be changed; key, values, weights,
+                    screenshots, and status are preserved.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                    required:
+                      - id
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBandit:
+                    $ref: '#/components/schemas/ContextualBandit'
+                  featureDraftPublishFailures:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/featureDraftPublishFailures'
+                required:
+                  - contextualBandit
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/variations'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/cancel:
     post:
@@ -49518,6 +49939,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -49644,6 +50067,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -49784,6 +50209,53 @@ paths:
                                           - timeFromPrevSumHrs
                                           - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -49896,6 +50368,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -50022,6 +50496,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -50219,6 +50695,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -50349,6 +50827,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -50494,6 +50974,53 @@ paths:
                                           - timeFromPrevSumHrs
                                           - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -50606,6 +51133,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -50736,6 +51265,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -50938,6 +51469,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -51082,6 +51615,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -51230,6 +51765,53 @@ paths:
                                           - timeFromPrevSumHrs
                                           - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -51342,6 +51924,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -51486,6 +52070,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -51691,6 +52277,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -51835,6 +52423,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -51986,6 +52576,53 @@ paths:
                                           - timeFromPrevSumHrs
                                           - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -52098,6 +52735,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -52242,6 +52881,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -52450,6 +53091,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -52583,6 +53226,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -52738,6 +53383,53 @@ paths:
                                           - timeFromPrevSumHrs
                                           - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
+                                            - count
+                                          additionalProperties: false
                                   required:
                                     - dimensions
                                   additionalProperties: false
@@ -52850,6 +53542,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -52983,6 +53677,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -53084,6 +53780,850 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/product-analytics/funnel-exploration'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/product-analytics/journey-exploration:
+    post:
+      operationId: postJourneyExploration
+      summary: Run a User Journey based visualization
+      tags:
+        - AnalyticsExplorations
+      parameters:
+        - $ref: '#/components/parameters/cache'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datasource:
+                  description: ID of the datasource to query
+                  type: string
+                dimensions:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: date
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          dateGranularity:
+                            type: string
+                            enum:
+                              - auto
+                              - hour
+                              - day
+                              - week
+                              - month
+                              - year
+                        required:
+                          - dimensionType
+                          - column
+                          - dateGranularity
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: dynamic
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          maxValues:
+                            type: number
+                        required:
+                          - dimensionType
+                          - column
+                          - maxValues
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: static
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - dimensionType
+                          - column
+                          - values
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: slice
+                          slices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                filters:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      operator:
+                                        type: string
+                                        enum:
+                                          - '='
+                                          - '!='
+                                          - <
+                                          - <=
+                                          - '>'
+                                          - '>='
+                                          - between
+                                          - not_between
+                                          - in
+                                          - not_in
+                                          - contains
+                                          - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
+                                          - starts_with
+                                          - ends_with
+                                          - is_null
+                                          - not_null
+                                          - is_true
+                                          - is_false
+                                          - sql_expr
+                                          - saved_filter
+                                      column:
+                                        type: string
+                                      values:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - operator
+                                    additionalProperties: false
+                              required:
+                                - name
+                                - filters
+                              additionalProperties: false
+                        required:
+                          - dimensionType
+                          - slices
+                        additionalProperties: false
+                chartType:
+                  type: string
+                  enum:
+                    - line
+                    - area
+                    - timeseries-table
+                    - table
+                    - bar
+                    - stackedBar
+                    - horizontalBar
+                    - stackedHorizontalBar
+                    - bigNumber
+                    - rawTable
+                dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - yesterday
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - last12Months
+                        - lastCalendarYear
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
+                type:
+                  type: string
+                  const: journey
+                dataset:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      const: journey
+                    factTableId:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    unit:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    stepColumns:
+                      maxItems: 3
+                      type: array
+                      items:
+                        type: string
+                    stepGroups:
+                      maxItems: 25
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          column:
+                            type: string
+                          pattern:
+                            type: string
+                        required:
+                          - column
+                          - pattern
+                        additionalProperties: false
+                    anchorStepValues:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    direction:
+                      type: string
+                      enum:
+                        - forward
+                        - backward
+                    rowFilters:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - <
+                              - <=
+                              - '>'
+                              - '>='
+                              - between
+                              - not_between
+                              - in
+                              - not_in
+                              - contains
+                              - not_contains
+                              - matches_pattern
+                              - not_matches_pattern
+                              - starts_with
+                              - ends_with
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - sql_expr
+                              - saved_filter
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - operator
+                        additionalProperties: false
+                    path:
+                      maxItems: 15
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          value:
+                            type: string
+                        required:
+                          - value
+                        additionalProperties: false
+                    lookaheadDepth:
+                      type: integer
+                      minimum: 1
+                      maximum: 4
+                    optionsPerStep:
+                      type: array
+                      items:
+                        type: integer
+                        minimum: 2
+                        maximum: 50
+                    heightScale:
+                      type: string
+                      enum:
+                        - relative
+                        - absolute
+                  required:
+                    - type
+                    - factTableId
+                    - unit
+                    - stepColumns
+                    - anchorStepValues
+                    - direction
+                    - rowFilters
+                    - path
+                    - lookaheadDepth
+                    - optionsPerStep
+                  additionalProperties: false
+              required:
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - type
+                - dataset
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exploration:
+                    anyOf:
+                      - type: object
+                        properties:
+                          id:
+                            type: string
+                          dateCreated:
+                            type: string
+                            format: date-time
+                          dateUpdated:
+                            type: string
+                            format: date-time
+                          datasource:
+                            type: string
+                          status:
+                            type: string
+                            enum:
+                              - running
+                              - success
+                              - error
+                          dateStart:
+                            type: string
+                          dateEnd:
+                            type: string
+                          error:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          result:
+                            type: object
+                            properties:
+                              rows:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    dimensions:
+                                      type: array
+                                      items:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    values:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          metricId:
+                                            type: string
+                                          numerator:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                          denominator:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                        required:
+                                          - metricId
+                                          - numerator
+                                          - denominator
+                                        additionalProperties: false
+                                    steps:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          count:
+                                            type: number
+                                          timeFromPrevSumHrs:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                          timeFromPrevSumSquaresHrs:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                        required:
+                                          - count
+                                          - timeFromPrevSumHrs
+                                          - timeFromPrevSumSquaresHrs
+                                        additionalProperties: false
+                                    journey:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: path
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            levels:
+                                              type: array
+                                              items:
+                                                type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - levels
+                                            - count
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            kind:
+                                              type: string
+                                              const: committed
+                                            direction:
+                                              type: string
+                                              enum:
+                                                - forward
+                                                - backward
+                                            stepIndex:
+                                              type: number
+                                            value:
+                                              type: string
+                                            count:
+                                              type: number
+                                          required:
+                                            - kind
+                                            - direction
+                                            - stepIndex
+                                            - value
+                                            - count
+                                          additionalProperties: false
+                                  required:
+                                    - dimensions
+                                  additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
+                            required:
+                              - rows
+                            additionalProperties: false
+                          config:
+                            type: object
+                            properties:
+                              datasource:
+                                description: ID of the datasource to query
+                                type: string
+                              dimensions:
+                                type: array
+                                items:
+                                  anyOf:
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: date
+                                        column:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        dateGranularity:
+                                          type: string
+                                          enum:
+                                            - auto
+                                            - hour
+                                            - day
+                                            - week
+                                            - month
+                                            - year
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - dateGranularity
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: dynamic
+                                        column:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        maxValues:
+                                          type: number
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - maxValues
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: static
+                                        column:
+                                          type: string
+                                        values:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - values
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: slice
+                                        slices:
+                                          type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              name:
+                                                type: string
+                                              filters:
+                                                type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    operator:
+                                                      type: string
+                                                      enum:
+                                                        - '='
+                                                        - '!='
+                                                        - <
+                                                        - <=
+                                                        - '>'
+                                                        - '>='
+                                                        - between
+                                                        - not_between
+                                                        - in
+                                                        - not_in
+                                                        - contains
+                                                        - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
+                                                        - starts_with
+                                                        - ends_with
+                                                        - is_null
+                                                        - not_null
+                                                        - is_true
+                                                        - is_false
+                                                        - sql_expr
+                                                        - saved_filter
+                                                    column:
+                                                      type: string
+                                                    values:
+                                                      type: array
+                                                      items:
+                                                        type: string
+                                                  required:
+                                                    - operator
+                                                  additionalProperties: false
+                                            required:
+                                              - name
+                                              - filters
+                                            additionalProperties: false
+                                      required:
+                                        - dimensionType
+                                        - slices
+                                      additionalProperties: false
+                              chartType:
+                                type: string
+                                enum:
+                                  - line
+                                  - area
+                                  - timeseries-table
+                                  - table
+                                  - bar
+                                  - stackedBar
+                                  - horizontalBar
+                                  - stackedHorizontalBar
+                                  - bigNumber
+                                  - rawTable
+                              dateRange:
+                                type: object
+                                properties:
+                                  predefined:
+                                    type: string
+                                    enum:
+                                      - today
+                                      - yesterday
+                                      - last7Days
+                                      - last30Days
+                                      - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
+                                      - customLookback
+                                      - customDateRange
+                                  lookbackValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lookbackUnit:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - hour
+                                          - day
+                                          - week
+                                          - month
+                                      - type: 'null'
+                                  startDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  endDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                required:
+                                  - predefined
+                                additionalProperties: false
+                              showAs:
+                                type: string
+                                enum:
+                                  - total
+                                  - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
+                              type:
+                                type: string
+                                const: journey
+                              dataset:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: journey
+                                  factTableId:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  unit:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  stepColumns:
+                                    maxItems: 3
+                                    type: array
+                                    items:
+                                      type: string
+                                  stepGroups:
+                                    maxItems: 25
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        column:
+                                          type: string
+                                        pattern:
+                                          type: string
+                                      required:
+                                        - column
+                                        - pattern
+                                      additionalProperties: false
+                                  anchorStepValues:
+                                    anyOf:
+                                      - type: array
+                                        items:
+                                          type: string
+                                      - type: 'null'
+                                  direction:
+                                    type: string
+                                    enum:
+                                      - forward
+                                      - backward
+                                  rowFilters:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        operator:
+                                          type: string
+                                          enum:
+                                            - '='
+                                            - '!='
+                                            - <
+                                            - <=
+                                            - '>'
+                                            - '>='
+                                            - between
+                                            - not_between
+                                            - in
+                                            - not_in
+                                            - contains
+                                            - not_contains
+                                            - matches_pattern
+                                            - not_matches_pattern
+                                            - starts_with
+                                            - ends_with
+                                            - is_null
+                                            - not_null
+                                            - is_true
+                                            - is_false
+                                            - sql_expr
+                                            - saved_filter
+                                        column:
+                                          type: string
+                                        values:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - operator
+                                      additionalProperties: false
+                                  path:
+                                    maxItems: 15
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        value:
+                                          type: string
+                                      required:
+                                        - value
+                                      additionalProperties: false
+                                  lookaheadDepth:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 4
+                                  optionsPerStep:
+                                    type: array
+                                    items:
+                                      type: integer
+                                      minimum: 2
+                                      maximum: 50
+                                  heightScale:
+                                    type: string
+                                    enum:
+                                      - relative
+                                      - absolute
+                                required:
+                                  - type
+                                  - factTableId
+                                  - unit
+                                  - stepColumns
+                                  - anchorStepValues
+                                  - direction
+                                  - rowFilters
+                                  - path
+                                  - lookaheadDepth
+                                  - optionsPerStep
+                                additionalProperties: false
+                            required:
+                              - datasource
+                              - dimensions
+                              - chartType
+                              - dateRange
+                              - type
+                              - dataset
+                            additionalProperties: false
+                        required:
+                          - id
+                          - dateCreated
+                          - dateUpdated
+                          - datasource
+                          - status
+                          - dateStart
+                          - dateEnd
+                          - result
+                          - config
+                        additionalProperties: false
+                      - type: 'null'
+                  query:
+                    anyOf:
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
+                      - type: 'null'
+                  explorationUrl:
+                    description: >-
+                      A direct link to view this exploration in the GrowthBook
+                      Application.
+                    type: string
+                  message:
+                    description: >-
+                      Present when `exploration` is null, explaining why no
+                      result was returned.
+                    type: string
+                required:
+                  - exploration
+                  - query
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/product-analytics/journey-exploration'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/product-analytics/search:
@@ -54377,6 +55917,9 @@ paths:
                       targetId:
                         type: string
                       patch:
+                        description: >-
+                          The rule's pre-ramp state, and the only place a plan
+                          sets hashAttribute, seed or hashVersion.
                         type: object
                         properties:
                           ruleId:
@@ -54458,6 +56001,32 @@ paths:
                           enabled:
                             anyOf:
                               - type: boolean
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
                               - type: 'null'
                         required:
                           - ruleId
@@ -57949,6 +59518,32 @@ components:
                               anyOf:
                                 - type: boolean
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
+                                - type: 'null'
                           additionalProperties: false
                       required:
                         - patch
@@ -58379,6 +59974,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -59424,6 +61045,32 @@ components:
                               anyOf:
                                 - type: boolean
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
+                                - type: 'null'
                           additionalProperties: false
                       required:
                         - patch
@@ -59854,6 +61501,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -65385,6 +67058,8 @@ components:
                       - is_false
                       - contains
                       - not_contains
+                      - matches_pattern
+                      - not_matches_pattern
                       - starts_with
                       - ends_with
                       - sql_expr
@@ -65477,6 +67152,8 @@ components:
                       - is_false
                       - contains
                       - not_contains
+                      - matches_pattern
+                      - not_matches_pattern
                       - starts_with
                       - ends_with
                       - sql_expr
@@ -65589,6 +67266,8 @@ components:
                             - is_false
                             - contains
                             - not_contains
+                            - matches_pattern
+                            - not_matches_pattern
                             - starts_with
                             - ends_with
                             - sql_expr
@@ -66530,7 +68209,9 @@ components:
         startActions:
           description: >-
             Actions that restore controlled rules to their pre-ramp state.
-            Applied when rolling back or jumping to start.
+            Applied when rolling back or jumping to start, and the base every
+            step accumulates on; the only place a plan can set hashAttribute,
+            seed or hashVersion.
           type: array
           items:
             type: object
@@ -66620,6 +68301,32 @@ components:
                   enabled:
                     anyOf:
                       - type: boolean
+                      - type: 'null'
+                  hashAttribute:
+                    description: >-
+                      Attribute the rule buckets on. Required (here or on the
+                      rule) when a step sets partial coverage on a force rule,
+                      which becomes a rollout.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  seed:
+                    description: >-
+                      Hash seed for a promoted force rule. Defaults to the rule
+                      id.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  hashVersion:
+                    description: >-
+                      Hash algorithm version for a promoted force rule. Defaults
+                      to 2.
+                    anyOf:
+                      - anyOf:
+                          - type: number
+                            const: 1
+                          - type: number
+                            const: 2
                       - type: 'null'
                 required:
                   - ruleId
@@ -69363,6 +71070,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -69489,6 +71198,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -69753,6 +71464,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -69883,6 +71596,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -70152,6 +71867,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -70296,6 +72013,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -70568,6 +72287,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -70712,6 +72433,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -70987,6 +72710,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -71120,6 +72845,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -71274,6 +73001,11 @@ components:
                 type: string
               description:
                 type: string
+              status:
+                type: string
+                enum:
+                  - active
+                  - pending
             required:
               - id
               - key
@@ -71985,6 +73717,53 @@ components:
                         - timeFromPrevSumHrs
                         - timeFromPrevSumSquaresHrs
                       additionalProperties: false
+                  journey:
+                    anyOf:
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            const: path
+                          direction:
+                            type: string
+                            enum:
+                              - forward
+                              - backward
+                          levels:
+                            type: array
+                            items:
+                              type: string
+                          count:
+                            type: number
+                        required:
+                          - kind
+                          - direction
+                          - levels
+                          - count
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            const: committed
+                          direction:
+                            type: string
+                            enum:
+                              - forward
+                              - backward
+                          stepIndex:
+                            type: number
+                          value:
+                            type: string
+                          count:
+                            type: number
+                        required:
+                          - kind
+                          - direction
+                          - stepIndex
+                          - value
+                          - count
+                        additionalProperties: false
                 required:
                   - dimensions
                 additionalProperties: false
@@ -72098,6 +73877,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -72224,6 +74005,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -72370,6 +74153,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -72500,6 +74285,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -72651,6 +74438,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -72795,6 +74584,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -72949,6 +74740,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -73093,6 +74886,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -73250,6 +75045,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -73383,6 +75180,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -73439,6 +75238,326 @@ components:
                     - type
                     - unit
                     - steps
+                  additionalProperties: false
+              required:
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - type
+                - dataset
+              additionalProperties: false
+            - type: object
+              properties:
+                datasource:
+                  description: ID of the datasource to query
+                  type: string
+                dimensions:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: date
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          dateGranularity:
+                            type: string
+                            enum:
+                              - auto
+                              - hour
+                              - day
+                              - week
+                              - month
+                              - year
+                        required:
+                          - dimensionType
+                          - column
+                          - dateGranularity
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: dynamic
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          maxValues:
+                            type: number
+                        required:
+                          - dimensionType
+                          - column
+                          - maxValues
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: static
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - dimensionType
+                          - column
+                          - values
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: slice
+                          slices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                filters:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      operator:
+                                        type: string
+                                        enum:
+                                          - '='
+                                          - '!='
+                                          - <
+                                          - <=
+                                          - '>'
+                                          - '>='
+                                          - between
+                                          - not_between
+                                          - in
+                                          - not_in
+                                          - contains
+                                          - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
+                                          - starts_with
+                                          - ends_with
+                                          - is_null
+                                          - not_null
+                                          - is_true
+                                          - is_false
+                                          - sql_expr
+                                          - saved_filter
+                                      column:
+                                        type: string
+                                      values:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - operator
+                                    additionalProperties: false
+                              required:
+                                - name
+                                - filters
+                              additionalProperties: false
+                        required:
+                          - dimensionType
+                          - slices
+                        additionalProperties: false
+                chartType:
+                  type: string
+                  enum:
+                    - line
+                    - area
+                    - timeseries-table
+                    - table
+                    - bar
+                    - stackedBar
+                    - horizontalBar
+                    - stackedHorizontalBar
+                    - bigNumber
+                    - rawTable
+                dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - yesterday
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - last12Months
+                        - lastCalendarYear
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
+                type:
+                  type: string
+                  const: journey
+                dataset:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      const: journey
+                    factTableId:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    unit:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    stepColumns:
+                      maxItems: 3
+                      type: array
+                      items:
+                        type: string
+                    stepGroups:
+                      maxItems: 25
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          column:
+                            type: string
+                          pattern:
+                            type: string
+                        required:
+                          - column
+                          - pattern
+                        additionalProperties: false
+                    anchorStepValues:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    direction:
+                      type: string
+                      enum:
+                        - forward
+                        - backward
+                    rowFilters:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - <
+                              - <=
+                              - '>'
+                              - '>='
+                              - between
+                              - not_between
+                              - in
+                              - not_in
+                              - contains
+                              - not_contains
+                              - matches_pattern
+                              - not_matches_pattern
+                              - starts_with
+                              - ends_with
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - sql_expr
+                              - saved_filter
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - operator
+                        additionalProperties: false
+                    path:
+                      maxItems: 15
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          value:
+                            type: string
+                        required:
+                          - value
+                        additionalProperties: false
+                    lookaheadDepth:
+                      type: integer
+                      minimum: 1
+                      maximum: 4
+                    optionsPerStep:
+                      type: array
+                      items:
+                        type: integer
+                        minimum: 2
+                        maximum: 50
+                    heightScale:
+                      type: string
+                      enum:
+                        - relative
+                        - absolute
+                  required:
+                    - type
+                    - factTableId
+                    - unit
+                    - stepColumns
+                    - anchorStepValues
+                    - direction
+                    - rowFilters
+                    - path
+                    - lookaheadDepth
+                    - optionsPerStep
                   additionalProperties: false
               required:
                 - datasource
@@ -76968,6 +79087,28 @@ components:
               anyOf:
                 - type: boolean
                 - type: 'null'
+            hashAttribute:
+              description: >-
+                Attribute the rule buckets on. Required (here or on the rule)
+                when a step sets partial coverage on a force rule, which becomes
+                a rollout.
+              anyOf:
+                - type: string
+                - type: 'null'
+            seed:
+              description: Hash seed for a promoted force rule. Defaults to the rule id.
+              anyOf:
+                - type: string
+                - type: 'null'
+            hashVersion:
+              description: Hash algorithm version for a promoted force rule. Defaults to 2.
+              anyOf:
+                - anyOf:
+                    - type: number
+                      const: 1
+                    - type: number
+                      const: 2
+                - type: 'null'
           required:
             - ruleId
           additionalProperties: false
@@ -77113,6 +79254,102 @@ components:
         - interval
         - actions
       additionalProperties: false
+    endActions:
+      type: object
+      properties:
+        targetType:
+          type: string
+          const: feature-rule
+        targetId:
+          type: string
+        patch:
+          type: object
+          properties:
+            ruleId:
+              type: string
+            coverage:
+              description: >-
+                Traffic fraction (0–1). For monitored steps the rollout rule is
+                promoted to an experiment: treatment = [0, coverage), control =
+                [0.5, 0.5+coverage). Both arms are equal-sized and non-adjacent,
+                so a step-up only adds new users to each arm — no existing user
+                changes group. The REST API enforces coverage ≤ 0.5 on monitored
+                steps so control end never exceeds 1.0. The SDK uses explicit
+                hash ranges on bucketingV2 clients to keep bucketing stable
+                across monitored/unmonitored transitions.
+              anyOf:
+                - type: number
+                  minimum: 0
+                  maximum: 1
+                - type: 'null'
+            condition:
+              anyOf:
+                - type: string
+                - type: 'null'
+            savedGroups:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                - type: 'null'
+            prerequisites:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                - type: 'null'
+            allEnvironments:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+            environments:
+              anyOf:
+                - type: array
+                  items:
+                    type: string
+                - type: 'null'
+            force:
+              description: >-
+                Value to serve, in the string form rule values use ("false",
+                "10", '{"limit": 5}'). A non-string JSON value is accepted and
+                stored as its JSON text. Must be valid for the feature's value
+                type.
+            enabled:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+          required:
+            - ruleId
+          additionalProperties: false
+      required:
+        - targetType
+        - targetId
+        - patch
+      additionalProperties: false
     lockdownConfig:
       type: object
       properties:
@@ -77123,6 +79360,20 @@ components:
             - locked
       required:
         - mode
+      additionalProperties: false
+    featureDraftPublishFailures:
+      type: object
+      properties:
+        featureId:
+          type: string
+        revisionVersion:
+          type: number
+        reason:
+          type: string
+      required:
+        - featureId
+        - revisionVersion
+        - reason
       additionalProperties: false
     columns:
       type: object

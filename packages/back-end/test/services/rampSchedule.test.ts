@@ -14,6 +14,7 @@
  *   rollbackToStep and jumpAheadToStep apply the effective accumulated patch so that
  *   arriving at step N from any direction yields the same rule state.
  */
+import omit from "lodash/omit";
 
 import type {
   RampScheduleInterface,
@@ -71,6 +72,12 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   publishRevision: jest.fn(),
 }));
 
+// The fire-time targeting check imports the whole validations module graph;
+// this suite asserts only that it is asked, and when.
+jest.mock("back-end/src/api/features/validations", () => ({
+  validateRampPlanPatches: jest.fn(),
+}));
+
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   createRevision: jest.fn(),
   getRevision: jest.fn(),
@@ -100,6 +107,8 @@ jest.mock("back-end/src/util/secrets", () => ({
 
 // Pull in mocked module references AFTER the mock declarations.
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import { validateRampPlanPatches } from "back-end/src/api/features/validations";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   createRevision,
   getRevision,
@@ -275,6 +284,67 @@ describe("applyPatchToRule", () => {
     enabled: true,
     condition: "",
   };
+
+  it("promotes a force rule to a rollout once its anchor names a hash attribute", () => {
+    const force: FeatureRule = {
+      id: "r2",
+      type: "force",
+      value: "true",
+      enabled: true,
+    };
+    // Identity comes from the start anchor; seed and hash version default.
+    expect(applyPatchToRule(force, { hashAttribute: "user_id" })).toEqual({
+      ...force,
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "r2",
+      hashVersion: 2,
+    });
+    expect(
+      applyPatchToRule(force, {
+        coverage: 0.5,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 1,
+      }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 0.5,
+      hashAttribute: "user_id",
+      seed: "s1",
+      hashVersion: 1,
+    });
+    // A hash attribute left on the rule (demoted from a rollout) serves too.
+    expect(
+      applyPatchToRule({ ...force, hashAttribute: "user_id" } as FeatureRule, {
+        coverage: 0.5,
+      }),
+    ).toMatchObject({ type: "rollout", hashAttribute: "user_id" });
+    // Without one anywhere nothing promotes: the engine refuses such a step
+    // before it gets here. Full or no coverage never promotes either.
+    expect(applyPatchToRule(force, { coverage: 0.5 }).type).toBe("force");
+    expect(applyPatchToRule(force, { coverage: 1 }).type).toBe("force");
+    expect(applyPatchToRule(force, { condition: "{}" }).type).toBe("force");
+  });
+
+  it("applies the anchor's identity to a rollout; clearing coverage means full coverage", () => {
+    expect(
+      applyPatchToRule(base, {
+        coverage: null,
+        hashAttribute: "user_id",
+        seed: "s1",
+      }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "s1",
+    });
+    expect(applyPatchToRule(base, { hashAttribute: null })).toMatchObject({
+      hashAttribute: "id",
+    });
+  });
 
   it("applies coverage patch", () => {
     const result = applyPatchToRule(base, { coverage: 0.5 });
@@ -562,6 +632,28 @@ describe("ramp force values are applied and stored as strings", () => {
 });
 
 describe("getStartPatchForRule", () => {
+  it("copies a rollout's bucketing identity; a force rule has none to copy", () => {
+    expect(
+      getStartPatchForRule({
+        id: "r1",
+        type: "rollout",
+        coverage: 0.2,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 2,
+        enabled: true,
+      } as FeatureRule),
+    ).toMatchObject({ hashAttribute: "user_id", seed: "s1", hashVersion: 2 });
+    expect(
+      getStartPatchForRule({
+        id: "r2",
+        type: "force",
+        value: "true",
+        enabled: true,
+      } as FeatureRule),
+    ).not.toHaveProperty("hashAttribute");
+  });
+
   it("captures explicit null clears for absent rule fields", () => {
     const patch = getStartPatchForRule({
       id: "r1",
@@ -815,9 +907,26 @@ describe("computeEffectivePatch", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
+
+  it("carries the anchor's identity into every step, so a jump buckets like stepping", () => {
+    const sched = {
+      ...sparseSchedule([
+        [action(TARGET_ID, { coverage: 0.1 })],
+        [action(TARGET_ID, { coverage: 0.5 })],
+      ]),
+      startActions: [action(TARGET_ID, { hashAttribute: "user_id" })],
+    } as unknown as ReturnType<typeof sparseSchedule>;
+    expect(eff(sched, 0)).toMatchObject({
+      coverage: 0.1,
+      hashAttribute: "user_id",
+    });
+    expect(eff(sched, 1)).toMatchObject({
+      coverage: 0.5,
+      hashAttribute: "user_id",
+    });
+  });
 
   it("stepIndex=-1 returns empty map (no steps applied yet)", () => {
     const sched = sparseSchedule([
@@ -1072,8 +1181,7 @@ describe("sparse inherit vs explicit clear", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
 
   // ── condition ────────────────────────────────────────────────────────────
@@ -1763,6 +1871,67 @@ describe("featureEntityHandler.applyActions", () => {
     auditUser: { type: "system" },
   } as never;
 
+  it.each([false, true])(
+    "preserves persisted targeting only on restoration (forward=%s)",
+    async (forward) => {
+      const live = { ...makeFeature(), project: "b" } as FeatureInterface;
+      mockGetFeature.mockResolvedValue(live);
+      const strictContext = {
+        org: { id: ORG_ID, settings: { enforceSavedGroupProjectScope: true } },
+        environments: [],
+        scanContextOverride: {
+          models: {
+            savedGroups: {
+              getAllWithoutValues: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: "old-group", type: "list", projects: ["a"] },
+                ]),
+            },
+          },
+        },
+      } as unknown as Parameters<typeof featureEntityHandler.applyActions>[0];
+      mockCreateRevision.mockImplementationOnce(
+        async ({ context, feature, changes, savedGroupScopeBaseline }) => {
+          await assertFeatureSavedGroupScope(
+            context,
+            { ...feature, rules: changes.rules ?? feature.rules },
+            savedGroupScopeBaseline
+              ? [feature, savedGroupScopeBaseline]
+              : feature,
+          );
+          return makeRevision() as never;
+        },
+      );
+      const action = featureEntityHandler.applyActions(
+        strictContext,
+        FEATURE_ID,
+        [
+          {
+            targetType: "feature-rule",
+            targetId: TARGET_ID,
+            patch: {
+              ruleId: RULE_ID,
+              savedGroups: [{ match: "all", ids: ["old-group"] }],
+            },
+          },
+        ],
+        {
+          stepLabel: forward ? "Advance" : "Rollback",
+          user: { type: "system" },
+          judgeTargeting: forward,
+        },
+      );
+      if (forward) {
+        await expect(action).rejects.toThrow("not available");
+        expect(mockPublishRevision).not.toHaveBeenCalled();
+      } else {
+        await expect(action).resolves.toBeUndefined();
+        expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
   it("calls publishRevision with sparse-patched rules", async () => {
     const actions = [
       {
@@ -2037,6 +2206,35 @@ describe("advanceStep — interval step", () => {
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("judges the step's stored targeting against the live rule before it lands", async () => {
+    const { ctx } = makeContext({ currentStepIndex: -1 });
+    await advanceStep(ctx as never, makeSchedule({ currentStepIndex: -1 }));
+    expect(validateRampPlanPatches).toHaveBeenCalledTimes(1);
+    expect(validateRampPlanPatches).toHaveBeenCalledWith(
+      ctx,
+      [
+        expect.objectContaining({
+          patch: expect.objectContaining({ ruleId: RULE_ID, coverage: 0.3 }),
+          rule: expect.objectContaining({ id: RULE_ID }),
+        }),
+      ],
+      {
+        stored: [
+          {
+            startActions: [
+              {
+                patch: expect.objectContaining({
+                  ruleId: RULE_ID,
+                  environments: ["production"],
+                }),
+              },
+            ],
+          },
+        ],
+      },
+    );
   });
 
   it("increments currentStepIndex", async () => {
@@ -2534,6 +2732,11 @@ describe("rollbackToStep", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
+  afterEach(() => {
+    // Rollbacks are never judged; refusing a retreat is worse than a stale step.
+    expect(validateRampPlanPatches).not.toHaveBeenCalled();
+  });
+
   it("applies accumulated effective patch when rolling back — excludes steps after target", async () => {
     // Schedule at step 2 with condition that was set in step 0 and overridden in step 2.
     // Rolling back to step 0 should apply the step-0 effective state, not step-2's condition.
@@ -2790,6 +2993,9 @@ describe("resumeSchedule", () => {
     const [, resumeUpdates] = updateById.mock.calls[0];
     expect(resumeUpdates.nextStepAt).not.toBeNull();
     expect(resumeUpdates.nextStepAt).toBeInstanceOf(Date);
+    expect(mockCreateEvent.mock.calls.at(-1)?.[0].event).toBe(
+      "rampSchedule.actions.resumed",
+    );
 
     // nextStepAt should be in the future (step interval not yet elapsed),
     // NOT set to now — the step needs to run its hold time first.
@@ -4306,6 +4512,45 @@ describe("startReadyScheduleNow", () => {
     const [eventArgs] = mockCreateEvent.mock.calls[0];
     expect(eventArgs.objectId).toBe(schedule.id);
   });
+
+  it("a first step the engine refuses pauses the schedule with the reason and rethrows", async () => {
+    const { ctx, schedule, updateById } = makeStartNowCtx({
+      steps: [
+        {
+          interval: 60,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+    });
+    (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
+      new Error("step refused"),
+    );
+
+    await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
+      "step refused",
+    );
+    expect(updateById).toHaveBeenCalledWith(
+      schedule.id,
+      expect.objectContaining({
+        status: "paused",
+        eventHistory: expect.arrayContaining([
+          expect.objectContaining({
+            type: "error-paused",
+            reason: "step refused",
+          }),
+        ]),
+      }),
+    );
+    expect(mockCreateEvent.mock.calls.map(([e]) => e.event)).toContain(
+      "rampSchedule.actions.errorPaused",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -5180,12 +5425,18 @@ describe("pauseSchedule", () => {
       },
     };
 
-    await pauseSchedule(ctx as never, schedule);
+    await pauseSchedule(ctx as never, schedule, "Guardrail breach");
 
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("paused");
     expect(updates.nextProcessAt).toEqual(futureCutoff);
     expect(updates.nextSnapshotAt).toBeNull();
+    const [eventArgs] = mockCreateEvent.mock.calls.at(-1) ?? [];
+    expect(eventArgs.event).toBe("rampSchedule.actions.paused");
+    expect(eventArgs.data.object).toMatchObject({
+      status: "paused",
+      reason: "Guardrail breach",
+    });
   });
 
   it("sets nextProcessAt to null when no cutoffDate exists", async () => {

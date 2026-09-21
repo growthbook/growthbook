@@ -7,6 +7,8 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
+  rampPlanLacksHashAttribute,
+  getDefaultHashAttribute,
   stringifyFeatureValue,
   validateFeatureValue,
   assertSchemaMatchesValueType,
@@ -16,6 +18,7 @@ import {
   getLiveChangesSinceBase,
   evaluatePublishGovernance,
   isScheduledPublishPending,
+  pendingScheduleWarning,
   isScheduledPublishDue,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
@@ -1055,6 +1058,50 @@ describe("scheduled / deferred publish helpers", () => {
     ...over,
   });
 
+  describe("rampPlanLacksHashAttribute", () => {
+    it("is true when a patch for the rule sets partial coverage and none names a hash attribute", () => {
+      const plan = (patches: Record<string, unknown>[]) => ({
+        steps: patches.map((patch) => ({ actions: [{ patch }] })),
+      });
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 0.5 }]), "r1")).toBe(
+        true,
+      );
+      expect(
+        rampPlanLacksHashAttribute(
+          {
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            ...plan([{ coverage: 0.5 }]),
+          },
+          "r1",
+        ),
+      ).toBe(false);
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 1 }]), "r1")).toBe(
+        false,
+      );
+      expect(
+        rampPlanLacksHashAttribute(
+          plan([{ ruleId: "r2", coverage: 0.5 }]),
+          "r1",
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("getDefaultHashAttribute", () => {
+    it("prefers a marked id, then the first marked attribute, then id", () => {
+      const attr = (property: string, hashAttribute?: boolean) =>
+        ({ property, datatype: "string", hashAttribute }) as never;
+      expect(
+        getDefaultHashAttribute([attr("device", true), attr("id", true)]),
+      ).toBe("id");
+      expect(getDefaultHashAttribute([attr("device", true), attr("id")])).toBe(
+        "device",
+      );
+      expect(getDefaultHashAttribute([attr("id")])).toBe("id");
+      expect(getDefaultHashAttribute(undefined)).toBe("id");
+    });
+  });
+
   describe("isScheduledPublishPending", () => {
     it("true for an armed, dated, active draft", () => {
       expect(isScheduledPublishPending(rev())).toBe(true);
@@ -1068,6 +1115,15 @@ describe("scheduled / deferred publish helpers", () => {
       expect(isScheduledPublishPending(rev({ scheduledPublishAt: null }))).toBe(
         false,
       );
+    });
+    it("warns about a pending schedule, naming its date", () => {
+      expect(pendingScheduleWarning(rev())).toMatch(
+        new RegExp(`scheduled to publish on ${future.toUTCString()}`),
+      );
+      expect(pendingScheduleWarning(rev({ status: "published" }))).toBeNull();
+      expect(
+        pendingScheduleWarning(rev({ autoPublishOnApproval: false })),
+      ).toBeNull();
     });
     it("false once published or discarded", () => {
       expect(isScheduledPublishPending(rev({ status: "published" }))).toBe(
