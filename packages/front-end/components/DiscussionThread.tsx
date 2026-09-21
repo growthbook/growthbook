@@ -181,7 +181,11 @@ const DiscussionThread: FC<{
             })}
           </Flex>
         ) : (
-          <Text color="text-low" fontStyle="italic">
+          <Text
+            color="text-low"
+            fontStyle="italic"
+            size={compact ? "sm" : "md"}
+          >
             {allowNewComments
               ? "No comments yet. Add the first one!"
               : "No comments."}
