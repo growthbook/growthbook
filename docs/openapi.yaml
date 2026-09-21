@@ -66475,6 +66475,16 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        conditionalInlineFilters:
+          description: >-
+            Value -> additional column to prompt for when a metric filters this
+            column to that value, e.g. {"Page View": "path", "Modal Open":
+            "properties.modalType"}. Requires alwaysInlineFilter.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         deleted:
           default: false
           type: boolean
@@ -66600,6 +66610,16 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        conditionalInlineFilters:
+          description: >-
+            Value -> additional column to prompt for when a metric filters this
+            column to that value, e.g. {"Page View": "path", "Modal Open":
+            "properties.modalType"}. Requires alwaysInlineFilter.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         deleted:
           default: false
           type: boolean
