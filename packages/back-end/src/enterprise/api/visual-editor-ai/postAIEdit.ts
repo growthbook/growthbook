@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pickVisionModel } from "shared/ai";
 import {
   findVisualChangesetById,
   updateVisualChange,
@@ -209,6 +210,30 @@ const bodySchema = z
     streamingMode: z.boolean().optional(),
     // Save the result rather than returning it for the caller to persist.
     persist: z.boolean().optional(),
+    // Images attached to the prompt. Bytes rather than a URL so the back-end
+    // never fetches on the caller's behalf; the extension downscales to
+    // ≤1024px first. `url` is the same image on the asset bucket, for when
+    // the request is to place it on the page. The model infers which use
+    // the prompt intends.
+    attachments: z
+      .array(
+        z.object({
+          data: z
+            .string()
+            .min(1)
+            .max(4 * 1024 * 1024),
+          mimeType: z.enum([
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/webp",
+          ]),
+          url: z.string().url().max(2000).optional(),
+          name: z.string().max(200).optional(),
+        }),
+      )
+      .max(2)
+      .optional(),
   })
   .strict();
 
@@ -618,6 +643,7 @@ const buildPrompt = ({
   existingJs,
   domDigest,
   conversationHistory,
+  attachments,
   retryHint,
 }: {
   prompt: string;
@@ -632,8 +658,25 @@ const buildPrompt = ({
   existingJs?: string;
   domDigest?: z.infer<typeof domDigestSchema>;
   conversationHistory?: z.infer<typeof conversationTurnSchema>[];
+  attachments?: Array<{ url?: string; mimeType: string; name?: string }>;
   retryHint?: string;
 }): string => {
+  // The image bytes are content parts on this same message (see
+  // constructMessages); this block names them and tells the model how to
+  // decide between looking at an image and placing it.
+  const attachmentsBlock =
+    attachments && attachments.length > 0
+      ? `\nAttached images (${attachments.length}, included above in this message):\n${attachments
+          .map(
+            (a, i) =>
+              `${i + 1}. ${a.name ?? "image"} (${a.mimeType})${
+                a.url ? ` — hosted at ${a.url}` : ""
+              }`,
+          )
+          .join(
+            "\n",
+          )}\nDecide from the request what each is for. To PLACE it on the page (replace an image, set a background, insert it), use its hosted URL verbatim as the src / background-image / <img> in inserted markup — never a data: URI. As a REFERENCE ("make it look like this", "match this layout"), read it for colors, layout, and copy, and don't put it on the page unless asked.\n`
+      : "";
   const historyBlock =
     conversationHistory && conversationHistory.length > 0
       ? `\nPrevious conversation (most recent last):\n${conversationHistory
@@ -673,7 +716,7 @@ const buildPrompt = ({
 
   const retryBlock = retryHint ? `\n${retryHint}\n` : "";
 
-  return `${historyBlock}${digestBlock}${contextBlock}${existingBlock}${existingCssBlock}${existingJsBlock}${retryBlock}
+  return `${historyBlock}${digestBlock}${contextBlock}${attachmentsBlock}${existingBlock}${existingCssBlock}${existingJsBlock}${retryBlock}
 User request:
 """
 ${prompt}
@@ -691,6 +734,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     conversationHistory,
     locale,
     persist,
+    attachments,
   } = req.body;
 
   // Carried inside domDigest; rendered as an outline in the prompt and backs
@@ -742,6 +786,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       conversationTurns: conversationHistory?.length ?? 0,
       elementContextCount: elementContext.length,
       hasDomDigest: !!domDigest,
+      attachmentCount: attachments?.length ?? 0,
       prompt,
     },
     "[visual-editor-ai/edit] user prompt",
@@ -786,8 +831,25 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // visualEditorAIContext is the free-text brand guidelines admins set in
   // Settings → AI Settings. Appended to the system prompt (not the user
   // message) so the LLM treats it as instructions, not ignorable input.
-  const { visualEditorAIModel, visualEditorAIContext } =
-    await getAISettingsForOrg(context, true);
+  const aiSettings = await getAISettingsForOrg(context, true);
+  const { visualEditorAIModel, visualEditorAIContext } = aiSettings;
+
+  // Attached images go to the model as vision input, which needs a model
+  // that accepts them; fall back per the org's keys when the configured one
+  // doesn't. The hosted URLs ride in the prompt text for placement.
+  const images = attachments?.map((a) => ({
+    data: a.data,
+    mimeType: a.mimeType,
+  }));
+  const editModel =
+    images && images.length > 0
+      ? (pickVisionModel(aiSettings) ?? visualEditorAIModel)
+      : visualEditorAIModel;
+  const attachmentMeta = attachments?.map(({ url, mimeType, name }) => ({
+    url,
+    mimeType,
+    name,
+  }));
   let effectiveInstructions = visualEditorAIContext
     ? `${instructions}\n\nAdditional brand guidelines / context provided by the organization (these MUST be respected unless they conflict with the JSON output schema):\n${visualEditorAIContext}`
     : instructions;
@@ -817,13 +879,15 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         existingJs: currentChange?.js,
         domDigest,
         conversationHistory,
+        attachments: attachmentMeta,
         retryHint,
       }),
       temperature: 0.2,
       type: "visual-editor-ai-edit",
       isDefaultPrompt: true,
       zodObjectSchema: outputSchema,
-      overrideModel: visualEditorAIModel,
+      overrideModel: editModel,
+      images,
       cacheSystemPrompt: true,
       maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
       extendedMaxOutputTokens: EDIT_EXTENDED_MAX_OUTPUT_TOKENS,
@@ -1120,12 +1184,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       existingJs: currentChange?.js,
       domDigest,
       conversationHistory,
+      attachments: attachmentMeta,
     }),
     temperature: 0.2,
     type: "visual-editor-ai-edit",
     isDefaultPrompt: true,
     zodObjectSchema: outputSchema,
-    overrideModel: visualEditorAIModel,
+    overrideModel: editModel,
+    images,
     tools,
     maxSteps: VISUAL_EDITOR_MAX_STEPS,
     cacheSystemPrompt: true,
