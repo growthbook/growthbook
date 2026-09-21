@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiCaretDownFill, PiPencilSimpleFill } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
@@ -9,11 +9,16 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import SelectField from "@/components/Forms/SelectField";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import { getAutoDatasourceId } from "@/components/Experiment/SimpleNewExperimentForm";
+import {
+  getAutoDatasourceId,
+  getAutoExposureQueryId,
+} from "@/components/Experiment/SimpleNewExperimentForm";
+import { getExposureQueriesForAttribute } from "@/services/datasources";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import {
   DropdownMenu,
@@ -122,6 +127,51 @@ export default function AnalysisPlan({ experiment, mutate, canEdit }: Props) {
   const selectedDatasource = getDatasourceById(datasource);
   const exposureQueries = selectedDatasource?.settings?.queries?.exposure ?? [];
   const exposureQuery = exposureQueries.find((q) => q.id === exposureQueryId);
+
+  // What the experiment buckets on decides which queries can analyse it.
+  const hashAttribute = experiment.hashAttribute || "";
+  const { matching, other, linked } = useMemo(
+    () =>
+      getExposureQueriesForAttribute(
+        selectedDatasource?.settings,
+        hashAttribute,
+      ),
+    [selectedDatasource?.settings, hashAttribute],
+  );
+  const mismatched =
+    linked &&
+    !!exposureQueryId &&
+    !matching.some((q) => q.id === exposureQueryId);
+
+  // Follow the assignment attribute: when the query it leaves behind cannot
+  // analyse the experiment, take the one that can — but only where the
+  // attribute names a single query, and never over a deliberate choice that
+  // still works.
+  const autoAppliedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editable || !selectedDatasource) return;
+    const key = `${datasource}:${hashAttribute}`;
+    if (autoAppliedFor.current === key) return;
+    autoAppliedFor.current = key;
+    if (exposureQueryId && !mismatched) return;
+    const suggestion = getAutoExposureQueryId({
+      datasource: selectedDatasource,
+      hashAttribute,
+    });
+    if (!suggestion || suggestion === exposureQueryId) return;
+    setExposureQueryId(suggestion);
+    // An empty field filling itself in is a default; replacing a saved query
+    // is a change, and the save bar has to say so.
+    if (experiment.exposureQueryId) setTouched(true);
+  }, [
+    editable,
+    selectedDatasource,
+    datasource,
+    hashAttribute,
+    exposureQueryId,
+    mismatched,
+    experiment.exposureQueryId,
+  ]);
 
   // Read-only lists the metrics by name: the selector renders nothing when it
   // has no setters and nothing selected, which would hide the row entirely.
@@ -235,10 +285,33 @@ export default function AnalysisPlan({ experiment, mutate, canEdit }: Props) {
               // control: react-select goes uncontrolled on an undefined value.
               forceUndefinedValueToNull
               placeholder="Select assignment query..."
-              options={exposureQueries.map((q) => ({
-                value: q.id,
-                label: q.name,
-              }))}
+              options={
+                linked && matching.length > 0
+                  ? [
+                      {
+                        label: `Keyed to ${hashAttribute}`,
+                        options: matching.map((q) => ({
+                          value: q.id,
+                          label: q.name,
+                        })),
+                      },
+                      ...(other.length > 0
+                        ? [
+                            {
+                              label: "Other assignment queries",
+                              options: other.map((q) => ({
+                                value: q.id,
+                                label: q.name,
+                              })),
+                            },
+                          ]
+                        : []),
+                    ]
+                  : exposureQueries.map((q) => ({
+                      value: q.id,
+                      label: q.name,
+                    }))
+              }
               formatOptionLabel={({ label, value }) => {
                 const userIdType = exposureQueries.find(
                   (e) => e.id === value,
@@ -262,6 +335,19 @@ export default function AnalysisPlan({ experiment, mutate, canEdit }: Props) {
           ) : (
             <Text color="text-high">{exposureQuery?.name || "None"}</Text>
           )}
+          {mismatched ? (
+            <HelperText status="warning" size="sm" mt="1">
+              This experiment buckets on <code>{hashAttribute}</code>, which is
+              not linked to this query&apos;s identifier type
+              {exposureQuery?.userIdType ? (
+                <>
+                  {" "}
+                  (<code>{exposureQuery.userIdType}</code>)
+                </>
+              ) : null}
+              .
+            </HelperText>
+          ) : null}
         </SetupFieldRow>
 
         {metricRow(

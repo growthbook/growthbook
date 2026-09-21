@@ -782,6 +782,34 @@ export function getInitialSettings(
   };
 }
 
+/**
+ * Which assignment queries can analyse an experiment bucketed on this
+ * attribute: the ones keyed to an identifier type the attribute is linked to,
+ * under the data source's Identifier Types. Nothing is linked on a data source
+ * that has never been set up, and every query is fair game then.
+ */
+export function getExposureQueriesForAttribute(
+  settings: DataSourceSettings | undefined,
+  hashAttribute: string,
+): { matching: ExposureQuery[]; other: ExposureQuery[]; linked: boolean } {
+  const queries = settings?.queries?.exposure || [];
+  const userIdTypes = (settings?.userIdTypes || []).filter((t) =>
+    t.attributes?.includes(hashAttribute),
+  );
+  const linked = (settings?.userIdTypes || []).some(
+    (t) => (t.attributes?.length ?? 0) > 0,
+  );
+  if (!linked || !hashAttribute) {
+    return { matching: [], other: queries, linked: false };
+  }
+  const types = userIdTypes.map((t) => t.userIdType);
+  return {
+    matching: queries.filter((q) => types.includes(q.userIdType)),
+    other: queries.filter((q) => !types.includes(q.userIdType)),
+    linked: true,
+  };
+}
+
 export function getExposureQuery(
   settings?: DataSourceSettings,
   exposureQueryId?: string,

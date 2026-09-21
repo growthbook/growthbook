@@ -22,6 +22,7 @@ import EditVariationMetadataModal from "@/components/Experiment/EditVariationMet
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import TrafficAllocationFunnel from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
+import AnalysisPlan from "@/components/Experiment/TabbedPage/AnalysisPlan";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Callout from "@/ui/Callout";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -366,6 +367,13 @@ export default function Implementation({
               ? "Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system."
               : "The implementation, traffic, and targeting may be managed by an external system."}
           </Callout>
+        ) : null}
+        {!isHoldout ? (
+          <AnalysisPlan
+            experiment={experiment}
+            mutate={mutate}
+            canEdit={canEditExperiment}
+          />
         ) : null}
         <AnalysisSettings
           experiment={experiment}
