@@ -63,14 +63,18 @@ import {
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
 import {
+  applyRampBaseStateSync,
   assertFeatureNotLockedByRamp,
+  planRampBaseStateSyncForPublish,
+  RampBaseStatePreImage,
   RampLockdownError,
+  restoreRampBaseStates,
 } from "back-end/src/services/rampSchedule";
 import {
   bulkPublishFields,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
-import { getErrorMessage } from "back-end/src/util/errors";
+import { BadRequestError, getErrorMessage } from "back-end/src/util/errors";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
@@ -99,6 +103,8 @@ type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
   plan: FeatureMergePlan;
   createdRampScheduleIds?: string[];
+  // Ramp anchors the apply rewrote, captured as each write lands.
+  rampBaseStatePreImages?: RampBaseStatePreImage[];
   updatedFeature?: FeatureInterface;
   // Captured at the write, even if a later read or satellite update fails.
   writtenFeatureUpdates?: Partial<FeatureInterface>;
@@ -302,6 +308,19 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         }),
       );
     }
+    const rampBaseState = await planRampBaseStateSyncForPublish(
+      overlayContext,
+      feature,
+      plan.mergeResult,
+    );
+    for (const message of rampBaseState.refusals) {
+      gates.push(
+        makeBlockingGate({
+          type: "ramp-controlled-field",
+          messages: [message],
+        }),
+      );
+    }
     if (
       await hasPublishLockingScheduledSibling(
         feature.organization,
@@ -425,6 +444,26 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
     }
 
+    // Re-planned here: a ramp may have started since the gates ran. Refusals
+    // are gates above; a live one now is a 400 like the single-entity path.
+    const rampBaseState = await planRampBaseStateSyncForPublish(
+      context,
+      feature,
+      mergeResult,
+    );
+    if (rampBaseState.refusals.length) {
+      throw new BadRequestError(rampBaseState.refusals.join("\n"));
+    }
+    if (rampBaseState.updates.length) {
+      desired.rampBaseStatePreImages = [];
+      await applyRampBaseStateSync(
+        context,
+        rampBaseState.updates,
+        raw.version,
+        desired.rampBaseStatePreImages,
+      );
+    }
+
     // Create ramps before the feature write and retain leaked IDs for compensation.
     desired.createdRampScheduleIds = await applyRampCreateActionsForRevision(
       context,
@@ -543,6 +582,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // A CAS loser may still have created ramps before the guarded feature write.
     if (revision.casLost) {
       const desired = desiredState as unknown as FeatureDesiredState;
+      if (desired.rampBaseStatePreImages?.length) {
+        await restoreRampBaseStates(context, desired.rampBaseStatePreImages);
+      }
       if (desired.createdRampScheduleIds?.length) {
         const failedIds = await rollbackCreatedRampSchedules(
           context,
@@ -646,6 +688,19 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         logger.error(
           e,
           `bulk publish compensation: failed to reverse holdout change for feature ${feature.id} — linked experiments [${(current.linkedExperiments ?? []).join(", ")}] may carry stale holdout pointers`,
+        );
+      }
+      assertNoReversalFailures();
+    }
+
+    if (desired.rampBaseStatePreImages?.length) {
+      try {
+        await restoreRampBaseStates(context, desired.rampBaseStatePreImages);
+      } catch (e) {
+        reversalFailures.push("ramp base states");
+        logger.error(
+          e,
+          `bulk publish compensation: failed to restore ramp base states for feature ${feature.id}`,
         );
       }
       assertNoReversalFailures();

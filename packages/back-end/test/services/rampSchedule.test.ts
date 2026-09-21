@@ -58,6 +58,7 @@ import {
   pauseSchedule,
   normalizeRampActionsForceValues,
   normalizeRampPlanForceValues,
+  planRampBaseStateSync,
   rampStartValuesOf,
   forceMatchesValueType,
   remapTemplateActions,
@@ -5469,5 +5470,121 @@ describe("pauseSchedule", () => {
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("paused");
     expect(updates.nextProcessAt).toBeNull();
+  });
+});
+
+describe("planRampBaseStateSync", () => {
+  const rule = (over: Record<string, unknown> = {}) =>
+    ({
+      type: "rollout",
+      id: "r1",
+      description: "",
+      value: "a",
+      coverage: 0.5,
+      hashAttribute: "id",
+      enabled: true,
+      allEnvironments: true,
+      ...over,
+    }) as FeatureRule;
+  const schedule = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "rs_1",
+      name: "Ramp",
+      status: "running",
+      targets: [
+        {
+          id: "t1",
+          entityType: "feature",
+          entityId: "f1",
+          ruleId: "r1",
+          status: "active",
+        },
+      ],
+      startActions: [
+        {
+          targetType: "feature-rule",
+          targetId: "t1",
+          patch: { ruleId: "r1", coverage: 0, condition: null, force: "a" },
+        },
+      ],
+      steps: [
+        {
+          interval: 3600,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: "t1",
+              patch: { ruleId: "r1", coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+      endActions: [],
+      ...over,
+    }) as unknown as RampScheduleInterface;
+  const plan = (
+    live: FeatureRule,
+    next: FeatureRule,
+    s: RampScheduleInterface = schedule(),
+    featureId = "f1",
+  ) =>
+    planRampBaseStateSync({
+      featureId,
+      schedules: [s],
+      liveRules: [live],
+      nextRules: [next],
+    });
+  const untouched = { refusals: [], updates: [] };
+
+  it("writes fields no step sets into the start action, the environment pair and identity included", () => {
+    const { refusals, updates } = plan(
+      rule(),
+      rule({
+        condition: '{"a":1}',
+        value: "b",
+        allEnvironments: false,
+        environments: ["production"],
+        hashAttribute: "email",
+      }),
+    );
+    expect(refusals).toEqual([]);
+    expect(updates[0].fields.sort()).toEqual([
+      "condition",
+      "environments",
+      "hashAttribute",
+      "value",
+    ]);
+    expect(updates[0].startActions[0].patch).toEqual({
+      ruleId: "r1",
+      coverage: 0,
+      condition: '{"a":1}',
+      force: "b",
+      allEnvironments: false,
+      environments: ["production"],
+      hashAttribute: "email",
+    });
+  });
+
+  it("refuses a field a step sets, naming the step and the plan routes", () => {
+    const { refusals, updates } = plan(rule(), rule({ coverage: 0.9 }));
+    expect(updates).toEqual([]);
+    expect(refusals).toHaveLength(1);
+    expect(refusals[0]).toMatch(
+      /coverage is set by step 1 of ramp schedule "Ramp"/,
+    );
+    expect(refusals[0]).toMatch(/PUT \/api\/v1\/ramp-schedules\/rs_1/);
+  });
+
+  it("leaves unanchored statuses, other features, `enabled` and unchanged rules alone", () => {
+    for (const status of ["pending", "completed", "rolled-back"]) {
+      expect(
+        plan(rule(), rule({ condition: "{}" }), schedule({ status })),
+      ).toEqual(untouched);
+    }
+    expect(plan(rule(), rule({ condition: "{}" }), schedule(), "f2")).toEqual(
+      untouched,
+    );
+    expect(plan(rule(), rule({ enabled: false }))).toEqual(untouched);
+    expect(plan(rule(), rule())).toEqual(untouched);
   });
 });

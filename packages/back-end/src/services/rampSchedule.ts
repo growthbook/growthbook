@@ -2,7 +2,10 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
+import pick from "lodash/pick";
 import {
+  ANCHORED_RAMP_SCHEDULE_STATUSES,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
   RampStartAction,
   RampStartPatch,
@@ -27,6 +30,7 @@ import {
   getEnvsFromRampSchedule,
   isRampScheduleServing,
   rampRuleEnvKey,
+  rampPlanControlledFields,
   rampTargetFootprint,
   rampTargetRuleIds,
   stemRuleId,
@@ -835,6 +839,195 @@ export function resolveRampStartState({
   return {};
 }
 
+// Rule fields the start anchor carries, minus `enabled` (engine-owned while a
+// ramp is live); the two environment fields are compared as one below.
+const RAMP_BASE_FIELDS = [
+  "coverage",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+  "value",
+  "hashAttribute",
+  "seed",
+  "hashVersion",
+] as const;
+
+function changedRampBaseFields(live: FeatureRule, next: FeatureRule): string[] {
+  const a = live as Record<string, unknown>;
+  const b = next as Record<string, unknown>;
+  const changed: string[] = RAMP_BASE_FIELDS.filter(
+    (f) => !isEqual(a[f] ?? null, b[f] ?? null),
+  );
+  const envs = (r: Record<string, unknown>) => [
+    r.allEnvironments ?? null,
+    r.environments ?? null,
+  ];
+  if (!isEqual(envs(a), envs(b))) changed.push("environments");
+  return changed;
+}
+
+function ruleFieldsAsStartPatch(
+  rule: FeatureRule,
+  fields: string[],
+): Partial<RampStartPatch> {
+  const r = rule as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  for (const f of fields) {
+    if (f === "value") {
+      if ("value" in r) patch.force = r.value;
+    } else if (f === "environments") {
+      patch.allEnvironments = r.allEnvironments ?? null;
+      patch.environments = r.environments ?? null;
+    } else {
+      patch[f] = r[f] ?? null;
+    }
+  }
+  return patch as Partial<RampStartPatch>;
+}
+
+export type RampBaseStateUpdate = {
+  schedule: RampScheduleInterface;
+  startActions: RampStartAction[];
+  fields: string[];
+};
+export type RampBaseStateSyncPlan = {
+  refusals: string[];
+  updates: RampBaseStateUpdate[];
+};
+
+// A publish's edit to a ramped rule: fields a step or the end state sets refuse
+// it; other anchor fields go into the start action so every replay keeps them.
+export function planRampBaseStateSync({
+  featureId,
+  schedules,
+  liveRules,
+  nextRules,
+}: {
+  featureId: string;
+  schedules: RampScheduleInterface[];
+  liveRules: FeatureRule[];
+  nextRules: FeatureRule[];
+}): RampBaseStateSyncPlan {
+  const refusals: string[] = [];
+  const updates: RampBaseStateUpdate[] = [];
+  for (const schedule of schedules) {
+    if (!ANCHORED_RAMP_SCHEDULE_STATUSES.includes(schedule.status)) continue;
+    const startActions = [...(schedule.startActions ?? [])];
+    const fields = new Set<string>();
+    for (const target of schedule.targets) {
+      if (
+        target.status !== "active" ||
+        target.entityType !== "feature" ||
+        target.entityId !== featureId
+      ) {
+        continue;
+      }
+      const controlled = rampPlanControlledFields(schedule, target.id);
+      const setBy = (f: string) =>
+        controlled.get(f) ??
+        (f === "environments" ? controlled.get("allEnvironments") : undefined);
+      const live = resolveRampTargets(
+        { ruleId: target.ruleId, environment: target.environment ?? null },
+        liveRules,
+      );
+      for (const liveRule of live) {
+        const next = nextRules.find((r) => r.id === liveRule.id);
+        if (!next) continue;
+        const changed = changedRampBaseFields(liveRule, next);
+        if (!changed.length) continue;
+        const owned = changed
+          .filter((f) => setBy(f))
+          .map((f) => `${f} is set by ${setBy(f)}`);
+        if (owned.length) {
+          refusals.push(
+            `Rule "${liveRule.id}": ${owned.join(", ")} of ramp schedule "${schedule.name}". ` +
+              `Edit the plan instead (PUT /api/v1/ramp-schedules/${schedule.id}, or stage it on a draft with ` +
+              `PUT /api/v2/features/${featureId}/revisions/{version}/rules/${liveRule.id}/ramp-schedule).`,
+          );
+          continue;
+        }
+        const forTarget = (a: RampStartAction) => a.targetId === target.id;
+        let idx = startActions.findIndex(
+          (a) => forTarget(a) && a.patch.ruleId === liveRule.id,
+        );
+        if (idx < 0) {
+          idx = startActions.findIndex(
+            (a) =>
+              forTarget(a) &&
+              stemRuleId(a.patch.ruleId) === stemRuleId(liveRule.id),
+          );
+        }
+        if (idx < 0) continue;
+        startActions[idx] = {
+          ...startActions[idx],
+          patch: {
+            ...startActions[idx].patch,
+            ...ruleFieldsAsStartPatch(next, changed),
+          },
+        };
+        changed.forEach((f) => fields.add(f));
+      }
+    }
+    if (fields.size)
+      updates.push({ schedule, startActions, fields: [...fields] });
+  }
+  return { refusals, updates };
+}
+
+export async function planRampBaseStateSyncForPublish(
+  ctx: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  result: MergeResultChanges,
+): Promise<RampBaseStateSyncPlan> {
+  if (!result.rules) return { refusals: [], updates: [] };
+  const schedules = await ctx.models.rampSchedules.findAnchoredByTargetFeature(
+    feature.id,
+  );
+  return planRampBaseStateSync({
+    featureId: feature.id,
+    schedules,
+    liveRules: feature.rules ?? [],
+    nextRules: result.rules,
+  });
+}
+
+export type RampBaseStatePreImage = Pick<
+  RampScheduleInterface,
+  "id" | "startActions" | "eventHistory"
+>;
+
+// Writes each planned base state; `written` collects pre-images as they land
+// so a caller's rewind covers a throw partway through.
+export async function applyRampBaseStateSync(
+  ctx: ReqContext | ApiReqContext,
+  updates: RampBaseStateUpdate[],
+  revisionVersion: number,
+  written: RampBaseStatePreImage[],
+): Promise<void> {
+  for (const { schedule, startActions, fields } of updates) {
+    written.push(pick(schedule, ["id", "startActions", "eventHistory"]));
+    await ctx.models.rampSchedules.updateById(schedule.id, {
+      startActions,
+      eventHistory: appendRampEvent(schedule, "config-edited", {
+        reason: `Base state updated by publishing revision ${revisionVersion}: ${fields.join(", ")}`,
+        userId: ctx.userId,
+      }),
+    });
+  }
+}
+
+export async function restoreRampBaseStates(
+  ctx: ReqContext | ApiReqContext,
+  preImages: RampBaseStatePreImage[],
+): Promise<void> {
+  for (const { id, startActions, eventHistory } of preImages) {
+    await ctx.models.rampSchedules.updateById(id, {
+      startActions,
+      eventHistory,
+    });
+  }
+}
+
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
     const { stepLabel, user, environment, judgeTargeting, notes } = opts;
@@ -950,7 +1143,7 @@ export const featureEntityHandler: EntityHandler = {
       result: forceResult,
       comment: stepLabel,
       bypassLockdown: true,
-      skipValueSchemaNet: true,
+      rampEnginePublish: true,
     });
   },
 };

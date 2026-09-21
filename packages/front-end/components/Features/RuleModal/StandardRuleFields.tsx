@@ -3,8 +3,15 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { RampScheduleInterface } from "shared/validators";
-import { ensureConfigBacking } from "shared/util";
+import {
+  ANCHORED_RAMP_SCHEDULE_STATUSES,
+  RampScheduleInterface,
+} from "shared/validators";
+import {
+  ensureConfigBacking,
+  rampPlanControlledFields,
+  stemRuleId,
+} from "shared/util";
 import { PiLockSimple } from "react-icons/pi";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import Heading from "@/ui/Heading";
@@ -178,8 +185,21 @@ export default function StandardRuleFields({
       ? "ramp-monitored"
       : scheduleType;
 
-  const rampLocksTargeting =
-    !isSimpleSchedule && scheduleType === "ramp" && releasePlanLocked;
+  // Once the ramp's anchor is fixed, publish carries other edits into it and
+  // refuses the fields the plan sets, so only those are hidden here.
+  const rampAnchored =
+    !!ruleRampSchedule &&
+    ANCHORED_RAMP_SCHEDULE_STATUSES.includes(ruleRampSchedule.status);
+  const rampTargetId = ruleRampSchedule?.targets.find(
+    (t) =>
+      t.ruleId && stemRuleId(t.ruleId) === stemRuleId(form.watch("id") ?? ""),
+  )?.id;
+  const rampSetsCoverage =
+    !!ruleRampSchedule &&
+    !!rampTargetId &&
+    rampPlanControlledFields(ruleRampSchedule, rampTargetId).has("coverage");
+  const rampSyncsTargeting =
+    !isSimpleSchedule && scheduleType === "ramp" && rampAnchored;
   const inModalPendingRamp =
     !ruleRampSchedule &&
     scheduleType === "ramp" &&
@@ -188,7 +208,7 @@ export default function StandardRuleFields({
   const rampControlsCoverage =
     !isSimpleSchedule &&
     scheduleType === "ramp" &&
-    (rampScheduleEditLocked || inModalPendingRamp);
+    ((rampAnchored && rampSetsCoverage) || inModalPendingRamp);
 
   function applyScheduleType(type: ScheduleSelectorType) {
     const currentCoverage = form.watch("coverage") ?? 1;
@@ -506,88 +526,86 @@ export default function StandardRuleFields({
       <Heading as="h3" size="sm" mb="4" mt="6">
         Targeting
       </Heading>
-      {rampLocksTargeting ? (
-        <HelperText status="info" mb="2" icon={<PiLockSimple />}>
+      {rampSyncsTargeting && (
+        <HelperText status="info" mb="2">
           <Box>
-            <Text as="div">Controlled by ramp schedule</Text>
+            <Text as="div">Under a ramp schedule</Text>
             <Text as="div" mt="1" size="sm">
-              Coverage and targeting are controlled by the live ramp schedule.
-              Pause or end the ramp-up to make immediate changes.
+              {rampControlsCoverage
+                ? "Coverage follows the ramp plan. Other changes "
+                : "Changes "}
+              apply now and carry through the remaining steps as the ramp&apos;s
+              base state.
             </Text>
           </Box>
         </HelperText>
-      ) : (
-        <Flex direction="column" gap="5" mb="4">
-          {rampControlsCoverage ? null : (
-            <>
-              <RolloutPercentInput
-                value={form.watch("coverage") ?? 1}
-                setValue={(coverage) => form.setValue("coverage", coverage)}
-                rampSchedule={ruleRampSchedule}
-                hashAttribute={form.watch("hashAttribute")}
-                setHashAttribute={(v: string) =>
-                  form.setValue("hashAttribute", v)
-                }
-                attributeSchema={attributeSchema}
-                extraIndicator={attributeSelectIndicator}
-                hasHashAttributes={hasHashAttributes}
-                hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
-                setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
-                project={feature.project}
-                seed={form.watch("seed")}
-                setSeed={(v: string) => form.setValue("seed", v)}
-                ruleId={form.watch("id") as string}
-                featureId={feature.id}
-                isLiveRule={isLiveRule}
-                isNew={isNew}
-                advancedOpen={advancedOptionsOpen}
-                setAdvancedOpen={setadvancedOptionsOpen}
-              />
-              {/* Inside the branch on purpose: no input, no inline callout. */}
-              <ConflictCallout field="coverage" />
-              <ConflictCallout field="hashAttribute" />
-            </>
-          )}
-
-          <SavedGroupTargetingField
-            savedGroupProjects={savedGroupProjects}
-            value={form.watch("savedGroups") || []}
-            setValue={(savedGroups) =>
-              form.setValue("savedGroups", savedGroups)
-            }
-            project={feature.project || ""}
-            label="Saved Groups"
-          />
-          <ConflictCallout field="savedGroups" />
-
-          <ConditionInput
-            defaultValue={form.watch("condition") || ""}
-            onChange={(value) => form.setValue("condition", value)}
-            key={conditionKey}
-            project={feature.project || ""}
-            attributeProjects={attributeProjects}
-            savedGroupProjects={savedGroupProjects}
-            attributeSelectIndicator={attributeSelectIndicator}
-            label="Attributes"
-          />
-          <ConflictCallout field="condition" />
-
-          <PrerequisiteInput
-            value={form.watch("prerequisites") || []}
-            setValue={(prerequisites) =>
-              form.setValue("prerequisites", prerequisites)
-            }
-            feature={feature}
-            environments={environments}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-            label="Prerequisite Features"
-            onRuleCyclicChange={onRuleCyclicChange}
-          />
-          <ConflictCallout field="prerequisites" />
-        </Flex>
       )}
+      <Flex direction="column" gap="5" mb="4">
+        {rampControlsCoverage ? null : (
+          <>
+            <RolloutPercentInput
+              value={form.watch("coverage") ?? 1}
+              setValue={(coverage) => form.setValue("coverage", coverage)}
+              rampSchedule={ruleRampSchedule}
+              hashAttribute={form.watch("hashAttribute")}
+              setHashAttribute={(v: string) =>
+                form.setValue("hashAttribute", v)
+              }
+              attributeSchema={attributeSchema}
+              extraIndicator={attributeSelectIndicator}
+              hasHashAttributes={hasHashAttributes}
+              hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
+              setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
+              project={feature.project}
+              seed={form.watch("seed")}
+              setSeed={(v: string) => form.setValue("seed", v)}
+              ruleId={form.watch("id") as string}
+              featureId={feature.id}
+              isLiveRule={isLiveRule}
+              isNew={isNew}
+              advancedOpen={advancedOptionsOpen}
+              setAdvancedOpen={setadvancedOptionsOpen}
+            />
+            {/* Inside the branch on purpose: no input, no inline callout. */}
+            <ConflictCallout field="coverage" />
+            <ConflictCallout field="hashAttribute" />
+          </>
+        )}
+
+        <SavedGroupTargetingField
+          savedGroupProjects={savedGroupProjects}
+          value={form.watch("savedGroups") || []}
+          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+          project={feature.project || ""}
+          label="Saved Groups"
+        />
+        <ConflictCallout field="savedGroups" />
+
+        <ConditionInput
+          defaultValue={form.watch("condition") || ""}
+          onChange={(value) => form.setValue("condition", value)}
+          key={conditionKey}
+          project={feature.project || ""}
+          attributeProjects={attributeProjects}
+          savedGroupProjects={savedGroupProjects}
+          attributeSelectIndicator={attributeSelectIndicator}
+          label="Attributes"
+        />
+        <ConflictCallout field="condition" />
+
+        <PrerequisiteInput
+          value={form.watch("prerequisites") || []}
+          setValue={(prerequisites) =>
+            form.setValue("prerequisites", prerequisites)
+          }
+          feature={feature}
+          environments={environments}
+          setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+          label="Prerequisite Features"
+          onRuleCyclicChange={onRuleCyclicChange}
+        />
+        <ConflictCallout field="prerequisites" />
+      </Flex>
       {isCyclic && (
         <Callout status="error">
           A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
