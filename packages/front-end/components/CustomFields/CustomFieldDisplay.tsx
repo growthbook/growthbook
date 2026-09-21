@@ -197,6 +197,7 @@ const CustomFieldDisplay: FC<{
             const value = currentValueMap.get(field.id) ?? "";
             return (
               <Metadata
+                size="sm"
                 stacked
                 key={field.id}
                 label={field.name}

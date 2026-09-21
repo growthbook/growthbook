@@ -247,12 +247,14 @@ export default function ProjectTagBar({
   const renderProject = () => {
     return (projects.length > 0 || projectIsDeReferenced) && !holdout ? (
       <Metadata
+        size="sm"
         stacked={vertical}
         label="Project"
         value={renderProjectMetaDataValue()}
       />
     ) : holdout ? (
       <Metadata
+        size="sm"
         stacked={vertical}
         label="Projects"
         value={renderHoldoutProjectMetaDataValue()}
@@ -300,6 +302,7 @@ export default function ProjectTagBar({
       >
         {experiment.holdoutId && (
           <Metadata
+            size="sm"
             stacked={vertical}
             label="Holdout"
             value={
@@ -312,6 +315,7 @@ export default function ProjectTagBar({
         {renderProject()}
         {experiment.type !== "holdout" && (
           <Metadata
+            size="sm"
             stacked={vertical}
             label="Experiment Key"
             value={trackingKey || "None"}
@@ -319,6 +323,7 @@ export default function ProjectTagBar({
         )}
         {experiment.type !== "holdout" && (
           <Metadata
+            size="sm"
             stacked={vertical}
             label="Implementation"
             value={
@@ -328,10 +333,21 @@ export default function ProjectTagBar({
             }
           />
         )}
-        <Metadata stacked={vertical} label="Owner" value={renderOwner()} />
-        <Metadata stacked={vertical} label="Created" value={createdDate} />
+        <Metadata
+          size="sm"
+          stacked={vertical}
+          label="Owner"
+          value={renderOwner()}
+        />
+        <Metadata
+          size="sm"
+          stacked={vertical}
+          label="Created"
+          value={createdDate}
+        />
         {showRuntime && (
           <Metadata
+            size="sm"
             stacked={vertical}
             label={
               hasMultiplePhases && experiment.type !== "holdout"
@@ -348,13 +364,19 @@ export default function ProjectTagBar({
           />
         )}
         {vertical && (
-          <Metadata stacked={vertical} label="Tags" value={renderTagsValue()} />
+          <Metadata
+            size="sm"
+            stacked={vertical}
+            label="Tags"
+            value={renderTagsValue()}
+          />
         )}
       </Flex>
       {!vertical && (
         <div className="row mt-2">
           <div className="col-auto">
             <Metadata
+              size="sm"
               stacked={vertical}
               label="Tags"
               value={renderTagsValue()}

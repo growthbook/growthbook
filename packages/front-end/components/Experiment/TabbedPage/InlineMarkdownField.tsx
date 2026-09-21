@@ -92,6 +92,7 @@ export default function InlineMarkdownField({
   if (editable && addLabel && !saved.current && !revealed) {
     return stacked ? (
       <Metadata
+        size="sm"
         stacked
         label={label}
         value={<Link onClick={() => setRevealed(true)}>+Add</Link>}
@@ -183,6 +184,7 @@ export default function InlineMarkdownField({
   if (stacked) {
     return (
       <Metadata
+        size="sm"
         stacked
         style={{ width: "100%" }}
         label={label}
