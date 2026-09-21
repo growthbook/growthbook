@@ -30,7 +30,8 @@ import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import VariationsTable, {
-  getVariationGridColumns,
+  VARIATION_GRID_COLUMNS,
+  variationGridMaxWidth,
 } from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
@@ -93,8 +94,8 @@ function FunnelCard({
       maxWidth="692px"
       width="100%"
       mb="0"
-      py="4"
-      style={{ paddingLeft: 20, paddingRight: 20 }}
+      py="3"
+      style={{ paddingLeft: 16, paddingRight: 16 }}
     >
       <Flex justify="between" align="center" gap="3">
         <Flex align="baseline" gap="2" wrap="wrap">
@@ -144,23 +145,6 @@ function FunnelConnector({ label }: { label?: ReactNode }) {
 function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
   const cols = Math.min(count, 3);
 
-  // Match the VariationsTable grid so the arrows align with the columns.
-  const columns = getVariationGridColumns(cols);
-
-  // Match the grid's per-breakpoint column count: cell 0 always, cell 1 from xs, cell 2 from sm.
-  const cellDisplay = (i: number) =>
-    i === 0
-      ? undefined
-      : i === 1
-        ? ({ initial: "none", xs: "flex" } as const)
-        : ({ initial: "none", sm: "flex" } as const);
-
-  // Draw the right bus segment only when the right neighbor is visible at this breakpoint.
-  const rightSegDisplay = (i: number) =>
-    i === 0
-      ? ({ initial: "none", xs: "block" } as const)
-      : ({ initial: "none", sm: "block" } as const);
-
   return (
     <Box pb="2">
       {label ? (
@@ -175,13 +159,18 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
       <Flex direction="column" align="center">
         <Box className={styles.connectorLine} height="12px" />
       </Flex>
-      <Grid columns={columns} gap="4" justify="center">
+      {/* Matches the variation grid, so the arrows wrap with the cards. */}
+      <Grid
+        columns={VARIATION_GRID_COLUMNS}
+        gap="4"
+        justify="center"
+        style={{ maxWidth: variationGridMaxWidth(cols), margin: "0 auto" }}
+      >
         {Array.from({ length: cols }).map((_, i) => (
           <Flex
             key={i}
             direction="column"
             align="center"
-            display={cellDisplay(i)}
             className={styles.cell}
           >
             {i > 0 ? (
@@ -189,7 +178,6 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
             ) : null}
             {i < cols - 1 ? (
               <Box
-                display={rightSegDisplay(i)}
                 className={clsx(styles.busSegment, styles.busSegmentRight)}
               />
             ) : null}
@@ -583,18 +571,26 @@ export default function TrafficAllocationFunnel({
                   <Box className={styles.connectorLine} height="6px" />
                 </Flex>
                 {/* Coverage is already shown above, so this bar is purely the
-                    split between variations. */}
-                <ExperimentSplitVisual
-                  slim
-                  coverage={1}
-                  stackLeft
-                  type="string"
-                  values={phaseVariations.map((v, i) => ({
-                    value: v.key,
-                    weight: phase?.variationWeights?.[i] ?? 0,
-                    name: v.name,
-                  }))}
-                />
+                    split between variations. Held to the grid's width so the
+                    two line up. */}
+                <Box
+                  mx="auto"
+                  style={{
+                    maxWidth: variationGridMaxWidth(Math.min(numVariations, 3)),
+                  }}
+                >
+                  <ExperimentSplitVisual
+                    slim
+                    coverage={1}
+                    stackLeft
+                    type="string"
+                    values={phaseVariations.map((v, i) => ({
+                      value: v.key,
+                      weight: phase?.variationWeights?.[i] ?? 0,
+                      name: v.name,
+                    }))}
+                  />
+                </Box>
               </Box>
             )}
 

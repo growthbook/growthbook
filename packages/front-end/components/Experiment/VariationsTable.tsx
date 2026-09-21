@@ -38,12 +38,20 @@ const MAX_IMAGE_HEIGHT = 150;
 
 // Radix Themes breakpoints (px), mirroring `@radix-ui/themes` `--xs`/`--sm`.
 
-export const getVariationGridColumns = (cols: number) => ({
-  initial: `minmax(0, ${MAX_VARIATION_WIDTH}px)`,
-  xs: `repeat(${Math.min(cols, 2)}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
-  sm: `repeat(${cols}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
-  md: `repeat(${cols}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
-});
+/** Narrower than this and a card has no room for a name beside its controls. */
+const MIN_VARIATION_WIDTH = 220;
+const VARIATION_GRID_GAP_PX = 16;
+
+/**
+ * Wraps on the space the grid actually has rather than on the viewport: with
+ * the details panel docked the content column is far narrower than the window,
+ * and breakpoints would still promise three columns.
+ */
+export const VARIATION_GRID_COLUMNS = `repeat(auto-fit, minmax(min(100%, ${MIN_VARIATION_WIDTH}px), 1fr))`;
+
+/** How wide the grid can get, so anything aligned to it can match. */
+export const variationGridMaxWidth = (cols: number) =>
+  `${cols * MAX_VARIATION_WIDTH + (cols - 1) * VARIATION_GRID_GAP_PX}px`;
 
 const imageCache = {};
 
@@ -297,7 +305,7 @@ export function VariationBox({
   return (
     <Box
       key={i}
-      p="5"
+      p="4"
       pb="3"
       className="appbox mb-0 position-relative variation"
       style={{
@@ -498,9 +506,14 @@ const VariationsTable: FC<Props> = ({
     <Box mx={noMargin ? "0" : "4"}>
       <Grid
         gap={gap}
-        style={{ gridAutoRows: "1fr" }}
+        style={{
+          gridAutoRows: "1fr",
+          ...(centered
+            ? { maxWidth: variationGridMaxWidth(cols), margin: "0 auto" }
+            : {}),
+        }}
         {...(centered
-          ? { justify: "center", columns: getVariationGridColumns(cols) }
+          ? { justify: "center", columns: VARIATION_GRID_COLUMNS }
           : {
               columns: {
                 initial: "1",

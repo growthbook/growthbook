@@ -106,7 +106,7 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
   if (totalCount === 0) return null;
 
   return (
-    <Box p="4" px="5">
+    <Box p="3" px="4">
       <Link color="dark" onClick={() => setEnvironmentsOpen((prev) => !prev)}>
         <Flex align="center">
           <Text color="text-low" weight="semibold" size="md">
