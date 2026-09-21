@@ -55,6 +55,7 @@ import {
   validateRuleReferences,
   collectRampPlanPatches,
   rampPatchEntries,
+  stagedFeature,
   validateRampPlanPatches,
   withTemplatePlan,
 } from "./validations";
@@ -172,7 +173,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       collectRampPlanPatches(
         await withTemplatePlan(req.context, inlineRampSchedule),
       ),
-      feature,
+      await stagedFeature(req.context, feature, req.params.version),
       {
         id: ruleId,
         type: ruleInput.type,

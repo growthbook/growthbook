@@ -11,6 +11,7 @@ import {
   validateRampPlanPatches,
   validateRuleAttributes,
   validateRulesReferences,
+  stagedFeatureOf,
 } from "back-end/src/api/features/validations";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -431,6 +432,33 @@ describe("collectRampPlanPatches", () => {
     ]);
     expect(collectRampPlanPatches(undefined)).toEqual([]);
     expect(collectRampPlanPatches({})).toEqual([]);
+  });
+});
+
+describe("stagedFeatureOf", () => {
+  it("overlays the draft's project, targeting and rules on the live feature", () => {
+    const live = {
+      id: "f1",
+      project: "p_live",
+      targetingAllProjects: true,
+      targetingProjects: ["p_live"],
+      rules: [{ id: "r_live" }],
+    } as unknown as FeatureInterface;
+    expect(
+      stagedFeatureOf(live, {
+        metadata: { project: "p_draft" },
+        rules: [{ id: "r_draft" }] as FeatureInterface["rules"],
+      }),
+    ).toMatchObject({
+      project: "p_draft",
+      targetingAllProjects: false,
+      targetingProjects: [],
+      rules: [{ id: "r_draft" }],
+    });
+    // A draft without a rules snapshot keeps the live rules.
+    expect(stagedFeatureOf(live, { metadata: {} }).rules).toEqual([
+      { id: "r_live" },
+    ]);
   });
 });
 

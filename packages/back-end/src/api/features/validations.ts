@@ -30,6 +30,7 @@ import {
 } from "back-end/src/services/rampSchedule";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import { configCheckedRuleValues } from "back-end/src/services/configValidation";
 import {
   assertValidExperimentPrerequisites,
@@ -125,26 +126,34 @@ export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
 }
 
-// The rule as staged: the draft's copy when the version names one, else live.
-// Read-only, so a refusal cannot orphan a draft.
-export async function stagedRule(
+// The feature as a draft stages it: the revision's project, targeting and
+// rules over the live ones, so a write into the draft is judged in its scope.
+export function stagedFeatureOf(
+  feature: FeatureInterface,
+  revision: Pick<FeatureRevisionInterface, "metadata" | "rules">,
+): FeatureInterface {
+  return {
+    ...feature,
+    ...featureForSavedGroupValidation(feature, revision),
+    rules: revision.rules ?? feature.rules,
+  };
+}
+
+// Same, read without creating a draft, so a refusal cannot orphan one.
+export async function stagedFeature(
   context: ApiReqContext,
   feature: FeatureInterface,
   version: number | "new",
-  ruleId: string,
-): Promise<FeatureRule | undefined> {
-  const draft =
-    version === "new"
-      ? null
-      : await getRevision({
-          context,
-          organization: context.org.id,
-          featureId: feature.id,
-          feature,
-          version,
-        });
-  const byId = (r: FeatureRule) => r.id === ruleId;
-  return draft?.rules?.find(byId) ?? (feature.rules ?? []).find(byId);
+): Promise<FeatureInterface> {
+  if (version === "new") return feature;
+  const draft = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version,
+  });
+  return draft ? stagedFeatureOf(feature, draft) : feature;
 }
 
 // Resolves an existing revision, or creates a blank draft on `version: "new"`.
