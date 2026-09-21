@@ -283,7 +283,7 @@ export default function AnalysisPlan({
           }}
         />
       ) : null}
-      <Separator size="4" my="3" />
+      <Separator size="4" my="2" />
       <Box py="4">
         <Flex align="center" justify="between" mb="1">
           <Heading color="text-high" as="h4" size="sm" mb="0">

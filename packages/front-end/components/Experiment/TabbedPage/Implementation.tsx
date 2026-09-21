@@ -204,7 +204,7 @@ export default function Implementation({
           source="implementation-tab"
         />
       )}
-      <Separator size="4" my="3" />
+      <Separator size="4" my="2" />
       <div className="my-4">
         <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation

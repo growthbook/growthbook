@@ -34,7 +34,7 @@ export default function SetupFieldRow({
   return (
     // Wraps rather than squeezing: below the width the field needs, the label
     // takes a row of its own. Driven by the row's own width, not the window's.
-    <Flex align="start" gap="4" py="3" wrap="wrap">
+    <Flex align="start" gap="4" py="2" wrap="wrap">
       <Box
         flexShrink="0"
         width={LABEL_WIDTH}

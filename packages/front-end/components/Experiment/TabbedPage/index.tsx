@@ -751,9 +751,10 @@ function TabbedPageContents({
                 updateTabPath={persistTabPath}
               />
             )}
+            {/* No top padding: the first field's own row supplies it, so the
+                column starts level with the details panel's tabs. */}
             <div
               className={clsx(
-                "pt-3",
                 tab === "overview" && !showDashboardView
                   ? "d-block"
                   : "d-none d-print-block",
