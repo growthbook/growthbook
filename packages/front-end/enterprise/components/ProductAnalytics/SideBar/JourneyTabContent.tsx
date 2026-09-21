@@ -413,6 +413,8 @@ export default function JourneyTabContent() {
               );
             })}
             {stepColumns.filter(Boolean).map((col) => {
+              const colLabel =
+                stepColumnOptions.find((o) => o.value === col)?.label ?? col;
               const excluded = excludedValues(col);
               const setExcluded = (values: string[] | null) =>
                 setDraftExploreState((prev) =>
@@ -466,7 +468,9 @@ export default function JourneyTabContent() {
                       onClick={() => setExcluded([])}
                     >
                       Exclude{" "}
-                      {stepColumns.filter(Boolean).length > 1 ? `${col} ` : ""}
+                      {stepColumns.filter(Boolean).length > 1
+                        ? `${colLabel} `
+                        : ""}
                       values
                     </Button>
                   </Flex>
@@ -485,7 +489,8 @@ export default function JourneyTabContent() {
                   }}
                 >
                   <MultiSelectField
-                    label={`Exclude ${col} values`}
+                    label={`Exclude ${colLabel} values`}
+                    size="md"
                     value={excluded}
                     onChange={setExcluded}
                     options={(stepColumnSamples[col] ?? []).map((v) => ({
@@ -496,7 +501,7 @@ export default function JourneyTabContent() {
                     autoFocus
                     disabled={!canRun}
                     placeholder="Select or enter values..."
-                    containerClassName="mb-0"
+                    showCopyButton={false}
                   />
                 </Box>
               );
