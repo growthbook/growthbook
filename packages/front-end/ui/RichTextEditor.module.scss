@@ -7,15 +7,16 @@
   // the caller's height describes the control they can see.
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--gray-a6);
-  border-radius: var(--radius-3);
-  background-color: var(--color-panel-solid);
+  // Matches the select fields it sits beside on a form.
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-2);
+  background-color: var(--color-surface);
   transition:
     border-color 100ms ease,
     box-shadow 100ms ease;
 
+  // The ring the select fields draw on focus: the border stays put.
   &:focus-within {
-    border-color: var(--accent-8);
     box-shadow: 0 0 0 1px var(--accent-8);
   }
 }
@@ -206,7 +207,7 @@
   // Sits above the editable area, which scrolls under it.
   position: relative;
   z-index: 1;
-  background-color: var(--color-panel-solid);
+  background-color: var(--color-surface);
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
 }
