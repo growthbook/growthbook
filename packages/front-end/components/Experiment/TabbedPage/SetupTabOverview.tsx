@@ -9,6 +9,7 @@ import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
 import HypothesisField from "@/components/Experiment/TabbedPage/HypothesisField";
+import AnalysisPlan from "@/components/Experiment/TabbedPage/AnalysisPlan";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
@@ -61,21 +62,6 @@ export default function SetupTabOverview({
       (value) => value !== null,
     );
   const experimentScheduleApproved = !!experiment.nextScheduledStatusUpdate;
-  const showAddHoldoutSchedule =
-    canEditSchedule &&
-    isHoldout &&
-    !holdoutHasSchedule &&
-    experiment.status !== "stopped" &&
-    !experiment.archived;
-
-  const showAddExperimentSchedule =
-    canEditSchedule &&
-    !isHoldout &&
-    !isBandit &&
-    !experimentHasSchedule &&
-    experiment.status === "draft" &&
-    !experiment.archived;
-
   const showScheduleIsInThePastWarning =
     !!experiment.statusUpdateSchedule?.startAt &&
     new Date(experiment.statusUpdateSchedule.startAt) < new Date();
@@ -125,58 +111,55 @@ export default function SetupTabOverview({
     experiment.status === "running" &&
     !experiment.archived;
 
+  const showDraftScheduleSummary =
+    experiment.status === "draft" &&
+    experiment.type !== "holdout" &&
+    !!experimentHasSchedule &&
+    !experimentScheduleApproved &&
+    !!editSchedule;
+
   return (
     <>
       <div>
-        <Flex justify="end" align="baseline" mb="3">
-          <Flex align="center" gap="4">
-            {showAddHoldoutSchedule || showAddExperimentSchedule ? (
-              <Link onClick={() => editSchedule()}>
-                <Flex align="center" gap="1">
-                  <PiPlus size="15" />
-                  <Text weight="semibold">Add Schedule</Text>
-                </Flex>
-              </Link>
-            ) : null}
-            {experiment.status === "draft" &&
-            experiment.type !== "holdout" &&
-            experimentHasSchedule &&
-            !experimentScheduleApproved &&
-            editSchedule ? (
-              <Tooltip
-                content="Scheduled start date has passed—edit scheduled time"
-                enabled={showScheduleIsInThePastWarning}
-              >
+        {showDraftScheduleSummary || showEditRunningSchedule ? (
+          <Flex justify="end" align="baseline" mb="3">
+            <Flex align="center" gap="4">
+              {showDraftScheduleSummary && editSchedule ? (
+                <Tooltip
+                  content="Scheduled start date has passed—edit scheduled time"
+                  enabled={showScheduleIsInThePastWarning}
+                >
+                  <Link onClick={() => editSchedule()}>
+                    <Flex align="center" gap="1">
+                      {showScheduleIsInThePastWarning && (
+                        <PiWarningFill color="var(--warning)" />
+                      )}
+                      <Text weight="semibold">{scheduleSummary}</Text>
+                      <PiPencilSimpleFill />
+                    </Flex>
+                  </Link>
+                </Tooltip>
+              ) : null}
+              {showEditRunningSchedule ? (
                 <Link onClick={() => editSchedule()}>
                   <Flex align="center" gap="1">
-                    {showScheduleIsInThePastWarning && (
+                    {scheduledEndPassed && (
                       <PiWarningFill color="var(--warning)" />
                     )}
-                    <Text weight="semibold">{scheduleSummary}</Text>
-                    <PiPencilSimpleFill />
+                    {!experimentHasSchedule && <PiPlus size="15" />}
+                    <Text weight="semibold">
+                      {scheduledEndSummary ??
+                        (experimentHasSchedule
+                          ? "Edit Schedule"
+                          : "Add Schedule End")}
+                    </Text>
+                    {experimentHasSchedule && <PiPencilSimpleFill />}
                   </Flex>
                 </Link>
-              </Tooltip>
-            ) : null}
-            {showEditRunningSchedule ? (
-              <Link onClick={() => editSchedule()}>
-                <Flex align="center" gap="1">
-                  {scheduledEndPassed && (
-                    <PiWarningFill color="var(--warning)" />
-                  )}
-                  {!experimentHasSchedule && <PiPlus size="15" />}
-                  <Text weight="semibold">
-                    {scheduledEndSummary ??
-                      (experimentHasSchedule
-                        ? "Edit Schedule"
-                        : "Add Schedule End")}
-                  </Text>
-                  {experimentHasSchedule && <PiPencilSimpleFill />}
-                </Flex>
-              </Link>
-            ) : null}
+              ) : null}
+            </Flex>
           </Flex>
-        </Flex>
+        ) : null}
         {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
             <Flex align="center" justify="between" className="text-dark">
@@ -244,6 +227,14 @@ export default function SetupTabOverview({
             experiment={experiment}
             mutate={mutate}
             editable={editingInline}
+          />
+        )}
+
+        {!isHoldout && (
+          <AnalysisPlan
+            experiment={experiment}
+            mutate={mutate}
+            canEdit={canEditExperiment}
           />
         )}
       </div>

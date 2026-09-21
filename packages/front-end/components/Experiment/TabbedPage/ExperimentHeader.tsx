@@ -27,7 +27,9 @@ import {
   PiEye,
   PiLink,
   PiPencilSimpleFill,
+  PiPlus,
   PiSidebarSimple,
+  PiSidebarSimpleFill,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
@@ -595,6 +597,19 @@ export default function ExperimentHeader({
       (value) => value !== null,
     );
   const hasExperimentSchedule = !!experiment.statusUpdateSchedule?.startAt;
+  const experimentHasAnySchedule = Object.values(
+    experiment.statusUpdateSchedule ?? {},
+  ).some((value) => value !== null);
+
+  const showAddScheduleButton =
+    canEditExperiment &&
+    !!editSchedule &&
+    !experiment.archived &&
+    (isHoldout
+      ? !holdoutHasSchedule && experiment.status !== "stopped"
+      : !isBandit &&
+        !experimentHasAnySchedule &&
+        experiment.status === "draft");
   const nextScheduledStartDate =
     experiment.nextScheduledStatusUpdate?.type === "start" &&
     experiment.nextScheduledStatusUpdate?.date
@@ -999,6 +1014,15 @@ export default function ExperimentHeader({
           </Flex>
 
           <Flex direction="row" align="center" gap="2" flexShrink="0">
+            {showAddScheduleButton ? (
+              <Button
+                variant="ghost"
+                icon={<PiPlus />}
+                onClick={() => editSchedule?.()}
+              >
+                Add Schedule
+              </Button>
+            ) : null}
             {isHoldout && holdout?.nextScheduledStatusUpdate ? (
               <Button
                 variant="ghost"
@@ -1116,14 +1140,14 @@ export default function ExperimentHeader({
                     Edit phase
                   </DropdownMenuItem>
                 )}
-                {showEditHoldoutScheduleButton && (
+                {showEditHoldoutScheduleButton && holdoutHasSchedule && (
                   <DropdownMenuItem
                     onClick={() => {
                       editSchedule();
                       setDropdownOpen(false);
                     }}
                   >
-                    {holdoutHasSchedule ? "Edit " : "Add "} Schedule
+                    Edit Schedule
                   </DropdownMenuItem>
                 )}
                 {canEditExperiment &&
@@ -1491,10 +1515,17 @@ export default function ExperimentHeader({
                       onClick={() => setDetailsOpen(!detailsOpen)}
                     >
                       {/* Flipped so the small bar sits on the right, like the panel. */}
-                      <PiSidebarSimple
-                        size={16}
-                        style={{ transform: "scaleX(-1)" }}
-                      />
+                      {detailsOpen ? (
+                        <PiSidebarSimpleFill
+                          size={16}
+                          style={{ transform: "scaleX(-1)" }}
+                        />
+                      ) : (
+                        <PiSidebarSimple
+                          size={16}
+                          style={{ transform: "scaleX(-1)" }}
+                        />
+                      )}
                     </IconButton>
                   </UITooltip>
                 ) : null}
