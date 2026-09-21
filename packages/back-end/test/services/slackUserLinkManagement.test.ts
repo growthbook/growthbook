@@ -1,10 +1,9 @@
 import { slackUserLinkSchema } from "shared/validators";
+import { MongoClient, ObjectId } from "mongodb";
 import type { Context } from "back-end/src/models/BaseModel";
 import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
-import {
-  linkSlackUser,
-  unlinkSlackUser,
-} from "back-end/src/services/slack/slackUserLink";
+import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
+import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 
 const links: Record<string, unknown>[] = [];
 const claims = new Set<string>();
@@ -12,51 +11,77 @@ const matches = (
   doc: Record<string, unknown>,
   query: Record<string, unknown>,
 ) => Object.entries(query).every(([key, value]) => doc[key] === value);
-const updateOne = jest.fn(
-  async (
-    query: Record<string, unknown>,
-    update: {
-      $set: Record<string, unknown>;
-      $setOnInsert: Record<string, unknown>;
-    },
-  ) => {
+
+// Use a real collection's types, with database operations replaced by spies.
+const collection = new MongoClient("mongodb://localhost:27017")
+  .db("test")
+  .collection("slackuserlinks");
+jest.spyOn(collection, "createIndex").mockResolvedValue("slack_identity");
+jest.spyOn(collection, "findOne").mockImplementation(async (query) => {
+  const doc = links.find((doc) => matches(doc, query));
+  return doc ? { ...doc, _id: new ObjectId() } : null;
+});
+const insertOne = jest
+  .spyOn(collection, "insertOne")
+  .mockImplementation(async (doc) => {
+    links.push({ ...doc });
+    return { acknowledged: true, insertedId: new ObjectId() };
+  });
+const updateOne = jest
+  .spyOn(collection, "updateOne")
+  .mockImplementation(async (query, update) => {
+    if (Array.isArray(update)) throw new Error("Unexpected update pipeline");
     const current = links.find((doc) => matches(doc, query));
     if (current) Object.assign(current, update.$set);
-    else links.push({ ...query, ...update.$set, ...update.$setOnInsert });
-  },
+    return {
+      acknowledged: true,
+      matchedCount: current ? 1 : 0,
+      modifiedCount: current ? 1 : 0,
+      upsertedCount: 0,
+      upsertedId: null,
+    };
+  });
+jest.spyOn(collection, "deleteOne").mockImplementation(async (query = {}) => {
+  const i = links.findIndex((doc) => matches(doc, query));
+  if (i < 0) return { acknowledged: true, deletedCount: 0 };
+  links.splice(i, 1);
+  return { acknowledged: true, deletedCount: 1 };
+});
+class TestSlackUserLinkModel extends SlackUserLinkModel {
+  protected _dangerousGetCollection() {
+    return collection;
+  }
+}
+jest.mock("back-end/src/models/SlackWorkspaceConnectionModel", () => ({
+  SlackWorkspaceConnectionModel: { dangerousGetForTeam: jest.fn() },
+}));
+const workspace = jest.mocked(
+  SlackWorkspaceConnectionModel.dangerousGetForTeam,
 );
-const workspace = jest.fn();
+const connectedWorkspace = (organization: string) => ({
+  teamId: "T1",
+  organization,
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+});
 jest.mock("back-end/src/util/mongo.util", () => ({
   ...jest.requireActual("back-end/src/util/mongo.util"),
-  getCollection: (name: string) =>
-    name === "slackworkspaceconnections"
-      ? { findOne: (query: Record<string, unknown>) => workspace(query) }
-      : name === "slacktaskclaims"
-        ? {
-            insertOne: async ({ _id }: { _id: string }) => {
-              if (claims.has(_id))
-                throw Object.assign(new Error("duplicate"), { code: 11000 });
-              claims.add(_id);
-            },
-          }
-        : {
-            updateOne: (...args: Parameters<typeof updateOne>) =>
-              updateOne(...args),
-            findOne: async (query: Record<string, unknown>) =>
-              links.find((doc) => matches(doc, query)) ?? null,
-            deleteOne: async (query: Record<string, unknown>) => {
-              const i = links.findIndex((doc) => matches(doc, query));
-              if (i < 0) return { deletedCount: 0 };
-              links.splice(i, 1);
-              return { deletedCount: 1 };
-            },
-          },
+  getCollection: () => ({
+    insertOne: async ({ _id }: { _id: string }) => {
+      if (claims.has(_id))
+        throw Object.assign(new Error("duplicate"), { code: 11000 });
+      claims.add(_id);
+    },
+  }),
 }));
 const context = (organization: string, userId = "user1") =>
   ({
     userId,
+    populateForeignRefs: jest.fn().mockResolvedValue(undefined),
     org: { id: organization, members: [{ id: userId }] },
   }) as Context;
+const model = (organization: string, userId = "user1") =>
+  new TestSlackUserLinkModel(context(organization, userId));
 const proof = () =>
   new URL(
     buildSlackLinkUrl({ slackTeamId: "T1", slackUserId: "U1" }),
@@ -66,29 +91,33 @@ beforeEach(() => {
   jest.clearAllMocks();
   links.length = 0;
   claims.clear();
-  workspace.mockResolvedValue({ teamId: "T1" });
+  workspace.mockResolvedValue(connectedWorkspace("org1"));
 });
 it("links two organizations only after separate consent and disconnects only the selected link", async () => {
   const state = proof();
-  await linkSlackUser(context("org1"), state);
+  await model("org1").linkCurrentUser(state);
   expect(links).toHaveLength(1);
-  await linkSlackUser(context("org2"), state);
+  workspace.mockResolvedValue(connectedWorkspace("org2"));
+  await model("org2").linkCurrentUser(state);
   expect(links).toHaveLength(2);
   const first = slackUserLinkSchema.parse(links[0]);
   const second = slackUserLinkSchema.parse(links[1]);
   expect(first.linkId).not.toBe(second.linkId);
-  expect(await unlinkSlackUser(context("org1"), first)).toBe(true);
+  expect(await model("org1").unlinkCurrentUser(first)).toBe(true);
   expect(links).toEqual([second]);
-  await expect(linkSlackUser(context("org1"), state)).rejects.toThrow(
+  workspace.mockResolvedValue(connectedWorkspace("org1"));
+  await expect(model("org1").linkCurrentUser(state)).rejects.toThrow(
     "already been used",
   );
 });
 it("replaces only the consented organization's account and rejects previous consent replay", async () => {
   const originalProof = proof();
-  await linkSlackUser(context("org1"), originalProof);
-  await linkSlackUser(context("org2"), originalProof);
+  await model("org1").linkCurrentUser(originalProof);
+  workspace.mockResolvedValue(connectedWorkspace("org2"));
+  await model("org2").linkCurrentUser(originalProof);
+  workspace.mockResolvedValue(connectedWorkspace("org1"));
   const previous = slackUserLinkSchema.parse(links[0]);
-  await linkSlackUser(context("org1", "user2"), proof());
+  await model("org1", "user2").linkCurrentUser(proof());
   expect(links[0]).toMatchObject({
     organization: "org1",
     growthbookUserId: "user2",
@@ -98,46 +127,62 @@ it("replaces only the consented organization's account and rejects previous cons
     organization: "org2",
     growthbookUserId: "user1",
   });
-  expect(await unlinkSlackUser(context("org1"), previous)).toBe(false);
-  await expect(linkSlackUser(context("org1"), originalProof)).rejects.toThrow(
+  expect(await model("org1").unlinkCurrentUser(previous)).toBe(false);
+  await expect(model("org1").linkCurrentUser(originalProof)).rejects.toThrow(
     "already been used",
   );
 });
 it("invalidates the old generation even when relinking to the same account", async () => {
-  await linkSlackUser(context("org1"), proof());
+  await model("org1").linkCurrentUser(proof());
   const previous = slackUserLinkSchema.parse(links[0]);
-  await linkSlackUser(context("org1"), proof());
+  await model("org1").linkCurrentUser(proof());
   expect(links[0].linkId).not.toBe(previous.linkId);
-  expect(await unlinkSlackUser(context("org1"), previous)).toBe(false);
+  expect(await model("org1").unlinkCurrentUser(previous)).toBe(false);
 });
 it("makes a repeated successful consent idempotent", async () => {
   const state = proof();
-  await linkSlackUser(context("org1"), state);
+  await model("org1").linkCurrentUser(state);
   const original = { ...links[0] };
-  await linkSlackUser(context("org1"), state);
+  await model("org1").linkCurrentUser(state);
   expect(links).toEqual([original]);
-  expect(updateOne).toHaveBeenCalledTimes(1);
+  expect(insertOne).toHaveBeenCalledTimes(1);
+  expect(updateOne).not.toHaveBeenCalled();
 });
 it("requires a real workspace connection but no notification channels or admin permission", async () => {
-  await linkSlackUser(context("org1"), proof());
-  expect(workspace).toHaveBeenCalledWith({
-    teamId: "T1",
-    organization: "org1",
-  });
+  await model("org1").linkCurrentUser(proof());
+  expect(workspace).toHaveBeenCalledWith("T1");
+  await expect(model("org2").linkCurrentUser(proof())).rejects.toThrow(
+    "not connected",
+  );
   workspace.mockResolvedValue(null);
-  await expect(linkSlackUser(context("org2"), proof())).rejects.toThrow(
+  await expect(model("org2").linkCurrentUser(proof())).rejects.toThrow(
     "not connected",
   );
   expect(links).toHaveLength(1);
 });
 it("rejects invalid proof and removed membership before storing a link", async () => {
-  await expect(linkSlackUser(context("org1"), "invalid")).rejects.toThrow(
+  await expect(model("org1").linkCurrentUser("invalid")).rejects.toThrow(
     "valid Slack consent",
   );
   const removed = context("org1");
   removed.org.members = [];
-  await expect(linkSlackUser(removed, proof())).rejects.toThrow(
-    "valid Slack consent",
-  );
+  await expect(
+    new TestSlackUserLinkModel(removed).linkCurrentUser(proof()),
+  ).rejects.toThrow("valid Slack consent");
   expect(updateOne).not.toHaveBeenCalled();
+});
+
+it("retries a concurrent first link through the model update path", async () => {
+  insertOne.mockImplementationOnce(async (doc) => {
+    links.push({ ...doc, growthbookUserId: "user2", linkId: "concurrent" });
+    throw Object.assign(new Error("duplicate"), { code: 11000 });
+  });
+  await model("org1").linkCurrentUser(proof());
+  expect(links).toHaveLength(1);
+  expect(links[0]).toMatchObject({
+    growthbookUserId: "user1",
+    organization: "org1",
+  });
+  expect(links[0].linkId).not.toBe("concurrent");
+  expect(updateOne).toHaveBeenCalledTimes(1);
 });
