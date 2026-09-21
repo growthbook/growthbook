@@ -146,11 +146,13 @@ export function describeContainer(
     // findElements hands out each match's parentSelector, but the parent is
     // often not a captured node itself (a card grid whose headings sit one
     // level down). Its captured children are still known, and listing them
-    // in order is exactly what a reorder needs.
+    // in order is exactly what a reorder needs — so only when their order is
+    // known: a snapshot without docOrder arrived in capture-priority order,
+    // which would misplace a move.
     const children = nodes
       .filter((n) => n.parentSelector === selector)
       .sort((a, b) => (a.docOrder ?? 0) - (b.docOrder ?? 0));
-    if (children.length === 0) return null;
+    if (children.length === 0 || !hasDocumentOrder(children)) return null;
     return {
       selector,
       children: children.map(summarize),

@@ -848,8 +848,16 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // "truncated" ("length") when no output was produced.
   let stepsUsed = 0;
   let toolsCalled: string[] = [];
-  // What each tool was asked and answered, trimmed: when a run burns its
-  // whole budget on lookups, the tool names alone don't say why.
+  const outcomeOf = (v: unknown): string => {
+    if (!v || typeof v !== "object") return typeof v;
+    const { ok, count, error, note } = v as Record<string, unknown>;
+    return brief({ ok, count, error, note }, 320);
+  };
+  // What each tool was asked and how it answered, trimmed: when a run burns
+  // its whole budget on lookups, the tool names alone don't say why. Only
+  // the outcome fields of a result are kept — its payload can be another
+  // experiment's hypothesis or variation content, which doesn't belong in a
+  // log line.
   let toolTrace: Array<{ tool: string; input: string; out: string }> = [];
   let lastFinishReason: string | undefined;
   const remainingSteps = Math.max(1, maxSteps - stepsAlreadyUsed);
@@ -911,7 +919,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
           toolTrace.push({
             tool: r.toolName,
             input: brief(r.input, 160),
-            out: brief(r.output, 320),
+            out: outcomeOf(r.output),
           });
         onStepFinish?.(step);
       },

@@ -184,4 +184,16 @@ describe("describeContainer", () => {
     expect(described?.tag).toBeUndefined();
     expect(described?.note).toMatch(/wasn't captured/);
   });
+
+  it("won't describe an uncaptured parent from children without document order", () => {
+    expect(
+      describeContainer(
+        [
+          { selector: ".a", parentSelector: ".grid", tag: "div" },
+          { selector: ".b", parentSelector: ".grid", tag: "div" },
+        ],
+        ".grid",
+      ),
+    ).toBeNull();
+  });
 });
