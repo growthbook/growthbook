@@ -132,8 +132,8 @@ function FunnelCard({
  */
 function SplitFan({ count }: { count: number }) {
   const arrows = Math.max(1, count);
-  const width = Math.max(44, (arrows - 1) * 20);
-  const height = 20;
+  const width = Math.max(57, (arrows - 1) * 26);
+  const height = 18;
   const head = 2.5;
   const stemX = width / 2;
   const endY = height - 1;
