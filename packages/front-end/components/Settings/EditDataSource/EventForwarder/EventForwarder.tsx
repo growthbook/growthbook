@@ -234,7 +234,6 @@ function getEventForwarderDraft(
 // submit first, so it never double-messages).
 function getEventForwarderValidationErrors(
   draft: EventForwarderDatasourceDraft,
-  databricksDestination = "",
 ): string[] {
   const cfg = draft.eventForwarderConfig;
   if (!cfg) return ["Event forwarder configuration is missing."];
@@ -290,7 +289,9 @@ function getEventForwarderValidationErrors(
       errors.push(getDatabricksEventForwarderAuthMessage(p));
     }
     try {
-      parseDatabricksEventForwarderTablePrefix(databricksDestination);
+      parseDatabricksEventForwarderTablePrefix(
+        formatDatabricksEventForwarderTablePrefix(cfg.config),
+      );
     } catch (e) {
       errors.push(
         e instanceof Error ? e.message : "Enter a valid destination.",
@@ -402,18 +403,6 @@ function EventForwarderModal({
       projects: dataSource.projects,
       eventForwarderConfig: getEventForwarderDraft(dataSource),
     }));
-  // Single text input for catalog.schema.prefix; parsed into the draft on change.
-  const [databricksDestination, setDatabricksDestination] = useState(() => {
-    const cfg = datasourceDraft.eventForwarderConfig;
-    if (cfg?.sinkType !== "databricks") return "";
-    if (cfg.config.schema) {
-      return formatDatabricksEventForwarderTablePrefix(cfg.config);
-    }
-    // New forwarder: pre-fill the connection's catalog, leave the schema to fill in.
-    return cfg.config.catalog
-      ? `${cfg.config.catalog}.<schema>.${cfg.config.tablePrefix}`
-      : "";
-  });
   const isEditingEventForwarder = !!dataSource.eventForwarderConfig;
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(isEditingEventForwarder);
@@ -461,10 +450,8 @@ function EventForwarderModal({
       >
         <ModalForm
           onSubmit={async () => {
-            const validationErrors = getEventForwarderValidationErrors(
-              datasourceDraft,
-              databricksDestination,
-            );
+            const validationErrors =
+              getEventForwarderValidationErrors(datasourceDraft);
             if (validationErrors.length) {
               // ErrorDisplay renders with pre-wrap, so each error gets a line.
               throw new Error(validationErrors.join("\n"));
@@ -524,8 +511,10 @@ function EventForwarderModal({
               <DatabricksEventForwarderForm
                 eventForwarderConfig={eventForwarderConfig}
                 setEventForwarderConfig={setEventForwarderConfig}
-                destination={databricksDestination}
-                setDestination={setDatabricksDestination}
+                catalogReadOnly={
+                  !!(dataSource.params as Partial<DatabricksConnectionParams>)
+                    .catalog
+                }
               />
             ) : null}
             {eventForwarderConfig ? (
@@ -868,10 +857,17 @@ export default function EventForwarder({
               {eventForwarderConfig.sinkType === "databricks" ? (
                 <>
                   <EventForwarderConfigField
-                    label="Destination"
-                    value={formatDatabricksEventForwarderTablePrefix(
-                      eventForwarderConfig.config,
-                    )}
+                    label="Catalog"
+                    value={eventForwarderConfig.config.catalog}
+                  />
+                  <EventForwarderConfigField
+                    label="Schema"
+                    value={eventForwarderConfig.config.schema}
+                  />
+                  <EventForwarderConfigField
+                    label="Table Prefix"
+                    value={eventForwarderConfig.config.tablePrefix}
+                    optional
                   />
                   <EventForwarderConfigField
                     label="Zerobus endpoint"
