@@ -12,30 +12,78 @@ import type { ActiveTurnItem } from "./types";
 // ---------------------------------------------------------------------------
 
 const TYPEWRITER_INTERVAL_MS = 30;
-const TYPEWRITER_CHARS_PER_TICK = 3;
+const TYPEWRITER_MIN_CHARS_PER_TICK = 1;
+export const TYPEWRITER_INITIAL_CHARS_PER_TICK = 3;
 const TYPEWRITER_FAST_CHARS_PER_TICK = 15;
-// Spreading each SSE chunk over this many ticks keeps the reveal rate steady
-// instead of dumping a chunk on arrival and trickling until the next one.
-const TYPEWRITER_DRAIN_TICKS = 8;
+// The reveal rate follows the provider's average arrival rate rather than the
+// instantaneous backlog, so chunked SSE delivery doesn't show through as
+// surge-then-stall. The window must be longer than typical inter-chunk gaps.
+const ARRIVAL_RATE_WINDOW_TICKS = 50;
+// Backlog kept in reserve (in ticks of output) to absorb gaps between chunks.
+const TARGET_BUFFER_TICKS = 17;
+const BUFFER_CORRECTION_TICKS = 40;
+const MAX_BUFFER_CORRECTION_RATIO = 0.3;
+// Beyond this much backlog the estimate is clearly behind; drain it visibly.
+const CATCH_UP_BUFFER_TICKS = 100;
+const CATCH_UP_DRAIN_TICKS = 8;
+const FINISHED_DRAIN_TICKS = 3;
 
-export function getTypewriterCharsPerTick({
-  contentLength,
-  revealedLength,
-  hasSuccessor,
-}: {
-  contentLength: number;
-  revealedLength: number;
-  hasSuccessor: boolean;
-}): number {
-  const bufferedCharacters = Math.max(contentLength - revealedLength, 0);
-  const baseRate = hasSuccessor
-    ? TYPEWRITER_FAST_CHARS_PER_TICK
-    : TYPEWRITER_CHARS_PER_TICK;
-
-  return Math.min(
-    bufferedCharacters,
-    Math.max(baseRate, Math.ceil(bufferedCharacters / TYPEWRITER_DRAIN_TICKS)),
+export function updateArrivalRateEstimate(
+  previousRate: number,
+  arrivedCharacters: number,
+): number {
+  return (
+    previousRate +
+    (Math.max(arrivedCharacters, 0) - previousRate) / ARRIVAL_RATE_WINDOW_TICKS
   );
+}
+
+/**
+ * Returns a possibly fractional chars-per-tick rate; callers accumulate the
+ * fraction so 2.5 renders as alternating 2 and 3 rather than rounding.
+ */
+export function getTypewriterCharsPerTick({
+  bufferedCharacters,
+  arrivalRate,
+  hasSuccessor,
+  streamComplete,
+}: {
+  bufferedCharacters: number;
+  arrivalRate: number;
+  hasSuccessor: boolean;
+  streamComplete: boolean;
+}): number {
+  const buffered = Math.max(bufferedCharacters, 0);
+  if (buffered === 0) return 0;
+
+  const baseRate = Math.max(TYPEWRITER_MIN_CHARS_PER_TICK, arrivalRate);
+  const targetBuffer = arrivalRate * TARGET_BUFFER_TICKS;
+  const maxCorrection = baseRate * MAX_BUFFER_CORRECTION_RATIO;
+  const correction = Math.min(
+    maxCorrection,
+    Math.max(
+      -maxCorrection,
+      (buffered - targetBuffer) / BUFFER_CORRECTION_TICKS,
+    ),
+  );
+  let rate = Math.max(TYPEWRITER_MIN_CHARS_PER_TICK, baseRate + correction);
+
+  const catchUpThreshold =
+    Math.max(arrivalRate, TYPEWRITER_INITIAL_CHARS_PER_TICK) *
+    CATCH_UP_BUFFER_TICKS;
+  if (buffered > catchUpThreshold) {
+    rate = Math.max(rate, buffered / CATCH_UP_DRAIN_TICKS);
+  }
+
+  if (hasSuccessor || streamComplete) {
+    rate = Math.max(
+      rate,
+      TYPEWRITER_FAST_CHARS_PER_TICK,
+      buffered / FINISHED_DRAIN_TICKS,
+    );
+  }
+
+  return Math.min(rate, buffered);
 }
 
 function findClosingLinkParenthesis(
@@ -225,14 +273,22 @@ export function adjustRevealLengthForMarkdownLinks(
 // useTypewriter
 // ---------------------------------------------------------------------------
 
+type TypewriterRateState = {
+  seenContentLength: number;
+  arrivalRate: number;
+  fractionalCarry: number;
+};
+
 /**
  * Drives the character-by-character reveal animation for active text items.
  * Returns the current `displayedTextMap` and a `clear` function to reset it
- * (call when the active turn ends).
+ * (call when the active turn ends). `streamCompleteRef` lets the hook drain
+ * its buffer quickly once no more content will arrive.
  */
 export function useTypewriter(
   activeTurnItemsRef: MutableRefObject<ActiveTurnItem[]>,
   pauseIncompleteMarkdownLinks = false,
+  streamCompleteRef?: MutableRefObject<boolean>,
 ): {
   displayedTextMap: Map<string, string>;
   displayedTextMapRef: MutableRefObject<Map<string, string>>;
@@ -242,9 +298,11 @@ export function useTypewriter(
     new Map(),
   );
   const displayedTextMapRef = useRef<Map<string, string>>(new Map());
+  const rateStateRef = useRef<Map<string, TypewriterRateState>>(new Map());
 
   const clearDisplayedText = useCallback(() => {
     displayedTextMapRef.current = new Map();
+    rateStateRef.current = new Map();
     setDisplayedTextMap(new Map());
   }, []);
 
@@ -252,20 +310,42 @@ export function useTypewriter(
     const interval = setInterval(() => {
       const items = activeTurnItemsRef.current;
       const current = displayedTextMapRef.current;
+      const rateStates = rateStateRef.current;
+      const streamComplete = streamCompleteRef?.current ?? false;
       let changed = false;
 
+      const activeIds = new Set<string>();
       const next = new Map(current);
       for (let idx = 0; idx < items.length; idx++) {
         const item = items[idx];
         if (item.kind !== "text") continue;
+        activeIds.add(item.id);
+
+        const rateState = rateStates.get(item.id) ?? {
+          seenContentLength: 0,
+          arrivalRate: TYPEWRITER_INITIAL_CHARS_PER_TICK,
+          fractionalCarry: 0,
+        };
+        rateState.arrivalRate = updateArrivalRateEstimate(
+          rateState.arrivalRate,
+          item.content.length - rateState.seenContentLength,
+        );
+        rateState.seenContentLength = item.content.length;
+        rateStates.set(item.id, rateState);
+
         const revealed = current.get(item.id) ?? "";
         if (revealed.length < item.content.length) {
           const hasSuccessor = idx < items.length - 1;
-          const charsPerTick = getTypewriterCharsPerTick({
-            contentLength: item.content.length,
-            revealedLength: revealed.length,
-            hasSuccessor,
-          });
+          const budget =
+            rateState.fractionalCarry +
+            getTypewriterCharsPerTick({
+              bufferedCharacters: item.content.length - revealed.length,
+              arrivalRate: rateState.arrivalRate,
+              hasSuccessor,
+              streamComplete,
+            });
+          const charsPerTick = Math.floor(budget);
+          rateState.fractionalCarry = budget - charsPerTick;
           const nextLen = Math.min(
             revealed.length + charsPerTick,
             item.content.length,
@@ -284,6 +364,10 @@ export function useTypewriter(
         }
       }
 
+      for (const id of rateStates.keys()) {
+        if (!activeIds.has(id)) rateStates.delete(id);
+      }
+
       if (changed) {
         displayedTextMapRef.current = next;
         setDisplayedTextMap(new Map(next));
@@ -291,7 +375,7 @@ export function useTypewriter(
     }, TYPEWRITER_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [activeTurnItemsRef, pauseIncompleteMarkdownLinks]);
+  }, [activeTurnItemsRef, pauseIncompleteMarkdownLinks, streamCompleteRef]);
 
   return { displayedTextMap, displayedTextMapRef, clearDisplayedText };
 }

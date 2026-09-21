@@ -2,49 +2,109 @@ import type { MutableRefObject } from "react";
 import { act, renderHook } from "@testing-library/react";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat";
 import {
+  TYPEWRITER_INITIAL_CHARS_PER_TICK,
   adjustRevealLengthForMarkdownLinks,
   getTypewriterCharsPerTick,
   isWaitingForMarkdownLink,
+  updateArrivalRateEstimate,
   useTypewriter,
 } from "@/enterprise/hooks/useAIChat/useTypewriter";
 
+describe("updateArrivalRateEstimate", () => {
+  it("moves the estimate a small step toward each tick's arrivals", () => {
+    const next = updateArrivalRateEstimate(3, 53);
+    expect(next).toBeGreaterThan(3);
+    expect(next).toBeLessThan(5);
+  });
+
+  it("converges on a steady arrival rate", () => {
+    let rate = TYPEWRITER_INITIAL_CHARS_PER_TICK;
+    for (let i = 0; i < 300; i++) rate = updateArrivalRateEstimate(rate, 8);
+    expect(rate).toBeCloseTo(8, 1);
+  });
+
+  it("ignores negative deltas from content replacement", () => {
+    expect(updateArrivalRateEstimate(4, -100)).toBeLessThan(4);
+    expect(updateArrivalRateEstimate(4, -100)).toBeGreaterThan(3.9);
+  });
+});
+
 describe("getTypewriterCharsPerTick", () => {
-  it("uses the base rate when the backlog is small", () => {
+  it("reveals at the estimated arrival rate when the buffer is on target", () => {
+    const arrivalRate = 6;
     expect(
       getTypewriterCharsPerTick({
-        contentLength: 20,
-        revealedLength: 12,
+        bufferedCharacters: arrivalRate * 17,
+        arrivalRate,
         hasSuccessor: false,
+        streamComplete: false,
       }),
-    ).toBe(3);
+    ).toBeCloseTo(arrivalRate, 5);
   });
 
-  it("spreads a large backlog across several ticks instead of dumping it", () => {
-    expect(
-      getTypewriterCharsPerTick({
-        contentLength: 92,
-        revealedLength: 12,
-        hasSuccessor: false,
-      }),
-    ).toBe(10);
+  it("does not surge when a chunk lands above the target buffer", () => {
+    const arrivalRate = 6;
+    const rate = getTypewriterCharsPerTick({
+      bufferedCharacters: arrivalRate * 17 + 150,
+      arrivalRate,
+      hasSuccessor: false,
+      streamComplete: false,
+    });
+    expect(rate).toBeGreaterThan(arrivalRate);
+    expect(rate).toBeLessThanOrEqual(arrivalRate * 1.3);
   });
 
-  it("catches up faster when a later item is already waiting", () => {
+  it("slows down but never stops while the buffer refills", () => {
+    const rate = getTypewriterCharsPerTick({
+      bufferedCharacters: 4,
+      arrivalRate: 6,
+      hasSuccessor: false,
+      streamComplete: false,
+    });
+    expect(rate).toBeGreaterThanOrEqual(1);
+    expect(rate).toBeLessThan(6);
+  });
+
+  it("drains a runaway backlog instead of falling further behind", () => {
     expect(
       getTypewriterCharsPerTick({
-        contentLength: 40,
-        revealedLength: 0,
+        bufferedCharacters: 2000,
+        arrivalRate: 6,
+        hasSuccessor: false,
+        streamComplete: false,
+      }),
+    ).toBeGreaterThanOrEqual(2000 / 8);
+  });
+
+  it("catches up fast when a later item is already waiting", () => {
+    expect(
+      getTypewriterCharsPerTick({
+        bufferedCharacters: 40,
+        arrivalRate: 3,
         hasSuccessor: true,
+        streamComplete: false,
       }),
     ).toBe(15);
+  });
+
+  it("catches up fast once the stream has finished", () => {
+    expect(
+      getTypewriterCharsPerTick({
+        bufferedCharacters: 90,
+        arrivalRate: 3,
+        hasSuccessor: false,
+        streamComplete: true,
+      }),
+    ).toBe(30);
   });
 
   it("does not reveal beyond the available content", () => {
     expect(
       getTypewriterCharsPerTick({
-        contentLength: 10,
-        revealedLength: 8,
+        bufferedCharacters: 2,
+        arrivalRate: 6,
         hasSuccessor: false,
+        streamComplete: true,
       }),
     ).toBe(2);
   });
@@ -236,35 +296,69 @@ describe("useTypewriter", () => {
     expect(result.current.displayedTextMap).toBe(initialMap);
   });
 
-  it("spreads an arriving chunk over several ticks instead of dumping it", () => {
+  it("keeps a steady reveal rate when the provider delivers in bursts", () => {
     vi.useFakeTimers();
+    const chunk = "x".repeat(150);
+    const chunkIntervalMs = 600;
+    let content = chunk;
     const activeTurnItemsRef: MutableRefObject<ActiveTurnItem[]> = {
-      current: [{ kind: "text", id: "text-1", content: "abcdefgh" }],
+      current: [{ kind: "text", id: "text-1", content }],
     };
     const { result } = renderHook(() => useTypewriter(activeTurnItemsRef));
 
-    act(() => {
-      vi.advanceTimersByTime(30);
-    });
-    expect(result.current.displayedTextMap.get("text-1")).toBe("abc");
+    const revealedPerTick: number[] = [];
+    let previousLength = 0;
+    const totalMs = 6000;
+    for (let elapsed = 30; elapsed <= totalMs; elapsed += 30) {
+      if (elapsed % chunkIntervalMs === 0) {
+        content += chunk;
+        activeTurnItemsRef.current = [{ kind: "text", id: "text-1", content }];
+      }
+      act(() => {
+        vi.advanceTimersByTime(30);
+      });
+      const length = result.current.displayedTextMap.get("text-1")?.length ?? 0;
+      // Skip the warm-up while the rate estimate converges.
+      if (elapsed > 1500) revealedPerTick.push(length - previousLength);
+      previousLength = length;
+    }
 
-    activeTurnItemsRef.current = [
-      {
-        kind: "text",
-        id: "text-1",
-        content: "abcdefgh".padEnd(67, "x"),
-      },
-    ];
-    act(() => {
-      vi.advanceTimersByTime(30);
-    });
-    // 64 buffered / 8 drain ticks = 8 per tick, not the whole chunk at once.
-    expect(result.current.displayedTextMap.get("text-1")).toHaveLength(11);
+    const mean =
+      revealedPerTick.reduce((sum, n) => sum + n, 0) / revealedPerTick.length;
+    const variance =
+      revealedPerTick.reduce((sum, n) => sum + (n - mean) ** 2, 0) /
+      revealedPerTick.length;
+    const coefficientOfVariation = Math.sqrt(variance) / mean;
+
+    expect(revealedPerTick.every((n) => n > 0)).toBe(true);
+    expect(coefficientOfVariation).toBeLessThan(0.35);
+    // 150 chars / 20 ticks: the reveal rate should track the provider's speed.
+    expect(mean).toBeGreaterThan(6);
+    expect(mean).toBeLessThan(9);
+  });
+
+  it("drains the remaining buffer quickly once the stream completes", () => {
+    vi.useFakeTimers();
+    const activeTurnItemsRef: MutableRefObject<ActiveTurnItem[]> = {
+      current: [{ kind: "text", id: "text-1", content: "x".repeat(200) }],
+    };
+    const streamCompleteRef = { current: false };
+    const { result } = renderHook(() =>
+      useTypewriter(activeTurnItemsRef, false, streamCompleteRef),
+    );
 
     act(() => {
       vi.advanceTimersByTime(30);
     });
-    expect(result.current.displayedTextMap.get("text-1")).toHaveLength(18);
+    const revealedBefore =
+      result.current.displayedTextMap.get("text-1")?.length ?? 0;
+    expect(revealedBefore).toBeLessThan(20);
+
+    streamCompleteRef.current = true;
+    act(() => {
+      vi.advanceTimersByTime(30 * 8);
+    });
+    expect(result.current.displayedTextMap.get("text-1")).toHaveLength(200);
   });
 
   it("holds a partially streamed link label and reveals the link atomically", () => {

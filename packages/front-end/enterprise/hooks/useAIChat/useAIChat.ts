@@ -72,6 +72,8 @@ export function useAIChat({
   /** True while sendMessage is executing — used to prevent the conversation-load
    *  effect from overwriting state during an active send. */
   const isSendingRef = useRef(false);
+  /** Flips true once the local stream ends so the typewriter drains its buffer. */
+  const streamCompleteRef = useRef(false);
   const remotePollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
@@ -115,6 +117,7 @@ export function useAIChat({
   const { displayedTextMap, clearDisplayedText } = useTypewriter(
     activeTurnItemsRef,
     pauseIncompleteMarkdownLinks,
+    streamCompleteRef,
   );
 
   const setActive = useCallback(
@@ -360,6 +363,7 @@ export function useAIChat({
       setActive([]);
       setWaitingForNextStep(false);
       isSendingRef.current = true;
+      streamCompleteRef.current = false;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -449,6 +453,7 @@ export function useAIChat({
           });
         }
       } finally {
+        streamCompleteRef.current = true;
         const wasCancelled = userCancelledRef.current;
         const durationMs = Date.now() - sendStartMs;
         userCancelledRef.current = false;
