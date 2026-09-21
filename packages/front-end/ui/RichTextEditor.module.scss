@@ -192,3 +192,21 @@
   font-size: var(--font-size-1);
   line-height: var(--line-height-1);
 }
+
+.toolbar {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--gray-a5);
+  // Sits above the editable area, which scrolls under it.
+  position: relative;
+  z-index: 1;
+  background-color: var(--color-panel-solid);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+
+.toolbarButton {
+  margin: 0;
+  padding: 0;
+  width: var(--space-5);
+  height: var(--space-5);
+}

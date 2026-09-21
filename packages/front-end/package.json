@@ -29,6 +29,7 @@
     "@lexical/markdown": "^0.51.0",
     "@lexical/react": "^0.51.0",
     "@lexical/rich-text": "^0.51.0",
+    "@lexical/selection": "^0.51.0",
     "@lexical/utils": "^0.51.0",
     "@next/bundle-analyzer": "^16.1.6",
     "@nozbe/microfuzz": "^1.0.0",

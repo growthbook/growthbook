@@ -47,6 +47,7 @@ import {
   ImageNode,
   IMAGE_TRANSFORMER,
 } from "./RichTextEditorImageNode";
+import RichTextEditorToolbar from "./RichTextEditorToolbar";
 import styles from "./RichTextEditor.module.scss";
 
 export interface RichTextEditorHandle {
@@ -75,6 +76,8 @@ export interface Props {
   allowImageUpload?: boolean;
   /** Rendered under the editable area, for a caller's own controls. */
   footer?: ReactNode;
+  /** Hide the formatting ribbon, e.g. for a one-line note. */
+  hideToolbar?: boolean;
   className?: string;
   id?: string;
 }
@@ -323,6 +326,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     autoFocus = false,
     allowImageUpload = true,
     footer,
+    hideToolbar = false,
     className,
     id,
   },
@@ -341,7 +345,11 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     dropHandler.current = handler;
   }, []);
 
-  const { getRootProps, getInputProps } = useDropzone({
+  const {
+    getRootProps,
+    getInputProps,
+    open: openFilePicker,
+  } = useDropzone({
     onDrop: (files: File[]) => dropHandler.current(files),
     noClick: true,
     noKeyboard: true,
@@ -392,6 +400,11 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         onBlur={handleBlur}
       >
         {allowImages ? <input {...getInputProps()} /> : null}
+        {readOnly || hideToolbar ? null : (
+          <RichTextEditorToolbar
+            onPickImage={allowImages ? openFilePicker : undefined}
+          />
+        )}
         <RichTextPlugin
           contentEditable={
             <ContentEditable
