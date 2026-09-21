@@ -3,8 +3,12 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
@@ -102,86 +106,109 @@ export default function InAppHelp() {
       )}
 
       {showFreeHelpWidget && (
-        <div
-          className="bg-light shadow border rounded position-fixed"
+        <Box
           style={{
-            right: "50px",
+            position: "fixed",
+            right: "15px",
+            // Above the launcher, which sits 15px off the bottom.
             bottom: "80px",
-            maxWidth: "310px",
+            width: "300px",
             zIndex: 10,
+            background: "var(--color-panel-solid)",
+            border: "1px solid var(--gray-a5)",
+            borderRadius: "var(--radius-4)",
+            boxShadow: "var(--shadow-4)",
+            overflow: "hidden",
           }}
         >
-          <div className="bg-purple rounded-top p-3 pb-4 d-flex align-items-center">
+          <Flex
+            align="center"
+            gap="2"
+            px="4"
+            py="3"
+            // The heading takes its colour from here: on the violet bar it is
+            // white, and `Heading` styles its own only for the text scales.
+            style={{ background: "var(--violet-9)", color: "white" }}
+          >
             <img
               alt="GrowthBook"
               src="/logo/growth-book-logomark-white.svg"
-              className="mb-1 pr-1"
-              style={{ height: 30 }}
+              style={{ height: 22 }}
             />
-            <h2 className="text-white m-0">How can we help?</h2>
-          </div>
-          <div
-            style={{
-              position: "relative",
-              top: "-30px",
-              marginBottom: "-30px",
-            }}
-          >
-            <div className="bg-white border rounded p-3 m-3 shadow">
-              <p className="mb-2">
-                <strong>Have a question?</strong>
-              </p>
-              <a
-                href="https://slack.growthbook.io/?ref=app-top-nav"
-                target="blank"
-                className="btn btn-primary font-weight-normal my-2 w-100"
-              >
-                Join The Slack Community <FaArrowRight className="ml-2" />
-              </a>
-              <a
-                href="https://docs.growthbook.io/"
-                target="blank"
-                className="btn btn-outline-primary font-weight-normal my-2 w-100"
-              >
-                View Docs <FaArrowRight className="ml-2" />
-              </a>
-            </div>
+            <Heading as="h4" size="sm" mb="0">
+              How can we help?
+            </Heading>
+          </Flex>
+          <Flex direction="column" gap="3" p="4">
+            <Text weight="medium" color="text-high">
+              Have a question?
+            </Text>
+            <Button
+              icon={<FaArrowRight />}
+              iconPosition="right"
+              onClick={() =>
+                window.open(
+                  "https://slack.growthbook.io/?ref=app-top-nav",
+                  "_blank",
+                  "noopener",
+                )
+              }
+            >
+              Join the Slack community
+            </Button>
+            <Button
+              variant="outline"
+              icon={<FaArrowRight />}
+              iconPosition="right"
+              onClick={() =>
+                window.open("https://docs.growthbook.io/", "_blank", "noopener")
+              }
+            >
+              View docs
+            </Button>
             {showUpgradeModal && (
-              <div className="bg-white border rounded p-3 m-3 shadow">
-                <p className="mb-2">
-                  <strong>
-                    Upgrade your account to unlock live chat support and access
-                    to premium features.
-                  </strong>
-                </p>
-                <button
-                  className="btn btn-premium font-weight-normal my-2 w-100"
+              <>
+                <Separator size="4" />
+                <Text weight="medium" color="text-high">
+                  Upgrade to unlock live chat support and premium features.
+                </Text>
+                <Button
+                  variant="soft"
+                  icon={<GBPremiumBadge />}
+                  iconPosition="right"
                   onClick={() => setUpgradeModal(true)}
                 >
-                  Upgrade Now <GBPremiumBadge />
-                </button>
-              </div>
+                  Upgrade now
+                </Button>
+              </>
             )}
-          </div>
-        </div>
+          </Flex>
+        </Box>
       )}
-      <button
+      <IconButton
         ref={launcher}
-        className="btn btn-primary d-flex align-items-center justify-content-center position-fixed rounded-circle"
+        type="button"
+        size="4"
+        radius="full"
+        color="violet"
+        aria-label={showFreeHelpWidget ? "Close help" : "Help"}
+        aria-expanded={showFreeHelpWidget}
         onClick={() => {
           setShowFreeHelpWidget(!showFreeHelpWidget);
         }}
         style={{
+          position: "fixed",
           right: "15px",
           bottom: "15px",
           zIndex: 10,
           height: "50px",
           width: "50px",
-          fontSize: "30px",
+          margin: 0,
+          cursor: "pointer",
         }}
       >
-        {showFreeHelpWidget ? <BsXLg /> : <BsQuestionLg />}
-      </button>
+        {showFreeHelpWidget ? <BsXLg size={20} /> : <BsQuestionLg size={22} />}
+      </IconButton>
     </>
   );
 }
