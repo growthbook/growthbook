@@ -802,7 +802,6 @@ paths:
       tags:
         - features
       parameters:
-        - $ref: '#/components/parameters/savedGroupFormat'
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
@@ -839,8 +838,6 @@ paths:
       deprecated: true
       tags:
         - features
-      parameters:
-        - $ref: '#/components/parameters/savedGroupFormat'
       requestBody:
         required: true
         content:
@@ -2370,7 +2367,6 @@ paths:
         - features
       parameters:
         - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/savedGroupFormat'
         - $ref: '#/components/parameters/withRevisions'
       responses:
         '200':
@@ -2408,7 +2404,6 @@ paths:
         - features
       parameters:
         - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/savedGroupFormat'
       requestBody:
         required: true
         content:
@@ -3985,7 +3980,6 @@ paths:
         - features
       parameters:
         - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/savedGroupFormat'
       requestBody:
         required: true
         content:
@@ -4084,7 +4078,6 @@ paths:
         - features
       parameters:
         - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/savedGroupFormat'
       requestBody:
         required: true
         content:
@@ -7934,7 +7927,6 @@ paths:
       tags:
         - features-v2
       parameters:
-        - $ref: '#/components/parameters/savedGroupFormat'
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
@@ -8021,7 +8013,6 @@ paths:
       tags:
         - features-v2
       parameters:
-        - $ref: '#/components/parameters/savedGroupFormat'
         - $ref: '#/components/parameters/skipSchemaValidation'
         - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
@@ -8876,7 +8867,6 @@ paths:
         - features-v2
       parameters:
         - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/savedGroupFormat'
         - $ref: '#/components/parameters/withRevisions'
       responses:
         '200':
@@ -8917,7 +8907,6 @@ paths:
         - features-v2
       parameters:
         - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/savedGroupFormat'
         - $ref: '#/components/parameters/skipSchemaValidation'
         - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
@@ -9816,7 +9805,6 @@ paths:
         - features-v2
       parameters:
         - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/savedGroupFormat'
       requestBody:
         required: true
         content:
@@ -9908,7 +9896,6 @@ paths:
         - features-v2
       parameters:
         - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/savedGroupFormat'
       requestBody:
         required: true
         content:
@@ -57188,24 +57175,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
-    savedGroupFormat:
-      name: savedGroupFormat
-      in: query
-      description: >-
-        Saved group format used in the `definition` field. `v1` (default) keeps
-        `$inGroup` for ID Lists and inlines Condition Groups. `v2` uses a
-        `$savedGroup` reference for every Saved Group. Neither form includes the
-        group contents — fetch those from the Saved Groups endpoints.
-      schema:
-        description: >-
-          Saved group format used in the `definition` field. `v1` (default)
-          keeps `$inGroup` for ID Lists and inlines Condition Groups. `v2` uses
-          a `$savedGroup` reference for every Saved Group. Neither form includes
-          the group contents — fetch those from the Saved Groups endpoints.
-        type: string
-        enum:
-          - v1
-          - v2
     limit:
       name: limit
       in: query

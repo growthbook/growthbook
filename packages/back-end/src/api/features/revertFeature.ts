@@ -446,7 +446,6 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       feature: await resolveOwnerEmail(
         getApiFeatureObj({
           ...data,
-          savedGroupFormat: req.query.savedGroupFormat,
         }),
         req.context,
       ),

@@ -54,7 +54,6 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
   return {
     feature: await resolveOwnerEmail(
       getApiFeatureObj({
-        savedGroupFormat: req.query.savedGroupFormat,
         feature,
         organization: req.organization,
         groupMap,

@@ -2278,7 +2278,7 @@ describe("getUsedSavedGroupIds", () => {
   });
 });
 
-describe("getApiFeatureObj savedGroupFormat", () => {
+describe("getApiFeatureObj saved groups", () => {
   const groupMap: GroupMap = new Map([
     ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
     [
@@ -2292,35 +2292,36 @@ describe("getApiFeatureObj savedGroupFormat", () => {
     settings: { environments: [{ id: "production" }] },
   } as OrganizationInterface;
 
-  const feature = {
-    id: "f",
-    organization: "org",
-    defaultValue: "off",
-    valueType: "string",
-    owner: "",
-    description: "",
-    project: "",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    version: 1,
-    environmentSettings: {
-      production: {
-        enabled: true,
-        rules: [
-          {
-            id: "r1",
-            type: "force",
-            value: "on",
-            description: "",
-            enabled: true,
-            savedGroups: [{ match: "all", ids: ["grp_list", "grp_cond"] }],
-          },
-        ],
+  const featureWithRule = (rule: Record<string, unknown>) =>
+    ({
+      id: "f",
+      organization: "org",
+      defaultValue: "off",
+      valueType: "string",
+      owner: "",
+      description: "",
+      project: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      version: 1,
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "r1",
+              type: "force",
+              value: "on",
+              description: "",
+              enabled: true,
+              ...rule,
+            },
+          ],
+        },
       },
-    },
-  } as unknown as FeatureInterface;
+    }) as unknown as FeatureInterface;
 
-  const definitionFor = (savedGroupFormat?: "v1" | "v2") =>
+  const definitionFor = (feature: FeatureInterface) =>
     getApiFeatureObj({
       feature,
       organization,
@@ -2328,11 +2329,15 @@ describe("getApiFeatureObj savedGroupFormat", () => {
       experimentMap: new Map(),
       revision: null,
       safeRolloutMap: new Map(),
-      savedGroupFormat,
     }).environments.production.definition;
 
-  it("keeps $inGroup and inlines Condition Groups under v1", () => {
-    expect(JSON.parse(definitionFor("v1") || "{}")).toEqual({
+  // REST always serves referencesV1. There is no way for a caller to ask for
+  // another format, so these assert the one shape the endpoint can return.
+  it("keeps $inGroup and inlines Condition Groups", () => {
+    const feature = featureWithRule({
+      savedGroups: [{ match: "all", ids: ["grp_list", "grp_cond"] }],
+    });
+    expect(JSON.parse(definitionFor(feature) || "{}")).toEqual({
       defaultValue: "off",
       rules: [
         {
@@ -2345,68 +2350,15 @@ describe("getApiFeatureObj savedGroupFormat", () => {
     });
   });
 
-  it("references every group under v2", () => {
-    expect(JSON.parse(definitionFor("v2") || "{}")).toEqual({
-      defaultValue: "off",
-      rules: [
-        {
-          condition: {
-            $and: [{ $savedGroup: "grp_list" }, { $savedGroup: "grp_cond" }],
-          },
-          force: "on",
-        },
-      ],
+  it("leaves a stored $inGroup as it is", () => {
+    const feature = featureWithRule({
+      condition: JSON.stringify({
+        id: { $inGroup: "grp_list" },
+        country: "US",
+      }),
     });
-  });
-
-  it("defaults to v1 when the caller does not pin a format", () => {
-    expect(definitionFor()).toEqual(definitionFor("v1"));
-  });
-
-  // The condition builder writes $inGroup, so stored rules still hold it
-  const legacyFeature = {
-    ...feature,
-    environmentSettings: {
-      production: {
-        enabled: true,
-        rules: [
-          {
-            id: "r1",
-            type: "force",
-            value: "on",
-            description: "",
-            enabled: true,
-            condition: JSON.stringify({
-              id: { $inGroup: "grp_list" },
-              country: "US",
-            }),
-          },
-        ],
-      },
-    },
-  } as unknown as FeatureInterface;
-
-  const legacyDefinitionFor = (savedGroupFormat?: "v1" | "v2") =>
-    getApiFeatureObj({
-      feature: legacyFeature,
-      organization,
-      groupMap,
-      experimentMap: new Map(),
-      revision: null,
-      safeRolloutMap: new Map(),
-      savedGroupFormat,
-    }).environments.production.definition;
-
-  it("keeps a stored $inGroup as it is under v1", () => {
-    expect(JSON.parse(legacyDefinitionFor("v1") || "{}").rules[0]).toEqual({
+    expect(JSON.parse(definitionFor(feature) || "{}").rules[0]).toEqual({
       condition: { id: { $inGroup: "grp_list" }, country: "US" },
-      force: "on",
-    });
-  });
-
-  it("rewrites a stored $inGroup into a reference under v2", () => {
-    expect(JSON.parse(legacyDefinitionFor("v2") || "{}").rules[0]).toEqual({
-      condition: { $and: [{ country: "US" }, { $savedGroup: "grp_list" }] },
       force: "on",
     });
   });

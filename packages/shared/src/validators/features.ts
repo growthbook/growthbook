@@ -12,7 +12,6 @@ import {
   publishBypassedGatesField,
   readOnlyEcho,
   storedOnlyEcho,
-  savedGroupFormatQueryField,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import {
@@ -1788,7 +1787,6 @@ export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      ...savedGroupFormatQueryField,
       ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       clientKey: z
@@ -1818,7 +1816,7 @@ export const listFeaturesValidator = {
 
 export const postFeatureValidator = {
   bodySchema: postFeatureBody,
-  querySchema: z.object({ ...savedGroupFormatQueryField }).strict(),
+  querySchema: z.never(),
   paramsSchema: z.never(),
   responseSchema: featureResponseSchema,
   summary: "Create a single feature",
@@ -1836,7 +1834,6 @@ export const getFeatureValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      ...savedGroupFormatQueryField,
       withRevisions: z
         .enum(["all", "drafts", "published", "none"])
         .describe(
@@ -1865,7 +1862,7 @@ export const getFeatureValidator = {
 
 export const updateFeatureValidator = {
   bodySchema: updateFeatureBody,
-  querySchema: z.object({ ...savedGroupFormatQueryField }).strict(),
+  querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: featureUpdateResponseSchema,
   summary: "Partially update a feature",
@@ -1929,7 +1926,7 @@ export const toggleFeatureValidator = {
       ),
     })
     .strict(),
-  querySchema: z.object({ ...savedGroupFormatQueryField }).strict(),
+  querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: featureResponseSchema.extend({
     bypassedGates: publishBypassedGatesField,
@@ -1959,7 +1956,7 @@ export const revertFeatureValidator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...savedGroupFormatQueryField }).strict(),
+  querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: featureResponseSchema.extend({
     bypassedGates: publishBypassedGatesField,

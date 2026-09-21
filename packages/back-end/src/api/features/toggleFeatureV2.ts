@@ -21,7 +21,6 @@ export const toggleFeatureV2 = createApiRequestHandler(
     feature: await resolveOwnerEmail(
       getApiFeatureObjV2({
         ...data,
-        savedGroupFormat: req.query.savedGroupFormat,
       }),
       req.context,
     ),

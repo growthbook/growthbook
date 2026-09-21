@@ -275,7 +275,6 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       feature: await resolveOwnerEmail(
         getApiFeatureObj({
           ...data,
-          savedGroupFormat: req.query.savedGroupFormat,
         }),
         req.context,
       ),

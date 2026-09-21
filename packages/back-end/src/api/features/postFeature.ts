@@ -240,7 +240,6 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   return {
     feature: await resolveOwnerEmail(
       getApiFeatureObj({
-        savedGroupFormat: req.query.savedGroupFormat,
         feature,
         organization: req.organization,
         groupMap,
