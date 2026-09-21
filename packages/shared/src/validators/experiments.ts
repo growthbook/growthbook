@@ -308,6 +308,25 @@ export type ExperimentAnalysisSettings = z.infer<
   typeof experimentAnalysisSettings
 >;
 
+/**
+ * What a page may hold as an unsaved analysis draft before writing it. Every
+ * field is optional, since a draft carries only what was touched, and anything
+ * outside the analysis settings is dropped rather than carried along to the
+ * write: a draft is not a way to edit the rest of the experiment.
+ */
+export const experimentAnalysisSettingsDraft = experimentAnalysisSettings
+  .partial()
+  .extend({
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
+  })
+  .strip();
+export type ExperimentAnalysisSettingsDraft = z.infer<
+  typeof experimentAnalysisSettingsDraft
+>;
+
 export const experimentAnalysisSummaryHealth = z.object({
   srm: z.number(),
   multipleExposures: z.number(),

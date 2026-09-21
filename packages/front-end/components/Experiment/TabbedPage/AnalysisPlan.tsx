@@ -8,6 +8,7 @@ import {
 import isEqual from "lodash/isEqual";
 import { getMetricLink } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { ExperimentAnalysisSettingsDraft } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -74,7 +75,7 @@ export default function AnalysisPlan({
   // everything else. The fields this section shows are held in their own state
   // so the page keeps reading as one draft.
   const [advanced, setAdvanced] =
-    useState<Partial<ExperimentInterfaceStringDates> | null>(null);
+    useState<ExperimentAnalysisSettingsDraft | null>(null);
   const editable = canEdit && (!started || unlocked);
 
   const suggestedDatasource = useMemo(
@@ -257,7 +258,9 @@ export default function AnalysisPlan({
           experiment={experiment}
           mutate={mutate}
           phase={experiment.phases.length - 1}
-          editDates={true}
+          // Dates are a phase edit, not an analysis setting: they have no place
+          // in this draft, so the modal does not offer them here.
+          editDates={false}
           editVariationIds={false}
           editMetrics={true}
           source="analysis-plan"

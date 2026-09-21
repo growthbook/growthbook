@@ -17,6 +17,10 @@ import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  experimentAnalysisSettingsDraft,
+  ExperimentAnalysisSettingsDraft,
+} from "shared/validators";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -72,16 +76,11 @@ const AnalysisForm: FC<{
   editMetrics?: boolean;
   source?: string;
   /**
-   * Hands the changes over instead of writing them, for a page that holds its
-   * own draft and writes everything together.
+   * Hands the analysis settings over instead of writing them, for a page that
+   * holds its own draft and writes everything together. Only the analysis
+   * settings cross over — see `experimentAnalysisSettingsDraft`.
    */
-  stageChanges?: (
-    changes: Partial<ExperimentInterfaceStringDates> & {
-      phaseStartDate: string;
-      phaseEndDate?: string;
-      currentPhase?: number;
-    },
-  ) => void;
+  stageChanges?: (changes: ExperimentAnalysisSettingsDraft) => void;
 }> = ({
   experiment,
   envs,
@@ -516,7 +515,9 @@ const AnalysisForm: FC<{
         }
 
         if (stageChanges) {
-          stageChanges(body);
+          // Validated on the way out, so a draft cannot carry anything the
+          // page is not entitled to write.
+          stageChanges(experimentAnalysisSettingsDraft.parse(body));
           return;
         }
 
