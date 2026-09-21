@@ -378,17 +378,21 @@ export function VariationBox({
                 <Box flexGrow="1" minWidth="0" mt="2">
                   {descriptionSnippet}
                 </Box>
-                {canEdit && !blockFileUploads ? (
-                  <ScreenshotUpload
-                    variation={i}
-                    experiment={experiment.id}
-                    onSuccess={() => mutate?.()}
-                  >
-                    <NoImageBox canEdit={canEdit} />
-                  </ScreenshotUpload>
-                ) : (
-                  <NoImageBox canEdit={false} />
-                )}
+                {/* The upload wrapper is the flex item, not the box inside it,
+                    so it is the one that has to hold its width. */}
+                <Box flexShrink="0" width={NO_IMAGE_SIZE + "px"}>
+                  {canEdit && !blockFileUploads ? (
+                    <ScreenshotUpload
+                      variation={i}
+                      experiment={experiment.id}
+                      onSuccess={() => mutate?.()}
+                    >
+                      <NoImageBox canEdit={canEdit} />
+                    </ScreenshotUpload>
+                  ) : (
+                    <NoImageBox canEdit={false} />
+                  )}
+                </Box>
               </Flex>
             )}
           </Box>
