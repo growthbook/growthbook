@@ -258,6 +258,9 @@ export default function RichTextEditorToolbar({
   ) => (
     <Tooltip key={key} content={label}>
       <IconButton
+        // Inside a form an untyped button submits it: pressing Bold would
+        // post the comment.
+        type="button"
         size="1"
         variant={on ? "soft" : "ghost"}
         color={on ? undefined : "gray"}
