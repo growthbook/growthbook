@@ -118,8 +118,8 @@
 
 .labels_row_above {
   margin-top: 0;
-  // Room for the pill and the stem hanging off it.
-  margin-bottom: 10px;
+  // Exactly the stem's length, so it meets the bar rather than stopping short.
+  margin-bottom: 6px;
   height: 20px;
 
   // A pill on a stem, so each figure reads as a label attached to its segment
