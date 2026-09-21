@@ -10,10 +10,7 @@ const INTERMEDIATE_TEXT_DWELL_MS = 1500;
 const INTERMEDIATE_TEXT_FADE_MS = 1200;
 const INTERMEDIATE_TEXT_SETTLE_MS = 50;
 
-/**
- * Keeps the latest turn item visible and briefly fades superseded text before
- * grouping it. Tool activity groups immediately so the status row stays stable.
- */
+/** Superseded text fades out; tool activity collapses immediately. */
 export function useCollapsibleActiveTurnItems(
   activeTurnItems: ActiveTurnItem[],
   displayedTextMap: Map<string, string>,

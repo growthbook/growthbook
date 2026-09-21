@@ -23,7 +23,6 @@ function conv(id: string, createdAt: number): ConversationSummary {
 
 describe("getConversationGroupLabel", () => {
   it("uses local calendar days, not rolling 24h windows", () => {
-    // 11 hours ago is still today; 13 hours ago crosses local midnight.
     expect(getConversationGroupLabel(NOW - 11 * HOUR, NOW)).toBe("Today");
     expect(getConversationGroupLabel(NOW - 13 * HOUR, NOW)).toBe("Yesterday");
   });

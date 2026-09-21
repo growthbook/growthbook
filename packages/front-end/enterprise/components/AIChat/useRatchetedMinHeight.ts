@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-/**
- * Tracks the tallest height a region reaches while `active` and returns it as
- * a `minHeight`, so transient content (spinners, steps collapsing into a
- * drawer) can disappear without the region shrinking and shifting the scroll
- * position. Resets to 0 once `active` turns off.
- */
+/** Floor height while `active`, so transient content can't shrink the region and jump the scroll. */
 export function useRatchetedMinHeight(active: boolean) {
   const ref = useRef<HTMLDivElement>(null);
   const [minHeight, setMinHeight] = useState(0);
@@ -18,8 +13,7 @@ export function useRatchetedMinHeight(active: boolean) {
     const el = ref.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
-    // Observing the same element the minHeight is applied to is safe: it can
-    // only grow past the floor when content does, so the max is stable.
+    // Safe to observe this element: minHeight only grows when the content does.
     const observer = new ResizeObserver(() => {
       const height = el.offsetHeight;
       setMinHeight((prev) => (height > prev ? height : prev));

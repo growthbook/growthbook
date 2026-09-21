@@ -389,8 +389,7 @@ export default function AgentPanel({
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
 
-  // The panel stays mounted while closed, so gate on `open` to attach the
-  // scroll listeners only once the container actually exists.
+  // Panel stays mounted while closed; listeners need the container to exist.
   const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({
     messages,
     activeTurnItems,
@@ -399,9 +398,6 @@ export default function AgentPanel({
     enabled: open,
   });
 
-  // Steps folding into the drawer and the status spinner come and go
-  // mid-turn; holding the region's floor height stops those from yanking
-  // the scroll position. Released once the turn settles.
   const { ref: activeTurnRef, minHeight: activeTurnMinHeight } =
     useRatchetedMinHeight(loading);
 

@@ -39,8 +39,6 @@ export function getConversationGroupLabel(
   return "Older";
 }
 
-/** Buckets conversations by recency, preserving input order within a bucket
- * and omitting empty buckets. */
 export function groupConversationsByRecency(
   conversations: ConversationSummary[],
   now: number = Date.now(),

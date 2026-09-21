@@ -15,9 +15,7 @@ import { AGENT_PANEL_PORTAL_Z_INDEX } from "./AgentPanelContext";
 import { groupConversationsByRecency } from "./chatHistoryUtils";
 
 const MENU_WIDTH = 300;
-// Menu width minus content padding, item padding, and the scrollbar gutter the
-// ScrollArea adds when the list overflows. The viewport is max-content sized,
-// so a nowrap title needs a hard cap to truncate instead of widening the menu.
+// ScrollArea's viewport is max-content sized, so a nowrap title needs a hard cap.
 const ITEM_CONTENT_WIDTH = MENU_WIDTH - 48;
 
 interface AgentChatHistoryProps {

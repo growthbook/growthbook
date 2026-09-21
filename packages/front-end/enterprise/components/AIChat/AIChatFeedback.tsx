@@ -38,10 +38,7 @@ interface AIChatFeedbackProps {
   ) => void;
   /** Defaults to "AI Chat Feedback" (PA). General agent passes "AI Assistant Feedback". */
   trackingEventName?: string;
-  /**
-   * Lift the portaled comment box above an ancestor overlay. Radix copies the
-   * content's computed z-index onto the popper wrapper, which is what stacks.
-   */
+  /** Copied onto Radix's popper wrapper, which is what actually stacks. */
   popoverZIndex?: number;
 }
 

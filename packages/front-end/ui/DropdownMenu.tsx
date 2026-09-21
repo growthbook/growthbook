@@ -120,8 +120,7 @@ export function DropdownMenu({
     handleOpenChange(false);
   };
 
-  // The Popper wrapper owns the stacking context, so z-index must be applied
-  // there rather than to Content.
+  // z-index has to land on the Popper wrapper; it owns the stacking context.
   const contentRef = useCallback(
     (node: HTMLDivElement | null) => {
       const zIndex = menuZIndex ?? (modal ? 9999 : null);

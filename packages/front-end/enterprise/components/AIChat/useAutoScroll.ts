@@ -5,12 +5,10 @@ import type {
 } from "@/enterprise/hooks/useAIChat";
 
 const BOTTOM_THRESHOLD_PX = 80;
-// Fraction of the remaining distance covered per frame. Exponential ease-out
-// so small typewriter increments glide and large insertions don't snap.
+// Per-frame fraction so small typewriter steps glide and large insertions don't snap.
 const FOLLOW_EASING = 0.2;
 const FOLLOW_SETTLED_PX = 0.5;
-// Scroll positions within this many px of where the follow loop last wrote
-// are ours, not the user's.
+// This close to our last write counts as ours, not the user's.
 const PROGRAMMATIC_SCROLL_TOLERANCE_PX = 1.5;
 
 export function getFollowScrollStep(remaining: number): number {
@@ -47,8 +45,7 @@ export function useAutoScroll({
   const userDetachedRef = useRef(false);
   const previousScrollTopRef = useRef(0);
   const frameRef = useRef<number | null>(null);
-  // Last scrollTop written by us. Stays set after the loop settles so the
-  // trailing async scroll event isn't misread as the user scrolling.
+  // Stays set after the loop settles so the trailing scroll event isn't read as the user.
   const programmaticScrollTopRef = useRef<number | null>(null);
 
   const stopFollowing = useCallback(() => {
@@ -123,8 +120,7 @@ export function useAutoScroll({
         el.scrollTop += delta;
         programmaticScrollTopRef.current = el.scrollTop;
         previousScrollTopRef.current = el.scrollTop;
-        // Sub-pixel rounding can leave `remaining` just over the settle
-        // threshold at the true bottom; a no-op write means we're there.
+        // A no-op write means sub-pixel rounding already has us at the bottom.
         if (el.scrollTop === before) return;
       }
       if (Math.abs(remaining) <= FOLLOW_SETTLED_PX) return;

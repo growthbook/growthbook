@@ -15,15 +15,13 @@ const TYPEWRITER_INTERVAL_MS = 30;
 const TYPEWRITER_MIN_CHARS_PER_TICK = 1;
 export const TYPEWRITER_INITIAL_CHARS_PER_TICK = 3;
 const TYPEWRITER_FAST_CHARS_PER_TICK = 15;
-// The reveal rate follows the provider's average arrival rate rather than the
-// instantaneous backlog, so chunked SSE delivery doesn't show through as
-// surge-then-stall. The window must be longer than typical inter-chunk gaps.
+// Longer than typical inter-chunk gaps, so bursty delivery doesn't surge then stall.
 const ARRIVAL_RATE_WINDOW_TICKS = 50;
-// Backlog kept in reserve (in ticks of output) to absorb gaps between chunks.
+// Ticks of output held back so a gap between chunks doesn't stall the reveal.
 const TARGET_BUFFER_TICKS = 17;
 const BUFFER_CORRECTION_TICKS = 40;
 const MAX_BUFFER_CORRECTION_RATIO = 0.3;
-// Beyond this much backlog the estimate is clearly behind; drain it visibly.
+// Past this backlog the estimate is behind; drain it.
 const CATCH_UP_BUFFER_TICKS = 100;
 const CATCH_UP_DRAIN_TICKS = 8;
 const FINISHED_DRAIN_TICKS = 3;
@@ -38,10 +36,7 @@ export function updateArrivalRateEstimate(
   );
 }
 
-/**
- * Returns a possibly fractional chars-per-tick rate; callers accumulate the
- * fraction so 2.5 renders as alternating 2 and 3 rather than rounding.
- */
+/** Fractional; callers accumulate the remainder so 2.5 alternates 2 and 3. */
 export function getTypewriterCharsPerTick({
   bufferedCharacters,
   arrivalRate,
@@ -126,10 +121,7 @@ function findClosingBacktickRun(
   return null;
 }
 
-/**
- * `destinationStart` is null while the label is still streaming in (no `]`
- * yet, or `]` is the last buffered character so `(` may still follow).
- */
+/** `destinationStart` stays null until `](` arrives, so a trailing `]` can still be a link. */
 function findMarkdownLinkStarts(
   content: string,
 ): Array<{ syntaxStart: number; destinationStart: number | null }> {
@@ -234,11 +226,7 @@ export function isWaitingForMarkdownLink(
   return linkStart !== null && revealedLength >= linkStart;
 }
 
-/**
- * Holds the reveal at `[` until the whole link has streamed in, so neither a
- * half-typed label nor a raw destination is ever shown. An unclosed `[` is
- * treated as a possible link until the character after `]` rules it out.
- */
+/** Pause at `[` until the link closes, or the next character rules a link out. */
 export function adjustRevealLengthForMarkdownLinks(
   content: string,
   revealedLength: number,
@@ -282,8 +270,8 @@ type TypewriterRateState = {
 /**
  * Drives the character-by-character reveal animation for active text items.
  * Returns the current `displayedTextMap` and a `clear` function to reset it
- * (call when the active turn ends). `streamCompleteRef` lets the hook drain
- * its buffer quickly once no more content will arrive.
+ * (call when the active turn ends). `streamCompleteRef` drains whatever is
+ * still buffered once no more content will arrive.
  */
 export function useTypewriter(
   activeTurnItemsRef: MutableRefObject<ActiveTurnItem[]>,
