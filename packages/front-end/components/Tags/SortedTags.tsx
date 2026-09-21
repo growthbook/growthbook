@@ -2,11 +2,12 @@ import { Text } from "@radix-ui/themes";
 import { MouseEvent } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Tag from "./Tag";
+import Tag, { TagProps } from "./Tag";
 import LinkedTag from "./LinkedTag";
 
 export type Props = {
   tags?: string[];
+  size?: TagProps["size"];
   shouldShowEllipsis?: boolean;
   skipFirstMargin?: boolean;
   useFlex?: boolean;
@@ -26,6 +27,7 @@ export type Props = {
 
 export default function SortedTags({
   tags,
+  size,
   shouldShowEllipsis = true,
   skipFirstMargin = false,
   useFlex = false,
@@ -67,6 +69,7 @@ export default function SortedTags({
           <LinkedTag
             tag={tag}
             key={tag}
+            size={size}
             skipMargin={skipMargin}
             href={href}
             entity={linkEntity}
@@ -78,6 +81,7 @@ export default function SortedTags({
         <Tag
           tag={tag}
           key={tag}
+          size={size}
           skipMargin={skipMargin}
           maxChars={truncateInTable ? truncateTagChars : undefined}
         />

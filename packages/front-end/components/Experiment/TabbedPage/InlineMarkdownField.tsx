@@ -116,12 +116,19 @@ export default function InlineMarkdownField({
       // page on its own it would just be noise.
       if (!stacked) return null;
       body = (
-        <Text weight="regular" color="text-mid">
+        <Text weight="regular" color="text-mid" size={stacked ? "sm" : "md"}>
           None
         </Text>
       );
     } else {
-      body = <Markdown>{savedValue}</Markdown>;
+      body = stacked ? (
+        // Beside the page rather than on it, so it reads at the column's size.
+        <Box style={{ fontSize: "var(--font-size-1)" }}>
+          <Markdown>{savedValue}</Markdown>
+        </Box>
+      ) : (
+        <Markdown>{savedValue}</Markdown>
+      );
     }
   } else {
     body = (

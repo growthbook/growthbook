@@ -152,7 +152,14 @@ export default function ProjectTagBar({
   };
 
   const renderOwner = () => {
-    return <Owner ownerId={experiment.owner} gap="1" textColor="text-mid" />;
+    return (
+      <Owner
+        ownerId={experiment.owner}
+        gap="1"
+        textColor="text-mid"
+        textSize="sm"
+      />
+    );
   };
 
   const RenderToolTipsAndValue = () => {
@@ -180,7 +187,7 @@ export default function ProjectTagBar({
     } else {
       return (
         projectId && (
-          <Text weight="regular" color="text-mid">
+          <Text weight="regular" color="text-mid" size="sm">
             {projectName}
           </Text>
         )
@@ -236,7 +243,7 @@ export default function ProjectTagBar({
           )}
         {(!showAddLinks || !canUpdateHoldoutProjects(holdout.projects)) &&
           holdout.projects.length === 0 && (
-            <Text weight="regular" color="text-mid">
+            <Text weight="regular" color="text-mid" size="sm">
               None
             </Text>
           )}
@@ -267,6 +274,7 @@ export default function ProjectTagBar({
         {experiment.tags?.length > 0 && (
           <SortedTags
             tags={experiment.tags}
+            size="xs"
             useFlex
             shouldShowEllipsis={false}
             {...tagLinkProps("experiments")}
@@ -284,7 +292,7 @@ export default function ProjectTagBar({
           </Link>
         )}
         {(!showAddLinks || !editTags) && experiment.tags?.length === 0 && (
-          <Text weight="regular" color="text-mid">
+          <Text weight="regular" color="text-mid" size="sm">
             None
           </Text>
         )}
@@ -356,7 +364,7 @@ export default function ProjectTagBar({
             }
             value={
               <Tooltip body={renderTotalRuntimeTooltip()}>
-                <Text weight="regular" color="text-mid">
+                <Text weight="regular" color="text-mid" size="sm">
                   {renderRuntime()}
                 </Text>
               </Tooltip>

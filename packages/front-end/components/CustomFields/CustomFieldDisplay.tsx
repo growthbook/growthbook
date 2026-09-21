@@ -203,11 +203,13 @@ const CustomFieldDisplay: FC<{
                 label={field.name}
                 value={
                   value === "" ? (
-                    <Text weight="regular" color="text-mid">
+                    <Text weight="regular" color="text-mid" size="sm">
                       None
                     </Text>
                   ) : (
-                    getDisplayValue(field, value)
+                    <Box style={{ fontSize: "var(--font-size-1)" }}>
+                      {getDisplayValue(field, value)}
+                    </Box>
                   )
                 }
               />
