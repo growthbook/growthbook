@@ -64,7 +64,15 @@ export default function ExperimentDetailsPanel({
           focusSelector={focusSelector}
         />
       ) : null}
-      <Tabs defaultValue="details">
+      <Tabs
+        defaultValue="details"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
         <Flex px="5" pt="2" align="center" gap="2">
           <TabsList size="sm" style={{ flex: 1, minWidth: 0 }}>
             <TabsTrigger value="details">Details</TabsTrigger>
@@ -124,11 +132,28 @@ export default function ExperimentDetailsPanel({
             />
           </Flex>
         </TabsContent>
-        <TabsContent value="comments">
-          <Box px="5" py="4">
+        <TabsContent
+          value="comments"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
+          <Box
+            px="5"
+            pt="4"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
             <DiscussionThread
               compact
-              stickyComposer
+              fillHeight
               type="experiment"
               id={experiment.id}
               allowNewComments={!experiment.archived}

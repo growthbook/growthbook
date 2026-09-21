@@ -56,6 +56,7 @@ export default function CollapsiblePanelLayout({
   );
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const layout = useRef<HTMLDivElement>(null);
+  const panelBox = useRef<HTMLDivElement>(null);
   const [layoutWidth, setLayoutWidth] = useState(0);
   useEffect(() => {
     const el = layout.current;
@@ -113,6 +114,26 @@ export default function CollapsiblePanelLayout({
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
   };
+
+  // The panel sticks below the page header, but until the page is scrolled it
+  // starts lower than that, and a height of "the viewport minus the header"
+  // then hangs off the bottom of the screen. Measure what is actually visible
+  // instead, so anything held at the panel's bottom stays on screen.
+  useEffect(() => {
+    const el = panelBox.current;
+    if (!el) return;
+    const fit = () => {
+      const offset = Math.max(el.getBoundingClientRect().top, 0);
+      el.style.height = `${Math.max(0, window.innerHeight - offset)}px`;
+    };
+    fit();
+    window.addEventListener("scroll", fit, { passive: true });
+    window.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("scroll", fit);
+      window.removeEventListener("resize", fit);
+    };
+  });
 
   // Never branch around `children`: moving it to a different position in the
   // tree would remount the whole page on every toggle, refetching its data.
@@ -175,11 +196,13 @@ export default function CollapsiblePanelLayout({
       </Box>
       {mounted ? (
         <Box
+          ref={panelBox}
           position="sticky"
           flexShrink="0"
           width={`${currentWidth}px`}
           style={{
             top,
+            // Replaced on every scroll by what the panel can actually see.
             height: `calc(100vh - ${top}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
@@ -211,7 +234,13 @@ export default function CollapsiblePanelLayout({
               reflow on the way in or out. */}
           <Box
             height="100%"
-            style={{ overflowY: "auto", width: `${panelWidth}px` }}
+            style={{
+              overflowY: "auto",
+              width: `${panelWidth}px`,
+              // A column, so a panel that wants to fill the height can.
+              display: "flex",
+              flexDirection: "column",
+            }}
           >
             {panel}
           </Box>

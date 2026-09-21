@@ -30,11 +30,10 @@ const DiscussionThread: FC<{
   /** Slim chrome for a narrow column: see `CommentCard`. */
   compact?: boolean;
   /**
-   * Hold the composer at the bottom of the scrolling column, clear of the
-   * page's save bar. The thread scrolls behind it, and it keeps its own space
-   * so the last comment is never left underneath.
+   * Fill the height given, with the thread scrolling and the composer held at
+   * the bottom of the column, clear of the page's save bar.
    */
-  stickyComposer?: boolean;
+  fillHeight?: boolean;
 }> = ({
   type,
   id,
@@ -43,7 +42,7 @@ const DiscussionThread: FC<{
   title = "Add comment",
   projects,
   compact = false,
-  stickyComposer = false,
+  fillHeight = false,
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -68,123 +67,139 @@ const DiscussionThread: FC<{
 
   const comments: Comment[] = data.discussion ? data.discussion.comments : [];
 
-  return (
-    <Box>
-      {comments.length > 0 ? (
-        <Flex direction="column" gap="4">
-          {comments.map((comment, i) => {
-            const user = users.get(comment.userId);
-            const email = user ? user.email : comment.userEmail;
-            const name = user ? user.name : comment.userName;
-            const eventUser = {
-              type: "dashboard" as const,
-              id: comment.userId,
-              email: email ?? "",
-              name: name ?? "",
-            };
+  const fill = fillHeight
+    ? ({
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        minHeight: 0,
+      } as const)
+    : undefined;
 
-            return (
-              <Flex key={i} align="start">
-                <Box flexGrow="1">
-                  {edit === i ? (
-                    <CommentForm
-                      cta="Save"
-                      onSave={() => {
-                        mutate();
-                        setEdit(null);
-                      }}
-                      index={i}
-                      id={id}
-                      type={type}
-                      initialValue={comment.content}
-                      autofocus={true}
-                      onCancel={() => setEdit(null)}
-                    />
-                  ) : (
-                    <CommentCard
-                      compact={compact}
-                      user={eventUser}
-                      metadata={`commented on ${datetime(comment.date)}`}
-                      metadataExtra={
-                        comment.edited && (
-                          <Text color="text-low" size="sm" fontStyle="italic">
-                            &bull; edited
-                          </Text>
-                        )
-                      }
-                      actions={
-                        comment.userId === userId && (
-                          <DropdownMenu
-                            trigger={
-                              <IconButton
-                                variant="ghost"
-                                color="gray"
-                                radius="full"
-                                size="1"
-                                highContrast
-                                // Ghost buttons carry a negative margin, which
-                                // pulls this one out of the card's corner.
-                                style={{ margin: 0 }}
-                              >
-                                <BsThreeDotsVertical size={14} />
-                              </IconButton>
-                            }
-                            variant="soft"
-                            menuPlacement="end"
-                          >
-                            <DropdownMenuItem onClick={() => setEdit(i)}>
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              color="red"
-                              confirmation={{
-                                confirmationTitle: "Delete Comment",
-                                cta: "Delete",
-                                submit: async () => {
-                                  await apiCall(
-                                    `/discussion/${type}/${id}/${i}`,
-                                    { method: "DELETE" },
-                                  );
-                                  mutate();
-                                },
-                              }}
+  return (
+    <Box style={fill}>
+      {/* The thread takes the height the composer leaves, and scrolls in it. */}
+      <Box
+        style={
+          fillHeight ? { flex: 1, minHeight: 0, overflowY: "auto" } : undefined
+        }
+      >
+        {comments.length > 0 ? (
+          <Flex direction="column" gap="4">
+            {comments.map((comment, i) => {
+              const user = users.get(comment.userId);
+              const email = user ? user.email : comment.userEmail;
+              const name = user ? user.name : comment.userName;
+              const eventUser = {
+                type: "dashboard" as const,
+                id: comment.userId,
+                email: email ?? "",
+                name: name ?? "",
+              };
+
+              return (
+                <Flex key={i} align="start">
+                  <Box flexGrow="1">
+                    {edit === i ? (
+                      <CommentForm
+                        cta="Save"
+                        onSave={() => {
+                          mutate();
+                          setEdit(null);
+                        }}
+                        index={i}
+                        id={id}
+                        type={type}
+                        initialValue={comment.content}
+                        autofocus={true}
+                        onCancel={() => setEdit(null)}
+                      />
+                    ) : (
+                      <CommentCard
+                        compact={compact}
+                        user={eventUser}
+                        metadata={`commented on ${datetime(comment.date)}`}
+                        metadataExtra={
+                          comment.edited && (
+                            <Text color="text-low" size="sm" fontStyle="italic">
+                              &bull; edited
+                            </Text>
+                          )
+                        }
+                        actions={
+                          comment.userId === userId && (
+                            <DropdownMenu
+                              trigger={
+                                <IconButton
+                                  variant="ghost"
+                                  color="gray"
+                                  radius="full"
+                                  size="1"
+                                  highContrast
+                                  // Ghost buttons carry a negative margin, which
+                                  // pulls this one out of the card's corner.
+                                  style={{ margin: 0 }}
+                                >
+                                  <BsThreeDotsVertical size={14} />
+                                </IconButton>
+                              }
+                              variant="soft"
+                              menuPlacement="end"
                             >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenu>
-                        )
-                      }
-                      body={
-                        <Markdown className="speech-bubble">
-                          {comment.content || ""}
-                        </Markdown>
-                      }
-                    />
-                  )}
-                </Box>
-              </Flex>
-            );
-          })}
-        </Flex>
-      ) : (
-        <Text color="text-low" fontStyle="italic">
-          {allowNewComments
-            ? "No comments yet. Add the first one!"
-            : "No comments."}
-        </Text>
-      )}
+                              <DropdownMenuItem onClick={() => setEdit(i)}>
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                color="red"
+                                confirmation={{
+                                  confirmationTitle: "Delete Comment",
+                                  cta: "Delete",
+                                  submit: async () => {
+                                    await apiCall(
+                                      `/discussion/${type}/${id}/${i}`,
+                                      { method: "DELETE" },
+                                    );
+                                    mutate();
+                                  },
+                                }}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenu>
+                          )
+                        }
+                        body={
+                          <Markdown className="speech-bubble">
+                            {comment.content || ""}
+                          </Markdown>
+                        }
+                      />
+                    )}
+                  </Box>
+                </Flex>
+              );
+            })}
+          </Flex>
+        ) : (
+          <Text color="text-low" fontStyle="italic">
+            {allowNewComments
+              ? "No comments yet. Add the first one!"
+              : "No comments."}
+          </Text>
+        )}
+      </Box>
       {allowNewComments && (
         <Box
           mt="4"
           style={
-            stickyComposer
+            fillHeight
               ? {
-                  position: "sticky",
+                  flexShrink: 0,
+                  background: "var(--color-panel-solid)",
                   // The save bar publishes its own height, and sits over
                   // everything the page owns.
-                  bottom: "var(--experiment-save-bar-height, 0px)",
-                  background: "var(--color-panel-solid)",
-                  paddingBottom: "var(--space-3)",
+                  paddingBottom:
+                    "calc(var(--space-3) + var(--experiment-save-bar-height, 0px))",
                 }
               : undefined
           }
