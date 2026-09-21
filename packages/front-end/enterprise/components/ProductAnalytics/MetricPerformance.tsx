@@ -184,11 +184,6 @@ export default function MetricPerformance({
     );
   }
   const funnel = isFactFunnelMetric(metric);
-  const timeSeries =
-    !funnel &&
-    (metric.metricType === "proportion" ||
-      metric.metricType === "dailyParticipation" ||
-      metric.numerator.column === "$$count");
   const config: ExplorationConfig = funnel
     ? {
         ...DEFAULT_EXPLORE_STATE,
@@ -218,8 +213,8 @@ export default function MetricPerformance({
         },
         type: "metric",
         datasource: metric.datasource,
-        dimensions: timeSeries ? DEFAULT_EXPLORE_STATE.dimensions : [],
-        chartType: timeSeries ? "bar" : "bigNumber",
+        dimensions: DEFAULT_EXPLORE_STATE.dimensions,
+        chartType: "bar",
         showAs: "per_unit",
         dataset: {
           type: "metric",
