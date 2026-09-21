@@ -813,11 +813,14 @@ async function processStream<TParams>(
           emit("reasoning-delta", { text: part.text });
           break;
         case "error": {
-          const rawError = (part as ErrorPart).error;
-          logger.error(rawError, "AI agent model stream failed", {
-            conversationId: buffer.conversationId,
-            promptType: config.promptType,
-          });
+          logger.error(
+            {
+              err: (part as ErrorPart).error,
+              conversationId: buffer.conversationId,
+              promptType: config.promptType,
+            },
+            "AI agent model stream failed",
+          );
           emit("error", { message: PUBLIC_STREAM_ERROR });
           processor.setError(PUBLIC_STREAM_ERROR);
           break;
@@ -845,10 +848,14 @@ async function processStream<TParams>(
     }
   } catch (err) {
     if (!processor.isAborted && !abortController.signal.aborted) {
-      logger.error(err, "AI agent stream processing failed", {
-        conversationId: buffer.conversationId,
-        promptType: config.promptType,
-      });
+      logger.error(
+        {
+          err,
+          conversationId: buffer.conversationId,
+          promptType: config.promptType,
+        },
+        "AI agent stream processing failed",
+      );
       emit("error", { message: PUBLIC_STREAM_ERROR });
       processor.setError(PUBLIC_STREAM_ERROR);
     }
