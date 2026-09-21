@@ -10,7 +10,7 @@ import addSlackAssistantJobs, {
   queueSlackAssistantMention,
   queueSlackAssistantConfirmation,
   queueSlackAppHomeOpened,
-} from "back-end/src/jobs/slackAssistantTasks";
+} from "back-end/src/jobs/slackAssistantJobs";
 jest.mock("back-end/src/services/slack/slackAppHome", () => ({
   handleSlackAppHomeOpened: jest.fn(),
 }));

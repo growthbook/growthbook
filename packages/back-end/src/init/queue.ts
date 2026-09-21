@@ -30,7 +30,7 @@ import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
-import addSlackAssistantJobs from "back-end/src/jobs/slackAssistantTasks";
+import addSlackAssistantJobs from "back-end/src/jobs/slackAssistantJobs";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 

@@ -29,13 +29,12 @@ export default function SlackAccountPage() {
           My Slack Links
         </Heading>
         <Text as="p">
-          Slack accounts linked to {email} in {organization.name}. Use the
-          organization menu to manage links in another organization.
+          Slack accounts linked to this account ({email}) in {organization.name}
+          .
         </Text>
         <Callout status="info">
-          To link or replace an account, send &quot;link account&quot; to
-          GrowthBook in Slack. Open the private link and confirm the GrowthBook
-          account and organization.
+          To link or replace an account, send a new message to the GrowthBook
+          bot in Slack.
         </Callout>
         {error ? (
           <Callout status="error">{error.message}</Callout>
@@ -59,7 +58,7 @@ export default function SlackAccountPage() {
                     {link.teamName}
                   </Text>
                   <Text as="p" size="sm" color="text-mid">
-                    Slack user {link.slackUserId}
+                    Slack user ID {link.slackUserId}
                   </Text>
                 </Box>
                 <Button
@@ -79,7 +78,7 @@ export default function SlackAccountPage() {
       {disconnecting && disconnecting.organizationId === orgId && (
         <ConfirmDialog
           title="Disconnect your Slack account?"
-          content={`This removes your link in ${organization.name}. Approvals from this link will no longer work. Your other organization links stay connected.`}
+          content={`This removes your link in ${organization.name}.`}
           yesText="Disconnect"
           onCancel={() => setDisconnecting(null)}
           onConfirm={async () => {

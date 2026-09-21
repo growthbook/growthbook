@@ -7,7 +7,6 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
-import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import { buildSlackAppManifest } from "./slackSetupUtils";
 
@@ -56,16 +55,8 @@ function SlackManifestModal({ onClose }: { onClose: () => void }) {
         </li>
         <li>
           <Text>
-            Restart GrowthBook, then open <strong>Event Subscriptions</strong>{" "}
-            in your Slack app settings and verify the Request URL. Slack must be
-            able to reach your API server over HTTPS.
-          </Text>
-        </li>
-        <li>
-          <Text>
-            Reload this page and connect your Slack workspace. The assistant
-            follows your organization&apos;s AI setting unless you turn it off
-            in the workspace settings.
+            Restart GrowthBook and reload this page. Slack must be able to reach
+            your API server over HTTPS for the AI assistant functionality.
           </Text>
         </li>
       </ol>
@@ -74,9 +65,6 @@ function SlackManifestModal({ onClose }: { onClose: () => void }) {
         language="yml"
         filename="growthbook-slack-manifest.yml"
       />
-      <Callout status="info" mt="3">
-        Mention the bot in channels to ask a question. You can also DM it.
-      </Callout>
     </ModalStandard>
   );
 }

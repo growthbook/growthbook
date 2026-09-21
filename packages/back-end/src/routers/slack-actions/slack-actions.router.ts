@@ -9,7 +9,7 @@ import {
   queueSlackAssistantMention,
   queueSlackAssistantConfirmation,
   queueSlackAppHomeOpened,
-} from "back-end/src/jobs/slackAssistantTasks";
+} from "back-end/src/jobs/slackAssistantJobs";
 import { slackAppHomeOpenedEventSchema } from "back-end/src/services/slack/slackAppHome";
 
 const interactionPayloadSchema = z.object({

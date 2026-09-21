@@ -26,6 +26,8 @@ const connectionIndexes: {
   },
 ];
 
+let uniquenessIndexesReady: Promise<void> | null = null;
+
 const BaseClass = MakeModelClass({
   schema: slackWorkspaceConnectionSchema,
   collectionName: "slackworkspaceconnections",
@@ -100,13 +102,28 @@ export class SlackWorkspaceConnectionModel extends BaseClass {
 
   protected async customValidation(doc: SlackWorkspaceConnectionInterface) {
     await this.assertConnectionAvailable(doc.teamId);
-    // BaseModel logs index failures; a connection must wait for enforced uniqueness.
-    await this._dangerousGetCollection().createIndexes(
-      connectionIndexes.map(({ fields, ...options }) => ({
-        key: fields,
-        ...options,
-      })),
-    );
+  }
+
+  // BaseModel declares these indexes too, but logs and swallows creation
+  // failures. assertConnectionAvailable is a read-then-write check, so only the
+  // unique indexes close the race between two concurrent connects. Build them
+  // once per process before the first write and refuse to write if that fails.
+  private ensureUniquenessIndexes(): Promise<void> {
+    if (!uniquenessIndexesReady) {
+      uniquenessIndexesReady = this._dangerousGetCollection()
+        .createIndexes(
+          connectionIndexes.map(({ fields, ...options }) => ({
+            key: fields,
+            ...options,
+          })),
+        )
+        .then(() => undefined)
+        .catch((error: unknown) => {
+          uniquenessIndexesReady = null;
+          throw error;
+        });
+    }
+    return uniquenessIndexesReady;
   }
 
   public getByTeamId(
@@ -119,6 +136,7 @@ export class SlackWorkspaceConnectionModel extends BaseClass {
     teamId: string,
     fields: SlackWorkspaceConnectionFields,
   ): Promise<SlackWorkspaceConnectionInterface> {
+    await this.ensureUniquenessIndexes();
     for (let attempt = 0; attempt < 3; attempt++) {
       const existing = await this.getByTeamId(teamId);
       if (existing) {

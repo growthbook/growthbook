@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/router";
 import useSWR from "swr";
 import { Box, Flex } from "@radix-ui/themes";
@@ -34,12 +34,10 @@ export default function SlackLinkPage() {
   > | null>(null);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const inFlight = useRef(false);
   const organization = data?.organization;
 
   const onConfirm = async () => {
-    if (inFlight.current || !organization) return;
-    inFlight.current = true;
+    if (saving || !organization) return;
     setSaving(true);
     setSubmitError(null);
     try {
@@ -53,7 +51,6 @@ export default function SlackLinkPage() {
         e instanceof Error ? e.message : "Could not link your Slack account.",
       );
     } finally {
-      inFlight.current = false;
       setSaving(false);
     }
   };
@@ -79,8 +76,8 @@ export default function SlackLinkPage() {
           ) : linkedOrg ? (
             <>
               <Callout status="success">
-                Your Slack account is linked to {linkedOrg.name} as {email}.
-                Return to Slack and send your question again.
+                Your Slack account is now linked to {linkedOrg.name} as {email}.
+                You can now close this tab and return to Slack.
               </Callout>
               <Link
                 href={`/account/slack?org=${encodeURIComponent(linkedOrg.id)}`}
@@ -96,8 +93,8 @@ export default function SlackLinkPage() {
           ) : (
             <>
               <Text as="p">
-                Link Slack user {data.slackUserId} in {data.teamName} to your
-                GrowthBook account. The assistant will use your permissions in{" "}
+                Link Slack user ({data.slackUserId}) in Slack team{" "}
+                {data.teamName} to this GrowthBook account in organization{" "}
                 {data.organization.name}.
               </Text>
               <Frame mb="0" px="4" py="4">
@@ -132,14 +129,11 @@ export default function SlackLinkPage() {
                       {data.organization.linkedAccount === "other"
                         ? "another GrowthBook account"
                         : "your GrowthBook account"}{" "}
-                      in {data.organization.name}. Approvals from the previous
-                      link will no longer work.
+                      in {data.organization.name}.
                     </Callout>
                   )}
                   {submitError && (
-                    <div role="alert">
-                      <Callout status="error">{submitError}</Callout>
-                    </div>
+                    <Callout status="error">{submitError}</Callout>
                   )}
                   <Button type="submit" disabled={saving}>
                     {saving
