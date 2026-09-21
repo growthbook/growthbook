@@ -210,6 +210,14 @@ export default function ExplorerChart({
     submittedExploreState,
     getFactMetricById,
   );
+  const previewMetric =
+    compact &&
+    submittedExploreState.dataset.type === "metric" &&
+    submittedExploreState.dataset.values.length === 1
+      ? getFactMetricById(
+          submittedExploreState.dataset.values[0].metricId ?? "",
+        )
+      : null;
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
@@ -1079,6 +1087,11 @@ export default function ExplorerChart({
         >
           {compact && (
             <Box pb="4">
+              {previewMetric?.metricType === "proportion" && (
+                <Text as="div" size="sm" weight="medium">
+                  Active users
+                </Text>
+              )}
               <div
                 style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}
               >
@@ -1088,6 +1101,11 @@ export default function ExplorerChart({
                 Today (UTC)
                 {defaultValueAxisName ? ` · ${defaultValueAxisName}` : ""}
               </Text>
+              {previewMetric?.metricType === "proportion" && (
+                <Text as="div" size="sm" color="text-mid">
+                  Users matching the metric’s conditions.
+                </Text>
+              )}
             </Box>
           )}
           {compareReturnedNoData ? (
