@@ -12,7 +12,6 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 
 const AI_DISABLED = "AI is disabled for your organization. Adjust in settings.";
-const BUTTON_WIDTH = "11rem";
 
 export interface Props {
   /** Returns the suggested text, or an empty string when it has none. */
@@ -21,6 +20,8 @@ export interface Props {
   label?: string;
   trackingSource?: string;
   disabled?: boolean;
+  /** Pass to show failures yourself, e.g. below the editor rather than beside the button. */
+  onError?: (message: string | null) => void;
 }
 
 /**
@@ -33,11 +34,17 @@ export default function AISuggestButton({
   label = "Get AI Suggestion",
   trackingSource,
   disabled,
+  onError,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [ownError, setOwnError] = useState("");
+  const error = onError ? "" : ownError;
+  const setError = (message: string) => {
+    setOwnError(message);
+    onError?.(message || null);
+  };
   const [optIn, setOptIn] = useState(false);
 
   const run = async () => {
@@ -61,30 +68,25 @@ export default function AISuggestButton({
 
   const button = !hasCommercialFeature("ai-suggestions") ? (
     <PremiumTooltip commercialFeature="ai-suggestions">
-      <Button
-        variant="soft"
-        disabled
-        style={{ minWidth: BUTTON_WIDTH, justifyContent: "center" }}
-      >
+      <Button size="sm" variant="outline" disabled>
         <BsStars /> {label}
       </Button>
     </PremiumTooltip>
   ) : aiAgreedTo && aiEnabled ? (
     <Button
-      variant="soft"
+      size="sm"
+      variant="outline"
       disabled={disabled || loading}
       onClick={run}
-      // Fixed, so swapping in "Generating..." does not resize the button.
-      style={{ minWidth: BUTTON_WIDTH, justifyContent: "center" }}
     >
       <BsStars /> {loading ? "Generating..." : label}
     </Button>
   ) : (
     <Tooltip body={aiEnabled ? "" : AI_DISABLED}>
       <Button
-        variant="soft"
+        size="sm"
+        variant="outline"
         onClick={() => (aiAgreedTo ? setError(AI_DISABLED) : setOptIn(true))}
-        style={{ minWidth: BUTTON_WIDTH, justifyContent: "center" }}
       >
         <BsStars /> {label}
       </Button>

@@ -54,6 +54,7 @@ export default function InlineMarkdownField({
   const editor = useRef<RichTextEditorHandle>(null);
   // What the field held before a suggestion replaced it, so it can be undone.
   const [beforeSuggestion, setBeforeSuggestion] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   // What the server holds, so a blur that changed nothing writes nothing.
@@ -126,40 +127,52 @@ export default function InlineMarkdownField({
           autoFocus={revealed}
           height={stacked ? "sm" : "md"}
           autoGrow
-        />
-        {aiSuggestFunction ? (
-          <Flex align="center" gap="2" mt="2" wrap="wrap">
-            <AISuggestButton
-              suggest={aiSuggestFunction}
-              label={aiButtonText}
-              trackingSource={trackingSource}
-              onSuggestion={(suggestion) => {
-                onAISuggestionReceived?.(suggestion);
-                setBeforeSuggestion(value);
-                setValue(suggestion);
-                editor.current?.setMarkdown(suggestion);
-              }}
-            />
-            {beforeSuggestion !== null ? (
-              <Link
-                onClick={() => {
-                  setValue(beforeSuggestion);
-                  editor.current?.setMarkdown(beforeSuggestion);
-                  setBeforeSuggestion(null);
-                }}
+          footer={
+            aiSuggestFunction ? (
+              <Flex
+                align="center"
+                justify="end"
+                gap="2"
+                px="3"
+                pb="3"
+                wrap="wrap"
               >
-                <Text weight="semibold">Undo suggestion</Text>
-              </Link>
-            ) : null}
-          </Flex>
-        ) : null}
+                <AISuggestButton
+                  suggest={aiSuggestFunction}
+                  label={aiButtonText}
+                  trackingSource={trackingSource}
+                  onError={setAiError}
+                  onSuggestion={(suggestion) => {
+                    setAiError(null);
+                    onAISuggestionReceived?.(suggestion);
+                    setBeforeSuggestion(value);
+                    setValue(suggestion);
+                    editor.current?.setMarkdown(suggestion);
+                  }}
+                />
+                {beforeSuggestion !== null ? (
+                  <Link
+                    onClick={() => {
+                      setValue(beforeSuggestion);
+                      editor.current?.setMarkdown(beforeSuggestion);
+                      setBeforeSuggestion(null);
+                    }}
+                  >
+                    <Text weight="semibold">Undo suggestion</Text>
+                  </Link>
+                ) : null}
+              </Flex>
+            ) : null
+          }
+        />
       </Box>
     );
   }
 
-  const errorCallout = error ? (
+  const shownError = error || aiError;
+  const errorCallout = shownError ? (
     <Callout status="error" size="sm" mt="2">
-      {error}
+      {shownError}
     </Callout>
   ) : null;
 
