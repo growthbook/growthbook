@@ -563,14 +563,16 @@ export default function TrafficAllocationFunnel({
               <VariationFork count={numVariations} />
             ) : (
               <Box pb="4">
-                <Flex direction="column" align="center" mb="2">
+                <Flex direction="column" align="center">
                   <Box className={styles.connectorLine} height="6px" />
                   <Text size="sm" color="text-low">
                     Split
                   </Text>
                   {/* Points at the bar, like the funnel's other connectors. */}
                   <Box className={styles.connectorLine} height="7px" />
-                  <Box mt="-3" className={styles.caret}>
+                  {/* The glyph carries whitespace under its point; -1 takes
+                      it back so the arrow lands on the labels. */}
+                  <Box mt="-3" mb="-1" className={styles.caret}>
                     <PiCaretDownBold size="11" />
                   </Box>
                 </Flex>
