@@ -29,6 +29,10 @@ export interface GenerateImageToolContext {
   context: ApiReqContext;
   turnCounter: ImageTurnState;
   quarantine: boolean;
+  // Images the user attached to this prompt. They already have hosted URLs,
+  // so the tool description steers the model away from generating a
+  // stand-in for one.
+  attachmentCount?: number;
 }
 
 const inputSchema = z.object({
@@ -57,9 +61,13 @@ export function imageFilePath(
 }
 
 export function generateImageTool(toolCtx: GenerateImageToolContext) {
+  const attached = toolCtx.attachmentCount ?? 0;
   return aiTool({
     description:
-      "Generate ONE single, standalone AI image and return its hosted URL. Call this when the user asks to replace, regenerate, set, or insert an image — for example 'replace this hero with a sunset', 'use a picture of a dog here', or 'make the background a forest scene'. The returned URL can be placed directly into a mutation's value (as a src= for <img>, a background-image: url(...) for style, or inside HTML markup for insertion). CRITICAL: each call produces exactly one cohesive image — NEVER a grid, collage, contact sheet, side-by-side comparison, or multiple tiled variants in one image. If the user wants several alternatives to choose from, call this tool multiple times with distinct prompts (one call per option) and collect the URLs into a mutation's `options` array — do not ask a single call for 'a few versions'.",
+      (attached > 0
+        ? `The user ATTACHED ${attached} image(s) to this request; they are listed with hosted URLs in the "Attached images" block. To put one of those on the page, place its URL directly — do NOT call this tool to recreate or approximate an attached image. Call it only if the request clearly asks for a NEW image that doesn't exist yet. `
+        : "") +
+      "Generate ONE single, standalone AI image and return its hosted URL. Call this when the user asks to replace, regenerate, set, or insert an image that does not exist yet — for example 'replace this hero with a sunset', 'use a picture of a dog here', or 'make the background a forest scene'. The returned URL can be placed directly into a mutation's value (as a src= for <img>, a background-image: url(...) for style, or inside HTML markup for insertion). CRITICAL: each call produces exactly one cohesive image — NEVER a grid, collage, contact sheet, side-by-side comparison, or multiple tiled variants in one image. If the user wants several alternatives to choose from, call this tool multiple times with distinct prompts (one call per option) and collect the URLs into a mutation's `options` array — do not ask a single call for 'a few versions'.",
     inputSchema,
     execute: async ({ prompt, aspectRatio }) => {
       if (toolCtx.turnCounter.count >= toolCtx.turnCounter.max) {
