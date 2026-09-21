@@ -220,6 +220,20 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     const cb = await this.loadCbDoc();
 
     const keyById = new Map(cb.variations.map((v) => [v.id, v.key]));
+    // Both maps derive from cb.variations, so every snapshot variation id should
+    // resolve to a key. If one doesn't (snapshot/CB-doc divergence), we fall back
+    // to the id below — which won't match warehouse rows, so those observations
+    // are silently dropped. Surface that as a warning rather than let it hide.
+    const missingKeyIds = this.snapshotSettings.variations
+      .map((v) => v.id)
+      .filter((id) => !keyById.has(id));
+    if (missingKeyIds.length > 0) {
+      logger.warn(
+        `Contextual bandit ${this.snapshotSettings.experimentId} (snapshot ${this.model.id}): ` +
+          `snapshot variation id(s) [${missingKeyIds.join(", ")}] have no matching key in the ` +
+          `current CB doc; falling back to the id as the key (their warehouse rows won't map).`,
+      );
+    }
     const statsSettings = getContextualBanditSettingsForStatsEngine(
       cb,
       this.snapshotSettings.variations.map((v) => ({
