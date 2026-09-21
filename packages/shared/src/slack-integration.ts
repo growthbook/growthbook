@@ -14,7 +14,7 @@ export type SlackBotScope = (typeof SLACK_BOT_SCOPES)[number];
 export const SLACK_BOT_EVENTS = [
   "app_mention",
   "message.im",
-  "assistant_thread_started",
+  "app_home_opened",
 ] as const;
 
 export function missingSlackBotScopes(

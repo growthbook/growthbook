@@ -4,6 +4,10 @@ import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackId
 import { postSlackEphemeralMessage } from "back-end/src/services/slack/slackWebApi";
 import { slackAssistantMentionSchema } from "back-end/src/services/slack/slackThreadRouting";
 import {
+  handleSlackAppHomeOpened,
+  SlackAppHomeOpened,
+} from "back-end/src/services/slack/slackAppHome";
+import {
   claimSlackTask,
   getSlackTaskClaimAge,
   releaseSlackTask,
@@ -25,12 +29,17 @@ const SLACK_ASSISTANT_JOB_NAME = "slackAssistantTask";
 type SlackAssistantTaskData = { dedupeKey?: string } & (
   | { kind: "mention"; mention: SlackAssistantMention }
   | { kind: "confirmation"; confirmation: SlackAssistantConfirmation }
+  | { kind: "appHomeOpened"; appHome: SlackAppHomeOpened }
 );
 
 type SlackAssistantJob = Job<SlackAssistantTaskData>;
 
 const processSlackAssistantTask = async (job: SlackAssistantJob) => {
   const data = job.attrs.data;
+  if (data?.kind === "appHomeOpened") {
+    await handleSlackAppHomeOpened(data.appHome);
+    return;
+  }
   if (!data || (data.kind !== "mention" && data.kind !== "confirmation"))
     return;
   const task = data.kind === "mention" ? data.mention : data.confirmation;
@@ -125,6 +134,15 @@ async function enqueue(
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
   }
+}
+
+export async function queueSlackAppHomeOpened(
+  appHome: SlackAppHomeOpened,
+): Promise<void> {
+  await enqueue(
+    { kind: "appHomeOpened", appHome },
+    `appHome:${slackTaskKey([appHome.teamId, appHome.eventId])}`,
+  );
 }
 
 export async function queueSlackAssistantMention(

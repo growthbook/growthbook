@@ -8,7 +8,9 @@ import { logger } from "back-end/src/util/logger";
 import {
   queueSlackAssistantMention,
   queueSlackAssistantConfirmation,
+  queueSlackAppHomeOpened,
 } from "back-end/src/jobs/slackAssistantTasks";
+import { slackAppHomeOpenedEventSchema } from "back-end/src/services/slack/slackAppHome";
 
 const interactionPayloadSchema = z.object({
   team: z.object({ id: z.string().min(1) }),
@@ -140,11 +142,6 @@ type SlackEventPayload = {
     channel_type?: string;
     ts?: string;
     thread_ts?: string;
-    assistant_thread?: {
-      user_id?: string;
-      channel_id?: string;
-      thread_ts?: string;
-    };
   };
 };
 
@@ -221,21 +218,9 @@ const events = async (req: SlackRequest, res: Response): Promise<void> => {
         return;
       }
 
-      if (event.type === "assistant_thread_started") {
-        const thread = event.assistant_thread;
-        if (!thread?.user_id || !thread.channel_id || !thread.thread_ts) return;
-        await queueSlackAssistantMention(
-          {
-            teamId: payload.team_id || "",
-            channelId: thread.channel_id,
-            slackUserId: thread.user_id,
-            text: "",
-            messageTs: thread.thread_ts,
-            threadTs: thread.thread_ts,
-            botUserId,
-          },
-          payload.event_id,
-        );
+      if (event.type === "app_home_opened") {
+        const parsed = slackAppHomeOpenedEventSchema.safeParse(req.body);
+        if (parsed.success) await queueSlackAppHomeOpened(parsed.data);
         return;
       }
     })();

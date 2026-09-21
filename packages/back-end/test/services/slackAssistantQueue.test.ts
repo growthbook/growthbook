@@ -5,10 +5,15 @@ import {
   releaseSlackTask,
 } from "back-end/src/services/slack/slackTaskSafety";
 import { handleSlackAssistantMention } from "back-end/src/services/slack/slackAssistant";
+import { handleSlackAppHomeOpened } from "back-end/src/services/slack/slackAppHome";
 import addSlackAssistantJobs, {
   queueSlackAssistantMention,
   queueSlackAssistantConfirmation,
+  queueSlackAppHomeOpened,
 } from "back-end/src/jobs/slackAssistantTasks";
+jest.mock("back-end/src/services/slack/slackAppHome", () => ({
+  handleSlackAppHomeOpened: jest.fn(),
+}));
 jest.mock("back-end/src/services/slack/slackAssistant", () => ({
   handleSlackAssistantMention: jest.fn(),
   handleSlackAssistantConfirmation: jest.fn(),
@@ -63,6 +68,41 @@ test("retains a completed delivery instead of scheduling it again", async () => 
     { name: 1, "data.dedupeKey": 1 },
     expect.objectContaining({ unique: true }),
   );
+});
+
+test("deduplicates app opens by event and workspace while allowing a later open", async () => {
+  const appHome = { teamId: "team", channelId: "dm", eventId: "event" };
+  await queueSlackAppHomeOpened(appHome);
+  await queueSlackAppHomeOpened(appHome);
+  await queueSlackAppHomeOpened({ ...appHome, eventId: "next-event" });
+  await queueSlackAppHomeOpened({ ...appHome, teamId: "other-team" });
+  expect(unique.mock.calls[0]).toEqual(unique.mock.calls[1]);
+  expect(unique.mock.calls[0]).not.toEqual(unique.mock.calls[2]);
+  expect(unique.mock.calls[0]).not.toEqual(unique.mock.calls[3]);
+});
+
+test("processes an app open without acquiring a conversation lock or starting an AI turn", async () => {
+  const appHome = { teamId: "team", channelId: "dm", eventId: "event" };
+  const process = agenda.define.mock.calls[0][1];
+  await process({
+    attrs: { data: { kind: "appHomeOpened", appHome } },
+    schedule,
+    save,
+  });
+  expect(handleSlackAppHomeOpened).toHaveBeenCalledWith(appHome);
+  expect(handleSlackAssistantMention).not.toHaveBeenCalled();
+  expect(claimSlackTask).not.toHaveBeenCalled();
+});
+
+test("propagates failed app-open enqueue so Slack can retry", async () => {
+  save.mockRejectedValueOnce(new Error("write failed"));
+  await expect(
+    queueSlackAppHomeOpened({
+      teamId: "team",
+      channelId: "dm",
+      eventId: "event",
+    }),
+  ).rejects.toThrow("write failed");
 });
 
 test("propagates failed durable enqueue so the router can return503", async () => {

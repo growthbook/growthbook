@@ -1,4 +1,4 @@
-import { SLACK_BOT_EVENTS, SLACK_BOT_SCOPES } from "shared/slack-integration";
+import { SLACK_BOT_SCOPES } from "shared/slack-integration";
 import { load } from "js-yaml";
 import {
   buildSlackAppManifest,
@@ -29,7 +29,7 @@ describe("Slack setup helpers", () => {
           event_subscriptions: {
             request_url:
               "https://api.growthbook.example/proxy/integrations/slack/events",
-            bot_events: SLACK_BOT_EVENTS,
+            bot_events: ["app_mention", "message.im", "app_home_opened"],
           },
           interactivity: {
             is_enabled: true,

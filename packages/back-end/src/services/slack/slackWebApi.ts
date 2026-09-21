@@ -110,6 +110,26 @@ async function slackApiGet<T extends SlackApiResponse>(
   }
 }
 
+export async function setSlackSuggestedPrompts({
+  token,
+  channelId,
+  title,
+  prompts,
+}: {
+  token: string;
+  channelId: string;
+  title: string;
+  prompts: { title: string; message: string }[];
+}): Promise<boolean> {
+  const res = await slackApiCall<SlackApiResponse>(
+    token,
+    "assistant.threads.setSuggestedPrompts",
+    // agent_view prompts belong to the Messages tab; thread_ts silently fails.
+    { channel_id: channelId, title, prompts },
+  );
+  return !!res?.ok;
+}
+
 export async function postSlackMessageResult({
   token,
   channel,

@@ -12,9 +12,23 @@ For an existing Slack app, configure:
 
 - Events Request URL: `https://YOUR_API_HOST/integrations/slack/events`
 - Interactivity Request URL: `https://YOUR_API_HOST/integrations/slack/interactions`
-- Bot events: `app_mention`, `message.im`, and `assistant_thread_started`.
+- Bot events: `app_mention`, `message.im`, and `app_home_opened`.
   General channel history is not requested; outside DMs, users should explicitly
   mention the bot for follow-up questions.
+
+Use `features.agent_view` with `agent_description`. Remove the legacy
+`assistant_thread_started` subscription when updating an existing app. Slack's
+[Agent messaging migration guide](https://docs.slack.dev/ai/migrating-to-agent-messaging/)
+uses `app_home_opened` with `tab: "messages"` for DM onboarding. These events
+go through the durable queue and replace static suggested prompts in the Messages
+tab without posting a welcome message or running the AI assistant. Suggested
+prompts omit `thread_ts`, as required for `agent_view`; actual conversations
+start with a user message and retain the existing account and AI access checks.
+
+For Cloud, use `https://app.growthbook.io/integrations/slack` as the OAuth redirect
+and `https://api.growthbook.io` as the API host for the two request URLs above.
+Activate public distribution in the Slack app dashboard so other workspaces can
+install it through GrowthBook's OAuth connection flow.
 
 `shared/slack-integration` defines the bot OAuth scopes and events used by both
 the OAuth connection and the self-hosted setup manifest. Reconnect
