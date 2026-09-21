@@ -68,7 +68,7 @@ const gb = new GrowthBook({
   trackingCallback: (experiment, result, user) => {
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variationId: result.key,
+      variationId: result.variationId,
       // Directly pass through attributes used for contextual bandits (e.g. userRole)
       deviceId: user.attributes.deviceId,
       userRole: user.attributes.userRole,
@@ -82,6 +82,8 @@ const gb = new GrowthBook({
 ```
 
 This change is optional only if you already track user attributes in your tracking callback. We strongly recommend passing the explicit `user.attributes` object and its fields to ensure the attributes being logged are the same as the ones being used to bucket users.
+
+`result.variationId` is the 0-based index of the assigned variation. Log that for `variation_id`, not `result.key`: a custom variation key is not matched during snapshot processing.
 
 ## 4. Create a Contextual Bandit Assignment Query
 
@@ -105,8 +107,30 @@ SELECT
 FROM contextual_bandit_events
 ```
 
+<Warning>
+**`variation_id` must be the index or GrowthBook id**
+
+`variation_id` must return the variation's 0-based index as a string (`'0'`, `'1'`, …) or the variation's GrowthBook id (the `id` field, typically `var_…`). Custom variation keys are not matched.
+
+Rows with an unrecognized `variation_id` are dropped during snapshot processing. The symptom is a snapshot that succeeds in seconds with 0 users on every variation, even though the same SQL returns rows in the warehouse.
+
+If the warehouse stores something else (a campaign id, SKU, etc.), map it in the query:
+
+```sql
+CASE CAST(campaign_id AS STRING)
+  WHEN '19782307' THEN '0'
+  WHEN '19782308' THEN '1'
+  -- one branch per variation, in the bandit's variation order
+END AS variation_id
+```
+
+The indexes must match the order of the variations on the bandit.
+
+</Warning>
+
 Requirements:
 
+- `variation_id` must return the variation's 0-based index as a string (`'0'`, `'1'`, …) or the variation's GrowthBook id. Custom variation keys are not matched.
 - At least one context column (e.g. `userRole`) is required and ideally matches the columns you're sending from the `user` argument from your tracking callback. The set passed here must match your SDK Attributes in GrowthBook in order to be used to target the contextual bandit.
 - `leaf_id`, `bandit_version`, and `variation_weights` are the warehouse-side counterparts of the tracking callback fields from step 2. They are optional, but you should include them — later versions of contextual bandits will use them for health checks like SRM.
 

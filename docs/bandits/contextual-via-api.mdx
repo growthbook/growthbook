@@ -66,6 +66,8 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
   }'
 ```
 
+The `key` values (`control`, `treatment`) are labels the SDK exposes as `result.key`. They are not matched during snapshot processing. Your assignment query's `variation_id` must still resolve to the variation's 0-based index or GrowthBook id, not these keys. See [`variation_id` must be the index or GrowthBook id](/bandits/contextual-config#4-create-a-contextual-bandit-assignment-query).
+
 Required fields are `name`, `trackingKey`, `datasource`, `contextualBanditQueryId`, `variations`, `decisionMetric`, and `contextualAttributes`. Other fields (`hashAttribute`, `queryFilter`, `activationMetric`, `minUsersPerLeaf`, `maxLeaves`, etc.) are optional and fall back to defaults.
 
 The response includes the new Contextual Bandit id (`cb_…`). The CB is provisioned in `status: "draft"` with an empty `currentLeafWeights` array at the document root; it stays empty until the first successful refresh.
