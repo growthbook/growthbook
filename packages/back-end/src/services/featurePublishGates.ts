@@ -478,6 +478,25 @@ export async function collectFeaturePublishGates({
     })),
   );
 
+  // Above the validation-gate cutoff: values that cannot be the feature's type
+  // are refused outright on every path. The proposed feature computed below
+  // normalizes JSON values and would throw on them, and the schema-family
+  // checks would report the same value again as a schema failure.
+  const typeErrors = collectFeatureValueErrorsForPublish(
+    { valueType: feature.valueType },
+    plan.mergeResult,
+    feature,
+  );
+  if (typeErrors.length) {
+    gates.push(
+      makeBlockingGate({
+        type: "invalid-feature-value",
+        messages: typeErrors,
+      }),
+    );
+    return gates;
+  }
+
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(
       context,
@@ -512,10 +531,14 @@ export async function collectFeaturePublishGates({
   // override chosen by the org's blockPublishOnSchemaError setting: block ->
   // validation-class (skipSchemaValidation); warn -> acknowledge-class.
   const schemaErrors = [
-    ...collectFeatureValueErrorsForPublish(feature, {
-      defaultValue: plan.mergeResult.defaultValue,
-      rules: plan.mergeResult.rules,
-    }),
+    ...collectFeatureValueErrorsForPublish(
+      feature,
+      {
+        defaultValue: plan.mergeResult.defaultValue,
+        rules: plan.mergeResult.rules,
+      },
+      feature,
+    ),
     ...(defaultToCheck !== undefined || rulesToCheck.length
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {
           defaultValue: defaultToCheck,
@@ -552,6 +575,7 @@ export async function collectFeaturePublishGates({
     revision: {
       ...revision,
       ...computeRevisionPublishChanges(
+        feature,
         revision,
         publisher ?? context.auditUser,
         comment ?? "",
