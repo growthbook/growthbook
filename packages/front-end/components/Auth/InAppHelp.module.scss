@@ -21,14 +21,14 @@
   &:hover,
   &:focus-visible {
     outline: none;
-    filter: drop-shadow(2px 0 0 var(--violet-a6))
-      drop-shadow(-2px 0 0 var(--violet-a6))
-      drop-shadow(0 2px 0 var(--violet-a6))
-      drop-shadow(0 -2px 0 var(--violet-a6))
-      drop-shadow(1.4px 1.4px 0 var(--violet-a6))
-      drop-shadow(-1.4px 1.4px 0 var(--violet-a6))
-      drop-shadow(1.4px -1.4px 0 var(--violet-a6))
-      drop-shadow(-1.4px -1.4px 0 var(--violet-a6));
+    filter: drop-shadow(2px 0 0 var(--violet-a3))
+      drop-shadow(-2px 0 0 var(--violet-a3))
+      drop-shadow(0 2px 0 var(--violet-a3))
+      drop-shadow(0 -2px 0 var(--violet-a3))
+      drop-shadow(1.4px 1.4px 0 var(--violet-a3))
+      drop-shadow(-1.4px 1.4px 0 var(--violet-a3))
+      drop-shadow(1.4px -1.4px 0 var(--violet-a3))
+      drop-shadow(-1.4px -1.4px 0 var(--violet-a3));
   }
 }
 
