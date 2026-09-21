@@ -1060,7 +1060,6 @@ export async function executeContextualBanditVariationChange(
       id: string;
       name?: string;
       description?: string;
-      // Only honored while the bandit is a draft; see keyChangesRequested.
       key?: string;
     }>;
   },
@@ -1141,18 +1140,10 @@ export async function executeContextualBanditVariationChange(
     if (u.name !== undefined) patch.name = u.name;
     if (u.description !== undefined) patch.description = u.description;
     if (u.key !== undefined) {
-      const previous = previousById.get(u.id);
-      if (previous && u.key !== previous.key) {
-        if (cb.status !== "draft") {
-          throw new BadRequestError(
-            `Variation key can only be changed while the contextual bandit is a draft: ${u.id}`,
-          );
-        }
-        if (!u.key.trim()) {
-          throw new BadRequestError(`Variation key cannot be empty: ${u.id}`);
-        }
-        patch.key = u.key;
+      if (!u.key.trim()) {
+        throw new BadRequestError(`Variation key cannot be empty: ${u.id}`);
       }
+      patch.key = u.key;
     }
     updateMap.set(u.id, patch);
   }
@@ -2046,11 +2037,11 @@ export function buildSnapshotSettingsForCb(
 
 export function getContextualBanditSettingsForStatsEngine(
   cb: ContextualBanditInterface,
-  variationIds: string[],
+  variations: { id: string; key: string }[],
   contextualAttributes: string[],
 ): ContextualBanditStatsSettings {
   return {
-    varIds: variationIds,
+    variations,
     contextualAttributes,
     maxLeaves: cb.maxLeaves,
     minUsersPerLeaf: cb.minUsersPerLeaf,

@@ -1017,17 +1017,22 @@ describe("executeContextualBanditVariationChange", () => {
     );
   });
 
-  it("rejects renaming an existing arm's key once the bandit is running", async () => {
+  // Beta behavior: keys stay editable on a running bandit. Revisit once CB
+  // exposure data is load-bearing enough to lock them post-draft.
+  it("renames an existing arm's key on a running bandit", async () => {
     getRefLinkedFeatureInfoMock.mockResolvedValue([]);
     const cb = makeCb({ status: "running" });
-    const { context, applyWeightEpochUpdateMock } = makeContext(cb);
+    const { context } = makeContext(cb);
 
-    await expect(
-      executeContextualBanditVariationChange(context, cb, {
-        updateVariations: [{ id: "v1", key: "treatment" }],
-      }),
-    ).rejects.toThrow(/only be changed while the contextual bandit is a draft/);
-    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      { updateVariations: [{ id: "v1", key: "treatment" }] },
+    );
+
+    expect(updated.variations.find((x) => x.id === "v1")?.key).toBe(
+      "treatment",
+    );
   });
 
   it("re-sending the current key on a running bandit is a no-op, not a rejection", async () => {

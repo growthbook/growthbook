@@ -47,9 +47,6 @@ interface SortableProps {
   dragging?: boolean;
   className?: string;
   onlySafeToEditVariationMetadata?: boolean;
-  // Render the value/key as read-only text while leaving the other fields
-  // editable.
-  valueReadOnly?: boolean;
   // Auto-focus this variation's Name field on mount.
   autoFocusName?: boolean;
   // JSON features only. Renders the value as a sparse patch (merged onto the
@@ -75,7 +72,6 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       hideVariationIds,
       hideValueField,
       onlySafeToEditVariationMetadata,
-      valueReadOnly,
       customSplit,
       hideSplit,
       setWeight,
@@ -141,7 +137,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             key={`${variation.id}__${i}__1`}
             style={valueType === "json" ? { minWidth: 300 } : undefined}
           >
-            {setVariations && !valueReadOnly ? (
+            {setVariations ? (
               <FeatureValueField
                 id={`value_${i}`}
                 value={variation.value}
@@ -163,9 +159,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 sparse={sparse}
               />
             ) : (
-              <span style={{ position: "relative", top: 6 }}>
-                {variation.value}
-              </span>
+              <>{variation.value}</>
             )}
           </td>
         )}

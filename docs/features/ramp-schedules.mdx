@@ -181,6 +181,8 @@ curl -X POST https://api.growthbook.io/api/v2/features/checkout-v2/revisions/<ve
 
 To change the plan on a rule that already has a schedule, stage a new one the same way: publishing it replaces the plan of the existing schedule for that rule.
 
+A ramp that sets partial coverage on a **force** rule turns it into a rollout when it starts, so it needs an attribute to hash on. If the rule does not already have one, name it in the plan's start state, for example `"startState": { "hashAttribute": "id" }`; the request is refused otherwise. `seed` and `hashVersion` can be set there too and default to the rule id and version 2.
+
 Once a schedule is live, operate it with the lifecycle actions under `/api/v1/ramp-schedules/{id}/actions/…` (`start`, `pause`, `resume`, `advance`, `approve-step`, `rollback`, `complete`, `restart`). These run the reviewed plan and are never review-gated. Look up the schedule id from the rule's `rampScheduleId` field or with `GET /api/v1/ramp-schedules?ruleId=…`.
 
 The `/api/v1/ramp-schedules` endpoints can also create a schedule attached to a rule, add a target, or edit an attached schedule's steps and dates directly, without a revision. Because that skips review, those operations are only available to credentials that may bypass approval whenever the organization requires review anywhere; other callers receive a `403` pointing at the revision endpoint above. See the [API reference](/api) for the full set of endpoints.

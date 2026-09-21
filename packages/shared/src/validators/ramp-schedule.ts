@@ -32,11 +32,28 @@ export const featureRulePatch = z.object({
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
-// The rule's pre-ramp state, used purely as the rollback/jump-to-start anchor.
-// It is NOT applied when the ramp starts — step 0's coverage takes over
-// immediately on start. A partial patch is merged onto the rule's current
-// state, so `{ coverage: 0 }` keeps existing targeting but rolls back to 0%.
-export const rampStartState = featureRulePatch.omit({ ruleId: true });
+// The rule's pre-ramp state: the rollback anchor, the base every step builds
+// on, and the only place a plan names how a rule buckets.
+export const rampStartPatch = featureRulePatch.extend({
+  hashAttribute: z
+    .string()
+    .nullish()
+    .describe(
+      "Attribute the rule buckets on. Required (here or on the rule) when a step sets partial coverage on a force rule, which becomes a rollout.",
+    ),
+  seed: z
+    .string()
+    .nullish()
+    .describe("Hash seed for a promoted force rule. Defaults to the rule id."),
+  hashVersion: z
+    .union([z.literal(1), z.literal(2)])
+    .nullish()
+    .describe(
+      "Hash algorithm version for a promoted force rule. Defaults to 2.",
+    ),
+});
+export type RampStartPatch = z.infer<typeof rampStartPatch>;
+export const rampStartState = rampStartPatch.omit({ ruleId: true });
 export type RampStartState = z.infer<typeof rampStartState>;
 
 export const lockdownModeArray = ["none", "locked"] as const;
@@ -91,6 +108,10 @@ export const rampStepAction = z.object({
   patch: featureRulePatch,
 });
 export type RampStepAction = z.infer<typeof rampStepAction>;
+export const rampStartAction = rampStepAction.extend({
+  patch: rampStartPatch,
+});
+export type RampStartAction = z.infer<typeof rampStartAction>;
 
 export const rampTarget = z.object({
   id: z.string(),
@@ -200,7 +221,7 @@ export const rampScheduleValidator = baseSchema
     entityId: z.string(),
     targets: z.array(rampTarget),
     // Restores the controlled rules to their pre-ramp state when rolling back to start.
-    startActions: z.array(rampStepAction).optional(),
+    startActions: z.array(rampStartAction).optional(),
     steps: z.array(rampStep),
     // Applied on top of accumulated step patches when the ramp completes.
     endActions: z.array(rampStepAction).optional(),
@@ -224,6 +245,20 @@ export const rampScheduleValidator = baseSchema
     nextStepAt: z.date().nullable(),
     nextProcessAt: z.date().nullish(),
     elapsedMs: z.number().int().nullish(),
+    // The health-check hold last reported for the current step, so the
+    // evaluator notifies once per check instead of on every tick.
+    healthHold: z
+      .object({
+        stepIndex: z.number().int(),
+        kind: z.enum([
+          "srm",
+          "multipleExposures",
+          "noTraffic",
+          "guardrailCompute",
+          "signalMetric",
+        ]),
+      })
+      .nullish(),
 
     lockdownConfig: lockdownConfigSchema.optional(),
 
@@ -552,10 +587,10 @@ export const apiRampScheduleInterface = namedSchema(
     entityId: z.string(),
     targets: z.array(rampTarget).describe("Controlled entity references"),
     startActions: z
-      .array(rampStepAction)
+      .array(rampStartAction)
       .optional()
       .describe(
-        "Actions that restore controlled rules to their pre-ramp state. Applied when rolling back or jumping to start.",
+        "Actions that restore controlled rules to their pre-ramp state. Applied when rolling back or jumping to start, and the base every step accumulates on; the only place a plan can set hashAttribute, seed or hashVersion.",
       ),
     steps: z.array(apiRampStep).describe("Ordered ramp steps"),
     endActions: z

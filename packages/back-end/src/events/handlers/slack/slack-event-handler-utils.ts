@@ -183,6 +183,10 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.rampSchedule.actions.step.approvalRequired":
     case "feature.rampSchedule.actions.awaitingStartApproval":
     case "feature.rampSchedule.actions.startApproved":
+    case "feature.rampSchedule.actions.errorPaused":
+    case "feature.rampSchedule.actions.stepHeld":
+    case "feature.rampSchedule.actions.paused":
+    case "feature.rampSchedule.actions.resumed":
       return buildSlackMessageForRampScheduleEvent(
         event.event,
         event.data.object,
@@ -653,7 +657,8 @@ type RampBasePayload = {
 
 const buildSlackMessageForRampScheduleEvent = (
   eventType: string,
-  data: RampBasePayload & Partial<RampScheduleStepApprovalRequiredPayload>,
+  data: RampBasePayload &
+    Partial<RampScheduleStepApprovalRequiredPayload> & { reason?: string },
   event: StoredEvent,
 ): SlackMessage => {
   const name = `*${data.rampName}*`;
@@ -675,7 +680,7 @@ const buildSlackMessageForRampScheduleEvent = (
       text = `Ramp schedule ${name} has completed`;
       break;
     case "feature.rampSchedule.actions.rolledBack":
-      text = `Ramp schedule ${name} was rolled back to start`;
+      text = `Ramp schedule ${name} was rolled back to start${data.reason ? ` (${data.reason})` : ""}`;
       break;
     case "feature.rampSchedule.actions.jumped":
       text = `Ramp schedule ${name} jumped to step ${jumpTarget}`;
@@ -691,6 +696,18 @@ const buildSlackMessageForRampScheduleEvent = (
       break;
     case "feature.rampSchedule.actions.startApproved":
       text = `Ramp schedule ${name} start was approved`;
+      break;
+    case "feature.rampSchedule.actions.errorPaused":
+      text = `Ramp schedule ${name} paused on an error: ${data.reason}`;
+      break;
+    case "feature.rampSchedule.actions.stepHeld":
+      text = `Ramp schedule ${name} is holding step ${step}: ${data.reason}`;
+      break;
+    case "feature.rampSchedule.actions.paused":
+      text = `Ramp schedule ${name} was paused${data.reason ? `: ${data.reason}` : ""}`;
+      break;
+    case "feature.rampSchedule.actions.resumed":
+      text = `Ramp schedule ${name} was resumed`;
       break;
     default:
       text = `Ramp schedule ${name}: ${eventType}`;
