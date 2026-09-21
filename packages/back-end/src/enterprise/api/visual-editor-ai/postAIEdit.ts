@@ -836,15 +836,24 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
 
   // Attached images go to the model as vision input, which needs a model
   // that accepts them; fall back per the org's keys when the configured one
-  // doesn't. The hosted URLs ride in the prompt text for placement.
+  // doesn't, and stop with a clear error when none of the org's keys can
+  // (a Mistral-only install) rather than send image parts to a model that
+  // rejects or ignores them. The hosted URLs ride in the prompt text for
+  // placement.
   const images = attachments?.map((a) => ({
     data: a.data,
     mimeType: a.mimeType,
   }));
-  const editModel =
-    images && images.length > 0
-      ? (pickVisionModel(aiSettings) ?? visualEditorAIModel)
-      : visualEditorAIModel;
+  let editModel = visualEditorAIModel;
+  if (images && images.length > 0) {
+    const visionModel = pickVisionModel(aiSettings);
+    if (!visionModel) {
+      return context.throwBadRequestError(
+        "No vision-capable AI model is available for image attachments. Configure a Google (Gemini), OpenAI (GPT-4o/5), or Anthropic (Claude) API key, or set the Visual Editor model to a vision-capable one in Settings → AI Settings.",
+      );
+    }
+    editModel = visionModel;
+  }
   const attachmentMeta = attachments?.map(({ url, mimeType, name }) => ({
     url,
     mimeType,
