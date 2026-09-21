@@ -1,6 +1,6 @@
 import { useFeature } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
@@ -8,8 +8,16 @@ import { isCloud } from "@/services/env";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
+/**
+ * How much of the bottom-right corner the chat bubble takes when Pylon owns it.
+ * Its widget is an iframe of someone else's, so this is the one measurement we
+ * cannot take ourselves.
+ */
+const PYLON_CLEARANCE_PX = 76;
+
 export default function InAppHelp() {
   const router = useRouter();
+  const launcher = useRef<HTMLButtonElement>(null);
   const config = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -40,6 +48,42 @@ export default function InAppHelp() {
       };
     }
   }, [config, commercialFeatures]);
+
+  // Whatever ends in the bottom-right corner — a comment box, a survey card —
+  // needs to keep clear of whichever launcher is running. Publish the room it
+  // takes rather than have each of them carry its own guess.
+  useEffect(() => {
+    const root = document.documentElement;
+    const publish = (px: number) =>
+      root.style.setProperty("--help-launcher-clearance", `${px}px`);
+
+    if (window["pylon"]) {
+      publish(PYLON_CLEARANCE_PX);
+      return () => publish(0);
+    }
+
+    const el = launcher.current;
+    if (!el) {
+      publish(0);
+      return;
+    }
+    const measure = () =>
+      publish(
+        Math.max(
+          0,
+          Math.round(window.innerHeight - el.getBoundingClientRect().top),
+        ),
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      publish(0);
+    };
+  });
 
   // Hide on presentation view (fullscreen present mode)
   if (router.pathname.startsWith("/present/")) return null;
@@ -122,6 +166,7 @@ export default function InAppHelp() {
         </div>
       )}
       <button
+        ref={launcher}
         className="btn btn-primary d-flex align-items-center justify-content-center position-fixed rounded-circle"
         onClick={() => {
           setShowFreeHelpWidget(!showFreeHelpWidget);

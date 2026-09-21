@@ -196,10 +196,10 @@ const DiscussionThread: FC<{
               ? {
                   flexShrink: 0,
                   background: "var(--color-panel-solid)",
-                  // The save bar publishes its own height, and sits over
-                  // everything the page owns.
+                  // Clear of the save bar and of the help launcher, both of
+                  // which publish the room they take.
                   paddingBottom:
-                    "calc(var(--space-3) + var(--experiment-save-bar-height, 0px))",
+                    "calc(var(--space-3) + var(--experiment-save-bar-height, 0px) + var(--help-launcher-clearance, 0px))",
                 }
               : undefined
           }
