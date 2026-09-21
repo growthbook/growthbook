@@ -34,6 +34,7 @@ import {
   movePlacementProblem,
   selectorsFoundByTool,
 } from "back-end/src/api/visual-editor-ai/editOutput";
+import { renderPageOutline } from "back-end/src/api/visual-editor-ai/pageStructure";
 
 // Output-token caps for the edit generation, main and retry alike. A `css`
 // rewrite re-emits the whole stylesheet and a multi-part request stacks
@@ -59,12 +60,11 @@ const elementContextSchema = z.object({
 
 // One container in the page's structural snapshot (sections, layout
 // wrappers, ancestors of catalog headings), captured client-side with a
-// durable selector precomputed per node. Carried inside domDigest but NEVER
-// rendered into the prompt (formatDigest ignores it) — the `findElements`
-// tool reads it on demand, so it costs prompt tokens only when the model
-// actually needs to locate a container the curated catalog doesn't list
-// (e.g. "move the Trusted-by section"). The tool runs server-side over this
-// in-request data, so it works on Cloud with no client round-trip.
+// durable selector precomputed per node. Rendered into the prompt as a
+// compact outline when the extension sent document order (see
+// renderPageOutline); the full set backs the server-side `findElements` and
+// `describeContainer` tools, which run over this in-request data and so work
+// on Cloud with no client round-trip.
 const structureNodeSchema = z.object({
   selector: z.string(),
   // Durable selector of the nearest significant ancestor — lets the model
@@ -76,6 +76,11 @@ const structureNodeSchema = z.object({
   role: z.string().optional(),
   // Short trimmed text label for matching by visible content.
   label: z.string().optional(),
+  // Newer extensions: document order, and the nearest visible siblings read
+  // from the live DOM — the insert-before targets a move needs.
+  docOrder: z.number().int().nonnegative().optional(),
+  prevSiblingSelector: z.string().optional(),
+  nextSiblingSelector: z.string().optional(),
 });
 
 // Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
@@ -94,12 +99,15 @@ const domDigestSchema = z.object({
       }),
     )
     .default([]),
+  // `sectionSelector` (newer extensions) is the enclosing snapshot container,
+  // so "the button in the hero" resolves without a tool call.
   headings: z
     .array(
       z.object({
         selector: z.string(),
         tag: z.string(),
         text: z.string(),
+        sectionSelector: z.string().optional(),
       }),
     )
     .default([]),
@@ -110,6 +118,7 @@ const domDigestSchema = z.object({
         tag: z.string(),
         text: z.string(),
         href: z.string().optional(),
+        sectionSelector: z.string().optional(),
       }),
     )
     .default([]),
@@ -119,6 +128,7 @@ const domDigestSchema = z.object({
         selector: z.string(),
         text: z.string(),
         href: z.string(),
+        sectionSelector: z.string().optional(),
       }),
     )
     .default([]),
@@ -130,6 +140,7 @@ const domDigestSchema = z.object({
         name: z.string().optional(),
         placeholder: z.string().optional(),
         label: z.string().optional(),
+        sectionSelector: z.string().optional(),
       }),
     )
     .default([]),
@@ -139,6 +150,7 @@ const domDigestSchema = z.object({
         selector: z.string(),
         alt: z.string().optional(),
         src: z.string(),
+        sectionSelector: z.string().optional(),
       }),
     )
     .default([]),
@@ -371,12 +383,12 @@ Position-move rules (critical):
     cssAppend: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
 - Real position moves are well-suited to relocating a block-level element into a different container (e.g. moving a <section> to before another <section> under <main>) and to reordering siblings that are themselves direct children of the parent. They're a poor fit for reordering items wrapped in <li>/<div> (nav menus, lists) — prefer the CSS \`order\` approach above for those.
 - The source selector and parentSelector must NOT match the same element — that's a no-op or, worse, a self-cycle.
-- The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT element, a sibling. To move an element UP, insertBeforeSelector is the sibling currently ABOVE it; to move it above section Y, insertBeforeSelector is Y's selector. Get those selectors from \`findElements\` (search for the neighbouring section's heading text or class). If you can't identify the destination sibling, don't guess — leave the move out and list it in \`skipped\`, asking the user to click the element it should go before.
+- The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT element, a sibling. To move an element UP, insertBeforeSelector is the sibling currently ABOVE it; to move it above section Y, insertBeforeSelector is Y's selector. Get them from \`describeContainer\` (its prevSiblingSelector / nextSiblingSelector) or \`findElements\`. If you can't identify the destination sibling, don't guess — leave the move out and list it in \`skipped\`, asking the user to click the element it should go before.
 - For every move you propose, set value to null. Do not put position data in value.
 - Never combine position with action "append" or "remove". Always action "set".
 
 SELECTOR GROUNDING — this is critical:
-- You will be given a "Page elements" catalog with the actual selectors present on the page. It includes a "Page structure" section (html, body, header, main, footer, etc.) plus catalogs of headings, buttons, links, inputs, and images.
+- You will be given a "Page elements" catalog with the actual selectors present on the page. It includes a "Page structure" section (html, body, header, main, footer, etc.) plus catalogs of headings, buttons, links, inputs, and images. When a "Page outline" block is present it lists the page's containers in document order with nesting shown by indentation, and catalog entries end with \`(in \`…\`)\` naming their enclosing container — use it to resolve "the button in the hero" or "the section after Features" directly, and pass any outline selector to \`describeContainer\` for its siblings and children.
 - You MUST pick selectors verbatim from this catalog or from the user's picked elementContext. Do NOT invent selectors like ".cta", ".hero-cta", "h1.headline" unless you can see them in the catalog.
 - PICKED ELEMENTS WIN — when the user has selected element(s) (the elementContext block, shown below as "selected the following elements … as context"), they are the DEFAULT target: apply the request to the picked element(s) or on an element inside of the context if it makes sense- unless the user's message explicitly names a different one. This takes PRECEDENCE over the keyword/semantic heuristics below. Example: the user picked an \`<div>\` that contains an \`<h2>\` and says "rewrite the heading to be funnier" → edit THAT \`<h2>\`, NOT the page's \`<h1>\`. If the user selects directly a \`<p>\` that contains text, and says to "make it shorter", it should apply directly to that text of the container. Using "this" or other pronouns in the prompt when the context or picked element is passed, refer to that picked element. Only fall back to the keyword/catalog rules when nothing relevant inside the context found or is picked.
 - EXCEPTION — selectors the USER names explicitly: when the user's own message contains a concrete class, id, or attribute selector (e.g. "elements with the \`section_bg-gradient-2\` class", "the \`#pricing\` section", "everything matching \`[data-card]\`"), treat it as ground truth and use it verbatim — even if it is NOT in the catalog. The catalog is a NON-EXHAUSTIVE sample: it only lists structural nodes (html/body/header/main/footer…) plus headings, buttons, links, inputs, and images. A class on a \`<section>\`, \`<div>\`, \`<li>\`, etc. will routinely be absent from it. Never refuse or ask for clarification just because a user-supplied class/id isn't in the catalog. The grounding rule above exists to stop you HALLUCINATING selectors from vague descriptions — not to override a selector the user handed you directly.
@@ -427,7 +439,8 @@ Tools you may call before producing the final JSON output:
 - \`getDesignTokens\` — fetch the organization's brand guidelines. Call when the user asks for changes that should be "on brand", "match our style", or "use our colors". Skip for purely tactical edits.
 - \`searchPastExperiments\` — search the user's previous A/B tests by name, hypothesis, or description. Call when the user references prior work ("similar to the pricing test", "what's worked here before", "try what we did on signup"). Returns experiment names + hypotheses + ids — never raw conversion numbers or revenue. Use the results to inform DIRECTION ("similar prior tests have leaned warmer/bolder/shorter"), not as a source of quoted numeric claims.
 - \`getExperimentVariations\` — given an experimentId from searchPastExperiments, fetch the variations' actual mutations + CSS + JS. Call this when the user explicitly wants to mirror or adapt the changes from a prior experiment. Long mutation values are truncated — treat them as patterns, not as verbatim source.
-- \`findElements\` — locate a container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list \`<section>\`s or layout wrapper \`<div>\`s. When the user refers to a whole section to move, reorder, hide, or restyle (e.g. "move the Trusted-by section above the features section"), call \`findElements\` with a word from the section's visible text or class name to get its durable \`selector\` and \`parentSelector\`. Use those verbatim (they're real, captured from the live DOM). Prefer this over asking the user to click. (Not available on every deployment; if it returns nothing useful, fall back to asking the user to click.)
+- \`findElements\` — locate a container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list \`<section>\`s or layout wrapper \`<div>\`s. When the user refers to a whole section to move, reorder, hide, or restyle (e.g. "move the Trusted-by section above the features section"), call \`findElements\` with a word from the section's visible text or class name to get its durable \`selector\`, \`parentSelector\`, and \`prevSiblingSelector\` / \`nextSiblingSelector\`. Use those verbatim (they're real, captured from the live DOM). Prefer this over asking the user to click. (Not available on every deployment; if it returns nothing useful, fall back to asking the user to click.)
+- \`describeContainer\` — given a container selector from the Page outline or a findElements match, returns its parentSelector, its visible previous/next siblings, and its direct child containers in page order. This is how you build a move: up one place → insertBeforeSelector = its prevSiblingSelector; above Y → insertBeforeSelector = Y's selector; after Y → Y's nextSiblingSelector (null appends). Prefer it over guessing or asking the user to click.
 
 Tool-use guidance:
 - Don't call tools just because they're available. If the user request can be fulfilled with information already in the prompt, return mutations directly without any tool calls.
@@ -489,6 +502,7 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
     lines.push(`\n${label}:`);
     for (const it of items) lines.push(`- ${it}`);
   };
+  const inSection = (s?: string) => (s ? ` (in \`${s}\`)` : "");
   // Structural section first so the model treats body/html/main as
   // first-class targets for global styling requests, not fallbacks.
   section(
@@ -497,20 +511,39 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
       (s) => `\`${s.selector}\` <${s.tag}>${s.note ? ` — ${s.note}` : ""}`,
     ),
   );
+  // Only newer extensions send document order; without it the outline
+  // would show siblings in capture order and mislead a move.
+  const outline = digest.pageStructure
+    ? renderPageOutline(digest.pageStructure)
+    : "";
+  if (outline) {
+    lines.push(
+      "\nPage outline (containers in document order; indentation = nesting; call describeContainer for a container's siblings and children):",
+    );
+    lines.push(outline);
+  }
   section(
     "Headings",
-    digest.headings.map((h) => `\`${h.selector}\` <${h.tag}> "${h.text}"`),
+    digest.headings.map(
+      (h) =>
+        `\`${h.selector}\` <${h.tag}> "${h.text}"${inSection(h.sectionSelector)}`,
+    ),
   );
   section(
     "Buttons / CTAs",
     digest.buttons.map(
       (b) =>
-        `\`${b.selector}\` <${b.tag}> "${b.text}"${b.href ? ` → ${b.href}` : ""}`,
+        `\`${b.selector}\` <${b.tag}> "${b.text}"${
+          b.href ? ` → ${b.href}` : ""
+        }${inSection(b.sectionSelector)}`,
     ),
   );
   section(
     "Links",
-    digest.links.map((l) => `\`${l.selector}\` "${l.text}" → ${l.href}`),
+    digest.links.map(
+      (l) =>
+        `\`${l.selector}\` "${l.text}" → ${l.href}${inSection(l.sectionSelector)}`,
+    ),
   );
   section(
     "Form fields",
@@ -522,14 +555,18 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
       ]
         .filter(Boolean)
         .join(" ");
-      return `\`${i.selector}\` <${i.type}>${meta ? ` ${meta}` : ""}`;
+      return `\`${i.selector}\` <${i.type}>${meta ? ` ${meta}` : ""}${inSection(
+        i.sectionSelector,
+      )}`;
     }),
   );
   section(
     "Images",
     digest.images.map(
       (img) =>
-        `\`${img.selector}\`${img.alt ? ` alt="${img.alt}"` : ""} src=${img.src}`,
+        `\`${img.selector}\`${img.alt ? ` alt="${img.alt}"` : ""} src=${
+          img.src
+        }${inSection(img.sectionSelector)}`,
     ),
   );
   section(
@@ -656,8 +693,8 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     persist,
   } = req.body;
 
-  // Carried inside domDigest (sent in the body, kept out of the prompt) and
-  // surfaced to the model only via the server-side findElements tool.
+  // Carried inside domDigest; rendered as an outline in the prompt and backs
+  // the server-side findElements / describeContainer tools.
   const pageStructure = domDigest?.pageStructure;
 
   const context = req.context;
@@ -738,6 +775,8 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     for (const n of pageStructure) {
       trustedSelectors.add(n.selector);
       if (n.parentSelector) trustedSelectors.add(n.parentSelector);
+      if (n.prevSiblingSelector) trustedSelectors.add(n.prevSiblingSelector);
+      if (n.nextSiblingSelector) trustedSelectors.add(n.nextSiblingSelector);
     }
   }
   // Live findElements matches are added as the tool answers (onStepFinish).
@@ -854,7 +893,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     });
     if (badMoves.length > 0) {
       hints.push(
-        `RETRY: These position moves can't be applied — ${badMoves.join("; ")}. The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT sibling (the one currently above it to move up; section Y's selector to move above Y) and parentSelector must be its container. Get those selectors from \`findElements\`. If you can't identify the destination, leave the move out and list it in \`skipped\`.`,
+        `RETRY: These position moves can't be applied — ${badMoves.join("; ")}. The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT sibling (the one currently above it to move up; section Y's selector to move above Y) and parentSelector must be its container. Get them from \`describeContainer\` (its prevSiblingSelector) or \`findElements\`. If you can't identify the destination, leave the move out and list it in \`skipped\`.`,
       );
     }
     if (hints.length > 0) {

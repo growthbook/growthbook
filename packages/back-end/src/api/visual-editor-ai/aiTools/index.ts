@@ -11,6 +11,7 @@ import {
   getInnerHTMLTool,
 } from "./clientSideTools";
 import {
+  describeContainerServerTool,
   findElementsServerTool,
   type PageStructureNode,
 } from "./findElementsServer";
@@ -68,12 +69,15 @@ export function buildVisualEditorTools({
     getDesignTokens: getDesignTokensTool(context),
     searchPastExperiments: searchPastExperimentsTool(context),
     getExperimentVariations: getExperimentVariationsTool(context),
-    // Server-side container lookup over the in-request snapshot — works on
+    // Server-side container lookups over the in-request snapshot — work on
     // Cloud (no client round-trip). Only added when the extension sent a
     // snapshot.
     ...(hasStructure
       ? {
           findElements: findElementsServerTool(
+            pageStructure as PageStructureNode[],
+          ),
+          describeContainer: describeContainerServerTool(
             pageStructure as PageStructureNode[],
           ),
         }
