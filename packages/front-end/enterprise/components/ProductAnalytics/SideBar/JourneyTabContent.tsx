@@ -419,9 +419,12 @@ export default function JourneyTabContent() {
               const setExcluded = (values: string[] | null) =>
                 setDraftExploreState((prev) =>
                   patchJourney(prev, (current) => {
-                    // Clear an anchor whose values are all excluded
+                    // Clear an anchor only if every value behind it is now excluded
                     const rules = stepGroupsForColumn(current.stepGroups, col);
                     const excludedSet = new Set(values ?? []);
+                    const excludedLabels = new Set(
+                      [...excludedSet].map((v) => applyStepGroups(v, rules)),
+                    );
                     const remainingLabels = new Set(
                       (stepColumnSamples[col] ?? [])
                         .filter((v) => !excludedSet.has(v))
@@ -430,7 +433,7 @@ export default function JourneyTabContent() {
                     const anchorStepValues = current.anchorStepValues?.map(
                       (v, i) =>
                         current.stepColumns[i] === col &&
-                        v &&
+                        excludedLabels.has(v) &&
                         !remainingLabels.has(v)
                           ? ""
                           : v,
@@ -491,6 +494,7 @@ export default function JourneyTabContent() {
                   <MultiSelectField
                     label={`Exclude ${colLabel} values`}
                     size="md"
+                    legacyLabelFormatting={false}
                     value={excluded}
                     onChange={setExcluded}
                     options={(stepColumnSamples[col] ?? []).map((v) => ({
