@@ -207,16 +207,15 @@ export default function SavedGroupTargetingField({
           {labelActions}
         </Flex>
       ) : (
-        savedGroupsLabel && (
-          <Box mb="1">
-            {savedGroupsLabel}
-            <LargeSavedGroupPerformanceWarning
-              {...largeSavedGroupSupport}
-              type={targetsConditionGroup ? "condition" : "list"}
-            />
-          </Box>
-        )
+        savedGroupsLabel && <Box mb="1">{savedGroupsLabel}</Box>
       )}
+      {/* Outside the branch above: `label` has a default, so every call site
+          takes the first one. The warning renders itself away when there is
+          nothing to say. */}
+      <LargeSavedGroupPerformanceWarning
+        {...largeSavedGroupSupport}
+        type={targetsConditionGroup ? "condition" : "list"}
+      />
       {addRemoveSelector}
       <Box>
         {conflicts.length > 0 && (
