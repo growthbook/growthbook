@@ -212,8 +212,11 @@ export default function ProjectTagBar({
           </Link>
         )}
         {(!showAddLinks || !canUpdateExperimentProject(project)) &&
-          !projectId &&
-          "None"}
+          !projectId && (
+            <Text weight="regular" color="text-mid" size="sm">
+              None
+            </Text>
+          )}
       </Flex>
     );
   };
