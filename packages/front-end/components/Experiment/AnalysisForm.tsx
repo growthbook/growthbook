@@ -526,7 +526,9 @@ const AnalysisForm: FC<{
         });
         mutate();
       })}
-      cta="Save"
+      // Staged changes are not written until the page is saved, so the modal
+      // does not claim to have saved them.
+      cta={stageChanges ? "Confirm" : "Save"}
     >
       <Box>
         {isBandit && (
