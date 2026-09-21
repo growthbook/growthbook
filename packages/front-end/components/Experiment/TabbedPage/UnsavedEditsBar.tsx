@@ -5,6 +5,12 @@ import HelperText from "@/ui/HelperText";
 import { useExperimentEdits } from "./ExperimentEdits";
 import styles from "./UnsavedEditsBar.module.scss";
 
+/**
+ * Fires when the bar appears, resizes or goes away. Anything sized against the
+ * viewport listens, since a CSS variable alone cannot tell it to re-measure.
+ */
+export const SAVE_BAR_RESIZE_EVENT = "gb:save-bar-resize";
+
 /** Appears once something on the page is edited, and is the only way to write it. */
 export default function UnsavedEditsBar() {
   const edits = useExperimentEdits();
@@ -18,19 +24,23 @@ export default function UnsavedEditsBar() {
     const el = bar.current;
     if (!shown || !el) {
       root.style.setProperty("--experiment-save-bar-height", "0px");
+      window.dispatchEvent(new Event(SAVE_BAR_RESIZE_EVENT));
       return;
     }
-    const publish = () =>
+    const publish = () => {
       root.style.setProperty(
         "--experiment-save-bar-height",
         `${Math.round(el.getBoundingClientRect().height)}px`,
       );
+      window.dispatchEvent(new Event(SAVE_BAR_RESIZE_EVENT));
+    };
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(el);
     return () => {
       observer.disconnect();
       root.style.setProperty("--experiment-save-bar-height", "0px");
+      window.dispatchEvent(new Event(SAVE_BAR_RESIZE_EVENT));
     };
   }, [shown]);
 

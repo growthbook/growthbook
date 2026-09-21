@@ -18,7 +18,6 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
 import CommentCard from "./Comments/CommentCard";
 import CommentForm from "./CommentForm";
-import styles from "./DiscussionThread.module.scss";
 import Markdown from "./Markdown/Markdown";
 
 const DiscussionThread: FC<{
@@ -69,8 +68,17 @@ const DiscussionThread: FC<{
   const comments: Comment[] = data.discussion ? data.discussion.comments : [];
 
   return (
-    <Box className={fillHeight ? styles.fill : undefined}>
-      <Box className={fillHeight ? styles.thread : undefined}>
+    <Flex
+      direction="column"
+      flexGrow={fillHeight ? "1" : undefined}
+      minHeight={fillHeight ? "0" : undefined}
+    >
+      {/* The thread scrolls in whatever height the composer leaves. */}
+      <Box
+        flexGrow={fillHeight ? "1" : undefined}
+        minHeight={fillHeight ? "0" : undefined}
+        overflowY={fillHeight ? "auto" : undefined}
+      >
         {comments.length > 0 ? (
           <Flex direction="column" gap="4">
             {comments.map((comment, i) => {
@@ -180,7 +188,11 @@ const DiscussionThread: FC<{
         )}
       </Box>
       {allowNewComments && (
-        <Box mt="4" className={fillHeight ? styles.composer : undefined}>
+        <Box
+          mt="4"
+          pb={fillHeight ? "5" : undefined}
+          flexShrink={fillHeight ? "0" : undefined}
+        >
           {!showTitle ? (
             <Separator size="4" mb="4" />
           ) : (
@@ -197,7 +209,7 @@ const DiscussionThread: FC<{
           />
         </Box>
       )}
-    </Box>
+    </Flex>
   );
 };
 

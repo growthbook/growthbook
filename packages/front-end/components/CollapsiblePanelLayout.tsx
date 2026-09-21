@@ -8,6 +8,7 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import { SAVE_BAR_RESIZE_EVENT } from "@/components/Experiment/TabbedPage/UnsavedEditsBar";
 import styles from "./CollapsiblePanelLayout.module.scss";
 
 export const PANEL_WIDTH_PX = 360;
@@ -124,14 +125,24 @@ export default function CollapsiblePanelLayout({
     if (!el) return;
     const fit = () => {
       const offset = Math.max(el.getBoundingClientRect().top, 0);
-      el.style.height = `${Math.max(0, window.innerHeight - offset)}px`;
+      // The save bar sits over the bottom of the window, so the panel stops
+      // above it rather than having everything inside it pad itself clear.
+      const bar =
+        parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue(
+            "--experiment-save-bar-height",
+          ),
+        ) || 0;
+      el.style.height = `${Math.max(0, window.innerHeight - offset - bar)}px`;
     };
     fit();
     window.addEventListener("scroll", fit, { passive: true });
     window.addEventListener("resize", fit);
+    window.addEventListener(SAVE_BAR_RESIZE_EVENT, fit);
     return () => {
       window.removeEventListener("scroll", fit);
       window.removeEventListener("resize", fit);
+      window.removeEventListener(SAVE_BAR_RESIZE_EVENT, fit);
     };
   });
 
