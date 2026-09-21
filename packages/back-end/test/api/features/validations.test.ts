@@ -11,6 +11,7 @@ import {
   validateRampPlanPatches,
   validateRuleAttributes,
   validateRulesReferences,
+  stagedFeatureOf,
 } from "back-end/src/api/features/validations";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -434,6 +435,18 @@ describe("collectRampPlanPatches", () => {
   });
 });
 
+describe("stagedFeatureOf", () => {
+  it("keeps the live rules when the draft has no rules snapshot", () => {
+    const live = {
+      id: "f1",
+      rules: [{ id: "r_live" }],
+    } as unknown as FeatureInterface;
+    expect(
+      stagedFeatureOf(live, { metadata: { project: "p_draft" } }),
+    ).toMatchObject({ project: "p_draft", rules: [{ id: "r_live" }] });
+  });
+});
+
 describe("validateRampPlanPatches", () => {
   const getAll = jest.fn();
   const ctx = {
@@ -701,6 +714,59 @@ describe("validateRampPlanPatches", () => {
         gatedRule,
         stored,
       ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("refuses to ramp a force rule's coverage unless the rule or the plan's start state names a hash attribute", async () => {
+    const forceRule = { id: "fr_force", type: "force" };
+    const refused = run([{ coverage: 0.5 }], feature, forceRule);
+    await expect(refused).rejects.toThrow(BadRequestError);
+    await expect(refused).rejects.toThrow(
+      /Invalid ramp schedule patch: Rule "fr_force" on "checkout_flag" is a force rule with no hash attribute/,
+    );
+    // A rule not yet stored has no id; the refusal still names the problem.
+    await expect(
+      run([{ coverage: 0.5 }], feature, { type: "force" }),
+    ).rejects.toThrow(/The rule is a force rule with no hash attribute/);
+    // The start anchor's hash attribute or one left on the rule satisfies it;
+    // a rollout never needed one.
+    await expect(
+      run([{ coverage: 0.5 }, { hashAttribute: "id" }], feature, forceRule),
+    ).resolves.toBeUndefined();
+    await expect(
+      run([{ coverage: 0.5 }], feature, { ...forceRule, hashAttribute: "id" }),
+    ).resolves.toBeUndefined();
+    await expect(
+      run([{ coverage: 0.5 }], feature, {
+        ...forceRule,
+        type: "rollout",
+        hashAttribute: "id",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("holds an anchor's hash attribute to the organization's registered attributes", async () => {
+    const forceRule = { id: "fr_force", type: "force" };
+    const strict = {
+      ...ctx,
+      org: {
+        ...ctx.org,
+        settings: {
+          requireRegisteredAttributes: true,
+          attributeSchema: [{ property: "userId", datatype: "string" }],
+        },
+      },
+    } as ApiReqContext;
+    const runStrict = (patches: Parameters<typeof rampPatchEntries>[0]) =>
+      validateRampPlanPatches(
+        strict,
+        rampPatchEntries(patches, feature, forceRule),
+      );
+    await expect(
+      runStrict([{ coverage: 0.5, hashAttribute: "userID" }]),
+    ).rejects.toThrow(/userID/);
+    await expect(
+      runStrict([{ coverage: 0.5, hashAttribute: "userId" }]),
     ).resolves.toBeUndefined();
   });
 

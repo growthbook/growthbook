@@ -327,6 +327,7 @@ import {
   rampPatchEntries,
   validatePrerequisiteConditions,
   validatePrerequisiteReferences,
+  stagedFeatureOf,
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
@@ -3601,7 +3602,7 @@ export async function postFeatureRule(
       await validateRuleModalRampPatches(
         context,
         rampSchedulePayload,
-        feature,
+        stagedFeatureOf(feature, revision),
         rule,
         [],
       );
@@ -4931,7 +4932,7 @@ export async function putFeatureRule(
       await validateRuleModalRampPatches(
         context,
         rampSchedulePayload,
-        feature,
+        stagedFeatureOf(feature, revision),
         inboundRule,
         [
           ...(revision.rampActions ?? []).filter(
