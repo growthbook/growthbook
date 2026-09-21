@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
-import { getAppOrigin } from "@/services/env";
+import { getApiHost, getAppOrigin } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
@@ -13,17 +13,12 @@ import { buildSlackAppManifest } from "./slackSetupUtils";
 
 const SLACK_CREATE_APP_URL = "https://api.slack.com/apps?new_app=1";
 
-function SlackManifestModal({
-  onClose,
-  scopes,
-}: {
-  onClose: () => void;
-  scopes: string[];
-}) {
+function SlackManifestModal({ onClose }: { onClose: () => void }) {
   const manifest = useMemo(() => {
     const appUrl = getAppOrigin();
-    return buildSlackAppManifest({ appUrl, scopes });
-  }, [scopes]);
+    const apiUrl = getApiHost();
+    return buildSlackAppManifest({ appUrl, apiUrl });
+  }, []);
 
   return (
     <ModalStandard
@@ -36,8 +31,7 @@ function SlackManifestModal({
     >
       <Text as="p" color="text-mid" mb="3">
         Self-hosted GrowthBook connects through your own Slack app. This
-        manifest is pre-filled with this instance&rsquo;s URLs — no editing
-        required.
+        manifest includes this instance&rsquo;s URLs.
       </Text>
       <ol style={{ paddingLeft: "1.2rem", margin: "0 0 1rem" }}>
         <li>
@@ -61,7 +55,17 @@ function SlackManifestModal({
           </Text>
         </li>
         <li>
-          <Text>Restart GrowthBook and reload this page to connect.</Text>
+          <Text>
+            Restart GrowthBook, then open <strong>Event Subscriptions</strong>{" "}
+            in your Slack app settings and verify the Request URL. Slack must be
+            able to reach your API server over HTTPS.
+          </Text>
+        </li>
+        <li>
+          <Text>
+            Reload this page, connect your Slack workspace, and enable the AI
+            assistant in the workspace settings.
+          </Text>
         </li>
       </ol>
       <Code
@@ -70,24 +74,18 @@ function SlackManifestModal({
         filename="growthbook-slack-manifest.yml"
       />
       <Callout status="info" mt="3">
-        This manifest configures OAuth and notification delivery. AI assistant
-        event subscriptions and interactivity require additional setup after
-        enabling the assistant. Set <code>SLACK_SIGNING_SECRET</code> before
-        configuring those inbound requests.
+        Mention the bot in channels to ask a question. You can also DM it.
       </Callout>
     </ModalStandard>
   );
 }
 
-export default function SlackAppSetup({ scopes }: { scopes: string[] }) {
+export default function SlackAppSetup() {
   const [showManifest, setShowManifest] = useState(false);
   return (
     <>
       {showManifest && (
-        <SlackManifestModal
-          scopes={scopes}
-          onClose={() => setShowManifest(false)}
-        />
+        <SlackManifestModal onClose={() => setShowManifest(false)} />
       )}
       <Flex direction="column" gap="3" align="center" p="5">
         <Heading as="h2" size="sm" mb="0">

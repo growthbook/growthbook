@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { missingSlackBotScopes } from "shared/slack-integration";
+import { useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { ago } from "shared/dates";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
@@ -37,17 +38,6 @@ import NotificationSubscriptionSettings from "@/components/Notifications/Notific
 import NotificationSettingsCard from "@/components/Notifications/NotificationSettingsCard";
 import SlackEventPreview from "./SlackEventPreview";
 import { SlackChannelFormValues } from "./slackChannelForm";
-
-const REQUIRED_SCOPES = [
-  "chat:write",
-  "files:write",
-  "channels:read",
-  "groups:read",
-  "channels:join",
-  "assistant:write",
-  "im:history",
-  "app_mentions:read",
-];
 
 const CARD_FORMAT_LABELS: Record<
   NotificationCardFormat,
@@ -136,19 +126,7 @@ export default function SlackChannelSettings({
   const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const grantedScopes = useMemo(
-    () =>
-      new Set(
-        (workspace.scope || "")
-          .split(",")
-          .map((scope) => scope.trim())
-          .filter(Boolean),
-      ),
-    [workspace.scope],
-  );
-  const needsReconnect = REQUIRED_SCOPES.some(
-    (scope) => !grantedScopes.has(scope),
-  );
+  const needsReconnect = missingSlackBotScopes(workspace.scope).length > 0;
 
   const reconnect = async () => {
     setReconnecting(true);

@@ -1,22 +1,28 @@
+import { SLACK_BOT_EVENTS, SLACK_BOT_SCOPES } from "shared/slack-integration";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   notificationEventOptions,
   matchesNotificationEvent,
 } from "shared/notifications";
 
-// Notifications-only manifest pre-filled with this instance's app URL.
 export function buildSlackAppManifest({
   appUrl,
-  scopes,
+  apiUrl,
 }: {
   appUrl: string;
-  scopes: string[];
+  apiUrl: string;
 }): string {
   appUrl = appUrl.replace(/\/+$/, "");
+  apiUrl = apiUrl.replace(/\/+$/, "");
   return `display_information:
   name: GrowthBook
-  description: GrowthBook experiment and feature-flag notifications
+  description: GrowthBook experiment and feature-flag assistant
 features:
+  app_home:
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  agent_view:
+    agent_description: Ask questions about experiments and Feature Flags in GrowthBook.
   bot_user:
     display_name: GrowthBook
     always_online: true
@@ -25,8 +31,15 @@ oauth_config:
     - ${JSON.stringify(`${appUrl}/integrations/slack`)}
   scopes:
     bot:
-${scopes.map((scope) => `      - ${scope}`).join("\n")}
+${SLACK_BOT_SCOPES.map((scope) => `      - ${scope}`).join("\n")}
 settings:
+  event_subscriptions:
+    request_url: ${JSON.stringify(`${apiUrl}/integrations/slack/events`)}
+    bot_events:
+${SLACK_BOT_EVENTS.map((event) => `      - ${event}`).join("\n")}
+  interactivity:
+    is_enabled: true
+    request_url: ${JSON.stringify(`${apiUrl}/integrations/slack/interactions`)}
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false`;

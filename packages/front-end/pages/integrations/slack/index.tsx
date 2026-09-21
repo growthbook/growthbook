@@ -1,3 +1,7 @@
+import {
+  SLACK_BOT_SCOPES,
+  missingSlackBotScopes,
+} from "shared/slack-integration";
 import React, {
   useCallback,
   useEffect,
@@ -57,17 +61,6 @@ type WorkspaceGroup = {
   channels: SlackOAuthIntegrationInterface[];
 };
 
-const REQUIRED_SCOPES = [
-  "chat:write",
-  "files:write",
-  "channels:read",
-  "groups:read",
-  "channels:join",
-  "assistant:write",
-  "im:history",
-  "app_mentions:read",
-];
-
 const getQueryStringValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
@@ -75,18 +68,6 @@ const getSlackAuthorizationError = (error: string) =>
   error === "access_denied"
     ? "Slack authorization was canceled."
     : "Slack authorization failed. Try again.";
-
-const workspaceNeedsReconnect = (
-  connection: SlackWorkspaceConnectionFrontEndInterface,
-) => {
-  const scopes = new Set(
-    (connection.scope || "")
-      .split(",")
-      .map((scope) => scope.trim())
-      .filter(Boolean),
-  );
-  return REQUIRED_SCOPES.some((scope) => !scopes.has(scope));
-};
 
 function AddChannelModal({
   teamId,
@@ -620,11 +601,13 @@ const SlackWorkspacePage: NextPage = () => {
           <Callout status="warning">
             Slack OAuth is not configured. Set <code>SLACK_CLIENT_ID</code> and{" "}
             <code>SLACK_CLIENT_SECRET</code> for an app with the{" "}
-            <code>chat:write</code>, <code>files:write</code>,{" "}
-            <code>channels:read</code>, <code>groups:read</code>,{" "}
-            <code>channels:join</code>, <code>assistant:write</code>,{" "}
-            <code>im:history</code>, and <code>app_mentions:read</code> bot
-            scopes. A Slack signing secret is not required for outgoing
+            {SLACK_BOT_SCOPES.map((scope, index) => (
+              <React.Fragment key={scope}>
+                {index > 0 && ", "}
+                <code>{scope}</code>
+              </React.Fragment>
+            ))}{" "}
+            bot scopes. A Slack signing secret is not required for outgoing
             notifications.
           </Callout>
         )}
@@ -638,7 +621,7 @@ const SlackWorkspacePage: NextPage = () => {
           !isCloud() &&
           workspaceGroups.length === 0 ? (
           <Frame>
-            <SlackAppSetup scopes={REQUIRED_SCOPES} />
+            <SlackAppSetup />
           </Frame>
         ) : workspaceGroups.length === 0 ? (
           <Frame>
@@ -669,7 +652,9 @@ const SlackWorkspacePage: NextPage = () => {
                 workspace={group.workspace}
                 channels={group.channels}
                 selectedChannelId={selectedChannelId}
-                needsReconnect={workspaceNeedsReconnect(group.workspace)}
+                needsReconnect={
+                  missingSlackBotScopes(group.workspace.scope).length > 0
+                }
                 connecting={connecting}
                 updatingAssistant={updatingAssistantTeamId !== null}
                 onAssistantChange={async (enabled) => {

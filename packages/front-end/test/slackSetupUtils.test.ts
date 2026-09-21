@@ -1,21 +1,47 @@
+import { SLACK_BOT_EVENTS, SLACK_BOT_SCOPES } from "shared/slack-integration";
+import { load } from "js-yaml";
 import {
   buildSlackAppManifest,
   getSlackChannelSummary,
 } from "@/components/SlackIntegrations/slackSetupUtils";
 
 describe("Slack setup helpers", () => {
-  it("uses the instance callback URL and requested scopes in the manifest", () => {
-    const manifest = buildSlackAppManifest({
-      appUrl: "https://growthbook.example/",
-      scopes: ["chat:write", "files:write"],
-    });
-    expect(manifest).toContain(
-      '"https://growthbook.example/integrations/slack"',
-    );
-    expect(manifest).toContain("      - files:write");
-    expect(manifest).not.toContain("event_subscriptions");
-    expect(manifest).not.toContain("example//integrations");
-  });
+  it.each(["", "/", "///"])(
+    "routes callbacks to the app and inbound requests to the API with suffix '%s'",
+    (suffix) => {
+      const manifest = buildSlackAppManifest({
+        appUrl: `https://growthbook.example${suffix}`,
+        apiUrl: `https://api.growthbook.example/proxy${suffix}`,
+      });
+      expect(load(manifest)).toMatchObject({
+        features: {
+          app_home: {
+            messages_tab_enabled: true,
+            messages_tab_read_only_enabled: false,
+          },
+          agent_view: { agent_description: expect.any(String) },
+        },
+        oauth_config: {
+          redirect_urls: ["https://growthbook.example/integrations/slack"],
+          scopes: { bot: SLACK_BOT_SCOPES },
+        },
+        settings: {
+          event_subscriptions: {
+            request_url:
+              "https://api.growthbook.example/proxy/integrations/slack/events",
+            bot_events: SLACK_BOT_EVENTS,
+          },
+          interactivity: {
+            is_enabled: true,
+            request_url:
+              "https://api.growthbook.example/proxy/integrations/slack/interactions",
+          },
+        },
+      });
+      expect(manifest).not.toContain("channels:history");
+      expect(manifest).not.toContain("groups:history");
+    },
+  );
   it("summarizes wildcard subscriptions and resolves the project name", () => {
     expect(
       getSlackChannelSummary(

@@ -2,7 +2,13 @@
 
 Workspace OAuth must be configured with `SLACK_CLIENT_ID` and
 `SLACK_CLIENT_SECRET`. Set `SLACK_SIGNING_SECRET` to verify inbound Slack requests.
-In the Slack app settings, configure:
+The self-hosted setup manifest includes the assistant events, interactivity, and
+the Messages tab. Its OAuth redirect uses `APP_ORIGIN`; events and interactions
+use `API_HOST`. After creating the app, configure its credentials, restart
+GrowthBook, and verify the Events Request URL in Slack's Event Subscriptions
+settings. Slack must be able to reach `API_HOST` over HTTPS.
+
+For an existing Slack app, configure:
 
 - Events Request URL: `https://YOUR_API_HOST/integrations/slack/events`
 - Interactivity Request URL: `https://YOUR_API_HOST/integrations/slack/interactions`
@@ -10,8 +16,8 @@ In the Slack app settings, configure:
   General channel history is not requested; outside DMs, users should explicitly
   mention the bot for follow-up questions.
 
-The OAuth scopes include `app_mentions:read`, `im:history`, and
-`assistant:write` for chat, alongside the existing notification scopes. Reconnect
+`shared/slack-integration` defines the bot OAuth scopes and events used by both
+the OAuth connection and the self-hosted setup manifest. Reconnect
 an older workspace installation if it lacks these grants. Enable the assistant
 in GrowthBook's Slack workspace settings; it defaults off. GrowthBook's existing
 AI access, usage limits, and the linked user's permissions still apply.
