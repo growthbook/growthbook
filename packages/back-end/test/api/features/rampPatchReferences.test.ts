@@ -35,13 +35,26 @@ function makeContext(): ReqContextClass {
 
 const now = () => new Date();
 const RULE = {
-  type: "force",
+  type: "rollout",
   id: "fr_ramped",
+  description: "",
+  value: "true",
+  coverage: 0,
+  hashAttribute: "id",
+  enabled: false,
+  allEnvironments: true,
+};
+// Force rules: a coverage ramp promotes them, so the rule or the plan's start
+// state must bring a hash attribute. The second exists only in the draft.
+const FORCE_RULE = {
+  type: "force",
+  id: "fr_force",
   description: "",
   value: "true",
   enabled: false,
   allEnvironments: true,
 };
+const DRAFT_FORCE_RULE = { ...FORCE_RULE, id: "fr_draft_force" };
 
 async function insertFeature(id: string): Promise<void> {
   await mongoose.connection.collection("features").insertOne({
@@ -54,7 +67,7 @@ async function insertFeature(id: string): Promise<void> {
     version: 1,
     archived: false,
     tags: [],
-    rules: id === FLAG ? [RULE] : [],
+    rules: id === FLAG ? [RULE, FORCE_RULE] : [],
     environmentSettings: {
       production: { enabled: true, rules: [] },
       dev: { enabled: true, rules: [] },
@@ -80,7 +93,10 @@ async function insertRevisions(featureId: string): Promise<void> {
       createdBy: { type: "api_key", apiKey: "key_engineer" },
       comment: "",
       defaultValue: "false",
-      rules: [RULE],
+      rules:
+        status === "draft"
+          ? [RULE, FORCE_RULE, DRAFT_FORCE_RULE]
+          : [RULE, FORCE_RULE],
       dateCreated: now(),
       dateUpdated: now(),
       ...(status === "published" ? { datePublished: now() } : {}),
@@ -207,6 +223,293 @@ describe("ramp schedule patch references", () => {
     );
   });
 
+  describe("a coverage ramp on a force rule with no hash attribute", () => {
+    const NO_HASH = /is a force rule with no hash attribute/;
+    const auth = (r: request.Test) => r.set("Authorization", "Bearer foo");
+
+    afterEach(async () => {
+      for (const name of ["rampschedules", "rampscheduletemplates"]) {
+        await mongoose.connection
+          .collection(name)
+          .deleteMany({ organization: ORG_ID });
+      }
+    });
+
+    it("is refused on the per-rule attach unless the start state names one; steps cannot", async () => {
+      const put = (body: Record<string, unknown>) =>
+        auth(
+          request(app)
+            .put(
+              `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+            )
+            .send(body),
+        );
+      const refused = await put({ steps: [step({ coverage: 0.5 })] });
+      expect(refused.body.message).toMatch(NO_HASH);
+      expect(refused.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+      for (const identity of [
+        { hashAttribute: "id" },
+        { seed: "s1" },
+        { hashVersion: 2 },
+      ]) {
+        const onStep = await put({
+          steps: [step({ coverage: 0.5, ...identity })],
+        });
+        expect(onStep.status).toBe(400);
+      }
+      expect(await draftRampActions()).toEqual([]);
+      const anchored = await put({
+        steps: [step({ coverage: 0.5 })],
+        startState: { hashAttribute: "id", seed: "s1", hashVersion: 2 },
+      });
+      expect(anchored.body.message).toBeUndefined();
+      expect(anchored.status).toBe(200);
+      expect(await draftRampActions()).toHaveLength(1);
+      // The anchor's identity reads back on both revision APIs.
+      for (const path of [
+        `/api/v1/features/${FLAG}/revisions/2`,
+        `/api/v2/features/${FLAG}/revisions/2`,
+      ]) {
+        const res = await auth(request(app).get(path));
+        expect(res.status).toBe(200);
+        expect(
+          res.body.revision.rampActions[0].startActions[0].patch,
+        ).toMatchObject({ hashAttribute: "id", seed: "s1", hashVersion: 2 });
+      }
+    });
+
+    it("judges a template's steps when the plan is built from one, on the ramp route and inline", async () => {
+      await mongoose.connection.collection("rampscheduletemplates").insertOne({
+        id: "rst_half",
+        organization: ORG_ID,
+        name: "half",
+        order: 0,
+        steps: [
+          {
+            interval: 3600,
+            actions: [
+              {
+                targetType: "feature-rule",
+                targetId: "",
+                patch: { ruleId: "", coverage: 0.5 },
+              },
+            ],
+          },
+        ],
+        endPatch: { coverage: 0.5 },
+        dateCreated: now(),
+        dateUpdated: now(),
+      });
+      const attach = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({ templateId: "rst_half" }),
+      );
+      expect(attach.body.message).toMatch(NO_HASH);
+      expect(attach.status).toBe(400);
+      const inline = await auth(
+        request(app)
+          .post(`/api/v2/features/${FLAG}/revisions/2/rules`)
+          .send({
+            rule: {
+              type: "force",
+              value: "true",
+              allEnvironments: true,
+              enabled: false,
+            },
+            rampSchedule: { templateId: "rst_half" },
+          }),
+      );
+      expect(inline.body.message).toMatch(NO_HASH);
+      expect(inline.status).toBe(400);
+      // Explicit steps still inherit the template's end action.
+      const endOnly = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({ templateId: "rst_half", steps: [step({ coverage: 1 })] }),
+      );
+      expect(endOnly.body.message).toMatch(NO_HASH);
+      expect(endOnly.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+      // On an existing schedule the template's end action is not applied, so
+      // it is not judged either.
+      const created = await auth(
+        request(app)
+          .post("/api/v1/ramp-schedules")
+          .send({
+            name: "existing",
+            featureId: FLAG,
+            ruleId: FORCE_RULE.id,
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            steps: [step({ coverage: 0.5 })],
+          }),
+      );
+      expect(created.status).toBe(200);
+      await mongoose.connection
+        .collection("rampschedules")
+        .updateOne(
+          { id: created.body.rampSchedule.id },
+          { $unset: { "startActions.0.patch.hashAttribute": "" } },
+        );
+      const update = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({ templateId: "rst_half", steps: [step({ coverage: 1 })] }),
+      );
+      expect(update.body.message).toBeUndefined();
+      expect(update.status).toBe(200);
+    });
+
+    it("does not count start actions a startState replaces", async () => {
+      const res = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({
+            steps: [step({ coverage: 0.5 })],
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            startState: { coverage: 0 },
+          }),
+      );
+      expect(res.body.message).toMatch(NO_HASH);
+      expect(res.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+    });
+
+    it("ignores a new anchor on a running schedule, as publish does", async () => {
+      const created = await auth(
+        request(app)
+          .post("/api/v1/ramp-schedules")
+          .send({
+            name: "running",
+            featureId: FLAG,
+            ruleId: FORCE_RULE.id,
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            steps: [step({ coverage: 0.5 })],
+          }),
+      );
+      expect(created.status).toBe(200);
+      // A plan stored before the requirement, already running.
+      await mongoose.connection.collection("rampschedules").updateOne(
+        { id: created.body.rampSchedule.id },
+        {
+          $set: { status: "running", currentStepIndex: -1 },
+          $unset: { "startActions.0.patch.hashAttribute": "" },
+        },
+      );
+      const res = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+          )
+          .send({
+            steps: [step({ coverage: 0.5 })],
+            startActions: [{ patch: { hashAttribute: "id" } }],
+          }),
+      );
+      expect(res.body.message).toMatch(NO_HASH);
+      expect(res.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+    });
+
+    it("keeps the stored anchor's hash attribute in view when an update sends only steps", async () => {
+      const create = await auth(
+        request(app)
+          .post("/api/v1/ramp-schedules")
+          .send({
+            name: "anchored",
+            featureId: FLAG,
+            ruleId: FORCE_RULE.id,
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            steps: [step({ coverage: 0.5 })],
+          }),
+      );
+      expect(create.body.message).toBeUndefined();
+      expect(create.status).toBe(200);
+      const id = create.body.rampSchedule.id;
+      const put = (body: Record<string, unknown>) =>
+        auth(request(app).put(`/api/v1/ramp-schedules/${id}`).send(body));
+      const action = (patch: Record<string, unknown>) => ({
+        targetType: "feature-rule",
+        targetId: "t1",
+        patch: { ruleId: FORCE_RULE.id, ...patch },
+      });
+      const stepsOnly = await put({
+        steps: [{ interval: 3600, actions: [action({ coverage: 0.25 })] }],
+      });
+      expect(stepsOnly.body.message).toBeUndefined();
+      expect(stepsOnly.status).toBe(200);
+      // The stored anchor reads back with its identity and round-trips.
+      const fetched = await auth(
+        request(app).get(`/api/v1/ramp-schedules/${id}`),
+      );
+      expect(fetched.body.rampSchedule.startActions[0].patch).toMatchObject({
+        hashAttribute: "id",
+      });
+      const echoed = await put({
+        startActions: fetched.body.rampSchedule.startActions,
+      });
+      expect(echoed.body.message).toBeUndefined();
+      expect(echoed.status).toBe(200);
+      // Replacing the anchor without one leaves the stored steps unbucketed.
+      const unanchored = await put({
+        startActions: [action({ coverage: 0 })],
+      });
+      expect(unanchored.body.message).toMatch(NO_HASH);
+      expect(unanchored.status).toBe(400);
+    });
+
+    it("is refused on v2 rule add, where the rule has no id yet", async () => {
+      const add = (rampSchedule: Record<string, unknown>) =>
+        auth(
+          request(app)
+            .post(`/api/v2/features/${FLAG}/revisions/2/rules`)
+            .send({
+              rule: {
+                type: "force",
+                value: "true",
+                allEnvironments: true,
+                enabled: false,
+              },
+              rampSchedule,
+            }),
+        );
+      const refused = await add({ steps: [step({ coverage: 0.5 })] });
+      expect(refused.body.message).toMatch(NO_HASH);
+      expect(refused.status).toBe(400);
+      const anchored = await add({
+        steps: [step({ coverage: 0.5 })],
+        startActions: [{ patch: { hashAttribute: "id" } }],
+      });
+      expect(anchored.body.message).toBeUndefined();
+      expect(anchored.status).toBe(200);
+    });
+
+    it("is refused on v2 rule update for a rule that exists only in the draft", async () => {
+      const res = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${DRAFT_FORCE_RULE.id}`,
+          )
+          .send({
+            rule: { enabled: true },
+            rampSchedule: { steps: [step({ coverage: 0.5 })] },
+          }),
+      );
+      expect(res.body.message).toMatch(NO_HASH);
+      expect(res.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+    });
+  });
+
   it("rejects an inline rampSchedule with a bad patch on v2 rule add", async () => {
     const res = await request(app)
       .post(`/api/v2/features/${FLAG}/revisions/2/rules`)
@@ -229,7 +532,7 @@ describe("ramp schedule patch references", () => {
     const revision = await mongoose.connection
       .collection("featurerevisions")
       .findOne({ featureId: FLAG, version: 2 });
-    expect(revision?.rules).toHaveLength(1);
+    expect(revision?.rules).toHaveLength(3);
   });
 
   it("rejects a bad patch on REST ramp-schedule create, with or without a target", async () => {

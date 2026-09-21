@@ -4,6 +4,7 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
+  RampStartAction,
   RampStepAction,
   RampTarget,
   StepHoldConditions,
@@ -327,7 +328,7 @@ type LegacyApiRampTrigger =
 type PostBodyAction = {
   targetType?: "feature-rule";
   targetId?: string;
-  patch: Partial<RampStepAction["patch"]>;
+  patch: Partial<RampStartAction["patch"]>;
 };
 
 // Accepts both the new `{ interval, holdConditions }` shape and the legacy
@@ -639,11 +640,12 @@ export class RampScheduleModel extends BaseClass {
     // request context, so a static import trips initialization.
     const {
       collectRampPlanActions,
+      mergedRampPlan,
       rampPatchEntriesForTargets,
       validateRampPlanPatches,
     } = await import("back-end/src/api/features/validations");
-    const actions = collectRampPlanActions(updates);
-    if (!actions.length) return;
+    if (!collectRampPlanActions(updates).length) return;
+    const actions = collectRampPlanActions(mergedRampPlan(updates, schedule));
     const featureIds = [
       ...new Set(
         actions
