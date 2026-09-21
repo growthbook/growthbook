@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { PiChatTeardropFill } from "react-icons/pi";
+import { PiChatCircleFill } from "react-icons/pi";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
@@ -220,7 +220,7 @@ export default function InAppHelp() {
           onClick={() => setShowFreeHelpWidget(true)}
         >
           <span className={styles.chatMark}>
-            <PiChatTeardropFill size={56} />
+            <PiChatCircleFill size={56} />
             <BsQuestionLg className={styles.chatMarkGlyph} size={20} />
           </span>
         </button>
