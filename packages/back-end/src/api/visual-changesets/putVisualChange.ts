@@ -1,6 +1,6 @@
 import { putVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
+import { requireVisualChangeWrite } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import {
   findExperimentByVisualChangesetId,
   updateVisualChange,
@@ -12,7 +12,8 @@ export const putVisualChange = createApiRequestHandler(
   const changesetId = req.params.id;
   const visualChangeId = req.params.visualChangeId;
   const orgId = req.organization.id;
-  const payload = req.body;
+  // The opt-in flag gates the write; it is not part of the visual change.
+  const { allowRunningExperiment, ...payload } = req.body;
 
   const experiment = await findExperimentByVisualChangesetId(
     req.context,
@@ -26,7 +27,10 @@ export const putVisualChange = createApiRequestHandler(
   if (!req.context.permissions.canUpdateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
-  requireDraftExperiment(req.context, experiment);
+  await requireVisualChangeWrite(req, experiment, {
+    allowRunning: !!allowRunningExperiment,
+    visualChangesetId: changesetId,
+  });
 
   const res = await updateVisualChange({
     changesetId,
