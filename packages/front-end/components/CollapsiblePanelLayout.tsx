@@ -8,6 +8,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiDotsSixVerticalBold } from "react-icons/pi";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import styles from "./CollapsiblePanelLayout.module.scss";
 
 export const PANEL_WIDTH_PX = 360;
 const MIN_PANEL_WIDTH_PX = 280;
@@ -134,6 +135,7 @@ export default function CollapsiblePanelLayout({
           {onWidthChange ? (
             <Box
               onPointerDown={startDrag}
+              className={styles.dragHandle}
               style={{
                 position: "absolute",
                 top: 0,

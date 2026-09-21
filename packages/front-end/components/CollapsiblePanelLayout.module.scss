@@ -1,0 +1,29 @@
+// A black shadow reads as nothing on a dark surface, so each theme names its
+// own edge colour, the way the other bars here do.
+:global(.light-theme) {
+  --panel-handle-edge: var(--black-a3);
+}
+
+:global(.dark-theme) {
+  --panel-handle-edge: var(--white-a4);
+}
+
+// The handle straddles the panel's left border, so the hover cue sits at its
+// centre: a hairline falling onto the content the panel sits over.
+.dragHandle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  box-shadow: -1px 0 2px var(--panel-handle-edge);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.dragHandle:hover::before,
+.dragHandle:active::before {
+  opacity: 1;
+}
