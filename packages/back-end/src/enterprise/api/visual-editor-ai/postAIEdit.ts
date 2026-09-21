@@ -26,14 +26,20 @@ import {
   normalizeInsertPlacement,
   wrapWithScope,
 } from "back-end/src/api/visual-editor-ai/insertPrimitive";
+import {
+  appendSkipped,
+  mergeGlobalCss,
+} from "back-end/src/api/visual-editor-ai/editOutput";
 
-// Output-token cap for the edit generation. Above the 8000 parsePrompt
-// default because an edit can REPLACE the variation's entire global CSS/JS
-// (the model must re-emit all existing rules) — on a large stylesheet that
-// blows past 8000 and truncates mid-JSON (NoObjectGeneratedError). 16000
-// stays under modern model ceilings; only very old/small self-hosted models
-// (8192 cap) could over-shoot. Used for both the main and retry generations.
+// Output-token caps for the edit generation, main and retry alike. A `css`
+// rewrite re-emits the whole stylesheet and a multi-part request stacks
+// mutations on top, so the 8000 parsePrompt default truncates mid-JSON.
+// 16000 is safe on every current model (only very old self-hosted ones cap
+// lower); models with a documented ceiling get the extended cap instead.
+// 32000 rather than the ceiling: this call isn't streamed, and an output
+// that size already takes minutes.
 const EDIT_MAX_OUTPUT_TOKENS = 16000;
+const EDIT_EXTENDED_MAX_OUTPUT_TOKENS = 32000;
 
 const elementContextSchema = z.object({
   selector: z.string(),
@@ -248,11 +254,19 @@ const outputSchema = z.object({
   mutations: z
     .array(mutationSchema)
     .describe("DOM mutations to apply. Return an empty array when none apply."),
+  cssAppend: z
+    .string()
+    .nullable()
+    // Missing key → null; see `options`.
+    .catch(null)
+    .describe(
+      "NEW global CSS rules to add after the variation's existing global CSS, which is kept as-is. This is the default way to change global CSS — use it whenever the result is correct, including overriding an earlier value (a later rule with the same selector wins). Null when adding nothing.",
+    ),
   css: z
     .string()
     .nullable()
     .describe(
-      "Complete global CSS for this variation. REPLACES any prior CSS — to add, modify, or remove a rule, return the rest of the existing CSS verbatim alongside your change. Set to null when the user's request doesn't touch global CSS (the existing CSS stays as-is). Do NOT return a partial fragment or an empty string when CSS exists; that wipes it.",
+      "Complete REPLACEMENT for the variation's global CSS: existing rules verbatim, with your edits. Use ONLY when a rule must be removed or rewritten and `cssAppend` would not take effect. Never use it just to add rules. Null otherwise — null never changes anything; a partial fragment here wipes the rest.",
     ),
   js: z
     .string()
@@ -276,16 +290,36 @@ const outputSchema = z.object({
         html: z
           .string()
           .describe(
-            "Complete HTML markup for the NEW content only — never include the page's existing DOM. Put styling inline or in the global `css` field. Keep it a single logical block (wrap multiple elements in one container).",
+            "Complete HTML markup for the NEW content only — never include the page's existing DOM. Put styling inline or in `cssAppend`. Keep it a single logical block (wrap multiple elements in one container).",
           ),
       }),
     )
     .describe(
       "New elements to INSERT into the page — use this for ANY request to ADD, insert, prepend, or append NEW content (banners, notices, sections, blocks, buttons that don't exist yet). This is the ONLY correct way to add content: NEVER add content by setting/appending \"html\" on body/html or another container (that replaces its entire contents and crashes the page). Return an empty array when the request doesn't add any new elements.",
     ),
+  skipped: z
+    .array(
+      z.object({
+        request: z
+          .string()
+          .describe("The part of the request you did not do, in a few words."),
+        reason: z
+          .string()
+          .describe(
+            "One line: why, and what would unblock it (e.g. click the element so its selector can be captured).",
+          ),
+      }),
+    )
+    .nullable()
+    .catch(null)
+    .describe(
+      "Parts of the request you did NOT do, one entry each. Fill this instead of abandoning the whole request when one part is blocked. Null when everything was done.",
+    ),
   explanation: z
     .string()
-    .describe("One-paragraph summary of the changes for the editor user."),
+    .describe(
+      "One-paragraph summary of what you changed, for the editor user. Parts you could not do belong in `skipped`, not here.",
+    ),
 });
 
 // Selectors whose innerHTML must never be replaced.
@@ -322,15 +356,15 @@ Inserting new elements (banners, notices, sections, new blocks) — use the \`in
 - When the user asks to ADD, insert, prepend, append, or place NEW content on the page (a promotional banner, an announcement bar, a new section, a CTA that doesn't exist yet), return it in the \`insert\` array. Do NOT try to add content by setting or appending "html" on "body"/"html"/a container — that replaces the container's entire contents and crashes the page.
 - Each insert entry has: \`targetSelector\` (an existing element from the catalog to anchor to), \`position\` (beforebegin / afterbegin / beforeend / afterend, relative to that element), and \`html\` (the NEW markup ONLY — never the page's existing content).
 - "A full-width banner at the TOP of the page" → { targetSelector: "body", position: "afterbegin", html: "<div …>…</div>" }. "At the very bottom" → targetSelector "body", position "beforeend". Directly before/after a specific section → that section's selector with "beforebegin"/"afterend".
-- Style the inserted markup with inline styles, or add rules to the global \`css\` field. Give your new elements their own class names so your CSS can target them. (If the request wants a photographic image inside the banner, call \`generateImage\` and place the returned URL in the markup.)
-- You may return \`insert\` alongside \`mutations\` and \`css\` in one response. Inserts are applied idempotently and are safe on "body". Return an empty \`insert\` array when the request doesn't add any new elements.
+- Style the inserted markup with inline styles, or add rules in \`cssAppend\`. Give your new elements their own class names so your CSS can target them. (If the request wants a photographic image inside the banner, call \`generateImage\` and place the returned URL in the markup.)
+- You may return \`insert\` alongside \`mutations\` and \`cssAppend\` in one response. Inserts are applied idempotently and are safe on "body". Return an empty \`insert\` array when the request doesn't add any new elements.
 
 Position-move rules (critical):
 - A move is applied as parentSelector.insertBefore(element, insertBeforeSelector). The hard DOM requirement is on insertBeforeSelector ONLY: it must resolve to a DIRECT CHILD of parentSelector — it's the reference node the browser inserts before, and insertBefore fails if it isn't a direct child of the parent. The moved element (selector) can live ANYWHERE in the DOM — it's detached from its current spot and re-inserted — so relocating an element into a different container is perfectly valid. The common mistake is naming a deeper descendant as insertBeforeSelector (e.g. a link nested inside a list item), which is NOT a direct child of the parent, so the insert fails.
 - parentSelector MUST be a real selector from the Page elements catalog.
 - insertBeforeSelector (when provided) MUST also be from the catalog AND be a DIRECT child of parentSelector. If you can't be sure it's a direct child, omit it (null) — appending at the end is safer than guessing.
-- Reordering nav / menu / list items — do NOT use a position move on the inner link or text. These items are almost always wrapped (\`<li><a href="…">…</a></li>\`), and the catalog lists the INNER element (e.g. \`[href="#deals"]\`), which is NOT a direct child of the list container — moving it, or naming it as insertBeforeSelector, rips the link out of its \`<li>\` and breaks the nav (this is a common failure). Instead, reorder with a CSS \`order\` rule in the global \`css\` field: the \`css\` field is NOT restricted to catalog selectors, so you can target the wrapper with \`:has()\`, and \`order\` works on flex/grid containers (navs usually are one) without restructuring the DOM. Example — put "Flight Deals" before "Destinations":
-    css: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
+- Reordering nav / menu / list items — do NOT use a position move on the inner link or text. These items are almost always wrapped (\`<li><a href="…">…</a></li>\`), and the catalog lists the INNER element (e.g. \`[href="#deals"]\`), which is NOT a direct child of the list container — moving it, or naming it as insertBeforeSelector, rips the link out of its \`<li>\` and breaks the nav (this is a common failure). Instead, reorder with a CSS \`order\` rule in \`cssAppend\`: global CSS is NOT restricted to catalog selectors, so you can target the wrapper with \`:has()\`, and \`order\` works on flex/grid containers (navs usually are one) without restructuring the DOM. Example — put "Flight Deals" before "Destinations":
+    cssAppend: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
 - Real position moves are well-suited to relocating a block-level element into a different container (e.g. moving a <section> to before another <section> under <main>) and to reordering siblings that are themselves direct children of the parent. They're a poor fit for reordering items wrapped in <li>/<div> (nav menus, lists) — prefer the CSS \`order\` approach above for those.
 - The source selector and parentSelector must NOT match the same element — that's a no-op or, worse, a self-cycle.
 - For every move you propose, set value to null. Do not put position data in value.
@@ -341,13 +375,13 @@ SELECTOR GROUNDING — this is critical:
 - You MUST pick selectors verbatim from this catalog or from the user's picked elementContext. Do NOT invent selectors like ".cta", ".hero-cta", "h1.headline" unless you can see them in the catalog.
 - PICKED ELEMENTS WIN — when the user has selected element(s) (the elementContext block, shown below as "selected the following elements … as context"), they are the DEFAULT target: apply the request to the picked element(s) or on an element inside of the context if it makes sense- unless the user's message explicitly names a different one. This takes PRECEDENCE over the keyword/semantic heuristics below. Example: the user picked an \`<div>\` that contains an \`<h2>\` and says "rewrite the heading to be funnier" → edit THAT \`<h2>\`, NOT the page's \`<h1>\`. If the user selects directly a \`<p>\` that contains text, and says to "make it shorter", it should apply directly to that text of the container. Using "this" or other pronouns in the prompt when the context or picked element is passed, refer to that picked element. Only fall back to the keyword/catalog rules when nothing relevant inside the context found or is picked.
 - EXCEPTION — selectors the USER names explicitly: when the user's own message contains a concrete class, id, or attribute selector (e.g. "elements with the \`section_bg-gradient-2\` class", "the \`#pricing\` section", "everything matching \`[data-card]\`"), treat it as ground truth and use it verbatim — even if it is NOT in the catalog. The catalog is a NON-EXHAUSTIVE sample: it only lists structural nodes (html/body/header/main/footer…) plus headings, buttons, links, inputs, and images. A class on a \`<section>\`, \`<div>\`, \`<li>\`, etc. will routinely be absent from it. Never refuse or ask for clarification just because a user-supplied class/id isn't in the catalog. The grounding rule above exists to stop you HALLUCINATING selectors from vague descriptions — not to override a selector the user handed you directly.
-- Apply any "style every element matching this class / id / attribute" request through GLOBAL CSS (the \`css\` field), not DOM mutations. A CSS rule targets any selector regardless of catalog membership, and styling a whole class of elements is exactly what global CSS is for.
+- Apply any "style every element matching this class / id / attribute" request through GLOBAL CSS (\`cssAppend\`), not DOM mutations. A CSS rule targets any selector regardless of catalog membership, and styling a whole class of elements is exactly what global CSS is for.
 - When the user's request matches a semantic concept (e.g. "the hero CTA", "the signup button"), find the closest match by text content or position in the catalog and use that exact selector.
 - "Title" / "the title" / "page title" / "headline" / "heading" → when the user has NOT picked a relevant element (a picked element always wins — see "PICKED ELEMENTS WIN" above), interpret this as the visible main heading on the page — pick the first \`h1\` from the catalog (or the most prominent heading if no h1 is present). NEVER target the \`<title>\` element in \`<head>\`, \`document.title\`, or set the HTML "title" attribute (tooltip) for these requests. Users running an A/B test want to test what readers see on the page, not the browser tab text. The same applies to "subtitle" / "subheading" → the visible \`h2\` (or first heading below the h1), not anything in \`<head>\`.
 - For "the page", "the background", "the whole site", "globally", and similar broad requests, prefer "body" or "html" from the Page structure section. These are always valid targets — never refuse a global styling request because the more-specific catalogs only list components.
 - "html" and "body" are ALWAYS valid selectors even if the Page structure section is missing (e.g. older content scripts). Treat them as if they were in the catalog.
 - If the target is a section or container that isn't in the catalog (e.g. "the Trusted-by section", a named wrapper), call the \`findElements\` tool (when available) to look it up by text or class BEFORE giving up — sections are deliberately absent from the catalog. Only if findElements also finds nothing, the user named no explicit selector, AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess invented selectors.
-- Prefer PARTIAL completion over wholesale refusal. When a request has several targets and only some are grounded, fulfill the parts you can — the global/body portion, and any user-named class via global CSS — and note any genuinely unverifiable target in the explanation. Do not refuse the entire request because one target couldn't be confirmed.
+- Prefer PARTIAL completion over wholesale refusal. When a request has several targets and only some are grounded, fulfill the parts you can — the global/body portion, and any user-named class via global CSS — and list any genuinely unverifiable target in \`skipped\`. Do not refuse the entire request because one target couldn't be confirmed.
 
 Other rules:
 - Prefer the smallest, most targeted mutation.
@@ -421,22 +455,21 @@ Iterating on existing mutations:
 - This dedupe only applies when the (selector, attribute, action) triple matches exactly. If the user asks for a genuinely additive change (e.g. existing mutation sets the color; user now wants to also change the font-size), emit a separate mutation for the new property — those won't collide.
 
 Iterating on existing global CSS / JS (different rule from mutations — read carefully):
-- The \`css\` and \`js\` fields you return REPLACE the variation's prior global CSS / JS entirely on the back-end. There is NO merge or dedupe (unlike mutations).
-- The "Current variation global CSS" / "Current variation global JS" blocks above are the AUTHORITATIVE record of what is currently applied. ALWAYS build your returned CSS/JS from those blocks — never from earlier in the conversation. A rule you proposed in a previous turn is only actually applied if it appears in the Current block; if it doesn't (e.g. the user rejected or undid it), it is NOT applied, so do NOT re-add it. When the Current block says "(none)", return only your new rules.
-- When your change ADDS, MODIFIES, or REMOVES a rule in global CSS/JS, return the COMPLETE intended new global CSS/JS — existing rules verbatim, plus/minus/edited rules:
-  • ADD a new rule → echo the existing CSS, then append your new rule.
-  • MODIFY an existing rule (change a color, swap a value, retarget a selector) → echo the existing CSS with that rule edited in place.
-  • REMOVE a rule → echo the existing CSS with that rule omitted.
-- Make a best-effort judgment about which intent the user means based on the prior CSS. Examples (assume existing CSS is \`body { background: red; }\`):
-  • "Make the background blue instead" → MODIFY: return \`body { background: blue; }\`.
-  • "Also make buttons pink" → ADD: return \`body { background: red; }\\n\\nbutton { color: pink; }\`.
-  • "Take out the background" → REMOVE: return \`\` (empty string is fine when you intend to wipe the CSS) or the rest of the CSS without that rule.
-- Only set \`css\` (or \`js\`) to null when the user's request doesn't involve global CSS (or JS) at all and existing CSS/JS should stay untouched. Returning null when CSS exists is SAFE (no change). Returning a partial fragment when CSS exists is UNSAFE (clobbers it).
+- Two ways to change global CSS. \`cssAppend\` ADDS rules: they are appended after the current stylesheet, which is kept as-is. \`css\` REPLACES the whole stylesheet: return the complete intended CSS — existing rules verbatim, with your edits. Prefer \`cssAppend\` whenever the result is correct, including changing a value (a later rule with the same selector wins). Use \`css\` only when a rule must be REMOVED, or an appended override would not take effect. Adding a rule through \`css\` forces you to re-emit everything and risks dropping rules — never do that.
+- \`js\` REPLACES the variation's prior global JS entirely — return the complete intended JS (existing code verbatim plus/minus your change). There is NO merge for js.
+- The "Current variation global CSS" / "Current variation global JS" blocks above are the AUTHORITATIVE record of what is currently applied. Build \`css\`/\`js\` from those blocks — never from earlier in the conversation. A rule you proposed in a previous turn is only applied if it appears in the Current block; if it doesn't (e.g. the user rejected or undid it), do NOT re-add it.
+- Examples (assume existing CSS is \`body { background: red; }\`):
+  • "Also make buttons pink" → cssAppend: \`button { color: pink; }\`, css: null.
+  • "Make the background blue instead" → cssAppend: \`body { background: blue; }\`, css: null (the later rule wins).
+  • "Take out the background" → css: the rest of the stylesheet without that rule, cssAppend: null. If nothing would remain, leave css null and put it in \`skipped\` — clearing all CSS needs the manual editor.
+- Set \`cssAppend\`, \`css\`, and \`js\` to null when the request doesn't touch them. Null is always SAFE (no change). A partial fragment in \`css\` when CSS exists is UNSAFE (it clobbers the rest).
 
 Bias toward action when grounded:
 - If the catalog contains plausible targets and the request describes a visible change, ALWAYS attempt at least one mutation, with the rationale in the explanation.
 - If the request is ambiguous (e.g. "make it pop"), pick the most likely concrete change against a catalog element and call out that choice in the explanation.
-- The ONLY cases where you may return an empty mutations array are: (a) the request is unrelated to visual changes (e.g. "how do A/B tests work?"), (b) the request is unsafe, or (c) no catalog element plausibly matches the requested target. In those cases explain in detail what would be needed to proceed.`;
+- Multi-part requests ("swap the images, move the pricing section up, and fix the padding") are the norm. Do every part you can in this one response. Never return mutations: [] because ONE part is blocked — complete the others and list the blocked part in \`skipped\`.
+- \`explanation\` covers what you DID. \`skipped\` covers what you did NOT do: one entry per undone part, with a one-line reason and what would unblock it (e.g. "click the section so I can capture its selector"). The user sees \`skipped\` rendered below your explanation, so don't repeat it there. Null when everything was done.
+- The ONLY cases where you may return an empty mutations array are: (a) the request is unrelated to visual changes (e.g. "how do A/B tests work?"), (b) the request is unsafe, or (c) NO part of the request has a plausible target. In those cases explain in detail what would be needed to proceed.`;
 
 // Bulleted text rather than JSON — fewer tokens, easier for LLMs to scan.
 // Selectors wrapped in backticks so the model treats them as opaque strings.
@@ -586,7 +619,7 @@ const buildPrompt = ({
   // `a{color:red}` on the next turn). The model is instructed to build its
   // returned CSS/JS from THIS block, not from the chat history.
   const existingCssBlock = existingCss
-    ? `\nCurrent variation global CSS (authoritative — build on this, not the conversation):\n\`\`\`css\n${existingCss}\n\`\`\`\n`
+    ? `\nCurrent variation global CSS (authoritative — kept as-is unless you return \`css\`; add rules with \`cssAppend\`):\n\`\`\`css\n${existingCss}\n\`\`\`\n`
     : `\nCurrent variation global CSS: (none — this variation has no global CSS applied. Do not re-add CSS from earlier in the conversation; it may have been rejected.)\n`;
   const existingJsBlock = existingJs
     ? `\nCurrent variation global JS (authoritative — build on this, not the conversation):\n\`\`\`js\n${existingJs}\n\`\`\`\n`
@@ -714,7 +747,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   }
 
   if (locale && !locale.toLowerCase().startsWith("en")) {
-    effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` field in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation prose is localized.`;
+    effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` and \`skipped\` fields in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation and skipped prose is localized.`;
   }
 
   // Single-shot retry without tools — fired by finalize() if the LLM
@@ -742,6 +775,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       overrideModel: visualEditorAIModel,
       cacheSystemPrompt: true,
       maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
+      extendedMaxOutputTokens: EDIT_EXTENDED_MAX_OUTPUT_TOKENS,
       // This is itself a retry (selector self-correction), so disable
       // parsePrompt's no-object retry — otherwise one request could fan
       // out to 4 LLM calls. finalizeOutput's try/catch already keeps the
@@ -794,7 +828,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
           .map((s) => `\`${s}\``)
           .join(
             ", ",
-          )}. For position moves, the parent and insert-before targets count too — they must be in the catalog. Resolve this ONE of two ways: (1) if the user NAMED one of these selectors explicitly in their request (a class/id/attribute), it's valid — don't drop it, move that change into the global \`css\` field instead (a CSS rule can target selectors the catalog doesn't list); (2) otherwise pick a matching selector verbatim from the catalog. Only return mutations = [] if neither applies and no catalog entry plausibly matches — and even then, still complete any global/body or user-named-class portion via \`css\`.`;
+          )}. For position moves, the parent and insert-before targets count too — they must be in the catalog. Resolve this ONE of two ways: (1) if the user NAMED one of these selectors explicitly in their request (a class/id/attribute), it's valid — don't drop it, move that change into \`cssAppend\` instead (a CSS rule can target selectors the catalog doesn't list); (2) otherwise pick a matching selector verbatim from the catalog. Only return mutations = [] if neither applies and no catalog entry plausibly matches — and even then, still complete any global/body or user-named-class portion via \`cssAppend\`.`;
         try {
           result = await runRetry(retryHint);
         } catch (e) {
@@ -902,6 +936,13 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       explanation +=
         " (Skipped an unsafe change that would have replaced the entire page. To add content to the page, ask me to insert a banner or section instead.)";
     }
+    explanation = appendSkipped(explanation, result.skipped);
+
+    const css = mergeGlobalCss({
+      existing: currentChange?.css,
+      replace: result.css,
+      append: result.cssAppend,
+    });
 
     return {
       mutations: sanitizedMutations.map((m) => {
@@ -930,22 +971,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
             : {}),
         };
       }),
-      // Drop css/js that's byte-identical to what's already saved. The model
-      // is told to return null when it isn't touching global CSS/JS, but
-      // stronger models (e.g. Sonnet) often re-emit the full UNCHANGED
-      // stylesheet instead — which would surface as a phantom "global CSS
-      // change" on every follow-up turn. Treat identical = no change.
-      //
-      // The leading truthiness check ALSO drops a falsy result (""/null), so
-      // CLEARING global CSS/JS via the AI is intentionally not supported: the
-      // schema instructs the model never to return an empty string when CSS
-      // exists (it would wipe the variation), and we'd rather no-op than risk
-      // an accidental wipe. To delete all global CSS/JS, use the manual
-      // CSS/JS editor. If deliberate AI clearing is ever wanted, gate it on an
-      // explicit signal (e.g. an `intent: "clear"` field) rather than ""/null.
-      ...(result.css && result.css !== currentChange?.css
-        ? { css: result.css }
-        : {}),
+      // Merged server-side (see mergeGlobalCss); undefined means no change,
+      // which also covers the model re-emitting the unchanged stylesheet.
+      // `finalJs` keeps the same truthiness guard: clearing JS via the AI is
+      // unsupported, so ""/null is a no-op rather than a wipe.
+      ...(css !== undefined ? { css } : {}),
       ...(finalJs ? { js: finalJs } : {}),
       ...(insertDescriptors.length > 0 ? { insert: insertDescriptors } : {}),
       explanation,
@@ -1004,6 +1034,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     maxSteps: VISUAL_EDITOR_MAX_STEPS,
     cacheSystemPrompt: true,
     maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
+    extendedMaxOutputTokens: EDIT_EXTENDED_MAX_OUTPUT_TOKENS,
     // Diagnostic context for structured-output failure logs: which changeset
     // and which selectors (e.g. hashed classes) correlate with failures.
     logContext: {

@@ -31,6 +31,7 @@ import {
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
+  resolveMaxOutputTokens,
   supportsTemperature,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
@@ -689,6 +690,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   onStepFinish,
   retryOnNoObject = true,
   maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS,
+  extendedMaxOutputTokens,
   logContext,
 }: {
   context: ReqContext | ApiReqContext;
@@ -716,6 +718,10 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // valid response"). 8000 stays under every current provider's ceiling;
   // callers that emit large artifacts (Figma → Variant) can raise it.
   maxOutputTokens?: number;
+  // Higher cap used only on models with a documented ceiling (clamped to
+  // it); models without one keep `maxOutputTokens`, since over-asking is a
+  // 400.
+  extendedMaxOutputTokens?: number;
   // Extra fields merged into the NoObjectGeneratedError diagnostic logs so
   // callers can attach request-specific context (e.g. the visual editor's
   // picked-element selectors) for correlating which inputs trip the
@@ -779,15 +785,25 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? temperature
     : undefined;
 
+  const effectiveMaxOutputTokens = resolveMaxOutputTokens(
+    model,
+    maxOutputTokens,
+    extendedMaxOutputTokens,
+  );
+
   // Per-attempt step telemetry. Without it a no-output failure is
   // indistinguishable from a model that answered in prose on step one —
-  // only the first is helped by a bigger maxSteps.
+  // only the first is helped by a bigger maxSteps. The last step's
+  // finishReason is what separates "ran out of steps" ("tool-calls") from
+  // "truncated" ("length") when no output was produced.
   let stepsUsed = 0;
   let toolsCalled: string[] = [];
+  let lastFinishReason: string | undefined;
 
   const generateOnce = async () => {
     stepsUsed = 0;
     toolsCalled = [];
+    lastFinishReason = undefined;
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
@@ -795,7 +811,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       output: Output.object({
         schema: zodObjectSchema,
       }),
-      maxOutputTokens: getMaxOutputTokens(model, maxOutputTokens),
+      maxOutputTokens: effectiveMaxOutputTokens,
       ...(effectiveTemperature != null
         ? { temperature: effectiveTemperature }
         : {}),
@@ -817,6 +833,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         : {}),
       onStepFinish: (step) => {
         stepsUsed++;
+        lastFinishReason = step.finishReason;
         for (const call of step.toolCalls ?? [])
           toolsCalled.push(call.toolName);
         onStepFinish?.(step);
@@ -856,9 +873,10 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     NoOutputGeneratedError.isInstance(e);
 
   // Pull whatever diagnostics the error carries so prod logs show WHY it
-  // failed. Only NoObjectGeneratedError has finishReason ("length" =
-  // truncated mid-JSON vs "stop" = invalid/prose) and the raw text sample;
-  // NoOutputGeneratedError carries just a cause, so guard those reads.
+  // failed. NoObjectGeneratedError carries its own finishReason and text
+  // sample. NoOutputGeneratedError carries only a cause — the SDK skips
+  // output parsing whenever the last step didn't finish on "stop", so its
+  // finishReason comes from the last step instead.
   const noOutputDiag = (e: NoObjectGeneratedError | NoOutputGeneratedError) => {
     const objErr = NoObjectGeneratedError.isInstance(e) ? e : undefined;
     return {
@@ -871,7 +889,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       maxSteps,
       toolsCalled,
       errorType: objErr ? "no-object" : "no-output",
-      finishReason: objErr?.finishReason,
+      finishReason: objErr?.finishReason ?? lastFinishReason,
       cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
       textSample: (objErr?.text ?? "").slice(0, 2000),
     };
@@ -914,8 +932,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       await recordFailedAttempts();
       throw err;
     }
+    const firstDiag = noOutputDiag(err);
     logger.warn(
-      { type, model, ...noOutputDiag(err) },
+      { type, model, ...firstDiag },
       "parsePrompt: model returned no usable output; retrying once",
     );
     try {
@@ -926,22 +945,19 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         throw retryErr;
       }
       retriedTokens += failureTokens(retryErr);
+      const retryDiag = noOutputDiag(retryErr);
       logger.warn(
-        { type, model, ...noOutputDiag(retryErr) },
+        { type, model, ...retryDiag },
         "parsePrompt: model returned no usable output after retry; giving up",
       );
       await recordFailedAttempts();
-      // If either attempt stopped on the output-token ceiling, the JSON was
-      // cut off mid-stream — a generic "try again" won't help an inherently
-      // too-large response, so point the user at narrowing the request.
+      // "length" on either attempt: the JSON was cut off at the output-token
+      // ceiling, so a generic "try again" won't help — narrow the request.
       const truncated =
-        (NoObjectGeneratedError.isInstance(err) &&
-          err.finishReason === "length") ||
-        (NoObjectGeneratedError.isInstance(retryErr) &&
-          retryErr.finishReason === "length");
-      // No output at all (burned its steps on tools, or answered in prose) —
-      // rephrasing won't help, narrowing the request will.
-      const ranOutOfSteps = NoOutputGeneratedError.isInstance(retryErr);
+        firstDiag.finishReason === "length" ||
+        retryDiag.finishReason === "length";
+      // Ended on a tool call: spent the step budget gathering context.
+      const ranOutOfSteps = retryDiag.finishReason === "tool-calls";
       throw new Error(
         truncated
           ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
