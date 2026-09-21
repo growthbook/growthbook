@@ -23,6 +23,7 @@ import {
   postSlackMessage,
   postSlackEphemeralMessage,
   updateSlackMessage,
+  SlackRateLimitError,
 } from "back-end/src/services/slack/slackWebApi";
 import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
 import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
@@ -66,7 +67,7 @@ function postSlackAccountLink({
  * GrowthBook user and posting the reply back in-thread. Designed to be called
  * after the Events endpoint has already ACKed Slack (it can take many seconds).
  *
- * Never throws — every failure path posts a user-facing message instead.
+ * Delivery rate-limit exhaustion propagates so the queue records a failure.
  */
 export async function handleSlackAssistantMention(
   mention: SlackAssistantMention,
@@ -260,6 +261,7 @@ export async function handleSlackAssistantMention(
     }
     await finish(result.reply || "I couldn't find an answer to that.");
   } catch (e) {
+    if (e instanceof SlackRateLimitError) throw e;
     logger.error(e, "Slack assistant turn failed");
     await finish("Something went wrong answering that — please try again.");
   }
@@ -522,6 +524,7 @@ export async function handleSlackAssistantConfirmation({
       threadTs,
     });
   } catch (e) {
+    if (e instanceof SlackRateLimitError) throw e;
     logger.error(e, "Slack assistant confirmation failed");
     await postSlackMessage({
       token,

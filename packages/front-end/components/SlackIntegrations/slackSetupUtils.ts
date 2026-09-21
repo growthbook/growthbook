@@ -16,7 +16,12 @@ export function buildSlackAppManifest({
   apiUrl = apiUrl.replace(/\/+$/, "");
   return `display_information:
   name: GrowthBook
-  description: GrowthBook experiment and feature-flag assistant
+  description: GrowthBook AI assistant and notifications
+  background_color: "#08043b"
+  long_description: >-
+    Connect GrowthBook to Slack to receive experiment and Feature Flag
+    notifications and chat with the GrowthBook AI assistant. Ask about running
+    experiments, active Feature Flags, and other GrowthBook resources.
 features:
   app_home:
     messages_tab_enabled: true
@@ -26,7 +31,10 @@ features:
   bot_user:
     display_name: GrowthBook
     always_online: true
+  unfurl_domains:
+    - ${JSON.stringify(new URL(appUrl).hostname)}
 oauth_config:
+  pkce_enabled: false
   redirect_urls:
     - ${JSON.stringify(`${appUrl}/integrations/slack`)}
   scopes:

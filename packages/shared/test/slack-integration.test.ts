@@ -2,7 +2,7 @@ import { missingSlackBotScopes } from "../src/slack-integration";
 
 describe("missingSlackBotScopes", () => {
   const allScopes =
-    "chat:write,files:write,channels:read,groups:read,channels:join,assistant:write,im:history,app_mentions:read";
+    "chat:write,files:write,channels:read,groups:read,channels:join,assistant:write,im:history,app_mentions:read,links:read,links:write";
 
   it.each([undefined, ""])(
     "requires every scope when granted is %p",
@@ -11,12 +11,26 @@ describe("missingSlackBotScopes", () => {
     },
   );
 
-  it("identifies missing assistant scopes on an older installation", () => {
+  it("identifies missing assistant and unfurl scopes on an older installation", () => {
     expect(
       missingSlackBotScopes(
         "chat:write,files:write,channels:read,groups:read,channels:join",
       ),
-    ).toEqual(["assistant:write", "im:history", "app_mentions:read"]);
+    ).toEqual([
+      "assistant:write",
+      "im:history",
+      "app_mentions:read",
+      "links:read",
+      "links:write",
+    ]);
+  });
+
+  it("requires reconnecting assistant installations missing unfurl permissions", () => {
+    expect(
+      missingSlackBotScopes(
+        "chat:write,files:write,channels:read,groups:read,channels:join,assistant:write,im:history,app_mentions:read",
+      ),
+    ).toEqual(["links:read", "links:write"]);
   });
 
   it("accepts all required scopes and additional grants", () => {

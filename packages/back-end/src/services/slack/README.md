@@ -12,7 +12,7 @@ For an existing Slack app, configure:
 
 - Events Request URL: `https://YOUR_API_HOST/integrations/slack/events`
 - Interactivity Request URL: `https://YOUR_API_HOST/integrations/slack/interactions`
-- Bot events: `app_mention`, `message.im`, and `app_home_opened`.
+- Bot events: `app_mention`, `message.im`, `app_home_opened`, and `link_shared`.
   General channel history is not requested; outside DMs, users should explicitly
   mention the bot for follow-up questions.
 
@@ -22,20 +22,29 @@ lookup or job creation, even if an older app configuration still delivers them.
 DM messages are accepted with or without a mention. Bot messages and message
 subtypes such as edits are ignored.
 
-The bot scopes support these existing capabilities:
+The bot scopes cover notifications, the assistant, and permissions for link unfurling:
 
-| Scope                          | Use                                                                |
-| ------------------------------ | ------------------------------------------------------------------ |
-| `chat:write`                   | Assistant replies, private account-link prompts, and notifications |
-| `files:write`                  | Notification chart images                                          |
-| `channels:read`, `groups:read` | Public/private notification channel selection and validation       |
-| `channels:join`                | Joining a public channel selected for notifications                |
-| `assistant:write`              | Suggested prompts in the app's Messages tab                        |
-| `im:history`                   | Messages sent directly to the bot                                  |
-| `app_mentions:read`            | Explicit channel mentions                                          |
+| Scope                          | Use                                                                 |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `chat:write`                   | Assistant replies, private account-link prompts, and notifications  |
+| `files:write`                  | Notification chart images                                           |
+| `channels:read`, `groups:read` | Public/private notification channel selection and validation        |
+| `channels:join`                | Joining a public channel selected for notifications                 |
+| `assistant:write`              | Suggested prompts in the app's Messages tab                         |
+| `im:history`                   | Messages sent directly to the bot                                   |
+| `app_mentions:read`            | Explicit channel mentions                                           |
+| `links:read`, `links:write`    | Permissions for receiving matching links and posting custom unfurls |
 
-Do not add `channels:history`, `groups:history`, `message.channels`, or
-`message.groups` for this version. `app_home_opened` only updates DM onboarding
+The manifest registers the `APP_ORIGIN` hostname as its unfurl domain. Slack filters
+`link_shared` events to matching URLs and sends link metadata, not message text.
+No channel-history scopes or general message subscriptions are needed. The current
+backend acknowledges these events without generating previews; the manifest
+prepares the permissions and subscription for a future unfurl handler. See Slack's
+[link unfurling guide](https://docs.slack.dev/messaging/unfurling-links-in-messages/).
+Changing unfurl domains requires reinstalling the app.
+
+Do not add `channels:history`, `groups:history`, `mpim:history`, `message.channels`,
+`message.groups`, or `message.mpim` for this version. `app_home_opened` only updates DM onboarding
 prompts; it does not start an assistant conversation.
 
 Use `features.agent_view` with `agent_description`. Remove the legacy
@@ -122,6 +131,12 @@ and they never overwrite a pin the thread already has. A pin stops expiring once
 someone converses in the thread.
 
 ## Queue recovery
+
+Slack Web API calls retry HTTP 429 responses up to three times, with at most
+60 seconds of cumulative waiting per call. Retries honor `Retry-After` without
+shortening Slack's cooldown; missing or invalid values use exponential backoff
+starting at one second. Exhausted reply delivery retries fail the assistant job
+instead of silently succeeding or replaying the AI turn or a mutation.
 
 Slack event and interaction requests are acknowledged only after Agenda accepts
 the job. A unique delivery index and insert-only upsert retain completed delivery

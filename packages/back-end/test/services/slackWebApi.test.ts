@@ -5,6 +5,8 @@ import {
   listSlackConversations,
   postSlackMessageResult,
   postSlackImageMessage,
+  updateSlackMessage,
+  SlackRateLimitError,
 } from "back-end/src/services/slack/slackWebApi";
 import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 
@@ -16,6 +18,15 @@ jest.mock("back-end/src/util/http.util", () => ({
 const slackResponse = (body: Record<string, unknown>) => ({
   responseWithoutBody: { ok: true, status: 200 },
   stringBody: JSON.stringify(body),
+});
+
+const rateLimitedResponse = (retryAfter: string | null) => ({
+  responseWithoutBody: {
+    ok: false,
+    status: 429,
+    headers: { get: () => retryAfter },
+  },
+  stringBody: JSON.stringify({ ok: false, error: "ratelimited" }),
 });
 
 const uploadUrlResponse = (fileId: string) =>
@@ -339,5 +350,164 @@ describe("Slack conversation details", () => {
     await expect(
       getSlackConversation({ token: "xoxb-token", channelId: "C1" }),
     ).resolves.toBeNull();
+  });
+});
+
+describe("Slack rate limits", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    cancellableFetch.mockReset();
+  });
+
+  afterEach(() => {
+    cancellableFetch.mockReset();
+    jest.useRealTimers();
+  });
+
+  it("waits for Retry-After before retrying the same message", async () => {
+    cancellableFetch
+      .mockResolvedValueOnce(rateLimitedResponse("2"))
+      .mockResolvedValueOnce(slackResponse({ ok: true, ts: "123.456" }));
+
+    const result = postSlackMessageResult({
+      token: "xoxb-token",
+      channel: "C123",
+      text: "Answer",
+    });
+    await jest.advanceTimersByTimeAsync(1999);
+    expect(cancellableFetch).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(cancellableFetch).toHaveBeenCalledTimes(2);
+    expect(cancellableFetch.mock.calls[1]).toEqual(
+      cancellableFetch.mock.calls[0],
+    );
+    await expect(result).resolves.toEqual({
+      ok: true,
+      ts: "123.456",
+      error: null,
+    });
+  });
+
+  it("retries message updates without posting another message", async () => {
+    cancellableFetch
+      .mockResolvedValueOnce(rateLimitedResponse("1"))
+      .mockResolvedValueOnce(slackResponse({ ok: true }));
+    const result = updateSlackMessage({
+      token: "xoxb-token",
+      channel: "C123",
+      ts: "123.456",
+      text: "Answer",
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(result).resolves.toBe(true);
+    expect(cancellableFetch).toHaveBeenCalledTimes(2);
+    expect(cancellableFetch.mock.calls[1]).toEqual(
+      cancellableFetch.mock.calls[0],
+    );
+    expect(cancellableFetch.mock.calls[1][0]).toBe(
+      "https://slack.com/api/chat.update",
+    );
+  });
+
+  it("also honors Retry-After on GET requests", async () => {
+    cancellableFetch
+      .mockResolvedValueOnce(rateLimitedResponse("2"))
+      .mockResolvedValueOnce(slackResponse({ ok: true, channels: [] }));
+    const result = listSlackConversations({ token: "xoxb-token" });
+    await jest.advanceTimersByTimeAsync(1999);
+    expect(cancellableFetch).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1);
+    await expect(result).resolves.toEqual({ channels: [], nextCursor: null });
+    expect(cancellableFetch).toHaveBeenCalledTimes(2);
+    expect(cancellableFetch.mock.calls[1]).toEqual(
+      cancellableFetch.mock.calls[0],
+    );
+  });
+
+  it("fails explicitly after three rate-limit retries", async () => {
+    cancellableFetch.mockResolvedValue(rateLimitedResponse("1"));
+    const result = expect(
+      postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
+    ).rejects.toThrow(SlackRateLimitError);
+    await jest.runAllTimersAsync();
+    await result;
+    expect(cancellableFetch).toHaveBeenCalledTimes(4);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("caps total waiting without shortening the next cooldown", async () => {
+    cancellableFetch.mockResolvedValue(rateLimitedResponse("40"));
+    const startedAt = Date.now();
+    const result = expect(
+      postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
+    ).rejects.toThrow(SlackRateLimitError);
+    await jest.runAllTimersAsync();
+    await result;
+    expect(cancellableFetch).toHaveBeenCalledTimes(2);
+    expect(Date.now() - startedAt).toBe(40_000);
+  });
+
+  it("does not retry early when Retry-After exceeds the wait budget", async () => {
+    cancellableFetch.mockResolvedValue(rateLimitedResponse("61"));
+    await expect(
+      postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
+    ).rejects.toThrow(SlackRateLimitError);
+    expect(cancellableFetch).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("allows a successful retry at the total wait limit", async () => {
+    cancellableFetch
+      .mockResolvedValueOnce(rateLimitedResponse("30"))
+      .mockResolvedValueOnce(rateLimitedResponse("30"))
+      .mockResolvedValueOnce(slackResponse({ ok: true, ts: "123.456" }));
+    const result = postSlackMessageResult({
+      token: "token",
+      channel: "C1",
+      text: "Answer",
+    });
+    await jest.advanceTimersByTimeAsync(60_000);
+    await expect(result).resolves.toMatchObject({ ok: true, ts: "123.456" });
+    expect(cancellableFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([null, "", "invalid", "-2", "Infinity", "0"])(
+    "backs off when Retry-After is missing or unusable: %p",
+    async (retryAfter) => {
+      cancellableFetch
+        .mockResolvedValueOnce(rateLimitedResponse(retryAfter))
+        .mockResolvedValueOnce(slackResponse({ ok: true, ts: "123.456" }));
+      const result = postSlackMessageResult({
+        token: "token",
+        channel: "C1",
+        text: "Answer",
+      });
+      await jest.advanceTimersByTimeAsync(999);
+      expect(cancellableFetch).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(result).resolves.toMatchObject({ ok: true });
+      expect(cancellableFetch).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("does not replay a POST with an uncertain network outcome", async () => {
+    cancellableFetch.mockRejectedValueOnce(new Error("Connection lost"));
+    await expect(
+      postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
+    ).resolves.toMatchObject({ ok: false });
+    expect(cancellableFetch).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("does not retry other HTTP errors", async () => {
+    cancellableFetch.mockResolvedValue({
+      responseWithoutBody: { ok: false, status: 500 },
+      stringBody: "Internal error",
+    });
+    await expect(
+      postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
+    ).resolves.toMatchObject({ ok: false });
+    expect(cancellableFetch).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
   });
 });

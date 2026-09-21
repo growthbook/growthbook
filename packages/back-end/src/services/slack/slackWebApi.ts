@@ -34,6 +34,15 @@ type SlackBlock = Record<string, unknown>;
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 
 const SLACK_FETCH_OPTS = { maxTimeMs: 15000, maxContentSize: 1024 * 256 };
+const SLACK_MAX_RATE_LIMIT_RETRIES = 3;
+const SLACK_MAX_RATE_LIMIT_WAIT_MS = 60_000;
+
+export class SlackRateLimitError extends Error {
+  constructor(method: string) {
+    super(`Slack API ${method} rate limit retry budget exhausted`);
+    this.name = "SlackRateLimitError";
+  }
+}
 
 function parseSlackResponse<T extends SlackApiResponse>(
   method: string,
@@ -56,58 +65,81 @@ function parseSlackResponse<T extends SlackApiResponse>(
   return parsed;
 }
 
-async function slackApiCall<T extends SlackApiResponse>(
-  token: string,
+async function slackApiRequest<T extends SlackApiResponse>(
   method: string,
-  body: Record<string, unknown>,
+  url: string,
+  options: FetchInit,
 ): Promise<T | null> {
   try {
-    const { stringBody, responseWithoutBody } = await cancellableFetch(
-      `${SLACK_API_URL}/${method}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json; charset=utf-8",
-        },
-        body: JSON.stringify(body),
-      },
-      SLACK_FETCH_OPTS,
-    );
-    return parseSlackResponse<T>(
-      method,
-      stringBody,
-      responseWithoutBody.ok,
-      responseWithoutBody.status,
-    );
+    let waitedMs = 0;
+    for (let retry = 0; ; retry++) {
+      const { stringBody, responseWithoutBody } = await cancellableFetch(
+        url,
+        options,
+        SLACK_FETCH_OPTS,
+      );
+      if (responseWithoutBody.status !== 429) {
+        return parseSlackResponse<T>(
+          method,
+          stringBody,
+          responseWithoutBody.ok,
+          responseWithoutBody.status,
+        );
+      }
+
+      const retryAfterSeconds = Number(
+        responseWithoutBody.headers.get("retry-after"),
+      );
+      const delayMs =
+        Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+          ? Math.ceil(retryAfterSeconds * 1000)
+          : 1000 * 2 ** retry;
+      // Never shorten Slack's cooldown to fit our worker's wait budget.
+      if (
+        retry >= SLACK_MAX_RATE_LIMIT_RETRIES ||
+        waitedMs + delayMs > SLACK_MAX_RATE_LIMIT_WAIT_MS
+      ) {
+        throw new SlackRateLimitError(method);
+      }
+      logger.warn(
+        { method, retry: retry + 1, delayMs },
+        "Slack API rate limited; retrying after cooldown",
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      waitedMs += delayMs;
+    }
   } catch (e) {
     logger.error(e, `Slack API ${method} request threw`);
+    if (e instanceof SlackRateLimitError) throw e;
     return null;
   }
 }
 
-async function slackApiGet<T extends SlackApiResponse>(
+function slackApiCall<T extends SlackApiResponse>(
+  token: string,
+  method: string,
+  body: Record<string, unknown>,
+): Promise<T | null> {
+  return slackApiRequest<T>(method, `${SLACK_API_URL}/${method}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json; charset=utf-8",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function slackApiGet<T extends SlackApiResponse>(
   token: string,
   method: string,
   params: Record<string, string>,
 ): Promise<T | null> {
-  try {
-    const qs = new URLSearchParams(params).toString();
-    const { stringBody, responseWithoutBody } = await cancellableFetch(
-      `${SLACK_API_URL}/${method}?${qs}`,
-      { method: "GET", headers: { Authorization: `Bearer ${token}` } },
-      SLACK_FETCH_OPTS,
-    );
-    return parseSlackResponse<T>(
-      method,
-      stringBody,
-      responseWithoutBody.ok,
-      responseWithoutBody.status,
-    );
-  } catch (e) {
-    logger.error(e, `Slack API ${method} request threw`);
-    return null;
-  }
+  const qs = new URLSearchParams(params).toString();
+  return slackApiRequest<T>(method, `${SLACK_API_URL}/${method}?${qs}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export async function setSlackSuggestedPrompts({

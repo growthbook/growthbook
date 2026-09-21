@@ -4,6 +4,7 @@ import {
   updateSlackMessage,
   postSlackMessage,
   postSlackEphemeralMessage,
+  SlackRateLimitError,
 } from "back-end/src/services/slack/slackWebApi";
 import {
   handleSlackAssistantConfirmation,
@@ -33,6 +34,9 @@ jest.mock("back-end/src/services/slack/slackTaskSafety", () => ({
   isCurrentSlackApproval: jest.fn().mockReturnValue(true),
 }));
 jest.mock("back-end/src/services/slack/slackWebApi", () => ({
+  SlackRateLimitError: jest.requireActual(
+    "back-end/src/services/slack/slackWebApi",
+  ).SlackRateLimitError,
   postSlackMessage: jest.fn(),
   postSlackEphemeralMessage: jest.fn(),
   updateSlackMessage: jest.fn(),
@@ -405,5 +409,53 @@ it("replaces the thinking placeholder with the answer", async () => {
   expect(updateSlackMessage).toHaveBeenCalledWith(
     expect.objectContaining({ ts: "999.111", text: "Answer" }),
   );
+  expect(postSlackMessage).toHaveBeenCalledTimes(1);
+});
+
+it("propagates exhausted reply retries without rerunning the agent or retrying a fallback", async () => {
+  const error = new SlackRateLimitError("chat.update");
+  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  jest.mocked(updateSlackMessage).mockRejectedValueOnce(error);
+  jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+    ok: true,
+    conversationId,
+    reply: "Answer",
+    pendingAction: null,
+  });
+  await expect(
+    handleSlackAssistantMention({
+      teamId: "T1",
+      channelId: "C1",
+      slackUserId: "U1",
+      text: "Question",
+      messageTs: "123.456",
+    }),
+  ).rejects.toBe(error);
+  expect(runAgentTurnToCompletion).toHaveBeenCalledTimes(1);
+  expect(updateSlackMessage).toHaveBeenCalledTimes(1);
+  expect(postSlackMessage).toHaveBeenCalledTimes(1);
+});
+
+it("propagates exhausted confirmation delivery retries without rerunning the turn", async () => {
+  const error = new SlackRateLimitError("chat.postMessage");
+  jest.mocked(postSlackMessage).mockRejectedValueOnce(error);
+  jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+    ok: true,
+    conversationId,
+    reply: "Done",
+    pendingAction: null,
+  });
+  await expect(
+    handleSlackAssistantConfirmation({
+      teamId: "T1",
+      channelId: "C1",
+      slackUserId: "U1",
+      conversationId,
+      actionId: "first",
+      decision: "confirm",
+      threadTs: "123.456",
+    }),
+  ).rejects.toBe(error);
+  expect(runAgentTurnToCompletion).toHaveBeenCalledTimes(1);
   expect(postSlackMessage).toHaveBeenCalledTimes(1);
 });

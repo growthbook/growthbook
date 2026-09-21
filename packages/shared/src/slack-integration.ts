@@ -7,6 +7,8 @@ export const SLACK_BOT_SCOPES = [
   "assistant:write",
   "im:history",
   "app_mentions:read",
+  "links:read",
+  "links:write",
 ] as const;
 
 export type SlackBotScope = (typeof SLACK_BOT_SCOPES)[number];
@@ -15,6 +17,7 @@ export const SLACK_BOT_EVENTS = [
   "app_mention",
   "message.im",
   "app_home_opened",
+  "link_shared",
 ] as const;
 
 export function missingSlackBotScopes(
