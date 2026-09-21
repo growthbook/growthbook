@@ -94,6 +94,46 @@ export function pendingToolCalls(
   return calls.filter((c) => !answered.has(c.toolCallId));
 }
 
+export interface GeneratedImageRef {
+  url: string;
+  width: number;
+  height: number;
+}
+
+// Images generateImage produced earlier in this logical turn. Each resume
+// runs in a fresh process with a fresh per-turn image counter, so the paid
+// budget has to be re-seeded from the signed transcript or every round would
+// start it from zero.
+export function generatedImagesIn(
+  transcript: ModelMessage[],
+): GeneratedImageRef[] {
+  const images: GeneratedImageRef[] = [];
+  for (const m of transcript) {
+    if (m.role !== "tool") continue;
+    for (const part of m.content) {
+      if (part.type !== "tool-result" || part.toolName !== "generateImage") {
+        continue;
+      }
+      const out = part.output;
+      const value: unknown = out.type === "json" ? out.value : undefined;
+      if (
+        value &&
+        typeof value === "object" &&
+        (value as { ok?: unknown }).ok === true &&
+        typeof (value as { url?: unknown }).url === "string"
+      ) {
+        const v = value as { url: string; width?: unknown; height?: unknown };
+        images.push({
+          url: v.url,
+          width: typeof v.width === "number" ? v.width : 0,
+          height: typeof v.height === "number" ? v.height : 0,
+        });
+      }
+    }
+  }
+  return images;
+}
+
 // Every pending call answered exactly once and nothing else, or the loop
 // would stop again immediately with the same calls outstanding.
 export function toolResultsMessage(

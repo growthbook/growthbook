@@ -1,5 +1,6 @@
 import type { ModelMessage } from "ai";
 import {
+  generatedImagesIn,
   pendingToolCalls,
   signEnvelope,
   toolResultsMessage,
@@ -156,5 +157,46 @@ describe("toolResultsMessage", () => {
     ).toMatchObject({
       output: { type: "json", value: null },
     });
+  });
+});
+
+describe("generatedImagesIn", () => {
+  const imageResult = (id: string, value: unknown): ModelMessage => ({
+    role: "tool",
+    content: [
+      {
+        type: "tool-result",
+        toolCallId: id,
+        toolName: "generateImage",
+        output: { type: "json", value },
+      },
+    ],
+  });
+
+  it("collects the successful generateImage results, ignoring other tools and failures", () => {
+    const images = generatedImagesIn([
+      ...transcript,
+      imageResult("g1", {
+        ok: true,
+        url: "https://img/1.png",
+        width: 800,
+        height: 600,
+      }),
+      imageResult("g2", { ok: false, error: "budget exhausted" }),
+      imageResult("g3", {
+        ok: true,
+        url: "https://img/3.png",
+        width: 1,
+        height: 1,
+      }),
+    ]);
+    expect(images).toEqual([
+      { url: "https://img/1.png", width: 800, height: 600 },
+      { url: "https://img/3.png", width: 1, height: 1 },
+    ]);
+  });
+
+  it("is empty for a transcript with no images", () => {
+    expect(generatedImagesIn(transcript)).toEqual([]);
   });
 });

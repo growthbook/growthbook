@@ -16,6 +16,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD, JWT_SECRET } from "back-end/src/util/secrets";
 import {
+  generatedImagesIn,
   pendingToolCalls,
   signEnvelope,
   toolResultsMessage,
@@ -1344,6 +1345,12 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       if (!answered.ok) return context.throwBadRequestError(answered.error);
       priorMessages = [...transcript, answered.message];
       stepsAlreadyUsed = resume.envelope.stepsUsed;
+      // The per-turn image budget and the images already made live in the
+      // transcript, not in this process — carry them over so a resume can't
+      // buy three more.
+      const priorImages = generatedImagesIn(transcript);
+      imageState.count = priorImages.length;
+      imageState.generated.push(...priorImages);
     }
     try {
       const raw = await parsePrompt({
