@@ -66,7 +66,7 @@ export interface Props {
   onBlur?: (markdown: string) => void;
   placeholder?: string;
   size?: Size<"sm" | "md">;
-  /** Resting height of the editable area, and its minimum when `autoGrow` is set. */
+  /** Resting height of the whole control, and its minimum when `autoGrow` is set. */
   height?: RichTextHeight;
   /** Grow past `height` with the content, up to `maxHeight`, instead of scrolling. */
   autoGrow?: boolean;
@@ -85,14 +85,15 @@ export interface Props {
 }
 
 /**
- * Editable-area heights, on the shared size names. One ladder serves both the
- * resting height and the cap, so a field cannot be given a mismatched pair.
+ * Heights of the whole control, toolbar included, on the shared size names.
+ * One ladder serves both the resting height and the cap, so a field cannot be
+ * given a mismatched pair.
  */
 export const RICH_TEXT_HEIGHTS = {
-  sm: 120,
-  md: 160,
-  lg: 240,
-  xl: 400,
+  sm: 110,
+  md: 150,
+  lg: 220,
+  xl: 360,
 } as const;
 
 export type RichTextHeight = keyof typeof RICH_TEXT_HEIGHTS;
@@ -417,6 +418,14 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           readOnly && styles.readOnly,
           className,
         )}
+        style={{
+          height: autoGrow ? undefined : RICH_TEXT_HEIGHTS[height],
+          minHeight: autoGrow ? RICH_TEXT_HEIGHTS[height] : undefined,
+          maxHeight:
+            autoGrow && maxHeight !== "none"
+              ? RICH_TEXT_HEIGHTS[maxHeight]
+              : undefined,
+        }}
         onBlur={handleBlur}
       >
         {allowImages ? <input {...getInputProps()} /> : null}
@@ -430,14 +439,6 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
             <ContentEditable
               id={id}
               className={styles.editable}
-              style={{
-                height: autoGrow ? undefined : RICH_TEXT_HEIGHTS[height],
-                minHeight: autoGrow ? RICH_TEXT_HEIGHTS[height] : undefined,
-                maxHeight:
-                  autoGrow && maxHeight !== "none"
-                    ? RICH_TEXT_HEIGHTS[maxHeight]
-                    : undefined,
-              }}
               aria-placeholder={placeholder ?? ""}
               placeholder={
                 placeholder ? (

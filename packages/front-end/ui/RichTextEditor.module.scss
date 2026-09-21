@@ -3,6 +3,10 @@
 
 .wrapper {
   position: relative;
+  // A column, so the text area takes whatever height the toolbar leaves and
+  // the caller's height describes the control they can see.
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--gray-a6);
   border-radius: var(--radius-3);
   background-color: var(--color-panel-solid);
@@ -29,6 +33,8 @@
 .editable {
   outline: none;
   cursor: text;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   color: var(--gray-12);
   font-family: var(--default-font-family);
