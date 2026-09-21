@@ -13,6 +13,7 @@ import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldout
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionField";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
+import { useGuardedEdit } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import Tooltip from "@/ui/Tooltip";
 
 export interface Props {
@@ -34,6 +35,12 @@ export default function ExperimentDetailsPanel({
   disableEditing,
 }: Props) {
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
+  // Opening another editing surface while the page holds unsaved edits asks for
+  // a decision first. Closing is never guarded.
+  const openEditInfo = useGuardedEdit((value: boolean) =>
+    setShowEditInfoModal(value),
+  );
+  const guardedEditTags = useGuardedEdit(editTags);
   const [focusSelector, setFocusSelector] = useState<FocusSelector>("name");
   const isHoldout = experiment.type === "holdout";
   const { canEdit, editInline } = useExperimentEditing(
@@ -62,7 +69,7 @@ export default function ExperimentDetailsPanel({
       ) : null}
       <Tabs defaultValue="details">
         <Flex px="5" pt="2" align="center" gap="2">
-          <TabsList style={{ flex: 1, minWidth: 0 }}>
+          <TabsList size="sm" style={{ flex: 1, minWidth: 0 }}>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="comments">Comments</TabsTrigger>
           </TabsList>
@@ -81,7 +88,7 @@ export default function ExperimentDetailsPanel({
                 }}
                 onClick={() => {
                   setFocusSelector("name");
-                  setShowEditInfoModal(true);
+                  openEditInfo(true);
                 }}
               >
                 <PiPencilSimple size={16} />
@@ -95,9 +102,9 @@ export default function ExperimentDetailsPanel({
               vertical
               experiment={experiment}
               holdout={holdout}
-              setShowEditInfoModal={setShowEditInfoModal}
+              setShowEditInfoModal={openEditInfo}
               setEditInfoFocusSelector={setFocusSelector}
-              editTags={editTags}
+              editTags={guardedEditTags}
               isManaged={isManaged}
             />
             {!isHoldout && (
