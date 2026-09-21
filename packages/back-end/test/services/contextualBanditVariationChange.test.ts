@@ -1001,6 +1001,92 @@ describe("executeContextualBanditVariationChange", () => {
     expect(added?.key).toBe("myLabel");
   });
 
+  it("renames an existing arm's key on a draft bandit", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([]);
+    const cb = makeCb({ status: "draft" });
+    const { context } = makeContext(cb);
+
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      { updateVariations: [{ id: "v1", key: "treatment" }] },
+    );
+
+    expect(updated.variations.find((x) => x.id === "v1")?.key).toBe(
+      "treatment",
+    );
+  });
+
+  it("rejects renaming an existing arm's key once the bandit is running", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([]);
+    const cb = makeCb({ status: "running" });
+    const { context, applyWeightEpochUpdateMock } = makeContext(cb);
+
+    await expect(
+      executeContextualBanditVariationChange(context, cb, {
+        updateVariations: [{ id: "v1", key: "treatment" }],
+      }),
+    ).rejects.toThrow(/only be changed while the contextual bandit is a draft/);
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("re-sending the current key on a running bandit is a no-op, not a rejection", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([]);
+    const cb = makeCb({ status: "running" });
+    const { context } = makeContext(cb);
+
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      { updateVariations: [{ id: "v1", key: "1", name: "Renamed" }] },
+    );
+
+    const arm = updated.variations.find((x) => x.id === "v1");
+    expect(arm?.key).toBe("1");
+    expect(arm?.name).toBe("Renamed");
+  });
+
+  it("rejects a key rename that collides with another arm, including tombstones", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([]);
+    const cb = makeCb({
+      status: "draft",
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "deactivated" as const },
+      ],
+    });
+    const { context } = makeContext(cb);
+
+    await expect(
+      executeContextualBanditVariationChange(context, cb, {
+        updateVariations: [{ id: "v1", key: "0" }],
+      }),
+    ).rejects.toThrow(/duplicate variation keys: 0/);
+    await expect(
+      executeContextualBanditVariationChange(context, cb, {
+        updateVariations: [{ id: "v1", key: "2" }],
+      }),
+    ).rejects.toThrow(/duplicate variation keys: 2/);
+  });
+
+  it("counter key for a new arm skips a key introduced by a rename in the same call", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([]);
+    const cb = makeCb({ status: "draft" });
+    const { context } = makeContext(cb);
+
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      {
+        updateVariations: [{ id: "v1", key: "2" }],
+        addVariations: [v("var_new", "")],
+      },
+    );
+
+    expect(updated.variations.find((x) => x.id === "var_new")?.key).toBe("3");
+  });
+
   it("bundles the rule edit into the pending draft that carries the bandit's rule", async () => {
     const feature = makeFeature({ rules: [] } as Partial<FeatureInterface>);
     const draftRules = [cbRefRule()];
