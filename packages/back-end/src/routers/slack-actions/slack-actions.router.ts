@@ -11,6 +11,7 @@ import {
   queueSlackAppHomeOpened,
 } from "back-end/src/jobs/slackAssistantJobs";
 import { slackAppHomeOpenedEventSchema } from "back-end/src/services/slack/slackAppHome";
+import { getSlackAssistantEvent } from "back-end/src/services/slack/slackAssistantEvents";
 
 const interactionPayloadSchema = z.object({
   team: z.object({ id: z.string().min(1) }),
@@ -125,25 +126,10 @@ const interactions = async (req: SlackRequest, res: Response) => {
   return res.status(200).send("");
 };
 
-// Events API — app_mention drives the interactive assistant.
-type SlackEventPayload = {
-  type?: string;
-  challenge?: string;
-  team_id?: string;
-  event_id?: string;
-  authorizations?: { user_id?: string }[];
-  event?: {
-    type?: string;
-    subtype?: string;
-    bot_id?: string;
-    user?: string;
-    text?: string;
-    channel?: string;
-    channel_type?: string;
-    ts?: string;
-    thread_ts?: string;
-  };
-};
+const urlVerificationSchema = z.object({
+  type: z.literal("url_verification"),
+  challenge: z.string().min(1),
+});
 
 const events = async (req: SlackRequest, res: Response): Promise<void> => {
   if (!verifySlackSignature(req)) {
@@ -151,79 +137,24 @@ const events = async (req: SlackRequest, res: Response): Promise<void> => {
     return;
   }
 
-  const payload = req.body as unknown as SlackEventPayload;
-
   // URL verification handshake performed when the Request URL is saved.
-  if (payload.type === "url_verification") {
-    res.status(200).json({ challenge: payload.challenge });
+  const verification = urlVerificationSchema.safeParse(req.body);
+  if (verification.success) {
+    res.status(200).json({ challenge: verification.data.challenge });
     return;
   }
 
   try {
-    await (async () => {
-      if (payload.type !== "event_callback") return;
-      const event = payload.event;
-      if (!event) return;
-
-      // Skip bot/system messages (incl. our own replies) and edits/joins to
-      // avoid loops.
-      if (event.bot_id || event.subtype) return;
-
-      const botUserId = payload.authorizations?.[0]?.user_id;
-
-      // Direct @mention — always handled (starts or continues a thread).
-      if (event.type === "app_mention") {
-        if (!event.user || !event.channel || !event.ts || !event.text) return;
-        await queueSlackAssistantMention(
-          {
-            teamId: payload.team_id || "",
-            channelId: event.channel,
-            slackUserId: event.user,
-            text: event.text,
-            messageTs: event.ts,
-            threadTs: event.thread_ts,
-            botUserId,
-          },
-          payload.event_id,
-        );
-        return;
-      }
-
-      // Thread-follow: a plain message inside a thread. The handler only replies
-      // if this user already has an assistant conversation in the thread, so the
-      // bot doesn't jump into arbitrary channel chatter.
-      if (event.type === "message") {
-        // In DMs Slack can deliver a top-level message without a thread. Treat
-        // that as a direct assistant turn; public-channel chatter still needs an
-        // existing assistant thread before we respond.
-        const isDirectMessage = event.channel_type === "im";
-        if (!event.thread_ts && !isDirectMessage) return;
-        if (!event.user || !event.channel || !event.ts || !event.text) return;
-        if (botUserId && event.user === botUserId) return; // our own message
-        // An @mention is handled by the app_mention event; don't double-process.
-        if (botUserId && event.text.includes(`<@${botUserId}>`)) return;
-        await queueSlackAssistantMention(
-          {
-            teamId: payload.team_id || "",
-            channelId: event.channel,
-            slackUserId: event.user,
-            text: event.text,
-            messageTs: event.ts,
-            threadTs: event.thread_ts,
-            botUserId,
-            requireActiveThread: !isDirectMessage,
-          },
-          payload.event_id,
-        );
-        return;
-      }
-
-      if (event.type === "app_home_opened") {
-        const parsed = slackAppHomeOpenedEventSchema.safeParse(req.body);
-        if (parsed.success) await queueSlackAppHomeOpened(parsed.data);
-        return;
-      }
-    })();
+    const assistantEvent = getSlackAssistantEvent(req.body);
+    if (assistantEvent) {
+      await queueSlackAssistantMention(
+        assistantEvent.mention,
+        assistantEvent.eventId,
+      );
+    } else {
+      const appHome = slackAppHomeOpenedEventSchema.safeParse(req.body);
+      if (appHome.success) await queueSlackAppHomeOpened(appHome.data);
+    }
     res.status(200).send("");
   } catch (error) {
     logger.error(error, "Failed to durably enqueue Slack event");

@@ -16,6 +16,28 @@ For an existing Slack app, configure:
   General channel history is not requested; outside DMs, users should explicitly
   mention the bot for follow-up questions.
 
+Channel messages are accepted only as `app_mention` events, including mentions
+inside existing threads. Other channel messages are discarded before any database
+lookup or job creation, even if an older app configuration still delivers them.
+DM messages are accepted with or without a mention. Bot messages and message
+subtypes such as edits are ignored.
+
+The bot scopes support these existing capabilities:
+
+| Scope                          | Use                                                                |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `chat:write`                   | Assistant replies, private account-link prompts, and notifications |
+| `files:write`                  | Notification chart images                                          |
+| `channels:read`, `groups:read` | Public/private notification channel selection and validation       |
+| `channels:join`                | Joining a public channel selected for notifications                |
+| `assistant:write`              | Suggested prompts in the app's Messages tab                        |
+| `im:history`                   | Messages sent directly to the bot                                  |
+| `app_mentions:read`            | Explicit channel mentions                                          |
+
+Do not add `channels:history`, `groups:history`, `message.channels`, or
+`message.groups` for this version. `app_home_opened` only updates DM onboarding
+prompts; it does not start an assistant conversation.
+
 Use `features.agent_view` with `agent_description`. Remove the legacy
 `assistant_thread_started` subscription when updating an existing app. Slack's
 [Agent messaging migration guide](https://docs.slack.dev/ai/migrating-to-agent-messaging/)
