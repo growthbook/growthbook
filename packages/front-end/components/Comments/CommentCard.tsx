@@ -116,7 +116,9 @@ export default function CommentCard({
               </Text>
               {metadataExtra}
             </Flex>
-            {actions}
+            {/* Cancels the content inset, so the action sits in the card's
+                own corner rather than 4px inside it. */}
+            {actions ? <Box mr="-1">{actions}</Box> : null}
           </Flex>
           {body && <Box pt="1">{body}</Box>}
         </Box>

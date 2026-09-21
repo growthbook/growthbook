@@ -113,8 +113,11 @@ const DiscussionThread: FC<{
                                 variant="ghost"
                                 color="gray"
                                 radius="full"
-                                size="2"
+                                size="1"
                                 highContrast
+                                // Ghost buttons carry a negative margin, which
+                                // pulls this one out of the card's corner.
+                                style={{ margin: 0 }}
                               >
                                 <BsThreeDotsVertical size={14} />
                               </IconButton>
