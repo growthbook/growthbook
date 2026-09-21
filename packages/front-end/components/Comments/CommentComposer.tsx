@@ -65,6 +65,7 @@ export default function CommentComposer({
         value={value}
         onChange={setValue}
         placeholder={placeholder}
+        size="sm"
         height="sm"
         autoFocus={autofocus}
         autoFocusAtEnd={autofocusAtEnd}
