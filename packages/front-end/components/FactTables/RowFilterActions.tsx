@@ -12,12 +12,14 @@ export function RowFilterActions({
   children,
   onViewSampleRows,
   canViewSampleRows,
+  showSqlFilter = true,
 }: {
   onAdd: (filter: RowFilter) => void;
   disabled?: boolean;
   children?: ReactNode;
   onViewSampleRows?: () => void;
   canViewSampleRows?: boolean;
+  showSqlFilter?: boolean;
 }) {
   return (
     <Flex align="center" justify="between" gap="2" wrap="wrap">
@@ -31,15 +33,17 @@ export function RowFilterActions({
         >
           Add filter
         </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={disabled}
-          icon={<PiPlus size={14} />}
-          onClick={() => onAdd(emptySqlRowFilter())}
-        >
-          Add SQL filter
-        </Button>
+        {showSqlFilter && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={disabled}
+            icon={<PiPlus size={14} />}
+            onClick={() => onAdd(emptySqlRowFilter())}
+          >
+            Add SQL filter
+          </Button>
+        )}
       </Flex>
       <Flex align="center" gap="2" wrap="wrap">
         {onViewSampleRows && (

@@ -1,3 +1,4 @@
+import { eventWebHookPayloadTypes } from "shared/validators";
 import type { NotificationSettings } from "shared/validators";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 import { slackEventHandler } from "back-end/src/events/handlers/slack/slackEventHandler";
@@ -91,18 +92,18 @@ jest.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
 
 const getSlackWorkspaceConnectionByTeamId = jest.fn();
 
-const runAgendaJob = async () => {
-  const job = {
-    attrs: {
-      data: {
-        eventId: "event-1",
-        eventWebHookId: "webhook-1",
-        retryCount: 0,
-      },
+const createJob = () => ({
+  attrs: {
+    data: {
+      eventId: "event-1",
+      eventWebHookId: "webhook-1",
+      retryCount: 0,
     },
-    save: jest.fn(),
-  };
+  },
+  save: jest.fn(),
+});
 
+const runAgendaJob = async (job = createJob()) => {
   await (
     EventWebHookNotifier as unknown as {
       handleAgendaJob: (job: typeof job) => Promise<void>;
@@ -176,6 +177,73 @@ describe("Slack EventWebHook delivery compatibility", () => {
       stringBody: "ok",
     });
   });
+
+  it.each(eventWebHookPayloadTypes)(
+    "suppresses bookkeeping updates for %s subscriptions when enabled",
+    async (payloadType) => {
+      setWebhook({ url: "https://relay.example.com/growthbook" });
+      const webhook = await getEventWebHookById("webhook-1", "org-1");
+      jest.mocked(getEventWebHookById).mockResolvedValue({
+        ...webhook,
+        payloadType,
+        excludeBookkeepingUpdates: true,
+      });
+      jest.mocked(getEvent).mockResolvedValue({
+        id: "event-1",
+        organizationId: "org-1",
+        event: "experiment.updated",
+        version: 1,
+        data: {
+          event: "experiment.updated",
+          data: {
+            object: { id: "exp-1", dateUpdated: "today" },
+            previous_attributes: { dateUpdated: "yesterday" },
+            changes: { added: {}, removed: {}, modified: [] },
+          },
+        },
+      });
+
+      const job = await runAgendaJob();
+
+      expect(cancellableFetch).not.toHaveBeenCalled();
+      expect(postSlackMessageResult).not.toHaveBeenCalled();
+      expect(renderNotificationCard).not.toHaveBeenCalled();
+      expect(updateEventWebHookStatus).not.toHaveBeenCalled();
+      expect(createEventWebHookLog).not.toHaveBeenCalled();
+      expect(job.save).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([{}, { excludeBookkeepingUpdates: false }])(
+    "delivers bookkeeping updates without an enabled suppression policy: %j",
+    async (policy) => {
+      setWebhook({ url: "https://relay.example.com/growthbook-slack" });
+      const webhook = await getEventWebHookById("webhook-1", "org-1");
+      jest.mocked(getEventWebHookById).mockResolvedValue({
+        ...webhook,
+        ...policy,
+      });
+      jest.mocked(getEvent).mockResolvedValue({
+        id: "event-1",
+        organizationId: "org-1",
+        event: "experiment.updated",
+        version: 1,
+        data: {
+          event: "experiment.updated",
+          data: {
+            object: { id: "exp-1", dateUpdated: "today" },
+            previous_attributes: { dateUpdated: "yesterday" },
+            changes: { added: {}, removed: {}, modified: [] },
+          },
+        },
+      });
+
+      await runAgendaJob();
+
+      expect(cancellableFetch).toHaveBeenCalledTimes(1);
+      expect(updateEventWebHookStatus).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("preserves legacy incoming-webhook delivery", async () => {
     const url = "https://hooks.slack.com/services/T000/B000/legacy";
@@ -380,7 +448,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
     setWebhook({
       url: SLACK_WORKSPACE_PLACEHOLDER_URL,
       slack: { channelId: "C123", teamId: "T123" },
-      notificationSettings: { type: "image", cardFormat: "detailed" },
+      notificationSettings: { type: "image", cardFormat: "light" },
     });
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
       teamId: "T123",
@@ -391,23 +459,33 @@ describe("Slack EventWebHook delivery compatibility", () => {
       altText: "Checkout test - Experiment stopped",
       objectUrl: "http://app/experiment/exp-1",
       objectName: "Checkout test",
-      eventLabel: "Experiment stopped",
+      ownerEmail: "owner@example.com",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue("F123");
     jest.mocked(getSlackMessageForNotificationEvent).mockReturnValue(null);
 
     await runAgendaJob();
 
-    expect(renderNotificationCard).toHaveBeenCalledWith({}, "detailed");
+    expect(renderNotificationCard).toHaveBeenCalledWith(
+      {},
+      "light",
+      expect.any(Object),
+    );
     expect(getSlackMessageForNotificationEvent).not.toHaveBeenCalled();
+    // The file is shared on upload; its message is the small context footer,
+    // with the plain caption as the fallback if Slack rejects the blocks.
+    const footer =
+      "<http://app/experiment/exp-1|Checkout test> | Owner: owner@example.com";
     expect(uploadSlackImageFile).toHaveBeenCalledWith({
       token: "xoxb-token",
       png: Buffer.from("png"),
       filename: "notification-card.png",
       title: "Checkout test - Experiment stopped",
       channelId: "C123",
-      initialComment:
-        "<http://app/experiment/exp-1|Checkout test> - Experiment stopped",
+      blocks: [
+        { type: "context", elements: [{ type: "mrkdwn", text: footer }] },
+      ],
+      initialComment: footer,
     });
     expect(postSlackMessageResult).not.toHaveBeenCalled();
     expect(updateEventWebHookStatus).toHaveBeenCalledWith(
@@ -417,9 +495,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
     );
     expect(createEventWebHookLog).toHaveBeenCalledWith(
       expect.objectContaining({
-        payload: {
-          text: "<http://app/experiment/exp-1|Checkout test> - Experiment stopped",
-        },
+        payload: expect.objectContaining({ text: footer }),
       }),
     );
   });
@@ -438,7 +514,6 @@ describe("Slack EventWebHook delivery compatibility", () => {
       altText: "Checkout test - Health issue",
       objectUrl: "http://app/experiment/exp-1",
       objectName: "Checkout test",
-      eventLabel: "Health issue",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue(null);
     jest.mocked(postSlackMessageResult).mockResolvedValue({
@@ -476,7 +551,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       altText: "Checkout <v2> & test - Health issue",
       objectUrl: "http://app/experiment/exp-1",
       objectName: "Checkout <v2> & test",
-      eventLabel: "Health issue <!channel>",
+      ownerEmail: "owner <!channel>@example.com",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue("F123");
 
@@ -486,7 +561,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       expect.objectContaining({
         title: "Checkout <v2> & test - Health issue",
         initialComment:
-          "<http://app/experiment/exp-1|Checkout &lt;v2&gt; &amp; test> - Health issue &lt;!channel&gt;",
+          "<http://app/experiment/exp-1|Checkout &lt;v2&gt; &amp; test> | Owner: owner &lt;!channel&gt;@example.com",
       }),
     );
     expect(postSlackMessageResult).not.toHaveBeenCalled();
