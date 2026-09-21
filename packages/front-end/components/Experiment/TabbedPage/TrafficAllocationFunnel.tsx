@@ -132,11 +132,11 @@ function FunnelCard({
  */
 function SplitFan({ count }: { count: number }) {
   const arrows = Math.max(1, count);
-  const width = Math.max(30, (arrows - 1) * 14);
+  const width = Math.max(44, (arrows - 1) * 20);
   const height = 20;
-  const head = 4;
+  const head = 2.5;
   const stemX = width / 2;
-  const endY = height - head;
+  const endY = height - 1;
   const ends = Array.from({ length: arrows }, (_, i) =>
     arrows === 1 ? stemX : ((i + 0.5) * width) / arrows,
   );
@@ -157,21 +157,15 @@ function SplitFan({ count }: { count: number }) {
         d={ends
           .map(
             (x) =>
-              `M ${stemX} 0 C ${stemX} ${endY * 0.6}, ${x} ${endY * 0.4}, ${x} ${endY}`,
+              `M ${stemX} 0 C ${stemX} ${endY * 0.6}, ${x} ${endY * 0.4}, ${x} ${endY}` +
+              ` M ${x - head} ${endY - head} L ${x} ${endY} L ${x + head} ${endY - head}`,
           )
           .join(" ")}
         fill="none"
         stroke="currentColor"
         strokeWidth="1"
-      />
-      <path
-        d={ends
-          .map(
-            (x) =>
-              `M ${x - 3} ${endY} L ${x + 3} ${endY} L ${x} ${endY + head} Z`,
-          )
-          .join(" ")}
-        fill="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -619,7 +613,6 @@ export default function TrafficAllocationFunnel({
                   <Text size="sm" color="text-low">
                     Split
                   </Text>
-                  <Box className={styles.connectorLine} height="4px" />
                   <SplitFan count={numVariations} />
                 </Flex>
                 {/* Coverage is already shown above, so this bar is purely the
