@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiCodeBold,
@@ -97,6 +97,8 @@ export default function RichTextEditorToolbar({
   });
 
   const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
+  const hovered = useRef<HTMLElement | null>(null);
+  const hoverTimer = useRef<number | undefined>(undefined);
   const { fromSelection, fromElement } = useLinkTarget();
 
   const readSelection = useCallback(() => {
@@ -177,19 +179,64 @@ export default function RichTextEditorToolbar({
     );
   };
 
-  // Clicking a link opens the same editor the toolbar button does, rather than
-  // following it out of the page.
+  // Hovering a link shows its address; clicking follows it. Editing is one
+  // step further in, from the card.
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      const anchor = (e.target as HTMLElement | null)?.closest?.("a");
-      if (!anchor) return;
-      e.preventDefault();
-      setLinkTarget(fromElement(anchor as HTMLElement));
+    const anchorUnder = (node: EventTarget | null) => {
+      const anchor = (node as HTMLElement | null)?.closest?.("a");
+      const root = editor.getRootElement();
+      return anchor && root?.contains(anchor) ? (anchor as HTMLElement) : null;
     };
-    return editor.registerRootListener((root, prevRoot) => {
+
+    const onClick = (e: MouseEvent) => {
+      const anchor = anchorUnder(e.target);
+      const href = anchor?.getAttribute("href");
+      if (!href) return;
+      e.preventDefault();
+      window.open(href, "_blank", "noopener,noreferrer");
+    };
+
+    const onOver = (e: MouseEvent) => {
+      const anchor = anchorUnder(e.target);
+      if (anchor) {
+        window.clearTimeout(hoverTimer.current);
+        if (hovered.current === anchor) return;
+        hovered.current = anchor;
+        setLinkTarget((current) =>
+          current?.mode === "edit"
+            ? current
+            : (fromElement(anchor, "preview") ?? current),
+        );
+        return;
+      }
+      // The card is portalled, so match its Radix wrapper as well as our own
+      // marker: the padding around the content belongs to the wrapper.
+      if (
+        (e.target as HTMLElement | null)?.closest?.(
+          "[data-link-card], [data-radix-popper-content-wrapper]",
+        )
+      ) {
+        window.clearTimeout(hoverTimer.current);
+        return;
+      }
+      hovered.current = null;
+      window.clearTimeout(hoverTimer.current);
+      hoverTimer.current = window.setTimeout(
+        () => setLinkTarget((c) => (c?.mode === "preview" ? null : c)),
+        600,
+      );
+    };
+
+    document.addEventListener("mouseover", onOver);
+    const unregister = editor.registerRootListener((root, prevRoot) => {
       prevRoot?.removeEventListener("click", onClick);
       root?.addEventListener("click", onClick);
     });
+    return () => {
+      document.removeEventListener("mouseover", onOver);
+      window.clearTimeout(hoverTimer.current);
+      unregister();
+    };
   }, [editor, fromElement]);
 
   const button = (
@@ -281,6 +328,7 @@ export default function RichTextEditorToolbar({
       {linkTarget ? (
         <RichTextEditorLinkEditor
           target={linkTarget}
+          onEdit={() => setLinkTarget({ ...linkTarget, mode: "edit" })}
           onClose={() => setLinkTarget(null)}
         />
       ) : null}

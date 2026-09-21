@@ -1,30 +1,40 @@
-import { useEffect, useRef, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { useRef, useState } from "react";
+import { Flex, Separator } from "@radix-ui/themes";
+import { PiGlobeSimpleBold, PiTrashBold } from "react-icons/pi";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $createLinkNode, $isLinkNode, LinkNode } from "@lexical/link";
+import { $isLinkNode, $toggleLink, LinkNode } from "@lexical/link";
 import { $findMatchingParent } from "@lexical/utils";
 import {
   $createTextNode,
   $getNearestNodeFromDOMNode,
   $getSelection,
   $isRangeSelection,
+  $setSelection,
+  type RangeSelection,
 } from "lexical";
 import Button from "@/ui/Button";
+import { Popover } from "@/ui/Popover";
 import TextField from "@/ui/TextField";
+import Text from "@/ui/Text";
 import styles from "./RichTextEditor.module.scss";
 
 export interface LinkTarget {
   /** Where to float the card. Viewport coordinates. */
   rect: DOMRect;
-  text: string;
+  title: string;
   url: string;
-  /** The link being edited, if the caret was already inside one. */
+  /** The link being edited, if there already is one. */
   node: LinkNode | null;
+  /** What was selected when the card opened. Focus moves to the fields, so the
+   *  live selection is no longer the one the link should replace. */
+  selection: RangeSelection | null;
+  /** Hovering shows the address; editing shows the fields. */
+  mode: "preview" | "edit";
 }
 
 /**
- * Reads whatever link the selection is in, so the toolbar button and a click
- * on a link open the same editor with the same content.
+ * Reads whatever link a selection or an element sits in, so the toolbar
+ * button, a hover and a click all open the same card with the same content.
  */
 export function useLinkTarget() {
   const [editor] = useLexicalComposerContext();
@@ -41,9 +51,11 @@ export function useLinkTarget() {
       const link = $findMatchingParent(selection.anchor.getNode(), $isLinkNode);
       target = {
         rect,
+        mode: "edit",
+        selection: selection.clone(),
         node: $isLinkNode(link) ? link : null,
         url: $isLinkNode(link) ? link.getURL() : "",
-        text: $isLinkNode(link)
+        title: $isLinkNode(link)
           ? link.getTextContent()
           : selection.getTextContent(),
       };
@@ -51,7 +63,10 @@ export function useLinkTarget() {
     return target;
   };
 
-  const fromElement = (element: HTMLElement): LinkTarget | null => {
+  const fromElement = (
+    element: HTMLElement,
+    mode: LinkTarget["mode"],
+  ): LinkTarget | null => {
     let target: LinkTarget | null = null;
     editor.read(() => {
       const node = $getNearestNodeFromDOMNode(element);
@@ -59,9 +74,11 @@ export function useLinkTarget() {
       if (!$isLinkNode(link)) return;
       target = {
         rect: element.getBoundingClientRect(),
+        mode,
+        selection: null,
         node: link,
         url: link.getURL(),
-        text: link.getTextContent(),
+        title: link.getTextContent(),
       };
     });
     return target;
@@ -70,108 +87,168 @@ export function useLinkTarget() {
   return { fromSelection, fromElement };
 }
 
-/** A floating card for adding or editing a link's text and URL. */
+/**
+ * A card floating under a link: its address on hover, its address and title
+ * when editing. Edits land as you leave, so there is nothing to confirm.
+ */
 export default function RichTextEditorLinkEditor({
   target,
+  onEdit,
   onClose,
 }: {
   target: LinkTarget;
+  onEdit: () => void;
   onClose: () => void;
 }) {
   const [editor] = useLexicalComposerContext();
-  const [text, setText] = useState(target.text);
+  const [title, setTitle] = useState(target.title);
   const [url, setUrl] = useState(target.url);
-  const card = useRef<HTMLDivElement>(null);
+  const editing = target.mode === "edit";
 
-  // Dismiss on an outside click or Escape, the way a popover would.
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (!card.current?.contains(e.target as Node)) onClose();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
-
-  const apply = () => {
+  // Apply through a ref so dismissing always commits the latest values,
+  // whatever re-rendered in between.
+  const commit = useRef(() => undefined as void);
+  commit.current = () => {
     const nextUrl = url.trim();
-    if (!nextUrl) return;
-    const nextText = text.trim() || nextUrl;
+    if (!nextUrl || (nextUrl === target.url && title.trim() === target.title)) {
+      return;
+    }
+    const nextTitle = title.trim() || nextUrl;
 
     editor.update(() => {
       if (target.node) {
         target.node.setURL(nextUrl);
-        if (target.node.getTextContent() !== nextText) {
+        if (target.node.getTextContent() !== nextTitle) {
           target.node.clear();
-          target.node.append($createTextNode(nextText));
+          target.node.append($createTextNode(nextTitle));
         }
         return;
       }
+      if (target.selection) $setSelection(target.selection.clone());
       const selection = $getSelection();
       if (!$isRangeSelection(selection)) return;
-      const link = $createLinkNode(nextUrl);
-      link.append($createTextNode(nextText));
-      // Replaces the selection, so the label wins over whatever was selected.
-      selection.insertNodes([link]);
+      // Type the title in, then link what was typed. Building a link node and
+      // inserting it duplicated its text, whichever insert was used.
+      selection.insertText(nextTitle);
+      const caret = selection.anchor;
+      selection.anchor.set(
+        caret.key,
+        Math.max(0, caret.offset - nextTitle.length),
+        caret.type,
+      );
+      $toggleLink(nextUrl);
     });
-    onClose();
-    editor.focus();
   };
 
   const remove = () => {
+    finished.current = true;
     editor.update(() => {
       const node = target.node;
       if (!node) return;
-      const children = node.getChildren();
-      children.forEach((child) => node.insertBefore(child));
+      node.getChildren().forEach((child) => node.insertBefore(child));
       node.remove();
     });
     onClose();
     editor.focus();
   };
 
+  // Enter and the popover's own dismissal both close the card, and applying
+  // twice would insert the link twice.
+  const finished = useRef(false);
+  const close = (commitFirst: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    if (commitFirst) commit.current();
+    onClose();
+  };
+
+  const onFieldKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      close(true);
+    }
+    if (e.key === "Escape") onClose();
+  };
+
   return (
-    <div
-      ref={card}
-      className={styles.linkEditor}
-      style={{ top: target.rect.bottom + 6, left: target.rect.left }}
-    >
-      <Flex direction="column" gap="2">
-        <TextField
-          label="Text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Link text"
-          autoFocus
-          onKeyDown={(e) => e.key === "Enter" && apply()}
+    <Popover
+      open
+      onOpenChange={(open) => !open && close(editing)}
+      anchorOnly
+      triggerAsChild
+      side="bottom"
+      align="start"
+      showArrow={false}
+      contentStyle={
+        editing ? { padding: "12px", minWidth: 320 } : { padding: "4px" }
+      }
+      trigger={
+        // A stand-in for the link itself, so Radix positions against it.
+        <div
+          style={{
+            position: "fixed",
+            top: target.rect.top,
+            left: target.rect.left,
+            width: target.rect.width,
+            height: target.rect.height,
+            pointerEvents: "none",
+          }}
         />
-        <TextField
-          label="URL"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com"
-          onKeyDown={(e) => e.key === "Enter" && apply()}
-        />
-        <Flex gap="2" justify="end" align="center">
-          {target.node ? (
-            <Button variant="ghost" color="red" onClick={remove}>
-              Remove
+      }
+      content={
+        editing ? (
+          <Flex direction="column" gap="3" data-link-card="">
+            <TextField
+              size="sm"
+              labelSize="sm"
+              label="URL"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com"
+              autoFocus={!target.node}
+              onKeyDown={onFieldKeyDown}
+            />
+            <TextField
+              size="sm"
+              labelSize="sm"
+              label="Link title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Link title"
+              autoFocus={!!target.node}
+              onKeyDown={onFieldKeyDown}
+            />
+            {target.node ? (
+              <>
+                <Separator size="4" />
+                {/* A quiet secondary action, not a peer of the fields above. */}
+                <Flex justify="start">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    color="gray"
+                    onClick={remove}
+                  >
+                    <PiTrashBold size={13} /> Remove link
+                  </Button>
+                </Flex>
+              </>
+            ) : null}
+          </Flex>
+        ) : (
+          <Flex align="center" gap="2" pl="2" data-link-card="">
+            <PiGlobeSimpleBold size={14} className={styles.linkPreviewIcon} />
+            <span className={styles.linkPreviewUrl}>
+              <Text size="sm" color="text-mid">
+                {target.url}
+              </Text>
+            </span>
+            <Button size="sm" variant="ghost" color="gray" onClick={onEdit}>
+              Edit
             </Button>
-          ) : null}
-          <Button variant="ghost" color="gray" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button disabled={!url.trim()} onClick={apply}>
-            {target.node ? "Update" : "Add link"}
-          </Button>
-        </Flex>
-      </Flex>
-    </div>
+          </Flex>
+        )
+      }
+    />
   );
 }

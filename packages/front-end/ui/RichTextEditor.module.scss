@@ -212,13 +212,14 @@
   height: var(--space-5);
 }
 
-.linkEditor {
-  position: fixed;
-  z-index: 60;
-  min-width: 280px;
-  padding: var(--space-3);
-  border: 1px solid var(--gray-a5);
-  border-radius: var(--radius-3);
-  background-color: var(--color-panel-solid);
-  box-shadow: var(--shadow-4);
+.linkPreviewIcon {
+  flex-shrink: 0;
+  color: var(--gray-11);
+}
+
+.linkPreviewUrl {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
