@@ -313,11 +313,23 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       feature,
       plan.mergeResult,
     );
-    for (const message of rampBaseState.refusals) {
+    for (const refusal of rampBaseState.refusals) {
       gates.push(
         makeBlockingGate({
-          type: "ramp-controlled-field",
-          messages: [message],
+          type: refusal.kind,
+          messages: [refusal.message],
+          resolution:
+            refusal.kind === "ramp-running"
+              ? {
+                  action: "pause",
+                  method: "POST",
+                  path: `/ramp-schedules/${refusal.scheduleId}/actions/pause`,
+                }
+              : {
+                  action: "edit-plan",
+                  method: "PUT",
+                  path: `/ramp-schedules/${refusal.scheduleId}`,
+                },
         }),
       );
     }
@@ -452,7 +464,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       mergeResult,
     );
     if (rampBaseState.refusals.length) {
-      throw new BadRequestError(rampBaseState.refusals.join("\n"));
+      throw new BadRequestError(
+        rampBaseState.refusals.map((r) => r.message).join("\n"),
+      );
     }
     if (rampBaseState.updates.length) {
       desired.rampBaseStatePreImages = [];

@@ -5,9 +5,10 @@ import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "../api.setup";
 
-// Publishing an edit to a rule under a live ramp reconciles it with the plan:
-// a field a step sets is refused, anything else lands in the ramp's base state
-// so the next step does not replay it away.
+// Publishing an edit to a rule under a live ramp is refused while it runs
+// (pause first). Paused, it is reconciled with the plan: a field a step sets is
+// refused, anything else lands in the ramp's base state so the next step does
+// not replay it away.
 
 const ORG_ID = "org_ramp_base_state";
 const FLAG = "flag_ramped";
@@ -130,8 +131,21 @@ describe("publishing a rule edit under a running ramp schedule", () => {
         .post(`/api/v2/features/${FLAG}/revisions/${version}/publish`)
         .send({ comment: "edit" }),
     );
+  const pause = () =>
+    mongoose.connection
+      .collection("rampschedules")
+      .updateOne({ name: "ramp" }, { $set: { status: "paused" } });
 
-  it("carries a targeting edit into the schedule's base state", async () => {
+  it("refuses any edit while the schedule runs, naming the pause route", async () => {
+    const res = await publish(2);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/Pause it first/);
+    expect(res.body.message).toMatch(/actions\/pause/);
+    expect(res.body.message).toMatch(/Fields the plan sets \(coverage\)/);
+  });
+
+  it("carries a targeting edit into a paused schedule's base state", async () => {
+    await pause();
     const res = await publish(2);
     expect(res.body.message).toBeUndefined();
     expect(res.status).toBe(200);
@@ -147,6 +161,7 @@ describe("publishing a rule edit under a running ramp schedule", () => {
   });
 
   it("refuses an edit to a field the plan sets", async () => {
+    await pause();
     const before = (await schedule())?.startActions;
     const res = await publish(3);
     expect(res.status).toBe(400);

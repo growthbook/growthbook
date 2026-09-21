@@ -5490,7 +5490,7 @@ describe("planRampBaseStateSync", () => {
     ({
       id: "rs_1",
       name: "Ramp",
-      status: "running",
+      status: "paused",
       targets: [
         {
           id: "t1",
@@ -5569,10 +5569,26 @@ describe("planRampBaseStateSync", () => {
     const { refusals, updates } = plan(rule(), rule({ coverage: 0.9 }));
     expect(updates).toEqual([]);
     expect(refusals).toHaveLength(1);
-    expect(refusals[0]).toMatch(
+    expect(refusals[0].kind).toBe("ramp-controlled-field");
+    expect(refusals[0].message).toMatch(
       /coverage is set by step 1 of ramp schedule "Ramp"/,
     );
-    expect(refusals[0]).toMatch(/PUT \/api\/v1\/ramp-schedules\/rs_1/);
+    expect(refusals[0].message).toMatch(/PUT \/api\/v1\/ramp-schedules\/rs_1/);
+  });
+
+  it("refuses any change while the schedule runs, pointing at the pause route", () => {
+    const { refusals, updates } = plan(
+      rule(),
+      rule({ condition: "{}" }),
+      schedule({ status: "running" }),
+    );
+    expect(updates).toEqual([]);
+    expect(refusals).toHaveLength(1);
+    expect(refusals[0].kind).toBe("ramp-running");
+    expect(refusals[0].message).toMatch(
+      /Pause it first \(POST \/api\/v1\/ramp-schedules\/rs_1\/actions\/pause\)/,
+    );
+    expect(refusals[0].message).toMatch(/Fields the plan sets \(coverage\)/);
   });
 
   it("leaves unanchored statuses, other features, `enabled` and unchanged rules alone", () => {

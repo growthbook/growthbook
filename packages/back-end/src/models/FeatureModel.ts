@@ -85,6 +85,7 @@ import {
   computeNextProcessAt,
   planRampBaseStateSyncForPublish,
   RampBaseStatePreImage,
+  RampBaseStateRefusal,
   restoreRampBaseStates,
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
@@ -3905,8 +3906,8 @@ export async function collectPublishRevisionBlockers({
   bypassLockdown?: boolean;
   skipPrevalidateValidation?: boolean;
   rampEnginePublish?: boolean;
-  // From planRampBaseStateSyncForPublish: rule fields a live ramp's plan sets.
-  rampBaseStateRefusals?: string[];
+  // From planRampBaseStateSyncForPublish: edits a live ramp does not accept.
+  rampBaseStateRefusals?: RampBaseStateRefusal[];
 }): Promise<Error[]> {
   // Errors, not messages: SoftWarningError (422 + warnings) and BadRequestError
   // (400) reach the caller as themselves rather than a generic 500.
@@ -3937,7 +3938,9 @@ export async function collectPublishRevisionBlockers({
     });
   }
 
-  blockers.push(...rampBaseStateRefusals.map((m) => new BadRequestError(m)));
+  blockers.push(
+    ...rampBaseStateRefusals.map((r) => new BadRequestError(r.message)),
+  );
 
   await probe(() =>
     prevalidatePublishRevision({
@@ -4095,8 +4098,8 @@ async function publishRevisionInner({
     });
   }
 
-  // A direct edit to a rule under a live ramp either belongs to the plan
-  // (refused) or is carried into the ramp's base state below.
+  // A direct edit to a rule under a live ramp: refused while it runs or for a
+  // field the plan sets, otherwise carried into the ramp's base state below.
   const rampBaseState = rampEnginePublish
     ? { refusals: [], updates: [] }
     : await planRampBaseStateSyncForPublish(context, feature, result);
