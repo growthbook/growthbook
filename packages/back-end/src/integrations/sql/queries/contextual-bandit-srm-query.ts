@@ -68,15 +68,22 @@ export function getContextualBanditSrmQuery(
     .map((_, i) => `, w_${i}`)
     .join("\n          ");
 
+  const { variationKeys } = params;
   const cellAggCols = variations
-    .map(
-      (_, i) =>
-        `, SUM(${dialect.ifElse(
-          `variation = '${i}'`,
-          "1",
-          "0",
-        )}) AS observed_${i}\n          , SUM(w_${i}) AS expected_${i}`,
-    )
+    .map((v, i) => {
+      // warehouse key (e.g., "variation_2") to positional index (e.g., 2)
+      const key = variationKeys[v.id];
+      if (key === undefined) {
+        throw new Error(
+          `Contextual bandit SRM query is missing the warehouse key for variation "${v.id}"`,
+        );
+      }
+      return `, SUM(${dialect.ifElse(
+        `variation = '${dialect.escapeStringLiteral(key)}'`,
+        "1",
+        "0",
+      )}) AS observed_${i}\n          , SUM(w_${i}) AS expected_${i}`;
+    })
     .join("\n          ");
 
   const cellRows = variations
