@@ -8,6 +8,7 @@ import { useUser } from "@/services/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -99,10 +100,7 @@ export default function SlackLinkPage() {
                 GrowthBook account. The assistant will use your permissions in{" "}
                 {data.organization.name}.
               </Text>
-              <Box
-                p="4"
-                style={{ border: "1px solid var(--slate-a5)", borderRadius: 8 }}
-              >
+              <Frame mb="0" px="4" py="4">
                 <Text as="p" size="sm" color="text-mid">
                   GrowthBook account
                 </Text>
@@ -112,7 +110,7 @@ export default function SlackLinkPage() {
                 <Text as="p" size="sm" color="text-mid">
                   To use a different account, sign out and reopen this link.
                 </Text>
-              </Box>
+              </Frame>
               <form
                 onSubmit={(event) => {
                   event.preventDefault();

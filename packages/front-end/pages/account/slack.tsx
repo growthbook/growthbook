@@ -5,6 +5,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -46,31 +47,32 @@ export default function SlackAccountPage() {
           </Text>
         ) : (
           data.links.map((link) => (
-            <Flex
+            <Frame
               key={`${link.slackTeamId}:${link.slackUserId}`}
-              justify="between"
-              align="center"
-              gap="4"
-              p="4"
-              style={{ border: "1px solid var(--slate-a5)", borderRadius: 8 }}
+              mb="0"
+              px="4"
+              py="4"
             >
-              <Box>
-                <Text as="p" weight="semibold">
-                  {link.teamName}
-                </Text>
-                <Text as="p" size="sm" color="text-mid">
-                  Slack user {link.slackUserId}
-                </Text>
-              </Box>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (orgId) setDisconnecting({ link, organizationId: orgId });
-                }}
-              >
-                Disconnect
-              </Button>
-            </Flex>
+              <Flex justify="between" align="center" gap="4">
+                <Box>
+                  <Text as="p" weight="semibold">
+                    {link.teamName}
+                  </Text>
+                  <Text as="p" size="sm" color="text-mid">
+                    Slack user {link.slackUserId}
+                  </Text>
+                </Box>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (orgId)
+                      setDisconnecting({ link, organizationId: orgId });
+                  }}
+                >
+                  Disconnect
+                </Button>
+              </Flex>
+            </Frame>
           ))
         )}
       </Flex>
