@@ -8,6 +8,7 @@ export {
   findCollidingUserIdTypeName,
   findEventForwarderManagedViolation,
   findNewDuplicateUserIdTypeName,
+  getDatabricksEventForwarderAuthMessage,
   getEventForwarderDatasourceParams,
   getEventForwarderHashAttributes,
   getEventForwarderSinkTypeForDatasource,
