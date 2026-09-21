@@ -17,6 +17,11 @@
       "count": 2
     }
   },
+  "packages/front-end/components/Archetype/ArchetypeList.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Archetype/AssignmentTester.tsx": {
     "no-restricted-imports": {
       "count": 3
@@ -33,6 +38,9 @@
     }
   },
   "packages/front-end/components/Archetype/SimulateFeatureValues.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 2
     }
@@ -55,6 +63,11 @@
       "count": 2
     }
   },
+  "packages/front-end/components/Auth/InAppHelp.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Auth/SelectInitialPlan.tsx": {
     "no-restricted-syntax": {
       "count": 3
@@ -68,6 +81,11 @@
   "packages/front-end/components/AutoGenerateMetricsModal.tsx": {
     "no-restricted-syntax": {
       "count": 2
+    }
+  },
+  "packages/front-end/components/CommandPalette/apiReferencePalette.ts": {
+    "local/no-raw-docs-link": {
+      "count": 1
     }
   },
   "packages/front-end/components/Configs/invariantConditions.ts": {
@@ -406,6 +424,9 @@
     }
   },
   "packages/front-end/components/Experiment/SRMWarning.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -451,6 +472,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Experiment/TabbedPage/HealthTab.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Experiment/TabbedPage/HealthTabOnboardingModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -482,6 +508,11 @@
   "packages/front-end/components/Experiment/Templates/TemplateForm.tsx": {
     "no-restricted-syntax": {
       "count": 5
+    }
+  },
+  "packages/front-end/components/Experiment/Templates/TemplatesPage.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 2
     }
   },
   "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {
@@ -663,6 +694,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Features/FeatureTest.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Features/FeatureUsageGraph.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -681,6 +717,11 @@
   "packages/front-end/components/Features/FeaturesOverview.tsx": {
     "no-restricted-syntax": {
       "count": 3
+    }
+  },
+  "packages/front-end/components/Features/FeaturesStats.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
     }
   },
   "packages/front-end/components/Features/HoldoutRule.tsx": {
@@ -923,6 +964,9 @@
     }
   },
   "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 2
     },
@@ -973,6 +1017,9 @@
     }
   },
   "packages/front-end/components/GetStarted/DocumentationSidebar.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 17
+    },
     "no-restricted-imports": {
       "count": 2
     }
@@ -1010,6 +1057,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/HealthTab/CovariateImbalanceCard.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 2
+    }
+  },
   "packages/front-end/components/HealthTab/DimensionIssues.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1019,6 +1071,9 @@
     }
   },
   "packages/front-end/components/HealthTab/PowerCard.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1047,6 +1102,9 @@
     }
   },
   "packages/front-end/components/Holdout/HoldoutSelect.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 1
     },
@@ -1103,6 +1161,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Layout/AccountPlanNotices.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 2
+    }
+  },
   "packages/front-end/components/Layout/ProjectSelector.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -1122,6 +1185,9 @@
     }
   },
   "packages/front-end/components/License/OptInModal.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 2
     }
@@ -1188,6 +1254,9 @@
     }
   },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 2
+    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1225,6 +1294,11 @@
   "packages/front-end/components/Metrics/MetricGroupModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
+    }
+  },
+  "packages/front-end/components/Metrics/MetricGroupsList.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
     }
   },
   "packages/front-end/components/Metrics/MetricsList.tsx": {
@@ -1286,6 +1360,11 @@
       "count": 2
     }
   },
+  "packages/front-end/components/Projects/ProjectTeams.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Queries/AsyncQueriesModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1309,6 +1388,9 @@
   "packages/front-end/components/RampSchedule/SafeRolloutRuleDashboard/MetricSection.tsx": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 2
+    },
+    "local/no-raw-docs-link": {
+      "count": 1
     }
   },
   "packages/front-end/components/Report/ConfigureLegacyReport.tsx": {
@@ -1716,6 +1798,9 @@
     }
   },
   "packages/front-end/components/Settings/Usage/CloudUsage.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 1
     }
@@ -1742,6 +1827,9 @@
     }
   },
   "packages/front-end/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 1
     },
@@ -1919,6 +2007,9 @@
     }
   },
   "packages/front-end/enterprise/components/Insights/MetricCorrelations.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 2
+    },
     "no-restricted-imports": {
       "count": 1
     },
@@ -1927,6 +2018,9 @@
     }
   },
   "packages/front-end/enterprise/components/Insights/MetricEffects.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 1
     },
@@ -1996,7 +2090,30 @@
     }
   },
   "packages/front-end/pages/bandits/index.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/front-end/pages/configs/index.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    }
+  },
+  "packages/front-end/pages/constants/index.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    }
+  },
+  "packages/front-end/pages/contextual-bandit/[cbid].tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    }
+  },
+  "packages/front-end/pages/contextual-bandits/index.tsx": {
+    "local/no-raw-docs-link": {
       "count": 1
     }
   },
@@ -2011,11 +2128,17 @@
     }
   },
   "packages/front-end/pages/experiments/index.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 2
+    },
     "no-restricted-syntax": {
       "count": 1
     }
   },
   "packages/front-end/pages/experiments/template/[tid].tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -2046,11 +2169,17 @@
     }
   },
   "packages/front-end/pages/features/index.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 1
     }
   },
   "packages/front-end/pages/holdouts/index.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 2
+    },
     "no-restricted-syntax": {
       "count": 1
     }
@@ -2070,6 +2199,11 @@
       "count": 1
     }
   },
+  "packages/front-end/pages/learnings/index.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    }
+  },
   "packages/front-end/pages/metric-effects.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -2081,6 +2215,9 @@
     }
   },
   "packages/front-end/pages/presentations.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -2109,12 +2246,20 @@
     }
   },
   "packages/front-end/pages/saved-groups/index.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 2
     }
   },
   "packages/front-end/pages/settings/custom-markdown.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/pages/settings/customfields.tsx": {
+    "local/no-raw-docs-link": {
       "count": 1
     }
   },
@@ -2126,6 +2271,11 @@
   "packages/front-end/pages/settings/tags.tsx": {
     "no-restricted-syntax": {
       "count": 1
+    }
+  },
+  "packages/front-end/pages/settings/team.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 2
     }
   },
   "packages/front-end/pages/sql-explorer/[id].tsx": {
@@ -2144,6 +2294,11 @@
   "packages/front-end/services/auth.tsx": {
     "no-restricted-imports": {
       "count": 1
+    }
+  },
+  "packages/front-end/services/eventSchema.tsx": {
+    "local/no-raw-docs-link": {
+      "count": 2
     }
   },
   "packages/stats-ts/test/statistics.test.ts": {
