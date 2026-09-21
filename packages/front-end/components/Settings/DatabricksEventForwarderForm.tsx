@@ -1,10 +1,7 @@
 import { FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
-import {
-  formatDatabricksEventForwarderTablePrefix,
-  parseDatabricksEventForwarderTablePrefix,
-} from "shared/util";
+import { parseDatabricksEventForwarderTablePrefix } from "shared/util";
 import EventForwarderTableNameField from "./EventForwarderTableNameField";
 
 const DatabricksEventForwarderForm: FC<{
@@ -54,12 +51,9 @@ const DatabricksEventForwarderForm: FC<{
             // ignore until submit
           }
         }}
-        placeholder={formatDatabricksEventForwarderTablePrefix({
-          catalog: "main",
-          schema: "analytics",
-          tablePrefix: "gb",
-        })}
-        tooltip="catalog.schema.prefix — GrowthBook creates <prefix>_events, <prefix>_experiment_viewed, and <prefix>_feature_usage in this schema."
+        placeholder="<catalog>.<schema>.gb"
+        tooltip="Three dot-separated parts: catalog, schema, table prefix."
+        helpText="catalog: the Unity Catalog catalog from your connection. schema: an existing schema the service principal can create tables in (we suggest a dedicated one, e.g. growthbook). gb: prefix for the gb_events, gb_experiment_viewed and gb_feature_usage tables."
       />
       <EventForwarderTableNameField
         label="Zerobus endpoint"

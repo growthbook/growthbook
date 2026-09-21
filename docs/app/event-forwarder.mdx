@@ -66,7 +66,7 @@ GRANT USE SCHEMA, CREATE TABLE ON SCHEMA <catalog>.<schema> TO `<service-princip
 
 In the Event Forwarder UI you provide:
 
-- **Destination** as `catalog.schema.prefix`, for example `main.analytics.gb`. GrowthBook creates `gb_events`, `gb_experiment_viewed`, and `gb_feature_usage` in that schema, clustered on `received_at`, with `attributes` and `properties` stored as `VARIANT`.
+- **Destination** as `catalog.schema.prefix`, for example `main.growthbook.gb`. The catalog is pre-filled from your connection; use a dedicated schema such as `growthbook` that the service principal can create tables in. GrowthBook creates `gb_events`, `gb_experiment_viewed`, and `gb_feature_usage` in that schema, clustered on `received_at`, with `attributes` and `properties` stored as `VARIANT`.
 - **Zerobus endpoint** for your workspace: `https://<workspace-id>.zerobus.<region>.cloud.databricks.com` on AWS or `https://<workspace-id>.zerobus.<region>.azuredatabricks.net` on Azure. The workspace ID is the number in your workspace URL (`?o=<workspace-id>`).
 
 Zerobus Ingest is a serverless Databricks feature billed to **your** Databricks account per GB ingested. No SQL warehouse or cluster runs on your side to receive events; the SQL warehouse configured on the datasource is only used to create the tables and to run your experiment queries.

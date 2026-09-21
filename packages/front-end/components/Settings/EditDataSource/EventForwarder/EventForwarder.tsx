@@ -405,8 +405,13 @@ function EventForwarderModal({
   // Single text input for catalog.schema.prefix; parsed into the draft on change.
   const [databricksDestination, setDatabricksDestination] = useState(() => {
     const cfg = datasourceDraft.eventForwarderConfig;
-    return cfg?.sinkType === "databricks" && cfg.config.schema
-      ? formatDatabricksEventForwarderTablePrefix(cfg.config)
+    if (cfg?.sinkType !== "databricks") return "";
+    if (cfg.config.schema) {
+      return formatDatabricksEventForwarderTablePrefix(cfg.config);
+    }
+    // New forwarder: pre-fill the connection's catalog, leave the schema to fill in.
+    return cfg.config.catalog
+      ? `${cfg.config.catalog}.<schema>.${cfg.config.tablePrefix}`
       : "";
   });
   const isEditingEventForwarder = !!dataSource.eventForwarderConfig;
