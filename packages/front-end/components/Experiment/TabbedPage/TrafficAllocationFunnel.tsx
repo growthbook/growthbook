@@ -126,6 +126,57 @@ function FunnelCard({
   );
 }
 
+/**
+ * The split's connector: one stem fanning into an arrow per variation. Wide
+ * enough that the heads never meet, which means growing with the count.
+ */
+function SplitFan({ count }: { count: number }) {
+  const arrows = Math.max(1, count);
+  const width = Math.max(30, (arrows - 1) * 14);
+  const height = 20;
+  const head = 4;
+  const stemX = width / 2;
+  const endY = height - head;
+  const ends = Array.from({ length: arrows }, (_, i) =>
+    arrows === 1 ? stemX : ((i + 0.5) * width) / arrows,
+  );
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className={styles.caret}
+      aria-hidden
+    >
+      {/* One path for every curve and one for every head: the arrows share a
+          stem, and separate elements would stack their alpha where they run
+          together. A single element is painted once however often it overlaps
+          itself. */}
+      <path
+        d={ends
+          .map(
+            (x) =>
+              `M ${stemX} 0 C ${stemX} ${endY * 0.6}, ${x} ${endY * 0.4}, ${x} ${endY}`,
+          )
+          .join(" ")}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+      />
+      <path
+        d={ends
+          .map(
+            (x) =>
+              `M ${x - 3} ${endY} L ${x + 3} ${endY} L ${x} ${endY + head} Z`,
+          )
+          .join(" ")}
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 function FunnelConnector({ label }: { label?: ReactNode }) {
   return (
     <Flex direction="column" align="center" justify="center" pb="2">
@@ -568,13 +619,8 @@ export default function TrafficAllocationFunnel({
                   <Text size="sm" color="text-low">
                     Split
                   </Text>
-                  {/* Points at the bar, like the funnel's other connectors. */}
-                  <Box className={styles.connectorLine} height="7px" />
-                  {/* The glyph carries whitespace under its point; -1 takes
-                      it back so the arrow lands on the labels. */}
-                  <Box mt="-3" mb="-1" className={styles.caret}>
-                    <PiCaretDownBold size="11" />
-                  </Box>
+                  <Box className={styles.connectorLine} height="4px" />
+                  <SplitFan count={numVariations} />
                 </Flex>
                 {/* Coverage is already shown above, so this bar is purely the
                     split between variations. Held to the grid's width so the
