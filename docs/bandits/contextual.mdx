@@ -68,7 +68,7 @@ The statistical details are covered in the [Contextual Bandit technical referenc
    No. Like multi-armed bandits, contextual bandits are available only under the Bayesian engine, where Thompson sampling is used.
 
 4. **What happens if a context has very little traffic?**<br />
-   GrowthBook controls how finely it splits users using settings like `minUsersPerLeaf` and `maxLeaves`. A segment without enough traffic to learn on its own isn't given its own leaf; it's pooled with similar users and shares their weights.
+   GrowthBook controls how finely it splits users using settings like `maxLeaves`. A segment without enough traffic to learn on its own isn't given its own leaf; it's pooled with similar users and shares their weights.
 
 5. **Do contextual bandits suffer from the same biases as multi-armed bandits?**<br />
    Yes — because traffic weights change adaptively, the same [adaptive-experimentation biases](https://arxiv.org/abs/1905.11397) apply, and splitting by context can make them more pronounced in low-traffic segments. If unbiased per-metric effect estimates are your goal, a standard experiment is still the better tool.
