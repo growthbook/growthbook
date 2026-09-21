@@ -108,6 +108,7 @@ import {
   InlineRampScheduleUpdate,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { getFeatureValuesForDriftRepair } from "back-end/src/util/featureValues";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
@@ -2198,9 +2199,10 @@ async function repairFeatureDriftIfNeeded(
 ): Promise<void> {
   if (!live) return;
 
-  const liveRulesFlat: FeatureRule[] = live.rules ?? [];
+  const repairValues = getFeatureValuesForDriftRepair(feature, live);
+  const liveRulesFlat: FeatureRule[] = repairValues.rules ?? [];
   const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
-  const defaultValueDrift = live.defaultValue !== feature.defaultValue;
+  const defaultValueDrift = repairValues.defaultValue !== feature.defaultValue;
   const driftedEnvs = environmentIds.filter(
     (env) =>
       !isEqual(
@@ -2223,10 +2225,17 @@ async function repairFeatureDriftIfNeeded(
 
   try {
     const original = { ...feature };
-    const repaired = await updateFeature(context, feature, {
-      ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
-      rules: liveRulesFlat,
-    });
+    const repaired = await updateFeature(
+      context,
+      feature,
+      {
+        ...(defaultValueDrift
+          ? { defaultValue: repairValues.defaultValue }
+          : {}),
+        rules: liveRulesFlat,
+      },
+      { preserveStoredValues: true },
+    );
     Object.assign(feature, repaired);
 
     // Record the repair in the audit history so automated rewrites are
