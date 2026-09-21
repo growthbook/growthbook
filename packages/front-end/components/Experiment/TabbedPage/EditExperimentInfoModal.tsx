@@ -19,7 +19,7 @@ import {
   filterCustomFieldsForSectionAndProject,
   reconcileCustomFieldValues,
 } from "@/services/customFields";
-import { getExperimentDescriptionPlaceholder } from "@/components/Experiment/EditDescriptionModal";
+import { getExperimentDescriptionPlaceholder } from "@/components/Experiment/TabbedPage/DescriptionField";
 
 export type FocusSelector = "project" | "tags" | "name" | "projects";
 

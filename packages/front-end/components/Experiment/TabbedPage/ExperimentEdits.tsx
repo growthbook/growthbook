@@ -148,9 +148,6 @@ export function useGuardedEdit<
 
   return useMemo(() => {
     if (!action || !dirty || !flash) return action;
-    return ((...args: never[]) => {
-      void args;
-      flash();
-    }) as T;
+    return (() => flash()) as T;
   }, [action, dirty, flash]);
 }
