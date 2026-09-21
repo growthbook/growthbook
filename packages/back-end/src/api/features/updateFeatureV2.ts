@@ -337,9 +337,12 @@ export const updateFeatureV2 = createApiRequestHandler(
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
     // here (against the effective schema, opt-out via ?skipSchemaValidation).
-    assertFeatureValuesValid(req.context, effectiveFeature, {
-      rules: inboundFlatRules,
-    });
+    assertFeatureValuesValid(
+      req.context,
+      effectiveFeature,
+      { rules: inboundFlatRules },
+      jsonSchema === null ? feature : undefined,
+    );
   }
 
   // Config-backed values (default + rules) validate against the backing config's
@@ -529,7 +532,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       user: req.eventAudit,
       org: req.organization,
       changes: revisionChanges,
-      comment: "Created via REST API",
+      comment: req.body.comment ?? "Created via REST API",
       canBypassApprovalChecks: canBypass,
     });
 

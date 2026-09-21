@@ -39,9 +39,16 @@ export class EventWebHookNotifier implements Notifier {
     private options: EventWebHookNotificationHandlerOptions,
     private agenda: Agenda = getAgendaInstance(),
   ) {
+    EventWebHookNotifier.defineJob(this.agenda);
+  }
+
+  /**
+   * Registers the "eventWebHook" job with Agenda. Safe to call repeatedly.
+   */
+  static defineJob(agenda: Agenda): void {
     if (jobDefined) return;
 
-    this.agenda.define<EventWebHookJobData>(
+    agenda.define<EventWebHookJobData>(
       "eventWebHook",
       EventWebHookNotifier.handleAgendaJob,
     );

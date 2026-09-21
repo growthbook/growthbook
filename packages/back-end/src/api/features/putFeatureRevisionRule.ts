@@ -216,6 +216,9 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   await validateRampPlanPatches(
     req.context,
     rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
+      ...(feature.rules ?? []).find((r) => r.id === req.params.ruleId),
+      ...patch,
+      id: req.params.ruleId,
       environments: [environment],
     }),
   );
@@ -327,9 +330,12 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
-      rules: [updatedRule as FeatureRule],
-    });
+    assertFeatureValuesValid(
+      req.context,
+      feature,
+      { rules: [updatedRule as FeatureRule] },
+      { rules: [oldRule] },
+    );
 
     // Only validate fields in the patch, so edits don't break on stale refs
     // elsewhere in the rule (e.g. since-deleted saved groups).

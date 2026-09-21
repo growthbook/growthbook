@@ -108,6 +108,7 @@ import {
   InlineRampScheduleUpdate,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { getFeatureValuesForDriftRepair } from "back-end/src/util/featureValues";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
@@ -313,6 +314,7 @@ import {
 } from "back-end/src/util/custom-fields";
 import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
 import {
+  getStartPatchForRule,
   normalizeRampPlanForceValues,
   rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
@@ -382,22 +384,31 @@ async function stagedRevision(
 }
 
 // Same for the plan's targeting fields (condition, saved groups, environments,
-// prerequisites). Start actions are the editor's anchor and are not judged.
+// prerequisites). The rule's existing targeting remains a valid rollback anchor.
 async function validateRuleModalRampPatches(
   context: ReqContext,
   plan: InlineRampScheduleCreate | InlineRampScheduleUpdate,
   feature: FeatureInterface,
-  rule: Pick<FeatureRule, "allEnvironments" | "environments"> | null,
+  rule: FeatureRule | null,
   stored: unknown[],
 ): Promise<void> {
   await validateRampPlanPatches(
     context,
-    rampPatchEntries(
-      collectRampPlanPatches({ ...plan, startActions: undefined }),
-      feature,
-      rule,
-    ),
-    { stored },
+    rampPatchEntries(collectRampPlanPatches(plan), feature, rule),
+    {
+      stored: [
+        ...stored,
+        ...(rule
+          ? [
+              {
+                startActions: [
+                  { patch: { ...getStartPatchForRule(rule), ruleId: rule.id } },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
   );
 }
 
@@ -2188,9 +2199,10 @@ async function repairFeatureDriftIfNeeded(
 ): Promise<void> {
   if (!live) return;
 
-  const liveRulesFlat: FeatureRule[] = live.rules ?? [];
+  const repairValues = getFeatureValuesForDriftRepair(feature, live);
+  const liveRulesFlat: FeatureRule[] = repairValues.rules ?? [];
   const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
-  const defaultValueDrift = live.defaultValue !== feature.defaultValue;
+  const defaultValueDrift = repairValues.defaultValue !== feature.defaultValue;
   const driftedEnvs = environmentIds.filter(
     (env) =>
       !isEqual(
@@ -2213,10 +2225,17 @@ async function repairFeatureDriftIfNeeded(
 
   try {
     const original = { ...feature };
-    const repaired = await updateFeature(context, feature, {
-      ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
-      rules: liveRulesFlat,
-    });
+    const repaired = await updateFeature(
+      context,
+      feature,
+      {
+        ...(defaultValueDrift
+          ? { defaultValue: repairValues.defaultValue }
+          : {}),
+        rules: liveRulesFlat,
+      },
+      { preserveStoredValues: true },
+    );
     Object.assign(feature, repaired);
 
     // Record the repair in the audit history so automated rewrites are

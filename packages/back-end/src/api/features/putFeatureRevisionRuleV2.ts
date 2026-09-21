@@ -78,13 +78,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   assertValidRuleEnvironments(req.context, [patch]);
   await validateRampPlanPatches(
     req.context,
-    rampPatchEntries(
-      collectRampPlanPatches(inlineRampSchedule),
-      feature,
-      patch.allEnvironments !== undefined || patch.environments !== undefined
-        ? patch
-        : (feature.rules ?? []).find((r) => r.id === req.params.ruleId),
-    ),
+    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
+      ...(feature.rules ?? []).find((r) => r.id === req.params.ruleId),
+      ...patch,
+      id: req.params.ruleId,
+    }),
   );
 
   const { revision, created } = await resolveOrCreateRevision(
@@ -261,9 +259,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values, whose schema lives on the config). Opt out with
     // ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
-      rules: [updatedRule as FeatureRule],
-    });
+    assertFeatureValuesValid(
+      req.context,
+      feature,
+      { rules: [updatedRule as FeatureRule] },
+      { rules: [oldRule] },
+    );
     // Config-backed rule values additionally validate against the backing
     // config's schema + invariants. Same check the publish path runs; a no-op
     // for non-config values.
