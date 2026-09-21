@@ -862,6 +862,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
 
     let droppedUnsafeHtml = false;
     const droppedMoves: Array<{ selector: string; problem: string }> = [];
+    const droppedUnknown: Array<{ selector: string; missing: string[] }> = [];
+    // The retry's output is the last word, so its selectors get the same
+    // check the first attempt did: an uncatalogued one applies to nothing on
+    // the page while the explanation reads as done.
+    const canJudgeSelectors = !!domDigest && trustedSelectors.size > 0;
     const sanitizedMutations = result.mutations.filter((m) => {
       const attr = m.attribute === "text" ? "html" : m.attribute;
       // Guard (#3): never let an html mutation replace a page-root container
@@ -884,6 +889,19 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
           "[visual-editor-ai] dropping position mutation",
         );
         return false;
+      }
+      if (canJudgeSelectors) {
+        const missing = requiredSelectors(m).filter(
+          (s) => !trustedSelectors.has(s),
+        );
+        if (missing.length > 0) {
+          droppedUnknown.push({ selector: m.selector, missing });
+          logger.warn(
+            { selector: m.selector, missing },
+            "[visual-editor-ai] dropping mutation with uncatalogued selectors after retry",
+          );
+          return false;
+        }
       }
       return true;
     });
@@ -963,6 +981,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       ...droppedMoves.map((d) => ({
         request: `Move \`${d.selector}\``,
         reason: `${d.problem}. Click the element it should go before and ask again.`,
+      })),
+      ...droppedUnknown.map((d) => ({
+        request: `Change \`${d.selector}\``,
+        reason: `${d.missing
+          .map((s) => `\`${s}\``)
+          .join(
+            ", ",
+          )} isn't among the captured page elements. Click the element on the page and ask again.`,
       })),
     ]);
 
