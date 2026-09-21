@@ -11,10 +11,15 @@
   left: variables.$sidebarwidth;
   right: 0;
   z-index: 1000;
+  // The strip runs the full width but only its header and body are visible,
+  // so the rest must not swallow clicks meant for the page beneath it.
+  pointer-events: none;
 }
 
 .drawerInner {
   --drawer-header-width: 300px;
+
+  pointer-events: none;
 
   max-width: 1340px;
   margin: 0 auto;
@@ -27,6 +32,7 @@
 .drawerHeader {
   position: relative;
   z-index: 1;
+  pointer-events: auto;
   width: var(--drawer-header-width);
   display: flex;
   align-items: center;
@@ -54,6 +60,7 @@
 
 .drawerBody {
   position: relative;
+  pointer-events: auto;
   width: 100%;
   max-width: 423px;
   min-height: 84px;

@@ -1,7 +1,9 @@
 .bar {
   position: sticky;
   bottom: 0;
-  z-index: 920;
+  // Above the pre-launch checklist drawer, which is fixed at 1000 and would
+  // otherwise cover the only way to save.
+  z-index: 1001;
   display: flex;
   justify-content: flex-end;
   padding: var(--space-3) var(--space-4);
