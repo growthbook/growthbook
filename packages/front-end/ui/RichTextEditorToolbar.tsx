@@ -30,7 +30,7 @@ import {
   ListNode,
   REMOVE_LIST_COMMAND,
 } from "@lexical/list";
-import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
+import { $isLinkNode } from "@lexical/link";
 import { $findMatchingParent, mergeRegister } from "@lexical/utils";
 import {
   $createParagraphNode,
@@ -44,13 +44,18 @@ import {
   TextFormatType,
 } from "lexical";
 import Tooltip from "@/ui/Tooltip";
+import RichTextEditorLinkEditor, {
+  LinkTarget,
+  useLinkTarget,
+} from "./RichTextEditorLinkEditor";
 import styles from "./RichTextEditor.module.scss";
 
 /** Which controls are lit for the current selection. */
 interface ActiveState {
   formats: Set<TextFormatType>;
   block: string;
-  isLink: boolean;
+  /** URL of the link the caret sits in, or null when it is not in one. */
+  linkUrl: string | null;
 }
 
 const TEXT_FORMATS: {
@@ -88,8 +93,11 @@ export default function RichTextEditorToolbar({
   const [active, setActive] = useState<ActiveState>({
     formats: new Set(),
     block: "paragraph",
-    isLink: false,
+    linkUrl: null,
   });
+
+  const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
+  const { fromSelection, fromElement } = useLinkTarget();
 
   const readSelection = useCallback(() => {
     const selection = $getSelection();
@@ -121,7 +129,10 @@ export default function RichTextEditorToolbar({
     setActive({
       formats,
       block: blockType,
-      isLink: !!$findMatchingParent(anchorNode, $isLinkNode),
+      linkUrl: (() => {
+        const link = $findMatchingParent(anchorNode, $isLinkNode);
+        return link && $isLinkNode(link) ? link.getURL() : null;
+      })(),
     });
   }, []);
 
@@ -165,6 +176,21 @@ export default function RichTextEditorToolbar({
       undefined,
     );
   };
+
+  // Clicking a link opens the same editor the toolbar button does, rather than
+  // following it out of the page.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement | null)?.closest?.("a");
+      if (!anchor) return;
+      e.preventDefault();
+      setLinkTarget(fromElement(anchor as HTMLElement));
+    };
+    return editor.registerRootListener((root, prevRoot) => {
+      prevRoot?.removeEventListener("click", onClick);
+      root?.addEventListener("click", onClick);
+    });
+  }, [editor, fromElement]);
 
   const button = (
     key: string,
@@ -242,22 +268,22 @@ export default function RichTextEditorToolbar({
 
       {button(
         "link",
-        "Link",
-        active.isLink,
-        () => {
-          if (active.isLink) {
-            editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
-            return;
-          }
-          const url = window.prompt("Link URL");
-          if (url) editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
-        },
+        linkTarget?.node ? "Edit link" : "Link",
+        !!active.linkUrl,
+        () => setLinkTarget(fromSelection()),
         PiLinkBold,
       )}
 
       {onPickImage
         ? button("image", "Insert image", false, onPickImage, PiImageBold)
         : null}
+
+      {linkTarget ? (
+        <RichTextEditorLinkEditor
+          target={linkTarget}
+          onClose={() => setLinkTarget(null)}
+        />
+      ) : null}
     </Flex>
   );
 }

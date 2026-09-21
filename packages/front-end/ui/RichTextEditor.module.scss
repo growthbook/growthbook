@@ -28,6 +28,7 @@
 
 .editable {
   outline: none;
+  cursor: text;
   overflow-y: auto;
   color: var(--gray-12);
   font-family: var(--default-font-family);
@@ -209,4 +210,15 @@
   padding: 0;
   width: var(--space-5);
   height: var(--space-5);
+}
+
+.linkEditor {
+  position: fixed;
+  z-index: 60;
+  min-width: 280px;
+  padding: var(--space-3);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+  background-color: var(--color-panel-solid);
+  box-shadow: var(--shadow-4);
 }

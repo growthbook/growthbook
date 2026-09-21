@@ -389,7 +389,11 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     >
       <div
         {...(allowImages
-          ? (getRootProps() as React.HTMLAttributes<HTMLDivElement>)
+          ? // The dropzone roots itself as a button, which is neither true nor
+            // stylable here: it would announce as one and take a pointer cursor.
+            (getRootProps({
+              role: "presentation",
+            }) as React.HTMLAttributes<HTMLDivElement>)
           : {})}
         className={clsx(
           styles.wrapper,

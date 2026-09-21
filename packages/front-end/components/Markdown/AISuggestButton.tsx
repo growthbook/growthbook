@@ -12,6 +12,7 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 
 const AI_DISABLED = "AI is disabled for your organization. Adjust in settings.";
+const BUTTON_WIDTH = "11rem";
 
 export interface Props {
   /** Returns the suggested text, or an empty string when it has none. */
@@ -60,12 +61,22 @@ export default function AISuggestButton({
 
   const button = !hasCommercialFeature("ai-suggestions") ? (
     <PremiumTooltip commercialFeature="ai-suggestions">
-      <Button variant="soft" disabled>
+      <Button
+        variant="soft"
+        disabled
+        style={{ minWidth: BUTTON_WIDTH, justifyContent: "center" }}
+      >
         <BsStars /> {label}
       </Button>
     </PremiumTooltip>
   ) : aiAgreedTo && aiEnabled ? (
-    <Button variant="soft" disabled={disabled || loading} onClick={run}>
+    <Button
+      variant="soft"
+      disabled={disabled || loading}
+      onClick={run}
+      // Fixed, so swapping in "Generating..." does not resize the button.
+      style={{ minWidth: BUTTON_WIDTH, justifyContent: "center" }}
+    >
       <BsStars /> {loading ? "Generating..." : label}
     </Button>
   ) : (
@@ -73,6 +84,7 @@ export default function AISuggestButton({
       <Button
         variant="soft"
         onClick={() => (aiAgreedTo ? setError(AI_DISABLED) : setOptIn(true))}
+        style={{ minWidth: BUTTON_WIDTH, justifyContent: "center" }}
       >
         <BsStars /> {label}
       </Button>
@@ -81,7 +93,7 @@ export default function AISuggestButton({
 
   return (
     <>
-      <Flex align="center" gap="2">
+      <Flex align="center" gap="2" wrap="wrap">
         {button}
         {error ? (
           <HelperText status="error" size="sm">
