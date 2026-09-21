@@ -172,8 +172,8 @@ export default function InAppHelp() {
           setShowFreeHelpWidget(!showFreeHelpWidget);
         }}
         style={{
-          right: "20px",
-          bottom: "20px",
+          right: "15px",
+          bottom: "15px",
           zIndex: 10,
           height: "50px",
           width: "50px",
