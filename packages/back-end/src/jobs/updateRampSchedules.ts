@@ -8,6 +8,7 @@ import {
   applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
+  ensureRampStartActions,
   ensureSafeRolloutForMonitoredRamp,
   onActivatingRevisionPublished,
   syncLinkedSafeRolloutForRampState,
@@ -201,6 +202,8 @@ async function runRampScheduleTick(
       }
       if (current.status === "pending") return;
     }
+
+    current = await ensureRampStartActions(context, current);
 
     if (
       current.status === "ready" &&

@@ -1,6 +1,10 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
-import { SqlIdentifierQuote, TemplateVariables } from "shared/types/sql";
+import {
+  SqlDialect,
+  SqlIdentifierQuote,
+  TemplateVariables,
+} from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
@@ -170,9 +174,23 @@ export function getSourceIntegrationObject(
 export function getIntegrationIdentifierQuote(
   integration: SourceIntegrationInterface,
 ): SqlIdentifierQuote {
+  return getIntegrationSqlDialect(integration)?.identifierQuote ?? '"';
+}
+
+// The SQL dialect backing an integration, or null for non-SQL sources
+// (e.g. Mixpanel), which have no dialect to generate SQL with.
+export function getIntegrationSqlDialect(
+  integration: SourceIntegrationInterface,
+): SqlDialect | null {
   return integration instanceof SqlIntegration
-    ? integration.getSqlDialect().identifierQuote
-    : '"';
+    ? integration.getSqlDialect()
+    : null;
+}
+
+// Wraps a SQL identifier (column, alias) in the dialect's quote character,
+// escaping any embedded quotes by doubling them (ANSI SQL convention).
+export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
+  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
 }
 
 export async function testDataSourceConnection(

@@ -1,44 +1,21 @@
 import { Flex } from "@radix-ui/themes";
 import { MemberRoleWithProjects } from "shared/types/organization";
-import { getRoleDisplayName } from "shared/permissions";
 import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
-import Text from "@/ui/Text";
-import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { CollapsedRuleRows, projectRuleRows, ruleRows } from "./RoleRuleLabel";
 
-export function RoleRulesSummary({
-  value,
-  size = "sm",
-}: {
-  value: MemberRoleWithProjects;
-  size?: "sm" | "md";
-}) {
+export function RoleRulesSummary({ value }: { value: MemberRoleWithProjects }) {
   const { organization } = useUser();
+  const { getProjectById } = useDefinitions();
 
-  const extraRules =
-    (value.additionalRoles?.length || 0) + (value.projectRoles?.length || 0);
-
-  const environments = !value.limitAccessByEnvironment
-    ? "All Environments"
-    : value.environments?.length
-      ? value.environments.join(", ")
-      : "No environments";
-
-  return (
-    <Flex align="center" gap="2" wrap="wrap">
-      <Text size={size} weight="medium">
-        {getRoleDisplayName(value.role, organization)} in {environments}
-      </Text>
-      {extraRules > 0 && (
-        <Badge
-          color="gray"
-          variant="soft"
-          label={`+${extraRules} more rule${extraRules > 1 ? "s" : ""}`}
-        />
-      )}
-    </Flex>
-  );
+  const rows = [
+    ...ruleRows(value, organization),
+    ...projectRuleRows(value.projectRoles ?? [], getProjectById, organization),
+  ];
+  return <CollapsedRuleRows rows={rows} />;
 }
 
 /** Collapsed form of the rules table: what it resolves to, plus a way in. */
@@ -55,10 +32,12 @@ export default function RoleRulesSummaryRow({
 }) {
   return (
     <Frame px="3" py="2" mb="4">
-      <Flex align="center" justify="between" gap="3">
-        <Flex align="center" gap="2" wrap="wrap">
-          <Text color="text-low">{label}</Text>
-          <RoleRulesSummary value={value} size="md" />
+      <Flex align="start" justify="between" gap="3">
+        <Flex direction="column" gap="1">
+          <Heading as="h5" size="sm" mb="0">
+            {label}
+          </Heading>
+          <RoleRulesSummary value={value} />
         </Flex>
         <Button variant="ghost" disabled={disabled} onClick={onEdit}>
           Edit

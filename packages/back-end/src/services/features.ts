@@ -22,7 +22,7 @@ import {
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
   getApplicableEnvIds,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
   getDependentFeatures,
@@ -37,7 +37,6 @@ import {
   stemRuleId,
   stripConfigExtends,
   toApiNamespace,
-  validateCondition,
   validateFeatureValue,
 } from "shared/util";
 import {
@@ -54,7 +53,10 @@ import {
   featurePublishFootprint,
   holdoutEnvsForChange,
 } from "shared/permissions";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getActiveVariations,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
 import {
@@ -73,20 +75,22 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
-  RevisionRampAction,
-  HoldoutInterface,
-  ContextualBanditInterface,
-  SdkConnectionCacheAuditContext,
   ApiEventUser,
-  apiFeatureRevisionValidator,
-  ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
+  ApiFeatureEnvironmentV2,
+  apiFeatureRevisionV2Validator,
+  apiFeatureRevisionValidator,
   ApiFeatureRule,
   ApiFeatureRuleV2,
-  apiFeatureRevisionV2Validator,
+  ApiFeatureWithRevisions,
   ApiFeatureWithRevisionsV2,
-  ApiFeatureEnvironmentV2,
+  ContextualBanditInterface,
+  EventUser,
+  HoldoutInterface,
   resolveSavedGroupsInput,
+  reviewerKeyForEventUser,
+  RevisionRampAction,
+  SdkConnectionCacheAuditContext,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -115,8 +119,11 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   getReviewAuthorityFootprint,
   governingReviewProjectsForFeature,
+  getRevisionReviewRequirement,
+  liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
 } from "shared/util";
+import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -131,6 +138,7 @@ import {
   getAllFeaturesWithoutEditorFields,
 } from "back-end/src/models/FeatureModel";
 import {
+  getAllExperimentsForStaleGraph,
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
   getAllVisualExperiments,
@@ -720,12 +728,13 @@ export function filterUsedContextualBandits(
   usedIds.forEach((id) => {
     const cb = cbMap.get(id);
     if (!cb) return;
+    const activeVariations = getActiveVariations(cb.variations);
     map[id] = {
       banditVersion: cb.banditVersion,
       contexts: (cb.currentLeafWeights ?? []).map((lw) => ({
         leafId: lw.leafId,
         condition: lw.condition,
-        weights: pairedWeightsToPositional(lw.weights, cb.variations),
+        weights: pairedWeightsToPositional(lw.weights, activeVariations),
       })),
     };
   });
@@ -852,20 +861,44 @@ export async function getFeaturesDependingOnAsPrerequisite(
 // Block deleting a feature that live features still list as a prerequisite —
 // deletion would dangle their gate and drop them from the SDK payload. Matches
 // the copy style of assertConstantArchivable / assertSavedGroupDeletable.
+// Unarchived experiments whose latest phase gates on `featureId`. Projected
+// loader — reads only id/status/phases.prerequisites.
+export async function getExperimentsDependingOnAsPrerequisite(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<string[]> {
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
+  const experiments = await getAllExperimentsForStaleGraph(scanContext);
+  return experiments
+    .filter((e) =>
+      e.phases.slice(-1)[0]?.prerequisites?.some((p) => p.id === featureId),
+    )
+    .map((e) => e.id);
+}
+
 export async function assertFeatureDeletable(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<void> {
-  const dependents = await getFeaturesDependingOnAsPrerequisite(
-    context,
-    featureId,
-  );
-  if (!dependents.length) return;
+  const [features, experiments] = await Promise.all([
+    getFeaturesDependingOnAsPrerequisite(context, featureId),
+    getExperimentsDependingOnAsPrerequisite(context, featureId),
+  ]);
+  if (!features.length && !experiments.length) return;
   // Count only — the dependent scan is org-wide (so a dependent in a project
   // the caller can't read still blocks), so naming ids would disclose
-  // cross-project features. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
+  // cross-project resources. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
+  const parts = [
+    [features.length, "live Feature Flag(s)"],
+    [experiments.length, "Experiment(s)"],
+  ]
+    .filter(([n]) => n)
+    .map(([n, label]) => `${n} ${label}`)
+    .join(" and ");
   throw new BadRequestError(
-    `Cannot delete Feature Flag: it is still used as a prerequisite by ${dependents.length} live Feature Flag(s). Remove these references first.`,
+    `Cannot delete Feature Flag: it is still used as a prerequisite by ${parts}. Remove these references first.`,
   );
 }
 
@@ -2148,8 +2181,9 @@ export function addIdsToRules(
   });
 }
 
-// Single write-time chokepoint for rule ids, experiment tracking keys, and
-// rollout seeds — consolidated so the invariant can't drift across call sites.
+// Single write-time chokepoint for rule ids, experiment tracking keys,
+// rollout seeds, and schedule timestamps — consolidated so the invariants
+// can't drift across call sites.
 export function addIdsToFlatRules(
   rules: FeatureRule[] = [],
   featureId: string,
@@ -2161,6 +2195,13 @@ export function addIdsToFlatRules(
     if (!r.id) {
       r.id = generateRuleId();
     }
+    // The API accepts any RFC 3339 date-time (offsets, optional fractions);
+    // store the one canonical spelling so round-trips compare equal.
+    r.scheduleRules?.forEach((s) => {
+      if (s.timestamp === null) return;
+      const t = new Date(s.timestamp).getTime();
+      if (!isNaN(t)) s.timestamp = new Date(t).toISOString();
+    });
     // Seed new rollout rules off their own id so stacked rollouts hash
     // independently. Legacy seedless rules are pinned to the feature id on read
     // (`pinLegacyRolloutSeeds`), so this only ever applies to new rules.
@@ -2756,8 +2797,19 @@ export function getApiFeatureObjV2({
     }
   });
 
+  // Like the revision read model: drop environment ids that no longer exist
+  // (or don't apply to this feature), so a GET can be posted back unchanged.
+  const applicableEnvs = new Set(
+    getApplicableEnvIds(getEnvironments(organization), feature),
+  );
   const apiRules: ApiFeatureRuleV2[] = (feature.rules ?? []).map((rule) => {
-    const normalized = normalizeRuleForApiV2(rule);
+    const base = normalizeRuleForApiV2(rule);
+    const normalized = base.environments
+      ? {
+          ...base,
+          environments: base.environments.filter((e) => applicableEnvs.has(e)),
+        }
+      : base;
     const rampScheduleId =
       rampScheduleMap?.get(stemRuleId(rule.id ?? "")) ?? undefined;
     return rampScheduleId ? { ...normalized, rampScheduleId } : normalized;
@@ -2801,6 +2853,59 @@ export function getApiFeatureObjV2({
   };
 }
 
+// Strip `@config:` from a rule value string; `@const:` refs pass through.
+const scrubRuleValue = (v: string | undefined): string | undefined =>
+  v === undefined ? v : (stripConfigExtends(v) ?? v);
+
+// v1 (env-bucketed) REST shape of a stored rule. Everything it emits must be
+// accepted by the v1 write schema so a GET → POST round-trip survives. Sparse
+// fields (`savedGroups`, `scheduleRules`, `variations`) are deliberately not
+// defaulted to `[]`; consumers null-check them.
+export function normalizeRuleForFeatureEnv(rule: FeatureRule): ApiFeatureRule {
+  return {
+    // v2 scope is implied by the environment bucket the rule is emitted in.
+    ...omit(rule, ["allEnvironments", "environments"]),
+    ...(rule.type === "rollout" || rule.type === "experiment"
+      ? { coverage: rule.coverage ?? 1 }
+      : {}),
+    condition: rule.condition || "",
+    savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+      matchType: s.match,
+      savedGroups: s.ids,
+    })),
+    prerequisites: rule.prerequisites || [],
+    enabled: !!rule.enabled,
+    // Scrub `@config:` from every value-bearing field of this rule type.
+    ...("value" in rule && typeof rule.value === "string"
+      ? { value: scrubRuleValue(rule.value) }
+      : {}),
+    ...(rule.type === "experiment" && Array.isArray(rule.values)
+      ? {
+          values: rule.values.map((v) => ({
+            ...v,
+            value: scrubRuleValue(v.value),
+          })),
+        }
+      : {}),
+    ...((rule.type === "experiment-ref" ||
+      rule.type === "contextual-bandit-ref") &&
+    Array.isArray(rule.variations)
+      ? {
+          variations: rule.variations.map((v) => ({
+            ...v,
+            value: scrubRuleValue(v.value),
+          })),
+        }
+      : {}),
+    ...(rule.type === "safe-rollout"
+      ? {
+          controlValue: scrubRuleValue(rule.controlValue),
+          variationValue: scrubRuleValue(rule.variationValue),
+        }
+      : {}),
+  } as unknown as ApiFeatureRule;
+}
+
 export function getApiFeatureObj({
   feature,
   organization,
@@ -2834,57 +2939,6 @@ export function getApiFeatureObj({
   // and reshapes; the two surfaces have always diverged.
   //
   // Defaults below mirror origin/main's long-standing explicit normalization.
-  // The old typed sub-schema also auto-initialized `savedGroups`,
-  // `scheduleRules`, and `variations` to `[]`; those leaked into the API
-  // response by accident and are intentionally NOT re-introduced here — the
-  // SDK payload (`definition`) is unaffected and external consumers should
-  // null-check sparse rule fields.
-  // Strip `@config:` from a rule value string; `@const:` refs pass through.
-  const scrubValue = (v: string | undefined): string | undefined =>
-    v === undefined ? v : (stripConfigExtends(v) ?? v);
-  const normalizeRuleForFeatureEnv = (rule: FeatureRule): ApiFeatureRule =>
-    ({
-      ...rule,
-      coverage:
-        rule.type === "rollout" || rule.type === "experiment"
-          ? (rule.coverage ?? 1)
-          : 1,
-      condition: rule.condition || "",
-      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
-        matchType: s.match,
-        savedGroups: s.ids,
-      })),
-      prerequisites: rule.prerequisites || [],
-      enabled: !!rule.enabled,
-      // Scrub `@config:` from every value-bearing field of this rule type.
-      ...("value" in rule && typeof rule.value === "string"
-        ? { value: scrubValue(rule.value) }
-        : {}),
-      ...(rule.type === "experiment" && Array.isArray(rule.values)
-        ? {
-            values: rule.values.map((v) => ({
-              ...v,
-              value: scrubValue(v.value),
-            })),
-          }
-        : {}),
-      ...((rule.type === "experiment-ref" ||
-        rule.type === "contextual-bandit-ref") &&
-      Array.isArray(rule.variations)
-        ? {
-            variations: rule.variations.map((v) => ({
-              ...v,
-              value: scrubValue(v.value),
-            })),
-          }
-        : {}),
-      ...(rule.type === "safe-rollout"
-        ? {
-            controlValue: scrubValue(rule.controlValue),
-            variationValue: scrubValue(rule.variationValue),
-          }
-        : {}),
-    }) as unknown as ApiFeatureRule;
   // `applicableEnvs` scopes `allEnvironments: true` rules; seeding with
   // `environments` keeps every org env present in the response.
   const orgEnvs = getEnvironments(organization);
@@ -3282,23 +3336,23 @@ export function validateFeatureRuleValues(
   }
 }
 
-// Enforce JSON-schema validation for a feature's default value and/or rule
-// values. Validation is on by default; an explicit `?skipSchemaValidation=true`
-// opts out (see context.canSkipSchemaValidationFor("feature")). Pass the EFFECTIVE feature —
+// Enforce value types even when schema validation is skipped. Pass the EFFECTIVE feature —
 // i.e. one already carrying the inbound/draft `jsonSchema`, `valueType`, so a
 // request that changes the schema validates against the new schema.
 export function assertFeatureValuesValid(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
-  if (context.canSkipSchemaValidationFor("feature")) return;
-  if (values.defaultValue !== undefined) {
-    validateFeatureValue(feature, values.defaultValue, "Default value");
-  }
-  for (const rule of values.rules ?? []) {
-    validateFeatureRuleValues(feature, rule);
-  }
+  const valueFeature = context.canSkipSchemaValidationFor("feature")
+    ? { valueType: feature.valueType }
+    : feature;
+  mapChangedFeatureValues(
+    values,
+    (value, label) => validateFeatureValue(valueFeature, value, label),
+    previous,
+  );
 }
 
 // Publish-time safety net: re-validate the values a revision is about to make
@@ -3314,23 +3368,21 @@ export function assertFeatureValuesValid(
 export function collectFeatureValueErrorsForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): string[] {
   const errors: string[] = [];
-  const collect = (fn: () => void) => {
-    try {
-      fn();
-    } catch (e) {
-      errors.push(e instanceof Error ? e.message : String(e));
-    }
-  };
-  if (values.defaultValue !== undefined) {
-    collect(() =>
-      validateFeatureValue(feature, values.defaultValue!, "Default value"),
-    );
-  }
-  for (const rule of values.rules ?? []) {
-    collect(() => validateFeatureRuleValues(feature, rule));
-  }
+  mapChangedFeatureValues(
+    values,
+    (value, label) => {
+      try {
+        validateFeatureValue(feature, value, label);
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e));
+      }
+      return value;
+    },
+    previous,
+  );
   return errors;
 }
 
@@ -3338,10 +3390,17 @@ export function assertFeatureValuesValidForPublish(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
+  const typeErrors = collectFeatureValueErrorsForPublish(
+    { valueType: feature.valueType },
+    values,
+    previous,
+  );
+  if (typeErrors.length) throw new BadRequestError(typeErrors.join(", "));
   if (context.canSkipSchemaValidationFor("feature")) return;
 
-  const errors = collectFeatureValueErrorsForPublish(feature, values);
+  const errors = collectFeatureValueErrorsForPublish(feature, values, previous);
   if (!errors.length) return;
 
   // Default to blocking when the setting is absent.
@@ -3371,16 +3430,14 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   const valFeature = context.canSkipSchemaValidationFor("feature")
     ? { ...feature, jsonSchema: undefined }
     : feature;
-  const attributeScope =
-    getAttributeScopeProjectIds(attributeScopeEntity ?? feature) ?? undefined;
-  return rules.map((r) => {
-    const conditionRes = validateCondition(r.condition);
-    if (!conditionRes.success) {
-      throw new Error(
-        "Invalid targeting condition JSON: " + conditionRes.error,
-      );
-    }
-
+  return rules.map((r, ruleIndex) => {
+    const ruleLabel = `Rule ${ruleIndex + 1}`;
+    const attributeScope =
+      getRuleAttributeScopeProjectIds(
+        attributeScopeEntity ?? feature,
+        undefined,
+        r,
+      ) ?? undefined;
     // Opt-in attribute registration check (org-level setting). Only validate
     // fields that changed so pre-existing violations don't block unrelated edits.
     const ruleWithAttrs = r as {
@@ -3434,9 +3491,13 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           enabled: r.enabled != null ? r.enabled : true,
           description: r.description ?? "",
           experimentId: r.experimentId,
-          variations: r.variations.map((v) => ({
+          variations: r.variations.map((v, i) => ({
             variationId: v.variationId,
-            value: validateFeatureValue(valFeature, v.value),
+            value: validateFeatureValue(
+              valFeature,
+              v.value,
+              `${ruleLabel} variation ${i + 1}`,
+            ),
           })),
           ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
@@ -3452,7 +3513,11 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         // Validate each variation value against the schema (previously skipped).
         if (Array.isArray(values)) {
           values.forEach((v: { value: string }, i) =>
-            validateFeatureValue(valFeature, v.value, `Variation ${i + 1}`),
+            validateFeatureValue(
+              valFeature,
+              v.value,
+              `${ruleLabel} variation ${i + 1}`,
+            ),
           );
         }
         const experimentRule: ExperimentRule = {
@@ -3467,6 +3532,8 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           trackingKey: r.trackingKey ?? "",
           enabled: r.enabled != null ? r.enabled : true,
           description: r.description ?? "",
+          condition: r.condition,
+          savedGroups: resolveSavedGroupsInput(r) ?? [],
           values: values,
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
@@ -3481,7 +3548,11 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           allEnvironments: false,
           type: r.type,
           description: r.description ?? "",
-          value: validateFeatureValue(valFeature, r.value),
+          value: validateFeatureValue(
+            valFeature,
+            r.value,
+            `${ruleLabel} value`,
+          ),
           condition: r.condition,
           savedGroups: resolveSavedGroupsInput(r) ?? [],
           enabled: r.enabled != null ? r.enabled : true,
@@ -3501,7 +3572,11 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           coverage: r.coverage,
           description: r.description ?? "",
           hashAttribute: r.hashAttribute,
-          value: validateFeatureValue(valFeature, r.value),
+          value: validateFeatureValue(
+            valFeature,
+            r.value,
+            `${ruleLabel} value`,
+          ),
           condition: r.condition,
           savedGroups: resolveSavedGroupsInput(r) ?? [],
           enabled: r.enabled != null ? r.enabled : true,
@@ -3609,6 +3684,20 @@ function prerequisiteListsDiffer(
   return false;
 }
 
+const logCyclicPrerequisite = (
+  prereqFeature: FeatureInterface,
+  environment: string,
+) => {
+  logger.warn(
+    {
+      organization: prereqFeature.organization,
+      feature: prereqFeature.id,
+      environment,
+    },
+    "Cyclic prerequisite detected during SDK payload generation; features and rules gated on it are omitted",
+  );
+};
+
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
 export const reduceFeaturesWithPrerequisites = (
   features: FeatureInterface[],
@@ -3641,6 +3730,9 @@ export const reduceFeaturesWithPrerequisites = (
             undefined,
             true,
           );
+          if (state.state === "cyclic") {
+            logCyclicPrerequisite(prereqFeature, environment);
+          }
         }
         prereqStateCache[prereq.id] = state;
       }
@@ -3785,6 +3877,9 @@ const getInlinePrerequisitesReductionInfo = (
           undefined,
           true,
         );
+        if (state.state === "cyclic") {
+          logCyclicPrerequisite(prereqFeature, environment);
+        }
       }
       prereqStateCache[pc.id] = state;
     }
@@ -3910,6 +4005,59 @@ export async function getFeatureReviewFootprint({
       settings: context.org.settings,
     }),
   });
+}
+
+// Targeting projects whose own reviewers this draft needs, judged against live
+// the way the review panel judges it.
+// Who may retract a verdict on a draft: anyone who could review it now, or the
+// verdict's own author even after the draft or their role moved them out of
+// its reviewer set.
+export async function assertCanUndoFeatureReview({
+  context,
+  feature,
+  revision,
+  user,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  user: EventUser;
+}): Promise<void> {
+  const ownVerdict = (revision.reviews ?? []).some(
+    (r) => r.userId === reviewerKeyForEventUser(user),
+  );
+  if (ownVerdict) return;
+  if (
+    !context.permissions.canReviewFeatureDrafts(
+      feature,
+      await getFeatureReviewFootprint({ context, feature, revision }),
+      await getFeatureReviewApproverProjects({ context, feature, revision }),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}
+
+export async function getFeatureReviewApproverProjects({
+  context,
+  feature,
+  revision,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+}): Promise<string[]> {
+  const live = await getLiveRevisionForFeature(context, feature);
+  return (
+    getRevisionReviewRequirement({
+      feature,
+      baseRevision: { ...live, ...liveRevisionFromFeature(live, feature) },
+      revision,
+      orgEnvironments: getEnvironments(context.org),
+      settings: context.org.settings,
+      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    }).approverProjects ?? []
+  );
 }
 
 export async function getLiveAndBaseRevisionsForFeature({
@@ -4111,6 +4259,8 @@ export async function assertCanAutoPublish(
     requiresReview &&
     !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
   ) {
-    context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError(
+      "This change requires approval before it can be published. Save it as a draft and request a review.",
+    );
   }
 }

@@ -2,8 +2,16 @@ import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { getReviewSetting } from "shared/util";
-import { holdsFeatureMoveDestination } from "shared/permissions";
+import {
+  governingReviewProjectsForFeature,
+  requiresMetadataReview,
+} from "shared/util";
+import {
+  holdsFeatureMoveDestination,
+  holdsTargetingDestination,
+  reachedTargeting,
+  withStagedTargeting,
+} from "shared/permissions";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -27,9 +35,12 @@ import DraftSelectorForChanges, {
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 const EditFeatureInfoModal: FC<{
+  // The feature as viewed (draft changes merged in) and as published.
   feature: FeatureInterface;
+  baseFeature: FeatureInterface;
   revisionList: MinimalFeatureRevisionInterface[];
   cancel: () => void;
   mutate: () => void;
@@ -38,6 +49,7 @@ const EditFeatureInfoModal: FC<{
   dependents: number;
 }> = ({
   feature,
+  baseFeature,
   revisionList,
   cancel,
   mutate,
@@ -57,17 +69,8 @@ const EditFeatureInfoModal: FC<{
     "feature",
   );
 
-  // Gated when requireReviewOn is true and featureRequireMetadataReview is not disabled
-  const metadataGated: boolean = (() => {
-    const raw = settings?.requireReviews;
-    if (raw === true) return true;
-    if (!Array.isArray(raw)) return false;
-    const reviewSetting = getReviewSetting(raw, feature);
-    if (!reviewSetting?.requireReviewOn) return false;
-    return reviewSetting.featureRequireMetadataReview !== false;
-  })();
-
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, targetingOptOutProjectIds: targetingOptOut } =
+    useDefinitions();
 
   const form = useForm({
     defaultValues: {
@@ -79,6 +82,24 @@ const EditFeatureInfoModal: FC<{
       description: feature.description || "",
     },
   });
+
+  // Judged over every governing project, current and proposed, the way the
+  // endpoint judges it: a targeting project with its own rule can demand
+  // review that the primary project alone would not.
+  const metadataGated = requiresMetadataReview(
+    settings,
+    governingReviewProjectsForFeature({
+      feature,
+      revision: {
+        metadata: {
+          project: form.watch("project"),
+          targetingAllProjects: form.watch("targetingAllProjects"),
+          targetingProjects: form.watch("targetingProjects"),
+        },
+      },
+      settings,
+    }),
+  );
 
   // Publishing metadata requires authority over its footprint and destination.
   const moveDestination = form.watch("project");
@@ -98,7 +119,17 @@ const EditFeatureInfoModal: FC<{
       feature,
       moveDestination,
       metadataEnvs,
-    );
+    ) &&
+    holdsTargetingDestination({
+      permissions: permissionsUtil,
+      existing: baseFeature,
+      proposed: {
+        project: moveDestination,
+        targetingAllProjects: form.watch("targetingAllProjects"),
+        targetingProjects: form.watch("targetingProjects"),
+      },
+      optedOut: targetingOptOut,
+    });
   const canAutoPublish = (isAdmin || !metadataGated) && canPublishMetadata;
 
   const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
@@ -109,6 +140,20 @@ const EditFeatureInfoModal: FC<{
   const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
+  );
+  const revisions = useFeatureRevisionsContext()?.revisions ?? [];
+  const targetDraft =
+    mode === "existing"
+      ? revisions.find((r) => r.version === selectedDraft)
+      : undefined;
+  // Anything the flag reaches live, in the draft being written into (live
+  // when a new draft is created), or reached when that draft began stays
+  // selectable, so removing it can be put back without the permission it
+  // would take to add it fresh. Same base as the endpoint.
+  const reached = reachedTargeting(
+    withStagedTargeting(baseFeature, targetDraft?.metadata),
+    baseFeature,
+    revisions.find((r) => r.version === targetDraft?.baseVersion)?.metadata,
   );
 
   const conflict = useDraftConflict<Record<string, unknown>>({
@@ -265,6 +310,10 @@ const EditFeatureInfoModal: FC<{
             setTargetingProjects={(v) =>
               form.setValue("targetingProjects", v, { shouldDirty: true })
             }
+            baseline={{
+              allProjects: reached.targetingAllProjects,
+              targetingProjects: reached.targetingProjects,
+            }}
           />
           <Box mb="4">
             <label>Tags</label>

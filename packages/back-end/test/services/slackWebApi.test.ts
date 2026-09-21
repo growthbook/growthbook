@@ -4,11 +4,13 @@ import {
   joinSlackConversation,
   listSlackConversations,
   postSlackMessageResult,
+  uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
-import { cancellableFetch } from "back-end/src/util/http.util";
+import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 
 jest.mock("back-end/src/util/http.util", () => ({
   cancellableFetch: jest.fn(),
+  fetch: jest.fn(),
 }));
 
 const slackResponse = (body: Record<string, unknown>) => ({
@@ -69,6 +71,95 @@ describe("Slack Web API", () => {
         },
         body: JSON.stringify({ channel: "C123", text: "Hello", blocks }),
       },
+      { maxTimeMs: 15000, maxContentSize: 1024 * 256 },
+    );
+  });
+
+  it("uploads a notification card and shares it with the footer blocks", async () => {
+    cancellableFetch
+      .mockResolvedValueOnce(
+        slackResponse({
+          ok: true,
+          upload_url: "https://files.slack.test/upload",
+          file_id: "F123",
+        }),
+      )
+      .mockResolvedValueOnce(slackResponse({ ok: true }));
+    fetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    const png = Buffer.from("png");
+    const blocks = [
+      { type: "context", elements: [{ type: "mrkdwn", text: "footer" }] },
+    ];
+    await expect(
+      uploadSlackImageFile({
+        token: "xoxb-token",
+        png,
+        filename: "experiment-card.png",
+        title: "Experiment stopped",
+        channelId: "C123",
+        blocks,
+        initialComment: "footer",
+      }),
+    ).resolves.toBe("F123");
+
+    expect(fetch).toHaveBeenCalledWith("https://files.slack.test/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: png,
+      signal: expect.any(AbortSignal),
+    });
+    // Shared on upload so the channel can see it, with the blocks as the
+    // share message; Slack takes them as a JSON string.
+    expect(cancellableFetch).toHaveBeenLastCalledWith(
+      "https://slack.com/api/files.completeUploadExternal",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          files: [{ id: "F123", title: "Experiment stopped" }],
+          channel_id: "C123",
+          blocks: JSON.stringify(blocks),
+        }),
+      }),
+      { maxTimeMs: 15000, maxContentSize: 1024 * 256 },
+    );
+  });
+
+  it("falls back to a plain comment when Slack rejects the footer blocks", async () => {
+    cancellableFetch
+      .mockResolvedValueOnce(
+        slackResponse({
+          ok: true,
+          upload_url: "https://files.slack.test/upload",
+          file_id: "F123",
+        }),
+      )
+      .mockResolvedValueOnce(
+        slackResponse({ ok: false, error: "invalid_blocks" }),
+      )
+      .mockResolvedValueOnce(slackResponse({ ok: true }));
+    fetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    await expect(
+      uploadSlackImageFile({
+        token: "xoxb-token",
+        png: Buffer.from("png"),
+        filename: "experiment-card.png",
+        channelId: "C123",
+        blocks: [{ type: "context", elements: [] }],
+        initialComment: "footer",
+      }),
+    ).resolves.toBe("F123");
+
+    expect(cancellableFetch).toHaveBeenLastCalledWith(
+      "https://slack.com/api/files.completeUploadExternal",
+      expect.objectContaining({
+        body: JSON.stringify({
+          files: [{ id: "F123", title: "experiment-card.png" }],
+          channel_id: "C123",
+          initial_comment: "footer",
+        }),
+      }),
       { maxTimeMs: 15000, maxContentSize: 1024 * 256 },
     );
   });
