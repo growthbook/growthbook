@@ -1174,6 +1174,9 @@ export function getFeatureDefinition({
             condition: p.condition,
           });
           if (!condition) return null;
+          // These rules are built outside the map below, so they miss its
+          // finalize pass and have to run their own.
+          savedGroupStrategy.finalizeCondition(condition);
           return {
             parentConditions: [
               {

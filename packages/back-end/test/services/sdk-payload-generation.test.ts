@@ -25,6 +25,7 @@ import {
   applySavedGroupHashing,
   getUsedSavedGroupIds,
   getApiFeatureObj,
+  generateHoldoutsPayload,
   type SDKPayloadRawData,
   type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
@@ -2275,6 +2276,113 @@ describe("getUsedSavedGroupIds", () => {
       groupMap,
     );
     expect(used.has("unused")).toBe(false);
+  });
+});
+
+describe("feature-level prerequisites saved groups", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_value", { type: "list", attributeKey: "value", values: ["on"] }],
+  ]);
+  const organization = { id: "org", settings: {} } as OrganizationInterface;
+
+  const feature = {
+    id: "f",
+    organization: "org",
+    defaultValue: "off",
+    valueType: "string",
+    prerequisites: [
+      {
+        id: "parent",
+        condition: JSON.stringify({ value: { $inGroup: "grp_value" } }),
+      },
+    ],
+    environmentSettings: { production: { enabled: true, rules: [] } },
+  } as unknown as FeatureInterface;
+
+  // These rules are assembled outside the map that finalizes every other rule,
+  // so they are easy to miss.
+  const parentConditionFor = (capabilities: string[]) =>
+    getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap: new Map(),
+      organization,
+      capabilities: capabilities as ConnectionPayloadOptions["capabilities"],
+      savedGroupReferencesEnabled: true,
+    })?.rules?.[0]?.parentConditions?.[0]?.condition;
+
+  it("rewrites a stored $inGroup under v2", () => {
+    expect(
+      parentConditionFor([
+        "prerequisites",
+        "savedGroupReferences",
+        "savedGroupReferencesV2",
+      ]),
+    ).toEqual({ $savedGroup: "grp_value" });
+  });
+
+  it("keeps a stored $inGroup under v1", () => {
+    expect(
+      parentConditionFor(["prerequisites", "savedGroupReferences"]),
+    ).toEqual({ value: { $inGroup: "grp_value" } });
+  });
+});
+
+describe("generateHoldoutsPayload saved groups", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
+  ]);
+
+  const holdoutsMap = (condition: string) =>
+    new Map([
+      [
+        "ho_1",
+        {
+          holdout: { id: "ho_1" } as HoldoutInterface,
+          holdoutExperiment: {
+            trackingKey: "ho-key",
+            hashAttribute: "id",
+            phases: [{ coverage: 0.5, seed: "s", condition }],
+          } as unknown as ExperimentInterface,
+        },
+      ],
+    ]);
+
+  const conditionFor = (
+    capabilities: string[],
+    condition: string,
+  ): ConditionInterface | undefined =>
+    generateHoldoutsPayload({
+      holdoutsMap: holdoutsMap(condition),
+      groupMap,
+      capabilities: capabilities as ConnectionPayloadOptions["capabilities"],
+      savedGroupReferencesEnabled: true,
+    })["$holdout:ho_1"]?.rules?.[0]?.condition;
+
+  const V1 = ["savedGroupReferences"];
+  const V2 = ["savedGroupReferences", "savedGroupReferencesV2"];
+  const inGroup = JSON.stringify({ id: { $inGroup: "grp_list" } });
+
+  it("rewrites a stored $inGroup under v2, like every other rule path", () => {
+    expect(conditionFor(V2, inGroup)).toEqual({ $savedGroup: "grp_list" });
+  });
+
+  it("keeps a stored $inGroup under v1", () => {
+    expect(conditionFor(V1, inGroup)).toEqual({ id: { $inGroup: "grp_list" } });
+  });
+
+  it("rewrites $savedGroups under v2", () => {
+    expect(
+      conditionFor(V2, JSON.stringify({ $savedGroups: ["grp_list"] })),
+    ).toEqual({ $savedGroup: "grp_list" });
+  });
+
+  it("leaves a condition with no saved groups alone", () => {
+    expect(conditionFor(V2, JSON.stringify({ country: "US" }))).toEqual({
+      country: "US",
+    });
   });
 });
 

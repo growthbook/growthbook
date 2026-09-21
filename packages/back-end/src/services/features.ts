@@ -397,6 +397,10 @@ export function generateHoldoutsPayload({
       savedGroups: mainPhase.savedGroups,
     });
     if (condition) {
+      // Same last step every other rule producer takes. Without it a holdout
+      // authored with the condition builder's "is in saved group" operator
+      // keeps `$inGroup` in a format that does not use it.
+      savedGroupStrategy.finalizeCondition(condition);
       rule.condition = condition;
     }
 
@@ -633,9 +637,10 @@ export function generateAutoExperimentsPayload({
       );
       if (metadata) exp.metadata = metadata;
 
+      savedGroupStrategy.finalizeCondition(exp.condition);
+      savedGroupStrategy.finalizeCondition(exp.parentConditions);
+
       if (capabilities !== undefined) {
-        savedGroupStrategy.finalizeCondition(exp.condition);
-        savedGroupStrategy.finalizeCondition(exp.parentConditions);
         const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
         if (removedExperimentKeys.length) {
           return omit(exp, removedExperimentKeys) as AutoExperimentWithMetadata;
