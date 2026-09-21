@@ -63,8 +63,9 @@ function SlackManifestModal({ onClose }: { onClose: () => void }) {
         </li>
         <li>
           <Text>
-            Reload this page, connect your Slack workspace, and enable the AI
-            assistant in the workspace settings.
+            Reload this page and connect your Slack workspace. The assistant
+            follows your organization&apos;s AI setting unless you turn it off
+            in the workspace settings.
           </Text>
         </li>
       </ol>

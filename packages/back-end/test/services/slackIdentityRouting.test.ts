@@ -124,7 +124,7 @@ it("rechecks revoked membership", async () => {
   });
 });
 it.each([{}, { organizationId: "org1" }])(
-  "requires the assistant to be enabled, including for a pinned thread: %p",
+  "respects an explicit assistant opt-out, including for a pinned thread: %p",
   async (pinned) => {
     jest
       .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
@@ -138,8 +138,22 @@ it.each([{}, { organizationId: "org1" }])(
     ).toMatchObject({ ok: false, reason: "assistant_disabled" });
     expect(await resolveSlackAssistantTarget(request)).toMatchObject({
       ok: true,
-      assistantEnabled: false,
     });
+  },
+);
+it.each([{}, { organizationId: "org1" }])(
+  "inherits organization AI access when the workspace setting is unset: %p",
+  async (pinned) => {
+    jest
+      .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
+      .mockResolvedValue({ ...connection, assistantEnabled: undefined });
+    expect(
+      await resolveSlackAssistantTarget({
+        ...request,
+        ...pinned,
+        requireAssistantEnabled: true,
+      }),
+    ).toMatchObject({ ok: true, organizationId: "org1" });
   },
 );
 it("requires a connected workspace", async () => {

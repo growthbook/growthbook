@@ -18,9 +18,10 @@ For an existing Slack app, configure:
 
 `shared/slack-integration` defines the bot OAuth scopes and events used by both
 the OAuth connection and the self-hosted setup manifest. Reconnect
-an older workspace installation if it lacks these grants. Enable the assistant
-in GrowthBook's Slack workspace settings; it defaults off. GrowthBook's existing
-AI access, usage limits, and the linked user's permissions still apply.
+an older workspace installation if it lacks these grants. The assistant follows
+the organization's AI setting unless its Slack workspace switch was set
+explicitly. Organization AI access, usage limits, and the linked user's
+permissions still apply.
 
 Users link their Slack identity through a private signed link requiring GrowthBook
 login. Requests run with their current organization permissions. Mutations require

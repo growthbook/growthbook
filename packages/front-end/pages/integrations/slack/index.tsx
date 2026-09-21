@@ -656,7 +656,7 @@ const SlackWorkspacePage: NextPage = () => {
                   missingSlackBotScopes(group.workspace.scope).length > 0
                 }
                 connecting={connecting}
-                updatingAssistant={updatingAssistantTeamId !== null}
+                updatingAssistant={updatingAssistantTeamId === group.teamId}
                 onAssistantChange={async (enabled) => {
                   setUpdatingAssistantTeamId(group.teamId);
                   setConnectError(null);

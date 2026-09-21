@@ -5,6 +5,7 @@ import { FaSlack } from "react-icons/fa";
 import { PiCaretDown, PiPlus } from "react-icons/pi";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import HelperText from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -61,6 +62,7 @@ export default function SlackWorkspacePanel({
   onSaved: (channel?: SlackOAuthIntegrationInterface) => Promise<void>;
   onDirtyChange: (teamId: string, dirty: boolean) => void;
 }) {
+  const { aiEnabled } = useAISettings();
   const { projects } = useDefinitions();
   const { apiCall } = useAuth();
   const [localChannelId, setLocalChannelId] = useState<string | null>(
@@ -208,9 +210,13 @@ export default function SlackWorkspacePanel({
             <Switch
               size="sm"
               label="AI assistant"
-              description="Answer direct messages and mentions in connected channels"
-              value={workspace.assistantEnabled === true}
-              disabled={updatingAssistant}
+              description={
+                aiEnabled
+                  ? "Answer direct messages and mentions in connected channels"
+                  : "Enable AI for your organization in Settings → General to use the assistant."
+              }
+              value={aiEnabled && (workspace.assistantEnabled ?? true)}
+              disabled={!aiEnabled || updatingAssistant}
               onChange={onAssistantChange}
             />
           </Flex>

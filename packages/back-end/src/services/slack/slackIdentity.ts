@@ -19,7 +19,6 @@ export type ResolvedSlackTarget = {
   linkId: string;
   organizationId: string;
   botToken: string;
-  assistantEnabled: boolean;
 };
 export type SlackAssistantTarget =
   | ResolvedSlackTarget
@@ -182,7 +181,7 @@ export async function resolveSlackAssistantTarget({
       message:
         "Your linked GrowthBook account no longer has access to the connected organization.",
     };
-  if (requireAssistantEnabled && !connection.assistantEnabled)
+  if (requireAssistantEnabled && connection.assistantEnabled === false)
     return {
       ok: false,
       reason: "assistant_disabled",
@@ -197,6 +196,5 @@ export async function resolveSlackAssistantTarget({
     linkId: link.linkId,
     organizationId: connection.organization,
     botToken,
-    assistantEnabled: connection.assistantEnabled === true,
   };
 }
