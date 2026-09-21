@@ -19,11 +19,11 @@ import styles from "./ExperimentSplitVisual.module.scss";
 
 /** How tall the connector is, and how it is put together. */
 const CONNECTOR = {
-  height: 22,
+  height: 30,
   /** The stem drops this far before the arms branch off it. */
-  stem: 7,
-  /** Rounded corner where an arm turns down toward its segment. */
-  radius: 5,
+  stem: 6,
+  /** The vertical run an arm settles into before its head. */
+  straight: 3,
   head: 3,
 };
 
@@ -47,21 +47,27 @@ function SegmentConnector({ centers }: { centers: number[] }) {
     return () => observer.disconnect();
   }, []);
 
-  const { height, stem, radius, head } = CONNECTOR;
+  const { height, stem, straight, head } = CONNECTOR;
   const midX = width / 2;
   const endY = height - head;
+  const turnY = endY - straight;
 
   // One path for every arm: they share a stem, and separate elements would
   // stack their alpha where they run together.
+  //
+  // Each arm leaves the stem on a slope — a flat exit reads as a bus bar — and
+  // its second control sits directly above the target, which makes the curve
+  // vertical by the time it reaches the straight run into the head.
   const d = centers
     .map((center) => {
       const x = (center / 100) * width;
-      const turn = Math.abs(x - midX) < radius;
-      const dir = Math.sign(x - midX);
-      const arm = turn
-        ? `M ${midX} ${stem} L ${x} ${endY}`
-        : `M ${midX} ${stem} L ${x - dir * radius} ${stem}` +
-          ` Q ${x} ${stem}, ${x} ${stem + radius} L ${x} ${endY}`;
+      const dx = x - midX;
+      const dy = turnY - stem;
+      const arm =
+        Math.abs(dx) < 1
+          ? `M ${midX} ${stem} L ${x} ${endY}`
+          : `M ${midX} ${stem} C ${midX + dx * 0.4} ${stem + dy * 0.35},` +
+            ` ${x} ${turnY - dy * 0.22}, ${x} ${turnY} L ${x} ${endY}`;
       return (
         arm +
         ` M ${x - head} ${endY - head} L ${x} ${endY} L ${x + head} ${endY - head}`
