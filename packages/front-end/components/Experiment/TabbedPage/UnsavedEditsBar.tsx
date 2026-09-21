@@ -1,4 +1,4 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
@@ -12,24 +12,30 @@ export default function UnsavedEditsBar() {
 
   return (
     <div className={clsx(styles.bar, edits.flashing && styles.flashing)}>
-      <Flex align="center" gap="3">
-        {edits.error ? (
-          <HelperText status="error" size="sm">
-            {edits.error}
-          </HelperText>
-        ) : null}
-        <Button
-          variant="ghost"
-          color="gray"
-          disabled={edits.saving}
-          onClick={edits.discardAll}
-        >
-          Discard Changes
-        </Button>
-        <Button disabled={edits.saving} onClick={() => edits.saveAll()}>
-          {edits.saving ? "Saving..." : "Save"}
-        </Button>
-      </Flex>
+      <Box
+        mx="auto"
+        width="100%"
+        style={{ maxWidth: "var(--page-content-max-width)" }}
+      >
+        <Flex align="center" justify="end" gap="3">
+          {edits.error ? (
+            <HelperText status="error" size="sm">
+              {edits.error}
+            </HelperText>
+          ) : null}
+          <Button
+            variant="ghost"
+            color="gray"
+            disabled={edits.saving}
+            onClick={edits.discardAll}
+          >
+            Discard Changes
+          </Button>
+          <Button disabled={edits.saving} onClick={() => edits.saveAll()}>
+            {edits.saving ? "Saving..." : "Save"}
+          </Button>
+        </Flex>
+      </Box>
     </div>
   );
 }

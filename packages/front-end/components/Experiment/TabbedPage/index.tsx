@@ -160,8 +160,11 @@ function TabbedPageContents({
   const { apiCall } = useAuth();
 
   const [compareModal, setCompareModal] = useState(false);
+  // Per experiment, like the tab above: every experiment opens showing the
+  // details it is set up from, and closing the panel is remembered for that
+  // experiment alone. The width is a layout preference, so it stays global.
   const [detailsOpen, setDetailsOpen] = useLocalStorage(
-    `experiment-details-panel-open`,
+    `experiment-details-panel-open__${experiment.id}`,
     true,
   );
   const [detailsWidth, setDetailsWidth] = useLocalStorage(
@@ -220,6 +223,12 @@ function TabbedPageContents({
   );
   const showDetailsPanel = tab === "overview" && !showDashboardView;
   const detailsPanelOpen = showDetailsPanel && detailsOpen;
+
+  // The toggle is a fresh start: a width dragged out earlier is forgotten.
+  const toggleDetailsPanel = (open: boolean) => {
+    setDetailsWidth(PANEL_WIDTH_PX);
+    setDetailsOpen(open);
+  };
 
   // Results tab filters
   const [analysisBarSettings, setAnalysisBarSettings] = useState<{
@@ -618,7 +627,7 @@ function TabbedPageContents({
         editResult={guardedEditResult || undefined}
         editTargeting={guardedEditTargeting}
         detailsOpen={detailsOpen}
-        setDetailsOpen={showDetailsPanel ? setDetailsOpen : undefined}
+        setDetailsOpen={showDetailsPanel ? toggleDetailsPanel : undefined}
         newPhase={newPhase}
         editPhases={guardedEditPhases}
         healthNotificationCount={healthNotificationCount}
@@ -906,8 +915,10 @@ function TabbedPageContents({
             />
           </div>
         </CollapsiblePanelLayout>
-        <UnsavedEditsBar />
       </Box>
+      {/* Outside the page's max width: the bar spans the window, its contents
+          line up with the page. */}
+      <UnsavedEditsBar />
     </PreLaunchChecklistProvider>
   );
 }

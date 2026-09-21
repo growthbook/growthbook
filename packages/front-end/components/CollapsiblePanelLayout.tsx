@@ -1,6 +1,7 @@
 import {
   PointerEvent as ReactPointerEvent,
   ReactNode,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -15,6 +16,8 @@ const MAX_PANEL_WIDTH_PX = 560;
 /** Drag this far past the minimum width to close the panel instead. */
 const COLLAPSE_DELTA_PX = 60;
 const HANDLE_WIDTH_PX = 20;
+/** How long the panel takes to slide open or shut. */
+const SLIDE_MS = 160;
 
 export interface Props {
   /** The main content. */
@@ -97,11 +100,47 @@ export default function CollapsiblePanelLayout({
   // tree would remount the whole page on every toggle, refetching its data.
   const showPanel = open && !previewCollapsed;
 
+  // The panel slides rather than blinking in and out, so it stays mounted until
+  // its closing slide has run.
+  const [mounted, setMounted] = useState(showPanel);
+  const [expanded, setExpanded] = useState(showPanel);
+  useEffect(() => {
+    if (showPanel) {
+      setMounted(true);
+      return;
+    }
+    setExpanded(false);
+    const timer = setTimeout(() => setMounted(false), SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [showPanel]);
+
+  // Two frames: the first lets the browser paint the panel at zero width, so
+  // the widening that follows is something it can animate from.
+  useEffect(() => {
+    if (!mounted || !showPanel) return;
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setExpanded(true));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, [mounted, showPanel]);
+
+  // A drag tracks the pointer exactly: sliding to each new width would just
+  // read as lag. Only the toggle animates.
+  const resizing = dragWidth !== null;
+
+  const currentWidth = expanded ? panelWidth : 0;
+
   // Overlaying keeps the content column at full width: the panel gives back the
   // space it occupies and floats over the right of the content instead.
   const overlaid = overlay
     ? {
-        marginLeft: -panelWidth,
+        // Tied to the animated width so the panel's right edge stays put and it
+        // slides in from the side rather than growing off-screen.
+        marginLeft: -currentWidth,
         zIndex: 900,
         // Same shadow as the pinned page header, turned to face left. The
         // negative spread cancels the blur vertically so it cannot bleed above
@@ -116,17 +155,21 @@ export default function CollapsiblePanelLayout({
       <Box flexGrow="1" style={{ minWidth: 0 }}>
         {children}
       </Box>
-      {showPanel ? (
+      {mounted ? (
         <Box
           position="sticky"
           flexShrink="0"
-          width={`${panelWidth}px`}
+          width={`${currentWidth}px`}
           style={{
             top,
             height: `calc(100vh - ${top}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
-            borderLeft: "1px solid var(--gray-a5)",
+            borderLeft: expanded ? "1px solid var(--gray-a5)" : "none",
+            overflow: "hidden",
+            transition: resizing
+              ? "none"
+              : `width ${SLIDE_MS}ms ease, margin-left ${SLIDE_MS}ms ease`,
             ...overlaid,
           }}
         >
@@ -146,7 +189,12 @@ export default function CollapsiblePanelLayout({
               }}
             ></Box>
           ) : null}
-          <Box height="100%" style={{ overflowY: "auto" }}>
+          {/* Holds its width while the panel slides, so the contents do not
+              reflow on the way in or out. */}
+          <Box
+            height="100%"
+            style={{ overflowY: "auto", width: `${panelWidth}px` }}
+          >
             {panel}
           </Box>
         </Box>
