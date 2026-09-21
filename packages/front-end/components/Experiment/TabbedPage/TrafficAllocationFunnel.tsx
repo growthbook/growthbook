@@ -568,7 +568,11 @@ export default function TrafficAllocationFunnel({
                   <Text size="sm" color="text-low">
                     Split
                   </Text>
-                  <Box className={styles.connectorLine} height="6px" />
+                  {/* Points at the bar, like the funnel's other connectors. */}
+                  <Box className={styles.connectorLine} height="7px" />
+                  <Box mt="-3" className={styles.caret}>
+                    <PiCaretDownBold size="11" />
+                  </Box>
                 </Flex>
                 {/* Coverage is already shown above, so this bar is purely the
                     split between variations. Held to the grid's width so the
