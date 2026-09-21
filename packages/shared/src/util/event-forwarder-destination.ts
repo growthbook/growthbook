@@ -604,6 +604,27 @@ export function resolveDatabricksEventForwarderTables(
   };
 }
 
+// Pre-fills what the connection hostname reveals. Azure hosts
+// (adb-<workspace-id>.<n>.azuredatabricks.net) give the workspace ID; AWS hosts
+// give only the domain. The region is never in the hostname, so it stays a
+// placeholder for the user to replace.
+export function suggestDatabricksEventForwarderZerobusEndpoint(
+  host: string | undefined,
+): string {
+  const h = (host ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "");
+  if (h.endsWith(".azuredatabricks.net")) {
+    const id = h.match(/^adb-(\d+)\./)?.[1] ?? "<workspace-id>";
+    return `https://${id}.zerobus.<region>.azuredatabricks.net`;
+  }
+  if (h.endsWith(".cloud.databricks.com")) {
+    return "https://<workspace-id>.zerobus.<region>.cloud.databricks.com";
+  }
+  return "";
+}
+
 // https://<workspace-id>.zerobus.<region>.cloud.databricks.com | .azuredatabricks.net
 export function normalizeDatabricksEventForwarderZerobusEndpoint(
   input: string,

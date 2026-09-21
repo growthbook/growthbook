@@ -6,6 +6,7 @@ import {
   formatDatabricksEventForwarderTablePrefix,
   normalizeBigQueryTablePrefixForEventForwarder,
   normalizeDatabricksEventForwarderZerobusEndpoint,
+  suggestDatabricksEventForwarderZerobusEndpoint,
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
   parseDatabricksEventForwarderTablePrefix,
@@ -215,7 +216,9 @@ function getEventForwarderDraft(
         catalog: params.catalog || "",
         schema: "",
         tablePrefix: DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
-        zerobusEndpoint: "",
+        zerobusEndpoint: suggestDatabricksEventForwarderZerobusEndpoint(
+          params.host,
+        ),
       },
     };
   }

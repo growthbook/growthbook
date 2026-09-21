@@ -67,6 +67,7 @@ const DatabricksEventForwarderForm: FC<{
         onChange={(zerobusEndpoint) => updateConfig({ zerobusEndpoint })}
         placeholder="https://<workspace-id>.zerobus.<region>.cloud.databricks.com"
         tooltip="Zerobus Ingest endpoint for your workspace: https://<workspace-id>.zerobus.<region>.cloud.databricks.com or https://<workspace-id>.zerobus.<region>.azuredatabricks.net."
+        helpText="Pre-filled from your connection where possible. Replace <workspace-id> with the number after ?o= in your workspace URL, and <region> with the workspace's cloud region (e.g. us-east-1, eastus)."
       />
     </Flex>
   );
