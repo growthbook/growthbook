@@ -165,6 +165,7 @@ import {
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
 import { validatePriorSettings } from "back-end/src/util/priors";
+import { assertValidUpdateSchedule } from "back-end/src/services/experiments";
 import {
   getInstallation,
   setInstallationName,
@@ -1751,6 +1752,11 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
+
+    assertValidUpdateSchedule(
+      settings?.updateSchedule,
+      org.settings?.updateSchedule,
+    );
     if (!context.hasPremiumFeature("require-approvals")) {
       if (settings?.approvalFlows?.savedGroups?.some((sg) => sg?.required)) {
         throw new Error(

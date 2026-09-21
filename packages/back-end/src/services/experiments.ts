@@ -1,5 +1,5 @@
 import uniqid from "uniqid";
-import cronParser from "cron-parser";
+import cronParser, { CronFields } from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import uniq from "lodash/uniq";
@@ -987,6 +987,38 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   if (hours < 1) hours = 1;
   if (hours > 168) hours = 168;
   return new Date(Date.now() + hours * 60 * 60 * 1000);
+}
+
+// determineNextDate clamps to one hour, so a faster cron would be silently ignored.
+export function assertValidUpdateSchedule(
+  updated: ExperimentUpdateSchedule | null | undefined,
+  existing?: ExperimentUpdateSchedule | null,
+): void {
+  if (updated?.type !== "cron") return;
+
+  const cron = updated.cron?.trim() || "";
+  if (existing?.type === "cron" && (existing.cron?.trim() || "") === cron) {
+    return;
+  }
+  if (!cron) {
+    throw new BadRequestError("A cron expression is required");
+  }
+
+  let fields: CronFields;
+  try {
+    fields = cronParser.parseExpression(cron).fields;
+  } catch (e) {
+    throw new BadRequestError(
+      `Invalid cron expression "${cron}": ${e.message}`,
+    );
+  }
+
+  // A single second and minute value means at most one run per hour
+  if (fields.second.length > 1 || fields.minute.length > 1) {
+    throw new BadRequestError(
+      `Cron schedule "${cron}" runs more than once an hour. Results can update at most once an hour.`,
+    );
+  }
 }
 
 export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
