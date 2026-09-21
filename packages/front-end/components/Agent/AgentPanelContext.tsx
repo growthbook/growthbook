@@ -23,6 +23,16 @@ interface AgentPanelContextValue {
 const AgentPanelContext = createContext<AgentPanelContextValue | null>(null);
 
 /**
+ * While the panel is mounted, the root Radix theme drops to `z-index: auto`
+ * (see the `[data-agent-panel]` rule in global.scss) so the panel covers
+ * body-portaled page controls. That also puts the panel above anything the
+ * panel itself portals to the body, so its own menus and popovers have to be
+ * lifted back over it.
+ */
+export const AGENT_PANEL_Z_INDEX = 10001;
+export const AGENT_PANEL_PORTAL_Z_INDEX = AGENT_PANEL_Z_INDEX + 1;
+
+/**
  * Holds the open / expanded state for the site-wide agent panel so that
  * the trigger (rendered inside the TopNav) and the panel itself (mounted
  * at the app shell) stay in sync. State lives in plain React state: it

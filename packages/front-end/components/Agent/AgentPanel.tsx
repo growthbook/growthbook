@@ -60,6 +60,10 @@ import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSk
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import AgentChatHistory from "./AgentChatHistory";
 import {
+  AGENT_PANEL_PORTAL_Z_INDEX,
+  AGENT_PANEL_Z_INDEX,
+} from "./AgentPanelContext";
+import {
   type MessageTurn,
   groupMessagesByTurn,
   classifyTurn,
@@ -609,7 +613,7 @@ export default function AgentPanel({
         boxShadow: "-8px 0 24px var(--black-a4)",
         display: "flex",
         flexDirection: "column",
-        zIndex: 10001,
+        zIndex: AGENT_PANEL_Z_INDEX,
         transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
@@ -1096,6 +1100,7 @@ function PersistedTurn({
           value={feedbackMap[replyMessageId] ?? { rating: null, comment: "" }}
           onSubmit={onFeedbackSubmit}
           trackingEventName={feedbackTrackingEventName}
+          popoverZIndex={AGENT_PANEL_PORTAL_Z_INDEX}
         />
       )}
     </>

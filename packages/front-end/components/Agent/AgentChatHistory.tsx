@@ -11,6 +11,7 @@ import {
   DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
+import { AGENT_PANEL_PORTAL_Z_INDEX } from "./AgentPanelContext";
 import { groupConversationsByRecency } from "./chatHistoryUtils";
 
 const MENU_WIDTH = 300;
@@ -54,7 +55,7 @@ export default function AgentChatHistory({
       menuPlacement="end"
       menuWidth={MENU_WIDTH}
       menuMaxHeight={420}
-      menuZIndex={10002}
+      menuZIndex={AGENT_PANEL_PORTAL_Z_INDEX}
       variant="soft"
       trigger={
         <IconButton

@@ -38,6 +38,11 @@ interface AIChatFeedbackProps {
   ) => void;
   /** Defaults to "AI Chat Feedback" (PA). General agent passes "AI Assistant Feedback". */
   trackingEventName?: string;
+  /**
+   * Lift the portaled comment box above an ancestor overlay. Radix copies the
+   * content's computed z-index onto the popper wrapper, which is what stacks.
+   */
+  popoverZIndex?: number;
 }
 
 export function AIChatFeedback({
@@ -45,6 +50,7 @@ export function AIChatFeedback({
   value,
   onSubmit,
   trackingEventName = "AI Chat Feedback",
+  popoverZIndex,
 }: AIChatFeedbackProps) {
   const [commentOpen, setCommentOpen] = useState(false);
   const [draftComment, setDraftComment] = useState(value.comment);
@@ -156,7 +162,11 @@ export function AIChatFeedback({
         side="bottom"
         align="start"
         showArrow={false}
-        contentStyle={{ padding: "12px", width: 280 }}
+        contentStyle={{
+          padding: "12px",
+          width: 280,
+          ...(popoverZIndex === undefined ? null : { zIndex: popoverZIndex }),
+        }}
         content={
           <Flex direction="column" gap="2">
             <Text size="sm" weight="medium">
