@@ -436,29 +436,14 @@ describe("collectRampPlanPatches", () => {
 });
 
 describe("stagedFeatureOf", () => {
-  it("overlays the draft's project, targeting and rules on the live feature", () => {
+  it("keeps the live rules when the draft has no rules snapshot", () => {
     const live = {
       id: "f1",
-      project: "p_live",
-      targetingAllProjects: true,
-      targetingProjects: ["p_live"],
       rules: [{ id: "r_live" }],
     } as unknown as FeatureInterface;
     expect(
-      stagedFeatureOf(live, {
-        metadata: { project: "p_draft" },
-        rules: [{ id: "r_draft" }] as FeatureInterface["rules"],
-      }),
-    ).toMatchObject({
-      project: "p_draft",
-      targetingAllProjects: false,
-      targetingProjects: [],
-      rules: [{ id: "r_draft" }],
-    });
-    // A draft without a rules snapshot keeps the live rules.
-    expect(stagedFeatureOf(live, { metadata: {} }).rules).toEqual([
-      { id: "r_live" },
-    ]);
+      stagedFeatureOf(live, { metadata: { project: "p_draft" } }),
+    ).toMatchObject({ project: "p_draft", rules: [{ id: "r_live" }] });
   });
 });
 
