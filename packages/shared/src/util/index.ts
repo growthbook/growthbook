@@ -47,6 +47,7 @@ export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./ruleId";
+export * from "./revertRampDetach";
 export * from "./numbers";
 export * from "./types";
 export * from "./errors";

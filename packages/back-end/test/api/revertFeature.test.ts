@@ -20,6 +20,9 @@ jest.mock("back-end/src/services/moveDependentsGuard", () => ({
 jest.mock("back-end/src/services/archiveDependentsGuard", () => ({
   assertFeatureArchiveDependentsGuard: jest.fn(),
 }));
+jest.mock("back-end/src/revisions/revertRampGuard", () => ({
+  assertRevertRampStopAcknowledged: jest.fn(),
+}));
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
   getSavedGroupMap: jest.fn(),

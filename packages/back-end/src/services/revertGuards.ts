@@ -1,4 +1,5 @@
 import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/validators";
 import {
   getRevertValueValidationWarnings,
   type MergeResultChanges,
@@ -9,6 +10,7 @@ import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { SoftWarningError } from "back-end/src/util/errors";
+import { assertRevertRampStopAcknowledged } from "back-end/src/revisions/revertRampGuard";
 
 // The checks every landing revert shares, so the dashboard and the REST routes
 // gate a revert the same way.
@@ -53,15 +55,17 @@ export function assertRevertValuesReadable(
   }
 }
 
-// The dependents guards a landing revert runs: a project move, and a restore
-// that re-archives the flag.
+// The guards a landing revert runs before its revision exists: a project
+// move, a restore that re-archives the flag, and ramps the target predates.
 export async function assertRevertLandingGuards(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   changes: Pick<MergeResultChanges, "metadata" | "archived">,
+  targetRevision: FeatureRevisionInterface,
 ): Promise<void> {
   await assertFeatureMoveDependentsGuard(context, feature, changes.metadata);
   if (changes.archived === true && !feature.archived) {
     await assertFeatureArchiveDependentsGuard(context, feature);
   }
+  await assertRevertRampStopAcknowledged(context, feature, { targetRevision });
 }

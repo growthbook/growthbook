@@ -47,6 +47,7 @@ import {
 import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDependentsGuard";
 import { MergeConflictError } from "back-end/src/util/errors";
 import { pendingScheduleGate } from "back-end/src/revisions/pendingScheduleGuard";
+import { revertRampStopGate } from "back-end/src/revisions/revertRampGuard";
 import {
   assertFeatureSavedGroupScope,
   collectSavedGroupScopeGate,
@@ -518,6 +519,8 @@ export async function collectFeaturePublishGates({
 
   const scheduleGate = pendingScheduleGate(revision);
   if (scheduleGate) gates.push(scheduleGate);
+  const rampStopGate = await revertRampStopGate(context, feature, revision);
+  if (rampStopGate) gates.push(rampStopGate);
 
   // Structural payload guard: a config-backed default carrying its own override
   // patch breaks the SDK payload (the override ships verbatim, the backing

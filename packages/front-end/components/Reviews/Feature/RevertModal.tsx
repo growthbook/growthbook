@@ -4,11 +4,14 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import type { RampScheduleInterface } from "shared/validators";
 import {
   filterEnvironmentsByFeature,
   getReviewSetting,
+  getRevertRampDetachActions,
   getRevertTargetArchived,
   getRulesForEnvironment,
+  revertRampStopWarning,
 } from "shared/util";
 import {
   holdsMoveDestination,
@@ -31,6 +34,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorForChanges, {
   DraftMode,
@@ -44,6 +48,7 @@ export interface Props {
   revisionList: MinimalFeatureRevisionInterface[];
   /** Full revisions for diff preview — lazily cached. */
   allRevisions: FeatureRevisionInterface[];
+  rampSchedules: RampScheduleInterface[];
   close: () => void;
   mutate: () => void;
   setVersion: (version: number) => void;
@@ -54,6 +59,7 @@ export default function RevertModal({
   revision,
   revisionList,
   allRevisions,
+  rampSchedules,
   close,
   mutate,
   setVersion,
@@ -137,6 +143,13 @@ export default function RevertModal({
       archived: getRevertTargetArchived(targetRevisionForAction),
     },
   });
+
+  const rampStopWarning = targetRevision
+    ? revertRampStopWarning(
+        getRevertRampDetachActions(feature.id, targetRevision, rampSchedules),
+        rampSchedules,
+      )
+    : null;
 
   const environmentIds = environments.map((e) => e.id);
   const changedRuleEnvs = environmentIds.filter(
@@ -297,6 +310,11 @@ export default function RevertModal({
           />
         </Box>
       </Flex>
+      {rampStopWarning && (
+        <Callout status="warning" mb="3">
+          {rampStopWarning}
+        </Callout>
+      )}
       <div className="list-group mb-4">
         {isLoadingRevision ? (
           <div className="text-muted">Loading revision…</div>

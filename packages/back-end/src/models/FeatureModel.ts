@@ -17,6 +17,7 @@ import {
   resolveTargetingProjectIds,
   stemRuleId,
   isScheduledRule,
+  toRampAttachments,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -91,6 +92,10 @@ import {
   startReadyScheduleNow,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
+import {
+  assertRevertRampStopAcknowledged,
+  getRevertRampDetaches,
+} from "back-end/src/revisions/revertRampGuard";
 import {
   applyNonRuleFeatureUpgrades,
   pinLegacyRolloutSeeds,
@@ -188,6 +193,7 @@ import {
   updateRevision,
   createRevision,
   prepareFeatureRevision,
+  setRevisionRampAttachments,
 } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
@@ -2992,10 +2998,52 @@ export async function finalizeRampActionsAfterPublish(
       );
     }
   }
-  if (revision.rampActions?.length) {
-    await applyDetachRampActions(context, revision.rampActions);
+  const detachActions = [
+    ...(revision.rampActions ?? []),
+    ...(await getRevertRampDetachesBestEffort(
+      context,
+      featureBefore,
+      revision,
+    )),
+  ];
+  if (detachActions.length) {
+    await applyDetachRampActions(context, detachActions);
   }
   await cleanupOrphanedRampSchedules(context, featureBefore, featureAfter);
+  await recordRampAttachments(context, featureAfter, revision);
+}
+
+// A revert restores the target revision's ramp attachments too: ramps it
+// predates are detached exactly as removing them from the rule would.
+async function getRevertRampDetachesBestEffort(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): Promise<RevisionRampAction[]> {
+  try {
+    return await getRevertRampDetaches(context, feature, revision);
+  } catch (err) {
+    logger.error(err, "Failed to resolve ramp schedules a revert detaches");
+    return [];
+  }
+}
+
+async function recordRampAttachments(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+) {
+  try {
+    const schedules = await context.models.rampSchedules.getAllByFeatureId(
+      feature.id,
+    );
+    await setRevisionRampAttachments(
+      revision,
+      toRampAttachments(feature.id, schedules),
+    );
+  } catch (err) {
+    logger.error(err, "Failed to record revision ramp attachments");
+  }
 }
 
 async function createRampSchedulesForRevision(
@@ -4108,12 +4156,10 @@ async function publishRevisionInner({
         .join("\n")}`,
     );
   }
+  await assertRevertRampStopAcknowledged(context, feature, { revision });
 
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",
-  );
-  const updateActions = (revision.rampActions ?? []).filter(
-    (a) => a.mode === "update",
   );
   // `critical` = decides what is live (the feature document, then the revision
   // status). A satellite that can't be reversed must not abandon those.
@@ -4467,33 +4513,14 @@ async function publishRevisionInner({
     );
   }
 
-  // Apply deferred update actions after publish succeeds.
-  // Best-effort: errors are logged but do not fail the publish response
-  // (feature is already committed; a failed schedule update is recoverable).
-  if (updateActions.length) {
-    try {
-      await createRampSchedulesForRevision(
-        context,
-        updatedFeature,
-        revision,
-        result,
-        updateActions,
-      );
-    } catch (err) {
-      logger.error(
-        err,
-        "Failed to apply deferred ramp update actions after publish",
-      );
-    }
-  }
-
-  // Apply detach actions (best-effort: logged but do not fail publish).
-  if (revision.rampActions?.length) {
-    await applyDetachRampActions(context, revision.rampActions);
-  }
-
-  // Clean up orphaned ramp schedules (best-effort).
-  await cleanupOrphanedRampSchedules(context, feature, updatedFeature);
+  // Best-effort: the feature is already committed.
+  await finalizeRampActionsAfterPublish(
+    context,
+    feature,
+    updatedFeature,
+    revision,
+    result,
+  );
 
   return updatedFeature;
 }

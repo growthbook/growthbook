@@ -1672,6 +1672,7 @@ export default function ReviewAndPublish({
             revision={revertTarget}
             revisionList={revisionList}
             allRevisions={revisions}
+            rampSchedules={rampSchedules ?? []}
             close={() => setRevertOpen(false)}
             mutate={mutate}
             setVersion={setVersion}

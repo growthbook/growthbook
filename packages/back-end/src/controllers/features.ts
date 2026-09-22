@@ -3072,7 +3072,7 @@ export async function postFeatureRevert(
     context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
     !!org.settings?.revertsBypassApproval;
 
-  await assertRevertLandingGuards(context, feature, mergeChanges);
+  await assertRevertLandingGuards(context, feature, mergeChanges, revision);
   const newRevision = await createRevision({
     context,
     feature,
