@@ -1,0 +1,88 @@
+// What is specific to the Event Logs stream: its column widths, its selected-row
+// treatment, and its open caret. The dense table styling itself — row height,
+// type, truncation — lives in components/Diagnostics/StreamTable.module.scss and
+// is applied alongside this class, so this surface and the feature Diagnostics
+// evaluation stream share one definition of what a stream table looks like.
+//
+// Widths sit on `th` only: under the shared module's fixed layout the first row
+// determines the columns, and the expanded detail row is a single colSpan={5}
+// cell that a `td:nth-child(n)` rule would otherwise catch.
+.eventColumns {
+  // Timestamp — "Sep 17, 11:20:22 PM" at 12px monospace.
+  th:nth-child(1) {
+    width: 150px;
+  }
+
+  // Event
+  th:nth-child(2) {
+    width: 150px;
+  }
+
+  // User ID — values are truncated to 20 chars before rendering.
+  th:nth-child(3) {
+    width: 110px;
+  }
+
+  // Environment
+  th:nth-child(4) {
+    width: 116px;
+  }
+
+  // Properties has no width: it absorbs the remainder and truncates.
+
+  // Tripled for the same reason the shared module triples its own class: these
+  // override ui/Table's list-variant rules at (0,5,0), and a single class does
+  // not reach them. See StreamTable.module.scss for the arithmetic.
+  &.eventColumns.eventColumns {
+    // Room for the caret overlay in the last cell. Permanent rather than
+    // hover-only so nothing reflows as the mouse moves across rows — the value
+    // just truncates slightly earlier.
+    :global(.rt-TableBody .rt-TableRow .rt-TableCell):last-child {
+      padding-right: 28px;
+    }
+
+    // Selected row: held for as long as the drawer is showing this record.
+    // The bar is an inset shadow rather than a border so it cannot alter the
+    // row height under the fixed layout.
+    :global(.rt-TableBody .rt-TableRow).rowSelected :global(.rt-TableCell) {
+      background-color: var(--violet-3);
+    }
+
+    :global(.rt-TableBody .rt-TableRow).rowSelected
+      :global(.rt-TableCell):first-child {
+      box-shadow: inset 2px 0 0 0 var(--violet-9);
+    }
+  }
+}
+
+.propertiesValue {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Open affordance: a real button so the row is keyboard reachable, positioned
+// over the last cell rather than occupying a column of its own.
+.openCaret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--slate-11);
+  cursor: pointer;
+}
+
+// Visible on hover, and persistently while its row is selected.
+.row:hover .openCaret,
+.rowSelected .openCaret,
+.openCaret:focus-visible {
+  display: inline-flex;
+}

@@ -81,6 +81,17 @@ export type SelectFieldProps = Omit<
   useMultilineLabels?: boolean;
   containerStyles?: StylesConfig<SingleValue, boolean>;
   withRadixThemedPortal?: boolean;
+  /**
+   * Renders the menu into this element instead of inline.
+   *
+   * Needed whenever the select sits inside a transformed ancestor — a Radix
+   * popover or dropdown always carries an inline `transform` to position
+   * itself, and a transformed ancestor becomes the containing block for the
+   * `position: fixed` menu below. The menu then resolves its viewport
+   * coordinates against that box and lands somewhere else on the page.
+   * Portalling to `document.body` removes the ancestor from the equation.
+   */
+  menuPortalTarget?: HTMLElement | null;
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
@@ -261,6 +272,7 @@ const SelectField: FC<SelectFieldProps> = ({
   useMultilineLabels = false,
   containerStyles = {},
   withRadixThemedPortal = false,
+  menuPortalTarget,
   legacyLabelFormatting = true,
   labelSize,
   labelWeight = "semibold",
@@ -461,6 +473,7 @@ const SelectField: FC<SelectFieldProps> = ({
                   formatGroupLabel={formatGroupLabel}
                   isSearchable={!!isSearchable}
                   onPaste={onPaste}
+                  menuPortalTarget={menuPortalTarget}
                   components={{
                     Input,
                     DropdownIndicator: CustomDropdownIndicator,
@@ -499,6 +512,7 @@ const SelectField: FC<SelectFieldProps> = ({
                   formatGroupLabel={formatGroupLabel}
                   isSearchable={!!isSearchable}
                   onPaste={onPaste}
+                  menuPortalTarget={menuPortalTarget}
                   components={{
                     Input,
                     DropdownIndicator: CustomDropdownIndicator,

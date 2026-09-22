@@ -1,0 +1,67 @@
+// The tab's header follows the page, so the freshness stamp and Run Query stay
+// reachable from anywhere in a long evaluation stream.
+//
+// Sticky rather than fixed: fixed would take it out of flow and leave a gap the
+// height of the header, and it would have to be positioned against the viewport
+// rather than simply staying where the layout already put it.
+.stickyHeader {
+  position: sticky;
+  // Beneath BOTH bars above this tab, not just the app topbar: `.feature-tabs`
+  // in global.scss pins at `top: 55px` with `height: 40px`, so its bottom edge
+  // is at 95. The same 95 appears on `th.axis-col` there for the same reason —
+  // it is the established "below the feature tabs" offset, and 56 put this
+  // header behind them.
+  //
+  // That 55 is already duplicated in TABS_HEADER_HEIGHT_PX in
+  // FeaturesHeader.tsx, with a note to keep the two in sync. This is a third
+  // place that number matters; if it moves, it has to move here too.
+  top: 95px;
+  // Under the feature tabs (930), which are page chrome and should cover this,
+  // and under the topbar (1010) and the portalled popovers and drawers
+  // (1100+). Above the card content it passes over.
+  z-index: 100;
+  // Opaque, or the rows scrolling underneath show through. Theme-aware: this is
+  // the same variable `body` uses, and the header sits on the page rather than
+  // inside a card.
+  background-color: var(--background-color);
+
+  // The band hugs its content: 8px clear of the Run Query button, which is the
+  // tallest thing in the row, on both sides. That is what content scrolling
+  // past passes behind, so it is a buffer rather than a gap that only exists at
+  // rest.
+  //
+  // The top 8px also has to carry what the tab's own padding used to: padding
+  // on the container scrolls away, which let the title meet the tabs above once
+  // this stuck.
+  padding-top: 8px;
+  padding-bottom: 8px;
+
+  // Hands the bottom 8px straight back, so the control bar below keeps the
+  // position it had before this became sticky. The band still reserves the
+  // space; only the following sibling is pulled back up through it.
+  margin-bottom: -8px;
+}
+
+// Only once the bar is actually pinned. The tabs above it give their shadow up
+// on this tab (.feature-tabs.no-pinned-shadow in global.scss), so this is the
+// single shadow for the stacked pair and it falls where the pair ends.
+//
+// Same two layers the tabs use, so the treatment is theirs rather than a second
+// interpretation of the same idea — but confined to the bottom edge.
+//
+// A blur radius spreads in every direction, so the tabs' values bleed ~1px and
+// ~2px out of the left and right edges. Each layer therefore takes a negative
+// spread of half its blur, which pulls the shadow's box in by exactly as far as
+// the blur reaches back out: the sides cancel to nothing.
+//
+// The y-offsets go up by the same amount they were inset, so the bottom edge
+// lands precisely where it did before. These are the tabs' shadows with the
+// sides removed, not a lighter pair.
+//
+//   0 1px 2px      ->  0 2px 2px -1px
+//   0 4px 4px      ->  0 6px 4px -2px
+.stickyHeaderStuck {
+  box-shadow:
+    0 2px 2px -1px rgba(0, 0, 0, 0.1),
+    0 6px 4px -2px rgba(0, 0, 0, 0.025);
+}

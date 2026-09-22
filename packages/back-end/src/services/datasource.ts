@@ -3,6 +3,7 @@ import { isReadOnlySQL } from "shared/sql";
 import { SqlIdentifierQuote, TemplateVariables } from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
+  FeatureUsageLookback,
   QueryResponseColumnData,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
@@ -299,6 +300,8 @@ export async function runFeatureEvalDiagnosticsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   feature: Pick<FeatureInterface, "id" | "project">,
+  /** Omitted keeps the historical 7-day / 100-row window. */
+  lookback?: FeatureUsageLookback,
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
@@ -325,6 +328,7 @@ export async function runFeatureEvalDiagnosticsQuery(
 
   const sql = integration.getFeatureEvalDiagnosticsQuery({
     feature: feature.id,
+    lookback,
   });
 
   try {

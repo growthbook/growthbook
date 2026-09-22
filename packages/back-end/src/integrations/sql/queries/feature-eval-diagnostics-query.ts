@@ -1,10 +1,10 @@
-import { subDays } from "date-fns";
 import { format } from "shared/sql";
 import { getActiveFeatureUsageQuery } from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FeatureEvalDiagnosticsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
+import { resolveFeatureEvalDiagnosticsWindow } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-window";
 
 export function getFeatureEvalDiagnosticsQuery(
   dialect: SqlDialect,
@@ -12,7 +12,7 @@ export function getFeatureEvalDiagnosticsQuery(
   params: FeatureEvalDiagnosticsQueryParams,
 ): string {
   const featureKey = dialect.escapeStringLiteral(params.feature);
-  const oneWeekAgo = subDays(new Date(), 7);
+  const { start, limit } = resolveFeatureEvalDiagnosticsWindow(params);
 
   const featureUsageQuery = getActiveFeatureUsageQuery(
     datasource.settings?.queries?.featureUsage,
@@ -22,7 +22,7 @@ export function getFeatureEvalDiagnosticsQuery(
   const compiledFeatureEvalQuery = compileSqlTemplate(
     featureEvalQuery,
     {
-      startDate: oneWeekAgo,
+      startDate: start,
     },
     dialect,
   );
@@ -33,9 +33,9 @@ export function getFeatureEvalDiagnosticsQuery(
         ${compiledFeatureEvalQuery}
       )
       SELECT * FROM __featureEvalQuery
-      WHERE feature_key = '${featureKey}' AND timestamp >= ${dialect.toTimestamp(oneWeekAgo)}
+      WHERE feature_key = '${featureKey}' AND timestamp >= ${dialect.toTimestamp(start)}
       ORDER BY timestamp DESC
-      LIMIT 100
+      LIMIT ${limit}
       `,
     dialect.formatDialect,
   );

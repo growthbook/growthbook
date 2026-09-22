@@ -1,0 +1,102 @@
+// Local to the Log Stream on purpose. If a second surface needs a collapsible
+// rail, that is when it earns being promoted to @/ui.
+
+// A rule on the inner edge only, not a boxed card: the panel reads as part of
+// the same surface as the table beside it rather than a container within a
+// container.
+.panel {
+  flex: 0 0 300px;
+  min-width: 0;
+  border-right: 1px solid var(--slate-a5);
+  position: relative;
+  // Column so the footer can sit at the bottom of the panel rather than
+  // directly under the filter list.
+  display: flex;
+  flex-direction: column;
+}
+
+// Collapsed: a narrow rail that still has to say the table is filtered.
+.panelCollapsed {
+  flex-basis: 40px;
+}
+
+.body {
+  // No left padding: the panel's content lines up with the card's own edge.
+  // The 4px top nudges the first section (Query Exposures) down; it is padding
+  // rather than a margin on the label because .body has no top padding of its
+  // own, so a child's top margin would collapse straight through it.
+  padding: 4px 20px 12px 0;
+  flex: 1 1 auto;
+}
+
+// Sticky rather than in flow: the panel is as tall as the table beside it, so
+// a footer at its natural bottom sits below the fold. This pins to the bottom
+// of the viewport while the panel is in view and releases at the panel's own
+// bottom. The panel keeps its full height either way.
+//
+// Needs its own background and top border — floating over the rows below, it
+// would otherwise let them show through.
+//
+// Sticky is silently inert if any ancestor scrolls or clips. Checked: .panel,
+// .body, the two-column Flex, .resultsArea and the Frame card set no overflow.
+// The `.appbox { overflow-x: auto }` in global.scss is a nested selector
+// (.appbox inside .appbox) and does not match this card.
+.footer {
+  flex: 0 0 auto;
+  // Matches the body's right inset so the buttons sit 20px off the divider.
+  padding: 12px 20px 12px 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background-color: var(--color-panel-solid);
+  border-top: 1px solid var(--slate-a5);
+}
+
+// On the panel's inner edge (the side facing the table), centred against the
+// full height of the divider rather than pinned near the top.
+//
+// Filled white via --gray-1, the lightest step on the scale, rather than a
+// literal #fff — that would stay white in dark mode and glare against the card.
+// The border is what keeps it legible in light mode, where gray-1 sits very
+// close to the card's own panel fill.
+.toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: -10px;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--slate-a5);
+  border-radius: 50%;
+  background-color: var(--gray-1);
+  color: var(--color-text-mid);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text-high);
+    background-color: var(--gray-3);
+  }
+}
+
+// The count shown while collapsed, so a filtered table never reads as
+// unfiltered.
+.collapsedRail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.sectionLabel {
+  display: block;
+  margin-bottom: 6px;
+}
+
+// The preset rail moved to EventLogTimeFramePanel.module.scss along with the
+// control itself.

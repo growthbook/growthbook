@@ -941,6 +941,10 @@ app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
+app.get(
+  "/feature/:id/usage-summary",
+  featuresController.getFeatureUsageSummary,
+);
 app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);

@@ -1,0 +1,216 @@
+// Matches the modal backdrop exactly — Bootstrap's `.modal-backdrop` is
+// `$modal-backdrop-bg` (#000) at `$modal-backdrop-opacity` (.5), with
+// `.fade`'s 0.15s linear opacity transition. The values are copied rather than
+// the class reused: Bootstrap is legacy here and barred from new code, and this
+// sits under a z-index the Bootstrap layer knows nothing about.
+//
+// Clicking it closes the drawer. A scrim that dims the page but still lets
+// clicks through would say "blocked" and behave "not blocked".
+.overlay {
+  position: fixed;
+  inset: 0;
+  // One below the drawer, above every piece of app chrome — the drawer covers
+  // the top bar, so a backdrop that stopped short of it would leave a lit strip
+  // across the top of a dimmed page.
+  z-index: 1014;
+  background-color: #000;
+  opacity: 0.5;
+  animation: overlayFadeIn 0.15s linear;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.5;
+  }
+}
+
+.drawer {
+  position: fixed;
+  // Full height, over the top bar rather than below it — the usual shape for a
+  // drawer this size. The cost is that the bar's right-hand controls (org
+  // switcher, account menu) sit under exactly this 480px, and the drawer is
+  // non-modal so it can stay open while the page is in use. Escape and Close
+  // both dismiss it, which is what makes that acceptable.
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-panel-solid);
+  border-left: 1px solid var(--slate-a5);
+  box-shadow: -14px 0 34px rgba(31, 45, 92, 0.1);
+  // Above every piece of app chrome, below anything modal:
+  //   900  ui/Table's sticky column header
+  //   995  guided step bar
+  //   1000 side nav
+  //   1010 top bar
+  //   1015 this drawer
+  //   1500 components/Modal's overlay — a modal opened over this still covers
+  //        it, which is the one ordering that must not change.
+  z-index: 1015;
+
+  // The drawer takes focus on open so the keyboard lands inside it, and being
+  // tabindex="-1" that fires the UA's default ring around the whole panel.
+  // Suppressed in both states: a ring around a 480px container reads as an
+  // error, not as a position marker. The focusable controls inside keep their
+  // own rings, so keyboard position stays visible from the first Tab.
+  &:focus,
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+// The divider is this border, not a separate element, so the space above it is
+// the header's own bottom padding: 15px + 4.
+.header {
+  flex-shrink: 0;
+  padding: 18px 20px 19px;
+  border-bottom: 1px solid var(--slate-a5);
+}
+
+// On the Radix scale rather than a raw value: this was 15.5px, which sits
+// between steps 2 and 3. Rounding it onto step 3 (16px) and going one up lands
+// on step 4. The line-height token comes with it — the pair is what the scale
+// is calibrated for, and leaving the inherited 1.5 behind would have grown the
+// header block by more than the type itself.
+.eventName {
+  font-size: var(--font-size-4);
+  line-height: var(--line-height-4);
+  font-weight: 600;
+  color: var(--color-text-high);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Spacing only. The type comes from @/ui/Text in the markup, so this line stays
+// in step with the description treatment everywhere else rather than pinning
+// its own size and colour.
+.timestamp {
+  margin-top: 2px;
+}
+
+.identityRow {
+  margin-top: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+// A button, not an anchor: the stream's filters are not URL-synced, so there is
+// no address for "this user's activity" to link to. It filters in place.
+.userLink {
+  font-family: monospace;
+  font-size: 12.5px;
+  color: var(--violet-11);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}
+
+.noUser {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--slate-10);
+}
+
+// Flex behaviour only — the fill, radius and type come from @/ui/Badge, so this
+// stays a standard neutral badge rather than a look-alike that drifts from one.
+.envBadge {
+  flex-shrink: 0;
+}
+
+// And the space below the divider is this padding-top: 16px + 4. The first
+// section label carries no margin-top of its own, so nothing collapses into it.
+.body {
+  flex-grow: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 20px 20px;
+}
+
+.sectionLabel {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--slate-10);
+}
+
+.sectionSpaced {
+  margin-top: 22px;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 4px 0;
+}
+
+.key {
+  flex-shrink: 0;
+  width: 126px;
+  font-size: 12.5px;
+  color: var(--slate-11);
+}
+
+// Never wraps: a wrapped value would break the row rhythm and push the next
+// key out of alignment.
+.value {
+  min-width: 0;
+  font-family: monospace;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Strings keep their quote marks so a value like "12" is not mistaken for a
+// number. The quotes recede; the content does not.
+.quote {
+  color: var(--slate-10);
+}
+
+.stringValue {
+  color: var(--color-text-high);
+}
+
+// Numbers, booleans and null. --teal-11 is defined in the Radix config.
+.scalarValue {
+  color: var(--teal-11);
+}
+
+// Bare text, no container. Only the bottom 4px is kept from a row's vertical
+// padding — dropping the top 4px lifts the line closer to its section label,
+// which is the one place it reads as a note on that heading rather than as
+// another row. Real rows keep the full 4px top and bottom.
+.empty {
+  padding: 0 0 4px;
+  font-size: 12.5px;
+  color: var(--slate-10);
+}
+
+.footer {
+  flex-shrink: 0;
+  padding: 13px 20px 15px;
+  border-top: 1px solid var(--slate-a5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

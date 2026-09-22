@@ -19,7 +19,10 @@ import {
   eventForwarderAccessTestCreateBodySchema,
   eventForwarderAccessTestEditBodySchema,
 } from "shared/validators";
-import { AutoMetricToCreate } from "shared/types/integrations";
+import {
+  AutoMetricToCreate,
+  FeatureUsageLookback,
+} from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import {
@@ -1466,11 +1469,12 @@ export async function postFeatureEvalDiagnostics(
   req: AuthRequest<{
     feature: string;
     datasourceId: string;
+    lookback?: FeatureUsageLookback;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { feature, datasourceId } = req.body;
+  const { feature, datasourceId, lookback } = req.body;
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
     res.status(404).json({
@@ -1493,6 +1497,7 @@ export async function postFeatureEvalDiagnostics(
     context,
     datasource,
     featureObj,
+    lookback,
   );
 
   res.status(200).json({

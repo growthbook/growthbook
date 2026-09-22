@@ -1,0 +1,71 @@
+.panel {
+  padding: var(--space-2);
+}
+
+// Mirrors the preset rail in DateRangeComparePanel. That component styles its
+// rail items with an inline `railItemStyle(active)` closure rather than a class
+// or sub-component, so this is a faithful copy, not an import — if those values
+// change there, change them here too.
+.presetList {
+  // Gap rather than margins on the items: these are buttons, and a margin would
+  // fight the reset below.
+  gap: 2px;
+}
+
+// A button, not a div, so the rail is keyboard reachable and can carry
+// aria-pressed. That means undoing the browser's button chrome first.
+.preset {
+  appearance: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+
+  padding: 6px 8px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  color: var(--gray-11);
+  font-weight: 400;
+  font-size: var(--font-size-2);
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--gray-a3);
+  }
+
+  // The rail sits inside a popover, so the focus ring is the only thing marking
+  // keyboard position — it must not be suppressed along with the button chrome.
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: -2px;
+  }
+}
+
+.presetActive {
+  background: var(--violet-a4);
+  color: var(--violet-11);
+  font-weight: 500;
+
+  &:hover {
+    background: var(--violet-a4);
+  }
+}
+
+// Revealed only by the Custom row. The top rule separates it from the rail
+// above without needing a Separator element in the markup.
+.custom {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--slate-a5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+// Replaces DatePicker's default `form-group` container class, whose Bootstrap
+// margin-bottom would fight the flex gap above. Bootstrap is legacy here, so
+// this also keeps a legacy class out of new markup.
+.dateField {
+  margin-bottom: 0;
+}

@@ -1,0 +1,18 @@
+// Moved here from EventSummaryFilterBar.module.scss when the field became
+// shared. Nothing else used either rule.
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-a10);
+  pointer-events: none;
+  z-index: 1;
+}
+
+// Room for the icon. Doubled to out-specify Bootstrap's .form-control padding.
+.searchInput {
+  &.searchInput {
+    padding-left: 30px;
+  }
+}

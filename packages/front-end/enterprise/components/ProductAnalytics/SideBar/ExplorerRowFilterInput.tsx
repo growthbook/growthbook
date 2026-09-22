@@ -18,10 +18,17 @@ export function ExplorerRowFilterInput({
   value,
   setValue,
   columnSource,
+  variant = "full",
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   columnSource: FilterColumnSource;
+  /**
+   * Passed through to each row; see ExplorerFilterRow. "simple" also drops the
+   * "Filters" heading, so a caller that provides its own section header does
+   * not get two.
+   */
+  variant?: "full" | "simple" | "condition";
 }) {
   const nextIdRef = useRef(0);
   const assignId = () => nextIdRef.current++;
@@ -64,7 +71,9 @@ export function ExplorerRowFilterInput({
 
   return (
     <Flex direction="column" gap="2" width="100%">
-      {localFilters.length > 0 ? <Text weight="medium">Filters</Text> : null}
+      {variant === "full" && localFilters.length > 0 ? (
+        <Text weight="medium">Filters</Text>
+      ) : null}
       {localFilters.map((filter, i) => (
         <ExplorerFilterRow
           key={filter._localId}
@@ -72,6 +81,7 @@ export function ExplorerRowFilterInput({
           index={i}
           localFilters={localFilters}
           columnSource={columnSource}
+          variant={variant}
           onUpdate={(updates, shouldCommit = true) => {
             const newFilters = localFilters.map((f, idx) =>
               idx === i ? { ...f, ...updates } : f,

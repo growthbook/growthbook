@@ -995,6 +995,20 @@ export default function ExplorerChart({
               }}
               style={{ width: "100%", height: "100%" }}
               onChartReady={(chart) => {
+                // TEMPORARY INSTRUMENTATION — remove before landing anything.
+                // Same shape as the DataVisualizationDisplay log so the two are
+                // directly comparable.
+                {
+                  const { dataset, aria, axisPointer, ...rest } =
+                    chart?.getOption() ?? {};
+                  void dataset;
+                  void aria;
+                  void axisPointer;
+                  console.log(
+                    "ECHARTS_OPTION ExplorerChart",
+                    JSON.stringify(rest),
+                  );
+                }
                 chartInstanceRef.current = chart ?? null;
                 if (chartsContext && chart) {
                   chartsContext.registerChart(CHART_ID, chart);

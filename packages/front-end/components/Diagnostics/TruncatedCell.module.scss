@@ -1,0 +1,19 @@
+// Tooltip renders its trigger as a plain inline <span>. It has to fill the cell
+// and be allowed to shrink, or the text inside it would measure against the
+// span's content width rather than the column's — and nothing would ever report
+// itself as truncated.
+.trigger {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+}
+
+// The measured box. The ellipsis is declared here rather than inherited from
+// the cell so that `scrollWidth > clientWidth` is asking about this element,
+// which is the one the reader is actually looking at.
+.text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

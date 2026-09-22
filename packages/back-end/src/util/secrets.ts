@@ -313,6 +313,13 @@ export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
   process.env.ALLOW_CREATE_DIMENSIONS,
 );
 
+// Local development only. Serves generated fixture data from the Event Logs
+// endpoints instead of querying the managed warehouse, which does not exist
+// outside cloud. See src/services/eventLogFixtures.ts.
+export const EVENT_LOGS_FIXTURES = stringToBoolean(
+  process.env.EVENT_LOGS_FIXTURES,
+);
+
 export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
   process.env.API_ALLOW_SKIP_PAGINATION,
 );

@@ -620,6 +620,10 @@ export default function FeaturesHeader({
         <div
           className={clsx("feature-tabs d-print-none", {
             pinned: headerPinned,
+            // Diagnostics is the one tab whose content begins with a sticky bar
+            // of its own, immediately below this one. It casts the shadow for
+            // the pair; see .feature-tabs.no-pinned-shadow in global.scss.
+            "no-pinned-shadow": tab === "diagnostics",
           })}
         >
           <div className="container-fluid pagecontents px-3">

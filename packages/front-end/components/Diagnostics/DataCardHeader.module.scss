@@ -1,0 +1,40 @@
+// Embedded hosts are narrower than the full page, so the two sides degrade in a
+// defined order: the title truncates, the controls never shrink. A refresh
+// button collapsed to an ellipsis would be useless.
+//
+// min-width: 0 defeats the flex item's automatic min-content floor, without
+// which the title block refuses to shrink below its text and pushes the
+// controls off instead.
+.titleBlock {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+
+  // Targeted by element rather than className: @/ui/Heading accepts no
+  // className, and the ellipsis has to sit on the element that holds the text,
+  // not on this wrapper.
+  h2 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// The description truncates via @/ui/Text's own `truncate` prop.
+
+.controls {
+  flex: 0 0 auto;
+}
+
+// Aligned to the card's own 24px padding, so no horizontal margin: the rule
+// starts and ends where the content does.
+//
+// All the vertical spacing lives here rather than as `mb` on the header. The
+// header and this rule are adjacent siblings in normal flow, so a margin on
+// each would collapse to the larger of the two instead of adding up — 20px
+// above reads as 20px, whereas mb="3" + 8px here would have rendered as 12px.
+.divider {
+  height: 1px;
+  margin: 20px 0 16px;
+  background-color: var(--slate-a5);
+}

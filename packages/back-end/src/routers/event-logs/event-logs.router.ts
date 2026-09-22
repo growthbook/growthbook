@@ -18,6 +18,7 @@ router.get(
         dateFrom: z.string().datetime(),
         dateTo: z.string().datetime(),
         search: filterString.optional(),
+        environment: filterString.optional(),
         project: filterString.optional(),
         page: z.string().regex(/^\d+$/).optional(),
       })

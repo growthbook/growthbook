@@ -12,6 +12,7 @@ import {
 import { getValidDate } from "shared/dates";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { getChartThemeColors } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import { formatNumber } from "@/services/metrics";
@@ -150,10 +151,49 @@ export function DataVisualizationDisplay({
   rows,
   dataVizConfig,
   chartId,
+  seriesColors,
+  legendPosition = "bottom",
+  legendAlign = "center",
+  showAxisNames = true,
+  grid,
+  barMaxWidth,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
   chartId?: string;
+  /**
+   * Group name -> colour. Keyed by name rather than by array index so a colour
+   * survives any reordering of the series, and set per series rather than as
+   * `option.color` for the same reason. Omitted leaves ECharts' own palette in
+   * place, which is what every existing caller gets.
+   */
+  seriesColors?: Record<string, string>;
+  /** "top" matches the dashboard charts. Default "bottom" is today's. */
+  legendPosition?: "top" | "bottom";
+  /**
+   * Horizontal anchor for a top legend. "right" frees the left of the legend's
+   * row for a caller rendering its own content there. Default "center" is
+   * today's behaviour.
+   */
+  legendAlign?: "center" | "right";
+  /**
+   * Axis names are the `aggregation (field)` / `unit (field)` labels. Surfaces
+   * that already say what the axes are in their own chrome pass false.
+   */
+  showAxisNames?: boolean;
+  /**
+   * Plot insets, passed straight to ECharts. A pass-through rather than a named
+   * preset: the useful values differ per surface (a dashboard grid cell and a
+   * full-width card want different insets), and a preset would need a new name
+   * every time one of them changed.
+   */
+  grid?: Record<string, number | string>;
+  /**
+   * Cap on drawn bar width in px. Omitted lets bars fill their band, which is
+   * today's behaviour — and a defect on any wide container, since the band
+   * scale divides plot width by category count with no ceiling.
+   */
+  barMaxWidth?: number;
 }) {
   const anchorYAxisToZero =
     "displaySettings" in dataVizConfig && dataVizConfig.displaySettings
@@ -686,6 +726,7 @@ export function DataVisualizationDisplay({
               ? "line"
               : dataVizConfig.chartType,
           ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
+          ...(barMaxWidth !== undefined ? { barMaxWidth } : {}),
           encode: {
             x: "x",
             y: "y",
@@ -702,21 +743,36 @@ export function DataVisualizationDisplay({
     // Use the first dimension's display setting for stacking
     const shouldStack = dimensionConfigs[0]?.display === "stacked";
 
-    return dimensionCombinations.map((combination) => {
-      const dimensionKey = combination.join(", ");
-      return {
-        name: dimensionKey,
-        ...CHART_ANIMATION_CONFIG,
-        type:
-          dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
-        ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
-        stack: shouldStack ? "stack" : undefined,
-        encode: {
-          x: "x",
-          y: dimensionKey,
-        },
-      };
-    });
+    return (
+      dimensionCombinations
+        .map((combination) => combination.join(", "))
+        // Sorted by name, not by volume. The order was previously whatever the
+        // upstream aggregation happened to produce, which is unstable when two
+        // groups tie — the same data could render [true, false] on one load and
+        // [false, true] on the next, moving both the colour and the stack
+        // position. Name order is also stable as the data changes, which volume
+        // order is not: on a chart that refreshes while you watch it, a segment
+        // should not swap places because one group briefly overtook another.
+        .sort((a, b) => a.localeCompare(b))
+        .map((dimensionKey) => ({
+          name: dimensionKey,
+          ...CHART_ANIMATION_CONFIG,
+          type:
+            dataVizConfig.chartType === "area"
+              ? "line"
+              : dataVizConfig.chartType,
+          ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
+          stack: shouldStack ? "stack" : undefined,
+          ...(barMaxWidth !== undefined ? { barMaxWidth } : {}),
+          ...(seriesColors?.[dimensionKey]
+            ? { itemStyle: { color: seriesColors[dimensionKey] } }
+            : {}),
+          encode: {
+            x: "x",
+            y: dimensionKey,
+          },
+        }))
+    );
   }, [
     dataVizConfig.chartType,
     xField,
@@ -724,6 +780,8 @@ export function DataVisualizationDisplay({
     dimensionValuesByField,
     dimensionConfigs,
     generateAllDimensionCombinations,
+    seriesColors,
+    barMaxWidth,
   ]);
 
   const option = useMemo(() => {
@@ -737,6 +795,9 @@ export function DataVisualizationDisplay({
         },
         textStyle: { color: textColor },
         backgroundColor: tooltipBackgroundColor,
+        // Matches the dashboard charts; ECharts' own default leaves the text
+        // flush against the tooltip edge.
+        padding: [10, 14],
         valueFormatter: (value: number) => {
           if (!yConfig?.type) {
             return value;
@@ -763,14 +824,32 @@ export function DataVisualizationDisplay({
               textStyle: {
                 color: textColor,
               },
-              top: "bottom",
-              type: "scroll",
+              // Dashboard charts put the legend above the plot; "bottom" is
+              // what every existing caller keeps.
+              ...(legendPosition === "top"
+                ? {
+                    top: 8,
+                    type: "plain",
+                    padding: [8, 0, 20, 0],
+                    // Anchoring right means omitting `width` entirely: given a
+                    // width, ECharts centres within it and `right` is ignored.
+                    //
+                    // The inset comes from the grid when the caller supplied
+                    // one, so the legend lines up with the plot's right edge
+                    // rather than with the canvas edge.
+                    ...(legendAlign === "right"
+                      ? { right: grid?.right ?? 8 }
+                      : { width: "88%" }),
+                  }
+                : { top: "bottom", type: "scroll" }),
             },
           }
         : null),
+      ...(grid ? { grid } : {}),
       xAxis: {
-        name:
-          xConfig?.type === "date" && xConfig?.dateAggregationUnit !== "none"
+        name: !showAxisNames
+          ? ""
+          : xConfig?.type === "date" && xConfig?.dateAggregationUnit !== "none"
             ? `${xConfig?.dateAggregationUnit} (${xField})`
             : xField,
         nameLocation: "middle",
@@ -793,8 +872,14 @@ export function DataVisualizationDisplay({
       },
       yAxis: {
         scale: !anchorYAxisToZero,
-        name:
-          yConfig?.aggregation && yConfig?.aggregation !== "none"
+        // The house grid line, imported rather than restated — a copy is how
+        // VelocityBlockChart drifted from it.
+        splitLine: {
+          lineStyle: { color: getChartThemeColors(theme).gridLineColor },
+        },
+        name: !showAxisNames
+          ? ""
+          : yConfig?.aggregation && yConfig?.aggregation !== "none"
             ? `${yConfig.aggregation} (${yField})`
             : yField,
         nameLocation: "middle",
@@ -823,6 +908,11 @@ export function DataVisualizationDisplay({
     anchorYAxisToZero,
     yConfig?.aggregation,
     yConfig?.type,
+    legendPosition,
+    legendAlign,
+    showAxisNames,
+    grid,
+    theme,
     yField,
     series,
   ]);
@@ -879,6 +969,21 @@ export function DataVisualizationDisplay({
           option={option}
           style={{ width: "100%", minHeight: "350px", height: "80%" }}
           onChartReady={(chart) => {
+            // TEMPORARY INSTRUMENTATION — remove before landing anything.
+            // Captures the real ECharts option for the DataVisualizationDisplay
+            // vs ExplorerChart comparison. dataset/aria/axisPointer are dropped
+            // because the inline dataset.source clips the console before the
+            // appearance properties.
+            {
+              const { dataset, aria, axisPointer, ...rest } = chart.getOption();
+              void dataset;
+              void aria;
+              void axisPointer;
+              console.log(
+                "ECHARTS_OPTION DataVisualizationDisplay",
+                JSON.stringify(rest),
+              );
+            }
             if (chartId && chartsContext && chart) {
               chartsContext.registerChart(chartId, chart);
             }

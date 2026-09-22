@@ -137,10 +137,88 @@ export type FeatureUsageDataPoint = {
 };
 
 export interface FeatureUsageData {
+  /**
+   * Evaluations in the selected window. A true COUNT(*), not a sum over the
+   * returned rows — those are capped at the top 200 groups by volume, so
+   * summing them understates a busy flag without saying so.
+   */
   total: number;
   bySource: FeatureUsageDataPoint[];
   byValue: FeatureUsageDataPoint[];
   byRuleId: FeatureUsageDataPoint[];
+  /**
+   * Required rather than optional on purpose: every producer of this shape —
+   * including the front-end dummy generator — should fail to compile until it
+   * supplies one, rather than silently rendering an empty dimension.
+   */
+  byEnvironment: FeatureUsageDataPoint[];
+}
+
+/** The dimensions the chart can stack by. */
+export type FeatureUsageDimension =
+  | "value"
+  | "source"
+  | "ruleId"
+  | "environment";
+
+/**
+ * One bucket of one group within a single dimension.
+ *
+ * Marginal, not joint: the chart stacks by one dimension at a time, so it needs
+ * each dimension's distribution over time, never their cross product. The cross
+ * product costs (buckets x product of cardinalities) rows to answer a question
+ * nothing asks, and its only extra capability — client-side filtering across
+ * dimensions — is one we deliberately do not want, because filters belong in
+ * the WHERE clause behind Apply.
+ */
+export interface FeatureUsageMarginal {
+  /** ISO 8601. */
+  timestamp: string;
+  group: string;
+  evaluations: number;
+}
+
+export type FeatureUsageRowsByDimension = Record<
+  FeatureUsageDimension,
+  FeatureUsageMarginal[]
+>;
+
+/**
+ * What a dimension's rows left out, reported per dimension because the
+ * dimensions are nothing alike: `environment` is two or three groups, `ruleId`
+ * can be hundreds. A single shared cap would truncate the long one while
+ * leaving the short ones untouched, and say nothing about which.
+ *
+ * `includedEvaluations` against FeatureUsageData.total is the exact shortfall.
+ * Groups past `cap` are folded into an "(other)" row rather than dropped, so
+ * this normally matches — a gap means the warehouse-side safety limit engaged,
+ * which is the only case where evaluations genuinely went missing.
+ */
+export interface FeatureUsageDimensionMeta {
+  cap: number;
+  returned: number;
+  includedEvaluations: number;
+}
+
+export type FeatureUsageRowsMeta = Record<
+  FeatureUsageDimension,
+  FeatureUsageDimensionMeta
+>;
+
+/**
+ * Window-independent facts about a feature's evaluations, which is why they are
+ * not on FeatureUsageData: they cannot change when the selected window does, so
+ * they must not be refetched when it does.
+ *
+ * Both are bounded by a lookback (see LAST_RECEIVED_LOOKBACK_DAYS), so neither
+ * can establish "never" — only "not in the last N days". `lookbackDays` travels
+ * with them so the UI states the bound instead of implying certainty it does
+ * not have.
+ */
+export interface FeatureUsageSummary {
+  lastEvaluated: string | null;
+  lifetimeTotal: number;
+  lookbackDays: number;
 }
 
 export type AttributeMap = Map<string, string>;

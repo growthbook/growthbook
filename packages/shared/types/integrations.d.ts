@@ -575,6 +575,20 @@ export type UserExperimentExposuresQueryParams = {
 
 export type FeatureEvalDiagnosticsQueryParams = {
   feature: string;
+  /**
+   * Window to scan. Omitted keeps the historical 7 days, so every existing
+   * caller is unchanged; the feature Diagnostics tab passes the lookback its
+   * control bar shows, so the table and the chart describe the same period.
+   */
+  lookback?: FeatureUsageLookback;
+  /** Row cap. Omitted keeps the historical 100. */
+  limit?: number;
+};
+
+/** Shared by both query builders so the two cannot drift. */
+export type FeatureEvalDiagnosticsWindow = {
+  start: Date;
+  limit: number;
 };
 
 export type PastExperimentParams = {
@@ -985,6 +999,13 @@ export interface FeatureUsageAggregateRow {
   revision: string;
   ruleId: string;
   variationId: string;
+  evaluations: number;
+}
+/** One bucket of one dimension's marginal distribution, straight from the warehouse. */
+export interface FeatureUsageMarginalRow {
+  dimension: string;
+  timestamp: Date;
+  group: string;
   evaluations: number;
 }
 export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";

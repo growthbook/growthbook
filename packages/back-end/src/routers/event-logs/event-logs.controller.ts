@@ -15,6 +15,7 @@ export async function listSummary(
       dateFrom: string;
       dateTo: string;
       search?: string;
+      environment?: string;
       project?: string;
       page?: string;
     }
@@ -30,6 +31,7 @@ export async function listSummary(
     dateFrom: new Date(req.query.dateFrom),
     dateTo: new Date(req.query.dateTo),
     search: req.query.search,
+    environment: req.query.environment,
     project: req.query.project,
     limit: pageSize,
     offset,

@@ -1,0 +1,98 @@
+// One row directly under the page tabs. Matches the dashboards page pattern:
+// a label, the controls, then the committed state as chips — not a boxed card,
+// so it reads as chrome for the content below rather than a section of its own.
+// No rule beneath it: the card below has its own border, so a line here only
+// added a second edge a few pixels above one that was already there. The
+// spacing alone separates the row from the content.
+// Lets the label span flex inside the button, the same rule DateRangeCompare-
+// Dropdown applies to the time frame trigger — without it the label will not
+// shrink and the caret is pushed out of the pill.
+.scopeTrigger > span {
+  flex: 1;
+  min-width: 0;
+}
+
+// 8px more room between the label and the ✕ than the dashboard's pill reserves.
+// Tripled to clear `.controlPillRemovable`, which is itself doubled (0,2,0) in
+// DashboardControlPill.module.scss — a single class would lose or win on
+// stylesheet order, which is not stable between CSS modules.
+.chipRemovable.chipRemovable.chipRemovable {
+  padding-right: 34px;
+}
+
+// Right edge of the row, which spans the table below it.
+.clearAll {
+  margin-left: auto;
+}
+
+.bar {
+  // Top padding is the gap to the header above: the header renders no divider
+  // on this surface, so nothing else separates them. 10px + 4.
+  // Bottom gap lives entirely in the margin. The row has no background or
+  // border of its own, so padding and margin below it are indistinguishable —
+  // splitting the gap across both just makes it harder to read as 16px.
+  padding: 14px 0 0;
+  margin-bottom: 16px;
+  row-gap: 8px;
+}
+
+// Never shrinks: the time frame and chips wrap before the freshness stamp and
+// Refresh give up width. A truncated "Updated 2 min ago" says nothing.
+.status {
+  flex-shrink: 0;
+}
+
+.bolt {
+  color: var(--amber-9);
+}
+
+// Mirrors the preset rail in DateRangeComparePanel. That component styles its
+// rail items with an inline `railItemStyle(active)` closure rather than a class
+// or sub-component, so this is a faithful copy, not an import — if those values
+// change there, change them here too.
+.presetList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+}
+
+// A button, not a div, so the rail is keyboard reachable and can carry
+// aria-pressed. That means undoing the browser's button chrome first.
+.preset {
+  appearance: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+
+  padding: 6px 8px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  color: var(--gray-11);
+  font-weight: 400;
+  font-size: var(--font-size-2);
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--gray-a3);
+  }
+
+  // The rail sits inside a popover, so the focus ring is the only thing marking
+  // keyboard position — it must not be suppressed along with the button chrome.
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: -2px;
+  }
+}
+
+.presetActive {
+  background: var(--violet-a4);
+  color: var(--violet-11);
+  font-weight: 500;
+
+  &:hover {
+    background: var(--violet-a4);
+  }
+}

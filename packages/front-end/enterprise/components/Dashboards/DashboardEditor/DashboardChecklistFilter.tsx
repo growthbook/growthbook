@@ -4,7 +4,7 @@ import { PiCaretDown, PiCheck, PiX } from "react-icons/pi";
 import clsx from "clsx";
 import Field from "@/components/Forms/Field";
 import { Popover } from "@/ui/Popover";
-import Button from "@/ui/Button";
+import Button, { Size as ButtonSize } from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
@@ -46,6 +46,12 @@ interface Props {
   // Open the popover on its own once this is true (used when the filter was just
   // added from the "Add filter" menu, so the user can pick a value right away).
   autoOpen?: boolean;
+  // Pill height. Defaults to the dashboard bar's "md"; "sm" is used where the
+  // pills sit inline with other compact controls.
+  size?: ButtonSize;
+  // Extra class on the pill button, for callers that need to tweak its
+  // typography. Merged after the component's own classes.
+  className?: string;
 }
 
 // A filter pill that opens a popover with a search box and an option list.
@@ -66,7 +72,11 @@ export default function DashboardChecklistFilter({
   searchPlaceholder = "Search...",
   emptyText = "No results",
   autoOpen = false,
+  size = "md",
+  className,
 }: Props) {
+  // The ✕ is positioned by hand (see below), so it has to shrink with the pill.
+  const removeButtonSize = size === "sm" ? 16 : 18;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -129,11 +139,15 @@ export default function DashboardChecklistFilter({
         <Button
           variant="outline"
           color="gray"
-          size="md"
-          className={clsx(styles.controlPill, {
-            // Reserves room for the ✕ that sits over the pill's right edge.
-            [styles.controlPillRemovable]: !!onRemove,
-          })}
+          size={size}
+          className={clsx(
+            styles.controlPill,
+            {
+              // Reserves room for the ✕ that sits over the pill's right edge.
+              [styles.controlPillRemovable]: !!onRemove,
+            },
+            className,
+          )}
           disabled={disabled}
           icon={icon}
           iconPosition="left"
@@ -313,17 +327,17 @@ export default function DashboardChecklistFilter({
         // a class override too closely to reliably win.
         style={{
           position: "absolute",
-          right: 6,
+          right: size === "sm" ? 5 : 6,
           top: "50%",
           transform: "translateY(-50%)",
-          width: 18,
-          height: 18,
+          width: removeButtonSize,
+          height: removeButtonSize,
           minWidth: 0,
           margin: 0,
           padding: 0,
         }}
       >
-        <PiX size={13} aria-hidden />
+        <PiX size={size === "sm" ? 12 : 13} aria-hidden />
       </IconButton>
     </span>
   );

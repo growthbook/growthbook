@@ -109,11 +109,34 @@ export function ExplorerFilterRow({
   columnSource,
   onUpdate,
   onDelete,
+  variant = "full",
 }: {
   filter: ExplorerRowFilter;
   index: number;
   localFilters: ExplorerRowFilter[];
   columnSource: FilterColumnSource;
+  /**
+   * "full" (default) is the explorer sidebar: every operator the column's
+   * datatype allows, the SQL Expression option, and the per-row enable toggle
+   * and collapse caret.
+   *
+   * "simple" is for surfaces backed by a fixed, equality-only request: only
+   * "=", no SQL, and no row controls — there is nothing to disable that
+   * removing the row does not do, and nothing to collapse to that saves space.
+   *
+   * One prop rather than a boolean per mechanic, so a caller reads the intent
+   * instead of reassembling it from four switches.
+   */
+  /**
+   * "full"      — the explorer sidebar: every operator, SQL Expression, an
+   *               enable switch and a collapse caret.
+   * "simple"    — equality only, in a card with its summary line and remove
+   *               button. For a rail that stacks several conditions.
+   * "condition" — the bare inputs and nothing else: no card, no summary, no
+   *               remove. For a popover that edits exactly one condition,
+   *               where the card would repeat what the popover already is.
+   */
+  variant?: "full" | "simple" | "condition";
   onUpdate: (
     updates: Partial<ExplorerRowFilter>,
     shouldCommit?: boolean,
@@ -141,7 +164,9 @@ export function ExplorerFilterRow({
     {
       label: "Other",
       options: [
-        { label: "SQL Expression", value: "$$sql_expr" },
+        ...(variant === "full"
+          ? [{ label: "SQL Expression", value: "$$sql_expr" }]
+          : []),
         ...(columnSource.savedFilters.length > 0 ||
         filter.operator === "saved_filter"
           ? [{ label: "Saved Filter", value: "$$saved_filter" }]
@@ -153,6 +178,12 @@ export function ExplorerFilterRow({
   const operatorInputRequired =
     filter.operator !== "sql_expr" && filter.operator !== "saved_filter";
 
+  /**
+   * The operator and value inputs appear only once a column is chosen. Until
+   * then there is no datatype to derive operators from, and an operator select
+   * offered before the thing it applies to reads as a choice the user has to
+   * understand rather than one the column will make for them.
+   */
   const firstSelectCompleted = !operatorInputRequired || !!filter.column;
 
   const operatorOptions: SingleValue[] = [];
@@ -185,7 +216,11 @@ export function ExplorerFilterRow({
   if (operatorInputRequired) {
     const { datatype, topValues } = columnSource.getColumnInfo(filter.column);
 
-    const allowedOperators = getAllowedOperators(datatype);
+    const datatypeOperators = getAllowedOperators(datatype);
+    const allowedOperators =
+      variant !== "full"
+        ? datatypeOperators.filter((op) => op === "=")
+        : datatypeOperators;
 
     if (datatype === "number") {
       inputType = "number";
@@ -241,9 +276,53 @@ export function ExplorerFilterRow({
 
   const autoFocus = index === localFilters.length - 1;
 
+  /**
+   * The "condition" variant is hosted in a popover, and Radix always puts an
+   * inline `transform` on its content wrapper to position it. A transformed
+   * ancestor becomes the containing block for the select menus below, which are
+   * `position: fixed` — so they resolved their viewport coordinates against the
+   * popover and opened partway down the page. Portalling the menus out takes
+   * them from under that ancestor.
+   *
+   * The target is the Radix theme root, not document.body: the menu's colours
+   * are design tokens declared on `.radix-themes`, and outside it they resolve
+   * to nothing — the menu renders with no background and the page shows
+   * straight through it. The theme root sits above the popover in the tree
+   * (the popover portals to the body) so it escapes the transform just as well,
+   * while keeping the tokens.
+   *
+   * Guarded for SSR; the menu only ever renders client-side anyway.
+   */
+  const menuPortalTarget =
+    variant === "condition" && typeof document !== "undefined"
+      ? ((document.querySelector(".radix-themes") as HTMLElement | null) ??
+        document.body)
+      : undefined;
+
+  /**
+   * The portalled menu and the popover hosting this row are now siblings near
+   * the root, so paint order is decided by DOM position — and the popover
+   * portals to the body, later than the theme root the menu goes to. Without a
+   * z-index the menu renders underneath the popover that opened it.
+   *
+   * The popover itself carries no z-index, so any positive value wins; 1100
+   * matches LoadingOverlay and stays well under the 1500 modals use, so an
+   * open menu cannot cover a dialog.
+   */
+  const menuPortalStyles = menuPortalTarget
+    ? {
+        menuPortal: (base: Record<string, unknown>) => ({
+          ...base,
+          zIndex: 1100,
+        }),
+      }
+    : undefined;
+
   const columnSelect = (
     <SelectField
       size="small"
+      menuPortalTarget={menuPortalTarget}
+      containerStyles={menuPortalStyles}
       value={
         filter.operator === "sql_expr"
           ? "$$sql_expr"
@@ -260,7 +339,11 @@ export function ExplorerFilterRow({
           const { datatype } = columnSource.getColumnInfo(v);
           let newOperator = filter.operator;
           let newValues = filter.values || [];
-          const allowedOperators = getAllowedOperators(datatype);
+          const datatypeOperators = getAllowedOperators(datatype);
+          const allowedOperators =
+            variant !== "full"
+              ? datatypeOperators.filter((op) => op === "=")
+              : datatypeOperators;
 
           if (!allowedOperators.includes(newOperator)) {
             newOperator = allowedOperators[0];
@@ -293,6 +376,8 @@ export function ExplorerFilterRow({
   const operatorSelect = operatorInputRequired && firstSelectCompleted && (
     <SelectField
       size="small"
+      menuPortalTarget={menuPortalTarget}
+      containerStyles={menuPortalStyles}
       value={displayOperator}
       onChange={(v: RowFilter["operator"]) => {
         let newValues = filter.values || [];
@@ -351,6 +436,8 @@ export function ExplorerFilterRow({
       ) : useValueOptions ? (
         <SelectField
           size="small"
+          menuPortalTarget={menuPortalTarget}
+          containerStyles={menuPortalStyles}
           value={filter.values?.[0] || ""}
           onChange={(v) => onUpdate({ values: [v] })}
           options={valueOptions}
@@ -417,6 +504,29 @@ export function ExplorerFilterRow({
     return `${colName} ${filter.operator} ${filter.values?.join(", ") || ""}`;
   };
 
+  // No card, no summary line, no remove button — the popover hosting this is
+  // already the container, its trigger already said what it is, and a single
+  // condition has nothing to be removed from.
+  if (variant === "condition") {
+    return (
+      <Flex direction="column" gap="2">
+        {operatorSelect ? (
+          <Flex direction="row" gap="2" align="center">
+            <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 0 }}>
+              {columnSelect}
+            </Box>
+            <Box style={{ minWidth: 0, flex: "0 1 130px" }}>
+              {operatorSelect}
+            </Box>
+          </Flex>
+        ) : (
+          columnSelect
+        )}
+        {valueInput}
+      </Flex>
+    );
+  }
+
   return (
     <Flex
       direction="column"
@@ -433,22 +543,28 @@ export function ExplorerFilterRow({
           {getFilterSummary()}
         </Text>
         <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
-          <Switch
-            value={!filter.disabled}
-            onChange={(v) => onUpdate({ disabled: !v }, true)}
-          />
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onUpdate({ collapsed: !filter.collapsed }, false)}
-            style={{ padding: 2 }}
-          >
-            {filter.collapsed ? (
-              <PiCaretDown size={14} />
-            ) : (
-              <PiCaretUp size={14} />
-            )}
-          </Button>
+          {variant === "full" && (
+            <>
+              <Switch
+                value={!filter.disabled}
+                onChange={(v) => onUpdate({ disabled: !v }, true)}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  onUpdate({ collapsed: !filter.collapsed }, false)
+                }
+                style={{ padding: 2 }}
+              >
+                {filter.collapsed ? (
+                  <PiCaretDown size={14} />
+                ) : (
+                  <PiCaretUp size={14} />
+                )}
+              </Button>
+            </>
+          )}
           <Button size="sm" variant="ghost" onClick={onDelete}>
             <PiX size={14} />
           </Button>

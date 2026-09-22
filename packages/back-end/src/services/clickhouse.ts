@@ -1,5 +1,6 @@
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
+  buildManagedWarehouseAttributeAliasClause,
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseEventsFactTableColumns,
@@ -35,7 +36,13 @@ import {
 import { getCollection } from "back-end/src/util/mongo.util";
 import { syncJsonErgonomicsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import {
+  eventLogFixturesEnabled,
+  listEventLogRecordsFixtures,
+  listEventLogSummaryFixtures,
+} from "back-end/src/services/eventLogFixtures";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { LAST_RECEIVED_LOOKBACK_DAYS } from "back-end/src/util/warehouseLookback";
 import { logger } from "back-end/src/util/logger";
 
 // --- Session Replay ---
@@ -202,7 +209,31 @@ export type EventLogSummaryRow = {
   total_count: string;
   dau_count: string;
   daily_counts: string[];
+  last_received: string | null;
+  first_seen: string | null;
+  // Earliest occurrence within the lookback, NOT the window. `first_seen` is a
+  // MIN over in-window rows, so it is always inside the window and cannot tell
+  // you whether the event existed beforehand; this can.
+  first_ever_seen: string | null;
+  // Positional: `identifiers[i]` names the column that produced
+  // `identifier_non_null_counts[i]`. Indexed rather than keyed by name so a
+  // custom identifier can't collide with a real column alias.
+  identifiers: string[];
+  identifier_non_null_counts: string[];
 };
+
+const SAFE_CLICKHOUSE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+/** A bare identifier when safe, otherwise backtick-quoted. Mirrors
+ * `chIdentifier` in shared/util/managedWarehouse, which is not exported. */
+function toClickhouseIdentifier(name: string): string {
+  return SAFE_CLICKHOUSE_IDENTIFIER.test(name)
+    ? name
+    : "`" + name.replace(/`/g, "``") + "`";
+}
+
+// Shared with the feature usage summary — see util/warehouseLookback.
+const EVENT_LOG_LAST_RECEIVED_LOOKBACK_DAYS = LAST_RECEIVED_LOOKBACK_DAYS;
 
 export type EventLogRecordRow = {
   event_uuid: string;
@@ -229,10 +260,16 @@ export async function listEventLogSummary(
     dateTo: string;
     clientKeys: string[];
     search?: string;
+    environment?: string;
     limit: number;
     offset: number;
   },
 ): Promise<EventLogSummaryRow[]> {
+  // Local dev has no managed warehouse to query; see eventLogFixtures.ts.
+  if (eventLogFixturesEnabled()) {
+    return listEventLogSummaryFixtures(options);
+  }
+
   const datasource = await getGrowthbookDatasource(context);
   if (!datasource) return [];
 
@@ -255,45 +292,130 @@ export async function listEventLogSummary(
   const limit = Math.max(1, Math.min(100, Math.floor(options.limit)));
   const offset = Math.max(0, Math.floor(options.offset));
 
+  const environmentCondition = options.environment
+    ? ` AND environment = ${toClickhouseStringLiteral(options.environment)}`
+    : "";
+
   const timeAndKeyFilter = `client_key IN (${escapedKeys})
       AND timestamp >= parseDateTimeBestEffort('${dateFrom}')
-      AND timestamp < parseDateTimeBestEffort('${dateTo}')`;
+      AND timestamp < parseDateTimeBestEffort('${dateTo}')${environmentCondition}`;
+
+  // Same key/environment scope as above but a fixed lookback instead of the
+  // selected window, so "last received" stays meaningful when an event has gone
+  // quiet. The lookback always covers the window (which is capped at
+  // MAX_SUMMARY_WINDOW_DAYS), so every row in the outer query finds a match and
+  // the LEFT JOIN never falls back to ClickHouse's zero date.
+  const lookbackFilter = `client_key IN (${escapedKeys})
+      AND timestamp >= now() - INTERVAL ${EVENT_LOG_LAST_RECEIVED_LOOKBACK_DAYS} DAY${environmentCondition}`;
+
+  // Identifier columns are whatever the data source defines — built-ins plus any
+  // custom ones folded out of the attributes JSON. Resolved the same way the
+  // managed-warehouse fact table and exposure queries resolve them, never
+  // hardcoded. The alias clause is empty on a pre-migration warehouse, where
+  // these are still physical columns.
+  // getGrowthbookDatasource only ever returns a managed warehouse, but the
+  // settings union needs the discriminant check to narrow.
+  const warehouseSettings =
+    datasource.type === "growthbook_clickhouse" ? datasource.settings : null;
+  const identifiers = getManagedWarehouseUserIdTypes(
+    context.org.settings?.attributeSchema,
+    warehouseSettings?.migratedIdentifiers || [],
+  );
+  const aliasClause =
+    buildManagedWarehouseAttributeAliasClause(warehouseSettings);
+
+  // countIf per identifier, aggregated through the same GROUP BY as the counts.
+  // Indexed aliases keep a custom identifier's name out of the SELECT list.
+  const coverageDayExprs = identifiers
+    .map(
+      (id, i) =>
+        `,\n          countIf(${toClickhouseIdentifier(
+          id,
+        )} IS NOT NULL) AS id_${i}_non_null`,
+    )
+    .join("");
+  const coverageZeroExprs = identifiers
+    .map((_, i) => `,\n          0 AS id_${i}_non_null`)
+    .join("");
+  const coverageSumExprs = identifiers
+    .map((_, i) => `,\n        sum(id_${i}_non_null) AS id_${i}_non_null`)
+    .join("");
+  const coverageOuterExprs = identifiers
+    .map((_, i) => `,\n      totals.id_${i}_non_null AS id_${i}_non_null`)
+    .join("");
+  const coverageArray = identifiers.length
+    ? `[${identifiers.map((_, i) => `totals.id_${i}_non_null`).join(", ")}]`
+    : "[]";
+  const identifierNameArray = identifiers.length
+    ? `[${identifiers.map((id) => toClickhouseStringLiteral(id)).join(", ")}]`
+    : "[]";
 
   const { rows } = await integration.runQuery(
     `
     SELECT
-      event_name,
-      sum(day_count) AS total_count,
-      avg(day_dau) AS dau_count,
-      arrayMap(
-        item -> item.2,
-        arraySort(item -> item.1, groupArray((day, day_count)))
-      ) AS daily_counts
+      totals.event_name AS event_name,
+      totals.total_count AS total_count,
+      totals.dau_count AS dau_count,
+      totals.daily_counts AS daily_counts,
+      totals.first_seen AS first_seen,
+      ${identifierNameArray} AS identifiers,
+      ${coverageArray} AS identifier_non_null_counts,${coverageOuterExprs}
+      recency.last_received AS last_received,
+      recency.first_ever_seen AS first_ever_seen
     FROM (
-      SELECT event_name, toDate(timestamp) AS day,
-        count() AS day_count, uniqExact(user_id) AS day_dau
-      FROM events
-      WHERE ${timeAndKeyFilter}
-      GROUP BY event_name, day
+      SELECT
+        event_name,
+        sum(day_count) AS total_count,
+        avg(day_dau) AS dau_count,
+        arrayMap(
+          item -> item.2,
+          arraySort(item -> item.1, groupArray((day, day_count)))
+        ) AS daily_counts,
+        min(day_first_seen) AS first_seen${coverageSumExprs}
+      FROM (
+        SELECT event_name, toDate(timestamp) AS day,
+          count() AS day_count, uniqExact(user_id) AS day_dau,
+          min(timestamp) AS day_first_seen${coverageDayExprs}
+        FROM (SELECT *${aliasClause} FROM events WHERE ${timeAndKeyFilter})
+        GROUP BY event_name, day
 
-      UNION ALL
+        UNION ALL
 
-      SELECT 'Experiment Viewed' AS event_name, toDate(timestamp) AS day,
-        count() AS day_count, uniqExact(user_id) AS day_dau
-      FROM experiment_views
-      WHERE ${timeAndKeyFilter}
-      GROUP BY day
+        SELECT 'Experiment Viewed' AS event_name, toDate(timestamp) AS day,
+          count() AS day_count, uniqExact(user_id) AS day_dau,
+          min(timestamp) AS day_first_seen${coverageDayExprs}
+        FROM (SELECT *${aliasClause} FROM experiment_views WHERE ${timeAndKeyFilter})
+        GROUP BY day
 
-      UNION ALL
+        UNION ALL
 
-      SELECT 'Feature Evaluated' AS event_name, toDate(timestamp) AS day,
-        count() AS day_count, 0 AS day_dau
-      FROM feature_usage
-      WHERE ${timeAndKeyFilter}
-      GROUP BY day
-    )
-    WHERE 1=1 ${searchCondition}
-    GROUP BY event_name
+        -- feature_usage is narrow: no identity columns at all, so every
+        -- identifier contributes zero coverage here.
+        SELECT 'Feature Evaluated' AS event_name, toDate(timestamp) AS day,
+          count() AS day_count, 0 AS day_dau,
+          min(timestamp) AS day_first_seen${coverageZeroExprs}
+        FROM feature_usage
+        WHERE ${timeAndKeyFilter}
+        GROUP BY day
+      )
+      WHERE 1=1 ${searchCondition}
+      GROUP BY event_name
+    ) AS totals
+    LEFT JOIN (
+      SELECT event_name, max(timestamp) AS last_received,
+        min(timestamp) AS first_ever_seen
+      FROM (
+        SELECT event_name, timestamp FROM events WHERE ${lookbackFilter}
+        UNION ALL
+        SELECT 'Experiment Viewed' AS event_name, timestamp
+        FROM experiment_views WHERE ${lookbackFilter}
+        UNION ALL
+        SELECT 'Feature Evaluated' AS event_name, timestamp
+        FROM feature_usage WHERE ${lookbackFilter}
+      )
+      GROUP BY event_name
+    ) AS recency
+    ON totals.event_name = recency.event_name
     ORDER BY total_count DESC
     LIMIT ${limit}
     OFFSET ${offset}
@@ -322,6 +444,11 @@ export async function listEventLogRecords(
     offset: number;
   },
 ): Promise<EventLogRecordRow[]> {
+  // Local dev has no managed warehouse to query; see eventLogFixtures.ts.
+  if (eventLogFixturesEnabled()) {
+    return listEventLogRecordsFixtures(options);
+  }
+
   const datasource = await getGrowthbookDatasource(context);
   if (!datasource) return [];
 

@@ -147,14 +147,33 @@ export function formatShortAgo(dateOrTimestamp: Date | number): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-// returns an abbreviated version of the "ago" string.
-// ex: "about 5 minutes ago" -> "5 min ago"
+/**
+ * An abbreviated "ago" string.
+ *   "about 5 minutes ago"     -> "5 min. ago"
+ *   "about 2 hours ago"       -> "2 hr. ago"
+ *   "3 days ago"              -> "3 days ago"
+ *   anything under a minute   -> "just now"
+ *
+ * `min.` and `hr.` carry a trailing period because they are abbreviations.
+ * `days` is left spelled out — it is already short, and "3 d. ago" reads badly.
+ *
+ * The under-a-minute case is handled by elapsed time rather than by matching
+ * date-fns' "less than a minute ago", because date-fns draws that line at 30
+ * seconds and the interesting boundary is a minute. Future dates are left to
+ * the normal path, so "Starts in 30 seconds" does not become "Starts just now".
+ */
 export function abbreviateAgo(date: string | Date | null | undefined): string {
-  return ago(date ?? "")
+  if (!date) return ago("");
+
+  const elapsed = Date.now() - getValidDate(date).getTime();
+  if (elapsed >= 0 && elapsed < 60000) return "just now";
+
+  return ago(date)
     .replace("about ", "")
     .replace("less than a", "<1")
-    .replace(/second(s)?/g, "sec$1")
-    .replace(/minute(s)?/g, "min$1");
+    .replace(/seconds?/g, "sec.")
+    .replace(/minutes?/g, "min.")
+    .replace(/hours?/g, "hr.");
 }
 
 export function snapToUtcDayStart(date: Date): Date {

@@ -7,6 +7,7 @@ import {
   EventLogRecordRow,
 } from "back-end/src/services/clickhouse";
 import { filterClientKeysByProject } from "back-end/src/services/session-replay";
+import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 
 const MAX_SUMMARY_WINDOW_DAYS = 14;
@@ -31,6 +32,7 @@ export class EventLogModel {
     dateFrom: Date;
     dateTo: Date;
     search?: string;
+    environment?: string;
     project?: string;
     limit: number;
     offset: number;
@@ -65,11 +67,22 @@ export class EventLogModel {
       dateTo: options.dateTo.toISOString(),
       clientKeys,
       search: options.search,
+      environment: options.environment,
       limit: options.limit,
       offset: options.offset,
     });
 
-    return rows.map(toSummaryItem);
+    const usedBy = await getUsedByForEvents(
+      this.context,
+      rows.map((r) => r.event_name),
+    );
+
+    return rows.map((row) =>
+      toSummaryItem(
+        row,
+        usedBy.get(row.event_name) ?? { factTableIds: [], metricIds: [] },
+      ),
+    );
   }
 
   public async listRecords(options: {
@@ -130,13 +143,91 @@ export class EventLogModel {
   }
 }
 
-function toSummaryItem(row: EventLogSummaryRow): EventLogSummaryItem {
+function toSummaryItem(
+  row: EventLogSummaryRow,
+  usedBy: EventLogSummaryItem["usedBy"],
+): EventLogSummaryItem {
+  const totalCount = Number(row.total_count);
+  const identifiers = row.identifiers ?? [];
+  const nonNullCounts = row.identifier_non_null_counts ?? [];
+
   return {
     eventName: row.event_name,
-    totalCount: Number(row.total_count),
+    totalCount,
     dauCount: Math.round(Number(row.dau_count)),
     dailyCounts: (row.daily_counts ?? []).map(Number),
+    lastReceived: row.last_received
+      ? normalizeClickHouseTimestamp(row.last_received)
+      : null,
+    firstSeen: row.first_seen
+      ? normalizeClickHouseTimestamp(row.first_seen)
+      : null,
+    firstEverSeen: row.first_ever_seen
+      ? normalizeClickHouseTimestamp(row.first_ever_seen)
+      : null,
+    // Positional pairing, mirroring how the query emits the two arrays.
+    identifierCoverage: identifiers.map((identifier, i) => ({
+      identifier,
+      nonNullCount: Number(nonNullCounts[i] ?? 0),
+      totalCount,
+    })),
+    usedBy,
   };
+}
+
+/**
+ * Which Fact Tables and metrics reference each event name, from GrowthBook's own
+ * metadata rather than the warehouse. Fact Tables carry the event name directly;
+ * a metric counts as referencing an event when either side of it points at one
+ * of those Fact Tables.
+ *
+ * Two Mongo reads for the whole page of results, not one per event.
+ */
+async function getUsedByForEvents(
+  context: ReqContext,
+  eventNames: string[],
+): Promise<Map<string, EventLogSummaryItem["usedBy"]>> {
+  const out = new Map<string, EventLogSummaryItem["usedBy"]>();
+  eventNames.forEach((name) =>
+    out.set(name, { factTableIds: [], metricIds: [] }),
+  );
+  if (!eventNames.length) return out;
+
+  const wanted = new Set(eventNames);
+  const factTables = await getAllFactTablesForOrganization(context);
+
+  // factTableId -> the event names it is attributed to.
+  const factTableToEvents = new Map<string, string[]>();
+  for (const factTable of factTables) {
+    const eventName = factTable.eventName;
+    if (!eventName || !wanted.has(eventName)) continue;
+    out.get(eventName)?.factTableIds.push(factTable.id);
+    factTableToEvents.set(factTable.id, [
+      ...(factTableToEvents.get(factTable.id) ?? []),
+      eventName,
+    ]);
+  }
+
+  if (factTableToEvents.size > 0) {
+    const factMetrics = await context.models.factMetrics.getAll();
+    for (const metric of factMetrics) {
+      const factTableIds = [
+        metric.numerator?.factTableId,
+        metric.denominator?.factTableId,
+      ].filter((id): id is string => !!id);
+
+      // A metric touching both sides of the same Fact Table must not be
+      // counted twice against the event.
+      const events = new Set(
+        factTableIds.flatMap((id) => factTableToEvents.get(id) ?? []),
+      );
+      events.forEach((eventName) =>
+        out.get(eventName)?.metricIds.push(metric.id),
+      );
+    }
+  }
+
+  return out;
 }
 
 function toRecord(row: EventLogRecordRow): EventLogRecord {

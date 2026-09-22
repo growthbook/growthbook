@@ -1,0 +1,106 @@
+// Fixed layout so the column widths come from these rules rather than from
+// whichever page of rows happens to be rendered. With the default `auto`
+// layout the browser re-measures per page, so the columns visibly jump as you
+// paginate — long event names on page 1, short ones on page 2.
+//
+// Column 1 (Event Name) deliberately has no width: under a fixed layout it
+// absorbs whatever the sized columns leave behind.
+.summaryTable {
+  table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  // 16px on each side, so content in adjacent columns sits 32px apart. The
+  // widths below carry that 32px on top of the room the content itself needs.
+  //
+  // The header half has to be written as the same global selector ui/Table uses
+  // for `padding: var(--space-3)`. That selector carries three classes, so a
+  // plain `th` rule here loses to it and the header keeps 12px while body cells
+  // take 16px — which is exactly what pushed each column's header text out of
+  // line with the content beneath it. Scoping it under .summaryTable makes it
+  // four classes, so this wins. Horizontal only: the header's vertical padding
+  // still comes from the shorthand.
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell),
+  td {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  // The outer edges keep the design system's own --space-3 inset rather than
+  // going flush: the header already sat there, so matching it moves the body
+  // cells right to meet the header instead of dragging the header left.
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell:first-child),
+  td:first-child {
+    padding-left: var(--space-3);
+  }
+
+  // The right edge is set with the Last Received column below.
+
+  // Each width is (content it needs) + 32px. They are kept as lean as the
+  // content allows so the remainder left to Event Name stays the largest of
+  // the five — these four total ~538px, well under half the card at any width
+  // the page is usable at.
+
+  // Trend — Sparkline is 90px wide (set in the page). The extra 32px of right
+  // padding widens the gap to Total Count to 64px (48 here + 16 on that
+  // column's left); the width carries it so the Sparkline is not squeezed,
+  // since these widths are border-box.
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell:nth-child(2)),
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 154px;
+    padding-right: 48px;
+  }
+
+  // Total Count — +16px of right padding widens the gap to Avg. Daily Users to
+  // 48px (32 here + 16 on that column's left). Width carries it: border-box.
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell:nth-child(3)),
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 136px;
+    padding-right: 32px;
+  }
+
+  // Avg. Daily Users — same +16px, so the gap to Last Received is also 48px.
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell:nth-child(4)),
+  th:nth-child(4),
+  td:nth-child(4) {
+    width: 164px;
+    padding-right: 32px;
+  }
+
+  // Last Received — room for "4d ago" plus the Stale badge. Its right padding
+  // is the table's outer edge: --space-3 (12px) plus 24px more, so the column
+  // sits further off the right side. Width carries the extra 24px.
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell:nth-child(5)),
+  th:nth-child(5),
+  td:nth-child(5) {
+    width: 172px;
+  }
+
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell:last-child),
+  td:last-child {
+    padding-right: calc(var(--space-3) + 24px);
+  }
+
+  // A long event name truncates rather than forcing the fixed columns open.
+  td:nth-child(1) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // No font-weight here on purpose: inheriting the cell's default is what makes
+  // this match Total Count, which renders bare in its cell. Underlines on hover
+  // in anticipation of these becoming links.
+  .eventName {
+    color: var(--color-text-high);
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+    }
+  }
+}

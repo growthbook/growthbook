@@ -1,0 +1,127 @@
+// The dense log-stream table shared by the Event Logs stream and the feature
+// Diagnostics evaluation stream, so the two are the same table rather than two
+// that resemble each other.
+//
+// Generic only: row height, type, and truncation. Column widths belong to the
+// surface, since the two have different columns — declare them on `th` in a
+// module of your own and apply both classes.
+//
+// Requires `variant="list" size="md"` on ui/Table; the specificity below is
+// written against the list variant's rules.
+.streamTable {
+  // Fixed layout so the columns share the available width instead of taking
+  // their natural content width and overflowing the card. It is also what makes
+  // the truncation below possible at all — an auto layout grows the column
+  // rather than clipping the cell.
+  table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  // Everything below competes with ui/Table, whose list-variant rules are
+  // nested inside `.wrapper[data-table-list]` — so they resolve at (0,5,0):
+  // one class, one attribute, three classes. A single `.streamTable …` prefix
+  // is only (0,4,0) and silently loses, which is why the cell padding stayed at
+  // var(--space-3) and the rows would not come down off 44px.
+  //
+  // Repeating the class three times takes this to (0,6,0), which beats it
+  // outright rather than relying on stylesheet order between two CSS modules.
+  &.streamTable.streamTable {
+    // Header: 13px type, 30px tall. Radix's `.rt-TableCell` rule is
+    // `height: var(--table-cell-min-height)` (44px at this size) and the header
+    // cell carries that class, so the variable has to come down with it.
+    // Horizontal padding is left at ui/Table's 12px so the header stays aligned
+    // with its cells.
+    :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
+      --table-cell-min-height: 30px;
+      font-size: 13px;
+      height: 30px;
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+
+    :global(.rt-TableHeader .rt-TableRow) {
+      height: 30px;
+    }
+
+    // Body cells: 30px rows, 12px monospace, single line. `:not([colspan])`
+    // spares any expanded detail row, whose content needs to wrap and grow past
+    // 30px.
+    :global(.rt-TableBody .rt-TableRow .rt-TableCell):not([colspan]) {
+      --table-cell-min-height: 30px;
+      height: 30px;
+      padding-top: 4px;
+      padding-bottom: 4px;
+      // ui/Table sets `overflow: visible` here; without winning that, nothing
+      // truncates.
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    // Anchor for anything a surface overlays on its rows — the Event Logs open
+    // caret positions against this.
+    :global(.rt-TableBody .rt-TableRow) {
+      position: relative;
+    }
+
+    // Inline children are truncated by the cell above. A child that is its own
+    // block needs the rule too, since text-overflow applies to the box that
+    // actually overflows.
+    :global(.rt-TableBody .rt-TableRow .rt-TableCell):not([colspan]) > * {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+// The results region keeps a constant height across states, so switching to a
+// filter that matches nothing does not collapse the card and shove the footer
+// up the page. Height is reserved for a full page of rows (header + rows at
+// 30px each), set inline from the current rows-per-page.
+.resultsArea {
+  display: flex;
+  flex-direction: column;
+}
+
+// Centre whatever is standing in for the table — the empty state, the loading
+// line — in the reserved space rather than pinning it to the top.
+.resultsPlaceholder {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// components/EmptyState carries the global `.box` class (border, panel fill,
+// margin). That reads as a card inside a card here, so strip the chrome and
+// keep only the copy.
+.resultsPlaceholder :global(.box) {
+  border: none;
+  background-color: transparent;
+  margin-bottom: 0;
+}
+
+// EmptyState hard-codes Text size="6" for its title and size="3" for the
+// description (24px and 16px) and accepts no className, so the sizes are dialled
+// back here. Radix's own size rules use :where(), so a plain class pair
+// out-specifies them.
+//
+// The line-heights come down with them. EmptyState's Flex gap is only 8px, so
+// the visible space between the two lines is mostly leading: a 16px title still
+// sat in a 30px line box and a 13px description in a 24px one, ~12.5px of
+// half-leading between them on top of the gap. Tightening to 1.3 removes almost
+// exactly that, which is the 12px asked for — the gap itself has nowhere to go.
+.resultsPlaceholder :global(.rt-Text.rt-r-size-6) {
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.resultsPlaceholder :global(.rt-Text.rt-r-size-3) {
+  font-size: 13px;
+  line-height: 1.3;
+}

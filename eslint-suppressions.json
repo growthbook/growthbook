@@ -620,11 +620,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeatureDiagnostics.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/FeatureImplementationModal.tsx": {
     "no-restricted-imports": {
       "count": 1

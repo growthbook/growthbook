@@ -1,0 +1,55 @@
+// Two steps down from the 12px a size="sm" Button renders at. Radix sets that
+// via its own size class, so the selector is doubled to out-specify it — the
+// same trick DashboardControlPill.module.scss uses for the pill background.
+.compactPill {
+  &.compactPill {
+    font-size: 10px;
+    color: var(--color-text-high);
+  }
+}
+
+// Mirrors the "Past 30 days" trigger on the Product Analytics funnel page
+// (DateRangeTriggerPopover): neutral outline button with a surface fill and a
+// capped width. The inner span absorbs the slack so the label hugs the calendar
+// icon instead of drifting toward the middle under justify-content: space-between.
+.dateRangePill {
+  &.dateRangePill {
+    background-color: var(--color-surface);
+    max-width: 260px;
+  }
+
+  > span {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+// Read-only scope indicator: icon and text only, no control chrome. Events only
+// ever come from the org's single managed warehouse, so this states scope rather
+// than offering a choice, and shouldn't read as something you can click.
+.readOnlyPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-mid);
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+
+  > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// Doubled to out-specify Link's own size class.
+.clearAll {
+  &.clearAll {
+    font-size: 12px;
+  }
+}
+
+// Magnifier floating inside the search input. Non-interactive so clicks fall
+// through to the input underneath.
+// The search field's own rules moved to
+// components/Diagnostics/StreamSearchField.module.scss when it became shared.

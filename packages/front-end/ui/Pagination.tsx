@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React, { FC, ReactNode } from "react";
 import ReactPaginate from "react-paginate";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import clsx from "clsx";
@@ -10,6 +10,9 @@ type PaginationProps = {
   currentPage: number;
   onPageChange: (page: number) => void;
   className?: string;
+  /** Override the previous/next control content, e.g. for icon-only arrows. */
+  previousLabel?: ReactNode;
+  nextLabel?: ReactNode;
 };
 
 const Pagination: FC<PaginationProps> = ({
@@ -18,22 +21,24 @@ const Pagination: FC<PaginationProps> = ({
   currentPage,
   onPageChange,
   className = "",
+  previousLabel = (
+    <span className={styles.arrow}>
+      <PiCaretLeft size={14} />
+      Prev
+    </span>
+  ),
+  nextLabel = (
+    <span className={styles.arrow}>
+      Next
+      <PiCaretRight size={14} />
+    </span>
+  ),
 }) => {
   return (
     <div className={clsx(styles.root, className)}>
       <ReactPaginate
-        previousLabel={
-          <span className={styles.arrow}>
-            <PiCaretLeft size={14} />
-            Prev
-          </span>
-        }
-        nextLabel={
-          <span className={styles.arrow}>
-            Next
-            <PiCaretRight size={14} />
-          </span>
-        }
+        previousLabel={previousLabel}
+        nextLabel={nextLabel}
         breakLabel={"..."}
         breakClassName={styles.break}
         pageCount={Math.ceil(numItemsTotal / perPage)}

@@ -632,6 +632,26 @@ pre {
       box-shadow: none !important;
     }
   }
+
+  // For a tab whose own content starts with a sticky bar directly beneath this
+  // one. Two stacked bars casting one shadow between them reads as the lower
+  // bar being under the page rather than on top of it, so the tab hands the
+  // shadow down and its bar casts the single shadow at the bottom of the pair.
+  // Requested per-tab from FeaturesHeader; every other tab is unaffected.
+  &.pinned.no-pinned-shadow {
+    box-shadow: none;
+
+    // Put the tab list's own divider back. `.pinned` above drops it because the
+    // drop shadow normally stands in for it — but this tab has given that
+    // shadow away, so without this the tabs lose their bottom line the moment
+    // they pin. Radix's own value, so pinned and unpinned look the same.
+    //
+    // !important and one class deeper than the rule it is undoing: that rule is
+    // itself !important, so this can only win on specificity.
+    .rt-BaseTabList {
+      box-shadow: inset 0 -1px 0 0 var(--gray-a5) !important;
+    }
+  }
 }
 .analysis-settings-bar {
   .col,

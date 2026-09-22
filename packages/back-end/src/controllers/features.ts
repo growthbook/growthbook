@@ -75,6 +75,12 @@ import {
   FeatureMetaInfo,
   JSONSchemaDef,
   FeatureUsageData,
+  FeatureUsageDimension,
+  FeatureUsageDimensionMeta,
+  FeatureUsageMarginal,
+  FeatureUsageRowsByDimension,
+  FeatureUsageRowsMeta,
+  FeatureUsageSummary,
   FeatureUsageDataPoint,
 } from "shared/types/feature";
 import { FeatureUsageRecords } from "shared/types/realtime";
@@ -6159,7 +6165,12 @@ export async function getFeatureById(
 
 export async function getFeatureUsage(
   req: AuthRequest<null, { id: string }, { lookback?: FeatureUsageLookback }>,
-  res: Response<{ status: 200; usage: FeatureUsageData }>,
+  res: Response<{
+    status: 200;
+    usage: FeatureUsageData;
+    rowsByDimension: FeatureUsageRowsByDimension;
+    rowsMeta: FeatureUsageRowsMeta;
+  }>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -6188,9 +6199,16 @@ export async function getFeatureUsage(
 
   const lookback = req.query.lookback || "15minute";
 
-  const { start, rows } = await integration.getFeatureUsage(
+  // The one environment filter, applied in SQL by the marginal scan — a
+  // marginal grouped by `value` carries no environment column to filter on
+  // afterwards, so that is the only place it can happen. Nothing filters again
+  // in TypeScript.
+  const validEnvs = new Set(environments.map((e) => e.id));
+
+  const { start, total, marginals } = await integration.getFeatureUsage(
     feature.id,
     lookback,
+    Array.from(validEnvs),
   );
 
   function createTimeseries() {
@@ -6235,10 +6253,11 @@ export async function getFeatureUsage(
     byRuleId: createTimeseries(),
     bySource: createTimeseries(),
     byValue: createTimeseries(),
-    total: 0,
+    byEnvironment: createTimeseries(),
+    // The integration's own COUNT(*); summing `rows` would only ever reach the
+    // top 200 groups by volume.
+    total,
   };
-
-  const validEnvs = new Set(environments.map((e) => e.id));
 
   function updateRecord(
     data: FeatureUsageDataPoint[],
@@ -6251,22 +6270,138 @@ export async function getFeatureUsage(
     data[idx].v[key] = (data[idx].v[key] || 0) + evaluations;
   }
 
-  rows.forEach((d) => {
-    // Skip invalid environments (sanity check)
-    if (!d.environment || !validEnvs.has(d.environment)) return;
+  /**
+   * The four series, now derived from the marginals rather than from a
+   * cross-product scan that was capped at 200 groups. Below that cap the
+   * arithmetic is identical — each series only ever summed one dimension, and
+   * a marginal is exactly that sum. Above it the series stop being truncated,
+   * which is the intended behaviour change.
+   *
+   * Deliberately built from the raw marginals, NOT from the folded
+   * rowsByDimension below: folding at 25 groups would put an "(other)" key into
+   * a series that previously carried every group it saw, which would move
+   * output for flags between 25 and 200 groups — flags that should not move.
+   */
+  const SERIES_BY_DIMENSION: Record<string, FeatureUsageDataPoint[]> = {
+    value: usage.byValue,
+    source: usage.bySource,
+    ruleId: usage.byRuleId,
+    environment: usage.byEnvironment,
+  };
 
-    // Overall
-    usage.total += d.evaluations;
-    updateRecord(usage.bySource, d.source, d.timestamp, d.evaluations);
-    updateRecord(usage.byValue, d.value, d.timestamp, d.evaluations);
-    if (d.ruleId) {
-      updateRecord(usage.byRuleId, d.ruleId, d.timestamp, d.evaluations);
-    }
+  marginals.forEach((m) => {
+    const series = SERIES_BY_DIMENSION[m.dimension];
+    if (!series) return;
+    // Carried over from the cross-product build: a row with no rule id
+    // contributed to every other dimension but never to byRuleId.
+    if (m.dimension === "ruleId" && !m.group) return;
+    updateRecord(series, m.group, m.timestamp, m.evaluations);
+  });
+
+  /**
+   * Per-dimension caps, applied here rather than in SQL.
+   *
+   * The dimensions are nothing alike — `environment` is two or three groups,
+   * `ruleId` can be hundreds — so one shared limit would truncate the long one
+   * while leaving the short ones untouched. Groups past the cap fold into
+   * "(other)" rather than being dropped, so a dimension's rows still sum to its
+   * true total and the disclosure below only reports a genuine shortfall.
+   */
+  const DIMENSION_GROUP_CAP = 25;
+  const OTHER_GROUP = "(other)";
+  const DIMENSIONS: FeatureUsageDimension[] = [
+    "value",
+    "source",
+    "ruleId",
+    "environment",
+  ];
+
+  const rowsByDimension = {} as FeatureUsageRowsByDimension;
+  const rowsMeta = {} as FeatureUsageRowsMeta;
+
+  DIMENSIONS.forEach((dimension) => {
+    const forDimension = marginals.filter((m) => m.dimension === dimension);
+
+    // Rank groups by total volume so the cap keeps the significant ones.
+    const groupTotals = new Map<string, number>();
+    forDimension.forEach((m) => {
+      groupTotals.set(m.group, (groupTotals.get(m.group) ?? 0) + m.evaluations);
+    });
+    const keep = new Set(
+      Array.from(groupTotals.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, DIMENSION_GROUP_CAP)
+        .map(([group]) => group),
+    );
+
+    // Re-bucket, folding everything past the cap into one series.
+    const byBucket = new Map<string, Map<string, number>>();
+    forDimension.forEach((m) => {
+      const ts = m.timestamp.toISOString();
+      const group = keep.has(m.group) ? m.group : OTHER_GROUP;
+      const bucket = byBucket.get(ts) ?? new Map<string, number>();
+      bucket.set(group, (bucket.get(group) ?? 0) + m.evaluations);
+      byBucket.set(ts, bucket);
+    });
+
+    const out: FeatureUsageMarginal[] = [];
+    let includedEvaluations = 0;
+    Array.from(byBucket.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([timestamp, bucket]) => {
+        bucket.forEach((evaluations, group) => {
+          out.push({ timestamp, group, evaluations });
+          includedEvaluations += evaluations;
+        });
+      });
+
+    rowsByDimension[dimension] = out;
+    const meta: FeatureUsageDimensionMeta = {
+      cap: DIMENSION_GROUP_CAP,
+      returned: out.length,
+      includedEvaluations,
+    };
+    rowsMeta[dimension] = meta;
   });
 
   res.status(200).json({
     status: 200,
     usage,
+    rowsByDimension,
+    rowsMeta,
+  });
+}
+
+/**
+ * Window-independent counterpart to getFeatureUsage. Separate endpoint rather
+ * than extra fields on that response so a lookback change cannot refetch it —
+ * its answer does not depend on the window, and the usage endpoint is polled.
+ */
+export async function getFeatureUsageSummary(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200; summary: FeatureUsageSummary }>,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const ds = await getGrowthbookDatasource(context);
+  if (!ds) {
+    throw new Error("No tracking datasource configured");
+  }
+  const integration = getSourceIntegrationObject(context, ds, true);
+  if (!integration.getFeatureUsageSummary) {
+    throw new Error("Tracking datasource does not support feature usage");
+  }
+
+  const summary = await integration.getFeatureUsageSummary(feature.id);
+
+  res.status(200).json({
+    status: 200,
+    summary,
   });
 }
 

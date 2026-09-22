@@ -1,0 +1,94 @@
+// The plot and its legend sit in their own bordered box inside the card, which
+// is how every Product Analytics chart is framed (see ExplorerChart.tsx) — the
+// card is the section, this is the plot.
+.plotFrame {
+  position: relative;
+  border: 1px solid var(--gray-a3);
+  border-radius: var(--radius-4);
+  // No horizontal padding: the plot's own grid insets do that job, and any
+  // padding here would offset the canvas from the frame so the top row's
+  // percentage offsets no longer resolved against the same width as the
+  // chart's.
+  padding: 12px 0 4px;
+}
+
+// Overlaid on the legend's row rather than stacked above it, so the two read as
+// one band across the top of the plot. The canvas keeps its own space, so
+// nothing below shifts. Inert to the pointer — the chart's own tooltip surface
+// runs underneath.
+.plotTotal {
+  position: absolute;
+  // Centred against the legend's row, not just placed near it. Derived rather
+  // than eyeballed, measured from this frame's inner top edge:
+  //
+  //   legend items start at 12 (this frame's padding-top)
+  //                       + 8  (ECharts legend.top, set in the card)
+  //                       + 8  (the legend's own padding-top)   = 28px
+  //   legend itemHeight is 14  -> its centre sits at 28 + 7     = 35px
+  //   this box is ~26px tall   -> top = 35 - 13                 = 22px
+  //
+  // If the legend's top, its padding, or this frame's padding changes, redo
+  // the arithmetic — the two are independently positioned and nothing enforces
+  // the alignment for us.
+  top: 22px;
+  // `left` comes from the card, matching the plot's grid inset.
+  z-index: 1;
+  pointer-events: none;
+}
+
+// Radix's SegmentedControl ships the inverse of the Figma ToggleGroup: a tinted
+// track with a white indicator sliding over it. Figma has a white track with a
+// violet-filled selected item, so the two fills swap.
+//
+// Selectors are doubled / nested to clear Radix's own. Most of its rules are
+// wrapped in :where() and contribute no specificity, but `.rt-SegmentedControl-
+// Root` and `.rt-SegmentedControlIndicator::before` are plain classes at
+// (0,1,0) — a single local class would tie with them and be decided by
+// stylesheet order, which is not stable between a CSS module and a package's
+// stylesheet.
+.groupBy {
+  &.groupBy {
+    // The track is transparent, not white: unselected cells then show whatever
+    // the control is sitting on, so the group carries no fill of its own and
+    // only the selected cell is painted.
+    //
+    // The ring is an OUTSET shadow, not inset. An inset one is painted inside
+    // the padding box, so the item cells sit on top of it and swallow it — the
+    // group lost its outline the moment the cells were given a background.
+    background-color: transparent;
+    // Radix paints the track's grey with a FLAT GRADIENT on top of the
+    // background colour — `background-image: linear-gradient(var(--gray-a3),
+    // var(--gray-a3))` — so clearing background-color alone leaves the grey
+    // exactly where it was. This is the declaration that actually removes it.
+    background-image: none;
+    box-shadow: 0 0 0 1px var(--slate-a5);
+    color: var(--color-text-high);
+  }
+
+  // The selected item. Radix paints this via ::before inset 1px, so the fill
+  // has to go there rather than on the indicator itself.
+  //
+  // `box-shadow: none` is doing real work: the `surface` variant sets a
+  // 1px ring on this pseudo-element, which read as an outline around the
+  // selected cell. Unsetting it leaves the fill alone to mark selection.
+  :global(.rt-SegmentedControlIndicator)::before {
+    background-color: var(--violet-3);
+    box-shadow: none;
+  }
+
+  // Unselected cells get no fill at all — with a transparent track they show
+  // the surface behind the control. Giving them one is also what covered the
+  // group's outline previously.
+
+  // Violet label on the selected item; everything else stays default text.
+  :global(.rt-SegmentedControlItem[data-state="on"]) {
+    color: var(--violet-11);
+    font-weight: 500;
+  }
+
+  // Dividers between unselected items, one step lighter than Radix's grey-a4
+  // now that they sit on a light track instead of a tinted one.
+  :global(.rt-SegmentedControlItemSeparator) {
+    background-color: var(--slate-a4);
+  }
+}

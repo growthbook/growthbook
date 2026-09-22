@@ -32,8 +32,8 @@ import {
   ExternalIdCallback,
   FeatureEvalDiagnosticsQueryParams,
   FeatureEvalDiagnosticsQueryResponse,
-  FeatureUsageAggregateRow,
   FeatureUsageLookback,
+  FeatureUsageMarginalRow,
   IncrementalRefreshStatisticsQueryParams,
   IncrementalWithNoOutputQueryResponse,
   InformationSchema,
@@ -319,5 +319,20 @@ export interface SourceIntegrationInterface<
   getFeatureUsage?(
     feature: string,
     lookback: FeatureUsageLookback,
-  ): Promise<{ start: number; rows: FeatureUsageAggregateRow[] }>;
+    /** Environments the org recognises; filters the marginal scan in SQL. */
+    environments?: string[],
+  ): Promise<{
+    start: number;
+    /** True COUNT(*) for the window — `rows` is capped and cannot be summed. */
+    total: number;
+    /** Per-dimension marginals — the four series are derived from these. */
+    marginals: FeatureUsageMarginalRow[];
+    marginalLimit: number;
+  }>;
+  /** Window-independent, so it is a separate call rather than part of the above. */
+  getFeatureUsageSummary?(feature: string): Promise<{
+    lastEvaluated: string | null;
+    lifetimeTotal: number;
+    lookbackDays: number;
+  }>;
 }

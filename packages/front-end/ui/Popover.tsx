@@ -49,6 +49,17 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   // instead of on click. The content does not steal focus — suitable for
   // read-only previews, including inside menus.
   openOnHover?: boolean;
+  /**
+   * Where the popover is portalled. Defaults to `document.body`.
+   *
+   * Pass the Radix theme root when the popover hosts a control that portals a
+   * layer of its own (a react-select menu, for example). The theme root is a
+   * stacking context — `position: relative; z-index: 0` — so a layer portalled
+   * inside it can never paint above a popover sitting outside at the body,
+   * whatever z-index it carries. Putting both in the same context makes their
+   * z-indexes comparable again.
+   */
+  portalContainer?: HTMLElement | null;
 } & MarginProps;
 
 export function Popover({
@@ -67,6 +78,7 @@ export function Popover({
   onInteractOutside,
   onOpenAutoFocus,
   openOnHover = false,
+  portalContainer,
   ...props
 }: PopoverProps) {
   const {
@@ -143,7 +155,7 @@ export function Popover({
           {clonedTrigger}
         </RadixPopover.Trigger>
       )}
-      <RadixPopover.Portal>
+      <RadixPopover.Portal container={portalContainer ?? undefined}>
         {/* Wrapper div required to avoid React warning about invalid DOM nesting when RadixTheme renders a fragment */}
         <div>
           <RadixTheme>
