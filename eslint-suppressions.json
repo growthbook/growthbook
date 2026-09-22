@@ -356,7 +356,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 10
+      "count": 9
     }
   },
   "packages/front-end/components/Experiment/NewPhaseForm.tsx": {
@@ -750,7 +750,7 @@
   },
   "packages/front-end/components/Features/RuleModal/ExperimentRefNewFields.tsx": {
     "no-restricted-syntax": {
-      "count": 10
+      "count": 9
     }
   },
   "packages/front-end/components/Features/RuleModal/RampScheduleSection.tsx": {

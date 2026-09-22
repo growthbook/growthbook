@@ -20664,7 +20664,7 @@ paths:
     get:
       operationId: listDataSources
       summary: Get all data sources
-      tags: &ref_0
+      tags:
         - data-sources
       parameters:
         - $ref: '#/components/parameters/limit'
@@ -20696,7 +20696,7 @@ paths:
     get:
       operationId: getDataSource
       summary: Get a single data source
-      tags: &ref_1
+      tags:
         - data-sources
       parameters:
         - $ref: '#/components/parameters/id'
@@ -20750,62 +20750,6 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/data-sources/{dataSourceId}/information-schema'
             \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v2/data-sources:
-    get:
-      operationId: listDataSourcesV2
-      summary: Get all data sources
-      tags: *ref_0
-      parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/projectId'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - type: object
-                    properties:
-                      dataSources:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/DataSource'
-                    required:
-                      - dataSources
-                    additionalProperties: false
-                  - $ref: '#/components/schemas/PaginationFields'
-      x-codeSamples:
-        - lang: cURL
-          source: |-
-            curl -X GET 'https://api.growthbook.io/api/v2/data-sources' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v2/data-sources/{id}:
-    get:
-      operationId: getDataSourceV2
-      summary: Get a single data source
-      tags: *ref_1
-      parameters:
-        - $ref: '#/components/parameters/id'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  dataSource:
-                    $ref: '#/components/schemas/DataSource'
-                required:
-                  - dataSource
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: |-
-            curl -X GET 'https://api.growthbook.io/api/v2/data-sources/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{id}/sql/search-tables:
     post:

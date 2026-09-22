@@ -108,6 +108,8 @@ export const STRING_VERSION_OPERATORS = Object.values(
 export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
+  // Only used to create the experiment; not persisted on the feature rule.
+  exposureQueryIdentifierType?: string;
 } & Omit<ExperimentRule, "type">;
 
 // Sentinel for the "All environments" tab; a non-empty string keeps Radix

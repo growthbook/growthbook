@@ -7,6 +7,8 @@ import {
   SchemaInterface,
 } from "shared/types/datasource";
 import { MetricType } from "shared/types/metric";
+import { isProjectListValidForProject } from "shared/util";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
 function camelToUnderscore(orig: string) {
   return orig
@@ -820,6 +822,120 @@ export function getExposureQueryIdentifierType(
     identifierTypes.includes(preferredIdentifierType)
     ? preferredIdentifierType
     : (identifierTypes[0] ?? exposureQuery.userIdType);
+}
+
+/**
+ * Assignment queries selectable for an experiment in `project`. `keepQueryId`
+ * survives the filter so a selection that has drifted out of scope stays
+ * visible rather than silently disappearing.
+ */
+export function getExposureQueriesForProject(
+  exposureQueries: ExposureQuery[],
+  project: string | undefined,
+  keepQueryId?: string,
+): ExposureQuery[] {
+  return exposureQueries.filter(
+    (q) =>
+      (keepQueryId && q.id === keepQueryId) ||
+      isProjectListValidForProject(q.projects, project),
+  );
+}
+
+/**
+ * Hash attribute -> identifier types linked to it in the data source's
+ * identifier settings. An empty map means the org has configured no linkages,
+ * which callers use to suppress hash-attribute grouping entirely.
+ */
+export function getHashAttributeIdentifierTypeMap(
+  userIdTypes: DataSourceSettings["userIdTypes"],
+): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  for (const userIdType of userIdTypes ?? []) {
+    for (const attribute of userIdType.attributes ?? []) {
+      map.set(attribute, [
+        ...(map.get(attribute) ?? []),
+        userIdType.userIdType,
+      ]);
+    }
+  }
+  return map;
+}
+
+/**
+ * Identifier types declared by at least one of `exposureQueries`, de-duplicated
+ * and in declaration order. Derived from the queries rather than the data
+ * source's full identifier list so every option has a query behind it.
+ */
+export function getSelectableIdentifierTypes(
+  exposureQueries: ExposureQuery[],
+): string[] {
+  const identifierTypes = new Set<string>();
+  for (const query of exposureQueries) {
+    for (const identifierType of getExposureQueryIdentifierTypes(query)) {
+      identifierTypes.add(identifierType);
+    }
+  }
+  return [...identifierTypes];
+}
+
+/**
+ * Identifier options, split into those linked to `hashAttribute` and those not.
+ * Grouping is suppressed until the data source has at least one linkage, since
+ * before that every identifier would land in "Does not match".
+ */
+export function getGroupedIdentifierTypeOptions({
+  identifierTypes,
+  hashAttributeIdentifierTypeMap,
+  hashAttribute,
+}: {
+  identifierTypes: string[];
+  hashAttributeIdentifierTypeMap: Map<string, string[]>;
+  hashAttribute: string | undefined;
+}): (GroupedValue | SingleValue)[] {
+  const options = identifierTypes.map((identifierType) => ({
+    label: identifierType,
+    value: identifierType,
+  }));
+  if (hashAttributeIdentifierTypeMap.size === 0) return options;
+
+  const linked = hashAttributeIdentifierTypeMap.get(hashAttribute ?? "") ?? [];
+  const matched = options.filter((option) => linked.includes(option.value));
+  const unmatched = options.filter((option) => !linked.includes(option.value));
+
+  const groups: GroupedValue[] = [];
+  if (matched.length > 0) {
+    groups.push({ label: "Matches hash attribute", options: matched });
+  }
+  if (unmatched.length > 0) {
+    groups.push({ label: "Does not match hash attribute", options: unmatched });
+  }
+  return groups;
+}
+
+/**
+ * Identifier to preselect: the stored one when it is still selectable, then the
+ * hash attribute's linkage when it resolves to exactly one identifier, then the
+ * first selectable identifier.
+ */
+export function getDefaultIdentifierType({
+  identifierTypes,
+  hashAttributeIdentifierTypeMap,
+  hashAttribute,
+  storedIdentifierType,
+}: {
+  identifierTypes: string[];
+  hashAttributeIdentifierTypeMap: Map<string, string[]>;
+  hashAttribute: string | undefined;
+  storedIdentifierType?: string;
+}): string | undefined {
+  if (storedIdentifierType && identifierTypes.includes(storedIdentifierType)) {
+    return storedIdentifierType;
+  }
+  const linked = (
+    hashAttributeIdentifierTypeMap.get(hashAttribute ?? "") ?? []
+  ).filter((identifierType) => identifierTypes.includes(identifierType));
+  if (linked.length === 1) return linked[0];
+  return identifierTypes[0];
 }
 
 export function getInitialMetricQuery(

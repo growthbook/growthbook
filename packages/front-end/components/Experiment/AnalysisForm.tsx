@@ -21,9 +21,14 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  getDefaultIdentifierType,
+  getExposureQueriesForProject,
   getExposureQuery,
   getExposureQueryIdentifierType,
   getExposureQueryIdentifierTypes,
+  getGroupedIdentifierTypeOptions,
+  getHashAttributeIdentifierTypeMap,
+  getSelectableIdentifierTypes,
 } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -140,23 +145,41 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
+  const initialDatasourceSettings = getDatasourceById(
+    experiment.datasource,
+  )?.settings;
   const initialExposureQuery = getExposureQuery(
-    getDatasourceById(experiment.datasource)?.settings,
+    initialDatasourceSettings,
     experiment.exposureQueryId,
     experiment.userIdType,
   );
+  // With a query already selected, the stored identifier wins (falling back to
+  // the query's first, which is what pre-multi-identifier experiments analyze
+  // on). With nothing selected yet, pre-fill from the hash attribute's linkage.
+  const initialIdentifierType = initialExposureQuery
+    ? getExposureQueryIdentifierType(
+        initialExposureQuery,
+        experiment.exposureQueryIdentifierType,
+      )
+    : getDefaultIdentifierType({
+        identifierTypes: getSelectableIdentifierTypes(
+          getExposureQueriesForProject(
+            initialDatasourceSettings?.queries?.exposure ?? [],
+            experiment.project,
+          ),
+        ),
+        hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
+          initialDatasourceSettings?.userIdTypes,
+        ),
+        hashAttribute: experiment.hashAttribute,
+      });
 
   const form = useForm({
     defaultValues: {
       trackingKey: experiment.trackingKey || "",
       datasource: experiment.datasource || "",
       exposureQueryId: initialExposureQuery?.id || "",
-      exposureQueryIdentifierType: initialExposureQuery
-        ? getExposureQueryIdentifierType(
-            initialExposureQuery,
-            experiment.exposureQueryIdentifierType,
-          )
-        : undefined,
+      exposureQueryIdentifierType: initialIdentifierType,
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -294,10 +317,10 @@ const AnalysisForm: FC<{
     // Keep the experiment's current query even if it has drifted out of scope,
     // so the selection stays visible rather than silently disappearing.
     () =>
-      (datasource?.settings?.queries?.exposure ?? []).filter(
-        (q) =>
-          q.id === experiment.exposureQueryId ||
-          isProjectListValidForProject(q.projects, experiment.project),
+      getExposureQueriesForProject(
+        datasource?.settings?.queries?.exposure ?? [],
+        experiment.project,
+        experiment.exposureQueryId,
       ),
     [
       datasource?.settings?.queries?.exposure,
@@ -308,70 +331,49 @@ const AnalysisForm: FC<{
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+
+  const hashAttributeIdentifierTypeMap = useMemo(
+    () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
+    [datasource?.settings?.userIdTypes],
+  );
+
+  const identifierTypes = useMemo(() => {
+    const selectable = getSelectableIdentifierTypes(exposureQueries);
+    // Keep an identifier the query no longer declares, so an experiment that
+    // has drifted still shows what it is analyzed on. Re-running surfaces the
+    // exposureQueryIdentifierType outdated reason.
+    const stored = experiment.exposureQueryIdentifierType;
+    return stored && !selectable.includes(stored)
+      ? [...selectable, stored]
+      : selectable;
+  }, [exposureQueries, experiment.exposureQueryIdentifierType]);
+  const groupedIdentifierTypes = useMemo(
+    (): (GroupedValue | SingleValue)[] =>
+      getGroupedIdentifierTypeOptions({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap,
+        hashAttribute: experiment.hashAttribute,
+      }),
+    [identifierTypes, hashAttributeIdentifierTypeMap, experiment.hashAttribute],
+  );
+
+  // Only queries declaring the selected identifier can be analyzed on it. The
+  // experiment's current query stays listed either way so a drifted selection
+  // remains visible.
   const exposureQueryOptions = useMemo(
     () =>
-      exposureQueries.flatMap((query) =>
-        getExposureQueryIdentifierTypes(query).map((identifierType) => ({
-          label: query.name,
-          value: JSON.stringify([query.id, identifierType]),
-          exposureQueryId: query.id,
-          exposureQueryIdentifierType: identifierType,
-        })),
-      ),
-    [exposureQueries],
+      exposureQueries
+        .filter(
+          (query) =>
+            query.id === experiment.exposureQueryId ||
+            !exposureQueryIdentifierType ||
+            getExposureQueryIdentifierTypes(query).includes(
+              exposureQueryIdentifierType,
+            ),
+        )
+        .map((query) => ({ label: query.name, value: query.id })),
+    [exposureQueries, exposureQueryIdentifierType, experiment.exposureQueryId],
   );
-  const exposureQueryOptionValue =
-    exposureQueryOptions.find(
-      (option) =>
-        option.exposureQueryId === exposureQueryId &&
-        option.exposureQueryIdentifierType === exposureQueryIdentifierType,
-    )?.value ?? "";
-
-  const hashAttributeToIdentifierTypeMap = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
-      for (const attribute of userIdType.attributes ?? []) {
-        map.set(attribute, [
-          ...(map.get(attribute) ?? []),
-          userIdType.userIdType,
-        ]);
-      }
-    }
-    return map;
-  }, [datasource?.settings?.userIdTypes]);
-
-  const groupedExposureQueries = useMemo((): (GroupedValue | SingleValue)[] => {
-    const hashAttribute = experiment.hashAttribute ?? "";
-    const matched = exposureQueryOptions.filter((option) =>
-      hashAttributeToIdentifierTypeMap
-        .get(hashAttribute)
-        ?.includes(option.exposureQueryIdentifierType),
-    );
-    const unmatched = exposureQueryOptions.filter(
-      (option) => !matched.includes(option),
-    );
-    if (hashAttributeToIdentifierTypeMap.size > 0) {
-      const groups: GroupedValue[] = [];
-      if (matched.length > 0) {
-        groups.push({
-          label: "Matches Hash Attribute",
-          options: matched,
-        });
-      }
-      if (unmatched.length > 0) {
-        groups.push({
-          label: "Does Not Match Hash Attribute",
-          options: unmatched,
-        });
-      }
-      return groups;
-    }
-    return exposureQueryOptions;
-  }, [
-    exposureQueryOptions,
-    hashAttributeToIdentifierTypeMap,
-    experiment.hashAttribute,
-  ]);
 
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
@@ -592,6 +594,20 @@ const AnalysisForm: FC<{
                 {datasource?.properties?.exposureQueries && (
                   <Box mb="1">
                     <Text size="sm" color="text-mid">
+                      Identifier Type:
+                    </Text>{" "}
+                    <Text size="sm" weight="medium">
+                      {exposureQueryIdentifierType || (
+                        <Text color="text-mid" fontStyle="italic">
+                          Choose...
+                        </Text>
+                      )}
+                    </Text>
+                  </Box>
+                )}
+                {datasource?.properties?.exposureQueries && (
+                  <Box mb="1">
+                    <Text size="sm" color="text-mid">
                       Experiment Assignment Table:
                     </Text>{" "}
                     <Text size="sm" weight="medium">
@@ -648,7 +664,22 @@ const AnalysisForm: FC<{
                   !getExposureQuery(ds?.settings, form.watch("exposureQueryId"))
                 ) {
                   form.setValue("exposureQueryId", "");
-                  form.setValue("exposureQueryIdentifierType", undefined);
+                  form.setValue(
+                    "exposureQueryIdentifierType",
+                    getDefaultIdentifierType({
+                      identifierTypes: getSelectableIdentifierTypes(
+                        getExposureQueriesForProject(
+                          ds?.settings?.queries?.exposure ?? [],
+                          experiment.project,
+                        ),
+                      ),
+                      hashAttributeIdentifierTypeMap:
+                        getHashAttributeIdentifierTypeMap(
+                          ds?.settings?.userIdTypes,
+                        ),
+                      hashAttribute: experiment.hashAttribute,
+                    }),
+                  );
                 }
 
                 // If the segment is now invalid
@@ -714,62 +745,80 @@ const AnalysisForm: FC<{
               }
             />
             {datasource?.properties?.exposureQueries && (
-              <SelectField
-                label={
-                  <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                  </>
-                }
-                helpText={
-                  exposureQueryOptions.length === 0
-                    ? "No assignment queries are scoped to this experiment's project. Add one in the data source settings."
-                    : undefined
-                }
-                value={exposureQueryOptionValue}
-                onChange={(value) => {
-                  const selectedOption = exposureQueryOptions.find(
-                    (option) => option.value === value,
-                  );
-                  if (!selectedOption) return;
-                  form.setValue(
-                    "exposureQueryId",
-                    selectedOption.exposureQueryId,
-                  );
-                  form.setValue(
-                    "exposureQueryIdentifierType",
-                    selectedOption.exposureQueryIdentifierType,
-                  );
-
-                  removeInvalidPrecomputedUnitDimensionIds({
-                    datasourceId: form.watch("datasource"),
-                    userIdType: selectedOption.exposureQueryIdentifierType,
-                  });
-                }}
-                required
-                sort={false}
-                disabled={isBandit && experiment.status !== "draft"}
-                placeholder="Choose..."
-                options={groupedExposureQueries}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueryOptions.find(
-                    (option) => option.value === value,
-                  )?.exposureQueryIdentifierType;
-                  return (
+              <>
+                <SelectField
+                  label={
                     <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
+                      Identifier type{" "}
+                      <Tooltip body="The unit this experiment is analyzed on. Should correspond to the attribute used to randomize units for this experiment." />
                     </>
-                  );
-                }}
-              />
+                  }
+                  helpText={
+                    identifierTypes.length === 0
+                      ? "No assignment queries are scoped to this experiment's project. Add one in the Data Source settings."
+                      : undefined
+                  }
+                  value={exposureQueryIdentifierType ?? ""}
+                  onChange={(identifierType) => {
+                    if (identifierType === exposureQueryIdentifierType) return;
+                    form.setValue(
+                      "exposureQueryIdentifierType",
+                      identifierType,
+                    );
+
+                    // The current query may not declare the new identifier.
+                    const currentQuery = exposureQueries.find(
+                      (q) => q.id === form.watch("exposureQueryId"),
+                    );
+                    if (
+                      !currentQuery ||
+                      !getExposureQueryIdentifierTypes(currentQuery).includes(
+                        identifierType,
+                      )
+                    ) {
+                      form.setValue(
+                        "exposureQueryId",
+                        exposureQueries.find((q) =>
+                          getExposureQueryIdentifierTypes(q).includes(
+                            identifierType,
+                          ),
+                        )?.id ?? "",
+                      );
+                    }
+
+                    removeInvalidPrecomputedUnitDimensionIds({
+                      datasourceId: form.watch("datasource"),
+                      userIdType: identifierType,
+                    });
+                  }}
+                  required
+                  sort={false}
+                  disabled={isBandit && experiment.status !== "draft"}
+                  placeholder="Choose..."
+                  options={groupedIdentifierTypes}
+                />
+                <SelectField
+                  label={
+                    <>
+                      Experiment Assignment Table{" "}
+                      <Tooltip body="The query that records which units saw which variation." />
+                    </>
+                  }
+                  helpText={
+                    exposureQueryIdentifierType &&
+                    exposureQueryOptions.length === 0
+                      ? `No assignment queries declare the "${exposureQueryIdentifierType}" identifier type.`
+                      : undefined
+                  }
+                  value={exposureQueryId ?? ""}
+                  onChange={(value) => form.setValue("exposureQueryId", value)}
+                  required
+                  sort={false}
+                  disabled={isBandit && experiment.status !== "draft"}
+                  placeholder="Choose..."
+                  options={exposureQueryOptions}
+                />
+              </>
             )}
             {datasource && !isHoldout && (
               <Field

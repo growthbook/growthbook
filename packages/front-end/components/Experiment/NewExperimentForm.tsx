@@ -31,9 +31,14 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  getDefaultIdentifierType,
+  getExposureQueriesForProject,
   getExposureQuery,
   getExposureQueryIdentifierType,
   getExposureQueryIdentifierTypes,
+  getGroupedIdentifierTypeOptions,
+  getHashAttributeIdentifierTypeMap,
+  getSelectableIdentifierTypes,
 } from "@/services/datasources";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
@@ -698,31 +703,48 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const exposureQueries = useMemo(
     () =>
-      (datasource?.settings?.queries?.exposure || []).filter((q) =>
-        isProjectListValidForProject(q.projects, selectedProject),
+      getExposureQueriesForProject(
+        datasource?.settings?.queries?.exposure || [],
+        selectedProject,
       ),
     [datasource?.settings?.queries?.exposure, selectedProject],
   );
-  const exposureQueryOptions = useMemo(
-    () =>
-      exposureQueries.flatMap((query) =>
-        getExposureQueryIdentifierTypes(query).map((identifierType) => ({
-          label: query.name,
-          value: JSON.stringify([query.id, identifierType]),
-          exposureQueryId: query.id,
-          exposureQueryIdentifierType: identifierType,
-        })),
-      ),
-    [exposureQueries],
-  );
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
-  const exposureQueryOptionValue =
-    exposureQueryOptions.find(
-      (option) =>
-        option.exposureQueryId === exposureQueryId &&
-        option.exposureQueryIdentifierType === exposureQueryIdentifierType,
-    )?.value ?? "";
+  const selectedHashAttribute = form.watch("hashAttribute");
+
+  const hashAttributeIdentifierTypeMap = useMemo(
+    () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
+    [datasource?.settings?.userIdTypes],
+  );
+  const identifierTypes = useMemo(
+    () => getSelectableIdentifierTypes(exposureQueries),
+    [exposureQueries],
+  );
+  const groupedIdentifierTypes = useMemo(
+    (): (GroupedValue | SingleValue)[] =>
+      getGroupedIdentifierTypeOptions({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap,
+        hashAttribute: selectedHashAttribute,
+      }),
+    [identifierTypes, hashAttributeIdentifierTypeMap, selectedHashAttribute],
+  );
+
+  // Only queries declaring the selected identifier can be analyzed on it.
+  const exposureQueryOptions = useMemo(
+    () =>
+      exposureQueries
+        .filter((query) =>
+          exposureQueryIdentifierType
+            ? getExposureQueryIdentifierTypes(query).includes(
+                exposureQueryIdentifierType,
+              )
+            : true,
+        )
+        .map((query) => ({ label: query.name, value: query.id })),
+    [exposureQueries, exposureQueryIdentifierType],
+  );
   const status = form.watch("status");
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
@@ -771,27 +793,37 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     availableTemplates.length >= 1;
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
+  // Repair the selection when the project, data source or hash attribute
+  // changes it out from under the user: identifier first, then the query, since
+  // the selectable queries depend on the identifier.
   useEffect(() => {
-    const selectedOption = exposureQueryOptions.find(
-      (option) =>
-        option.exposureQueryId === exposureQueryId &&
-        option.exposureQueryIdentifierType === exposureQueryIdentifierType,
-    );
-    if (!selectedOption) {
-      form.setValue(
-        "exposureQueryId",
-        exposureQueryOptions[0]?.exposureQueryId ?? "",
-      );
+    if (
+      !exposureQueryIdentifierType ||
+      !identifierTypes.includes(exposureQueryIdentifierType)
+    ) {
       form.setValue(
         "exposureQueryIdentifierType",
-        exposureQueryOptions[0]?.exposureQueryIdentifierType,
+        getDefaultIdentifierType({
+          identifierTypes,
+          hashAttributeIdentifierTypeMap,
+          hashAttribute: selectedHashAttribute,
+        }),
       );
+      return;
+    }
+    if (
+      !exposureQueryOptions.some((option) => option.value === exposureQueryId)
+    ) {
+      form.setValue("exposureQueryId", exposureQueryOptions[0]?.value ?? "");
     }
   }, [
     form,
     exposureQueryId,
     exposureQueryIdentifierType,
     exposureQueryOptions,
+    identifierTypes,
+    hashAttributeIdentifierTypeMap,
+    selectedHashAttribute,
   ]);
 
   const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
@@ -1597,57 +1629,59 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
               )}
               {datasource?.properties?.exposureQueries && (
-                <SelectField
-                  size="legacy"
-                  label={
-                    <>
-                      Experiment Assignment Table{" "}
-                      <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                    </>
-                  }
-                  labelClassName="font-weight-bold"
-                  helpText={
-                    exposureQueryOptions.length === 0
-                      ? "No assignment queries are scoped to this project. Add one in the data source settings."
-                      : undefined
-                  }
-                  value={exposureQueryOptionValue}
-                  onChange={(value) => {
-                    const selectedOption = exposureQueryOptions.find(
-                      (option) => option.value === value,
-                    );
-                    if (!selectedOption) return;
-                    form.setValue(
-                      "exposureQueryId",
-                      selectedOption.exposureQueryId,
-                    );
-                    form.setValue(
-                      "exposureQueryIdentifierType",
-                      selectedOption.exposureQueryIdentifierType,
-                    );
-                  }}
-                  initialOption="Choose..."
-                  required
-                  options={exposureQueryOptions}
-                  formatOptionLabel={({ label, value }) => {
-                    const userIdType = exposureQueryOptions.find(
-                      (option) => option.value === value,
-                    )?.exposureQueryIdentifierType;
-                    return (
+                <>
+                  <SelectField
+                    label={
                       <>
-                        {label}
-                        {userIdType ? (
-                          <span
-                            className="text-muted small float-right position-relative"
-                            style={{ top: 3 }}
-                          >
-                            Identifier Type: <code>{userIdType}</code>
-                          </span>
-                        ) : null}
+                        Identifier type{" "}
+                        <Tooltip body="The unit this experiment is analyzed on. Should correspond to the attribute used to randomize units for this experiment." />
                       </>
-                    );
-                  }}
-                />
+                    }
+                    labelClassName="font-weight-bold"
+                    helpText={
+                      identifierTypes.length === 0
+                        ? "No assignment queries are scoped to this project. Add one in the Data Source settings."
+                        : undefined
+                    }
+                    value={exposureQueryIdentifierType ?? ""}
+                    onChange={(identifierType) => {
+                      if (identifierType === exposureQueryIdentifierType)
+                        return;
+                      form.setValue(
+                        "exposureQueryIdentifierType",
+                        identifierType,
+                      );
+                      // The repair effect picks a query for the new identifier.
+                    }}
+                    initialOption="Choose..."
+                    required
+                    sort={false}
+                    options={groupedIdentifierTypes}
+                  />
+                  <SelectField
+                    label={
+                      <>
+                        Experiment Assignment Table{" "}
+                        <Tooltip body="The query that records which units saw which variation." />
+                      </>
+                    }
+                    labelClassName="font-weight-bold"
+                    helpText={
+                      exposureQueryIdentifierType &&
+                      exposureQueryOptions.length === 0
+                        ? `No assignment queries declare the "${exposureQueryIdentifierType}" identifier type.`
+                        : undefined
+                    }
+                    value={exposureQueryId ?? ""}
+                    onChange={(value) =>
+                      form.setValue("exposureQueryId", value)
+                    }
+                    initialOption="Choose..."
+                    required
+                    sort={false}
+                    options={exposureQueryOptions}
+                  />
+                </>
               )}
 
               <ExperimentMetricsSelector

@@ -25,6 +25,10 @@ import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  getExposureQueryIdentifierType,
+  getExposureQueryIdentifierTypes,
+} from "@/services/datasources";
 import { useUser } from "@/services/UserContext";
 import { useWatching } from "@/services/WatchProvider";
 import { convertTemplateToExperiment } from "@/services/experiments";
@@ -125,11 +129,35 @@ export function getAutoExposureQueryId({
         ?.filter((t) => t.attributes?.includes(hashAttribute))
         .map((t) => t.userIdType) || [];
     const matchingQueries = exposureQueries.filter((q) =>
-      linkedUserIdTypes.includes(q.userIdType),
+      getExposureQueryIdentifierTypes(q).some((identifierType) =>
+        linkedUserIdTypes.includes(identifierType),
+      ),
     );
     if (matchingQueries.length === 1) return matchingQueries[0].id;
   }
   return "";
+}
+
+// The identifier to analyze the auto-selected query on: the one linked to the
+// hash attribute when the query declares it, otherwise the query's first.
+export function getAutoExposureQueryIdentifierType({
+  datasource,
+  hashAttribute,
+  exposureQueryId,
+}: {
+  datasource?: DataSourceInterfaceWithParams;
+  hashAttribute: string;
+  exposureQueryId: string;
+}): string | undefined {
+  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === exposureQueryId,
+  );
+  if (!exposureQuery) return undefined;
+
+  const linkedIdentifierType = datasource?.settings?.userIdTypes?.find((t) =>
+    t.attributes?.includes(hashAttribute),
+  )?.userIdType;
+  return getExposureQueryIdentifierType(exposureQuery, linkedIdentifierType);
 }
 
 const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
@@ -378,6 +406,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       hashAttribute: hashAttribute || "",
       templateExposureQueryId: data.exposureQueryId || "",
     });
+    const exposureQueryIdentifierType = getAutoExposureQueryIdentifierType({
+      datasource: selectedDatasource ?? undefined,
+      hashAttribute: hashAttribute || "",
+      exposureQueryId,
+    });
 
     data = {
       ...data,
@@ -390,6 +423,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       hashVersion,
       datasource: datasourceId,
       exposureQueryId,
+      exposureQueryIdentifierType,
       templateId: rawValue.templateId || "",
       holdoutId: rawValue.holdoutId || undefined,
       customFields: rawValue.customFields,

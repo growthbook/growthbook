@@ -1,8 +1,13 @@
 import { ExposureQuery } from "shared/types/datasource";
 import { describe, expect, it } from "vitest";
 import {
+  getDefaultIdentifierType,
+  getExposureQueriesForProject,
   getExposureQueryIdentifierType,
   getExposureQueryIdentifierTypes,
+  getGroupedIdentifierTypeOptions,
+  getHashAttributeIdentifierTypeMap,
+  getSelectableIdentifierTypes,
   validateSQL,
 } from "@/services/datasources";
 
@@ -222,5 +227,212 @@ describe("getExposureQueryIdentifierType", () => {
         makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
       ),
     ).toBe("user_id");
+  });
+});
+
+describe("getExposureQueriesForProject", () => {
+  const scoped = makeExposureQuery({
+    id: "exq_a",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+  const unscoped = makeExposureQuery({
+    id: "exq_all",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: [],
+  });
+
+  it("keeps queries scoped to the project and queries with no scope", () => {
+    expect(
+      getExposureQueriesForProject([scoped, unscoped], "prj_a").map(
+        (q) => q.id,
+      ),
+    ).toEqual(["exq_a", "exq_all"]);
+  });
+
+  it("drops queries scoped to a different project", () => {
+    expect(
+      getExposureQueriesForProject([scoped, unscoped], "prj_b").map(
+        (q) => q.id,
+      ),
+    ).toEqual(["exq_all"]);
+  });
+
+  it("keeps an out-of-scope query when it is the current selection", () => {
+    expect(
+      getExposureQueriesForProject([scoped, unscoped], "prj_b", "exq_a").map(
+        (q) => q.id,
+      ),
+    ).toEqual(["exq_a", "exq_all"]);
+  });
+});
+
+describe("getHashAttributeIdentifierTypeMap", () => {
+  it("maps each attribute to every identifier type linked to it", () => {
+    const map = getHashAttributeIdentifierTypeMap([
+      { userIdType: "user_id", attributes: ["id", "email"] },
+      { userIdType: "device_id", attributes: ["id"] },
+      { userIdType: "anonymous_id" },
+    ]);
+    expect(map.get("id")).toEqual(["user_id", "device_id"]);
+    expect(map.get("email")).toEqual(["user_id"]);
+    expect(map.has("anonymous_id")).toBe(false);
+  });
+
+  it("returns an empty map when no identifier declares attributes", () => {
+    expect(
+      getHashAttributeIdentifierTypeMap([{ userIdType: "user_id" }]).size,
+    ).toBe(0);
+  });
+});
+
+describe("getSelectableIdentifierTypes", () => {
+  it("de-duplicates across queries and keeps declaration order", () => {
+    expect(
+      getSelectableIdentifierTypes([
+        makeExposureQuery({
+          id: "exq_1",
+          userIdType: "user_id",
+          userIdTypes: ["user_id", "device_id"],
+        }),
+        makeExposureQuery({
+          id: "exq_2",
+          userIdType: "anonymous_id",
+          userIdTypes: ["anonymous_id", "user_id"],
+        }),
+      ]),
+    ).toEqual(["user_id", "device_id", "anonymous_id"]);
+  });
+
+  it("falls back to the deprecated scalar for legacy queries", () => {
+    expect(
+      getSelectableIdentifierTypes([
+        makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
+      ]),
+    ).toEqual(["user_id"]);
+  });
+});
+
+describe("getGroupedIdentifierTypeOptions", () => {
+  const identifierTypes = ["user_id", "anonymous_id"];
+
+  it("returns a flat list when the data source has no linkages", () => {
+    expect(
+      getGroupedIdentifierTypeOptions({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap: new Map(),
+        hashAttribute: "id",
+      }),
+    ).toEqual([
+      { label: "user_id", value: "user_id" },
+      { label: "anonymous_id", value: "anonymous_id" },
+    ]);
+  });
+
+  it("splits matching and non-matching identifiers once a linkage exists", () => {
+    expect(
+      getGroupedIdentifierTypeOptions({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap: new Map([["id", ["user_id"]]]),
+        hashAttribute: "id",
+      }),
+    ).toEqual([
+      {
+        label: "Matches hash attribute",
+        options: [{ label: "user_id", value: "user_id" }],
+      },
+      {
+        label: "Does not match hash attribute",
+        options: [{ label: "anonymous_id", value: "anonymous_id" }],
+      },
+    ]);
+  });
+
+  it("omits the matching group when the hash attribute has no linkage", () => {
+    expect(
+      getGroupedIdentifierTypeOptions({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap: new Map([["other", ["device_id"]]]),
+        hashAttribute: "id",
+      }),
+    ).toEqual([
+      {
+        label: "Does not match hash attribute",
+        options: [
+          { label: "user_id", value: "user_id" },
+          { label: "anonymous_id", value: "anonymous_id" },
+        ],
+      },
+    ]);
+  });
+});
+
+describe("getDefaultIdentifierType", () => {
+  const identifierTypes = ["user_id", "anonymous_id"];
+
+  it("keeps the stored identifier when it is still selectable", () => {
+    expect(
+      getDefaultIdentifierType({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap: new Map([["id", ["anonymous_id"]]]),
+        hashAttribute: "id",
+        storedIdentifierType: "user_id",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("pre-fills from the hash attribute when it resolves to exactly one identifier", () => {
+    expect(
+      getDefaultIdentifierType({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap: new Map([["id", ["anonymous_id"]]]),
+        hashAttribute: "id",
+      }),
+    ).toBe("anonymous_id");
+  });
+
+  it("falls back to the first identifier when the hash attribute is ambiguous", () => {
+    expect(
+      getDefaultIdentifierType({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap: new Map([
+          ["id", ["user_id", "anonymous_id"]],
+        ]),
+        hashAttribute: "id",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("ignores a stored identifier that is no longer selectable", () => {
+    expect(
+      getDefaultIdentifierType({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap: new Map(),
+        hashAttribute: "id",
+        storedIdentifierType: "device_id",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("ignores a linkage to an identifier no query declares", () => {
+    expect(
+      getDefaultIdentifierType({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap: new Map([["id", ["device_id"]]]),
+        hashAttribute: "id",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("returns undefined when there is nothing to select", () => {
+    expect(
+      getDefaultIdentifierType({
+        identifierTypes: [],
+        hashAttributeIdentifierTypeMap: new Map(),
+        hashAttribute: "id",
+      }),
+    ).toBeUndefined();
   });
 });
