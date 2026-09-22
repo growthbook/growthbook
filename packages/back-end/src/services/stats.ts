@@ -384,7 +384,7 @@ export function getScaledImpactDays(
   );
   const metricWindowHours =
     metric.windowSettings.type === "lookback"
-      ? Math.max(getMetricWindowHours(metric.windowSettings), 1)
+      ? Math.max(Math.abs(getMetricWindowHours(metric.windowSettings)), 1)
       : phaseLengthHours;
 
   return Math.min(phaseLengthHours, metricWindowHours) / 24;

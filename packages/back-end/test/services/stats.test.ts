@@ -54,6 +54,23 @@ describe("getScaledImpactDays", () => {
     ).toBe(7);
   });
 
+  it("normalizes negative lookback windows", () => {
+    expect(
+      getScaledImpactDays(
+        {
+          windowSettings: {
+            type: "lookback",
+            windowValue: -7,
+            windowUnit: "days",
+            delayValue: 0,
+            delayUnit: "hours",
+          },
+        },
+        phase,
+      ),
+    ).toBe(7);
+  });
+
   it("uses the phase length when it is shorter than the lookback window", () => {
     expect(
       getScaledImpactDays(
