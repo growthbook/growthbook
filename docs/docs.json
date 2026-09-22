@@ -1334,6 +1334,10 @@
     {
       "source": "/bandits/contextual-bandit-via-api",
       "destination": "/bandits/contextual-via-api"
+    },
+    {
+      "source": "/event-trackers/missing-event-tracker-docs",
+      "destination": "/event-trackers/custom"
     }
   ]
 }
