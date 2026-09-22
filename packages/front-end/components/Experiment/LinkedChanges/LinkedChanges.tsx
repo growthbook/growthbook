@@ -186,12 +186,12 @@ export default function LinkedChanges({
                 <IconButton
                   variant="ghost"
                   color="gray"
-                  radius="medium"
-                  size="1"
+                  radius="full"
+                  size="2"
                   highContrast
                   aria-label={`${boxTitle} actions`}
                 >
-                  <BsThreeDotsVertical size={14} />
+                  <BsThreeDotsVertical size={16} />
                 </IconButton>
               }
               menuPlacement="end"

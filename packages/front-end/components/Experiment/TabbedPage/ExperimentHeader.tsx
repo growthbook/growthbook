@@ -1102,12 +1102,12 @@ export default function ExperimentHeader({
                 <IconButton
                   variant="ghost"
                   color="gray"
-                  radius="medium"
-                  size="2"
+                  radius="full"
+                  size="3"
                   highContrast
                   ml="2"
                 >
-                  <BsThreeDotsVertical size={16} />
+                  <BsThreeDotsVertical size={18} />
                 </IconButton>
               }
               open={dropdownOpen}

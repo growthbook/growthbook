@@ -398,12 +398,12 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   <IconButton
                     variant="ghost"
                     color="gray"
-                    radius="medium"
-                    size="1"
+                    radius="full"
+                    size="2"
                     highContrast
                     style={{ margin: 0 }}
                   >
-                    <BsThreeDotsVertical size={14} />
+                    <BsThreeDotsVertical size={16} />
                   </IconButton>
                 }
                 menuPlacement="end"
