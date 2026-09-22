@@ -561,9 +561,8 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.userIdTypes?.length) {
           exposure.userIdTypes = [exposure.userIdType].filter(Boolean);
         }
-        // Invariant relied on throughout analysis: every assignment query
-        // declares at least one identifier type, and the deprecated scalar
-        // mirrors the first declared type.
+        // Analysis relies on at least one identifier, with the deprecated scalar
+        // mirroring the first.
         if (!exposure.userIdTypes.length) {
           throw new Error(
             `Experiment assignment query "${
@@ -761,9 +760,8 @@ export async function updateDataSource(
     return;
   }
 
-  // Legacy experiments (no stored identifier type) implicitly analyze on the
-  // query's first identifier; pin them before the change so they don't silently
-  // repoint.
+  // Pin before saving: if the pin failed after the save, legacy experiments
+  // would silently repoint to the new first identifier.
   if (updates.settings?.queries?.exposure) {
     const repointed = getExposureQueriesWithChangedBaseIdentifier(
       datasource.settings.queries?.exposure ?? [],

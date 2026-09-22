@@ -153,9 +153,8 @@ const AnalysisForm: FC<{
     experiment.exposureQueryId,
     experiment.userIdType,
   );
-  // With a query already selected, the stored identifier wins (falling back to
-  // the query's first, which is what pre-multi-identifier experiments analyze
-  // on). With nothing selected yet, pre-fill from the hash attribute's linkage.
+  // Legacy experiments analyze on the query's first identifier; with no query
+  // yet, pre-fill from the hash attribute's linkage.
   const initialIdentifierType = initialExposureQuery
     ? getExposureQueryIdentifierType(
         initialExposureQuery,
@@ -314,8 +313,7 @@ const AnalysisForm: FC<{
   });
 
   const exposureQueries = useMemo(
-    // Keep the experiment's current query even if it has drifted out of scope,
-    // so the selection stays visible rather than silently disappearing.
+    // Keep an out-of-scope current query so the selection doesn't vanish.
     () =>
       getExposureQueriesForProject(
         datasource?.settings?.queries?.exposure ?? [],
@@ -339,9 +337,7 @@ const AnalysisForm: FC<{
 
   const identifierTypes = useMemo(() => {
     const selectable = getSelectableIdentifierTypes(exposureQueries);
-    // Keep an identifier the query no longer declares, so an experiment that
-    // has drifted still shows what it is analyzed on. Re-running surfaces the
-    // exposureQueryIdentifierType outdated reason.
+    // Keep an identifier the query no longer declares so the drift stays visible.
     const stored = experiment.exposureQueryIdentifierType;
     return stored && !selectable.includes(stored)
       ? [...selectable, stored]
@@ -357,9 +353,7 @@ const AnalysisForm: FC<{
     [identifierTypes, hashAttributeIdentifierTypeMap, experiment.hashAttribute],
   );
 
-  // Only queries declaring the selected identifier can be analyzed on it. The
-  // experiment's current query stays listed either way so a drifted selection
-  // remains visible.
+  // The current query stays listed even if it doesn't declare the identifier.
   const exposureQueryOptions = useMemo(
     () =>
       exposureQueries

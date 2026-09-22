@@ -102,9 +102,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const { owner: ownerEmail, templateId } = req.body;
     let payload: PostExperimentApiPayload = req.body;
 
-    // The assignmentQuery object supersedes the deprecated flat assignmentQueryId.
-    // They are mutually exclusive; when the object is present it is projected onto
-    // the internal flat fields the rest of the handler reads.
+    // assignmentQuery supersedes the deprecated assignmentQueryId.
     if (req.body.assignmentQuery && req.body.assignmentQueryId !== undefined) {
       throw new Error(
         "Cannot set assignmentQuery together with the deprecated assignmentQueryId",
@@ -199,8 +197,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         payload.assignmentQueryIdentifierType,
       )
     ) {
+      // Template callers can't override the identifier, so point them at the template.
       throw new Error(
-        `Identifier type "${payload.assignmentQueryIdentifierType}" is not declared by assignment query "${payload.assignmentQueryId}"`,
+        templateId
+          ? `Template "${templateId}" uses identifier type "${payload.assignmentQueryIdentifierType}", which assignment query "${payload.assignmentQueryId}" no longer declares. Update the template's assignment settings.`
+          : `Identifier type "${payload.assignmentQueryIdentifierType}" is not declared by assignment query "${payload.assignmentQueryId}"`,
       );
     }
     if (

@@ -1361,11 +1361,9 @@ export async function deleteExperimentSegment(
 }
 
 /**
- * Legacy experiments (no stored `exposureQueryIdentifierType`) implicitly analyze
- * on their assignment query's first identifier. When that identifier changes, pin
- * them to `identifierType` (the pre-edit one) so they don't silently repoint; if
- * it was removed, the drift then surfaces as an outdated reason. Returns the
- * number pinned.
+ * Legacy experiments (no stored identifier type) analyze on their query's first
+ * identifier. Pins them to `identifierType` so a change to that first identifier
+ * doesn't silently repoint them. Returns the number pinned.
  */
 export async function pinLegacyExposureQueryIdentifierType({
   organization,

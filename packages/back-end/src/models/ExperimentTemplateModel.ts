@@ -14,10 +14,8 @@ import { MakeModelClass } from "./BaseModel";
 
 const ID_PREFIX = "tmplt__";
 
-// The API accepts a grouped `exposureQuery: { id, identifierType }` object that
-// supersedes the deprecated flat exposureQueryId. The internal model stays
-// flat, so project the object onto the flat fields before it reaches the model.
-// The object and the deprecated field are mutually exclusive.
+// The API's grouped exposureQuery supersedes the deprecated exposureQueryId; the
+// model stays flat.
 function normalizeTemplateExposureQueryBody(body: unknown): unknown {
   if (!body || typeof body !== "object") return body;
   const b = body as {
@@ -36,6 +34,14 @@ function normalizeTemplateExposureQueryBody(body: unknown): unknown {
     exposureQueryId: exposureQuery.id,
     exposureQueryIdentifierType: exposureQuery.identifierType,
   };
+}
+
+// Both fields are optional in the API body, so creates must check for one.
+function assertTemplateHasExposureQuery(body: unknown) {
+  const b = body as { exposureQueryId?: string } | null;
+  if ((b?.exposureQueryId ?? null) === null) {
+    throw new Error("exposureQuery is required");
+  }
 }
 
 const BaseClass = MakeModelClass({
@@ -90,14 +96,12 @@ const BaseClass = MakeModelClass({
               );
               updated++;
             } else {
+              assertTemplateHasExposureQuery(normalizedData);
               const created =
                 await req.context.models.experimentTemplates.create({
                   ...normalizedData,
                   id: normalizedId,
                   owner: "", // Will be inferred in BaseModel if possible
-                  // exposureQueryId presence is enforced by the model's Zod
-                  // schema at write time; the API body types it optional
-                  // because the grouped exposureQuery object is an alternative.
                 } as Parameters<
                   typeof req.context.models.experimentTemplates.create
                 >[0]);
@@ -141,9 +145,9 @@ export class ExperimentTemplatesModel extends BaseClass {
   }
 
   protected override async processApiCreateBody(rawBody: unknown) {
-    return super.processApiCreateBody(
-      normalizeTemplateExposureQueryBody(rawBody),
-    );
+    const body = normalizeTemplateExposureQueryBody(rawBody);
+    assertTemplateHasExposureQuery(body);
+    return super.processApiCreateBody(body);
   }
 
   protected override async processApiUpdateBody(rawBody: unknown) {

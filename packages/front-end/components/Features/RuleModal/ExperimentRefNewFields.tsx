@@ -230,7 +230,6 @@ export default function ExperimentRefNewFields({
     [identifierTypes, hashAttributeIdentifierTypeMap, hashAttribute],
   );
 
-  // Only queries declaring the selected identifier can be analyzed on it.
   const exposureQueryOptions = useMemo(
     () =>
       exposureQueries
@@ -245,9 +244,7 @@ export default function ExperimentRefNewFields({
     [exposureQueries, exposureQueryIdentifierType],
   );
 
-  // Repair the selection when the data source or hash attribute changes it out
-  // from under the user: identifier first, then the query, since the selectable
-  // queries depend on the identifier.
+  // Repair the identifier before the query; selectable queries depend on it.
   useEffect(() => {
     if (!datasourceProperties?.exposureQueries) return;
     if (
@@ -280,7 +277,6 @@ export default function ExperimentRefNewFields({
     hashAttribute,
   ]);
 
-  // The identifier linked to `attribute`, paired with a query that declares it.
   const getMatchingExposureQuery = (
     attribute: string,
     datasource: DataSourceInterfaceWithParams | null,

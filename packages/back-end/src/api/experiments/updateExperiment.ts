@@ -58,10 +58,8 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
-  // The assignmentQuery object supersedes the deprecated flat assignmentQueryId.
-  // They are mutually exclusive; when the object is present its id is projected
-  // onto req.body and its identifier type is tracked locally (there is no public
-  // flat identifier field).
+  // assignmentQuery supersedes the deprecated assignmentQueryId. Its identifier
+  // type is tracked locally since there is no public flat field for it.
   let assignmentQueryIdentifierType = req.body.assignmentQuery?.identifierType;
   if (req.body.assignmentQuery) {
     if (req.body.assignmentQueryId !== undefined) {
@@ -108,7 +106,6 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
-  // check for associated assignment query and identifier type
   if (
     req.body.assignmentQueryId !== undefined ||
     assignmentQueryIdentifierType !== undefined

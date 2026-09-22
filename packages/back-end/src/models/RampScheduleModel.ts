@@ -234,10 +234,8 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
   return doc;
 }
 
-// Translate an API monitoring config (which may carry a grouped `exposureQuery`
-// object) into the flat shape stored on the model. The object and the deprecated
-// flat exposureQueryId are mutually exclusive. exposureQueryId presence is
-// enforced by the model's Zod schema.
+// The API's grouped exposureQuery supersedes the deprecated exposureQueryId; the
+// model stays flat.
 export function apiMonitoringConfigToInternal<
   T extends {
     exposureQuery?: { id: string; identifierType: string };
@@ -258,8 +256,7 @@ export function apiMonitoringConfigToInternal<
     );
   }
   const { exposureQuery, ...rest } = mc;
-  // exposureQueryId presence is enforced by the model's Zod schema at write
-  // time; the API types it optional because exposureQuery is an alternative.
+  // The model's schema enforces exposureQueryId presence at write time.
   return {
     ...rest,
     exposureQueryId: exposureQuery?.id ?? mc.exposureQueryId,

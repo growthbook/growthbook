@@ -4554,9 +4554,7 @@ function apiScheduleToInterface(
   };
 }
 
-// The public request schema only exposes the assignmentQuery object; the handler
-// resolves the identifier type (from assignmentQuery.identifierType or a template)
-// and threads it through on this internal-only field.
+// Internal-only: the handler resolves this from assignmentQuery or a template.
 export type PostExperimentApiPayload = z.infer<
   typeof postExperimentValidator.bodySchema
 > & {
@@ -4762,8 +4760,7 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
-// The public request schema only exposes the assignmentQuery object; the handler
-// resolves the identifier type and threads it through on this internal-only field.
+// Internal-only: the handler resolves this from assignmentQuery.
 type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
 > & {

@@ -183,7 +183,6 @@ export function getNewExperimentDatasourceDefaults({
     initialValue?.exposureQueryId,
     initialUserIdType,
   );
-  // Don't default to a query that isn't scoped to the experiment's project.
   if (
     exposureQuery &&
     !isProjectListValidForProject(exposureQuery.projects, project)
@@ -731,7 +730,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     [identifierTypes, hashAttributeIdentifierTypeMap, selectedHashAttribute],
   );
 
-  // Only queries declaring the selected identifier can be analyzed on it.
   const exposureQueryOptions = useMemo(
     () =>
       exposureQueries
@@ -793,9 +791,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     availableTemplates.length >= 1;
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
-  // Repair the selection when the project, data source or hash attribute
-  // changes it out from under the user: identifier first, then the query, since
-  // the selectable queries depend on the identifier.
+  // Repair the identifier before the query; selectable queries depend on it.
   useEffect(() => {
     if (
       !exposureQueryIdentifierType ||

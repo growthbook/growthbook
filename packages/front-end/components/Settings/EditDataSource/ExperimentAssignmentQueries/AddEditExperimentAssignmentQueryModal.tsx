@@ -55,10 +55,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     ? userIdTypeOptions[0]?.value
     : "user_id";
 
-  // Every selected identifier type must come back as a same-named column, so
-  // the prefilled query grows a `<type> as <type>` line per selection. Only
-  // applied while the query still matches this template for the prior
-  // selection — once a user customizes it (Customize SQL), it's left alone.
+  // Each selected identifier must come back as a same-named column.
   const buildDefaultQuery = (userIdTypes: string[]) => {
     const ids = userIdTypes.length ? userIdTypes : [defaultUserId];
     const idColumns = ids.map((id) => `  ${id} as ${id},`).join("\n");
@@ -130,8 +127,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
 
   const userEnteredProjects = form.watch("projects") ?? [];
-  // Options are limited to the data source's own projects (unless it is in All
-  // Projects), enforcing EAQ.projects ⊆ datasource.projects.
+  // Enforces EAQ.projects ⊆ datasource.projects.
   const filteredProjects = projects.filter(
     (project) =>
       !dataSource.projects?.length ||
@@ -144,9 +140,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     filteredProjects.length ? filteredProjects : undefined,
   );
 
-  // The first identifier is load-bearing (legacy experiments implicitly analyze
-  // on it), so warn when an edit removes or reorders it. Legacy experiments are
-  // pinned automatically on save; explicit ones on a removed identifier are flagged.
   const savedUserIdTypes =
     mode === "edit" && exposureQuery
       ? exposureQuery.userIdTypes?.length
@@ -156,12 +149,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const removedIdentifierTypes = savedUserIdTypes.filter(
     (idType) => !userEnteredUserIdTypes.includes(idType),
   );
-  const firstIdentifierChanged =
-    savedUserIdTypes.length > 0 &&
-    userEnteredUserIdTypes.length > 0 &&
-    savedUserIdTypes[0] !== userEnteredUserIdTypes[0];
-  const showIdentifierChangeWarning =
-    removedIdentifierTypes.length > 0 || firstIdentifierChanged;
 
   if (!exposureQuery && mode === "edit") {
     console.error(
@@ -331,8 +318,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 sort={false}
                 value={userEnteredUserIdTypes}
                 onChange={(value) => {
-                  // Only still-default queries follow identifier selection; a
-                  // customized query (Customize SQL) is left as the user wrote it.
+                  // Leave customized SQL as the user wrote it.
                   if (
                     form.getValues("query") ===
                     buildDefaultQuery(userEnteredUserIdTypes)
@@ -342,18 +328,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   form.setValue("userIdTypes", value);
                 }}
               />
-              {showIdentifierChangeWarning && (
+              {removedIdentifierTypes.length > 0 && (
                 <Callout status="warning" mb="3">
-                  {removedIdentifierTypes.length > 0
-                    ? `Removing ${removedIdentifierTypes
-                        .map((idType) => `"${idType}"`)
-                        .join(
-                          ", ",
-                        )} changes how existing experiments are analyzed.`
-                    : "Reordering identifier types changes which one is analyzed by default."}{" "}
-                  Experiments set up before this change are repointed to the
-                  pre-edit identifier automatically; those with an explicit
-                  identifier that no longer exists are flagged for review.
+                  {`Experiments analyzed on ${removedIdentifierTypes
+                    .map((idType) => `"${idType}"`)
+                    .join(
+                      ", ",
+                    )} won't be able to update results until they're switched to another identifier.`}
                 </Callout>
               )}
               {projects.length > 0 && (

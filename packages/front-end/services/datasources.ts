@@ -824,9 +824,7 @@ export function getExposureQueryIdentifierType(
 }
 
 /**
- * Assignment queries selectable for an experiment in `project`. `keepQueryId`
- * survives the filter so a selection that has drifted out of scope stays
- * visible rather than silently disappearing.
+ * `keepQueryId` survives the filter so an out-of-scope selection doesn't vanish.
  */
 export function getExposureQueriesForProject(
   exposureQueries: ExposureQuery[],
@@ -861,9 +859,8 @@ export function getHashAttributeIdentifierTypeMap(
 }
 
 /**
- * Identifier types declared by at least one of `exposureQueries`, de-duplicated
- * and in declaration order. Derived from the queries rather than the data
- * source's full identifier list so every option has a query behind it.
+ * Derived from the queries rather than the data source's identifier list so
+ * every option has a query behind it.
  */
 export function getSelectableIdentifierTypes(
   exposureQueries: ExposureQuery[],
@@ -911,11 +908,6 @@ export function getGroupedIdentifierTypeOptions({
   return groups;
 }
 
-/**
- * Identifier to preselect: the stored one when it is still selectable, then the
- * hash attribute's linkage when it resolves to exactly one identifier, then the
- * first selectable identifier.
- */
 export function getDefaultIdentifierType({
   identifierTypes,
   hashAttributeIdentifierTypeMap,

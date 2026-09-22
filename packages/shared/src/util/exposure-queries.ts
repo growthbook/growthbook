@@ -10,9 +10,8 @@ function firstIdentifierType(query: ExposureQueryIdentity): string {
 }
 
 /**
- * Queries whose first identifier type changed — the one experiments configured
- * before multi-identifier support implicitly analyze on. Callers pin dependent
- * legacy experiments to `previousIdentifierType` so they don't silently repoint.
+ * Queries whose first identifier changed. Legacy experiments analyze on the
+ * first identifier, so callers pin them to `previousIdentifierType`.
  */
 export function getExposureQueriesWithChangedBaseIdentifier(
   previous: ExposureQueryIdentity[],
