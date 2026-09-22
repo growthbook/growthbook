@@ -5601,9 +5601,9 @@ describe("planRampBaseStateSync", () => {
       }).refusals[0].message;
     expect(
       dashboard(rule({ condition: "{}" }), schedule({ status: "running" })),
-    ).toMatch(/Pause the ramp-up before publishing changes to it/);
+    ).toMatch(/has a running ramp-up\. Pause it before publishing/);
     expect(dashboard(rule({ coverage: 0.9 }))).toMatch(
-      /the rollout % is set by step 1 of the ramp-up "Ramp"\. Change it in the ramp-up plan/,
+      /the rollout % is set by step 1 of its ramp-up\. Change it in the ramp-up plan/,
     );
   });
 

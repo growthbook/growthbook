@@ -966,7 +966,7 @@ export function planRampBaseStateSync({
             message: apiRequest
               ? `Rule "${liveRule.id}" is part of the running ramp schedule "${schedule.name}" (${schedule.id}). ` +
                 `Pause it before publishing changes to this rule: POST /api/v1/ramp-schedules/${schedule.id}/actions/pause.`
-              : `Rule "${liveRule.id}" is part of the running ramp-up "${schedule.name}". Pause the ramp-up before publishing changes to it.`,
+              : `Rule "${liveRule.id}" has a running ramp-up. Pause it before publishing changes to the rule.`,
           });
           continue;
         }
@@ -981,7 +981,7 @@ export function planRampBaseStateSync({
               ? `Rule "${liveRule.id}": ${owned.join(", ")} of ramp schedule "${schedule.name}" (${schedule.id}). ` +
                 `Change it in the plan: PUT /api/v1/ramp-schedules/${schedule.id}, or on a draft with ` +
                 `PUT /api/v2/features/${featureId}/revisions/{version}/rules/${liveRule.id}/ramp-schedule.`
-              : `Rule "${liveRule.id}": the ${owned.join(", ")} of the ramp-up "${schedule.name}". Change it in the ramp-up plan.`,
+              : `Rule "${liveRule.id}": the ${owned.join(", ")} of its ramp-up. Change it in the ramp-up plan.`,
           });
           continue;
         }
