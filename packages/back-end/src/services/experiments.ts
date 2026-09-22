@@ -139,7 +139,7 @@ import {
   OrganizationInterface,
   OrganizationSettings,
 } from "shared/types/organization";
-import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
   ExperimentReportAnalysisSettings,
   MetricSnapshotSettings,
@@ -550,20 +550,19 @@ export function isJoinableMetric({
   metricId,
   metricMap,
   factTableMap,
-  exposureQuery,
+  identifierType,
   datasource,
 }: {
   metricId: string;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  exposureQuery?: ExposureQuery;
+  identifierType?: string;
   datasource?: DataSourceInterface;
 }): boolean {
-  if (!exposureQuery || !datasource) {
+  if (!identifierType || !datasource) {
     // be lenient and allow metrics through
     return true;
   }
-  const experimentIdType = exposureQuery.userIdType;
   const metric = metricMap.get(metricId);
 
   if (!metric) {
@@ -574,7 +573,7 @@ export function isJoinableMetric({
   if (isFactMetric(metric)) {
     return isFactMetricJoinable(
       metric,
-      experimentIdType,
+      identifierType,
       (id) => factTableMap.get(id),
       datasource.settings,
     );
@@ -582,7 +581,7 @@ export function isJoinableMetric({
 
   return isMetricJoinable(
     metric.userIdTypes ?? [],
-    experimentIdType,
+    identifierType,
     datasource.settings,
   );
 }
@@ -704,7 +703,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -716,7 +715,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -728,7 +727,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -4660,8 +4659,9 @@ export function postExperimentApiPayloadToInterface(
       "",
     exposureQueryIdentifierType:
       payload.assignmentQueryIdentifierType ??
-      assignmentQuery?.userIdTypes?.[0] ??
-      assignmentQuery?.userIdType,
+      (assignmentQuery
+        ? getExposureQueryIdentifierTypes(assignmentQuery)[0]
+        : undefined),
     name: payload.name || "",
     type: payload.type || "standard",
     phases,

@@ -25,7 +25,7 @@ import {
   getFactMetricPrimaryFactTableId,
   parseDimensionId,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
+import { getExposureQueryIdentifierTypes, isDefined } from "shared/util";
 import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
@@ -681,8 +681,9 @@ export function getReportSnapshotSettings({
   );
   const exposureQueryIdentifierType =
     report.experimentAnalysisSettings.exposureQueryIdentifierType ??
-    exposureQuery?.userIdTypes?.[0] ??
-    exposureQuery?.userIdType;
+    (exposureQuery
+      ? getExposureQueryIdentifierTypes(exposureQuery)[0]
+      : undefined);
 
   // expand metric groups and scrub unjoinable metrics
   const goalMetrics = expandMetricGroups(
@@ -693,7 +694,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -705,7 +706,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -717,7 +718,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );

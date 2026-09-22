@@ -9,7 +9,11 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { getSafeRolloutSnapshotAnalysis, isDefined } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  getSafeRolloutSnapshotAnalysis,
+  isDefined,
+} from "shared/util";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -318,6 +322,11 @@ export function getSafeRolloutSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === safeRollout.exposureQueryId,
   );
+  const exposureQueryIdentifierType =
+    safeRollout.exposureQueryIdentifierType ??
+    (exposureQuery
+      ? getExposureQueryIdentifierTypes(exposureQuery)[0]
+      : undefined);
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
@@ -328,7 +337,7 @@ export function getSafeRolloutSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -368,10 +377,7 @@ export function getSafeRolloutSnapshotSettings({
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: safeRollout.exposureQueryId,
-    exposureQueryIdentifierType:
-      safeRollout.exposureQueryIdentifierType ??
-      exposureQuery?.userIdTypes?.[0] ??
-      exposureQuery?.userIdType,
+    exposureQueryIdentifierType,
     metricSettings,
     // SDK-emitted variation_id mapping depends on the safe rollout's mode:
     //   v1 (rule.type === "safe-rollout"):

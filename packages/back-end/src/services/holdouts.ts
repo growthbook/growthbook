@@ -719,7 +719,7 @@ export async function updateHoldoutWithExperiment(
       assignmentQueryId !== experiment.exposureQueryId
     ) {
       assignmentQueryIdentifierType =
-        exposureQuery.userIdTypes?.[0] ?? exposureQuery.userIdType;
+        getExposureQueryIdentifierTypes(exposureQuery)[0];
     }
     assertValidAssignmentQuery(
       datasource,

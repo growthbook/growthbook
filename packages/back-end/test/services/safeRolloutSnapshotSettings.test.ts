@@ -130,3 +130,58 @@ describe("getSafeRolloutSnapshotSettings — variation arm mapping", () => {
     expect(v2.experimentId).toBe("ramp_rs_1");
   });
 });
+
+describe("getSafeRolloutSnapshotSettings — metric joinability", () => {
+  it("scrubs metrics against the chosen identifier, not the query's first", () => {
+    const multiIdDatasource = {
+      id: "ds_1",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_1",
+              name: "Multi",
+              userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id", "user_id"],
+              query: "",
+              dimensions: [],
+            },
+          ],
+        },
+      },
+    } as unknown as DataSourceInterface;
+    const metricMap = new Map(
+      [
+        { id: "met_user", userIdTypes: ["user_id"] },
+        { id: "met_anon", userIdTypes: ["anonymous_id"] },
+      ].map((m) => [
+        m.id,
+        {
+          ...m,
+          datasource: "ds_1",
+          type: "binomial",
+          cappingSettings: { type: "", value: 0 },
+          windowSettings: {},
+        } as never,
+      ]),
+    );
+
+    const settings = getSafeRolloutSnapshotSettings({
+      safeRollout: makeSafeRollout({
+        exposureQueryIdentifierType: "user_id",
+        guardrailMetricIds: ["met_user", "met_anon"],
+      }),
+      trackingKey: "feat_1",
+      settings: defaultAnalysisSettings,
+      orgPriorSettings: undefined,
+      settingsForSnapshotMetrics: [],
+      metricMap,
+      factTableMap: new Map(),
+      metricGroups: [],
+      datasource: multiIdDatasource,
+    });
+
+    expect(settings.guardrailMetrics).toEqual(["met_user"]);
+    expect(settings.exposureQueryIdentifierType).toBe("user_id");
+  });
+});
