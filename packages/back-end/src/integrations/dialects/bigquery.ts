@@ -184,9 +184,12 @@ export const bigQueryDialect: SqlDialect = {
       : `${multiplier} * ${quantile}`;
     return `APPROX_QUANTILES(${value}, ${multiplier} IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))]`;
   },
+  // Needed so products of per-unit INT64 totals (e.g. CUPED cross products)
+  // don't overflow in the statistics CTEs.
+  castToFloat: (col: string) => `CAST(${col} AS FLOAT64)`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
-    return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
+    return isNumeric ? bigQueryDialect.castToFloat(raw) : raw;
   },
   // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
   arrayAggSorted: (col: string) =>

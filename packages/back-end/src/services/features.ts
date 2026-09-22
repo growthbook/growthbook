@@ -126,6 +126,7 @@ import {
   liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
 } from "shared/util";
+import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -3415,23 +3416,23 @@ export function validateFeatureRuleValues(
   }
 }
 
-// Enforce JSON-schema validation for a feature's default value and/or rule
-// values. Validation is on by default; an explicit `?skipSchemaValidation=true`
-// opts out (see context.canSkipSchemaValidationFor("feature")). Pass the EFFECTIVE feature —
+// Enforce value types even when schema validation is skipped. Pass the EFFECTIVE feature —
 // i.e. one already carrying the inbound/draft `jsonSchema`, `valueType`, so a
 // request that changes the schema validates against the new schema.
 export function assertFeatureValuesValid(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
-  if (context.canSkipSchemaValidationFor("feature")) return;
-  if (values.defaultValue !== undefined) {
-    validateFeatureValue(feature, values.defaultValue, "Default value");
-  }
-  for (const rule of values.rules ?? []) {
-    validateFeatureRuleValues(feature, rule);
-  }
+  const valueFeature = context.canSkipSchemaValidationFor("feature")
+    ? { valueType: feature.valueType }
+    : feature;
+  mapChangedFeatureValues(
+    values,
+    (value, label) => validateFeatureValue(valueFeature, value, label),
+    previous,
+  );
 }
 
 // Publish-time safety net: re-validate the values a revision is about to make
@@ -3447,23 +3448,21 @@ export function assertFeatureValuesValid(
 export function collectFeatureValueErrorsForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): string[] {
   const errors: string[] = [];
-  const collect = (fn: () => void) => {
-    try {
-      fn();
-    } catch (e) {
-      errors.push(e instanceof Error ? e.message : String(e));
-    }
-  };
-  if (values.defaultValue !== undefined) {
-    collect(() =>
-      validateFeatureValue(feature, values.defaultValue!, "Default value"),
-    );
-  }
-  for (const rule of values.rules ?? []) {
-    collect(() => validateFeatureRuleValues(feature, rule));
-  }
+  mapChangedFeatureValues(
+    values,
+    (value, label) => {
+      try {
+        validateFeatureValue(feature, value, label);
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e));
+      }
+      return value;
+    },
+    previous,
+  );
   return errors;
 }
 
@@ -3471,10 +3470,17 @@ export function assertFeatureValuesValidForPublish(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
+  const typeErrors = collectFeatureValueErrorsForPublish(
+    { valueType: feature.valueType },
+    values,
+    previous,
+  );
+  if (typeErrors.length) throw new BadRequestError(typeErrors.join(", "));
   if (context.canSkipSchemaValidationFor("feature")) return;
 
-  const errors = collectFeatureValueErrorsForPublish(feature, values);
+  const errors = collectFeatureValueErrorsForPublish(feature, values, previous);
   if (!errors.length) return;
 
   // Default to blocking when the setting is absent.

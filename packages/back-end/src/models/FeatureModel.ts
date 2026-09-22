@@ -27,6 +27,7 @@ import {
   RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
+  RampStartAction,
   RampStepAction,
   resolveStartApproval,
 } from "shared/validators";
@@ -47,6 +48,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
@@ -938,10 +940,10 @@ export async function createFeature(
 
   const linkedExperiments = getLinkedExperiments(data);
 
-  const featureToCreate = buildFeatureUpdate({
-    ...data,
-    linkedExperiments,
-  });
+  const featureToCreate = normalizeFeatureJSONValues(
+    { valueType: data.valueType },
+    buildFeatureUpdate({ ...data, linkedExperiments }),
+  );
 
   await assertFeatureSavedGroupScope(context, data);
 
@@ -1374,7 +1376,9 @@ export async function updateFeature(
     // Compensation uses it as the ownership token; the returned doc is a
     // set-then-fetch, so its `dateUpdated` may already be a rival's, and
     // reading ownership from it says "still ours" at the moment it isn't.
-    onStamped?: (stamp: Date) => void;
+    onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void;
+    // Internal recovery only: restore values from an already-persisted snapshot.
+    preserveStoredValues?: boolean;
     // Internal failed-write recovery only; a user-requested revert must still
     // satisfy the current Saved Group scope.
     isCompensation?: boolean;
@@ -1384,10 +1388,27 @@ export async function updateFeature(
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
   const allUpdates = {
+    ...(updates.valueType !== undefined &&
+    updates.valueType !== feature.valueType
+      ? { defaultValue: feature.defaultValue, rules: feature.rules }
+      : {}),
     ...updates,
     // Strictly after the guarded token, even inside the same millisecond.
     dateUpdated: ourStamp,
   };
+  // Recovery must restore the exact pre-image, including legacy values.
+  if (!options?.preserveStoredValues) {
+    Object.assign(
+      allUpdates,
+      normalizeFeatureJSONValues(
+        { valueType: updates.valueType ?? feature.valueType },
+        allUpdates,
+        (updates.valueType ?? feature.valueType) === feature.valueType
+          ? feature
+          : undefined,
+      ),
+    );
+  }
   // Used only for hooks and linkedExperiment derivation; the post-write value
   // is re-read from Mongo below. The holdout $unset is modeled here so callers
   // pass the TRUE pre-image and hooks still see a holdout-only change.
@@ -1491,7 +1512,10 @@ export async function updateFeature(
   // Only once Mongo has CONFIRMED the write: reporting earlier lets a CAS loser
   // claim ownership of a stamp live never carried, and its caller then skips
   // every rewind as "a rival took the feature".
-  options?.onStamped?.(ourStamp);
+  options?.onStamped?.(ourStamp, {
+    ...normalizedUpdates,
+    ...(options?.unsetHoldout ? { holdout: undefined } : {}),
+  });
 
   if (experimentsAdded.size > 0) {
     await Promise.all(
@@ -2138,7 +2162,7 @@ export async function applyRevisionChanges(
   // Reports the stamp the landing's guarded write PUT on the document, so the
   // caller's compensation owns the write rather than whatever a set-then-fetch
   // happened to read back.
-  onStamped?: (stamp: Date) => void,
+  onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void,
   // Reports the safe-rollout images this apply WROTE, for the same reason: read
   // back afterwards they are whatever the document holds by then, so a worker's
   // concurrent advance would be mistaken for ours and reversed.
@@ -3157,7 +3181,7 @@ async function createRampSchedulesForRevision(
     const explicitStartActions = Array.isArray(action.startActions)
       ? normalizeRampActionsForceValues(
           action.startActions.map(
-            (a): RampStepAction => ({
+            (a): RampStartAction => ({
               targetType: "feature-rule" as const,
               targetId,
               patch: { ...a.patch, ruleId: action.ruleId },
@@ -3166,7 +3190,7 @@ async function createRampSchedulesForRevision(
         )
       : [];
     const startActionsExplicit = explicitStartActions.length > 0;
-    const startActions: RampStepAction[] = startActionsExplicit
+    const startActions: RampStartAction[] = startActionsExplicit
       ? explicitStartActions
       : getStartActionsFromRules({
           rules: result.rules ?? feature.rules ?? [],
@@ -3670,7 +3694,13 @@ export function computeProposedFeatureForValidation(
     : feature;
   const proposedFeature: FeatureInterface = {
     ...base,
-    ...changes,
+    ...normalizeFeatureJSONValues(
+      { valueType: changes.valueType ?? base.valueType },
+      changes,
+      (changes.valueType ?? base.valueType) === base.valueType
+        ? base
+        : undefined,
+    ),
     dateUpdated: new Date(),
   };
   proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
@@ -3730,10 +3760,15 @@ export async function prevalidatePublishRevision({
   // and auto-publish paths don't pass through a REST handler's own net.
   if (defaultToCheck !== undefined || rulesToCheck.length) {
     if (!skipValueSchemaNet) {
-      assertFeatureValuesValidForPublish(context, proposedFeature, {
-        defaultValue: defaultToCheck,
-        rules: rulesToCheck,
-      });
+      assertFeatureValuesValidForPublish(
+        context,
+        proposedFeature,
+        {
+          defaultValue: defaultToCheck,
+          rules: rulesToCheck,
+        },
+        feature,
+      );
     }
     await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
       defaultValue: defaultToCheck,
@@ -3750,7 +3785,12 @@ export async function prevalidatePublishRevision({
     feature,
     revision: {
       ...revision,
-      ...computeRevisionPublishChanges(revision, context.auditUser, comment),
+      ...computeRevisionPublishChanges(
+        feature,
+        revision,
+        context.auditUser,
+        comment,
+      ),
     },
     original: revision,
   });
@@ -3788,7 +3828,7 @@ async function restorePublishedFeatureDoc(
   // Reports the stamp THIS restore put on the document: a restore advances
   // `dateUpdated`, and without re-pointing its token the caller reads its own
   // rollback as a concurrent owner and skips every remaining rewind.
-  onStamped?: (stamp: Date) => void,
+  onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void,
 ) {
   const { changes } = computeRevisionMergeChanges(
     context,
@@ -3829,6 +3869,7 @@ async function restorePublishedFeatureDoc(
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
         onStamped,
+        preserveStoredValues: true,
         isCompensation: true,
       });
       return;
