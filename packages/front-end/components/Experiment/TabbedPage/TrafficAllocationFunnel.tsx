@@ -600,6 +600,7 @@ export default function TrafficAllocationFunnel({
                 <SetupFieldRow
                   label="Included %"
                   content={editInline ? "control" : "text"}
+                  labelAlign="center"
                   tooltip="The share of everyone who matches the targeting above that this experiment runs on."
                 >
                   {editInline ? (
