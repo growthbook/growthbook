@@ -108,7 +108,9 @@ function RatioPart({
             hasCountDistinctHLL={hasCountDistinctHLL}
             onChange={(newShape) =>
               onChange(
-                onShapeChange(value, newShape, factTable, hasCountDistinctHLL),
+                onShapeChange(value, newShape, factTable, {
+                  hasCountDistinctHLL: () => hasCountDistinctHLL,
+                }),
               )
             }
           />
@@ -188,9 +190,8 @@ export default function RatioFields({
                 onDenominatorChange(
                   onFactTableChange(
                     denominator,
-                    factTableId,
                     getFactTableById(factTableId),
-                    hasCountDistinctHLL,
+                    { hasCountDistinctHLL: () => hasCountDistinctHLL },
                   ),
                 )
               }
