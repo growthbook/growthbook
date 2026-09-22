@@ -351,7 +351,7 @@ export default function StandardRuleFields({
         />
         {rampLocksTargeting && (
           <HelperText status="info" mt="2" icon={<PiLockSimple />}>
-            Locked while Ramp-up is running. Pause the Ramp-up to edit.
+            Pause the ramp-up to change this value.
           </HelperText>
         )}
         <ConflictCallout field="value" />
@@ -540,30 +540,21 @@ export default function StandardRuleFields({
         Targeting
       </Heading>
       {rampSyncsTargeting && (
-        <HelperText status="info" mb="2">
-          <Box>
-            <Text as="div">Under a paused ramp schedule</Text>
-            <Text as="div" mt="1" size="sm">
-              {rampControlsCoverage
-                ? "Coverage follows the ramp plan. Other changes "
-                : "Changes "}
-              apply when published and carry through the remaining steps as the
-              ramp&apos;s base state.
-            </Text>
-          </Box>
-        </HelperText>
+        <Callout status="info" mb="4">
+          This rule is part of a paused ramp-up.{" "}
+          {rampControlsCoverage
+            ? "The rollout % is managed by the ramp-up plan, so it can't be changed here. Anything else you change "
+            : "Anything you change "}
+          takes effect when you publish and stays in place as the ramp-up
+          continues.
+        </Callout>
       )}
       {rampLocksTargeting ? (
-        <HelperText status="info" mb="2" icon={<PiLockSimple />}>
-          <Box>
-            <Text as="div">Controlled by ramp schedule</Text>
-            <Text as="div" mt="1" size="sm">
-              Pause the Ramp-up to edit coverage, targeting or the value.
-              Changes made while paused carry through the remaining steps as the
-              ramp&apos;s base state.
-            </Text>
-          </Box>
-        </HelperText>
+        <Callout status="info" mb="4" icon={<PiLockSimple />}>
+          This rule is part of a running ramp-up. Pause it before changing the
+          rollout %, targeting or value. Once paused, your changes take effect
+          when you publish and stay in place when the ramp-up resumes.
+        </Callout>
       ) : (
         <Flex direction="column" gap="5" mb="4">
           {rampControlsCoverage ? null : (

@@ -102,7 +102,7 @@ export default forwardRef<
             {renderedIcon}
           </div>
         )}
-        {children}
+        <div>{children}</div>
       </Flex>
     </Text>
   );

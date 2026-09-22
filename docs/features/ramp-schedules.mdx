@@ -154,11 +154,11 @@ From the UI or API you can start, pause, resume, manually advance, jump to a spe
 
 ### Editing a rule under a running schedule
 
-A schedule stores the rule's pre-ramp state as its **base state** and re-applies it, plus every step so far, each time it advances. While the schedule is `running`, the rule cannot be edited: the rule editor locks coverage, targeting and value, and a publish that changes the rule is refused with the schedule's pause route. Pause the schedule first.
+A schedule stores the rule's pre-ramp state as its **base state** and re-applies it, plus every step so far, each time it advances. While the schedule is `running`, the rule cannot be edited: the rule editor locks the rollout percentage, targeting and value, and a publish that changes the rule is refused with the schedule's pause route. Pause the schedule first.
 
 While it is `paused` (or `ready`, before it starts), publishing an edit to the rule reconciles it with the plan:
 
-- A field the plan sets in a step or its end state, usually coverage, is refused with the step named; change it in the plan instead.
+- A field the plan sets in a step or its end state, usually the rollout percentage (`coverage`), is refused with the step named; change it in the plan instead.
 - Any other change to the rule's targeting or value is written into the base state, so it applies immediately, survives the remaining steps once you resume, and is what a rollback restores.
 
 Removing a schedule needs no approval: `eject-target` and `DELETE` leave the rule as it is right now, so a ramp can always be cleaned up.
