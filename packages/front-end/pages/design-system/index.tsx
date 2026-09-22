@@ -42,6 +42,7 @@ import VariationLabelStories from "@/ui/VariationLabel.stories";
 import VariationNumberStories from "@/ui/VariationNumber.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
 import ModalStories from "@/ui/Modal/Modal.stories";
+import MultiStepModalStories from "@/ui/Modal/MultiStepModal.stories";
 
 type StoryEntry = {
   name: string;
@@ -122,6 +123,12 @@ export default function DesignSystemPage() {
     { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
     { name: "Modal", Stories: ModalStories },
+    {
+      name: "MultiStepModal",
+      description:
+        "A multi-page modal built on the composable Modal primitives. Compose one MultiStepModal.Step per page; the Stepper communicates progress at the top and the footer walks Back / Next before turning into the final CTA. Reuses the Modal sizes (md, lg, xl, fill).",
+      Stories: MultiStepModalStories,
+    },
   ] satisfies StoryEntry[];
 
   const entries = useMemo(
