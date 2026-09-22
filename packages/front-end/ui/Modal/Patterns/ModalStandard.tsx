@@ -62,6 +62,22 @@ export type Props = TrackingEventModalProps & {
 // primitives: header + scrollable body + Cancel / Save footer, optionally
 // wired to a form submit. New modals with one-off layouts should compose
 // <Modal.Root> primitives directly instead of reaching for more props here.
+/**
+ * Radix focuses the first tabbable node, which pops the tooltip of a modal
+ * whose first control is an icon button. Prefer the first field a person would
+ * type into, and otherwise the dialog itself.
+ */
+const focusFirstField: NonNullable<
+  ComponentProps<typeof Modal.Root>["onOpenAutoFocus"]
+> = (e) => {
+  const content = e.currentTarget as HTMLElement;
+  e.preventDefault();
+  const field = content.querySelector<HTMLElement>(
+    "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([disabled]), textarea:not([disabled])",
+  );
+  (field ?? content).focus();
+};
+
 export default function ModalStandard({
   open,
   header,
@@ -142,7 +158,7 @@ export default function ModalStandard({
       dismissible={dismissible ?? !submit}
       showCloseButton={showCloseButton}
       hasDescription={!!subheader}
-      onOpenAutoFocus={onOpenAutoFocus}
+      onOpenAutoFocus={onOpenAutoFocus ?? focusFirstField}
       trackingEventModalType={trackingEventModalType}
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}

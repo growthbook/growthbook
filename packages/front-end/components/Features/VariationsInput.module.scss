@@ -83,4 +83,10 @@
   :global(.form-group) {
     margin-bottom: 0;
   }
+
+  // The column is sized for this field, so it fills it rather than leaving a
+  // gap before the next one.
+  input {
+    width: 100%;
+  }
 }
