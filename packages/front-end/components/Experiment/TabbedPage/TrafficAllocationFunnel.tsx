@@ -592,12 +592,9 @@ export default function TrafficAllocationFunnel({
 
           <FunnelConnector />
 
-          <FunnelCard
-            title="Traffic"
-            onEdit={editTraffic}
-            disabled={!safeToEdit}
-            editBlockedReason={trafficBlocked}
-          >
+          {/* No pencil: the percentage edits in place, the split has its own
+              editor, and each variation carries its own. */}
+          <FunnelCard title="Traffic">
             {!isHoldout ? (
               <Box mb="1">
                 <SetupFieldRow
