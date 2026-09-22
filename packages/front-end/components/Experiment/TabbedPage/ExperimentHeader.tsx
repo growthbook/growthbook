@@ -1103,11 +1103,11 @@ export default function ExperimentHeader({
                   variant="ghost"
                   color="gray"
                   radius="medium"
-                  size="3"
+                  size="2"
                   highContrast
                   ml="2"
                 >
-                  <BsThreeDotsVertical size={18} />
+                  <BsThreeDotsVertical size={16} />
                 </IconButton>
               }
               open={dropdownOpen}
