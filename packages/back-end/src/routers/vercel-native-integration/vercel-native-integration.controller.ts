@@ -140,8 +140,7 @@ const getBearerToken = (req: Request) => {
 
 const VERCEL_ISSUER = "https://marketplace.vercel.com";
 
-// Vercel signs user tokens with `account:<id>:user:<id>` and system tokens with
-// `account:<id>`
+// Vercel's system tokens carry a bare `account:<id>` subject
 const USER_SUBJECT = /^account:[0-9a-fA-F]+:user:[0-9a-fA-F]+$/;
 
 type VercelAuth =
@@ -254,8 +253,7 @@ const getContext = async ({
 
   if (userEmail && !user) failed(400, "Invalid user!");
 
-  // Marketplace calls act on the org's installation as a whole, so the context
-  // is org-admin by design; the caller's authority is checked in authContext
+  // Org-admin by design; the caller's Vercel authority is checked in authContext
   const context = new ReqContextClass({
     org,
     auditUser: user
