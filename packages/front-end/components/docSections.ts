@@ -107,7 +107,7 @@ export const docSections = {
   edge: "/lib/edge/other",
   roku: "/lib/roku",
   //Other
-  user_guide: "/overview",
+  user_guide: "/",
   config: "/self-host/config",
   config_yml: "/self-host/config",
   config_domains_and_ports: "/self-host/env#domains-and-ports",
@@ -115,8 +115,7 @@ export const docSections = {
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
   url_redirects: "/app/url-redirects",
-  temporaryRollout:
-    "/app/visual/running-on-your-site#a-note-on-temporary-rollouts",
+  temporaryRollout: "/app/visual/legacy#stopping-an-experiment",
   encryptedSDKEndpoints: "/lib/js#loading-features-and-experiments",
   hashSecureAttributes: "/lib/js#secure-attributes",
   autoMetrics: "/app/metrics/legacy#auto-generate-metrics",
