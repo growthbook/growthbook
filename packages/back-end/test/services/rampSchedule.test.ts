@@ -59,6 +59,8 @@ import {
   normalizeRampActionsForceValues,
   normalizeRampPlanForceValues,
   planRampBaseStateSync,
+  applyRampBaseStateSync,
+  restoreRampBaseStates,
   rampStartValuesOf,
   forceMatchesValueType,
   remapTemplateActions,
@@ -115,7 +117,10 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
-import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
+import {
+  ConflictError,
+  RampAdvanceLockBusyError,
+} from "back-end/src/util/errors";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
@@ -5526,15 +5531,17 @@ describe("planRampBaseStateSync", () => {
     live: FeatureRule,
     next: FeatureRule,
     s: RampScheduleInterface = schedule(),
-    featureId = "f1",
+    { featureId = "f1", apiRequest = true } = {},
   ) =>
     planRampBaseStateSync({
       featureId,
       schedules: [s],
       liveRules: [live],
       nextRules: [next],
-      apiRequest: true,
+      apiRequest,
     });
+  const dashboard = (next: FeatureRule, s = schedule()) =>
+    plan(rule(), next, s, { apiRequest: false }).refusals[0].message;
   const untouched = { refusals: [], updates: [] };
 
   it("writes fields no step sets into the start action, the environment pair and identity included", () => {
@@ -5570,7 +5577,7 @@ describe("planRampBaseStateSync", () => {
     ]);
   });
 
-  it("refuses a field a step sets, naming the step and the plan routes", () => {
+  it("refuses a field a step sets, naming the step and, for the API, the plan routes", () => {
     const { refusals, updates } = plan(rule(), rule({ coverage: 0.9 }));
     expect(updates).toEqual([]);
     expect(refusals).toHaveLength(1);
@@ -5579,13 +5586,17 @@ describe("planRampBaseStateSync", () => {
       /coverage is set by step 1 of ramp schedule "Ramp"/,
     );
     expect(refusals[0].message).toMatch(/PUT \/api\/v1\/ramp-schedules\/rs_1/);
+    expect(dashboard(rule({ coverage: 0.9 }))).toMatch(
+      /the rollout % is set by step 1 of its ramp-up\. Change it in the ramp-up plan/,
+    );
   });
 
-  it("refuses any change while the schedule runs, pointing at the pause route", () => {
+  it("refuses any change while a stepped schedule runs; a step-less one just syncs", () => {
+    const running = schedule({ status: "running" });
     const { refusals, updates } = plan(
       rule(),
       rule({ condition: "{}" }),
-      schedule({ status: "running" }),
+      running,
     );
     expect(updates).toEqual([]);
     expect(refusals).toHaveLength(1);
@@ -5593,34 +5604,150 @@ describe("planRampBaseStateSync", () => {
     expect(refusals[0].message).toMatch(
       /POST \/api\/v1\/ramp-schedules\/rs_1\/actions\/pause/,
     );
-  });
-
-  it("speaks in dashboard terms for dashboard publishes", () => {
-    const dashboard = (next: FeatureRule, s = schedule()) =>
-      planRampBaseStateSync({
-        featureId: "f1",
-        schedules: [s],
-        liveRules: [rule()],
-        nextRules: [next],
-      }).refusals[0].message;
-    expect(
-      dashboard(rule({ condition: "{}" }), schedule({ status: "running" })),
-    ).toMatch(/has a running ramp-up\. Pause it before publishing/);
-    expect(dashboard(rule({ coverage: 0.9 }))).toMatch(
-      /the rollout % is set by step 1 of its ramp-up\. Change it in the ramp-up plan/,
+    expect(dashboard(rule({ condition: "{}" }), running)).toMatch(
+      /has a running ramp-up\. Pause it before publishing/,
     );
+    const stepless = plan(
+      rule(),
+      rule({ condition: "{}" }),
+      schedule({ status: "running", steps: [] }),
+    );
+    expect(stepless.refusals).toEqual([]);
+    expect(stepless.updates[0].fields).toEqual(["condition"]);
   });
 
-  it("leaves unanchored statuses, other features, `enabled` and unchanged rules alone", () => {
+  it("leaves unanchored statuses, other features, `enabled`, unchanged and merely re-shaped rules alone", () => {
     for (const status of ["pending", "completed", "rolled-back"]) {
       expect(
         plan(rule(), rule({ condition: "{}" }), schedule({ status })),
       ).toEqual(untouched);
     }
-    expect(plan(rule(), rule({ condition: "{}" }), schedule(), "f2")).toEqual(
-      untouched,
-    );
+    expect(
+      plan(rule(), rule({ condition: "{}" }), schedule(), { featureId: "f2" }),
+    ).toEqual(untouched);
     expect(plan(rule(), rule({ enabled: false }))).toEqual(untouched);
     expect(plan(rule(), rule())).toEqual(untouched);
+    // The rule editor fills in what a REST-created rule left implicit.
+    expect(
+      plan(
+        rule({
+          hashVersion: undefined,
+          savedGroups: undefined,
+          condition: undefined,
+        }),
+        rule({ hashVersion: 1, savedGroups: [], condition: "" }),
+      ),
+    ).toEqual(untouched);
+  });
+});
+
+describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
+  const anchor = (patch: Record<string, unknown>) => ({
+    targetType: "feature-rule",
+    targetId: "t1",
+    patch: { ruleId: "r1", coverage: 0, ...patch },
+  });
+  const fresh = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "rs_1",
+      name: "Ramp",
+      status: "paused",
+      steps: [],
+      endActions: [],
+      startActions: [anchor({ condition: null })],
+      eventHistory: [],
+      ...over,
+    }) as unknown as RampScheduleInterface;
+  const makeCtx = (doc: RampScheduleInterface) => {
+    const updateById = jest.fn().mockResolvedValue(doc);
+    const ctx = {
+      userId: "u1",
+      models: {
+        rampSchedules: {
+          getById: jest.fn().mockResolvedValue(doc),
+          updateById,
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    } as unknown as Parameters<typeof applyRampBaseStateSync>[0];
+    return { ctx, updateById };
+  };
+  const update = {
+    schedule: fresh(),
+    patches: [
+      { targetId: "t1", ruleId: "r1", patch: { condition: '{"a":1}' } },
+    ],
+    fields: ["condition"],
+  };
+  const reason = "Base state updated by publishing revision 3: condition";
+
+  it("patches the fresh anchor, appends the event and keeps a pre-image for the rewind", async () => {
+    const paused = { type: "paused", timestamp: new Date() };
+    const { ctx, updateById } = makeCtx(fresh({ eventHistory: [paused] }));
+    const written: Parameters<typeof restoreRampBaseStates>[1] = [];
+    await applyRampBaseStateSync(ctx, [update], 3, written);
+    const [, writes] = updateById.mock.calls[0];
+    expect(writes.startActions[0].patch).toEqual({
+      ruleId: "r1",
+      coverage: 0,
+      condition: '{"a":1}',
+    });
+    expect(writes.eventHistory).toEqual([
+      paused,
+      expect.objectContaining({ type: "config-edited", reason, userId: "u1" }),
+    ]);
+    expect(written[0].patches[0].before).toEqual({ condition: null });
+  });
+
+  it("refuses when the schedule resumed, the plan took the field or the anchor moved since planning", async () => {
+    const step = (patch: Record<string, unknown>) => ({
+      interval: 1,
+      actions: [anchor(patch)],
+    });
+    for (const doc of [
+      fresh({ status: "running", steps: [step({ coverage: 1 })] }),
+      fresh({ steps: [step({ condition: "{}" })] }),
+      fresh({ startActions: [] }),
+    ]) {
+      const { ctx, updateById } = makeCtx(doc);
+      await expect(
+        applyRampBaseStateSync(ctx, [update], 3, []),
+      ).rejects.toThrow(ConflictError);
+      expect(updateById).not.toHaveBeenCalled();
+    }
+  });
+
+  it("rewinds only the fields it still owns and drops only its own event", async () => {
+    const event = { type: "config-edited", timestamp: new Date(), reason };
+    const older = { ...event, timestamp: new Date(Date.now() - 1000) };
+    const { ctx, updateById } = makeCtx(
+      fresh({
+        startActions: [anchor({ condition: '{"a":1}', force: "later" })],
+        eventHistory: [older, event],
+      }),
+    );
+    await restoreRampBaseStates(ctx, [
+      {
+        id: "rs_1",
+        patches: [
+          {
+            targetId: "t1",
+            ruleId: "r1",
+            patch: { condition: '{"a":1}', force: "b" },
+            before: { condition: null },
+          },
+        ],
+        event,
+      },
+    ]);
+    const [, writes] = updateById.mock.calls[0];
+    expect(writes.startActions[0].patch).toEqual({
+      ruleId: "r1",
+      coverage: 0,
+      condition: null,
+      force: "later",
+    });
+    expect(writes.eventHistory).toEqual([older]);
   });
 });

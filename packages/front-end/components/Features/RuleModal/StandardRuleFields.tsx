@@ -11,7 +11,7 @@ import {
 import {
   ensureConfigBacking,
   rampPlanControlledFields,
-  stemRuleId,
+  rampTargetMatchesRule,
 } from "shared/util";
 import { PiLockSimple } from "react-icons/pi";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
@@ -192,9 +192,8 @@ export default function StandardRuleFields({
   const rampAnchored =
     !!ruleRampSchedule &&
     ANCHORED_RAMP_SCHEDULE_STATUSES.includes(ruleRampSchedule.status);
-  const rampTargetId = ruleRampSchedule?.targets.find(
-    (t) =>
-      t.ruleId && stemRuleId(t.ruleId) === stemRuleId(form.watch("id") ?? ""),
+  const rampTargetId = ruleRampSchedule?.targets.find((t) =>
+    rampTargetMatchesRule(t, form.watch("id") ?? ""),
   )?.id;
   const rampSetsCoverage =
     !!ruleRampSchedule &&
@@ -325,7 +324,9 @@ export default function StandardRuleFields({
 
       {rampSyncsTargeting && (
         <Callout status="info" mt="5">
-          This rule is part of a paused ramp-up.{" "}
+          This rule is part of a ramp-up that is{" "}
+          {ruleRampSchedule?.status === "paused" ? "paused" : "not running yet"}
+          .{" "}
           {rampControlsCoverage
             ? "The rollout % is managed by the ramp-up plan, so it can't be changed here. Anything else you change "
             : "Anything you change "}

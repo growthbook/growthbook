@@ -853,11 +853,18 @@ const RAMP_BASE_FIELDS = [
   "hashVersion",
 ] as const;
 
+// Absent, empty and (for hashVersion) the SDK's implicit v1 all read the same.
+function baseFieldValue(field: string, value: unknown): unknown {
+  if (field === "hashVersion") return value ?? 1;
+  if (value === "" || (Array.isArray(value) && !value.length)) return null;
+  return value ?? null;
+}
+
 function changedRampBaseFields(live: FeatureRule, next: FeatureRule): string[] {
   const a = live as Record<string, unknown>;
   const b = next as Record<string, unknown>;
   const changed: string[] = RAMP_BASE_FIELDS.filter(
-    (f) => !isEqual(a[f] ?? null, b[f] ?? null),
+    (f) => !isEqual(baseFieldValue(f, a[f]), baseFieldValue(f, b[f])),
   );
   const envs = (r: Record<string, unknown>) => [
     r.allEnvironments ?? null,
@@ -921,9 +928,8 @@ const RAMP_FIELD_LABELS: Record<string, string> = {
   hashVersion: "hash version",
 };
 
-// A publish's edit to a ramped rule: refused while the ramp runs (pause first)
-// and for fields a step sets; other anchor fields go into the start action so
-// every replay keeps them.
+// Refuse edits under a running ramp or to fields a step sets; carry other
+// anchor fields into the start action so every replay keeps them.
 export function planRampBaseStateSync({
   featureId,
   schedules,
@@ -967,7 +973,9 @@ export function planRampBaseStateSync({
         if (!next) continue;
         const changed = changedRampBaseFields(liveRule, next);
         if (!changed.length) continue;
-        if (schedule.status === "running") {
+        // A schedule with no steps only replays its anchor at the cutoff, so
+        // there is nothing to pause for.
+        if (schedule.status === "running" && schedule.steps.length > 0) {
           refusals.push({
             kind: "ramp-running",
             scheduleId: schedule.id,
@@ -1062,8 +1070,7 @@ const sameAction = (a: RampStartAction, p: RampStartActionPatch) =>
   a.targetId === p.targetId && a.patch.ruleId === p.ruleId;
 
 // Writes each planned base state under the advance lock against a fresh read,
-// so a step that landed since planning keeps its event row and anchor, and a
-// re-planned anchor refuses the publish instead of silently dropping the edit.
+// so nothing that landed since planning is overwritten or slipped past.
 export async function applyRampBaseStateSync(
   ctx: ReqContext | ApiReqContext,
   updates: RampBaseStateUpdate[],
@@ -1077,7 +1084,7 @@ export async function applyRampBaseStateSync(
       // The gates ran on a pre-lock snapshot; a resume or re-plan since then
       // must send the publish back through them rather than slip past.
       const stale =
-        fresh.status === "running" ||
+        (fresh.status === "running" && fresh.steps.length > 0) ||
         anchors.some((a) => !a) ||
         patches.some((p) => {
           const controlled = rampPlanControlledFields(fresh, p.targetId);

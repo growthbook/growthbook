@@ -15,6 +15,7 @@ import {
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
+  rampTargetMatchesRule,
   stemRuleId,
   isScheduledRule,
 } from "shared/util";
@@ -3047,8 +3048,8 @@ async function createRampSchedulesForRevision(
 
     const existingTarget =
       action.mode === "update"
-        ? existingSchedule?.targets.find(
-            (t) => stemRuleId(t.ruleId ?? "") === stemRuleId(action.ruleId),
+        ? existingSchedule?.targets.find((t) =>
+            rampTargetMatchesRule(t, action.ruleId),
           )
         : null;
     if (action.mode === "update" && !existingTarget) {
@@ -3558,11 +3559,8 @@ async function applyDetachRampActions(
         action.rampScheduleId,
       );
       if (existing) {
-        // Stem-match so a bare `fr_abc` detach action matches a suffixed
-        // `fr_abc__production` target (and vice versa).
-        const actionStem = stemRuleId(action.ruleId);
         const remainingTargets = existing.targets.filter(
-          (t) => stemRuleId(t.ruleId ?? "") !== actionStem,
+          (t) => !rampTargetMatchesRule(t, action.ruleId),
         );
         if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
           // Stop the linked SafeRollout before deletion so it doesn't continue
