@@ -97,6 +97,7 @@ import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
 import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
+import { SlackAssistantThreadModel } from "back-end/src/models/SlackAssistantThreadModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
@@ -155,6 +156,7 @@ export type ModelName =
   | "slackWorkspaceConnections"
   | "slackUserLinks"
   | "slackTaskClaims"
+  | "slackAssistantThreads"
   | "apiKeys"
   | "oauthAuthCodes"
   | "oauthGrants"
@@ -215,6 +217,7 @@ export const modelClasses = {
   slackWorkspaceConnections: SlackWorkspaceConnectionModel,
   slackUserLinks: SlackUserLinkModel,
   slackTaskClaims: SlackTaskClaimModel,
+  slackAssistantThreads: SlackAssistantThreadModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   oauthGrants: OAuthGrantModel,
@@ -378,6 +381,7 @@ export class ReqContextClass {
       slackWorkspaceConnections: new SlackWorkspaceConnectionModel(this),
       slackUserLinks: new SlackUserLinkModel(this),
       slackTaskClaims: new SlackTaskClaimModel(this),
+      slackAssistantThreads: new SlackAssistantThreadModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       oauthGrants: new OAuthGrantModel(this),

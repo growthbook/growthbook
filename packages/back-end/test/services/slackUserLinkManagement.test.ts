@@ -69,7 +69,7 @@ const context = (organization: string, userId = "user1") =>
     userId,
     models: {
       slackTaskClaims: {
-        claim: async (key: string) => {
+        claimOnce: async (key: string) => {
           if (claims.has(key)) return false;
           claims.add(key);
           return true;

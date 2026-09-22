@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { SlackThreadIdentity } from "shared/validators";
 
 export function slackTaskKey(parts: string[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
@@ -19,4 +20,16 @@ export function isCurrentSlackApproval(
   actionId: string,
 ): boolean {
   return !!pendingActionId && pendingActionId === actionId;
+}
+
+/** One conversation per Slack user, GrowthBook account, link generation, organization, and thread. */
+export function slackConversationId(
+  identity: SlackThreadIdentity & {
+    organizationId: string;
+    slackUserId: string;
+    userId: string;
+    linkId: string;
+  },
+): string {
+  return `conv_slack_${slackTaskKey([identity.teamId, identity.channelId, identity.rootTs, identity.organizationId, identity.slackUserId, identity.userId, identity.linkId])}`;
 }

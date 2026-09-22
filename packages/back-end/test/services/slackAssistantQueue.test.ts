@@ -8,9 +8,11 @@ import addSlackAssistantJobs, {
   queueSlackAppHomeOpened,
 } from "back-end/src/jobs/slackAssistantJobs";
 jest.mock("back-end/src/services/slack/slackAppHome", () => ({
+  ...jest.requireActual("back-end/src/services/slack/slackAppHome"),
   handleSlackAppHomeOpened: jest.fn(),
 }));
 jest.mock("back-end/src/services/slack/slackAssistant", () => ({
+  ...jest.requireActual("back-end/src/services/slack/slackAssistant"),
   handleSlackAssistantMention: jest.fn(),
   handleSlackAssistantConfirmation: jest.fn(),
 }));
@@ -38,8 +40,8 @@ beforeEach(() => {
 });
 
 test("retains a completed delivery instead of scheduling it again", async () => {
-  await queueSlackAssistantMention(mention, "event");
-  await queueSlackAssistantMention(mention, "event");
+  await queueSlackAssistantMention({ eventId: "event", mention });
+  await queueSlackAssistantMention({ eventId: "event", mention });
   expect(unique).toHaveBeenCalledWith(
     expect.objectContaining({ "data.dedupeKey": expect.any(String) }),
     { insertOnly: true },
@@ -87,9 +89,9 @@ test("propagates failed app-open enqueue so Slack can retry", async () => {
 
 test("propagates failed durable enqueue so the router can return503", async () => {
   save.mockRejectedValueOnce(new Error("write failed"));
-  await expect(queueSlackAssistantMention(mention, "event")).rejects.toThrow(
-    "write failed",
-  );
+  await expect(
+    queueSlackAssistantMention({ eventId: "event", mention }),
+  ).rejects.toThrow("write failed");
 });
 
 test("accepts a concurrent duplicate insert as already queued", async () => {
@@ -97,7 +99,7 @@ test("accepts a concurrent duplicate insert as already queued", async () => {
     Object.assign(new Error("duplicate"), { code: 11000 }),
   );
   await expect(
-    queueSlackAssistantMention(mention, "event"),
+    queueSlackAssistantMention({ eventId: "event", mention }),
   ).resolves.toBeUndefined();
 });
 

@@ -28,9 +28,6 @@ jest.mock("back-end/src/services/slack/slackWebApi", () => ({
   postSlackImageMessage: jest.fn(),
   postSlackMessageResult: jest.fn(),
 }));
-jest.mock("back-end/src/services/slack/slackThreadRouting", () => ({
-  pinSlackNotificationThread: jest.fn(),
-}));
 jest.mock(
   "back-end/src/services/notificationCards/renderNotificationCard",
   () => ({
@@ -63,6 +60,7 @@ const context = {
         .fn()
         .mockResolvedValue({ encryptedBotAccessToken: "encrypted" }),
     },
+    slackAssistantThreads: { bindNotificationThread: jest.fn() },
   },
 } as unknown as ReqContext;
 beforeEach(() => {

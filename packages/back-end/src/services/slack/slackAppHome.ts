@@ -2,6 +2,13 @@ import { z } from "zod";
 import { getSlackWorkspaceBotToken } from "back-end/src/services/slack/slackIdentity";
 import { setSlackSuggestedPrompts } from "back-end/src/services/slack/slackWebApi";
 
+export const slackAppHomeOpenedSchema = z.object({
+  teamId: z.string().min(1),
+  channelId: z.string().min(1),
+  eventId: z.string().min(1),
+});
+export type SlackAppHomeOpened = z.infer<typeof slackAppHomeOpenedSchema>;
+
 export const slackAppHomeOpenedEventSchema = z
   .object({
     type: z.literal("event_callback"),
@@ -13,13 +20,13 @@ export const slackAppHomeOpenedEventSchema = z
       channel: z.string().min(1),
     }),
   })
-  .transform((payload) => ({
-    teamId: payload.team_id,
-    channelId: payload.event.channel,
-    eventId: payload.event_id,
-  }));
-
-export type SlackAppHomeOpened = z.infer<typeof slackAppHomeOpenedEventSchema>;
+  .transform(
+    (payload): SlackAppHomeOpened => ({
+      teamId: payload.team_id,
+      channelId: payload.event.channel,
+      eventId: payload.event_id,
+    }),
+  );
 
 export async function handleSlackAppHomeOpened({
   teamId,

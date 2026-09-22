@@ -1,8 +1,10 @@
 import type {
   AnyBulkWriteOperation,
   BulkWriteOptions,
+  CreateIndexesOptions,
   Document,
   Collection,
+  IndexSpecification,
 } from "mongodb";
 import type { Document as MongooseDocument } from "mongoose";
 import mongoose from "mongoose";
@@ -228,6 +230,35 @@ export function isDuplicateKeyErrorForIndex(
     isDuplicateKeyError(err) &&
     String((err as { message?: string }).message ?? "").includes(indexName)
   );
+}
+
+const ensuredIndexes = new Map<string, Promise<void>>();
+
+/**
+ * Builds an index once per process and fails closed. A write whose correctness
+ * depends on the index (a unique index closing a read-then-write race) awaits
+ * this first, and the write is skipped if the build fails. BaseModel builds its
+ * indexes in the background and swallows failures, so it cannot give that
+ * guarantee. Concurrent callers share one build; a failed build is retried by
+ * the next caller.
+ */
+export function ensureIndexOnce(
+  collection: Collection,
+  spec: IndexSpecification,
+  options: CreateIndexesOptions = {},
+): Promise<void> {
+  const key = `${collection.namespace}|${JSON.stringify(spec)}|${JSON.stringify(options)}`;
+  const pending = ensuredIndexes.get(key);
+  if (pending) return pending;
+  const build = collection
+    .createIndex(spec, options)
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      ensuredIndexes.delete(key);
+      throw error;
+    });
+  ensuredIndexes.set(key, build);
+  return build;
 }
 
 /**

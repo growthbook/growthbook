@@ -122,10 +122,7 @@ export const postSlackEvents = async (
   try {
     const assistantEvent = getSlackAssistantEvent(req.body);
     if (assistantEvent) {
-      await queueSlackAssistantMention(
-        assistantEvent.mention,
-        assistantEvent.eventId,
-      );
+      await queueSlackAssistantMention(assistantEvent);
     } else {
       const appHome = slackAppHomeOpenedEventSchema.safeParse(req.body);
       if (appHome.success) await queueSlackAppHomeOpened(appHome.data);

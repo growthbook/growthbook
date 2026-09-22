@@ -1,10 +1,16 @@
-import type { AIAgentPendingAction } from "shared/validators";
+import { z } from "zod";
+import type {
+  AIAgentPendingAction,
+  SlackThreadIdentity,
+} from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   SlackThreadBusyError,
   slackTaskKey,
   isCurrentSlackApproval,
+  slackConversationId,
 } from "back-end/src/services/slack/slackTaskSafety";
+import { SlackAssistantThreadModel } from "back-end/src/models/SlackAssistantThreadModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
@@ -14,21 +20,42 @@ import {
 } from "back-end/src/services/slack/slackIdentity";
 import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
 import {
-  SlackAssistantMention,
-  SlackThreadIdentity,
-  getSlackThread,
-  pinSlackThreadOrganization,
-  slackConversationId,
-} from "back-end/src/services/slack/slackThreadRouting";
-export type { SlackAssistantMention } from "back-end/src/services/slack/slackThreadRouting";
-import {
   postSlackMessage,
   postSlackEphemeralMessage,
   updateSlackMessage,
   SlackRateLimitError,
 } from "back-end/src/services/slack/slackWebApi";
-import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
+import { toSlackMrkdwn } from "back-end/src/util/slack.util";
 import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
+
+export const slackAssistantMentionSchema = z.object({
+  teamId: z.string().min(1),
+  channelId: z.string().min(1),
+  slackUserId: z.string().min(1),
+  text: z.string(),
+  messageTs: z.string().min(1),
+  threadTs: z.string().optional(),
+  botUserId: z.string().optional(),
+  /** Slack `ts` of the "Thinking…" message the first attempt posted; a busy retry edits it instead of posting another. */
+  placeholderTs: z.string().optional(),
+});
+export type SlackAssistantMention = z.infer<typeof slackAssistantMentionSchema>;
+
+export const slackAssistantConfirmationSchema = z.object({
+  teamId: z.string().min(1),
+  channelId: z.string().min(1),
+  slackUserId: z.string().min(1),
+  conversationId: z.string().min(1),
+  actionId: z.string().min(1),
+  decision: z.enum(["confirm", "cancel"]),
+  threadTs: z.string().optional(),
+  buttonsMessageTs: z.string().optional(),
+  /** Slack action timestamp identifies a click; retries of that delivery reuse it. */
+  interactionTs: z.string().min(1),
+});
+export type SlackAssistantConfirmation = z.infer<
+  typeof slackAssistantConfirmationSchema
+>;
 
 const THINKING_TEXT = "_Thinking…_";
 const TIMED_OUT_TEXT =
@@ -67,10 +94,10 @@ function postSlackAccountLink({
 }
 
 /**
- * Runs one turn while holding the thread's claim, so turns in a Slack thread
+ * Runs one turn while holding the thread's lease, so turns in a Slack thread
  * never overlap. Throws SlackThreadBusyError while another worker holds it and
- * the queue retries. The signal fires at the claim's deadline, after which a
- * crashed or hung worker's claim may be taken over.
+ * the queue retries. The signal fires at the lease's deadline, after which a
+ * crashed or hung worker's lease may be taken over.
  */
 async function withThreadTurn({
   context,
@@ -84,14 +111,14 @@ async function withThreadTurn({
   turn: (signal: AbortSignal) => Promise<void>;
 }): Promise<void> {
   const key = `thread:${slackTaskKey([thread.teamId, thread.channelId, thread.rootTs])}`;
-  const claim = await context.models.slackTaskClaims.claimThread(key);
-  if (!claim) throw new SlackThreadBusyError(placeholderTs);
+  const lease = await context.models.slackTaskClaims.acquireThreadLease(key);
+  if (!lease) throw new SlackThreadBusyError(placeholderTs);
   try {
     await turn(
-      AbortSignal.timeout(Math.max(0, claim.expiresAt.getTime() - Date.now())),
+      AbortSignal.timeout(Math.max(0, lease.expiresAt.getTime() - Date.now())),
     );
   } finally {
-    await context.models.slackTaskClaims.releaseThread(key, claim.token);
+    await context.models.slackTaskClaims.releaseThreadLease(key, lease.token);
   }
 }
 
@@ -125,12 +152,13 @@ export async function handleSlackAssistantMention(
     return;
   }
   const threadIdentity = { teamId, channelId, rootTs };
-  const thread = await getSlackThread(threadIdentity);
+  const thread =
+    await SlackAssistantThreadModel.dangerousGetForThread(threadIdentity);
   const target = await resolveSlackAssistantTarget({
     requireAssistantEnabled: true,
     teamId,
     slackUserId,
-    organizationId: thread?.organizationId,
+    organizationId: thread?.organization,
   });
   if (!target.ok) {
     if (target.botToken) {
@@ -197,11 +225,11 @@ export async function handleSlackAssistantMention(
     return;
   }
 
-  const pinned = await pinSlackThreadOrganization(
-    threadIdentity,
-    target.organizationId,
-  );
-  if (pinned.organizationId !== target.organizationId) {
+  const bound =
+    await target.context.models.slackAssistantThreads.bindConversationThread(
+      threadIdentity,
+    );
+  if (bound.organization !== target.organizationId) {
     throw new Error(
       "The Slack thread organization changed. Please send your question again.",
     );
@@ -359,19 +387,6 @@ async function postPendingApproval({
  * (Confirm dispatches the real API call; Cancel records a rejection) and posts
  * the outcome in-thread. Called after the interactions endpoint ACKs Slack.
  */
-export interface SlackAssistantConfirmation {
-  teamId: string;
-  channelId: string;
-  slackUserId: string;
-  conversationId: string;
-  actionId: string;
-  decision: "confirm" | "cancel";
-  threadTs?: string;
-  buttonsMessageTs?: string;
-  /** Slack action timestamp identifies a click; retries of that delivery reuse it. */
-  interactionTs?: string;
-}
-
 export async function handleSlackAssistantConfirmation({
   teamId,
   channelId,
@@ -383,7 +398,11 @@ export async function handleSlackAssistantConfirmation({
   buttonsMessageTs,
 }: SlackAssistantConfirmation): Promise<void> {
   const thread = threadTs
-    ? await getSlackThread({ teamId, channelId, rootTs: threadTs })
+    ? await SlackAssistantThreadModel.dangerousGetForThread({
+        teamId,
+        channelId,
+        rootTs: threadTs,
+      })
     : null;
   if (!thread) {
     const token = await getSlackWorkspaceBotToken(teamId);
@@ -401,7 +420,7 @@ export async function handleSlackAssistantConfirmation({
     requireAssistantEnabled: true,
     teamId,
     slackUserId,
-    organizationId: thread.organizationId,
+    organizationId: thread.organization,
   });
   if (!target.ok) {
     if (target.botToken) {
@@ -472,7 +491,7 @@ export async function handleSlackAssistantConfirmation({
               requireAssistantEnabled: true,
               teamId,
               slackUserId,
-              organizationId: thread.organizationId,
+              organizationId: thread.organization,
             });
             if (
               !current.ok ||
@@ -488,7 +507,7 @@ export async function handleSlackAssistantConfirmation({
             // A preflight failure leaves the action and its buttons available. Once
             // dispatch can begin, retain this claim even if its outcome is uncertain.
             if (
-              !(await current.context.models.slackTaskClaims.claim(
+              !(await current.context.models.slackTaskClaims.claimOnce(
                 `action:${slackTaskKey([teamId, target.organizationId, conversationId, actionId])}`,
               ))
             ) {

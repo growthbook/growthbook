@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SlackAssistantMention } from "back-end/src/services/slack/slackThreadRouting";
+import type { SlackAssistantMention } from "back-end/src/services/slack/slackAssistant";
 
 const messageSchema = z.object({
   user: z.string().min(1),

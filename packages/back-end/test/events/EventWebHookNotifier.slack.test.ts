@@ -19,7 +19,6 @@ import {
   SLACK_WORKSPACE_PLACEHOLDER_URL,
   postSlackImageMessage,
 } from "back-end/src/services/slack/slackWebApi";
-import { pinSlackNotificationThread } from "back-end/src/services/slack/slackThreadRouting";
 import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { cancellableFetch } from "back-end/src/util/http.util";
@@ -64,9 +63,7 @@ jest.mock("back-end/src/services/slack/slackWebApi", () => ({
   postSlackImageMessage: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/slack/slackThreadRouting", () => ({
-  pinSlackNotificationThread: jest.fn(),
-}));
+const bindNotificationThread = jest.fn();
 
 jest.mock(
   "back-end/src/services/notificationCards/renderNotificationCard",
@@ -168,6 +165,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
         slackWorkspaceConnections: {
           getByTeamId: getSlackWorkspaceConnectionByTeamId,
         },
+        slackAssistantThreads: { bindNotificationThread },
         webhookSecrets: {
           getBackEndSecretsReplacer: jest
             .fn()
@@ -629,46 +627,48 @@ describe("Slack EventWebHook delivery compatibility", () => {
       });
     });
 
-    it("pins the thread of a delivered text notification", async () => {
+    it("binds the thread of a delivered text notification", async () => {
       connectBot();
       sendText("123.456");
 
       await runAgendaJob();
 
-      expect(pinSlackNotificationThread).toHaveBeenCalledWith(
-        { teamId: "T123", channelId: "C123", rootTs: "123.456" },
-        "org-1",
-      );
+      expect(bindNotificationThread).toHaveBeenCalledWith({
+        teamId: "T123",
+        channelId: "C123",
+        rootTs: "123.456",
+      });
     });
 
-    it("pins the thread of a delivered card to the card's message", async () => {
+    it("binds the thread of a delivered card to the card's message", async () => {
       connectBot();
       sendCard("1700.001");
 
       await runAgendaJob();
 
-      expect(pinSlackNotificationThread).toHaveBeenCalledWith(
-        { teamId: "T123", channelId: "C123", rootTs: "1700.001" },
-        "org-1",
-      );
+      expect(bindNotificationThread).toHaveBeenCalledWith({
+        teamId: "T123",
+        channelId: "C123",
+        rootTs: "1700.001",
+      });
     });
 
-    it("pins nothing when the card share has no message timestamp", async () => {
+    it("binds nothing when the card share has no message timestamp", async () => {
       connectBot();
       sendCard(null);
 
       await runAgendaJob();
 
-      expect(pinSlackNotificationThread).not.toHaveBeenCalled();
+      expect(bindNotificationThread).not.toHaveBeenCalled();
     });
 
-    it("pins nothing when the text post fails", async () => {
+    it("binds nothing when the text post fails", async () => {
       connectBot();
       sendText(null);
 
       await runAgendaJob();
 
-      expect(pinSlackNotificationThread).not.toHaveBeenCalled();
+      expect(bindNotificationThread).not.toHaveBeenCalled();
     });
   });
 

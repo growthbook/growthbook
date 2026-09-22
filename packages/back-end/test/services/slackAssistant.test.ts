@@ -10,14 +10,13 @@ import {
   handleSlackAssistantMention,
 } from "back-end/src/services/slack/slackAssistant";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
-import {
-  getSlackThread,
-  pinSlackThreadOrganization,
-  slackConversationId,
-} from "back-end/src/services/slack/slackThreadRouting";
+import { SlackAssistantThreadModel } from "back-end/src/models/SlackAssistantThreadModel";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
-import { SlackThreadBusyError } from "back-end/src/services/slack/slackTaskSafety";
+import {
+  SlackThreadBusyError,
+  slackConversationId,
+} from "back-end/src/services/slack/slackTaskSafety";
 
 jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   runAgentTurnToCompletion: jest.fn(),
@@ -41,39 +40,40 @@ jest.mock("back-end/src/services/slack/slackWebApi", () => ({
 jest.mock("back-end/src/services/slack/slackAgent", () => ({
   slackAgentConfig: {},
 }));
-jest.mock("back-end/src/services/slack/slackThreadRouting", () => ({
-  ...jest.requireActual("back-end/src/services/slack/slackThreadRouting"),
-  getSlackThread: jest.fn(),
-  pinSlackThreadOrganization: jest.fn(),
+jest.mock("back-end/src/models/SlackAssistantThreadModel", () => ({
+  SlackAssistantThreadModel: { dangerousGetForThread: jest.fn() },
 }));
+const getThread = jest.mocked(SlackAssistantThreadModel.dangerousGetForThread);
 const thread = {
-  _id: "thread1",
+  id: "thread1",
   teamId: "T1",
   channelId: "C1",
   rootTs: "123.456",
+  dateCreated: new Date(),
   dateUpdated: new Date(),
-  status: "selected" as const,
-  organizationId: "org1",
+  organization: "org1",
 };
+const bindConversationThread = jest.fn(async () => thread);
 const conversationId = slackConversationId({
   ...thread,
+  organizationId: "org1",
   slackUserId: "U1",
   userId: "user1",
   linkId: "link1",
 });
 const getById = jest.fn().mockResolvedValue({ pendingAction: { id: "first" } });
 const claim = jest.fn(async () => true);
-const claimThread = jest.fn(async () => ({
+const acquireThreadLease = jest.fn(async () => ({
   token: "turn",
   expiresAt: new Date(Date.now() + 60_000),
 }));
-const releaseThread = jest.fn(async () => undefined);
+const releaseThreadLease = jest.fn(async () => undefined);
 beforeEach(() => {
   jest.clearAllMocks();
   claim.mockResolvedValue(true);
   jest.mocked(postSlackEphemeralMessage).mockResolvedValue(true);
-  jest.mocked(getSlackThread).mockResolvedValue(thread);
-  jest.mocked(pinSlackThreadOrganization).mockResolvedValue(thread);
+  getThread.mockResolvedValue(thread);
+  bindConversationThread.mockResolvedValue(thread);
   // Only the fields consumed by this service are needed in the mocked context.
   jest.mocked(resolveSlackAssistantTarget).mockImplementation(
     async () =>
@@ -82,7 +82,12 @@ beforeEach(() => {
         context: {
           models: {
             aiConversations: { getById },
-            slackTaskClaims: { claim, claimThread, releaseThread },
+            slackTaskClaims: {
+              claimOnce: claim,
+              acquireThreadLease,
+              releaseThreadLease,
+            },
+            slackAssistantThreads: { bindConversationThread },
           },
           getPermissionsFingerprint: () => "permissions",
         },
@@ -291,7 +296,7 @@ it.each(["link", "permissions"])(
 it.each([thread, null])(
   "sends an unlinked user a private signed URL and asks them to resend: %p",
   async (existingThread) => {
-    jest.mocked(getSlackThread).mockResolvedValueOnce(existingThread);
+    getThread.mockResolvedValueOnce(existingThread);
     jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
       ok: false,
       reason: "not_linked",
@@ -349,7 +354,7 @@ it("refreshes signed link consent on request even for already-linked users", asy
 it.each(["C1", "G1", "D1"])(
   "answers in %s using the workspace organization without a channel binding",
   async (channelId) => {
-    jest.mocked(getSlackThread).mockResolvedValue(null);
+    getThread.mockResolvedValue(null);
     jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
       ok: true,
       conversationId,
@@ -458,7 +463,7 @@ it("propagates exhausted confirmation delivery retries without rerunning the tur
 
 it("acknowledges a waiting message and hands its placeholder to the retry", async () => {
   jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
-  claimThread.mockResolvedValueOnce(null);
+  acquireThreadLease.mockResolvedValueOnce(null);
   const attempt = handleSlackAssistantMention({
     teamId: "T1",
     channelId: "C1",
@@ -472,7 +477,7 @@ it("acknowledges a waiting message and hands its placeholder to the retry", asyn
     expect.objectContaining({ text: "_Thinking…_", threadTs: "123.456" }),
   );
   expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-  expect(releaseThread).not.toHaveBeenCalled();
+  expect(releaseThreadLease).not.toHaveBeenCalled();
 });
 
 it("a retry reuses its placeholder and releases the thread afterwards", async () => {
@@ -495,7 +500,7 @@ it("a retry reuses its placeholder and releases the thread afterwards", async ()
   expect(updateSlackMessage).toHaveBeenCalledWith(
     expect.objectContaining({ ts: "999.111", text: "Answer" }),
   );
-  expect(releaseThread).toHaveBeenCalledWith(
+  expect(releaseThreadLease).toHaveBeenCalledWith(
     expect.stringMatching(/^thread:/),
     "turn",
   );
@@ -504,7 +509,10 @@ it("a retry reuses its placeholder and releases the thread afterwards", async ()
 it("replaces the placeholder with a timeout notice when the deadline passes mid-turn", async () => {
   jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
   jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
-  claimThread.mockResolvedValueOnce({ token: "turn", expiresAt: new Date(0) });
+  acquireThreadLease.mockResolvedValueOnce({
+    token: "turn",
+    expiresAt: new Date(0),
+  });
   jest.mocked(runAgentTurnToCompletion).mockImplementationOnce(async () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     return {
@@ -527,14 +535,14 @@ it("replaces the placeholder with a timeout notice when the deadline passes mid-
       text: expect.stringContaining("timed out"),
     }),
   );
-  expect(releaseThread).toHaveBeenCalledWith(
+  expect(releaseThreadLease).toHaveBeenCalledWith(
     expect.stringMatching(/^thread:/),
     "turn",
   );
 });
 
 it("defers a confirmation while another turn holds the thread", async () => {
-  claimThread.mockResolvedValueOnce(null);
+  acquireThreadLease.mockResolvedValueOnce(null);
   await expect(
     handleSlackAssistantConfirmation({
       teamId: "T1",

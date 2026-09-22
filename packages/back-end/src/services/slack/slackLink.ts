@@ -1,6 +1,7 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { APP_ORIGIN, JWT_SECRET } from "back-end/src/util/secrets";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { signState, verifySignedState } from "back-end/src/util/signedState";
 
 const LINK_STATE_MAX_AGE_MS = 15 * 60 * 1000;
 const linkStateSchema = z.strictObject({
@@ -11,41 +12,22 @@ const linkStateSchema = z.strictObject({
 });
 export type SlackLinkState = z.infer<typeof linkStateSchema>;
 
-const sign = (payload: string) =>
-  createHmac("sha256", JWT_SECRET).update(payload).digest("base64url");
-
 export function buildSlackLinkUrl(
   identity: Pick<SlackLinkState, "slackTeamId" | "slackUserId">,
 ): string {
-  const payload = Buffer.from(
-    JSON.stringify({
-      ...identity,
-      nonce: randomBytes(12).toString("base64url"),
-      createdAt: Date.now(),
-    }),
-  ).toString("base64url");
-  return `${APP_ORIGIN.replace(/\/$/, "")}/integrations/slack/link?state=${encodeURIComponent(`${payload}.${sign(payload)}`)}`;
+  const state = signState({
+    ...identity,
+    nonce: randomBytes(12).toString("base64url"),
+    createdAt: Date.now(),
+  });
+  return `${APP_ORIGIN.replace(/\/$/, "")}/integrations/slack/link?state=${encodeURIComponent(state)}`;
 }
 
 export function verifySlackLinkState(state: string): SlackLinkState | null {
-  const parts = state.split(".");
-  if (parts.length !== 2) return null;
-  const [payload, signature] = parts;
-  if (!payload || !signature) return null;
-  const expected = Buffer.from(sign(payload));
-  const actual = Buffer.from(signature);
-  if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
-    return null;
-
-  try {
-    const input: unknown = JSON.parse(
-      Buffer.from(payload, "base64url").toString("utf8"),
-    );
-    const parsed = linkStateSchema.safeParse(input);
-    if (!parsed.success) return null;
-    const age = Date.now() - parsed.data.createdAt;
-    return age >= 0 && age <= LINK_STATE_MAX_AGE_MS ? parsed.data : null;
-  } catch {
-    return null;
-  }
+  const verified = verifySignedState(
+    state,
+    linkStateSchema,
+    LINK_STATE_MAX_AGE_MS,
+  );
+  return verified.status === "valid" ? verified.data : null;
 }

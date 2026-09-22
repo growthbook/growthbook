@@ -61,7 +61,7 @@ export async function getSlackLinkConsent(
   const proof = verifySlackLinkState(state);
   if (!proof || !context.userId)
     throw new Error(
-      "This link is invalid or expired. Send 'link account' to GrowthBook in Slack for a fresh link.",
+      "The link between your Slack account and GrowthBook is invalid or expired. Send another message to @GrowthBook in Slack to get a fresh link.",
     );
   const connection = await SlackWorkspaceConnectionModel.dangerousGetForTeam(
     proof.slackTeamId,
@@ -118,21 +118,20 @@ export async function getSlackAccountLinks(
   );
 }
 
-/** A pinned org is an exact constraint, never a preference or fallback. */
+/** A thread's bound org is an exact constraint, never a preference or fallback. */
 export async function resolveSlackAssistantTarget({
   teamId,
   slackUserId,
   organizationId,
   requireAssistantEnabled = false,
 }: {
-  teamId: string | undefined;
+  teamId: string;
   slackUserId: string;
   organizationId?: string;
   requireAssistantEnabled?: boolean;
 }): Promise<SlackAssistantTarget> {
-  const connection = teamId
-    ? await SlackWorkspaceConnectionModel.dangerousGetForTeam(teamId)
-    : null;
+  const connection =
+    await SlackWorkspaceConnectionModel.dangerousGetForTeam(teamId);
   if (!connection)
     return {
       ok: false,

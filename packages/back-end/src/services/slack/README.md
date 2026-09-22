@@ -124,11 +124,11 @@ thread. Each Slack participant has a separate conversation bound to their Slack
 identity, GrowthBook account, organization, and current link identifier. Membership,
 configuration, and permissions are checked again when acting.
 
-Notifications GrowthBook posts also pin their thread to the sending organization,
+Notifications GrowthBook posts also bind their thread to the sending organization,
 so replies still belong to that organization if the workspace is later reconnected
-to a different one. These notification pins expire after 90 days through a TTL index,
-and they never overwrite a pin the thread already has. A pin stops expiring once
-someone converses in the thread.
+to a different one. These notification bindings expire after 90 days through a TTL
+index, and they never overwrite a binding the thread already has. A binding stops
+expiring once someone converses in the thread.
 
 ## Queue recovery
 
@@ -147,15 +147,17 @@ check. The permanent action claim is acquired only after these checks pass,
 immediately before resolving the approved action; preflight failures leave the
 original approval controls available.
 
-The handler checks the workspace connection, thread pin, and user access before
+The handler checks the workspace connection, thread binding, and user access before
 claiming the thread. Unlinked users receive account-link prompts without a claim.
 
-Turns in one Slack thread run one at a time. The worker holds a `thread:` claim
+Turns in one Slack thread run one at a time. The worker holds a `thread:` lease
 in `slacktaskclaims` for at most 15 minutes and releases it when the turn ends.
 A busy Agenda job reschedules after five seconds and reuses the placeholder its
 first attempt posted, so a second quick message is acknowledged while the first
 is answered. A crashed or hung worker's claim is taken over at its deadline
-without administrator intervention.
+without administrator intervention. Every Agenda processor, this one included,
+runs inside the shared queue wrapper in `services/queueing.ts`, which renews the
+job lock every nine minutes, so a long turn is never picked up by a second worker.
 
 At the deadline the worker aborts the AI stream, skips the final conversation
 save, and replaces the placeholder with a timeout notice. An already-dispatched

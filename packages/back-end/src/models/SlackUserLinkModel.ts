@@ -86,7 +86,9 @@ export class SlackUserLinkModel extends BaseClass {
       slackUserId: proof.slackUserId,
     };
     const linkId = slackTaskKey([proof.nonce, org.id]);
-    if (!(await this.context.models.slackTaskClaims.claim(`link:${linkId}`))) {
+    if (
+      !(await this.context.models.slackTaskClaims.claimOnce(`link:${linkId}`))
+    ) {
       const current = await this._findOne({
         ...identity,
         growthbookUserId: userId,

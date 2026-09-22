@@ -3,6 +3,7 @@ import {
   slackWorkspaceConnectionSchema,
 } from "shared/validators";
 import {
+  ensureIndexOnce,
   getCollection,
   isDuplicateKeyError,
 } from "back-end/src/util/mongo.util";
@@ -25,8 +26,6 @@ const connectionIndexes: {
     name: "slack_one_workspace_per_org",
   },
 ];
-
-let uniquenessIndexesReady: Promise<void> | null = null;
 
 const BaseClass = MakeModelClass({
   schema: slackWorkspaceConnectionSchema,
@@ -104,26 +103,15 @@ export class SlackWorkspaceConnectionModel extends BaseClass {
     await this.assertConnectionAvailable(doc.teamId);
   }
 
-  // BaseModel declares these indexes too, but logs and swallows creation
-  // failures. assertConnectionAvailable is a read-then-write check, so only the
-  // unique indexes close the race between two concurrent connects. Build them
-  // once per process before the first write and refuse to write if that fails.
-  private ensureUniquenessIndexes(): Promise<void> {
-    if (!uniquenessIndexesReady) {
-      uniquenessIndexesReady = this._dangerousGetCollection()
-        .createIndexes(
-          connectionIndexes.map(({ fields, ...options }) => ({
-            key: fields,
-            ...options,
-          })),
-        )
-        .then(() => undefined)
-        .catch((error: unknown) => {
-          uniquenessIndexesReady = null;
-          throw error;
-        });
-    }
-    return uniquenessIndexesReady;
+  // assertConnectionAvailable is a read-then-write check, so only the unique
+  // indexes close the race between two concurrent connects.
+  private async ensureUniquenessIndexes(): Promise<void> {
+    const collection = this._dangerousGetCollection();
+    await Promise.all(
+      connectionIndexes.map(({ fields, ...options }) =>
+        ensureIndexOnce(collection, fields, options),
+      ),
+    );
   }
 
   public getByTeamId(

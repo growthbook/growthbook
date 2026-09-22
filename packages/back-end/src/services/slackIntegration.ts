@@ -1,9 +1,4 @@
-import {
-  createHash,
-  createHmac,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { SLACK_BOT_SCOPES } from "shared/slack-integration";
 import { defaultSlackNotificationEvents } from "shared/notifications";
 import {
@@ -16,9 +11,9 @@ import {
 import { z } from "zod";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { EventWebHookInterface } from "shared/types/event-webhook";
+import { signState, verifySignedState } from "back-end/src/util/signedState";
 import {
   APP_ORIGIN,
-  JWT_SECRET,
   SLACK_CLIENT_ID,
   SLACK_CLIENT_SECRET,
 } from "back-end/src/util/secrets";
@@ -127,9 +122,6 @@ export const isSlackOAuthConfigured = () =>
 export const getSlackOAuthRedirectUri = () =>
   `${APP_ORIGIN}/integrations/slack`;
 
-const signSlackOAuthState = (payload: string) =>
-  createHmac("sha256", JWT_SECRET).update(payload).digest("base64url");
-
 const encodeSlackOAuthState = ({
   orgId,
   userId,
@@ -138,19 +130,14 @@ const encodeSlackOAuthState = ({
   orgId: string;
   userId: string;
   teamId?: string;
-}) => {
-  const payload = Buffer.from(
-    JSON.stringify({
-      orgId,
-      userId,
-      teamId,
-      nonce: randomBytes(16).toString("base64url"),
-      createdAt: Date.now(),
-    }),
-  ).toString("base64url");
-
-  return `${payload}.${signSlackOAuthState(payload)}`;
-};
+}) =>
+  signState({
+    orgId,
+    userId,
+    teamId,
+    nonce: randomBytes(16).toString("base64url"),
+    createdAt: Date.now(),
+  });
 
 const assertSlackOAuthState = ({
   state,
@@ -159,48 +146,24 @@ const assertSlackOAuthState = ({
   state: string;
   context: ReqContext;
 }) => {
-  const parts = state.split(".");
-  if (parts.length !== 2) {
-    throw new Error("Invalid Slack OAuth state");
-  }
-  const [payload, signature] = parts;
-
-  const expected = signSlackOAuthState(payload);
-  const actualBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-
-  if (
-    actualBuffer.length !== expectedBuffer.length ||
-    !timingSafeEqual(actualBuffer, expectedBuffer)
-  ) {
-    throw new Error("Invalid Slack OAuth state");
-  }
-
-  let statePayload: unknown;
-  try {
-    statePayload = JSON.parse(
-      Buffer.from(payload, "base64url").toString("utf8"),
-    );
-  } catch {
-    throw new Error("Invalid Slack OAuth state");
-  }
-  const parsed = slackOAuthStateSchema.safeParse(statePayload);
-  if (!parsed.success) {
-    throw new Error("Invalid Slack OAuth state");
-  }
-
-  if (Date.now() - parsed.data.createdAt > SLACK_OAUTH_STATE_MAX_AGE_MS) {
+  const verified = verifySignedState(
+    state,
+    slackOAuthStateSchema,
+    SLACK_OAUTH_STATE_MAX_AGE_MS,
+  );
+  if (verified.status === "expired") {
     throw new Error("Slack OAuth state expired");
   }
-
+  if (verified.status !== "valid") {
+    throw new Error("Invalid Slack OAuth state");
+  }
   if (
-    parsed.data.orgId !== context.org.id ||
-    parsed.data.userId !== context.userId
+    verified.data.orgId !== context.org.id ||
+    verified.data.userId !== context.userId
   ) {
     throw new Error("Slack OAuth state does not match the current user");
   }
-
-  return parsed.data;
+  return verified.data;
 };
 
 export const getSlackOAuthAuthorizeUrl = (

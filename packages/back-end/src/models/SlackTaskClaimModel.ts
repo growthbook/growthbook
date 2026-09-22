@@ -3,12 +3,14 @@ import {
   slackTaskClaimSchema,
   SlackTaskClaimInterface,
 } from "shared/validators";
-import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import {
+  ensureIndexOnce,
+  isDuplicateKeyError,
+} from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "slacktaskclaims";
 const THREAD_CLAIM_TTL_MS = 15 * 60 * 1000;
-let uniqueIndexReady: Promise<string> | null = null;
 
 const BaseClass = MakeModelClass({
   schema: slackTaskClaimSchema,
@@ -16,6 +18,11 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
 });
 
+/**
+ * Coordination claims for the Slack assistant. `claimOnce` grants a permanent
+ * claim exactly once; `acquireThreadLease` holds a thread for one turn and is
+ * released or taken over. See the validator for which id prefixes use which.
+ */
 export class SlackTaskClaimModel extends BaseClass {
   // Internal coordination is available to every org context; callers authorize the action.
   protected canRead() {
@@ -32,23 +39,22 @@ export class SlackTaskClaimModel extends BaseClass {
   }
 
   protected async customValidation(doc: SlackTaskClaimInterface) {
-    // BaseModel's create validator replaces the id field with an unrestricted string.
+    // Claims supply their own hash-keyed ids, and BaseModel's create validator
+    // loosens `id` to any optional string, so the id pattern is checked here.
     slackTaskClaimSchema.parse(doc);
   }
 
   protected async beforeCreate() {
-    // BaseModel builds indexes in the background. Claims must fail closed until this exists.
-    uniqueIndexReady ??= this._dangerousGetCollection()
-      .createIndex({ id: 1 }, { unique: true })
-      .catch((error: unknown) => {
-        uniqueIndexReady = null;
-        throw error;
-      });
-    await uniqueIndexReady;
+    // A claim is only a claim if the unique index exists when it is written.
+    await ensureIndexOnce(
+      this._dangerousGetCollection(),
+      { id: 1 },
+      { unique: true },
+    );
   }
 
   /** Permanent claim: granted once, never released. */
-  public async claim(key: string): Promise<boolean> {
+  public async claimOnce(key: string): Promise<boolean> {
     try {
       await this._createOne({ id: key });
       return true;
@@ -63,7 +69,7 @@ export class SlackTaskClaimModel extends BaseClass {
    * a live claim. A claim past its deadline is taken over, so a crashed or hung
    * worker never blocks its thread for longer than the TTL.
    */
-  public async claimThread(
+  public async acquireThreadLease(
     key: string,
   ): Promise<{ token: string; expiresAt: Date } | null> {
     const now = Date.now();
@@ -71,13 +77,13 @@ export class SlackTaskClaimModel extends BaseClass {
       id: key,
       expiresAt: { $lte: new Date(now) },
     });
-    const claim = {
+    const lease = {
       token: randomUUID(),
       expiresAt: new Date(now + THREAD_CLAIM_TTL_MS),
     };
     try {
-      await this._createOne({ id: key, ...claim });
-      return claim;
+      await this._createOne({ id: key, ...lease });
+      return lease;
     } catch (error) {
       if (isDuplicateKeyError(error)) return null;
       throw error;
@@ -85,7 +91,7 @@ export class SlackTaskClaimModel extends BaseClass {
   }
 
   /** Only the holder releases; a stale worker's token no longer matches. */
-  public async releaseThread(key: string, token: string): Promise<void> {
+  public async releaseThreadLease(key: string, token: string): Promise<void> {
     await this._dangerousGetCollection().deleteOne({ id: key, token });
   }
 }

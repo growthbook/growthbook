@@ -24,7 +24,6 @@ import {
   postSlackMessageResult,
   postSlackImageMessage,
 } from "back-end/src/services/slack/slackWebApi";
-import { pinSlackNotificationThread } from "back-end/src/services/slack/slackThreadRouting";
 import { logger } from "back-end/src/util/logger";
 
 export async function deliverSlackNotification({
@@ -122,15 +121,16 @@ export async function deliverSlackMessage({
     };
   }
 
-  const pinThread = async (messageTs: string | null) => {
+  const bindThread = async (messageTs: string | null) => {
     if (!messageTs) return;
     try {
-      await pinSlackNotificationThread(
-        { teamId, channelId, rootTs: messageTs },
-        context.org.id,
-      );
+      await context.models.slackAssistantThreads.bindNotificationThread({
+        teamId,
+        channelId,
+        rootTs: messageTs,
+      });
     } catch (error) {
-      logger.error(error, "Could not pin the Slack notification thread");
+      logger.error(error, "Could not bind the Slack notification thread");
     }
   };
 
@@ -171,7 +171,7 @@ export async function deliverSlackMessage({
       captionBlocks: blocks,
     });
     if (posted) {
-      await pinThread(posted.messageTs);
+      await bindThread(posted.messageTs);
       return {
         result: {
           result: "success",
@@ -194,7 +194,7 @@ export async function deliverSlackMessage({
     text: payload.text,
     blocks: payload.blocks,
   });
-  await pinThread(result.ts);
+  await bindThread(result.ts);
 
   return {
     result: result.ok
