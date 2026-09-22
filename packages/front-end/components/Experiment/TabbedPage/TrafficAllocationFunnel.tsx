@@ -557,6 +557,14 @@ export default function TrafficAllocationFunnel({
           {/* No pencil: the percentage edits in place, the split has its own
               editor, and each variation carries its own. */}
           <FunnelCard title="Traffic">
+            <AssignmentAttribute
+              experiment={experiment}
+              hashAttribute={hashAttribute}
+              fallbackAttribute={fallbackAttribute}
+              disableStickyBucketing={disableStickyBucketing}
+              editInline={editInline}
+              stagePatch={stagePatch}
+            />
             {!isHoldout ? (
               <Box mb="1">
                 <SetupFieldRow
@@ -621,14 +629,6 @@ export default function TrafficAllocationFunnel({
                 </Text>
               </Flex>
             )}
-            <AssignmentAttribute
-              experiment={experiment}
-              hashAttribute={hashAttribute}
-              fallbackAttribute={fallbackAttribute}
-              disableStickyBucketing={disableStickyBucketing}
-              editInline={editInline}
-              stagePatch={stagePatch}
-            />
           </FunnelCard>
 
           <FunnelConnector />
