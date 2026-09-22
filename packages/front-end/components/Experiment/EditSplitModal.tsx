@@ -17,6 +17,8 @@ export interface Props {
   onConfirm: (weights: number[]) => void;
   /** `Confirm` where the page writes later, `Save` where this modal does. */
   staged?: boolean;
+  /** The variation whose field opens focused, for a pill that was clicked. */
+  focusIndex?: number | null;
 }
 
 /** Whole percentages only, so a split can't carry more precision than it shows. */
@@ -33,6 +35,7 @@ export default function EditSplitModal({
   close,
   onConfirm,
   staged,
+  focusIndex,
 }: Props) {
   const [weights, setWeights] = useState(savedWeights);
   const sum = total(weights);
@@ -40,6 +43,18 @@ export default function EditSplitModal({
 
   return (
     <ModalStandard
+      onOpenAutoFocus={(e) => {
+        // Straight to the share that was clicked, ready to be typed over.
+        const content = e.currentTarget as HTMLElement;
+        e.preventDefault();
+        const fields = content.querySelectorAll<HTMLInputElement>(
+          "input[type='number']",
+        );
+        const field = fields[focusIndex ?? 0];
+        if (!field) return content.focus();
+        field.focus();
+        field.select();
+      }}
       trackingEventModalType="edit-experiment-split"
       open={true}
       close={close}

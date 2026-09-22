@@ -148,4 +148,15 @@
     background-color: var(--color-panel-solid);
     color: var(--color-text-mid);
   }
+
+  // A pill that edits its own share, so it answers the pointer.
+  .segmentLabel_button {
+    cursor: pointer;
+    font: inherit;
+
+    &:hover,
+    &:focus-visible {
+      box-shadow: 0 0 0 3px var(--violet-a3);
+    }
+  }
 }

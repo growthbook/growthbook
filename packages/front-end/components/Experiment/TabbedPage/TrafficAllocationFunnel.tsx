@@ -283,7 +283,7 @@ export default function TrafficAllocationFunnel({
     experiment.disableStickyBucketing ??
     false;
 
-  const [editingSplit, setEditingSplit] = useState(false);
+  const [editingSplit, setEditingSplit] = useState<number | null>(null);
 
   // The traffic modal writes as it saves, which would race whatever the page
   // is still holding.
@@ -691,7 +691,7 @@ export default function TrafficAllocationFunnel({
                             color="violet"
                             radius="medium"
                             size="1"
-                            onClick={() => setEditingSplit(true)}
+                            onClick={() => setEditingSplit(0)}
                             aria-label="Edit Split"
                           >
                             <PiPencilSimple size="14" />
@@ -716,6 +716,9 @@ export default function TrafficAllocationFunnel({
                     coverage={1}
                     stackLeft
                     type="string"
+                    onSegmentClick={
+                      editInline ? (i) => setEditingSplit(i) : undefined
+                    }
                     values={phaseVariations.map((v, i) => ({
                       value: v.key,
                       weight: phase?.variationWeights?.[i] ?? 0,
@@ -726,15 +729,16 @@ export default function TrafficAllocationFunnel({
               </Box>
             )}
 
-            {editingSplit ? (
+            {editingSplit !== null ? (
               <EditSplitModal
                 variations={phaseVariations}
                 weights={variationWeights}
                 staged
-                close={() => setEditingSplit(false)}
+                focusIndex={editingSplit}
+                close={() => setEditingSplit(null)}
                 onConfirm={(weights) => {
                   stagePatch({ variationWeights: weights });
-                  setEditingSplit(false);
+                  setEditingSplit(null);
                 }}
               />
             ) : null}

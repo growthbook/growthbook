@@ -115,6 +115,8 @@ export interface Props {
    * arrow per segment. Slim mode only, where the labels sit on top.
    */
   connector?: boolean;
+  /** Makes each percentage a button, for editing that variation's share. */
+  onSegmentClick?: (index: number) => void;
 }
 export default function ExperimentSplitVisual({
   label = "Traffic split preview",
@@ -127,6 +129,7 @@ export default function ExperimentSplitVisual({
   showPercentages = true,
   slim = false,
   connector = false,
+  onSegmentClick,
 }: Props) {
   const totalWeights = parseFloat(
     values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(3),
@@ -154,27 +157,41 @@ export default function ExperimentSplitVisual({
 
   const labelsRow = showPercentages ? (
     <div className={clsx(styles.labels_row, slim && styles.labels_row_above)}>
-      {segments.map(({ i, left, width, name }) => (
-        <span
-          key={i}
-          className={styles.segmentLabel}
-          style={{
-            left: left + width / 2 + "%",
-            ...(showConnector
-              ? { borderColor: getVariationColor(i, true) }
-              : {}),
-          }}
-        >
-          {parseFloat(width.toPrecision(4)) + "%"}
-          {showValues && (
-            <>
-              {" "}
-              - <strong>{name}</strong>
-            </>
-          )}
-          {showConnector ? <SegmentStem /> : null}
-        </span>
-      ))}
+      {segments.map(({ i, left, width, name }) => {
+        const contents = (
+          <>
+            {parseFloat(width.toPrecision(4)) + "%"}
+            {showValues && (
+              <>
+                {" "}
+                - <strong>{name}</strong>
+              </>
+            )}
+            {showConnector ? <SegmentStem /> : null}
+          </>
+        );
+        const style = {
+          left: left + width / 2 + "%",
+          ...(showConnector ? { borderColor: getVariationColor(i, true) } : {}),
+        };
+
+        return onSegmentClick ? (
+          <button
+            key={i}
+            type="button"
+            className={clsx(styles.segmentLabel, styles.segmentLabel_button)}
+            style={style}
+            onClick={() => onSegmentClick(i)}
+            aria-label={`Edit ${name}'s share of the split`}
+          >
+            {contents}
+          </button>
+        ) : (
+          <span key={i} className={styles.segmentLabel} style={style}>
+            {contents}
+          </span>
+        );
+      })}
     </div>
   ) : null;
 
