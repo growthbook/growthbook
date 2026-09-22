@@ -349,11 +349,6 @@ export default function StandardRuleFields({
           lockConfigBacking={isConfigBacked}
           disabled={rampLocksTargeting}
         />
-        {rampLocksTargeting && (
-          <HelperText status="info" mt="2" icon={<PiLockSimple />}>
-            Pause the ramp-up to change this value.
-          </HelperText>
-        )}
         <ConflictCallout field="value" />
       </Box>
 
@@ -552,7 +547,7 @@ export default function StandardRuleFields({
       {rampLocksTargeting ? (
         <Callout status="info" mb="4" icon={<PiLockSimple />}>
           This rule is part of a running ramp-up. Pause it before changing the
-          rollout %, targeting or value. Once paused, your changes take effect
+          rollout %, targeting, or value. Once paused, your changes take effect
           when you publish and stay in place when the ramp-up resumes.
         </Callout>
       ) : (

@@ -154,7 +154,7 @@ From the UI or API you can start, pause, resume, manually advance, jump to a spe
 
 ### Editing a rule under a running schedule
 
-A schedule stores the rule's pre-ramp state as its **base state** and re-applies it, plus every step so far, each time it advances. While the schedule is `running`, the rule cannot be edited: the rule editor locks the rollout percentage, targeting and value, and a publish that changes the rule is refused with the schedule's pause route. Pause the schedule first.
+A schedule stores the rule's pre-ramp state as its **base state** and re-applies it, plus every step so far, each time it advances. While the schedule is `running`, the rule cannot be edited: the rule editor locks the rollout percentage, targeting, and value, and a publish that changes the rule is refused with the schedule's pause route. Pause the schedule first.
 
 While it is `paused` (or `ready`, before it starts), publishing an edit to the rule reconciles it with the plan:
 
