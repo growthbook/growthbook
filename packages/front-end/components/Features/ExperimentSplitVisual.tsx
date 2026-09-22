@@ -67,8 +67,8 @@ function SegmentConnector({ centers }: { centers: number[] }) {
       const arm =
         Math.abs(dx) < 1
           ? `M ${midX} ${stem} L ${x} ${endY}`
-          : `M ${midX} ${stem} C ${midX} ${stem + dy * 0.825},` +
-            ` ${x} ${turnY - dy * 0.825}, ${x} ${turnY} L ${x} ${endY}`;
+          : `M ${midX} ${stem} C ${midX} ${stem + dy * 0.75},` +
+            ` ${x} ${turnY - dy * 0.75}, ${x} ${turnY} L ${x} ${endY}`;
       return (
         arm +
         ` M ${x - head} ${endY - head} L ${x} ${endY} L ${x + head} ${endY - head}`
