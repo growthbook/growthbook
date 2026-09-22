@@ -27,6 +27,7 @@ export default function SetupFieldRow({
   labelSize = "md",
   tooltip,
   content = "control",
+  fieldMaxWidth,
   children,
 }: {
   label: string;
@@ -35,6 +36,8 @@ export default function SetupFieldRow({
   tooltip?: string;
   /** `text` for a row that only reads a value back, which needs no offset. */
   content?: RowContent;
+  /** Caps the control's width, for one that has no business filling the row. */
+  fieldMaxWidth?: string;
   children: ReactNode;
 }) {
   return (
@@ -69,7 +72,13 @@ export default function SetupFieldRow({
           ) : null}
         </Flex>
       </Box>
-      <Box flexGrow="1" style={{ minWidth: `min(100%, ${MIN_FIELD_WIDTH})` }}>
+      <Box
+        flexGrow="1"
+        style={{
+          minWidth: `min(100%, ${MIN_FIELD_WIDTH})`,
+          maxWidth: fieldMaxWidth,
+        }}
+      >
         {children}
       </Box>
     </Flex>

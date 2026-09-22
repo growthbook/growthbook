@@ -200,14 +200,24 @@ export const ReactSelectProps = {
     option: (styles, { isFocused, isDisabled }) => {
       return {
         ...styles,
-        color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
         ...(isDisabled
           ? {
               opacity: 0.5,
               color: "var(--text-color-muted)",
               cursor: "not-allowed",
             }
-          : {}),
+          : {
+              color: isFocused
+                ? "var(--text-hover-color)"
+                : "var(--text-color-main)",
+              // react-select tracks the pointer in JS, which an option that
+              // re-renders under it — the ones carrying a hover popover do —
+              // can miss entirely. CSS does not depend on that.
+              "&:hover": {
+                backgroundColor: "var(--violet-a3)",
+                color: "var(--text-hover-color)",
+              },
+            }),
       };
     },
     input: (styles, state) => {
