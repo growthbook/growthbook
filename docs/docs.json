@@ -1318,6 +1318,22 @@
     {
       "source": "/integrations/ai-agents/agent-skills/experiments",
       "destination": "/integrations/ai-agents/agent-skills"
+    },
+    {
+      "source": "/contextual-bandits/overview",
+      "destination": "/bandits/contextual"
+    },
+    {
+      "source": "/contextual-bandits/config",
+      "destination": "/bandits/contextual-config"
+    },
+    {
+      "source": "/contextual-bandits/contextual-bandit-via-api",
+      "destination": "/bandits/contextual-via-api"
+    },
+    {
+      "source": "/bandits/contextual-bandit-via-api",
+      "destination": "/bandits/contextual-via-api"
     }
   ]
 }
