@@ -21,6 +21,7 @@ export function processSSEEvent(
   currentItems: ActiveTurnItem[],
   toolStatusLabels: Record<string, string>,
   nextId: () => number,
+  toolPreparingLabels: Record<string, string> = {},
 ): SSEProcessResult {
   switch (event.type) {
     case "reasoning-delta": {
@@ -73,7 +74,10 @@ export function processSSEEvent(
         typeof event.data.toolCallId === "string"
           ? event.data.toolCallId
           : `tool_${nextId()}`;
-      const label = toolStatusLabels[toolName] ?? "Working...";
+      const label =
+        toolPreparingLabels[toolName] ??
+        toolStatusLabels[toolName] ??
+        "Working...";
 
       const already = currentItems.some(
         (i) => i.kind === "tool-status" && i.toolCallId === toolCallId,

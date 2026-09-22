@@ -201,6 +201,22 @@ export function supportsTemperature(model: AIModel): boolean {
   return !CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(model);
 }
 
+export const DEFAULT_MAX_OUTPUT_TOKENS = 8000;
+
+// Anthropic 400s when max_tokens exceeds the model's cap (other providers
+// clamp), so hand-maintain an entry for every model capped below the default.
+const MAX_OUTPUT_TOKENS_BY_MODEL: Readonly<Record<string, number>> = {
+  "claude-3-haiku-20240307": 4096,
+};
+
+export function getMaxOutputTokens(
+  model: AIModel,
+  desired: number = DEFAULT_MAX_OUTPUT_TOKENS,
+): number {
+  const modelMax = MAX_OUTPUT_TOKENS_BY_MODEL[model];
+  return modelMax === undefined ? desired : Math.min(desired, modelMax);
+}
+
 // Whether a text model can accept image input (vision). The model
 // registry carries no capability metadata, so this is a hand-maintained
 // allow-list — keep it in sync with AI_PROVIDER_MODEL_MAP. Routing an

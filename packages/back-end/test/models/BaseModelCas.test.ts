@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import { z } from "zod";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 import {
   CasConflictError,
   MakeModelClass,
@@ -79,17 +82,14 @@ const context = {
 } as unknown as Context;
 
 describe("BaseModel.updateWithCas", () => {
-  let mongod: MongoMemoryServer;
   let model: CasTestModel;
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestMongo();
   }, 60000);
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
+    await disconnectTestMongo();
   });
 
   beforeEach(async () => {
