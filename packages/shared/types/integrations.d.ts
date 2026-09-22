@@ -375,6 +375,10 @@ export interface ExperimentUnitsQueryParams {
 
 export interface ContextualBanditSrmQueryParams {
   settings: ExperimentUnitsQuerySettings;
+  /**
+   * Exposure query's `variation` column value, and its index.
+   */
+  variationKeys: Record<string, string>;
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
