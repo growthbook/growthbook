@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { getCollection } from "back-end/src/util/mongo.util";
-import { logger } from "back-end/src/util/logger";
 import {
+  getCollection,
   isDuplicateKeyError,
-  slackTaskKey,
-} from "back-end/src/services/slack/slackTaskSafety";
+} from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
+import { slackTaskKey } from "back-end/src/services/slack/slackTaskSafety";
 
 export const slackAssistantMentionSchema = z.object({
   teamId: z.string().min(1),
@@ -23,8 +23,9 @@ export const slackAssistantMentionSchema = z.object({
     .nullable()
     .transform((value) => value ?? undefined)
     .optional(),
-  requireActiveThread: z
-    .boolean()
+  // A busy retry reuses the placeholder its first attempt posted.
+  placeholderTs: z
+    .string()
     .nullable()
     .transform((value) => value ?? undefined)
     .optional(),

@@ -147,21 +147,21 @@ check. The permanent action claim is acquired only after these checks pass,
 immediately before resolving the approved action; preflight failures leave the
 original approval controls available.
 
-Turns in the same Slack thread are serialized with a durable `thread:` claim in
-`slacktaskclaims`. Busy jobs retry after five seconds. Claims are released when
-the handler finishes, including errors. They intentionally do not expire while
-a process may still be executing a mutation. After 15 minutes, blocked jobs fail
-with the claim key in the log and send the user an ephemeral recovery message.
+The handler checks the workspace connection, thread pin, and user access before
+claiming the thread. Unlinked users receive account-link prompts without a claim.
 
-If a worker crashes or a turn hangs:
+Turns in one Slack thread run one at a time. The worker holds a `thread:` claim
+in `slacktaskclaims` for at most 15 minutes and releases it when the turn ends.
+A busy Agenda job reschedules after five seconds and reuses the placeholder its
+first attempt posted, so a second quick message is acknowledged while the first
+is answered. A crashed or hung worker's claim is taken over at its deadline
+without administrator intervention.
 
-1. Find the `lockKey` in the blocked job's error/log.
-2. Confirm the prior worker has stopped and cannot resume. Inspect GrowthBook
-   audit history and the conversation before retrying any mutation.
-3. Delete only that exact `thread:` claim from `slacktaskclaims`.
-4. Ask the user to send a new message. Failed jobs are not automatically replayed.
+At the deadline the worker aborts the AI stream, skips the final conversation
+save, and replaces the placeholder with a timeout notice. An already-dispatched
+mutation may still finish; its permanent action claim prevents replay.
 
-Never delete `action:` claims as part of thread recovery. They record approvals
-that have already been submitted, including actions with an uncertain result
-after a crash. A user should inspect the current state and request a fresh
-proposal instead of replaying an old confirmation.
+Permanent `action:` claims record approvals that have already been submitted,
+including actions with an uncertain result after a crash. They never block a
+thread. Users can inspect the current state and request a fresh proposal
+instead of replaying an old confirmation.

@@ -64,19 +64,18 @@ const connectedWorkspace = (organization: string) => ({
   dateCreated: new Date(),
   dateUpdated: new Date(),
 });
-jest.mock("back-end/src/util/mongo.util", () => ({
-  ...jest.requireActual("back-end/src/util/mongo.util"),
-  getCollection: () => ({
-    insertOne: async ({ _id }: { _id: string }) => {
-      if (claims.has(_id))
-        throw Object.assign(new Error("duplicate"), { code: 11000 });
-      claims.add(_id);
-    },
-  }),
-}));
 const context = (organization: string, userId = "user1") =>
   ({
     userId,
+    models: {
+      slackTaskClaims: {
+        claim: async (key: string) => {
+          if (claims.has(key)) return false;
+          claims.add(key);
+          return true;
+        },
+      },
+    },
     populateForeignRefs: jest.fn().mockResolvedValue(undefined),
     org: { id: organization, members: [{ id: userId }] },
   }) as Context;

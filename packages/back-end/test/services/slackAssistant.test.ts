@@ -1,5 +1,4 @@
 import type { ApiReqContext } from "back-end/types/api";
-import { claimSlackTask } from "back-end/src/services/slack/slackTaskSafety";
 import {
   updateSlackMessage,
   postSlackMessage,
@@ -18,6 +17,7 @@ import {
 } from "back-end/src/services/slack/slackThreadRouting";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
+import { SlackThreadBusyError } from "back-end/src/services/slack/slackTaskSafety";
 
 jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   runAgentTurnToCompletion: jest.fn(),
@@ -27,10 +27,7 @@ jest.mock("back-end/src/services/slack/slackIdentity", () => ({
   getSlackWorkspaceBotToken: jest.fn().mockResolvedValue("token"),
 }));
 jest.mock("back-end/src/services/slack/slackTaskSafety", () => ({
-  claimSlackTask: jest.fn().mockResolvedValue(true),
-  slackTaskKey: jest.requireActual(
-    "back-end/src/services/slack/slackTaskSafety",
-  ).slackTaskKey,
+  ...jest.requireActual("back-end/src/services/slack/slackTaskSafety"),
   isCurrentSlackApproval: jest.fn().mockReturnValue(true),
 }));
 jest.mock("back-end/src/services/slack/slackWebApi", () => ({
@@ -65,8 +62,15 @@ const conversationId = slackConversationId({
   linkId: "link1",
 });
 const getById = jest.fn().mockResolvedValue({ pendingAction: { id: "first" } });
+const claim = jest.fn(async () => true);
+const claimThread = jest.fn(async () => ({
+  token: "turn",
+  expiresAt: new Date(Date.now() + 60_000),
+}));
+const releaseThread = jest.fn(async () => undefined);
 beforeEach(() => {
   jest.clearAllMocks();
+  claim.mockResolvedValue(true);
   jest.mocked(postSlackEphemeralMessage).mockResolvedValue(true);
   jest.mocked(getSlackThread).mockResolvedValue(thread);
   jest.mocked(pinSlackThreadOrganization).mockResolvedValue(thread);
@@ -76,7 +80,10 @@ beforeEach(() => {
       ({
         ok: true,
         context: {
-          models: { aiConversations: { getById } },
+          models: {
+            aiConversations: { getById },
+            slackTaskClaims: { claim, claimThread, releaseThread },
+          },
           getPermissionsFingerprint: () => "permissions",
         },
         userId: "user1",
@@ -204,7 +211,7 @@ it("keeps controls retryable before dispatch but blocks replay after an uncertai
     message: "Limit reached",
   });
   await handleSlackAssistantConfirmation(input);
-  expect(claimSlackTask).not.toHaveBeenCalled();
+  expect(claim).not.toHaveBeenCalled();
   expect(updateSlackMessage).not.toHaveBeenCalled();
   const dispatch = jest
     .fn()
@@ -215,10 +222,7 @@ it("keeps controls retryable before dispatch but blocks replay after an uncertai
       await beforeResolvePendingAction?.();
       return dispatch();
     });
-  jest
-    .mocked(claimSlackTask)
-    .mockResolvedValueOnce(true)
-    .mockResolvedValueOnce(false);
+  jest.mocked(claim).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
   await handleSlackAssistantConfirmation(input);
   await handleSlackAssistantConfirmation(input);
   expect(dispatch).toHaveBeenCalledTimes(1);
@@ -289,7 +293,7 @@ it.each(["link", "permissions"])(
       threadTs: "123.456",
     });
     expect(dispatch).not.toHaveBeenCalled();
-    expect(claimSlackTask).not.toHaveBeenCalled();
+    expect(claim).not.toHaveBeenCalled();
   },
 );
 it.each([thread, null])(
@@ -458,4 +462,98 @@ it("propagates exhausted confirmation delivery retries without rerunning the tur
   ).rejects.toBe(error);
   expect(runAgentTurnToCompletion).toHaveBeenCalledTimes(1);
   expect(postSlackMessage).toHaveBeenCalledTimes(1);
+});
+
+it("acknowledges a waiting message and hands its placeholder to the retry", async () => {
+  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  claimThread.mockResolvedValueOnce(null);
+  const attempt = handleSlackAssistantMention({
+    teamId: "T1",
+    channelId: "C1",
+    slackUserId: "U1",
+    text: "Question",
+    messageTs: "123.456",
+  });
+  await expect(attempt).rejects.toBeInstanceOf(SlackThreadBusyError);
+  await expect(attempt).rejects.toMatchObject({ placeholderTs: "999.111" });
+  expect(postSlackMessage).toHaveBeenCalledWith(
+    expect.objectContaining({ text: "_Thinking…_", threadTs: "123.456" }),
+  );
+  expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
+  expect(releaseThread).not.toHaveBeenCalled();
+});
+
+it("a retry reuses its placeholder and releases the thread afterwards", async () => {
+  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  jest.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
+    ok: true,
+    conversationId,
+    reply: "Answer",
+    pendingAction: null,
+  });
+  await handleSlackAssistantMention({
+    teamId: "T1",
+    channelId: "C1",
+    slackUserId: "U1",
+    text: "Question",
+    messageTs: "123.456",
+    placeholderTs: "999.111",
+  });
+  expect(postSlackMessage).not.toHaveBeenCalled();
+  expect(updateSlackMessage).toHaveBeenCalledWith(
+    expect.objectContaining({ ts: "999.111", text: "Answer" }),
+  );
+  expect(releaseThread).toHaveBeenCalledWith(
+    expect.stringMatching(/^thread:/),
+    "turn",
+  );
+});
+
+it("replaces the placeholder with a timeout notice when the deadline passes mid-turn", async () => {
+  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  claimThread.mockResolvedValueOnce({ token: "turn", expiresAt: new Date(0) });
+  jest.mocked(runAgentTurnToCompletion).mockImplementationOnce(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return {
+      ok: true,
+      conversationId,
+      reply: "Late answer",
+      pendingAction: null,
+    };
+  });
+  await handleSlackAssistantMention({
+    teamId: "T1",
+    channelId: "C1",
+    slackUserId: "U1",
+    text: "Question",
+    messageTs: "123.456",
+  });
+  expect(updateSlackMessage).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      ts: "999.111",
+      text: expect.stringContaining("timed out"),
+    }),
+  );
+  expect(releaseThread).toHaveBeenCalledWith(
+    expect.stringMatching(/^thread:/),
+    "turn",
+  );
+});
+
+it("defers a confirmation while another turn holds the thread", async () => {
+  claimThread.mockResolvedValueOnce(null);
+  await expect(
+    handleSlackAssistantConfirmation({
+      teamId: "T1",
+      channelId: "C1",
+      slackUserId: "U1",
+      conversationId,
+      actionId: "first",
+      decision: "confirm",
+      threadTs: "123.456",
+    }),
+  ).rejects.toBeInstanceOf(SlackThreadBusyError);
+  expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
+  expect(claim).not.toHaveBeenCalled();
 });

@@ -1,6 +1,7 @@
 import type { AIAgentPendingAction } from "shared/validators";
+import type { ApiReqContext } from "back-end/types/api";
 import {
-  claimSlackTask,
+  SlackThreadBusyError,
   slackTaskKey,
   isCurrentSlackApproval,
 } from "back-end/src/services/slack/slackTaskSafety";
@@ -14,6 +15,7 @@ import {
 import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
 import {
   SlackAssistantMention,
+  SlackThreadIdentity,
   getSlackThread,
   pinSlackThreadOrganization,
   slackConversationId,
@@ -29,6 +31,8 @@ import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
 import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
 
 const THINKING_TEXT = "_Thinking…_";
+const TIMED_OUT_TEXT =
+  "This request timed out. Please send a new message to continue.";
 /** Remove the bot mention (and any other leading user mention) from the text. */
 function stripBotMention(text: string, botUserId?: string): string {
   let t = text;
@@ -63,6 +67,35 @@ function postSlackAccountLink({
 }
 
 /**
+ * Runs one turn while holding the thread's claim, so turns in a Slack thread
+ * never overlap. Throws SlackThreadBusyError while another worker holds it and
+ * the queue retries. The signal fires at the claim's deadline, after which a
+ * crashed or hung worker's claim may be taken over.
+ */
+async function withThreadTurn({
+  context,
+  thread,
+  placeholderTs,
+  turn,
+}: {
+  context: ApiReqContext;
+  thread: SlackThreadIdentity;
+  placeholderTs?: string;
+  turn: (signal: AbortSignal) => Promise<void>;
+}): Promise<void> {
+  const key = `thread:${slackTaskKey([thread.teamId, thread.channelId, thread.rootTs])}`;
+  const claim = await context.models.slackTaskClaims.claimThread(key);
+  if (!claim) throw new SlackThreadBusyError(placeholderTs);
+  try {
+    await turn(
+      AbortSignal.timeout(Math.max(0, claim.expiresAt.getTime() - Date.now())),
+    );
+  } finally {
+    await context.models.slackTaskClaims.releaseThread(key, claim.token);
+  }
+}
+
+/**
  * Answer a Slack @mention by running the general AI assistant as the matched
  * GrowthBook user and posting the reply back in-thread. Designed to be called
  * after the Events endpoint has already ACKed Slack (it can take many seconds).
@@ -76,21 +109,12 @@ export async function handleSlackAssistantMention(
   const rootTs = mention.threadTs || messageTs;
 
   logger.info(
-    {
-      teamId,
-      channelId,
-      slackUserId,
-      threaded: !!mention.threadTs,
-      requireActiveThread: !!mention.requireActiveThread,
-    },
+    { teamId, channelId, slackUserId, threaded: !!mention.threadTs },
     "Slack assistant: handling mention",
   );
 
   const question = stripBotMention(mention.text, mention.botUserId);
-  if (
-    !mention.requireActiveThread &&
-    question.toLowerCase() === "link account"
-  ) {
+  if (question.toLowerCase() === "link account") {
     const token = await getSlackWorkspaceBotToken(teamId);
     if (token)
       await postSlackAccountLink({
@@ -102,7 +126,6 @@ export async function handleSlackAssistantMention(
   }
   const threadIdentity = { teamId, channelId, rootTs };
   const thread = await getSlackThread(threadIdentity);
-  if (mention.requireActiveThread && !thread) return;
   const target = await resolveSlackAssistantTarget({
     requireAssistantEnabled: true,
     teamId,
@@ -110,14 +133,6 @@ export async function handleSlackAssistantMention(
     organizationId: thread?.organizationId,
   });
   if (!target.ok) {
-    // Non-mention thread messages stay silent on any failure — don't nag.
-    if (mention.requireActiveThread) {
-      logger.info(
-        { reason: target.reason, teamId, channelId, slackUserId },
-        "Slack assistant: unresolved thread-follow, staying silent",
-      );
-      return;
-    }
     if (target.botToken) {
       // Ephemeral (visible only to the mentioning user): these messages are
       // directed at them, and the "not linked" one carries a signed account-
@@ -176,7 +191,6 @@ export async function handleSlackAssistantMention(
     postSlackMessage({ token, channel: channelId, text, threadTs: rootTs });
 
   if (!question) {
-    if (mention.requireActiveThread) return;
     await reply(
       "Ask me about your experiments, features, or metrics — e.g. *what experiments are running right now?*",
     );
@@ -200,22 +214,16 @@ export async function handleSlackAssistantMention(
     linkId: target.linkId,
   });
 
-  // Thread-follow: only respond to a non-mention message if this user already
-  // has an assistant conversation in this thread. Otherwise stay silent — we
-  // don't start conversations from ambient thread chatter.
-  if (mention.requireActiveThread) {
-    const existing =
-      await target.context.models.aiConversations.getById(conversationId);
-    if (!existing) return;
-  }
-
-  // Post a placeholder immediately, then swap it for the answer in place.
-  const placeholderTs = await postSlackMessage({
-    token,
-    channel: channelId,
-    text: THINKING_TEXT,
-    threadTs: rootTs,
-  });
+  // Post a placeholder immediately, then swap it for the answer in place. A
+  // busy retry reuses the one its first attempt posted.
+  const placeholderTs =
+    mention.placeholderTs ??
+    (await postSlackMessage({
+      token,
+      channel: channelId,
+      text: THINKING_TEXT,
+      threadTs: rootTs,
+    }));
 
   const finish = async (text: string) => {
     const mrkdwn = toSlackMrkdwn(text, { appOrigin: APP_ORIGIN });
@@ -236,35 +244,47 @@ export async function handleSlackAssistantMention(
     });
   };
 
-  try {
-    const result = await runAgentTurnToCompletion({
-      context: target.context,
-      config: slackAgentConfig,
-      input: { message: question, conversationId },
-    });
+  await withThreadTurn({
+    context: target.context,
+    thread: threadIdentity,
+    placeholderTs: placeholderTs ?? undefined,
+    turn: async (signal) => {
+      try {
+        const result = await runAgentTurnToCompletion({
+          context: target.context,
+          config: slackAgentConfig,
+          signal,
+          input: { message: question, conversationId },
+        });
 
-    if (!result.ok) {
-      await finish(result.message);
-      return;
-    }
-    if (result.pendingAction) {
-      await postPendingApproval({
-        pa: result.pendingAction,
-        reply: result.reply,
-        conversationId,
-        token,
-        channel: channelId,
-        threadTs: rootTs,
-        placeholderTs,
-      });
-      return;
-    }
-    await finish(result.reply || "I couldn't find an answer to that.");
-  } catch (e) {
-    if (e instanceof SlackRateLimitError) throw e;
-    logger.error(e, "Slack assistant turn failed");
-    await finish("Something went wrong answering that — please try again.");
-  }
+        if (signal.aborted) {
+          await finish(TIMED_OUT_TEXT);
+          return;
+        }
+        if (!result.ok) {
+          await finish(result.message);
+          return;
+        }
+        if (result.pendingAction) {
+          await postPendingApproval({
+            pa: result.pendingAction,
+            reply: result.reply,
+            conversationId,
+            token,
+            channel: channelId,
+            threadTs: rootTs,
+            placeholderTs,
+          });
+          return;
+        }
+        await finish(result.reply || "I couldn't find an answer to that.");
+      } catch (e) {
+        if (e instanceof SlackRateLimitError) throw e;
+        logger.error(e, "Slack assistant turn failed");
+        await finish("Something went wrong answering that — please try again.");
+      }
+    },
+  });
 }
 
 async function postPendingApproval({
@@ -421,118 +441,135 @@ export async function handleSlackAssistantConfirmation({
     return;
   }
 
-  const existing =
-    await target.context.models.aiConversations.getById(conversationId);
-  if (
-    !existing ||
-    !isCurrentSlackApproval(existing.pendingAction?.id, actionId)
-  ) {
-    await postSlackEphemeralMessage({
-      token,
-      channel: channelId,
-      user: slackUserId,
-      text: "This action isn't yours to confirm.",
-      threadTs,
-    });
-    return;
-  }
-
-  let alreadySubmitted = false;
-  try {
-    const result = await runAgentTurnToCompletion({
-      context: target.context,
-      config: slackAgentConfig,
-      beforeResolvePendingAction: async () => {
-        const current = await resolveSlackAssistantTarget({
-          requireAssistantEnabled: true,
-          teamId,
-          slackUserId,
-          organizationId: thread.organizationId,
+  await withThreadTurn({
+    context: target.context,
+    thread,
+    turn: async (signal) => {
+      const existing =
+        await target.context.models.aiConversations.getById(conversationId);
+      if (
+        !existing ||
+        !isCurrentSlackApproval(existing.pendingAction?.id, actionId)
+      ) {
+        await postSlackEphemeralMessage({
+          token,
+          channel: channelId,
+          user: slackUserId,
+          text: "This action isn't yours to confirm.",
+          threadTs,
         });
-        if (
-          !current.ok ||
-          current.linkId !== target.linkId ||
-          current.userId !== target.userId ||
-          current.context.getPermissionsFingerprint() !==
-            target.context.getPermissionsFingerprint()
-        ) {
-          throw new Error(
-            "Your Slack account link or GrowthBook access changed. Please request a new proposal.",
-          );
-        }
-        // A preflight failure leaves the action and its buttons available. Once
-        // dispatch can begin, retain this claim even if its outcome is uncertain.
-        if (
-          !(await claimSlackTask(
-            `action:${slackTaskKey([teamId, target.organizationId, conversationId, actionId])}`,
-          ))
-        ) {
-          alreadySubmitted = true;
-          throw new Error("Slack action already submitted");
-        }
-        if (buttonsMessageTs) {
-          try {
-            await updateSlackMessage({
-              token,
-              channel: channelId,
-              ts: buttonsMessageTs,
-              text:
-                decision === "confirm"
-                  ? "_Applying change…_"
-                  : "_Change cancelled._",
+        return;
+      }
+
+      let alreadySubmitted = false;
+      try {
+        const result = await runAgentTurnToCompletion({
+          context: target.context,
+          config: slackAgentConfig,
+          signal,
+          beforeResolvePendingAction: async () => {
+            const current = await resolveSlackAssistantTarget({
+              requireAssistantEnabled: true,
+              teamId,
+              slackUserId,
+              organizationId: thread.organizationId,
             });
-          } catch (error) {
-            // A Slack UI failure must not strand an already claimed mutation.
-            logger.warn(error, "Could not update Slack approval controls");
-          }
+            if (
+              !current.ok ||
+              current.linkId !== target.linkId ||
+              current.userId !== target.userId ||
+              current.context.getPermissionsFingerprint() !==
+                target.context.getPermissionsFingerprint()
+            ) {
+              throw new Error(
+                "Your Slack account link or GrowthBook access changed. Please request a new proposal.",
+              );
+            }
+            // A preflight failure leaves the action and its buttons available. Once
+            // dispatch can begin, retain this claim even if its outcome is uncertain.
+            if (
+              !(await current.context.models.slackTaskClaims.claim(
+                `action:${slackTaskKey([teamId, target.organizationId, conversationId, actionId])}`,
+              ))
+            ) {
+              alreadySubmitted = true;
+              throw new Error("Slack action already submitted");
+            }
+            if (buttonsMessageTs) {
+              try {
+                await updateSlackMessage({
+                  token,
+                  channel: channelId,
+                  ts: buttonsMessageTs,
+                  text:
+                    decision === "confirm"
+                      ? "_Applying change…_"
+                      : "_Change cancelled._",
+                });
+              } catch (error) {
+                // A Slack UI failure must not strand an already claimed mutation.
+                logger.warn(error, "Could not update Slack approval controls");
+              }
+            }
+          },
+          input: {
+            message: "",
+            conversationId,
+            confirmActionId: actionId,
+            confirmDecision: decision,
+          },
+        });
+        if (signal.aborted) {
+          await postSlackMessage({
+            token,
+            channel: channelId,
+            text: "This request timed out. Check GrowthBook before repeating an approved change.",
+            threadTs,
+          });
+          return;
         }
-      },
-      input: {
-        message: "",
-        conversationId,
-        confirmActionId: actionId,
-        confirmDecision: decision,
-      },
-    });
-    if (!result.ok) {
-      await postSlackMessage({
-        token,
-        channel: channelId,
-        text: toSlackMrkdwn(result.message, { appOrigin: APP_ORIGIN }),
-        threadTs,
-      });
-      return;
-    }
-    if (result.pendingAction) {
-      await postPendingApproval({
-        pa: result.pendingAction,
-        reply: result.reply,
-        conversationId,
-        token,
-        channel: channelId,
-        threadTs,
-      });
-      return;
-    }
-    await postSlackMessage({
-      token,
-      channel: channelId,
-      text: toSlackMrkdwn(
-        result.reply || (decision === "confirm" ? "Done." : "Okay, cancelled."),
-        { appOrigin: APP_ORIGIN },
-      ),
-      threadTs,
-    });
-  } catch (e) {
-    if (e instanceof SlackRateLimitError) throw e;
-    logger.error(e, "Slack assistant confirmation failed");
-    await postSlackMessage({
-      token,
-      channel: channelId,
-      text: alreadySubmitted
-        ? "This action has already been submitted. Check GrowthBook before requesting it again."
-        : "Something went wrong applying that change.",
-      threadTs,
-    });
-  }
+        if (!result.ok) {
+          await postSlackMessage({
+            token,
+            channel: channelId,
+            text: toSlackMrkdwn(result.message, { appOrigin: APP_ORIGIN }),
+            threadTs,
+          });
+          return;
+        }
+        if (result.pendingAction) {
+          await postPendingApproval({
+            pa: result.pendingAction,
+            reply: result.reply,
+            conversationId,
+            token,
+            channel: channelId,
+            threadTs,
+          });
+          return;
+        }
+        await postSlackMessage({
+          token,
+          channel: channelId,
+          text: toSlackMrkdwn(
+            result.reply ||
+              (decision === "confirm" ? "Done." : "Okay, cancelled."),
+            { appOrigin: APP_ORIGIN },
+          ),
+          threadTs,
+        });
+      } catch (e) {
+        if (e instanceof SlackRateLimitError) throw e;
+        logger.error(e, "Slack assistant confirmation failed");
+        await postSlackMessage({
+          token,
+          channel: channelId,
+          text: alreadySubmitted
+            ? "This action has already been submitted. Check GrowthBook before requesting it again."
+            : "Something went wrong applying that change.",
+          threadTs,
+        });
+      }
+    },
+  });
 }

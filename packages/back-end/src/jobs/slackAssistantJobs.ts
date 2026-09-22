@@ -1,18 +1,13 @@
 import Agenda, { Job } from "agenda";
-import { logger } from "back-end/src/util/logger";
-import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
-import { postSlackEphemeralMessage } from "back-end/src/services/slack/slackWebApi";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { slackAssistantMentionSchema } from "back-end/src/services/slack/slackThreadRouting";
 import {
   handleSlackAppHomeOpened,
   SlackAppHomeOpened,
 } from "back-end/src/services/slack/slackAppHome";
 import {
-  claimSlackTask,
-  getSlackTaskClaimAge,
-  releaseSlackTask,
   slackTaskKey,
-  isDuplicateKeyError,
+  SlackThreadBusyError,
 } from "back-end/src/services/slack/slackTaskSafety";
 import {
   handleSlackAssistantMention,
@@ -22,6 +17,7 @@ import {
 } from "back-end/src/services/slack/slackAssistant";
 
 const SLACK_ASSISTANT_JOB_NAME = "slackAssistantTask";
+const BUSY_RETRY_MS = 5000;
 
 // One job type with a discriminated payload serves the interaction
 // kinds. `dedupeKey` + job.unique stops a Slack re-delivery from spawning a
@@ -36,45 +32,12 @@ type SlackAssistantJob = Job<SlackAssistantTaskData>;
 
 const processSlackAssistantTask = async (job: SlackAssistantJob) => {
   const data = job.attrs.data;
-  if (data?.kind === "appHomeOpened") {
-    await handleSlackAppHomeOpened(data.appHome);
-    return;
-  }
-  if (!data || (data.kind !== "mention" && data.kind !== "confirmation"))
-    return;
-  const task = data.kind === "mention" ? data.mention : data.confirmation;
-  const rootTs =
-    data.kind === "mention"
-      ? data.mention.threadTs || data.mention.messageTs
-      : data.confirmation.threadTs || "";
-  const lockKey = `thread:${slackTaskKey([task.teamId, task.channelId, rootTs])}`;
-  if (!(await claimSlackTask(lockKey))) {
-    const age = await getSlackTaskClaimAge(lockKey);
-    if (age !== null && age > 15 * 60 * 1000) {
-      logger.error(
-        { lockKey },
-        "Slack thread is blocked by an interrupted or long-running turn; manual recovery required",
-      );
-      const target = await resolveSlackAssistantTarget({
-        teamId: task.teamId,
-        slackUserId: task.slackUserId,
-      });
-      if (target.botToken)
-        await postSlackEphemeralMessage({
-          token: target.botToken,
-          channel: task.channelId,
-          user: task.slackUserId,
-          text: "A previous request in this thread is still running or was interrupted. Ask your GrowthBook administrator to check it before retrying.",
-          threadTs: rootTs,
-        });
-      throw new Error(`Slack thread requires operator recovery: ${lockKey}`);
-    }
-    job.schedule(new Date(Date.now() + 5000));
-    await job.save();
-    return;
-  }
+  if (!data) return;
   try {
     switch (data.kind) {
+      case "appHomeOpened":
+        await handleSlackAppHomeOpened(data.appHome);
+        return;
       case "mention":
         await handleSlackAssistantMention(
           slackAssistantMentionSchema.parse(data.mention),
@@ -84,10 +47,18 @@ const processSlackAssistantTask = async (job: SlackAssistantJob) => {
         await handleSlackAssistantConfirmation(data.confirmation);
         return;
     }
-  } finally {
-    // Do not expire a live lock: a paused worker could resume and replay a mutation.
-    // A process crash requires operator recovery of its orphaned thread claim.
-    await releaseSlackTask(lockKey);
+  } catch (error) {
+    if (!(error instanceof SlackThreadBusyError)) throw error;
+    // Another turn holds the thread. Keep the placeholder the first attempt
+    // posted so the retry does not post a second one.
+    if (data.kind === "mention" && error.placeholderTs) {
+      job.attrs.data = {
+        ...data,
+        mention: { ...data.mention, placeholderTs: error.placeholderTs },
+      };
+    }
+    job.schedule(new Date(Date.now() + BUSY_RETRY_MS));
+    await job.save();
   }
 };
 
@@ -96,7 +67,8 @@ let indexReady: Promise<string> | null = null;
 export default function addSlackAssistantJobs(ag: Agenda) {
   agenda = ag;
   indexReady = null;
-  // Thread claims serialize turns independently of Agenda job locks.
+  // The queue wrapper renews the Agenda lock every nine minutes while a turn
+  // runs (services/jobLifecycle.ts), so a long turn is never re-picked.
   agenda.define(SLACK_ASSISTANT_JOB_NAME, processSlackAssistantTask);
 }
 

@@ -335,6 +335,7 @@ async function executeAgentTurn<TParams>({
   enforceUsageCap,
   onBeforeStream,
   finish,
+  signal,
 }: {
   context: ReqContext;
   config: AgentConfig<TParams>;
@@ -355,6 +356,8 @@ async function executeAgentTurn<TParams>({
   onBeforeStream?: (stopKeepalive: () => void) => void;
   /** Close out the transport (SSE emits "done" and ends the response). */
   finish?: () => void;
+  /** Caller deadline. Aborting it cancels the turn like an external cancel. */
+  signal?: AbortSignal;
 }): Promise<void> {
   const { message } = body;
   const { conversationId } = buffer;
@@ -489,6 +492,8 @@ async function executeAgentTurn<TParams>({
     cancelledExternally = true;
     abortController.abort();
   };
+  signal?.addEventListener("abort", markCancelledExternally, { once: true });
+  if (signal?.aborted) markCancelledExternally();
 
   const checkCancellation = async (): Promise<boolean> => {
     if (cancelledExternally) return true;
@@ -563,6 +568,7 @@ async function executeAgentTurn<TParams>({
   } finally {
     heartbeats.stopSseKeepalive();
     heartbeats.stopDbHeartbeat();
+    signal?.removeEventListener("abort", markCancelledExternally);
     activeStreamControllers.delete(conversationId);
 
     try {
@@ -635,11 +641,13 @@ export async function runAgentTurnToCompletion<TParams>({
   config,
   input,
   beforeResolvePendingAction,
+  signal,
 }: {
   context: ReqContext;
   config: AgentConfig<TParams>;
   input: HeadlessTurnInput;
   beforeResolvePendingAction?: () => Promise<void>;
+  signal?: AbortSignal;
 }): Promise<RunAgentTurnResult> {
   // No explicit model choice: `model` is only ever a *candidate* passed through
   // getAllowedAIModel, so omitting it falls through to the org's default (the
@@ -714,6 +722,7 @@ export async function runAgentTurnToCompletion<TParams>({
     dbOverrideModel,
     initialEmit: emit,
     beforeResolvePendingAction,
+    signal,
     enforceUsageCap: async (model) => {
       const capped = await checkAccessGates(context, { model });
       if (capped.ok) return true;

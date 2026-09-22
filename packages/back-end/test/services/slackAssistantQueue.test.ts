@@ -1,9 +1,5 @@
 import type Agenda from "agenda";
-import {
-  claimSlackTask,
-  getSlackTaskClaimAge,
-  releaseSlackTask,
-} from "back-end/src/services/slack/slackTaskSafety";
+import { SlackThreadBusyError } from "back-end/src/services/slack/slackTaskSafety";
 import { handleSlackAssistantMention } from "back-end/src/services/slack/slackAssistant";
 import { handleSlackAppHomeOpened } from "back-end/src/services/slack/slackAppHome";
 import addSlackAssistantJobs, {
@@ -17,19 +13,6 @@ jest.mock("back-end/src/services/slack/slackAppHome", () => ({
 jest.mock("back-end/src/services/slack/slackAssistant", () => ({
   handleSlackAssistantMention: jest.fn(),
   handleSlackAssistantConfirmation: jest.fn(),
-}));
-jest.mock("back-end/src/services/slack/slackIdentity", () => ({
-  resolveSlackAssistantTarget: jest.fn(),
-}));
-jest.mock("back-end/src/services/slack/slackWebApi", () => ({
-  postSlackEphemeralMessage: jest.fn(),
-}));
-
-jest.mock("back-end/src/services/slack/slackTaskSafety", () => ({
-  ...jest.requireActual("back-end/src/services/slack/slackTaskSafety"),
-  claimSlackTask: jest.fn(),
-  getSlackTaskClaimAge: jest.fn(),
-  releaseSlackTask: jest.fn(),
 }));
 
 const createIndex = jest.fn(async () => "index");
@@ -51,8 +34,6 @@ const mention = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  jest.mocked(claimSlackTask).mockResolvedValue(true);
-  jest.mocked(getSlackTaskClaimAge).mockResolvedValue(100);
   addSlackAssistantJobs(agenda as unknown as Agenda);
 });
 
@@ -81,7 +62,7 @@ test("deduplicates app opens by event and workspace while allowing a later open"
   expect(unique.mock.calls[0]).not.toEqual(unique.mock.calls[3]);
 });
 
-test("processes an app open without acquiring a conversation lock or starting an AI turn", async () => {
+test("processes an app open without claiming a thread or starting an AI turn", async () => {
   const appHome = { teamId: "team", channelId: "dm", eventId: "event" };
   const process = agenda.define.mock.calls[0][1];
   await process({
@@ -91,7 +72,6 @@ test("processes an app open without acquiring a conversation lock or starting an
   });
   expect(handleSlackAppHomeOpened).toHaveBeenCalledWith(appHome);
   expect(handleSlackAssistantMention).not.toHaveBeenCalled();
-  expect(claimSlackTask).not.toHaveBeenCalled();
 });
 
 test("propagates failed app-open enqueue so Slack can retry", async () => {
@@ -121,15 +101,18 @@ test("accepts a concurrent duplicate insert as already queued", async () => {
   ).resolves.toBeUndefined();
 });
 
-test("busy thread retries without running another turn", async () => {
-  jest.mocked(claimSlackTask).mockResolvedValue(false);
+test("reschedules a busy thread and keeps the placeholder for the retry", async () => {
+  jest
+    .mocked(handleSlackAssistantMention)
+    .mockRejectedValueOnce(new SlackThreadBusyError("999.111"));
   const process = agenda.define.mock.calls[0][1];
-  await process({
-    attrs: { data: { kind: "mention", mention } },
-    schedule,
-    save,
+  const job = { attrs: { data: { kind: "mention", mention } }, schedule, save };
+  await process(job);
+  expect(handleSlackAssistantMention).toHaveBeenCalledTimes(1);
+  expect(job.attrs.data).toEqual({
+    kind: "mention",
+    mention: { ...mention, placeholderTs: "999.111" },
   });
-  expect(handleSlackAssistantMention).not.toHaveBeenCalled();
   expect(schedule).toHaveBeenCalledWith(expect.any(Date));
   expect(save).toHaveBeenCalled();
 });
@@ -139,7 +122,7 @@ test("normalizes absent mention fields read from MongoDB before running the turn
   const optionalFields = {
     threadTs: null,
     botUserId: null,
-    requireActiveThread: null,
+    placeholderTs: null,
   };
   await process({
     attrs: {
@@ -152,12 +135,11 @@ test("normalizes absent mention fields read from MongoDB before running the turn
     ...mention,
     threadTs: undefined,
     botUserId: undefined,
-    requireActiveThread: undefined,
+    placeholderTs: undefined,
   });
-  expect(releaseSlackTask).toHaveBeenCalledTimes(1);
 });
 
-test("handler failure releases the thread for future messages", async () => {
+test("handler failure is recorded by Agenda", async () => {
   jest
     .mocked(handleSlackAssistantMention)
     .mockRejectedValueOnce(new Error("failed turn"));
@@ -165,7 +147,6 @@ test("handler failure releases the thread for future messages", async () => {
   await expect(
     process({ attrs: { data: { kind: "mention", mention } }, schedule, save }),
   ).rejects.toThrow("failed turn");
-  expect(releaseSlackTask).toHaveBeenCalledTimes(1);
 });
 
 test("deduplicates redeliveries but lets a fresh approval click retry preflight", async () => {

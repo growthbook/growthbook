@@ -4,10 +4,7 @@ import {
   isDuplicateKeyError,
 } from "back-end/src/util/mongo.util";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
-import {
-  claimSlackTask,
-  slackTaskKey,
-} from "back-end/src/services/slack/slackTaskSafety";
+import { slackTaskKey } from "back-end/src/services/slack/slackTaskSafety";
 import { SlackWorkspaceConnectionModel } from "./SlackWorkspaceConnectionModel";
 import { MakeModelClass } from "./BaseModel";
 
@@ -89,7 +86,7 @@ export class SlackUserLinkModel extends BaseClass {
       slackUserId: proof.slackUserId,
     };
     const linkId = slackTaskKey([proof.nonce, org.id]);
-    if (!(await claimSlackTask(`link:${linkId}`))) {
+    if (!(await this.context.models.slackTaskClaims.claim(`link:${linkId}`))) {
       const current = await this._findOne({
         ...identity,
         growthbookUserId: userId,

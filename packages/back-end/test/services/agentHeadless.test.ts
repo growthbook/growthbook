@@ -191,3 +191,26 @@ it("leaves pending approval unmodified when the replay guard refuses dispatch", 
   expect(dispatchInternal).not.toHaveBeenCalled();
   expect(persistConversation).not.toHaveBeenCalled();
 });
+
+it("treats an aborted deadline like a cancelled stream and skips the final save", async () => {
+  const deadline = new AbortController();
+  jest
+    .mocked(streamingChatCompletion)
+    .mockImplementationOnce(async ({ abortSignal }) => {
+      deadline.abort();
+      expect(abortSignal?.aborted).toBe(true);
+      return {
+        result: { fullStream: [], response: Promise.resolve({}) },
+        completeAccounting: async () => undefined,
+      } as unknown as Awaited<ReturnType<typeof streamingChatCompletion>>;
+    });
+  expect(
+    await runAgentTurnToCompletion({
+      context,
+      config,
+      signal: deadline.signal,
+      input: { message: "hello", conversationId: "conv_test" },
+    }),
+  ).toMatchObject({ ok: true, reply: "" });
+  expect(persistConversation).toHaveBeenCalledTimes(1);
+});
