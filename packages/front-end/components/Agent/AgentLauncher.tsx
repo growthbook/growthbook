@@ -4,7 +4,7 @@ import AgentPanel from "./AgentPanel";
 import { useAgentPanel } from "./AgentPanelContext";
 
 /**
- * Site-wide mount point for the in-app AI assistant panel. The actual
+ * Site-wide mount point for the generic GrowthBook agent panel. The actual
  * trigger button lives in the TopNav (next to the user account dropdown);
  * this component is just responsible for rendering the slide-in panel
  * itself, driven by the shared `AgentPanelContext` state.
