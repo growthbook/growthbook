@@ -900,6 +900,20 @@ export type RampBaseStateSyncPlan = {
   updates: RampBaseStateUpdate[];
 };
 
+// Dashboard wording for the rule fields the API names as-is.
+const RAMP_FIELD_LABELS: Record<string, string> = {
+  coverage: "rollout %",
+  value: "value",
+  condition: "attribute targeting",
+  savedGroups: "saved groups",
+  prerequisites: "prerequisites",
+  environments: "environments",
+  allEnvironments: "environments",
+  hashAttribute: "sample-by attribute",
+  seed: "seed",
+  hashVersion: "hash version",
+};
+
 // A publish's edit to a ramped rule: refused while the ramp runs (pause first)
 // and for fields a step sets; other anchor fields go into the start action so
 // every replay keeps them.
@@ -908,14 +922,18 @@ export function planRampBaseStateSync({
   schedules,
   liveRules,
   nextRules,
+  apiRequest = false,
 }: {
   featureId: string;
   schedules: RampScheduleInterface[];
   liveRules: FeatureRule[];
   nextRules: FeatureRule[];
+  // API callers get field names and routes; the dashboard gets plain wording.
+  apiRequest?: boolean;
 }): RampBaseStateSyncPlan {
   const refusals: RampBaseStateRefusal[] = [];
   const updates: RampBaseStateUpdate[] = [];
+  const label = (f: string) => (apiRequest ? f : (RAMP_FIELD_LABELS[f] ?? f));
   for (const schedule of schedules) {
     if (!ANCHORED_RAMP_SCHEDULE_STATUSES.includes(schedule.status)) continue;
     const startActions = [...(schedule.startActions ?? [])];
@@ -942,29 +960,28 @@ export function planRampBaseStateSync({
         const changed = changedRampBaseFields(liveRule, next);
         if (!changed.length) continue;
         if (schedule.status === "running") {
-          const planFields = [...controlled.keys()].join(", ") || "none";
           refusals.push({
             kind: "ramp-running",
             scheduleId: schedule.id,
-            message:
-              `Rule "${liveRule.id}" is under running ramp schedule "${schedule.name}" (${schedule.id}). ` +
-              `Pause it first (POST /api/v1/ramp-schedules/${schedule.id}/actions/pause), then publish: ` +
-              `the change becomes the ramp's base state and carries through the remaining steps. ` +
-              `Fields the plan sets (${planFields}) are changed in the plan instead.`,
+            message: apiRequest
+              ? `Rule "${liveRule.id}" is part of the running ramp schedule "${schedule.name}" (${schedule.id}). ` +
+                `Pause it before publishing changes to this rule: POST /api/v1/ramp-schedules/${schedule.id}/actions/pause.`
+              : `Rule "${liveRule.id}" is part of the running ramp-up "${schedule.name}". Pause the ramp-up before publishing changes to it.`,
           });
           continue;
         }
         const owned = changed
           .filter((f) => setBy(f))
-          .map((f) => `${f} is set by ${setBy(f)}`);
+          .map((f) => `${label(f)} is set by ${setBy(f)}`);
         if (owned.length) {
           refusals.push({
             kind: "ramp-controlled-field",
             scheduleId: schedule.id,
-            message:
-              `Rule "${liveRule.id}": ${owned.join(", ")} of ramp schedule "${schedule.name}". ` +
-              `Edit the plan instead (PUT /api/v1/ramp-schedules/${schedule.id}, or stage it on a draft with ` +
-              `PUT /api/v2/features/${featureId}/revisions/{version}/rules/${liveRule.id}/ramp-schedule).`,
+            message: apiRequest
+              ? `Rule "${liveRule.id}": ${owned.join(", ")} of ramp schedule "${schedule.name}" (${schedule.id}). ` +
+                `Change it in the plan: PUT /api/v1/ramp-schedules/${schedule.id}, or on a draft with ` +
+                `PUT /api/v2/features/${featureId}/revisions/{version}/rules/${liveRule.id}/ramp-schedule.`
+              : `Rule "${liveRule.id}": the ${owned.join(", ")} of the ramp-up "${schedule.name}". Change it in the ramp-up plan.`,
           });
           continue;
         }
@@ -1010,6 +1027,7 @@ export async function planRampBaseStateSyncForPublish(
     schedules,
     liveRules: feature.rules ?? [],
     nextRules: result.rules,
+    apiRequest: ctx.isApiRequest,
   });
 }
 

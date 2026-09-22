@@ -139,9 +139,10 @@ describe("publishing a rule edit under a running ramp schedule", () => {
   it("refuses any edit while the schedule runs, naming the pause route", async () => {
     const res = await publish(2);
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/Pause it first/);
+    expect(res.body.message).toMatch(
+      /Rule "fr_ramped" is part of the running ramp schedule/,
+    );
     expect(res.body.message).toMatch(/actions\/pause/);
-    expect(res.body.message).toMatch(/Fields the plan sets \(coverage\)/);
   });
 
   it("carries a targeting edit into a paused schedule's base state", async () => {

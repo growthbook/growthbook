@@ -1,5 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { hasTargetingConfigured } from "shared/experiments";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -18,6 +19,7 @@ import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
+import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import {
   NewExperimentRefRule,
   useAttributeSchema,
@@ -556,7 +558,25 @@ export default function StandardRuleFields({
           continues.
         </Callout>
       )}
-      {rampLocksTargeting ? null : (
+      {rampLocksTargeting ? (
+        <Box mb="4" style={{ opacity: 0.6 }}>
+          {hasTargetingConfigured({
+            condition: form.watch("condition"),
+            savedGroups: form.watch("savedGroups"),
+            prerequisites: form.watch("prerequisites"),
+          }) ? (
+            <TruncatedConditionDisplay
+              condition={form.watch("condition") || ""}
+              savedGroups={form.watch("savedGroups")}
+              prerequisites={form.watch("prerequisites")}
+              maxLength={500}
+              prefix={<Text weight="medium">IF</Text>}
+            />
+          ) : (
+            <em>No targeting (all traffic will be included)</em>
+          )}
+        </Box>
+      ) : (
         <Flex direction="column" gap="5" mb="4">
           {rampControlsCoverage ? null : (
             <>

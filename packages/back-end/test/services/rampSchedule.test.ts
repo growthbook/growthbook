@@ -5533,6 +5533,7 @@ describe("planRampBaseStateSync", () => {
       schedules: [s],
       liveRules: [live],
       nextRules: [next],
+      apiRequest: true,
     });
   const untouched = { refusals: [], updates: [] };
 
@@ -5586,9 +5587,24 @@ describe("planRampBaseStateSync", () => {
     expect(refusals).toHaveLength(1);
     expect(refusals[0].kind).toBe("ramp-running");
     expect(refusals[0].message).toMatch(
-      /Pause it first \(POST \/api\/v1\/ramp-schedules\/rs_1\/actions\/pause\)/,
+      /POST \/api\/v1\/ramp-schedules\/rs_1\/actions\/pause/,
     );
-    expect(refusals[0].message).toMatch(/Fields the plan sets \(coverage\)/);
+  });
+
+  it("speaks in dashboard terms for dashboard publishes", () => {
+    const dashboard = (next: FeatureRule, s = schedule()) =>
+      planRampBaseStateSync({
+        featureId: "f1",
+        schedules: [s],
+        liveRules: [rule()],
+        nextRules: [next],
+      }).refusals[0].message;
+    expect(
+      dashboard(rule({ condition: "{}" }), schedule({ status: "running" })),
+    ).toMatch(/Pause the ramp-up before publishing changes to it/);
+    expect(dashboard(rule({ coverage: 0.9 }))).toMatch(
+      /the rollout % is set by step 1 of the ramp-up "Ramp"\. Change it in the ramp-up plan/,
+    );
   });
 
   it("leaves unanchored statuses, other features, `enabled` and unchanged rules alone", () => {
