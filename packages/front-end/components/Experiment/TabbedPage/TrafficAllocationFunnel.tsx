@@ -59,7 +59,7 @@ import {
 } from "@/components/Forms/PercentSliderField";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
-import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
+import { attributeOptionLabelFormatter } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import { useRegisterExperimentEdit } from "./ExperimentEdits";
@@ -734,6 +734,11 @@ function AssignmentAttribute({
 }) {
   const isHoldout = experiment.type === "holdout";
   const { useStickyBucketing } = useOrgSettings();
+  // The picker is too narrow for a popover above it.
+  const formatAttributeOption = useMemo(
+    () => attributeOptionLabelFormatter("right"),
+    [],
+  );
   const attributeOptions = useHashAttributeOptions(
     experiment.attributeScopeAllProjects || !experiment.project
       ? null
@@ -751,10 +756,11 @@ function AssignmentAttribute({
       >
         {editInline ? (
           <SelectField
+            size="md"
             value={hashAttribute}
             options={attributeOptions}
             sort={false}
-            formatOptionLabel={formatAttributeOptionLabel}
+            formatOptionLabel={formatAttributeOption}
             onChange={(v) => stagePatch({ hashAttribute: v })}
           />
         ) : (

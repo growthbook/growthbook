@@ -119,12 +119,17 @@ export function OptionTooltipDescription({
   );
 }
 
+export type OptionPopoverSide = "top" | "right" | "bottom" | "left";
+
 export function OptionPopover({
   context = "menu",
+  side,
   content,
   children,
 }: {
   context?: OptionContext;
+  /** Overrides the side the context would use, for a control too narrow for it. */
+  side?: OptionPopoverSide;
   content: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -133,7 +138,7 @@ export function OptionPopover({
     <Popover
       openOnHover
       anchorOnly
-      side={isValue ? "top" : "right"}
+      side={side ?? (isValue ? "top" : "right")}
       sideOffset={8}
       trigger={
         <div
