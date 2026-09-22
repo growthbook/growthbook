@@ -22,8 +22,13 @@ import {
   updateQueryIfRunning,
   touchQueuedQueriesHeartbeat,
 } from "back-end/src/models/QueryModel";
+import {
+  trackQueryFailed,
+  trackQuerySucceeded,
+} from "back-end/src/services/queryTelemetry";
 
 jest.mock("back-end/src/models/QueryModel");
+jest.mock("back-end/src/services/queryTelemetry");
 
 // The automocked heartbeat resolves nowhere by default, and the runner calls
 // `.catch` on it inside a timer callback.
@@ -1849,6 +1854,189 @@ describe("QueryRunner", () => {
         jest.clearAllTimers();
         jest.useRealTimers();
       }
+    });
+  });
+
+  describe("query telemetry", () => {
+    let mockContext: ReqContext;
+    let mockIntegration: SourceIntegrationInterface;
+
+    beforeEach(() => {
+      mockContext = createMockContext();
+      mockIntegration = createMockIntegration();
+      jest.mocked(updateQueryIfPending).mockResolvedValue(true);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    class ExecutingQueryRunner extends QueryRunner<
+      InterfaceWithQueries,
+      object,
+      { success: boolean }
+    > {
+      checkPermissions() {
+        return true;
+      }
+
+      async startQueries() {
+        return [];
+      }
+
+      async runAnalysis() {
+        return { success: true };
+      }
+
+      async getLatestModel() {
+        return this.model;
+      }
+
+      async updateModel() {
+        return this.model;
+      }
+    }
+
+    const model: InterfaceWithQueries = {
+      id: "test-model",
+      organization: "test-org",
+      queries: [{ name: "A", query: "qry_A", status: "running" }],
+      runStarted: new Date(),
+    };
+
+    const runQuery = async (
+      integration: SourceIntegrationInterface,
+      run: jest.Mock,
+    ) => {
+      const runner = new ExecutingQueryRunner(mockContext, model, integration);
+      const onFailure = jest.fn();
+      await runner.executeQuery(
+        {
+          ...createMockQuery("qry_A", "queued"),
+          queryType: "experimentResults",
+        },
+        { run, onFailure },
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+      return onFailure;
+    };
+
+    it("tracks a success with the datasource and duration", async () => {
+      await runQuery(
+        mockIntegration,
+        jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
+      );
+
+      expect(trackQueryFailed).not.toHaveBeenCalled();
+      expect(trackQuerySucceeded).toHaveBeenCalledWith(mockContext, {
+        query: expect.objectContaining({
+          id: "qry_A",
+          queryType: "experimentResults",
+        }),
+        datasource: expect.objectContaining({
+          id: "test-ds",
+          type: "postgres",
+        }),
+        durationMs: expect.any(Number),
+      });
+    });
+
+    it("tracks a warehouse error as an error type, not the message", async () => {
+      jest.mocked(updateQueryIfRunning).mockResolvedValue(true);
+
+      const onFailure = await runQuery(
+        mockIntegration,
+        jest.fn().mockRejectedValue(new Error("secret value 123")),
+      );
+
+      expect(onFailure).toHaveBeenCalled();
+      expect(trackQuerySucceeded).not.toHaveBeenCalled();
+      expect(trackQueryFailed).toHaveBeenCalledTimes(1);
+      expect(trackQueryFailed).toHaveBeenCalledWith(
+        mockContext,
+        {
+          query: expect.objectContaining({ id: "qry_A" }),
+          datasource: expect.objectContaining({ type: "postgres" }),
+          durationMs: expect.any(Number),
+        },
+        "warehouse-error",
+      );
+      expect(
+        JSON.stringify(jest.mocked(trackQueryFailed).mock.calls),
+      ).not.toContain("secret value 123");
+    });
+
+    it("tracks a failure storing results as a processing error", async () => {
+      jest.mocked(updateQueryIfRunning).mockResolvedValue(true);
+      jest.mocked(updateQuery).mockRejectedValueOnce(new Error("mongo down"));
+
+      await runQuery(
+        mockIntegration,
+        jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
+      );
+
+      expect(trackQuerySucceeded).not.toHaveBeenCalled();
+      expect(trackQueryFailed).toHaveBeenCalledWith(
+        mockContext,
+        expect.anything(),
+        "result-processing-error",
+      );
+    });
+
+    it("still tracks the failure when the integration has no datasource", async () => {
+      jest.mocked(updateQueryIfRunning).mockResolvedValue(true);
+
+      await runQuery(
+        {} as unknown as SourceIntegrationInterface,
+        jest.fn().mockRejectedValue(new Error("boom")),
+      );
+
+      expect(trackQueryFailed).toHaveBeenCalledWith(
+        mockContext,
+        expect.objectContaining({ datasource: null }),
+        "warehouse-error",
+      );
+    });
+
+    it("does not track when the failure was not written (already terminal)", async () => {
+      jest.mocked(updateQueryIfRunning).mockResolvedValue(false);
+
+      const onFailure = await runQuery(
+        mockIntegration,
+        jest.fn().mockRejectedValue(new Error("cancelled")),
+      );
+
+      expect(onFailure).toHaveBeenCalled();
+      expect(trackQueryFailed).not.toHaveBeenCalled();
+    });
+
+    it("tracks dependency cascade failures with their own error type", async () => {
+      const runner = new TestQueryRunner(
+        mockContext,
+        {
+          ...model,
+          queries: [
+            { name: "dep", query: "qry_dep", status: "failed" },
+            { name: "A", query: "qry_A", status: "queued" },
+          ],
+        },
+        mockIntegration,
+      );
+
+      await runner.startReadyQueries(
+        new Map([
+          ["dep", createMockQuery("qry_dep", "failed")],
+          ["A", createMockQuery("qry_A", "queued", ["qry_dep"])],
+        ]),
+      );
+
+      expect(trackQueryFailed).toHaveBeenCalledWith(
+        mockContext,
+        expect.objectContaining({
+          query: expect.objectContaining({ id: "qry_A" }),
+        }),
+        "dependency-failed",
+      );
     });
   });
 

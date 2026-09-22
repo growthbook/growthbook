@@ -28,6 +28,11 @@ import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
+import {
+  QueryErrorType,
+  trackQueryFailed,
+  trackQuerySucceeded,
+} from "back-end/src/services/queryTelemetry";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -416,6 +421,22 @@ export abstract class QueryRunner<
     }
   }
 
+  protected trackQueryFailure(
+    doc: QueryInterface,
+    errorType: QueryErrorType,
+    durationMs: number | null = null,
+  ): void {
+    trackQueryFailed(
+      this.context,
+      {
+        query: doc,
+        datasource: this.integration?.datasource ?? null,
+        durationMs,
+      },
+      errorType,
+    );
+  }
+
   /**
    * Persist a terminal error. Snapshot runners override to write only while
    * status is still running, so a cancel/reaper conclusion is not clobbered.
@@ -768,6 +789,7 @@ export abstract class QueryRunner<
             (q) => q.query,
           )}`,
         });
+        this.trackQueryFailure(query, "dependency-failed");
         this.onQueryFinish();
         continue;
       }
@@ -803,6 +825,7 @@ export abstract class QueryRunner<
             status: "failed",
             error: `Run callbacks not found`,
           });
+          this.trackQueryFailure(query, "missing-run-callbacks");
           this.onQueryFinish();
         } else {
           if (await this.concurrencyLimitReached()) {
@@ -1091,6 +1114,7 @@ export abstract class QueryRunner<
         status: "failed",
         error: `Run callbacks not found`,
       });
+      this.trackQueryFailure(doc, "missing-run-callbacks");
       return this.onQueryFinish();
     }
     return this.executeQuery(doc, runCallbacks);
@@ -1146,18 +1170,25 @@ export abstract class QueryRunner<
     }
     if (this.isStopping()) {
       clearInterval(timer);
-      await updateQueryIfRunning(this.context, doc, {
+      const stopped = await updateQueryIfRunning(this.context, doc, {
         finishedAt: new Date(),
         status: "failed",
         error: "Query runner concluded before execution",
-      }).catch((e) =>
+      }).catch((e) => {
         logger.warn(
           e,
           `${doc.id}: Failed to stop query claimed during shutdown`,
-        ),
-      );
+        );
+        return false;
+      });
+      if (stopped) {
+        this.trackQueryFailure(doc, "runner-concluded");
+      }
       return;
     }
+    const startedAt = Date.now();
+    // Distinguishes a warehouse error from a failure while storing its rows.
+    let runResolved = false;
 
     const setExternalId = async (
       id: string,
@@ -1183,6 +1214,7 @@ export abstract class QueryRunner<
 
     run(doc.query, setExternalId, { queryType: doc.queryType || "unknown" })
       .then(async ({ rows, statistics }) => {
+        runResolved = true;
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
         await updateQuery(this.context, doc, {
@@ -1191,6 +1223,11 @@ export abstract class QueryRunner<
           rawResult: rows,
           result: process ? process(rows) : rows,
           statistics: statistics,
+        });
+        trackQuerySucceeded(this.context, {
+          query: doc,
+          datasource: this.integration?.datasource ?? null,
+          durationMs: Date.now() - startedAt,
         });
         if (onSuccess) {
           await onSuccess(rows);
@@ -1206,7 +1243,13 @@ export abstract class QueryRunner<
             status: "failed",
             error: e.message,
           });
-          if (!updated) {
+          if (updated) {
+            this.trackQueryFailure(
+              doc,
+              runResolved ? "result-processing-error" : "warehouse-error",
+              Date.now() - startedAt,
+            );
+          } else {
             logger.debug(
               `Query ${doc.id} failure not written: already terminal (e.g. user cancel)`,
             );

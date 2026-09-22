@@ -386,6 +386,30 @@ export function trackEventForOrganization(
   }
 }
 
+/**
+ * For cross-org jobs that hold only an org id: skips loading the org, so
+ * plan attributes are absent. Never throws.
+ */
+export function trackEventForOrganizationId(
+  organizationId: string,
+  eventName: string,
+  properties: EventProperties = {},
+): void {
+  try {
+    const client = getGrowthBookClient();
+    if (!client) return;
+
+    client.logEvent(eventName, properties, {
+      attributes: {
+        organizationId: hashOrganizationId(organizationId),
+        cloudOrgId: IS_CLOUD ? organizationId : "",
+      },
+    });
+  } catch (e) {
+    logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
+  }
+}
+
 export function trackEventForContext(
   context: ReqContext,
   eventName: string,

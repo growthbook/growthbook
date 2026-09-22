@@ -34,6 +34,10 @@ import {
   updateReport,
 } from "back-end/src/models/ReportModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import {
+  trackQueryFailed,
+  trackQueryFailedForOrganizationId,
+} from "back-end/src/services/queryTelemetry";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -77,6 +81,14 @@ const expireOldQueries = async () => {
 
   if (queryIds.size > 0) {
     logger.info("Found " + queryIds.size + " stale queries");
+    // Org-id only: no per-org or per-datasource lookups in the reaper.
+    queries.forEach((query) =>
+      trackQueryFailedForOrganizationId(
+        query.organization,
+        { query, datasource: null, durationMs: null },
+        "stale-heartbeat",
+      ),
+    );
   } else {
     logger.debug("Found no stale queries");
   }
@@ -398,13 +410,23 @@ async function reapStalledSnapshots() {
     );
 
     if (isOrphanedDag) {
-      await markPendingQueriesAsFailed(
+      const markedFailed = await markPendingQueriesAsFailed(
         context,
         queued.map((q) => q.id),
         "Query was never started: the snapshot driving it was reaped as stalled.",
-      ).catch((e) =>
-        logger.warn(e, "Failed to mark orphaned queued queries as failed"),
-      );
+      ).catch((e) => {
+        logger.warn(e, "Failed to mark orphaned queued queries as failed");
+        return 0;
+      });
+      if (markedFailed > 0) {
+        queued.forEach((query) =>
+          trackQueryFailed(
+            context,
+            { query, datasource: null, durationMs: null },
+            "orphaned",
+          ),
+        );
+      }
 
       // Only scheduled standard snapshots can be retried by bumping the
       // generic experiment refresh schedule.

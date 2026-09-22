@@ -85,15 +85,25 @@ export async function getQueryStatusesByIds(
   organization: string,
   ids: string[],
 ): Promise<
-  Pick<
+  (Pick<
     QueryInterface,
     "id" | "status" | "finishedAt" | "heartbeat" | "createdAt"
-  >[]
+  > &
+    Partial<Pick<QueryInterface, "datasource" | "queryType">>)[]
 > {
   if (!ids.length) return [];
   const docs = await QueryModel.find(
     { organization, id: { $in: ids } },
-    { id: 1, status: 1, finishedAt: 1, heartbeat: 1, createdAt: 1, _id: 0 },
+    {
+      id: 1,
+      status: 1,
+      finishedAt: 1,
+      heartbeat: 1,
+      createdAt: 1,
+      datasource: 1,
+      queryType: 1,
+      _id: 0,
+    },
   );
   return docs.map((d) => ({
     id: d.id,
@@ -101,6 +111,8 @@ export async function getQueryStatusesByIds(
     finishedAt: d.finishedAt,
     heartbeat: d.heartbeat,
     createdAt: d.createdAt,
+    datasource: d.datasource,
+    queryType: d.queryType,
   }));
 }
 
@@ -338,7 +350,8 @@ export async function getRecentQuery(
 }
 
 export async function getStaleQueries(): Promise<
-  { id: string; organization: string }[]
+  (Pick<QueryInterface, "id" | "organization"> &
+    Partial<Pick<QueryInterface, "datasource" | "queryType">>)[]
 > {
   // Queries get a heartbeat updated every 30 seconds while actively running
   // If there's a fatal error (e.g. Node gets killed), a query could be stuck in a "running" state
@@ -357,6 +370,8 @@ export async function getStaleQueries(): Promise<
     _id: 1,
     id: 1,
     organization: 1,
+    datasource: 1,
+    queryType: 1,
   }).limit(20);
   if (!docs.length) return [];
 
@@ -373,7 +388,12 @@ export async function getStaleQueries(): Promise<
     },
   );
 
-  return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
+  return docs.map((doc) => ({
+    id: doc.id,
+    organization: doc.organization,
+    datasource: doc.datasource,
+    queryType: doc.queryType,
+  }));
 }
 
 export async function createNewQuery({

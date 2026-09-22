@@ -24,6 +24,10 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import {
+  trackQueryFailed,
+  trackQueryFailedForOrganizationId,
+} from "back-end/src/services/queryTelemetry";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   dangerousFindStalledRunningSnapshotsFromAllOrgs: jest.fn(),
@@ -56,6 +60,11 @@ jest.mock("back-end/src/models/PastExperimentsModel", () => ({
 jest.mock("back-end/src/models/ReportModel", () => ({
   findReportsByQueryId: jest.fn().mockResolvedValue([]),
   updateReport: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/queryTelemetry", () => ({
+  trackQueryFailed: jest.fn(),
+  trackQueryFailedForOrganizationId: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
@@ -426,6 +435,66 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         error: expect.stringContaining("A retry has been scheduled."),
       }),
       "cancelled",
+    );
+  });
+
+  it("tracks each orphaned query it fails, without a datasource lookup", async () => {
+    mockOrphanedSnapshot({
+      type: "standard",
+      triggeredBy: "manual",
+      statuses: [
+        {
+          id: "qry_1",
+          status: "queued",
+          datasource: "ds_1",
+          queryType: "experimentResults",
+        } as StalledQueryStatus,
+      ],
+    });
+
+    await runJob();
+
+    expect(trackQueryFailed).toHaveBeenCalledTimes(1);
+    expect(trackQueryFailed).toHaveBeenCalledWith(
+      context,
+      {
+        query: expect.objectContaining({ id: "qry_1", datasource: "ds_1" }),
+        datasource: null,
+        durationMs: null,
+      },
+      "orphaned",
+    );
+  });
+
+  it("does not track orphaned queries when none were marked failed", async () => {
+    mockOrphanedSnapshot({ type: "standard", triggeredBy: "manual" });
+    (markPendingQueriesAsFailed as jest.Mock).mockResolvedValue(0);
+
+    await runJob();
+
+    expect(trackQueryFailed).not.toHaveBeenCalled();
+  });
+
+  it("tracks stale-heartbeat queries by org id with a null datasource type", async () => {
+    (getStaleQueries as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_stale",
+        organization: "org_2",
+        datasource: "ds_2",
+        queryType: "metricAnalysis",
+      },
+    ]);
+
+    await runJob();
+
+    expect(trackQueryFailedForOrganizationId).toHaveBeenCalledWith(
+      "org_2",
+      {
+        query: expect.objectContaining({ id: "qry_stale" }),
+        datasource: null,
+        durationMs: null,
+      },
+      "stale-heartbeat",
     );
   });
 
