@@ -21,7 +21,7 @@ import styles from "./ExperimentSplitVisual.module.scss";
 const CONNECTOR = {
   height: 34,
   /** The shared drop the arms branch off. */
-  stem: 4,
+  stem: 2,
   /** The vertical run an arm settles into before its head. */
   straight: 3,
   head: 3,
@@ -67,8 +67,8 @@ function SegmentConnector({ centers }: { centers: number[] }) {
       const arm =
         Math.abs(dx) < 1
           ? `M ${midX} ${stem} L ${x} ${endY}`
-          : `M ${midX} ${stem} C ${midX} ${stem + dy * 0.75},` +
-            ` ${x} ${turnY - dy * 0.75}, ${x} ${turnY} L ${x} ${endY}`;
+          : `M ${midX} ${stem} C ${midX} ${stem + dy * 0.9},` +
+            ` ${x} ${turnY - dy * 0.9}, ${x} ${turnY} L ${x} ${endY}`;
       return (
         arm +
         ` M ${x - head} ${endY - head} L ${x} ${endY} L ${x + head} ${endY - head}`
