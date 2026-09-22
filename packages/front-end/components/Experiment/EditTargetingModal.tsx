@@ -38,6 +38,8 @@ export interface Props {
    * writing it. The page's save bar owns the write from then on.
    */
   stageChanges?: (value: ExperimentTargetingData) => void;
+  /** Targeting already staged, which the form opens on. */
+  draft?: ExperimentTargetingData | null;
 }
 
 export default function EditTargetingModal({
@@ -47,6 +49,7 @@ export default function EditTargetingModal({
   mutate,
   safeToEdit,
   stageChanges,
+  draft,
 }: Props) {
   const { enforcement: enforcementScope, dropdown: dropdownScope } =
     getLinkedExperimentAttributeScopes(experiment.project, linkedFeatures);
@@ -58,7 +61,7 @@ export default function EditTargetingModal({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment, enforcementScope);
+  } = useExperimentTargetingForm(experiment, enforcementScope, draft);
 
   const { effectiveAttributeProjects, attributeScopeToggle } =
     useAttributeScopePicker({

@@ -1,5 +1,6 @@
 import {
   ExperimentInterfaceStringDates,
+  ExperimentTargetingData,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
@@ -14,6 +15,10 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
+  /** Stages the confirmed change instead of writing it, as targeting does. */
+  stageChanges?: (value: ExperimentTargetingData) => void;
+  /** Targeting already staged, which the form opens on. */
+  draft?: ExperimentTargetingData | null;
 }
 
 export default function EditNamespaceModal({
@@ -22,6 +27,8 @@ export default function EditNamespaceModal({
   linkedFeatures,
   mutate,
   safeToEdit,
+  stageChanges,
+  draft,
 }: Props) {
   const { enforcement, dropdown } = getLinkedExperimentAttributeScopes(
     experiment.project,
@@ -34,7 +41,7 @@ export default function EditNamespaceModal({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment, enforcement);
+  } = useExperimentTargetingForm(experiment, enforcement, draft);
 
   if (safeToEdit) {
     return (
@@ -45,7 +52,8 @@ export default function EditNamespaceModal({
         header="Edit Namespace"
         subheader="Run mutually exclusive experiments within a shared namespace."
         ctaEnabled={canSubmit}
-        submit={onSubmit(mutate, "namespace")}
+        cta={stageChanges ? "Confirm" : "Save"}
+        submit={onSubmit(mutate, "namespace", stageChanges)}
         size="lg"
       >
         <div className="pt-2">

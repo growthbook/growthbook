@@ -124,6 +124,11 @@ export function useTargetingDefaults(
 export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
   attributeScopeProjects?: string[] | null,
+  /**
+   * Targeting already staged on the page. The form opens on it, so reopening a
+   * modal picks up what was confirmed rather than what is stored.
+   */
+  draft?: ExperimentTargetingData | null,
 ): UseExperimentTargetingFormResult {
   const { apiCall } = useAuth();
   const orgSettings = useOrgSettings();
@@ -135,7 +140,8 @@ export function useExperimentTargetingForm(
     useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
-  const defaultValues = useTargetingDefaults(experiment);
+  const stored = useTargetingDefaults(experiment);
+  const defaultValues = draft ?? stored;
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];

@@ -42,6 +42,7 @@ import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperim
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import {
   EnvironmentStateChips,
@@ -62,7 +63,10 @@ import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOpt
 import { attributeOptionLabelFormatter } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
-import { useRegisterExperimentEdit } from "./ExperimentEdits";
+import {
+  EDITS_BLOCKED_REASON,
+  useRegisterExperimentEdit,
+} from "./ExperimentEdits";
 import useExperimentEditing from "./useExperimentEditing";
 import SetupFieldRow from "./SetupFieldRow";
 import styles from "./TrafficAllocationFunnel.module.scss";
@@ -105,12 +109,15 @@ function FunnelCard({
   onEdit,
   children,
   disabled = false,
+  editBlockedReason,
 }: {
   title: string;
   inlineSummary?: ReactNode;
   onEdit?: (() => void) | null;
   children?: ReactNode;
   disabled?: boolean;
+  /** Why the pencil cannot open right now, which it wears rather than vanishing. */
+  editBlockedReason?: string | null;
 }) {
   return (
     <Box
@@ -133,16 +140,19 @@ function FunnelCard({
           ) : null}
         </Flex>
         {onEdit && !disabled ? (
-          <IconButton
-            variant="ghost"
-            color="violet"
-            radius="medium"
-            onClick={() => onEdit()}
-            size="1"
-            aria-label={`Edit ${title}`}
-          >
-            <PiPencilSimple size="14" />
-          </IconButton>
+          <Tooltip content={editBlockedReason ?? `Edit ${title}`}>
+            <IconButton
+              variant="ghost"
+              color="violet"
+              radius="medium"
+              disabled={!!editBlockedReason}
+              onClick={() => onEdit()}
+              size="1"
+              aria-label={`Edit ${title}`}
+            >
+              <PiPencilSimple size="14" />
+            </IconButton>
+          </Tooltip>
         ) : null}
       </Flex>
       {children ? <Box mt="3">{children}</Box> : null}
@@ -264,6 +274,10 @@ export default function TrafficAllocationFunnel({
     staged?.disableStickyBucketing ??
     experiment.disableStickyBucketing ??
     false;
+
+  // The traffic modal writes as it saves, which would race whatever the page
+  // is still holding.
+  const trafficBlocked = staged ? EDITS_BLOCKED_REASON : null;
 
   const storedPhase =
     experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
@@ -569,6 +583,7 @@ export default function TrafficAllocationFunnel({
             title="Traffic"
             onEdit={editTraffic}
             disabled={!safeToEdit}
+            editBlockedReason={trafficBlocked}
           >
             {!isHoldout ? (
               <Box mb="1">
@@ -686,10 +701,15 @@ export default function TrafficAllocationFunnel({
               }
               // Names and descriptions save at any status; values wherever there is a flag.
               onEditTraffic={
-                canEditExperiment && editTraffic ? editTraffic : undefined
+                canEditExperiment && editTraffic && !trafficBlocked
+                  ? editTraffic
+                  : undefined
               }
               onAddVariation={
-                canEditExperiment && !isRunning && addVariation
+                canEditExperiment &&
+                !isRunning &&
+                addVariation &&
+                !trafficBlocked
                   ? addVariation
                   : undefined
               }

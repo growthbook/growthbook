@@ -273,6 +273,7 @@ const ExperimentPage = (): ReactElement => {
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
           stageChanges={setTargetingDraft}
+          draft={targetingDraft}
           // source="eid"
         />
       )}
@@ -298,6 +299,8 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
+          stageChanges={setTargetingDraft}
+          draft={targetingDraft}
         />
       )}
       {editScheduleModalOpen && (
