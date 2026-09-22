@@ -321,7 +321,19 @@ export default function StandardRuleFields({
       />
       <ConflictCallout field="description" />
 
-      <RuleEnvironmentScopeField {...envScope} my="5" />
+      {rampLocksTargeting && (
+        <Callout status="info" mt="5" icon={<PiLockSimple />}>
+          This rule is part of a running ramp-up. Pause it before changing the
+          environments, rollout %, targeting, or value. Once paused, your
+          changes take effect when you publish and stay in place when the
+          ramp-up resumes.
+        </Callout>
+      )}
+      <RuleEnvironmentScopeField
+        {...envScope}
+        disabled={rampLocksTargeting}
+        my="5"
+      />
       <ConflictCallout field="environments" />
       <RuleProjectScopeField {...projectScope} mb="5" />
       <ConflictCallout field="projects" />
@@ -544,13 +556,7 @@ export default function StandardRuleFields({
           continues.
         </Callout>
       )}
-      {rampLocksTargeting ? (
-        <Callout status="info" mb="4" icon={<PiLockSimple />}>
-          This rule is part of a running ramp-up. Pause it before changing the
-          rollout %, targeting, or value. Once paused, your changes take effect
-          when you publish and stay in place when the ramp-up resumes.
-        </Callout>
-      ) : (
+      {rampLocksTargeting ? null : (
         <Flex direction="column" gap="5" mb="4">
           {rampControlsCoverage ? null : (
             <>
