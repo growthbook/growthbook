@@ -1,4 +1,5 @@
 import escapeRegExp from "lodash/escapeRegExp";
+import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -18,6 +19,7 @@ import {
   stemRuleId,
   isRampScheduleServing,
   unanchoredRampTargets,
+  parseAssignmentQueryInput,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
@@ -250,19 +252,16 @@ export function apiMonitoringConfigToInternal<
     })
   | null {
   if (!mc) return null;
-  if (mc.exposureQuery && mc.exposureQueryId !== undefined) {
-    throw new Error(
-      "Cannot set exposureQuery together with the deprecated exposureQueryId",
-    );
-  }
-  const { exposureQuery, ...rest } = mc;
+  const { id, identifierType } = parseAssignmentQueryInput(
+    mc.exposureQuery,
+    mc.exposureQueryId,
+    "exposureQuery",
+  );
   // The model's schema enforces exposureQueryId presence at write time.
   return {
-    ...rest,
-    exposureQueryId: exposureQuery?.id ?? mc.exposureQueryId,
-    ...(exposureQuery
-      ? { exposureQueryIdentifierType: exposureQuery.identifierType }
-      : {}),
+    ...omit(mc, "exposureQuery"),
+    exposureQueryId: id,
+    ...(identifierType ? { exposureQueryIdentifierType: identifierType } : {}),
   } as Omit<T, "exposureQuery"> & {
     exposureQueryId: string;
     exposureQueryIdentifierType?: string;

@@ -11,6 +11,8 @@ import {
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
+  getExposureQueryIdentifierTypes,
+  parseAssignmentQueryInput,
 } from "shared/util";
 import {
   ApiUpdateHoldoutBody,
@@ -28,7 +30,7 @@ import {
   ExperimentPhase,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
-import { DataSourceInterface } from "shared/types/datasource";
+import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
   notifyHoldoutCreated,
   notifyHoldoutStatusChanged,
@@ -358,14 +360,24 @@ export async function resolveHoldoutExperimentToLink({
 export function assertValidAssignmentQuery(
   datasource: DataSourceInterface | null,
   assignmentQueryId: string | undefined,
-): void {
-  if (!assignmentQueryId) return;
+  identifierType?: string,
+): ExposureQuery | undefined {
+  if (!assignmentQueryId) return undefined;
   const exposureQuery = datasource?.settings?.queries?.exposure?.find(
     (q) => q.id === assignmentQueryId,
   );
   if (!exposureQuery) {
     throw new Error("Invalid assignment query: " + assignmentQueryId);
   }
+  if (
+    identifierType &&
+    !getExposureQueryIdentifierTypes(exposureQuery).includes(identifierType)
+  ) {
+    throw new Error(
+      `Identifier type "${identifierType}" is not declared by assignment query "${assignmentQueryId}"`,
+    );
+  }
+  return exposureQuery;
 }
 
 export async function createHoldoutWithExperiment(
@@ -385,7 +397,11 @@ export async function createHoldoutWithExperiment(
     secondaryMetrics: data.secondaryMetrics,
   });
 
-  assertValidAssignmentQuery(datasource, data.assignmentQueryId);
+  assertValidAssignmentQuery(
+    datasource,
+    data.assignmentQueryId,
+    data.assignmentQueryIdentifierType,
+  );
 
   const conditionResult = validateCondition(data.targetingCondition);
   if (!conditionResult.success) {
@@ -438,6 +454,9 @@ export async function createHoldoutWithExperiment(
     trackingKey: `holdout-${uuidv4()}`,
     datasource: data.datasourceId || "",
     exposureQueryId: data.assignmentQueryId || "",
+    ...(data.assignmentQueryIdentifierType
+      ? { exposureQueryIdentifierType: data.assignmentQueryIdentifierType }
+      : {}),
     userIdType: "anonymous",
     name: data.name,
     phases: [
@@ -668,9 +687,16 @@ export async function updateHoldoutWithExperiment(
   }
   // Validate against the post-update values, so a metric or exposure query left
   // stale by a datasource-only change is rejected here, not at query time.
+  const assignmentQueryInput = parseAssignmentQueryInput(
+    body.assignmentQuery,
+    body.assignmentQueryId,
+    "assignmentQuery",
+  );
+  const assignmentQueryId = assignmentQueryInput.id;
+  let assignmentQueryIdentifierType = assignmentQueryInput.identifierType;
   if (
     body.datasourceId !== undefined ||
-    body.assignmentQueryId !== undefined ||
+    assignmentQueryId !== undefined ||
     body.goalMetrics !== undefined ||
     body.secondaryMetrics !== undefined
   ) {
@@ -680,16 +706,36 @@ export async function updateHoldoutWithExperiment(
       secondaryMetrics: body.secondaryMetrics ?? experiment.secondaryMetrics,
     });
 
+    const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
+    const exposureQuery = assertValidAssignmentQuery(
+      datasource,
+      effectiveQueryId,
+    );
+    // Repointing without naming an identifier defaults to the new query's first.
+    if (
+      exposureQuery &&
+      assignmentQueryIdentifierType === undefined &&
+      assignmentQueryId !== undefined &&
+      assignmentQueryId !== experiment.exposureQueryId
+    ) {
+      assignmentQueryIdentifierType =
+        exposureQuery.userIdTypes?.[0] ?? exposureQuery.userIdType;
+    }
     assertValidAssignmentQuery(
       datasource,
-      body.assignmentQueryId ?? experiment.exposureQueryId,
+      effectiveQueryId,
+      assignmentQueryIdentifierType ?? experiment.exposureQueryIdentifierType,
     );
 
     if (body.datasourceId !== undefined) {
       experimentChanges.datasource = body.datasourceId;
     }
-    if (body.assignmentQueryId !== undefined) {
-      experimentChanges.exposureQueryId = body.assignmentQueryId;
+    if (assignmentQueryId !== undefined) {
+      experimentChanges.exposureQueryId = assignmentQueryId;
+    }
+    if (assignmentQueryIdentifierType !== undefined) {
+      experimentChanges.exposureQueryIdentifierType =
+        assignmentQueryIdentifierType;
     }
   }
   // The name is stored on both documents and must not drift.

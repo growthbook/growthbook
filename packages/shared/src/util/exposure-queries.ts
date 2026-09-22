@@ -5,8 +5,53 @@ type ExposureQueryIdentity = Pick<
   "id" | "userIdType" | "userIdTypes"
 >;
 
+// Falls back to the deprecated scalar for queries saved before userIdTypes.
+export function getExposureQueryIdentifierTypes(
+  query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
+): string[] {
+  return query.userIdTypes?.length
+    ? query.userIdTypes
+    : [query.userIdType].filter(Boolean);
+}
+
 function firstIdentifierType(query: ExposureQueryIdentity): string {
-  return query.userIdTypes?.[0] ?? query.userIdType;
+  return getExposureQueryIdentifierTypes(query)[0] ?? query.userIdType;
+}
+
+/**
+ * Reads a REST body's grouped assignment query field and its deprecated flat
+ * `<field>Id`, which are mutually exclusive.
+ */
+export function parseAssignmentQueryInput(
+  assignmentQuery: { id: string; identifierType: string } | undefined,
+  deprecatedId: string | undefined,
+  field: "assignmentQuery" | "exposureQuery",
+): { id: string | undefined; identifierType: string | undefined } {
+  if (assignmentQuery && deprecatedId !== undefined) {
+    throw new Error(
+      `Cannot set ${field} together with the deprecated ${field}Id`,
+    );
+  }
+  return {
+    id: assignmentQuery?.id ?? deprecatedId,
+    identifierType: assignmentQuery?.identifierType,
+  };
+}
+
+/**
+ * Throws rather than let analysis run on an identifier the query no longer
+ * returns. A missing identifier type falls back to the query's first.
+ */
+export function assertExposureQueryDeclaresIdentifierType(
+  query: ExposureQueryIdentity & Pick<ExposureQuery, "name">,
+  identifierType: string | undefined,
+): void {
+  if (!identifierType) return;
+  if (!getExposureQueryIdentifierTypes(query).includes(identifierType)) {
+    throw new Error(
+      `Identifier type "${identifierType}" is no longer declared by assignment query "${query.name || query.id}". Choose a supported identifier before running analysis.`,
+    );
+  }
 }
 
 /**

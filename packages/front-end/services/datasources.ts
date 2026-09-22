@@ -7,7 +7,10 @@ import {
   SchemaInterface,
 } from "shared/types/datasource";
 import { MetricType } from "shared/types/metric";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  isProjectListValidForProject,
+} from "shared/util";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
 function camelToUnderscore(orig: string) {
@@ -804,13 +807,7 @@ export function getExposureQuery(
   return queries.find((q) => q.id === exposureQueryId) ?? null;
 }
 
-export function getExposureQueryIdentifierTypes(
-  exposureQuery: ExposureQuery,
-): string[] {
-  return exposureQuery.userIdTypes?.length
-    ? exposureQuery.userIdTypes
-    : [exposureQuery.userIdType].filter(Boolean);
-}
+export { getExposureQueryIdentifierTypes };
 
 export function getExposureQueryIdentifierType(
   exposureQuery: ExposureQuery,

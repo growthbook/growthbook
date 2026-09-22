@@ -1,3 +1,4 @@
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import {
   CreateSafeRolloutInterface,
   createSafeRolloutValidator,
@@ -48,12 +49,22 @@ export async function validateCreateSafeRolloutFields(
   }
 
   const exposureQueries = datasource.settings?.queries?.exposure || [];
-  const exposureQueryExists = exposureQueries.some(
+  const exposureQuery = exposureQueries.find(
     (q) => q.id === safeRolloutFields.exposureQueryId,
   );
-  if (!exposureQueryExists) {
+  if (!exposureQuery) {
     throw new BadRequestError(
       "Invalid exposure query: " + safeRolloutFields.exposureQueryId,
+    );
+  }
+  if (
+    safeRolloutFields.exposureQueryIdentifierType &&
+    !getExposureQueryIdentifierTypes(exposureQuery).includes(
+      safeRolloutFields.exposureQueryIdentifierType,
+    )
+  ) {
+    throw new BadRequestError(
+      `Identifier type "${safeRolloutFields.exposureQueryIdentifierType}" is not declared by exposure query "${safeRolloutFields.exposureQueryId}"`,
     );
   }
 

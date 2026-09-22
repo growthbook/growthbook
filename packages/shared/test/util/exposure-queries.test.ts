@@ -1,4 +1,7 @@
 import {
+  assertExposureQueryDeclaresIdentifierType,
+  getExposureQueryIdentifierTypes,
+  parseAssignmentQueryInput,
   getExposureQueriesOutsideProjectScope,
   getExposureQueriesWithChangedBaseIdentifier,
 } from "shared/util";
@@ -131,5 +134,113 @@ describe("getExposureQueriesOutsideProjectScope", () => {
         ["p1"],
       ),
     ).toEqual([]);
+  });
+});
+
+describe("assertExposureQueryDeclaresIdentifierType", () => {
+  const multi = query({
+    id: "exq_multi",
+    name: "Multi",
+    userIdType: "user_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+
+  it("allows any declared identifier, including a secondary one", () => {
+    expect(() =>
+      assertExposureQueryDeclaresIdentifierType(multi, "anonymous_id"),
+    ).not.toThrow();
+  });
+
+  it("allows a missing identifier type", () => {
+    expect(() =>
+      assertExposureQueryDeclaresIdentifierType(multi, undefined),
+    ).not.toThrow();
+    expect(() =>
+      assertExposureQueryDeclaresIdentifierType(multi, ""),
+    ).not.toThrow();
+  });
+
+  it("throws for an identifier the query does not declare", () => {
+    expect(() =>
+      assertExposureQueryDeclaresIdentifierType(multi, "device_id"),
+    ).toThrow(
+      'Identifier type "device_id" is no longer declared by assignment query "Multi"',
+    );
+  });
+
+  it("falls back to the legacy scalar when userIdTypes is empty", () => {
+    const legacy = query({
+      id: "exq_legacy",
+      userIdType: "user_id",
+      userIdTypes: [],
+    });
+    expect(() =>
+      assertExposureQueryDeclaresIdentifierType(legacy, "user_id"),
+    ).not.toThrow();
+    expect(() =>
+      assertExposureQueryDeclaresIdentifierType(legacy, "anonymous_id"),
+    ).toThrow();
+  });
+});
+
+describe("getExposureQueryIdentifierTypes", () => {
+  it("returns the declared identifier types", () => {
+    expect(
+      getExposureQueryIdentifierTypes({
+        userIdType: "user_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+      }),
+    ).toEqual(["user_id", "anonymous_id"]);
+  });
+
+  it("falls back to the legacy scalar", () => {
+    expect(
+      getExposureQueryIdentifierTypes({
+        userIdType: "user_id",
+        userIdTypes: [],
+      }),
+    ).toEqual(["user_id"]);
+  });
+
+  it("returns nothing when neither is set", () => {
+    expect(
+      getExposureQueryIdentifierTypes({ userIdType: "", userIdTypes: [] }),
+    ).toEqual([]);
+  });
+});
+
+describe("parseAssignmentQueryInput", () => {
+  it("reads the id and identifier type from the grouped field", () => {
+    expect(
+      parseAssignmentQueryInput(
+        { id: "exq_1", identifierType: "anonymous_id" },
+        undefined,
+        "assignmentQuery",
+      ),
+    ).toEqual({ id: "exq_1", identifierType: "anonymous_id" });
+  });
+
+  it("falls back to the deprecated id with no identifier type", () => {
+    expect(
+      parseAssignmentQueryInput(undefined, "exq_1", "exposureQuery"),
+    ).toEqual({ id: "exq_1", identifierType: undefined });
+  });
+
+  it("returns nothing when neither is set", () => {
+    expect(
+      parseAssignmentQueryInput(undefined, undefined, "assignmentQuery"),
+    ).toEqual({ id: undefined, identifierType: undefined });
+  });
+
+  it("rejects both fields together, naming them", () => {
+    expect(() =>
+      parseAssignmentQueryInput(
+        { id: "exq_1", identifierType: "user_id" },
+        "exq_2",
+        "exposureQuery",
+      ),
+    ).toThrow(
+      "Cannot set exposureQuery together with the deprecated exposureQueryId",
+    );
   });
 });

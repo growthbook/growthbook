@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FormProvider, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -57,6 +57,9 @@ import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetrics
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import MultiSelectField from "@/ui/MultiSelectField";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -193,6 +196,8 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         initialExperiment,
       ),
       hashAttribute: initialExperiment?.hashAttribute || hashAttribute,
+      exposureQueryIdentifierType:
+        initialExperiment?.exposureQueryIdentifierType,
       goalMetrics: initialExperiment?.goalMetrics || [],
       secondaryMetrics: initialExperiment?.secondaryMetrics || [],
       tags: initialExperiment?.tags || [],
@@ -264,6 +269,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       savedGroups: phase?.savedGroups,
       datasourceId: value.datasource,
       assignmentQueryId: value.exposureQueryId,
+      assignmentQueryIdentifierType: value.exposureQueryIdentifierType,
       goalMetrics: value.goalMetrics,
       secondaryMetrics: value.secondaryMetrics,
       environmentSettings: value.environmentSettings,
@@ -310,18 +316,29 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
     canCreateWithoutProject ||
     permissionsUtils.canCreateHoldout({ projects: selectedProjects });
 
-  const exposureQueries = useMemo(() => {
-    return datasource?.settings?.queries?.exposure || [];
-  }, [datasource]);
-  const exposureQueryId = form.getValues("exposureQueryId");
+  const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
+  const setExposureQueryId = useCallback(
+    (value: string) => form.setValue("exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue("exposureQueryIdentifierType", value),
+    [form],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    // Holdouts span Projects, so every assignment query stays selectable.
+    project: undefined,
+    hashAttribute: form.watch("hashAttribute"),
+    exposureQueryId,
+    identifierType: exposureQueryIdentifierType,
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+  });
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
-
-  useEffect(() => {
-    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
-    }
-  }, [form, exposureQueries, exposureQueryId]);
 
   let header = "Add new Holdout";
   if (duplicate) {
@@ -603,43 +620,10 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 className="portal-overflow-ellipsis"
               />
 
-              {datasource?.properties?.exposureQueries && exposureQueries ? (
-                <SelectField
+              {datasource?.properties?.exposureQueries ? (
+                <AssignmentQueryFields
+                  selection={assignmentQuerySelection}
                   size="legacy"
-                  label={
-                    <>
-                      Experiment Assignment Table{" "}
-                      <Tooltip content="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                    </>
-                  }
-                  labelClassName="font-weight-bold"
-                  value={form.watch("exposureQueryId") ?? ""}
-                  onChange={(v) => form.setValue("exposureQueryId", v)}
-                  required
-                  options={exposureQueries?.map((q) => {
-                    return {
-                      label: q.name,
-                      value: q.id,
-                    };
-                  })}
-                  formatOptionLabel={({ label, value }) => {
-                    const userIdType = exposureQueries?.find(
-                      (e) => e.id === value,
-                    )?.userIdType;
-                    return (
-                      <>
-                        {label}
-                        {userIdType ? (
-                          <span
-                            className="text-muted small float-right position-relative"
-                            style={{ top: 3 }}
-                          >
-                            Identifier Type: <code>{userIdType}</code>
-                          </span>
-                        ) : null}
-                      </>
-                    );
-                  }}
                 />
               ) : null}
             </div>
@@ -647,6 +631,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             <ExperimentMetricsSelector
               datasource={datasource?.id}
               exposureQueryId={exposureQueryId}
+              exposureQueryIdentifierType={exposureQueryIdentifierType}
               project={project}
               goalMetrics={form.watch("goalMetrics") ?? []}
               secondaryMetrics={form.watch("secondaryMetrics") ?? []}

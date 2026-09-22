@@ -5383,7 +5383,24 @@ paths:
                           properties:
                             datasourceId:
                               type: string
+                            exposureQuery:
+                              description: >-
+                                The exposure query to use, grouping its ID with
+                                the identifier type to analyze on. Mutually
+                                exclusive with the deprecated exposureQueryId.
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                identifierType:
+                                  type: string
+                              required:
+                                - id
+                                - identifierType
+                              additionalProperties: false
                             exposureQueryId:
+                              deprecated: true
+                              description: 'Deprecated: use exposureQuery instead.'
                               type: string
                             guardrailMetricIds:
                               minItems: 1
@@ -5432,7 +5449,6 @@ paths:
                               additionalProperties: false
                           required:
                             - datasourceId
-                            - exposureQueryId
                             - guardrailMetricIds
                             - maxDuration
                           additionalProperties: false
@@ -56858,7 +56874,25 @@ paths:
                     additionalProperties: false
                 datasourceId:
                   type: string
+                assignmentQuery:
+                  description: >-
+                    The assignment query to use, grouping its ID with the
+                    identifier type to analyze on. The identifier type must be
+                    one the query declares. Mutually exclusive with the
+                    deprecated assignmentQueryId.
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    identifierType:
+                      type: string
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
                 assignmentQueryId:
+                  deprecated: true
+                  description: 'Deprecated: use assignmentQuery instead.'
                   type: string
                 goalMetrics:
                   type: array
@@ -57020,7 +57054,25 @@ paths:
                     additionalProperties: false
                 datasourceId:
                   type: string
+                assignmentQuery:
+                  description: >-
+                    The assignment query to use, grouping its ID with the
+                    identifier type to analyze on. The identifier type must be
+                    one the query declares. Mutually exclusive with the
+                    deprecated assignmentQueryId.
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    identifierType:
+                      type: string
+                  required:
+                    - id
+                    - identifierType
+                  additionalProperties: false
                 assignmentQueryId:
+                  deprecated: true
+                  description: 'Deprecated: use assignmentQuery instead.'
                   type: string
                 goalMetrics:
                   type: array
@@ -62478,7 +62530,24 @@ components:
           properties:
             datasourceId:
               type: string
+            exposureQuery:
+              description: >-
+                The exposure query to use, grouping its ID with the identifier
+                type to analyze on. Mutually exclusive with the deprecated
+                exposureQueryId.
+              type: object
+              properties:
+                id:
+                  type: string
+                identifierType:
+                  type: string
+              required:
+                - id
+                - identifierType
+              additionalProperties: false
             exposureQueryId:
+              deprecated: true
+              description: 'Deprecated: use exposureQuery instead.'
               type: string
             guardrailMetricIds:
               minItems: 1
@@ -62527,7 +62596,6 @@ components:
               additionalProperties: false
           required:
             - datasourceId
-            - exposureQueryId
             - guardrailMetricIds
             - maxDuration
           additionalProperties: false
@@ -76328,7 +76396,20 @@ components:
             additionalProperties: false
         datasourceId:
           type: string
+        assignmentQuery:
+          type: object
+          properties:
+            id:
+              type: string
+            identifierType:
+              type: string
+          required:
+            - id
+            - identifierType
+          additionalProperties: false
         assignmentQueryId:
+          description: 'Deprecated: use assignmentQuery instead.'
+          deprecated: true
           type: string
         goalMetrics:
           type: array

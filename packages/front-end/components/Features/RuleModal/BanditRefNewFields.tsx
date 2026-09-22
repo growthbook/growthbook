@@ -1,5 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import { useEffect } from "react";
+import { useCallback } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
@@ -36,7 +36,9 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import {
   formatAttributeOptionLabel,
   toAttributeOption,
@@ -127,15 +129,27 @@ export default function BanditRefNewFields({
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
 
-  const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.watch("exposureQueryId");
-
-  useEffect(() => {
-    if (!exposureQueries?.length) return;
-    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries[0]?.id ?? "");
-    }
-  }, [exposureQueries, exposureQueryId, form]);
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
+  const setExposureQueryId = useCallback(
+    (value: string) => form.setValue("exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue("exposureQueryIdentifierType", value),
+    [form],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project,
+    hashAttribute: form.watch("hashAttribute"),
+    exposureQueryId,
+    identifierType: exposureQueryIdentifierType,
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    autoRepair: !!datasource?.properties?.exposureQueries,
+  });
 
   const attributeSchema = useAttributeSchema(
     false,
@@ -321,43 +335,10 @@ export default function BanditRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {datasource?.properties?.exposureQueries && exposureQueries ? (
-              <SelectField
+            {datasource?.properties?.exposureQueries ? (
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
                 size="legacy"
-                label={
-                  <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                  </>
-                }
-                labelClassName="font-weight-bold"
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => form.setValue("exposureQueryId", v)}
-                required
-                options={exposureQueries.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries.find(
-                    (e) => e.id === value,
-                  )?.userIdType;
-                  return (
-                    <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                }}
               />
             ) : null}
           </div>
@@ -398,6 +379,7 @@ export default function BanditRefNewFields({
             experimentType="multi-armed-bandit"
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
+            exposureQueryIdentifierType={exposureQueryIdentifierType}
             project={project}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}

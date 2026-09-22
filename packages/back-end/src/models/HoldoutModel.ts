@@ -7,6 +7,7 @@ import {
   HoldoutStage,
   isHoldoutStageTransitionAllowed,
   stringToBoolean,
+  parseAssignmentQueryInput,
 } from "shared/util";
 import { getActivePhase } from "shared/experiments";
 import {
@@ -235,6 +236,14 @@ export function toApiHoldout(
     savedGroupTargeting: activePhase?.savedGroups,
 
     datasourceId: experiment.datasource,
+    ...(experiment.exposureQueryId && experiment.exposureQueryIdentifierType
+      ? {
+          assignmentQuery: {
+            id: experiment.exposureQueryId,
+            identifierType: experiment.exposureQueryIdentifierType,
+          },
+        }
+      : {}),
     assignmentQueryId: experiment.exposureQueryId,
     goalMetrics: experiment.goalMetrics,
     secondaryMetrics: experiment.secondaryMetrics,
@@ -393,6 +402,11 @@ export class HoldoutModel extends BaseClass {
     req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
   ): Promise<ApiHoldoutInterface> {
     const body = apiCreateHoldoutBody.parse(req.body);
+    const assignmentQueryInput = parseAssignmentQueryInput(
+      body.assignmentQuery,
+      body.assignmentQueryId,
+      "assignmentQuery",
+    );
 
     // createExperiment enforces no permissions, so gate before it runs or an
     // unauthorized create orphans an experiment.
@@ -434,7 +448,8 @@ export class HoldoutModel extends BaseClass {
         tags: body.tags,
         skipAsDefaultHoldout: body.skipAsDefaultHoldout,
         datasourceId: body.datasourceId,
-        assignmentQueryId: body.assignmentQueryId,
+        assignmentQueryId: assignmentQueryInput.id,
+        assignmentQueryIdentifierType: assignmentQueryInput.identifierType,
         hashAttribute: body.hashAttribute || "id",
         holdoutSize: body.holdoutSize,
         targetingCondition: body.targetingCondition,

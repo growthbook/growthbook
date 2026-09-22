@@ -11,6 +11,7 @@ import {
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -827,9 +828,7 @@ export function toDataSourceApiInterface(
       description: identifier.description || "",
     })),
     assignmentQueries: (settings?.queries?.exposure || []).map((q) => {
-      const identifierTypes = q.userIdTypes?.length
-        ? q.userIdTypes
-        : [q.userIdType].filter(Boolean);
+      const identifierTypes = getExposureQueryIdentifierTypes(q);
       return {
         id: q.id,
         name: q.name,

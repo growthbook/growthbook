@@ -6,6 +6,7 @@ import {
   proportionVarianceFromSums,
   ratioVarianceFromSums,
   returnZeroIfNotFinite,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import {
@@ -60,11 +61,8 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     }
 
     const populationExposureQueryIdentifierTypes = populationExposureQuery
-      ?.userIdTypes?.length
-      ? populationExposureQuery.userIdTypes
-      : populationExposureQuery
-        ? [populationExposureQuery.userIdType]
-        : [];
+      ? getExposureQueryIdentifierTypes(populationExposureQuery)
+      : [];
     if (
       populationExposureQuery &&
       !populationExposureQueryIdentifierTypes.includes(

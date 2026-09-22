@@ -1,5 +1,9 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  getExposureQueryIdentifierTypes,
+  parseAssignmentQueryInput,
+} from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
   updateExperimentValidator,
@@ -58,17 +62,14 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
-  // assignmentQuery supersedes the deprecated assignmentQueryId. Its identifier
-  // type is tracked locally since there is no public flat field for it.
-  let assignmentQueryIdentifierType = req.body.assignmentQuery?.identifierType;
-  if (req.body.assignmentQuery) {
-    if (req.body.assignmentQueryId !== undefined) {
-      throw new Error(
-        "Cannot set assignmentQuery together with the deprecated assignmentQueryId",
-      );
-    }
-    req.body.assignmentQueryId = req.body.assignmentQuery.id;
-  }
+  // The identifier type is tracked locally since there is no public flat field.
+  const assignmentQueryInput = parseAssignmentQueryInput(
+    req.body.assignmentQuery,
+    req.body.assignmentQueryId,
+    "assignmentQuery",
+  );
+  req.body.assignmentQueryId = assignmentQueryInput.id;
+  let assignmentQueryIdentifierType = assignmentQueryInput.identifierType;
 
   // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
   if (req.body.project) {
@@ -121,9 +122,8 @@ export const updateExperiment = createApiRequestHandler(
     if (!assignmentQuery) {
       throw new Error(`Unrecognized assignment query ID: ${assignmentQueryId}`);
     }
-    const assignmentQueryIdentifierTypes = assignmentQuery.userIdTypes?.length
-      ? assignmentQuery.userIdTypes
-      : [assignmentQuery.userIdType];
+    const assignmentQueryIdentifierTypes =
+      getExposureQueryIdentifierTypes(assignmentQuery);
     // Repointing to a different query without naming an identifier defaults to
     // the new query's first declared identifier.
     if (

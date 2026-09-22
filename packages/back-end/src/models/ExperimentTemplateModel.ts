@@ -1,8 +1,10 @@
+import omit from "lodash/omit";
 import {
   ApiExperimentTemplateInterface,
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
+import { parseAssignmentQueryInput } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
@@ -23,16 +25,15 @@ function normalizeTemplateExposureQueryBody(body: unknown): unknown {
     exposureQueryId?: string;
   };
   if (!b.exposureQuery) return body;
-  if (b.exposureQueryId !== undefined) {
-    throw new Error(
-      "Cannot set exposureQuery together with the deprecated exposureQueryId",
-    );
-  }
-  const { exposureQuery, ...rest } = b;
+  const { id, identifierType } = parseAssignmentQueryInput(
+    b.exposureQuery,
+    b.exposureQueryId,
+    "exposureQuery",
+  );
   return {
-    ...rest,
-    exposureQueryId: exposureQuery.id,
-    exposureQueryIdentifierType: exposureQuery.identifierType,
+    ...omit(b, "exposureQuery"),
+    exposureQueryId: id,
+    exposureQueryIdentifierType: identifierType,
   };
 }
 

@@ -749,7 +749,7 @@ const AnalysisForm: FC<{
                   }
                   helpText={
                     identifierTypes.length === 0
-                      ? "No assignment queries are scoped to this experiment's project. Add one in the Data Source settings."
+                      ? "No assignment queries are scoped to this experiment's Project. Add one in the Data Source settings."
                       : undefined
                   }
                   value={exposureQueryIdentifierType ?? ""}

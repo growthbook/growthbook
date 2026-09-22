@@ -10,7 +10,11 @@ import {
   ownerField,
   ownerInputField,
 } from "./owner-field";
-import { booleanQueryField, savedGroupTargeting } from "./shared";
+import {
+  apiAssignmentQueryRef,
+  booleanQueryField,
+  savedGroupTargeting,
+} from "./shared";
 
 export const holdoutLinkedItemValidator = z.object({
   dateAdded: z.date(),
@@ -119,6 +123,7 @@ export const createHoldoutInputValidator = z.object({
 
   datasourceId: z.string().optional(),
   assignmentQueryId: z.string().optional(),
+  assignmentQueryIdentifierType: z.string().optional(),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
 
@@ -238,7 +243,12 @@ export const apiHoldoutValidator = namedSchema(
 
     // Analysis settings
     datasourceId: z.string(),
-    assignmentQueryId: z.string(),
+    assignmentQuery: apiAssignmentQueryRef.optional(),
+    /** @deprecated use assignmentQuery.id */
+    assignmentQueryId: z
+      .string()
+      .describe("Deprecated: use assignmentQuery instead.")
+      .meta({ deprecated: true }),
     goalMetrics: z.array(z.string()),
     secondaryMetrics: z.array(z.string()),
     statsEngine: z
@@ -329,7 +339,17 @@ export const apiCreateHoldoutBody = z.strictObject({
   savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
-  assignmentQueryId: z.string().optional(),
+  assignmentQuery: apiAssignmentQueryRef
+    .describe(
+      "The assignment query to use, grouping its ID with the identifier type to analyze on. The identifier type must be one the query declares. Mutually exclusive with the deprecated assignmentQueryId.",
+    )
+    .optional(),
+  /** @deprecated use assignmentQuery */
+  assignmentQueryId: z
+    .string()
+    .describe("Deprecated: use assignmentQuery instead.")
+    .optional()
+    .meta({ deprecated: true }),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
   statsEngine: z
@@ -369,7 +389,17 @@ export const apiUpdateHoldoutBody = z.strictObject({
   savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
-  assignmentQueryId: z.string().optional(),
+  assignmentQuery: apiAssignmentQueryRef
+    .describe(
+      "The assignment query to use, grouping its ID with the identifier type to analyze on. The identifier type must be one the query declares. Mutually exclusive with the deprecated assignmentQueryId.",
+    )
+    .optional(),
+  /** @deprecated use assignmentQuery */
+  assignmentQueryId: z
+    .string()
+    .describe("Deprecated: use assignmentQuery instead.")
+    .optional()
+    .meta({ deprecated: true }),
   goalMetrics: z.array(z.string()).optional(),
   secondaryMetrics: z.array(z.string()).optional(),
   statsEngine: z

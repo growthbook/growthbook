@@ -1,5 +1,9 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  getExposureQueryIdentifierTypes,
+  parseAssignmentQueryInput,
+} from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
@@ -102,12 +106,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const { owner: ownerEmail, templateId } = req.body;
     let payload: PostExperimentApiPayload = req.body;
 
-    // assignmentQuery supersedes the deprecated assignmentQueryId.
-    if (req.body.assignmentQuery && req.body.assignmentQueryId !== undefined) {
-      throw new Error(
-        "Cannot set assignmentQuery together with the deprecated assignmentQueryId",
-      );
-    }
+    const assignmentQueryInput = parseAssignmentQueryInput(
+      req.body.assignmentQuery,
+      req.body.assignmentQueryId,
+      "assignmentQuery",
+    );
 
     // Apply template defaults if a templateId is provided
     if (templateId) {
@@ -140,11 +143,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       };
     }
 
-    if (payload.assignmentQuery) {
+    if (req.body.assignmentQuery) {
       payload = {
         ...payload,
-        assignmentQueryId: payload.assignmentQuery.id,
-        assignmentQueryIdentifierType: payload.assignmentQuery.identifierType,
+        assignmentQueryId: assignmentQueryInput.id,
+        assignmentQueryIdentifierType: assignmentQueryInput.identifierType,
       };
     }
 
@@ -186,11 +189,9 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
       );
     }
-    const assignmentQueryIdentifierTypes = assignmentQuery?.userIdTypes?.length
-      ? assignmentQuery.userIdTypes
-      : assignmentQuery
-        ? [assignmentQuery.userIdType]
-        : [];
+    const assignmentQueryIdentifierTypes = assignmentQuery
+      ? getExposureQueryIdentifierTypes(assignmentQuery)
+      : [];
     if (
       payload.assignmentQueryIdentifierType &&
       !assignmentQueryIdentifierTypes.includes(

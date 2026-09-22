@@ -1571,10 +1571,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               {datasource?.properties?.exposureQueries && (
                 <AssignmentQueryFields
                   selection={assignmentQuerySelection}
-                  exposureQueryId={exposureQueryId}
-                  identifierType={exposureQueryIdentifierType}
-                  setExposureQueryId={setExposureQueryId}
-                  setIdentifierType={setExposureQueryIdentifierType}
                   initialOption="Choose..."
                 />
               )}

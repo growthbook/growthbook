@@ -9,7 +9,10 @@ import {
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  assertExposureQueryDeclaresIdentifierType,
+  buildUnitsQuerySettingsFromSnapshot,
+} from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
@@ -144,6 +147,11 @@ export const startExperimentResultQueries = async (
   const resolvedExposureQuery = getExposureQuery(
     integration.datasource,
     snapshotSettings.exposureQueryId || "",
+  );
+  // Reports and safe rollouts store their own identifier without validating it.
+  assertExposureQueryDeclaresIdentifierType(
+    resolvedExposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
   );
 
   const snapshotDimensions: Dimension[] = (

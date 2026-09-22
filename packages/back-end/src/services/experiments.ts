@@ -39,6 +39,8 @@ import {
   MatchingRule,
   naiveFlattenV1Rules,
   validateCondition,
+  assertExposureQueryDeclaresIdentifierType,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -637,25 +639,16 @@ export function getSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === experiment.exposureQueryId,
   );
-  const exposureQueryIdentifierTypes = exposureQuery?.userIdTypes?.length
-    ? exposureQuery.userIdTypes
-    : exposureQuery?.userIdType
-      ? [exposureQuery.userIdType]
-      : [];
-  // Block the run if the query no longer declares the stored identifier rather
-  // than silently analyzing on a different one. A missing query is left to the
-  // query builder to surface.
+  const exposureQueryIdentifierTypes = exposureQuery
+    ? getExposureQueryIdentifierTypes(exposureQuery)
+    : [];
   const storedIdentifierType =
     experiment.exposureQueryIdentifierType || undefined;
-  if (
-    storedIdentifierType &&
-    exposureQueryIdentifierTypes.length > 0 &&
-    !exposureQueryIdentifierTypes.includes(storedIdentifierType)
-  ) {
-    throw new Error(
-      `Identifier type "${storedIdentifierType}" is no longer declared by assignment query "${
-        exposureQuery?.name ?? experiment.exposureQueryId
-      }". Update the experiment's assignment settings to a supported identifier before running analysis.`,
+  // A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      storedIdentifierType,
     );
   }
   const exposureQueryIdentifierType =

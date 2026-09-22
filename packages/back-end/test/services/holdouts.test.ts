@@ -1,4 +1,5 @@
 import type { ExperimentInterface } from "shared/types/experiment";
+import type { DataSourceInterface } from "shared/types/datasource";
 import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
 import { holdoutSizeToCoverage } from "shared/util";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -10,6 +11,7 @@ import {
   assertCanUpdateHoldout,
   assertValidHoldoutEnvironments,
   assertValidHoldoutSchedule,
+  assertValidAssignmentQuery,
   getNextScheduledStatusUpdateForStage,
   isHoldoutExperiment,
   normalizeHoldoutScheduleUpdates,
@@ -925,5 +927,54 @@ describe("assertCanUpdateHoldout", () => {
         isRunning: false,
       }),
     ).toThrow("permission denied");
+  });
+});
+
+describe("assertValidAssignmentQuery", () => {
+  const datasource = {
+    settings: {
+      queries: {
+        exposure: [
+          {
+            id: "exq_multi",
+            name: "Multi",
+            userIdType: "user_id",
+            userIdTypes: ["user_id", "anonymous_id"],
+            query: "SELECT 1",
+            dimensions: [],
+          },
+        ],
+      },
+    },
+  } as unknown as DataSourceInterface;
+
+  it("returns the query when the identifier is declared", () => {
+    expect(
+      assertValidAssignmentQuery(datasource, "exq_multi", "anonymous_id")?.id,
+    ).toBe("exq_multi");
+  });
+
+  it("allows omitting the identifier", () => {
+    expect(assertValidAssignmentQuery(datasource, "exq_multi")?.id).toBe(
+      "exq_multi",
+    );
+  });
+
+  it("returns undefined when no query id is given", () => {
+    expect(assertValidAssignmentQuery(datasource, undefined)).toBeUndefined();
+  });
+
+  it("throws for an unknown query", () => {
+    expect(() => assertValidAssignmentQuery(datasource, "exq_missing")).toThrow(
+      "Invalid assignment query: exq_missing",
+    );
+  });
+
+  it("throws for an identifier the query does not declare", () => {
+    expect(() =>
+      assertValidAssignmentQuery(datasource, "exq_multi", "device_id"),
+    ).toThrow(
+      'Identifier type "device_id" is not declared by assignment query "exq_multi"',
+    );
   });
 });

@@ -216,7 +216,7 @@ export default function ExperimentRefNewFields({
     identifierType: exposureQueryIdentifierType,
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
-    enabled: !!datasourceProperties?.exposureQueries,
+    autoRepair: !!datasourceProperties?.exposureQueries,
   });
 
   const getMatchingExposureQuery = (
@@ -588,13 +588,7 @@ export default function ExperimentRefNewFields({
             />
 
             {datasourceProperties?.exposureQueries ? (
-              <AssignmentQueryFields
-                selection={assignmentQuerySelection}
-                exposureQueryId={exposureQueryId}
-                identifierType={exposureQueryIdentifierType}
-                setExposureQueryId={setExposureQueryId}
-                setIdentifierType={setExposureQueryIdentifierType}
-              />
+              <AssignmentQueryFields selection={assignmentQuerySelection} />
             ) : null}
           </div>
 

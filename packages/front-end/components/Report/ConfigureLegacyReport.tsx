@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
   ExperimentReportInterface,
@@ -25,7 +25,11 @@ import {
 import { isDefined } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getExposureQuery,
+  getExposureQueryIdentifierType,
+  getExposureQueryIdentifierTypes,
+} from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -42,7 +46,9 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Switch from "@/ui/Switch";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import DatePicker from "@/components/DatePicker";
 
@@ -181,6 +187,32 @@ export default function ConfigureLegacyReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+  const storedIdentifierType = form.watch("exposureQueryIdentifierType");
+  const setExposureQueryId = useCallback(
+    (value: string) => form.setValue("exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue("exposureQueryIdentifierType", value),
+    [form],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project: experiment?.project,
+    hashAttribute: experiment?.hashAttribute,
+    exposureQueryId,
+    // Reports without a stored type analyze on the query's first identifier.
+    identifierType:
+      storedIdentifierType ||
+      (exposureQuery
+        ? getExposureQueryIdentifierType(exposureQuery)
+        : undefined),
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    autoRepair: false,
+    keepCurrentSelection: true,
+  });
 
   return (
     <Modal
@@ -280,42 +312,9 @@ export default function ConfigureLegacyReport({
         </small>
       </div>
       {datasource?.properties?.userIds && (
-        <SelectField
+        <AssignmentQueryFields
+          selection={assignmentQuerySelection}
           size="legacy"
-          label={
-            <>
-              Experiment Assignment Table{" "}
-              <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-            </>
-          }
-          labelClassName="font-weight-bold"
-          value={form.watch("exposureQueryId") ?? ""}
-          onChange={(v) => form.setValue("exposureQueryId", v)}
-          required
-          options={exposureQueries?.map((q) => {
-            return {
-              label: q.name,
-              value: q.id,
-            };
-          })}
-          formatOptionLabel={({ label, value }) => {
-            const userIdType = exposureQueries?.find(
-              (e) => e.id === value,
-            )?.userIdType;
-            return (
-              <>
-                {label}
-                {userIdType ? (
-                  <span
-                    className="text-muted small float-right position-relative"
-                    style={{ top: 3 }}
-                  >
-                    Identifier Type: <code>{userIdType}</code>
-                  </span>
-                ) : null}
-              </>
-            );
-          }}
         />
       )}
 
@@ -633,7 +632,11 @@ export default function ConfigureLegacyReport({
             Available columns:
             <div className="mb-2 d-flex flex-wrap">
               {["timestamp", "variation_id"]
-                .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                .concat(
+                  exposureQuery
+                    ? getExposureQueryIdentifierTypes(exposureQuery)
+                    : [],
+                )
                 .concat(exposureQuery?.dimensions || [])
                 .map((d) => {
                   return (

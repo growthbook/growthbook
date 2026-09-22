@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   getDefaultIdentifierType,
@@ -15,9 +15,13 @@ import SelectField, {
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 type Selection = {
+  exposureQueryId: string | undefined;
+  identifierType: string | undefined;
   identifierTypes: string[];
   groupedIdentifierTypes: (GroupedValue | SingleValue)[];
   exposureQueryOptions: SingleValue[];
+  setExposureQueryId: (exposureQueryId: string) => void;
+  changeIdentifierType: (identifierType: string) => void;
 };
 
 export function useAssignmentQuerySelection({
@@ -28,7 +32,8 @@ export function useAssignmentQuerySelection({
   identifierType,
   setExposureQueryId,
   setIdentifierType,
-  enabled = true,
+  autoRepair = true,
+  keepCurrentSelection = false,
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
   project: string | undefined;
@@ -37,24 +42,34 @@ export function useAssignmentQuerySelection({
   identifierType: string | undefined;
   setExposureQueryId: (exposureQueryId: string) => void;
   setIdentifierType: (identifierType: string | undefined) => void;
-  enabled?: boolean;
+  // New records repair an invalid selection as inputs change; existing records
+  // must not have saved settings rewritten on load.
+  autoRepair?: boolean;
+  // Keep a drifted selection listed so existing records show what they use.
+  keepCurrentSelection?: boolean;
 }): Selection {
+  const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
   const exposureQueries = useMemo(
     () =>
       getExposureQueriesForProject(
         datasource?.settings?.queries?.exposure ?? [],
         project,
+        keptQueryId,
       ),
-    [datasource?.settings?.queries?.exposure, project],
+    [datasource?.settings?.queries?.exposure, project, keptQueryId],
   );
   const hashAttributeIdentifierTypeMap = useMemo(
     () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
     [datasource?.settings?.userIdTypes],
   );
-  const identifierTypes = useMemo(
-    () => getSelectableIdentifierTypes(exposureQueries),
-    [exposureQueries],
-  );
+  const identifierTypes = useMemo(() => {
+    const selectable = getSelectableIdentifierTypes(exposureQueries);
+    return keepCurrentSelection &&
+      identifierType &&
+      !selectable.includes(identifierType)
+      ? [...selectable, identifierType]
+      : selectable;
+  }, [exposureQueries, keepCurrentSelection, identifierType]);
   const groupedIdentifierTypes = useMemo(
     () =>
       getGroupedIdentifierTypeOptions({
@@ -69,16 +84,42 @@ export function useAssignmentQuerySelection({
       exposureQueries
         .filter(
           (query) =>
+            query.id === keptQueryId ||
             !identifierType ||
             getExposureQueryIdentifierTypes(query).includes(identifierType),
         )
         .map((query) => ({ label: query.name, value: query.id })),
-    [exposureQueries, identifierType],
+    [exposureQueries, identifierType, keptQueryId],
+  );
+
+  const changeIdentifierType = useCallback(
+    (value: string) => {
+      if (value === identifierType) return;
+      setIdentifierType(value);
+      const current = exposureQueries.find((q) => q.id === exposureQueryId);
+      if (
+        !current ||
+        !getExposureQueryIdentifierTypes(current).includes(value)
+      ) {
+        setExposureQueryId(
+          exposureQueries.find((q) =>
+            getExposureQueryIdentifierTypes(q).includes(value),
+          )?.id ?? "",
+        );
+      }
+    },
+    [
+      identifierType,
+      exposureQueryId,
+      exposureQueries,
+      setIdentifierType,
+      setExposureQueryId,
+    ],
   );
 
   // Repair the identifier before the query; selectable queries depend on it.
   useEffect(() => {
-    if (!enabled) return;
+    if (!autoRepair) return;
     if (!identifierType || !identifierTypes.includes(identifierType)) {
       setIdentifierType(
         getDefaultIdentifierType({
@@ -95,7 +136,7 @@ export function useAssignmentQuerySelection({
       setExposureQueryId(exposureQueryOptions[0]?.value ?? "");
     }
   }, [
-    enabled,
+    autoRepair,
     exposureQueryId,
     identifierType,
     exposureQueryOptions,
@@ -106,29 +147,41 @@ export function useAssignmentQuerySelection({
     setIdentifierType,
   ]);
 
-  return { identifierTypes, groupedIdentifierTypes, exposureQueryOptions };
+  return {
+    exposureQueryId,
+    identifierType,
+    identifierTypes,
+    groupedIdentifierTypes,
+    exposureQueryOptions,
+    setExposureQueryId,
+    changeIdentifierType,
+  };
 }
 
 export default function AssignmentQueryFields({
   selection,
-  exposureQueryId,
-  identifierType,
-  setExposureQueryId,
-  setIdentifierType,
   initialOption,
+  size,
+  disabled,
 }: {
   selection: Selection;
-  exposureQueryId: string | undefined;
-  identifierType: string | undefined;
-  setExposureQueryId: (exposureQueryId: string) => void;
-  setIdentifierType: (identifierType: string) => void;
   initialOption?: string;
+  size?: "legacy";
+  disabled?: boolean;
 }) {
-  const { identifierTypes, groupedIdentifierTypes, exposureQueryOptions } =
-    selection;
+  const {
+    exposureQueryId,
+    identifierType,
+    identifierTypes,
+    groupedIdentifierTypes,
+    exposureQueryOptions,
+    setExposureQueryId,
+    changeIdentifierType,
+  } = selection;
   return (
     <>
       <SelectField
+        size={size}
         label={
           <>
             Identifier type{" "}
@@ -138,20 +191,19 @@ export default function AssignmentQueryFields({
         labelClassName="font-weight-bold"
         helpText={
           identifierTypes.length === 0
-            ? "No assignment queries are scoped to this project. Add one in the Data Source settings."
+            ? "No assignment queries are scoped to this Project. Add one in the Data Source settings."
             : undefined
         }
         value={identifierType ?? ""}
-        onChange={(value) => {
-          // The repair effect picks a query for the new identifier.
-          if (value !== identifierType) setIdentifierType(value);
-        }}
+        onChange={changeIdentifierType}
         initialOption={initialOption}
         required
+        disabled={disabled}
         sort={false}
         options={groupedIdentifierTypes}
       />
       <SelectField
+        size={size}
         label={
           <>
             Experiment Assignment Table{" "}
@@ -168,6 +220,7 @@ export default function AssignmentQueryFields({
         onChange={setExposureQueryId}
         initialOption={initialOption}
         required
+        disabled={disabled}
         sort={false}
         options={exposureQueryOptions}
       />
