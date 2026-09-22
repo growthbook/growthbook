@@ -210,11 +210,13 @@ describe("getContextualBanditSrmQuery", () => {
       },
     );
 
-    const sql = getContextualBanditSrmQuery(postgresDialect, {
-      settings: makeSettings({
-        exposureQuery: unitsSettings.exposureQuery,
-      }),
-    });
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams(
+        { var_control: "0", var_treatment: "1" },
+        { exposureQuery: unitsSettings.exposureQuery },
+      ),
+    );
     const c = compact(sql);
 
     expect(c).toContain("SELECTuser_id,anonymous_id");

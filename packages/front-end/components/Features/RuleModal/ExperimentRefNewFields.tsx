@@ -7,9 +7,9 @@ import {
   FeatureRule,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import React, { useEffect, useMemo } from "react";
+import React, { useCallback } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import {
   isProjectListValidForProject,
@@ -21,10 +21,7 @@ import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import SelectField, {
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
@@ -52,6 +49,9 @@ import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector"
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
@@ -64,12 +64,8 @@ import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
 import {
-  getDefaultIdentifierType,
   getExposureQueriesForProject,
   getExposureQueryIdentifierTypes,
-  getGroupedIdentifierTypeOptions,
-  getHashAttributeIdentifierTypeMap,
-  getSelectableIdentifierTypes,
 } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
@@ -191,14 +187,6 @@ export default function ExperimentRefNewFields({
     : null;
   const datasourceProperties = datasource?.properties;
 
-  const exposureQueries = useMemo(
-    () =>
-      getExposureQueriesForProject(
-        datasource?.settings?.queries?.exposure ?? [],
-        project,
-      ),
-    [datasource?.settings?.queries?.exposure, project],
-  );
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
 
@@ -211,71 +199,25 @@ export default function ExperimentRefNewFields({
 
   const hashAttribute = form.watch("hashAttribute");
 
-  const hashAttributeIdentifierTypeMap = useMemo(
-    () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
-    [datasource?.settings?.userIdTypes],
+  const setExposureQueryId = useCallback(
+    (value: string) => form.setValue("exposureQueryId", value),
+    [form],
   );
-
-  const identifierTypes = useMemo(
-    () => getSelectableIdentifierTypes(exposureQueries),
-    [exposureQueries],
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue("exposureQueryIdentifierType", value),
+    [form],
   );
-  const groupedIdentifierTypes: (GroupedValue | SingleValue)[] = useMemo(
-    () =>
-      getGroupedIdentifierTypeOptions({
-        identifierTypes,
-        hashAttributeIdentifierTypeMap,
-        hashAttribute,
-      }),
-    [identifierTypes, hashAttributeIdentifierTypeMap, hashAttribute],
-  );
-
-  const exposureQueryOptions = useMemo(
-    () =>
-      exposureQueries
-        .filter((query) =>
-          exposureQueryIdentifierType
-            ? getExposureQueryIdentifierTypes(query).includes(
-                exposureQueryIdentifierType,
-              )
-            : true,
-        )
-        .map((query) => ({ label: query.name, value: query.id })),
-    [exposureQueries, exposureQueryIdentifierType],
-  );
-
-  // Repair the identifier before the query; selectable queries depend on it.
-  useEffect(() => {
-    if (!datasourceProperties?.exposureQueries) return;
-    if (
-      !exposureQueryIdentifierType ||
-      !identifierTypes.includes(exposureQueryIdentifierType)
-    ) {
-      form.setValue(
-        "exposureQueryIdentifierType",
-        getDefaultIdentifierType({
-          identifierTypes,
-          hashAttributeIdentifierTypeMap,
-          hashAttribute,
-        }),
-      );
-      return;
-    }
-    if (
-      !exposureQueryOptions.some((option) => option.value === exposureQueryId)
-    ) {
-      form.setValue("exposureQueryId", exposureQueryOptions[0]?.value ?? "");
-    }
-  }, [
-    form,
-    datasourceProperties?.exposureQueries,
-    exposureQueryId,
-    exposureQueryIdentifierType,
-    exposureQueryOptions,
-    identifierTypes,
-    hashAttributeIdentifierTypeMap,
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project: project,
     hashAttribute,
-  ]);
+    exposureQueryId,
+    identifierType: exposureQueryIdentifierType,
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    enabled: !!datasourceProperties?.exposureQueries,
+  });
 
   const getMatchingExposureQuery = (
     attribute: string,
@@ -646,60 +588,20 @@ export default function ExperimentRefNewFields({
             />
 
             {datasourceProperties?.exposureQueries ? (
-              <>
-                <SelectField
-                  label={
-                    <>
-                      Identifier type{" "}
-                      <Tooltip content="The unit this experiment is analyzed on. Should correspond to the attribute used to randomize units for this experiment." />
-                    </>
-                  }
-                  labelClassName="font-weight-bold"
-                  helpText={
-                    identifierTypes.length === 0
-                      ? "No assignment queries are scoped to this project. Add one in the Data Source settings."
-                      : undefined
-                  }
-                  value={exposureQueryIdentifierType ?? ""}
-                  onChange={(identifierType) => {
-                    if (identifierType === exposureQueryIdentifierType) return;
-                    form.setValue(
-                      "exposureQueryIdentifierType",
-                      identifierType,
-                    );
-                    // The repair effect picks a query for the new identifier.
-                  }}
-                  required
-                  sort={false}
-                  options={groupedIdentifierTypes}
-                />
-                <SelectField
-                  label={
-                    <>
-                      Experiment Assignment Table{" "}
-                      <Tooltip content="The query that records which units saw which variation." />
-                    </>
-                  }
-                  labelClassName="font-weight-bold"
-                  helpText={
-                    exposureQueryIdentifierType &&
-                    exposureQueryOptions.length === 0
-                      ? `No assignment queries declare the "${exposureQueryIdentifierType}" identifier type.`
-                      : undefined
-                  }
-                  value={exposureQueryId ?? ""}
-                  onChange={(v) => form.setValue("exposureQueryId", v)}
-                  required
-                  sort={false}
-                  options={exposureQueryOptions}
-                />
-              </>
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
+                exposureQueryId={exposureQueryId}
+                identifierType={exposureQueryIdentifierType}
+                setExposureQueryId={setExposureQueryId}
+                setIdentifierType={setExposureQueryIdentifierType}
+              />
             ) : null}
           </div>
 
           <ExperimentMetricsSelector
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
+            exposureQueryIdentifierType={exposureQueryIdentifierType}
             project={project}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}

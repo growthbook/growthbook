@@ -154,6 +154,7 @@ describe("testQueryValidity", () => {
       id: "user_id",
       name: "Logged in Users",
       userIdType: "user_id",
+      userIdTypes: ["user_id"],
       dimensions: ["browserFamily"],
       hasNameCol: false,
       query: "SELECT * FROM experiments",
