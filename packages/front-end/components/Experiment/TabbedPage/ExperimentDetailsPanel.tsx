@@ -98,7 +98,7 @@ export default function ExperimentDetailsPanel({
                   setShowEditInfoModal(true);
                 }}
               >
-                <PiPencilSimple size={16} />
+                <PiPencilSimple size={14} />
               </IconButton>
             </Tooltip>
           ) : null}

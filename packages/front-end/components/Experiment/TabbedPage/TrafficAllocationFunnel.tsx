@@ -114,10 +114,10 @@ function FunnelCard({
             color="violet"
             radius="medium"
             onClick={() => onEdit()}
-            size="2"
+            size="1"
             aria-label={`Edit ${title}`}
           >
-            <PiPencilSimple size="16" />
+            <PiPencilSimple size="14" />
           </IconButton>
         ) : null}
       </Flex>
@@ -390,12 +390,12 @@ export default function TrafficAllocationFunnel({
                   variant="ghost"
                   color="gray"
                   radius="medium"
-                  size="2"
+                  size="1"
                   highContrast
                   style={{ margin: 0 }}
                   aria-label="Traffic allocation actions"
                 >
-                  <BsThreeDotsVertical size={16} />
+                  <BsThreeDotsVertical size={14} />
                 </IconButton>
               }
               menuPlacement="end"
@@ -450,11 +450,11 @@ export default function TrafficAllocationFunnel({
                   variant="ghost"
                   color="violet"
                   radius="medium"
-                  size="2"
+                  size="1"
                   onClick={() => setEditEnvironments(true)}
                   aria-label="Edit environments"
                 >
-                  <PiPencilSimple size="16" />
+                  <PiPencilSimple size="14" />
                 </IconButton>
               ) : null}
             </Flex>

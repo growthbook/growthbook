@@ -326,14 +326,14 @@ export function VariationBox({
               {canEdit && onEditTraffic ? (
                 <IconButton
                   variant="ghost"
-                  size="2"
+                  size="1"
                   color="violet"
                   radius="medium"
                   style={{ margin: 0 }}
                   onClick={() => onEditTraffic(v.id)}
                   aria-label="Edit variation"
                 >
-                  <PiPencilSimple size="16" />
+                  <PiPencilSimple size="14" />
                 </IconButton>
               ) : null}
               {canEdit && onEditMetadata ? (
@@ -343,11 +343,11 @@ export function VariationBox({
                       variant="ghost"
                       color="gray"
                       radius="medium"
-                      size="2"
+                      size="1"
                       highContrast
                       style={{ margin: 0 }}
                     >
-                      <BsThreeDotsVertical size={16} />
+                      <BsThreeDotsVertical size={14} />
                     </IconButton>
                   }
                   menuPlacement="end"

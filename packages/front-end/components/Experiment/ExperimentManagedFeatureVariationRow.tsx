@@ -399,11 +399,11 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                     variant="ghost"
                     color="gray"
                     radius="medium"
-                    size="2"
+                    size="1"
                     highContrast
                     style={{ margin: 0 }}
                   >
-                    <BsThreeDotsVertical size={16} />
+                    <BsThreeDotsVertical size={14} />
                   </IconButton>
                 }
                 menuPlacement="end"
