@@ -980,6 +980,7 @@
                   "api/ContextualBandits/operation/startContextualBandit",
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
+                  "api/ContextualBandits/operation/updateContextualBanditVariations",
                   "api/ContextualBandits/operation/cancelContextualBandit"
                 ]
               },
@@ -1276,7 +1277,7 @@
           },
           {
             "label": "Blog",
-            "href": "https://blog.growthbook.io"
+            "href": "https://www.growthbook.io/blog"
           }
         ]
       }

@@ -6,6 +6,8 @@ import {
   apiContextualBanditRefreshValidator,
   apiContextualBanditStartValidator,
   apiContextualBanditStopValidator,
+  apiContextualBanditUpdateVariationsValidator,
+  apiContextualBanditVariationsReturn,
   apiContextualBanditValidator,
   apiCreateContextualBanditBody,
   apiListContextualBanditsValidator,
@@ -42,6 +44,16 @@ export const refreshContextualBanditEndpoint = {
   summary: "Trigger a Contextual Bandit snapshot refresh",
 };
 
+export const updateVariationsContextualBanditEndpoint = {
+  pathFragment: "/:id/variations",
+  verb: "post" as const,
+  operationId: "updateContextualBanditVariations",
+  validator: apiContextualBanditUpdateVariationsValidator,
+  zodReturnObject: apiContextualBanditVariationsReturn,
+  summary: "Add or remove Contextual Bandit variations",
+  description: `Adds and/or removes variations on a Contextual Bandit. Send \`addVariations\` and \`removeVariationIds\` independently; both are optional. New arms must carry a \`values\` entry for each linked feature. Running CBs publish the linked-feature updates; draft CBs stage them until start. Under an approval flow, unapproved drafts leave the added arm \`pending\` (zero weight, filtered from the SDK) until every linked feature's draft is live. Removed arms are tombstoned; their ids can never be re-added. Weights are reconciled server-side.`,
+};
+
 export const cancelContextualBanditEndpoint = {
   pathFragment: "/:id/cancel",
   verb: "post" as const,
@@ -68,6 +80,7 @@ export const contextualBanditApiSpec = {
     startContextualBanditEndpoint,
     stopContextualBanditEndpoint,
     refreshContextualBanditEndpoint,
+    updateVariationsContextualBanditEndpoint,
     cancelContextualBanditEndpoint,
   ],
   navAfterTag: "experiments",

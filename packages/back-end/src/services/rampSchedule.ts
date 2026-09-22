@@ -1,9 +1,11 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
+import omit from "lodash/omit";
 import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
-  FeatureRulePatch,
+  RampStartAction,
+  RampStartPatch,
   LockdownConfig,
   RampEvent,
   RampEventType,
@@ -418,6 +420,8 @@ interface EntityHandler {
       user: EventUser;
       environment?: string | null;
       judgeTargeting?: boolean;
+      // Collects what the step changed beyond its patches, for the step event.
+      notes?: string[];
     },
   ): Promise<void>;
 }
@@ -472,14 +476,14 @@ export function computeEffectivePatch(
     "steps" | "endActions" | "startActions"
   >,
   stepIndex: number,
-): Map<string, FeatureRulePatch> {
+): Map<string, RampStartPatch> {
   // startActions represent the rule's initial state (targeting conditions,
   // coverage, environments, etc.) captured at schedule creation time. They form
   // the base layer — step patches are sparse overlays that only specify fields
   // they change (typically just coverage). Without seeding from startActions,
   // any field present only in startActions (e.g. condition, savedGroups) would
   // never be applied when advancing into step 0.
-  const byTarget = new Map<string, FeatureRulePatch>();
+  const byTarget = new Map<string, RampStartPatch>();
 
   const merge = (act: RampStepAction) => {
     if (act.targetType !== "feature-rule") return;
@@ -490,7 +494,7 @@ export function computeEffectivePatch(
         (existing as Record<string, unknown>)[k] = v;
       }
     } else {
-      byTarget.set(act.targetId, { ruleId, ...fields } as FeatureRulePatch);
+      byTarget.set(act.targetId, { ruleId, ...fields } as RampStartPatch);
     }
   };
 
@@ -502,8 +506,7 @@ export function computeEffectivePatch(
   // rollback (-1) applies the raw startActions instead of this function, so a
   // captured enabled state is still honored there.
   for (const a of schedule.startActions ?? []) {
-    const { enabled: _enabled, ...patch } = a.patch;
-    merge({ ...a, patch });
+    merge({ ...a, patch: omit(a.patch, "enabled") as RampStepAction["patch"] });
   }
 
   const lastStepIdx = Math.min(stepIndex, schedule.steps.length - 1);
@@ -647,7 +650,7 @@ export function normalizeRampPlanForceValues<
 // null clears most fields, but force allows null (valid JSON feature value).
 export function applyPatchToRule(
   existing: FeatureRule,
-  patch: Omit<FeatureRulePatch, "ruleId">,
+  patch: Omit<RampStartPatch, "ruleId">,
 ): FeatureRule {
   const updated = { ...existing };
   if ("coverage" in patch) {
@@ -686,17 +689,54 @@ export function applyPatchToRule(
   if ("enabled" in patch) {
     updated.enabled = patch.enabled ?? undefined;
   }
+  // The payload reads coverage only on rollout rules, so a force rule the ramp
+  // buckets becomes one, as the rule modal does.
+  const identity = updated as {
+    hashAttribute?: string;
+    seed?: string;
+    hashVersion?: 1 | 2;
+    coverage?: number;
+  };
+  const hashAttribute = patch.hashAttribute || identity.hashAttribute;
+  const coverage = patch.coverage ?? null;
+  const partialCoverage = coverage !== null && coverage < 1;
+  if (
+    updated.type === "force" &&
+    hashAttribute &&
+    (patch.hashAttribute || partialCoverage)
+  ) {
+    return {
+      ...updated,
+      type: "rollout",
+      coverage: identity.coverage ?? 1,
+      hashAttribute,
+      seed: patch.seed || identity.seed || updated.id,
+      hashVersion: patch.hashVersion ?? identity.hashVersion ?? 2,
+    } as FeatureRule;
+  }
+  if (updated.type === "rollout") {
+    if (patch.hashAttribute) identity.hashAttribute = patch.hashAttribute;
+    if (patch.seed) identity.seed = patch.seed;
+    const hashVersion = patch.hashVersion ?? null;
+    if (hashVersion !== null) identity.hashVersion = hashVersion;
+    // A promoted rule's start anchor carries no coverage; replaying it means
+    // full coverage, not a rollout with none.
+    if ("coverage" in patch && coverage === null) identity.coverage = 1;
+  }
   return updated;
 }
 
 export function getStartPatchForRule(
   rule: FeatureRule,
-): Omit<FeatureRulePatch, "ruleId"> {
+): Omit<RampStartPatch, "ruleId"> {
   const ruleState = rule as FeatureRule & {
     coverage?: number;
     value?: unknown;
+    hashAttribute?: string;
+    seed?: string;
+    hashVersion?: 1 | 2;
   };
-  const patch: Omit<FeatureRulePatch, "ruleId"> = {
+  const patch: Omit<RampStartPatch, "ruleId"> = {
     coverage: ruleState.coverage ?? null,
     condition: ruleState.condition ?? null,
     savedGroups: ruleState.savedGroups ?? null,
@@ -708,6 +748,12 @@ export function getStartPatchForRule(
 
   if ("value" in ruleState) {
     patch.force = ruleState.value;
+  }
+  // A rollout's bucketing is part of its anchor; a force rule has none to copy.
+  if (rule.type === "rollout") {
+    patch.hashAttribute = ruleState.hashAttribute ?? null;
+    patch.seed = ruleState.seed ?? null;
+    patch.hashVersion = ruleState.hashVersion ?? null;
   }
 
   return patch;
@@ -756,9 +802,9 @@ export function resolveRampStartState({
 }: {
   rule: FeatureRule;
   ruleId: string;
-  startState?: Partial<Omit<FeatureRulePatch, "ruleId">>;
+  startState?: Partial<Omit<RampStartPatch, "ruleId">>;
   isCreate: boolean;
-}): { startActions?: RampStepAction[]; warning?: string } {
+}): { startActions?: RampStartAction[]; warning?: string } {
   if (startState !== undefined) {
     const patch = { ...getStartPatchForRule(rule), ...startState };
     return {
@@ -791,7 +837,7 @@ export function resolveRampStartState({
 
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
-    const { stepLabel, user, environment, judgeTargeting } = opts;
+    const { stepLabel, user, environment, judgeTargeting, notes } = opts;
 
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
@@ -851,9 +897,14 @@ export const featureEntityHandler: EntityHandler = {
 
       for (const target of targets) {
         const idx = updatedRules.indexOf(target);
+        const patched = applyPatchToRule(target, patchFields);
+        if (target.type === "force" && patched.type === "rollout") {
+          notes?.push(
+            `Rule ${target.id} became a rollout bucketed on "${(patched as { hashAttribute?: string }).hashAttribute}"`,
+          );
+        }
         // A value the feature's type rejects is logged, never refused:
         // rollbacks and restarts re-apply the rule's own earlier value.
-        const patched = applyPatchToRule(target, patchFields);
         if ("force" in patchFields && patchFields.force !== undefined) {
           const value = (patched as { value?: string }).value ?? "";
           try {
@@ -884,6 +935,11 @@ export const featureEntityHandler: EntityHandler = {
       comment: stepLabel,
       title: stepLabel,
       org: ctx.org,
+      // Start/rollback replay a persisted anchor or earlier step. As with the
+      // targeting validators above, scope must not prevent that restoration.
+      savedGroupScopeBaseline: judgeTargeting
+        ? undefined
+        : { ...feature, rules: updatedRules },
     });
 
     const forceResult: MergeResultChanges = { rules: updatedRules };
@@ -1128,9 +1184,10 @@ async function executeStepActions(
   // judgeTargeting: stored step or end patches are checked before they land.
   // Rollbacks are not: refusing a retreat is worse than replaying a stale step.
   opts: { fromStepIndex?: number; judgeTargeting?: boolean } = {},
-): Promise<void> {
+): Promise<string[]> {
+  const notes: string[] = [];
   const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
-  if (!ruleActions.length) return;
+  if (!ruleActions.length) return notes;
 
   const byEntity = new Map<
     string,
@@ -1200,6 +1257,7 @@ async function executeStepActions(
         user,
         environment: group.environment,
         judgeTargeting: opts.judgeTargeting,
+        notes,
       });
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
@@ -1221,6 +1279,7 @@ async function executeStepActions(
       throw e;
     }
   }
+  return notes;
 }
 
 // Build an `enabled` patch for each active feature target. `enabled: false`
@@ -1412,10 +1471,16 @@ export async function advanceStep(
       patch,
     }),
   );
-  await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions, {
-    judgeTargeting: true,
-    fromStepIndex: schedule.currentStepIndex,
-  });
+  const notes = await executeStepActions(
+    ctx,
+    schedule,
+    nextStepIndex,
+    effectiveActions,
+    { judgeTargeting: true, fromStepIndex: schedule.currentStepIndex },
+  );
+  const reasons = isJump
+    ? ["Automatic catch-up of overdue steps", ...notes]
+    : notes;
 
   // `nextStepAt` is the time gate. Steps without an interval (pure approval /
   // instant gates) have no time gate, so nextStepAt is null. For instant
@@ -1459,6 +1524,7 @@ export async function advanceStep(
     currentStepIndex: nextStepIndex,
     currentStepEnteredAt: now,
     stepApproval: null,
+    healthHold: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     nextStepAt,
     nextSnapshotAt,
@@ -1479,7 +1545,7 @@ export async function advanceStep(
         previousStatus: schedule.status,
         // Distinguishes automatic catch-up jumps from user-initiated
         // jumpSchedule jumps in the timeline/audit view.
-        ...(isJump ? { reason: "Automatic catch-up of overdue steps" } : {}),
+        ...(reasons.length ? { reason: reasons.join(" ") } : {}),
       },
     ),
   });
@@ -1648,6 +1714,7 @@ export async function rollbackToStep(
     nextStepAt: null,
     nextSnapshotAt: null,
     stepApproval: null,
+    healthHold: null,
     pausedAt: newStatus === "paused" ? now : null,
     nextProcessAt: null,
     // Re-arm the approval gate: clear the marker so the -1 → 0 crossing
@@ -1690,6 +1757,7 @@ export async function rollbackToStep(
         currentStepIndex: updated.currentStepIndex,
         status: updated.status,
         targetStepIndex,
+        ...(reason ? { reason } : {}),
       },
     });
   }
@@ -1736,6 +1804,16 @@ export async function pauseSchedule(
   });
 
   await syncLinkedSafeRolloutForRampState(ctx, updated);
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.paused", {
+    object: {
+      rampScheduleId: updated.id,
+      rampName: updated.name,
+      orgId: ctx.org.id,
+      currentStepIndex: updated.currentStepIndex,
+      status: updated.status,
+      ...(reason ? { reason } : {}),
+    },
+  });
 
   return updated;
 }
@@ -1847,6 +1925,15 @@ export async function resumeSchedule(
     schedule.id,
     resumeUpdates,
   );
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.resumed", {
+    object: {
+      rampScheduleId: updated.id,
+      rampName: updated.name,
+      orgId: ctx.org.id,
+      currentStepIndex: updated.currentStepIndex,
+      status: updated.status,
+    },
+  });
 
   // Chain through any time-due steps (nextStepAt <= now). Steps with no
   // interval (approval gates, instant steps) have nextStepAt=null and are not
@@ -1880,6 +1967,7 @@ export async function restartSchedule(
     startedAt: null,
     phaseStartedAt: null,
     pausedAt: null,
+    healthHold: null,
     nextStepAt: null,
     nextSnapshotAt: null,
     nextProcessAt: null,
@@ -1991,6 +2079,7 @@ export async function jumpSchedule(
         nextSnapshotAt: null,
         nextProcessAt: null,
         stepApproval: null,
+        healthHold: null,
       });
     }
   } else if (targetStepIndex > schedule.currentStepIndex) {
@@ -2004,6 +2093,7 @@ export async function jumpSchedule(
       nextSnapshotAt: null,
       nextProcessAt: null,
       stepApproval: null,
+      healthHold: null,
       ...(shouldResetMonitoringStartDate(schedule, targetStepIndex)
         ? { monitoringStartDate: now }
         : {}),
@@ -2136,16 +2226,96 @@ export async function advanceScheduleManually(
         { scheduleId: schedule.id, error: (e as Error).message },
         "advanceScheduleManually failed after paused→running transition; reverting to paused",
       );
-      await ctx.models.rampSchedules.updateById(schedule.id, {
-        status: "paused",
-        pausedAt: new Date(),
-        eventHistory: appendRampEvent(schedule, "error-paused", {
-          stepIndex: schedule.currentStepIndex,
-          status: "paused",
-          previousStatus: "running",
-          reason: `Manual advance failed: ${(e as Error).message}`,
-        }),
-      });
+      await errorPauseRampSchedule(
+        ctx,
+        schedule.id,
+        `Manual advance failed: ${(e as Error).message}`,
+      );
+    }
+    throw e;
+  }
+}
+
+// Transient errors are retried on the next scheduler tick; structural ones
+// pause the schedule so they surface in the UI.
+export function isTransientRampError(e: unknown): boolean {
+  if (e instanceof RampAdvanceLockBusyError) return true;
+  // Mongo network / topology errors surface as generic Errors whose name or
+  // message contains well-known driver strings.
+  if (e instanceof Error) {
+    const name = e.name ?? "";
+    const msg = e.message ?? "";
+    if (
+      name.includes("MongoNetwork") ||
+      name.includes("MongoTopology") ||
+      name.includes("MongoServerSelection") ||
+      msg.includes("ECONNRESET") ||
+      msg.includes("ETIMEDOUT") ||
+      msg.includes("connection timed out")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Pause a schedule the engine cannot advance and record why, so the next tick
+// does not retry it and the UI shows the reason.
+export async function errorPauseRampSchedule(
+  ctx: ReqContext | ApiReqContext,
+  scheduleId: string,
+  reason: string,
+): Promise<void> {
+  const schedule = await ctx.models.rampSchedules.getById(scheduleId);
+  if (!schedule) return;
+  const updated = await ctx.models.rampSchedules.updateById(scheduleId, {
+    status: "paused",
+    pausedAt: new Date(),
+    nextSnapshotAt: null,
+    nextProcessAt: null,
+    eventHistory: appendRampEvent(schedule, "error-paused", {
+      stepIndex: schedule.currentStepIndex,
+      status: "paused",
+      previousStatus: schedule.status,
+      reason,
+    }),
+  });
+  try {
+    await syncLinkedSafeRolloutForRampState(ctx, updated);
+  } catch (syncErr) {
+    logger.warn(
+      { rampScheduleId: scheduleId, error: (syncErr as Error).message },
+      "Failed to sync SafeRollout after error-pausing schedule; SafeRollout may be temporarily diverged",
+    );
+  }
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.errorPaused", {
+    object: {
+      rampScheduleId: updated.id,
+      rampName: updated.name,
+      orgId: ctx.org.id,
+      currentStepIndex: updated.currentStepIndex,
+      status: updated.status,
+      reason,
+    },
+  });
+}
+
+// A refused first step must not leave the schedule running for the poller to
+// retry: pause it with the reason, then rethrow.
+async function advanceOrErrorPause(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  now: Date,
+): Promise<void> {
+  try {
+    await advanceUntilBlocked(ctx, schedule, now);
+  } catch (e) {
+    if (!isTransientRampError(e)) {
+      await errorPauseRampSchedule(
+        ctx,
+        schedule.id,
+        e instanceof Error ? e.message : String(e),
+      );
     }
     throw e;
   }
@@ -2180,7 +2350,7 @@ export async function startSchedule(
   await applyRampStartActions(ctx, current);
   current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
   await heartbeat?.();
-  await advanceUntilBlocked(ctx, current, now);
+  await advanceOrErrorPause(ctx, current, now);
   current = (await ctx.models.rampSchedules.getById(schedule.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
 
@@ -2234,11 +2404,11 @@ export async function jumpAheadToStep(
     jumpTarget,
   );
 
-  if (jumpActions.length > 0) {
-    await executeStepActions(ctx, schedule, jumpTarget, jumpActions, {
-      judgeTargeting: true,
-    });
-  }
+  const notes = jumpActions.length
+    ? await executeStepActions(ctx, schedule, jumpTarget, jumpActions, {
+        judgeTargeting: true,
+      })
+    : [];
 
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: "paused",
@@ -2247,6 +2417,7 @@ export async function jumpAheadToStep(
     nextSnapshotAt: null,
     pausedAt: now,
     nextProcessAt: null,
+    healthHold: null,
     stepApproval: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     eventHistory: appendRampEvent(schedule, "step-jumped", {
@@ -2254,6 +2425,7 @@ export async function jumpAheadToStep(
       previousStepIndex: schedule.currentStepIndex,
       status: "paused",
       previousStatus: schedule.status,
+      ...(notes.length ? { reason: notes.join(" ") } : {}),
     }),
   });
 
@@ -2517,7 +2689,7 @@ export async function onActivatingRevisionPublished(
 
     // Always advance — for 0-step schedules this is the entry point to the
     // auto-complete check; for multi-step ramps it fires due steps.
-    await advanceUntilBlocked(ctx, current, now);
+    await advanceOrErrorPause(ctx, current, now);
     current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
     await syncLinkedSafeRolloutForRampState(ctx, current);
 
@@ -2662,7 +2834,7 @@ async function startReadyScheduleNowLocked(
 
   await applyRampStartActions(ctx, current);
   current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
-  await advanceUntilBlocked(ctx, current, now);
+  await advanceOrErrorPause(ctx, current, now);
   current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
 
