@@ -64,19 +64,24 @@ describe("toRampAttachments", () => {
 });
 
 describe("getRevertRampDetachActions", () => {
-  it("detaches targets the recorded attachments do not list, matching by rule stem", () => {
+  it("detaches targets the recorded attachments do not list, by exact rule id", () => {
     const actions = getRevertRampDetachActions(
       "feat",
       {
         datePublished: new Date("2026-09-20T00:00:00Z"),
-        rampAttachments: [{ rampScheduleId: "kept", ruleId: "fr_1" }],
+        rampAttachments: [
+          { rampScheduleId: "kept", ruleId: "fr_1__production" },
+        ],
       },
       [
-        schedule("kept", ["fr_1__production", "fr_2"]),
+        schedule("kept", ["fr_1__production", "fr_1__dev"]),
         schedule("new", ["fr_3"]),
       ],
     );
-    expect(actions).toEqual([detach("kept", "fr_2"), detach("new", "fr_3")]);
+    expect(actions).toEqual([
+      detach("kept", "fr_1__dev"),
+      detach("new", "fr_3"),
+    ]);
   });
 
   it("treats an empty recording as no ramps attached", () => {

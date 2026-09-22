@@ -93,8 +93,8 @@ import {
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 import {
-  assertRevertRampStopAcknowledged,
-  getRevertRampDetaches,
+  assertRevertRampStopsAcknowledged,
+  resolveRevertRampStopsForRevision,
 } from "back-end/src/revisions/revertRampGuard";
 import {
   applyNonRuleFeatureUpgrades,
@@ -2978,6 +2978,9 @@ export async function finalizeRampActionsAfterPublish(
   featureAfter: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
+  // A revert restores the target revision's ramp attachments too: ramps it
+  // predates are detached exactly as removing them from the rule would.
+  revertRampDetaches: RevisionRampAction[],
 ): Promise<void> {
   const updateActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "update",
@@ -3000,32 +3003,13 @@ export async function finalizeRampActionsAfterPublish(
   }
   const detachActions = [
     ...(revision.rampActions ?? []),
-    ...(await getRevertRampDetachesBestEffort(
-      context,
-      featureBefore,
-      revision,
-    )),
+    ...revertRampDetaches,
   ];
   if (detachActions.length) {
     await applyDetachRampActions(context, detachActions);
   }
   await cleanupOrphanedRampSchedules(context, featureBefore, featureAfter);
   await recordRampAttachments(context, featureAfter, revision);
-}
-
-// A revert restores the target revision's ramp attachments too: ramps it
-// predates are detached exactly as removing them from the rule would.
-async function getRevertRampDetachesBestEffort(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-): Promise<RevisionRampAction[]> {
-  try {
-    return await getRevertRampDetaches(context, feature, revision);
-  } catch (err) {
-    logger.error(err, "Failed to resolve ramp schedules a revert detaches");
-    return [];
-  }
 }
 
 async function recordRampAttachments(
@@ -4156,7 +4140,12 @@ async function publishRevisionInner({
         .join("\n")}`,
     );
   }
-  await assertRevertRampStopAcknowledged(context, feature, { revision });
+  const revertRampStops = await resolveRevertRampStopsForRevision(
+    context,
+    feature,
+    revision,
+  );
+  assertRevertRampStopsAcknowledged(context, revertRampStops);
 
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",
@@ -4520,6 +4509,7 @@ async function publishRevisionInner({
     updatedFeature,
     revision,
     result,
+    revertRampStops.detaches,
   );
 
   return updatedFeature;

@@ -7,7 +7,10 @@ import {
   DEFAULT_PERMISSION_ERROR_MESSAGE,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import type { SafeRolloutInterface } from "shared/validators";
+import type {
+  RevisionRampAction,
+  SafeRolloutInterface,
+} from "shared/validators";
 import { featurePublishRefusal } from "back-end/src/revisions/featureDraftAuthority";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -74,6 +77,7 @@ import { getErrorMessage } from "back-end/src/util/errors";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
+import { resolveRevertRampStopsForRevision } from "back-end/src/revisions/revertRampGuard";
 import {
   LandingConflictError,
   runGuardedWrite,
@@ -99,6 +103,7 @@ type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
   plan: FeatureMergePlan;
   createdRampScheduleIds?: string[];
+  revertRampDetaches?: RevisionRampAction[];
   updatedFeature?: FeatureInterface;
   // Captured at the write, even if a later read or satellite update fails.
   writtenFeatureUpdates?: Partial<FeatureInterface>;
@@ -424,6 +429,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           mergeResult.rules ?? feature.rules ?? [],
         );
     }
+
+    desired.revertRampDetaches = (
+      await resolveRevertRampStopsForRevision(context, feature, raw)
+    ).detaches;
 
     // Create ramps before the feature write and retain leaked IDs for compensation.
     desired.createdRampScheduleIds = await applyRampCreateActionsForRevision(
@@ -820,6 +829,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           updated,
           raw,
           desired.mergeResult,
+          desired.revertRampDetaches ?? [],
         ),
       );
     }

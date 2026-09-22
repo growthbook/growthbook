@@ -6,7 +6,6 @@ import {
   isTerminalRampScheduleStatus,
   type RampScheduleInterface,
 } from "../validators/ramp-schedule";
-import { stemRuleId } from "./ruleId";
 
 type RampAttachment = NonNullable<
   FeatureRevisionInterface["rampAttachments"]
@@ -48,10 +47,10 @@ export function getRevertRampDetachActions(
     ruleId: string,
   ): boolean => {
     if (recorded) {
+      // Exact: both sides are the same target's stored ruleId, and migrated
+      // siblings (fr_1__dev, fr_1__prod) are distinct targets.
       return recorded.some(
-        (a) =>
-          a.rampScheduleId === schedule.id &&
-          stemRuleId(a.ruleId) === stemRuleId(ruleId),
+        (a) => a.rampScheduleId === schedule.id && a.ruleId === ruleId,
       );
     }
     // Parsed: the dashboard holds these as JSON strings.

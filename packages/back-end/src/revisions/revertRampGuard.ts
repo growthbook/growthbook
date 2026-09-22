@@ -3,7 +3,11 @@ import type {
   FeatureRevisionInterface,
   RevisionRampDetachAction,
 } from "shared/validators";
-import { getRevertRampDetachActions, revertRampStopWarning } from "shared/util";
+import {
+  draftRevertedFromVersion,
+  getRevertRampDetachActions,
+  revertRampStopWarning,
+} from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
@@ -11,27 +15,37 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { SoftWarningError } from "back-end/src/util/errors";
 
 type Context = ReqContext | ApiReqContext;
+type RevertSource = Pick<
+  FeatureRevisionInterface,
+  "revertedFrom" | "revertedFromVersion"
+>;
 
 async function getRevertTargetRevision(
   context: Context,
   feature: FeatureInterface,
-  revision: Pick<FeatureRevisionInterface, "revertedFrom">,
+  revision: RevertSource,
 ): Promise<FeatureRevisionInterface | null> {
-  if (revision.revertedFrom === undefined) return null;
+  const version = draftRevertedFromVersion(revision);
+  if (version === undefined) return null;
   return getRevision({
     context,
     organization: feature.organization,
     featureId: feature.id,
     feature,
-    version: revision.revertedFrom,
+    version,
   });
 }
 
-async function assessRevertRampStops(
+export type RevertRampStops = {
+  detaches: RevisionRampDetachAction[];
+  warning: string | null;
+};
+
+export async function resolveRevertRampStops(
   context: Context,
   feature: FeatureInterface,
   targetRevision: FeatureRevisionInterface | null,
-): Promise<{ detaches: RevisionRampDetachAction[]; warning: string | null }> {
+): Promise<RevertRampStops> {
   if (!targetRevision) return { detaches: [], warning: null };
   const schedules = await context.models.rampSchedules.getAllByFeatureId(
     feature.id,
@@ -44,43 +58,41 @@ async function assessRevertRampStops(
   return { detaches, warning: revertRampStopWarning(detaches, schedules) };
 }
 
-// The ramp targets a revert revision stops, applied after it lands.
-export async function getRevertRampDetaches(
+// Resolved before the publish mutates anything, so a failed read blocks the
+// revert and the detaches applied afterwards are the ones warned about.
+export async function resolveRevertRampStopsForRevision(
   context: Context,
   feature: FeatureInterface,
-  revision: Pick<FeatureRevisionInterface, "revertedFrom">,
-): Promise<RevisionRampDetachAction[]> {
-  const target = await getRevertTargetRevision(context, feature, revision);
-  return (await assessRevertRampStops(context, feature, target)).detaches;
+  revision: RevertSource,
+): Promise<RevertRampStops> {
+  return resolveRevertRampStops(
+    context,
+    feature,
+    await getRevertTargetRevision(context, feature, revision),
+  );
 }
 
 // Dashboard / direct-revert form: a 422 the "Save anyway?" retry acknowledges.
-// Direct reverts pass the target revision itself (the revert revision does not
-// exist yet); revert drafts pass the draft.
-export async function assertRevertRampStopAcknowledged(
+export function assertRevertRampStopsAcknowledged(
   context: Context,
-  feature: FeatureInterface,
-  source:
-    | { targetRevision: FeatureRevisionInterface }
-    | { revision: Pick<FeatureRevisionInterface, "revertedFrom"> },
-): Promise<void> {
-  if (context.ignoreWarnings) return;
-  const target =
-    "targetRevision" in source
-      ? source.targetRevision
-      : await getRevertTargetRevision(context, feature, source.revision);
-  const { warning } = await assessRevertRampStops(context, feature, target);
-  if (warning) throw new SoftWarningError(warning, [warning]);
+  { warning }: RevertRampStops,
+): void {
+  if (warning && !context.ignoreWarnings) {
+    throw new SoftWarningError(warning, [warning]);
+  }
 }
 
 // REST form: one more acknowledge-class gate in the aggregated 422.
 export async function revertRampStopGate(
   context: Context,
   feature: FeatureInterface,
-  revision: Pick<FeatureRevisionInterface, "revertedFrom">,
+  revision: RevertSource,
 ): Promise<PublishGate | null> {
-  const target = await getRevertTargetRevision(context, feature, revision);
-  const { warning } = await assessRevertRampStops(context, feature, target);
+  const { warning } = await resolveRevertRampStopsForRevision(
+    context,
+    feature,
+    revision,
+  );
   if (!warning) return null;
   return {
     type: "revert-stops-ramp",

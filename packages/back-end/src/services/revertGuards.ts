@@ -10,7 +10,10 @@ import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { SoftWarningError } from "back-end/src/util/errors";
-import { assertRevertRampStopAcknowledged } from "back-end/src/revisions/revertRampGuard";
+import {
+  assertRevertRampStopsAcknowledged,
+  resolveRevertRampStops,
+} from "back-end/src/revisions/revertRampGuard";
 
 // The checks every landing revert shares, so the dashboard and the REST routes
 // gate a revert the same way.
@@ -67,5 +70,8 @@ export async function assertRevertLandingGuards(
   if (changes.archived === true && !feature.archived) {
     await assertFeatureArchiveDependentsGuard(context, feature);
   }
-  await assertRevertRampStopAcknowledged(context, feature, { targetRevision });
+  assertRevertRampStopsAcknowledged(
+    context,
+    await resolveRevertRampStops(context, feature, targetRevision),
+  );
 }
