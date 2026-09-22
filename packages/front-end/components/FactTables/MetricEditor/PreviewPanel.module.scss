@@ -59,7 +59,7 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  height: clamp(360px, 55dvh, 520px);
+  height: clamp(440px, 55dvh, 520px);
   max-height: min(600px, calc(100dvh - 88px));
   align-self: flex-start;
   width: 100%;
