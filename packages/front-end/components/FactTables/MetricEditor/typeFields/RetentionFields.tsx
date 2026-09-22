@@ -59,7 +59,7 @@ export default function RetentionFields({
   if (!canEdit) {
     return (
       <Flex direction="column" gap="3">
-        <Text weight="semibold">Retention Period</Text>
+        <Text weight="semibold">Retention period</Text>
         <Text as="div">{retentionWindowProse(windowSettings)}</Text>
         {hasThreshold && (
           <ThresholdBasisRow
@@ -75,7 +75,7 @@ export default function RetentionFields({
 
   return (
     <Flex direction="column" gap="3">
-      <Text weight="semibold">Retention Period</Text>
+      <Text weight="semibold">Retention period</Text>
       <Flex gap="2" align="center" wrap="wrap">
         <RadioGroup
           value={mode}
