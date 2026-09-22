@@ -157,6 +157,51 @@ it.each([assertAIEnabled, assertAIAccess])(
   },
 );
 
+it.each([
+  { outcome: "returns", dispatch: async () => ({ status: 422, body: {} }) },
+  {
+    outcome: "throws",
+    dispatch: async () => {
+      throw new Error("Dispatch failed");
+    },
+  },
+])(
+  "replays a confirmed call with its own request flags, then clears them when dispatch $outcome",
+  async ({ dispatch }) => {
+    const buffer = await loadOrInitConversation(
+      context.models.aiConversations,
+      "conv_test",
+      "user1",
+      "slack",
+    );
+    buffer.setPendingAction({
+      id: "action",
+      method: "POST",
+      path: "/constants/checkout/archive",
+      body: { ignoreWarnings: true },
+      summary: "Archive Constant checkout",
+      createdAt: Date.now(),
+    });
+    let seen: unknown;
+    jest.mocked(dispatchInternal).mockImplementationOnce(async (ctx) => {
+      seen = ctx.dispatchedRequest;
+      return dispatch();
+    });
+    await runAgentTurnToCompletion({
+      context,
+      config,
+      input: {
+        message: "",
+        conversationId: "conv_test",
+        confirmActionId: "action",
+        confirmDecision: "confirm",
+      },
+    }).catch(() => undefined);
+    expect(seen).toEqual({ body: { ignoreWarnings: true }, query: undefined });
+    expect(context.dispatchedRequest).toBeNull();
+  },
+);
+
 it("leaves pending approval unmodified when the replay guard refuses dispatch", async () => {
   const buffer = await loadOrInitConversation(
     context.models.aiConversations,

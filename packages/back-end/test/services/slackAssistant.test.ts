@@ -59,14 +59,16 @@ const conversationId = slackConversationId({
 });
 const getById = jest.fn().mockResolvedValue({ pendingAction: { id: "first" } });
 const claim = jest.fn(async () => true);
-const acquireThreadLease = jest.fn(async () => ({
-  token: "turn",
-  expiresAt: new Date(Date.now() + 60_000),
-}));
+const acquireThreadLease = jest.fn(async (): Promise<string | null> => "turn");
+const renewThreadLease = jest.fn(async () => true);
 const releaseThreadLease = jest.fn(async () => undefined);
+afterEach(() => {
+  jest.useRealTimers();
+});
 beforeEach(() => {
   jest.clearAllMocks();
   claim.mockResolvedValue(true);
+  renewThreadLease.mockResolvedValue(true);
   jest.mocked(postSlackEphemeralMessage).mockResolvedValue(true);
   getThread.mockResolvedValue(thread);
   bindConversationThread.mockResolvedValue(thread);
@@ -81,6 +83,7 @@ beforeEach(() => {
             slackTaskClaims: {
               claimOnce: claim,
               acquireThreadLease,
+              renewThreadLease,
               releaseThreadLease,
             },
             slackAssistantThreads: { bindConversationThread },
@@ -154,6 +157,16 @@ it.each([
     heading: "Confirm this change?",
     section: "*Confirm this change?*\nPUT /api/v1/features/checkout",
   },
+  ...[
+    { body: { ignoreWarnings: true } },
+    { query: { ignoreWarnings: "true" } },
+  ].map((override) => ({
+    card: `a call that ignores warnings (${Object.keys(override)[0]})`,
+    action: { title: "Archive Constant checkout-settings", ...override },
+    heading: "Confirm: Archive Constant checkout-settings",
+    section:
+      "*Confirm: Archive Constant checkout-settings*\n⚠️ Confirming proceeds despite GrowthBook's warnings about this change.",
+  })),
 ])(
   "heads the approval card from the model's title given $card",
   async ({ action, heading, section }) => {
@@ -653,38 +666,121 @@ it("a retry reuses its placeholder and releases the thread afterwards", async ()
   );
 });
 
-it("replaces the placeholder with a timeout notice when the deadline passes mid-turn", async () => {
-  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
-  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
-  acquireThreadLease.mockResolvedValueOnce({
-    token: "turn",
-    expiresAt: new Date(0),
-  });
-  jest.mocked(runAgentTurnToCompletion).mockImplementationOnce(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    return {
-      ok: true,
-      conversationId,
-      reply: "Late answer",
-      pendingAction: null,
-    };
-  });
-  await handleSlackAssistantMention({
-    teamId: "T1",
-    channelId: "C1",
-    slackUserId: "U1",
-    text: "Question",
-    messageTs: "123.456",
-  });
+const mention = {
+  teamId: "T1",
+  channelId: "C1",
+  slackUserId: "U1",
+  text: "Question",
+  messageTs: "123.456",
+};
+const lateAnswer = {
+  ok: true as const,
+  conversationId,
+  reply: "Late answer",
+  pendingAction: null,
+};
+const answerOnceAborted = async ({ signal }: { signal?: AbortSignal }) => {
+  await new Promise((resolve) =>
+    signal?.addEventListener("abort", resolve, { once: true }),
+  );
+  return lateAnswer;
+};
+const expectTimeoutNotice = () =>
   expect(updateSlackMessage).toHaveBeenLastCalledWith(
     expect.objectContaining({
       ts: "999.111",
       text: expect.stringContaining("timed out"),
     }),
   );
+
+it("replaces the placeholder with a timeout notice when the deadline passes mid-turn", async () => {
+  jest.useFakeTimers();
+  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  jest
+    .mocked(runAgentTurnToCompletion)
+    .mockImplementationOnce(answerOnceAborted);
+  const turn = handleSlackAssistantMention(mention);
+  await jest.advanceTimersByTimeAsync(15 * 60 * 1000 - 1);
+  expect(renewThreadLease).toHaveBeenCalled();
+  expect(updateSlackMessage).not.toHaveBeenCalled();
+  await jest.advanceTimersByTimeAsync(1);
+  await turn;
+  expectTimeoutNotice();
   expect(releaseThreadLease).toHaveBeenCalledWith(
     expect.stringMatching(/^thread:/),
     "turn",
+  );
+});
+
+it("renews the thread lease while a turn runs and aborts it once the lease is lost", async () => {
+  jest.useFakeTimers();
+  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  renewThreadLease.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+  jest
+    .mocked(runAgentTurnToCompletion)
+    .mockImplementationOnce(answerOnceAborted);
+  const turn = handleSlackAssistantMention(mention);
+  await jest.advanceTimersByTimeAsync(60 * 1000);
+  await turn;
+  expect(renewThreadLease).toHaveBeenCalledTimes(2);
+  expect(renewThreadLease).toHaveBeenCalledWith(
+    expect.stringMatching(/^thread:/),
+    "turn",
+  );
+  expectTimeoutNotice();
+});
+
+it("stops renewing at the deadline so a turn that never returns lets the lease lapse", async () => {
+  jest.useFakeTimers();
+  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  let finishHungTurn = () => {};
+  jest.mocked(runAgentTurnToCompletion).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishHungTurn = () => resolve(lateAnswer);
+      }),
+  );
+  const turn = handleSlackAssistantMention(mention);
+  await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
+  const renewalsByDeadline = renewThreadLease.mock.calls.length;
+  expect(renewalsByDeadline).toBeGreaterThan(0);
+  await jest.advanceTimersByTimeAsync(5 * 60 * 1000);
+  expect(renewThreadLease).toHaveBeenCalledTimes(renewalsByDeadline);
+  finishHungTurn();
+  await turn;
+  expectTimeoutNotice();
+});
+
+it("a failed lease release does not replace the turn's own error", async () => {
+  const error = new SlackRateLimitError("chat.update");
+  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  jest.mocked(updateSlackMessage).mockRejectedValueOnce(error);
+  jest.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
+    ok: true,
+    conversationId,
+    reply: "Answer",
+    pendingAction: null,
+  });
+  releaseThreadLease.mockRejectedValueOnce(new Error("Mongo unavailable"));
+  await expect(handleSlackAssistantMention(mention)).rejects.toBe(error);
+});
+
+it("a failed lease release does not fail a turn that already answered", async () => {
+  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  jest.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
+    ok: true,
+    conversationId,
+    reply: "Answer",
+    pendingAction: null,
+  });
+  releaseThreadLease.mockRejectedValueOnce(new Error("Mongo unavailable"));
+  await expect(handleSlackAssistantMention(mention)).resolves.toBeUndefined();
+  expect(updateSlackMessage).toHaveBeenCalledWith(
+    expect.objectContaining({ ts: "999.111", text: "Answer" }),
   );
 });
 

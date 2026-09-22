@@ -887,9 +887,20 @@ async function resolvePendingAction(
       query: pendingAction.query,
       body: pendingAction.body,
     };
-    const dispatched = await dispatchInternal(context, dispatchInput);
-    result = dispatched;
-    isError = !(dispatched.status >= 200 && dispatched.status < 300);
+    // The replayed call's own ignoreWarnings/skip* flags apply. Setting them on
+    // the shared context is safe: the replay runs before the model resumes, so
+    // nothing else dispatches on it meanwhile.
+    context.dispatchedRequest = {
+      body: pendingAction.body,
+      query: pendingAction.query,
+    };
+    try {
+      const dispatched = await dispatchInternal(context, dispatchInput);
+      result = dispatched;
+      isError = !(dispatched.status >= 200 && dispatched.status < 300);
+    } finally {
+      context.dispatchedRequest = null;
+    }
   } else {
     // Not a tool error — a deliberate user decision, or a guard that no longer
     // holds. Phrased so the model treats it as a stop signal, not a retry.

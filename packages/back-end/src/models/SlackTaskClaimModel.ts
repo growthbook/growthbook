@@ -10,7 +10,9 @@ import {
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "slacktaskclaims";
-const THREAD_CLAIM_TTL_MS = 15 * 60 * 1000;
+const THREAD_LEASE_TTL_MS = 2 * 60 * 1000;
+/** Renewing at a quarter of the TTL lets a lease survive a few missed renewals. */
+export const THREAD_LEASE_RENEW_MS = THREAD_LEASE_TTL_MS / 4;
 
 const BaseClass = MakeModelClass({
   schema: slackTaskClaimSchema,
@@ -65,29 +67,37 @@ export class SlackTaskClaimModel extends BaseClass {
   }
 
   /**
-   * Holds a Slack thread for one turn. Returns null while another worker holds
-   * a live claim. A claim past its deadline is taken over, so a crashed or hung
-   * worker never blocks its thread for longer than the TTL.
+   * Holds a Slack thread for one turn and returns the holder's token, or null
+   * while another worker holds a live lease. The holder keeps renewing it, so
+   * an expired lease belongs to a worker that died or gave up and is taken over.
    */
-  public async acquireThreadLease(
-    key: string,
-  ): Promise<{ token: string; expiresAt: Date } | null> {
+  public async acquireThreadLease(key: string): Promise<string | null> {
     const now = Date.now();
     await this._dangerousGetCollection().deleteOne({
       id: key,
       expiresAt: { $lte: new Date(now) },
     });
-    const lease = {
-      token: randomUUID(),
-      expiresAt: new Date(now + THREAD_CLAIM_TTL_MS),
-    };
+    const token = randomUUID();
     try {
-      await this._createOne({ id: key, ...lease });
-      return lease;
+      await this._createOne({
+        id: key,
+        token,
+        expiresAt: new Date(now + THREAD_LEASE_TTL_MS),
+      });
+      return token;
     } catch (error) {
       if (isDuplicateKeyError(error)) return null;
       throw error;
     }
+  }
+
+  /** Extends the holder's lease. False means it expired and was taken over. */
+  public async renewThreadLease(key: string, token: string): Promise<boolean> {
+    const { matchedCount } = await this._dangerousGetCollection().updateOne(
+      { id: key, token },
+      { $set: { expiresAt: new Date(Date.now() + THREAD_LEASE_TTL_MS) } },
+    );
+    return matchedCount === 1;
   }
 
   /** Only the holder releases; a stale worker's token no longer matches. */

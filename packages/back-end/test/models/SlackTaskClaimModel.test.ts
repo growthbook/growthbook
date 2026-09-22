@@ -37,6 +37,9 @@ afterAll(async () => {
 beforeEach(async () => {
   await getCollection("slacktaskclaims").deleteMany({});
 });
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 test("one worker holds a thread until it releases; other threads proceed", async () => {
   const held = await claims().acquireThreadLease(threadKey);
@@ -45,7 +48,7 @@ test("one worker holds a thread until it releases; other threads proceed", async
   expect(
     await claims().acquireThreadLease(`thread:${"b".repeat(64)}`),
   ).not.toBeNull();
-  await claims().releaseThreadLease(threadKey, held.token);
+  await claims().releaseThreadLease(threadKey, held);
   expect(await claims().acquireThreadLease(threadKey)).not.toBeNull();
 });
 
@@ -55,13 +58,34 @@ test("a claim past its deadline is taken over without manual cleanup", async () 
   expect(await claims().acquireThreadLease(threadKey)).not.toBeNull();
 });
 
-test("a stale worker cannot release its successor's claim", async () => {
+test("a thread whose worker died mid-turn frees up within two minutes", async () => {
+  const start = Date.now();
+  await claims().acquireThreadLease(threadKey);
+  jest.spyOn(Date, "now").mockReturnValue(start + 121_000);
+  expect(await claims().acquireThreadLease(threadKey)).not.toBeNull();
+});
+
+test("renewing keeps a live turn's thread past the original expiry", async () => {
+  const start = Date.now();
+  const held = await claims().acquireThreadLease(threadKey);
+  if (!held) throw new Error("expected the first claim to succeed");
+  const now = jest.spyOn(Date, "now").mockReturnValue(start + 90_000);
+  expect(await claims().renewThreadLease(threadKey, held)).toBe(true);
+  now.mockReturnValue(start + 150_000);
+  expect(await claims().acquireThreadLease(threadKey)).toBeNull();
+});
+
+test("a stale worker can neither renew nor release its successor's claim", async () => {
   const stale = await claims().acquireThreadLease(threadKey);
   if (!stale) throw new Error("expected the first claim to succeed");
   await expire(threadKey);
-  expect(await claims().acquireThreadLease(threadKey)).not.toBeNull();
-  await claims().releaseThreadLease(threadKey, stale.token);
+  const successor = await claims().acquireThreadLease(threadKey);
+  if (!successor)
+    throw new Error("expected the expired claim to be taken over");
+  expect(await claims().renewThreadLease(threadKey, stale)).toBe(false);
+  await claims().releaseThreadLease(threadKey, stale);
   expect(await claims().acquireThreadLease(threadKey)).toBeNull();
+  expect(await claims().renewThreadLease(threadKey, successor)).toBe(true);
 });
 
 test("permanent claims are granted once", async () => {

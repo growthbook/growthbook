@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { stringToBoolean } from "shared/util";
 import type {
   AIAgentPendingAction,
   SlackThreadIdentity,
@@ -11,6 +12,7 @@ import {
   slackConversationId,
 } from "back-end/src/services/slack/slackTaskSafety";
 import { SlackAssistantThreadModel } from "back-end/src/models/SlackAssistantThreadModel";
+import { THREAD_LEASE_RENEW_MS } from "back-end/src/models/SlackTaskClaimModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
@@ -62,6 +64,7 @@ const THINKING_TEXT = "_Thinking…_";
 const SLACK_TEXT_LIMIT = 3000;
 const TIMED_OUT_TEXT =
   "This request timed out. Please send a new message to continue.";
+const MAX_TURN_MS = 15 * 60 * 1000;
 /**
  * Remove the bot mention (and any other leading user mention) from the text.
  * All other whitespace is kept verbatim: quoted values and pasted code depend on it.
@@ -105,8 +108,9 @@ function postSlackAccountLink({
 /**
  * Runs one turn while holding the thread's lease, so turns in a Slack thread
  * never overlap. Throws SlackThreadBusyError while another worker holds it and
- * the queue retries. The signal fires at the lease's deadline, after which a
- * crashed or hung worker's lease may be taken over.
+ * the queue retries. The lease is renewed while the turn runs. The signal fires
+ * at the turn deadline or when the lease is lost, and renewal stops then, so a
+ * turn that never returns still lets the lease lapse.
  */
 async function withThreadTurn({
   context,
@@ -119,15 +123,33 @@ async function withThreadTurn({
   placeholderTs?: string;
   turn: (signal: AbortSignal) => Promise<void>;
 }): Promise<void> {
+  const leases = context.models.slackTaskClaims;
   const key = `thread:${slackTaskKey([thread.teamId, thread.channelId, thread.rootTs])}`;
-  const lease = await context.models.slackTaskClaims.acquireThreadLease(key);
-  if (!lease) throw new SlackThreadBusyError(placeholderTs);
-  try {
-    await turn(
-      AbortSignal.timeout(Math.max(0, lease.expiresAt.getTime() - Date.now())),
+  const token = await leases.acquireThreadLease(key);
+  if (!token) throw new SlackThreadBusyError(placeholderTs);
+  const stop = new AbortController();
+  const deadline = setTimeout(() => stop.abort(), MAX_TURN_MS);
+  const renewal = setInterval(() => {
+    if (stop.signal.aborted) return;
+    leases.renewThreadLease(key, token).then(
+      (held) => {
+        if (!held) stop.abort();
+      },
+      (error) =>
+        logger.warn(error, "Slack assistant: could not renew thread lease"),
     );
+  }, THREAD_LEASE_RENEW_MS);
+  try {
+    await turn(stop.signal);
   } finally {
-    await context.models.slackTaskClaims.releaseThreadLease(key, lease.token);
+    clearTimeout(deadline);
+    clearInterval(renewal);
+    // The lease expires on its own; a failed release must not replace the turn's outcome.
+    await leases
+      .releaseThreadLease(key, token)
+      .catch((error) =>
+        logger.warn(error, "Slack assistant: could not release thread lease"),
+      );
   }
 }
 
@@ -348,6 +370,21 @@ async function postPendingApproval({
   // show it only when there's no title to describe the change instead.
   const fallbackSummary = `${pa.method} ${pa.path.split("?")[0]}`;
   const detail = pa.title && pa.summary === fallbackSummary ? "" : pa.summary;
+  // A call that sets ignoreWarnings goes ahead despite GrowthBook's warnings.
+  // Say so under the heading (safe from truncation) rather than trusting the
+  // model's summary to mention it.
+  const ignoresWarnings =
+    z.object({ ignoreWarnings: z.literal(true) }).safeParse(pa.body).success ||
+    stringToBoolean(pa.query?.ignoreWarnings);
+  const lines = [
+    `**${heading}**`,
+    ...(ignoresWarnings
+      ? [
+          "⚠️ Confirming proceeds despite GrowthBook's warnings about this change.",
+        ]
+      : []),
+    ...(detail ? [detail] : []),
+  ];
   const mrkdwnSection = (markdown: string) => ({
     type: "section",
     text: {
@@ -360,7 +397,7 @@ async function postPendingApproval({
   });
   const value = JSON.stringify({ c: conversationId, a: pa.id, t: threadTs });
   const blocks = [
-    mrkdwnSection(detail ? `**${heading}**\n${detail}` : `**${heading}**`),
+    mrkdwnSection(lines.join("\n")),
     ...(reply ? [mrkdwnSection(reply.slice(0, 1000))] : []),
     {
       type: "actions",
