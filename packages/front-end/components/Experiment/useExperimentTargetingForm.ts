@@ -32,38 +32,31 @@ export interface UseExperimentTargetingFormResult {
   prerequisiteTargetingSdkIssues: boolean;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
   canSubmit: boolean;
-  onSubmit: (mutate: () => void, scope?: ChangeType) => () => Promise<void>;
+  /**
+   * Writes the form. Pass `stage` to hand the validated payload to the page's
+   * pending edits instead, so nothing is written until the page is saved.
+   */
+  onSubmit: (
+    mutate: () => void,
+    scope?: ChangeType,
+    stage?: (value: ExperimentTargetingData) => void,
+  ) => () => Promise<void>;
 }
 
-// Shared by the targeting and traffic modals, which both POST to the same
-// `/experiment/:id/targeting` endpoint. When `attributeScopeProjects` is
-// omitted the pre-flight falls back to `experiment.project`.
-export function useExperimentTargetingForm(
+/**
+ * What the experiment currently targets, in the shape the endpoint takes. Any
+ * surface staging a targeting change starts from this, so a field edited on
+ * its own still posts a whole, current payload.
+ */
+export function getTargetingDefaults(
   experiment: ExperimentInterfaceStringDates,
-  attributeScopeProjects?: string[] | null,
-): UseExperimentTargetingFormResult {
-  const { apiCall } = useAuth();
-  const orgSettings = useOrgSettings();
-  // Unfiltered so the pre-flight can distinguish unknown vs out-of-project.
-  const allAttributesSchema = useAttributeSchema(false);
-  const strictScoping = useStrictAttributeProjectScoping();
-  const [conditionKey, forceConditionRender] = useIncrementer();
-  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
-    useState(false);
-  const canSubmit = !prerequisiteTargetingSdkIssues;
-
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
-    sdkConnectionsData?.connections,
-    experiment.project,
-  );
-
+  hashVersionFallback: 1 | 2,
+): ExperimentTargetingData {
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
-
   const lastPhaseVariations = getLatestPhaseVariations(experiment);
 
-  const defaultValues = {
+  return {
     condition: lastPhase?.condition ?? "",
     savedGroups: lastPhase?.savedGroups ?? [],
     prerequisites: lastPhase?.prerequisites ?? [],
@@ -71,7 +64,7 @@ export function useExperimentTargetingForm(
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute || "",
     attributeScopeAllProjects: experiment.attributeScopeAllProjects ?? false,
-    hashVersion: experiment.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
+    hashVersion: experiment.hashVersion || hashVersionFallback,
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,
@@ -93,7 +86,10 @@ export function useExperimentTargetingForm(
         return { ...omit(saved, "range"), ranges: [saved.range] };
       }
       return saved;
-    })(),
+      // A namespace nobody has enabled matches neither stored format: it is
+      // the shape NamespaceSelector writes, kept so a mount cannot look like
+      // an edit.
+    })() as ExperimentTargetingData["namespace"],
     seed: lastPhase?.seed ?? "",
     trackingKey: experiment.trackingKey || "",
     variationWeights:
@@ -108,12 +104,51 @@ export function useExperimentTargetingForm(
     newPhase: false,
     reseed: true,
   };
+}
+
+/** The defaults above, with the hash version the org's SDKs can actually run. */
+export function useTargetingDefaults(
+  experiment: ExperimentInterfaceStringDates,
+) {
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
+    experiment.project,
+  );
+  return getTargetingDefaults(experiment, hasSDKWithNoBucketingV2 ? 1 : 2);
+}
+
+// Shared by the targeting and traffic modals, which both POST to the same
+// `/experiment/:id/targeting` endpoint. When `attributeScopeProjects` is
+// omitted the pre-flight falls back to `experiment.project`.
+export function useExperimentTargetingForm(
+  experiment: ExperimentInterfaceStringDates,
+  attributeScopeProjects?: string[] | null,
+): UseExperimentTargetingFormResult {
+  const { apiCall } = useAuth();
+  const orgSettings = useOrgSettings();
+  // Unfiltered so the pre-flight can distinguish unknown vs out-of-project.
+  const allAttributesSchema = useAttributeSchema(false);
+  const strictScoping = useStrictAttributeProjectScoping();
+  const [conditionKey, forceConditionRender] = useIncrementer();
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
+  const canSubmit = !prerequisiteTargetingSdkIssues;
+
+  const defaultValues = useTargetingDefaults(experiment);
+
+  const lastPhase: ExperimentPhaseStringDates | undefined =
+    experiment.phases[experiment.phases.length - 1];
 
   const form = useForm<ExperimentTargetingData>({
     defaultValues,
   });
 
-  const onSubmit = (mutate: () => void, scope: ChangeType = "advanced") =>
+  const onSubmit = (
+    mutate: () => void,
+    scope: ChangeType = "advanced",
+    stage?: (value: ExperimentTargetingData) => void,
+  ) =>
     form.handleSubmit(async (value) => {
       // Targeting fields (saved groups, condition, prerequisites) are only
       // editable from the targeting modal and the unscoped/advanced flow. Skip
@@ -184,6 +219,11 @@ export function useExperimentTargetingForm(
         | undefined;
       if (ns?.enabled && ns.ranges && ns.ranges.length > 0) {
         ns.ranges = mergeContiguousRanges(ns.ranges);
+      }
+
+      if (stage) {
+        stage(value);
+        return;
       }
 
       await apiCall(`/experiment/${experiment.id}/targeting`, {

@@ -1,0 +1,10 @@
+// The \"%\" sits inside the field, which grows with what is typed.
+.autoWidth {
+  min-width: 100px;
+
+  input {
+    width: auto;
+    min-width: 100px;
+    field-sizing: content;
+  }
+}

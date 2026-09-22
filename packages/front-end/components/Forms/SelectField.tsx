@@ -191,6 +191,12 @@ export const ReactSelectProps = {
         backgroundColor: "var(--surface-background-color)",
       };
     },
+    // react-select portals the menu at z-index 1, which page content sitting in
+    // its own stacking context paints straight over: the menu still opens, but
+    // the options stop taking the mouse.
+    menuPortal: (styles) => {
+      return { ...styles, zIndex: 1000 };
+    },
     option: (styles, { isFocused, isDisabled }) => {
       return {
         ...styles,

@@ -2,6 +2,7 @@ import { ReactNode, useMemo, useState } from "react";
 import clsx from "clsx";
 import {
   ExperimentInterfaceStringDates,
+  ExperimentTargetingData,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import {
@@ -51,6 +52,19 @@ import {
   getVariationValueChanges,
 } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
+import { useAuth } from "@/services/auth";
+import {
+  PercentField,
+  PercentSlider,
+} from "@/components/Forms/PercentSliderField";
+import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
+import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
+import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
+import SelectField from "@/components/Forms/SelectField";
+import Switch from "@/ui/Switch";
+import { useRegisterExperimentEdit } from "./ExperimentEdits";
+import useExperimentEditing from "./useExperimentEditing";
+import SetupFieldRow from "./SetupFieldRow";
 import styles from "./TrafficAllocationFunnel.module.scss";
 
 export interface Props {
@@ -68,6 +82,16 @@ export interface Props {
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
+  /**
+   * The targeting the page has confirmed but not yet written, and the way to
+   * change it. Held by the page, since the modal that stages it lives there.
+   */
+  targetingDraft?: TargetingDraft;
+}
+
+export interface TargetingDraft {
+  value: ExperimentTargetingData | null;
+  set: (value: ExperimentTargetingData | null) => void;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -205,10 +229,53 @@ export default function TrafficAllocationFunnel({
   canEditExperiment = false,
   safeToEdit = false,
   mutate,
+  targetingDraft,
 }: Props) {
   const { namespaces } = useOrgSettings();
+  const { apiCall } = useAuth();
+  const { editInline } = useExperimentEditing(experiment);
 
-  const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
+  const targetingDefaults = useTargetingDefaults(experiment);
+  const staged = targetingDraft?.value ?? null;
+
+  // Everything below reads the staged targeting where there is one, so a
+  // confirmed change shows on the page before it is written.
+  const stagePatch = (patch: Partial<ExperimentTargetingData>) =>
+    targetingDraft?.set({ ...(staged ?? targetingDefaults), ...patch });
+
+  useRegisterExperimentEdit("targeting", !!staged, {
+    save: async () => {
+      await apiCall(`/experiment/${experiment.id}/targeting`, {
+        method: "POST",
+        body: JSON.stringify(staged),
+      });
+      targetingDraft?.set(null);
+      mutate?.();
+    },
+    discard: () => targetingDraft?.set(null),
+  });
+
+  // The experiment-level half of the targeting, staged the same way.
+  const hashAttribute =
+    staged?.hashAttribute ?? experiment.hashAttribute ?? "id";
+  const fallbackAttribute =
+    staged?.fallbackAttribute ?? experiment.fallbackAttribute ?? "";
+  const disableStickyBucketing =
+    staged?.disableStickyBucketing ??
+    experiment.disableStickyBucketing ??
+    false;
+
+  const storedPhase =
+    experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
+  const phase = staged
+    ? {
+        ...storedPhase,
+        coverage: staged.coverage,
+        condition: staged.condition,
+        savedGroups: staged.savedGroups,
+        prerequisites: staged.prerequisites,
+      }
+    : storedPhase;
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
 
   const { coverage: namespaceCoverage, name: namespaceName } =
@@ -463,48 +530,37 @@ export default function TrafficAllocationFunnel({
           <FunnelCard
             title="Targeting"
             onEdit={editTargeting}
-            inlineSummary={
-              targetsEveryone ? (
-                <Text size="lg">
-                  <em>Everyone</em>
-                </Text>
-              ) : undefined
-            }
             disabled={!safeToEdit}
           >
-            <Flex direction="column" gap="4">
-              <AssignmentAttribute experiment={experiment} />
-              {hasConfiguredTargeting ? (
-                <>
+            <SetupFieldRow label="Audience" content="text">
+              {targetsEveryone ? (
+                <Text color="text-mid">
+                  <em>Everyone</em>
+                </Text>
+              ) : (
+                <Flex direction="column" gap="3">
                   {hasCondition ? (
-                    <div>
-                      <Text as="div" color="text-high" weight="semibold" mb="2">
-                        Attribute Targeting
-                      </Text>
-                      <ConditionDisplay condition={phase.condition} />
-                    </div>
+                    <ConditionDisplay condition={phase.condition} />
                   ) : null}
                   {hasSavedGroups ? (
-                    <div>
-                      <Text as="div" color="text-high" weight="semibold" mb="2">
-                        Saved Group Targeting
-                      </Text>
-                      <SavedGroupTargetingDisplay
-                        savedGroups={phase.savedGroups}
-                      />
-                    </div>
+                    <SavedGroupTargetingDisplay
+                      savedGroups={phase.savedGroups}
+                    />
                   ) : null}
                   {hasPrerequisites ? (
-                    <div>
-                      <Text as="div" color="text-high" weight="semibold" mb="2">
-                        Prerequisite Targeting
-                      </Text>
-                      <ConditionDisplay prerequisites={phase.prerequisites} />
-                    </div>
+                    <ConditionDisplay prerequisites={phase.prerequisites} />
                   ) : null}
-                </>
-              ) : null}
-            </Flex>
+                </Flex>
+              )}
+            </SetupFieldRow>
+            <AssignmentAttribute
+              experiment={experiment}
+              hashAttribute={hashAttribute}
+              fallbackAttribute={fallbackAttribute}
+              disableStickyBucketing={disableStickyBucketing}
+              editInline={editInline}
+              stagePatch={stagePatch}
+            />
           </FunnelCard>
 
           <FunnelConnector />
@@ -516,28 +572,50 @@ export default function TrafficAllocationFunnel({
           >
             {!isHoldout ? (
               <Box mb="1">
-                <Text weight="semibold" color="text-high">
-                  Included in this experiment:{" "}
-                  <Text color="text-high" weight="regular">
-                    {Math.round(phase.coverage * 100)}%
-                  </Text>
-                </Text>
-                <Box
-                  mt="3"
-                  overflow="hidden"
-                  style={{
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: "var(--gray-a4)",
-                  }}
+                <SetupFieldRow
+                  label="Included %"
+                  content={editInline ? "control" : "text"}
+                  tooltip="The share of everyone who matches the targeting above that this experiment runs on."
                 >
-                  <Box
-                    style={{
-                      width: `${Math.min(100, Math.max(0, phase.coverage * 100))}%`,
-                      height: "100%",
-                      backgroundColor: "var(--violet-9)",
-                    }}
-                  />
+                  {editInline ? (
+                    <PercentField
+                      value={phase.coverage ?? 1}
+                      onChange={(coverage) => stagePatch({ coverage })}
+                      ariaLabel="Included %"
+                    />
+                  ) : (
+                    <Text color="text-mid">
+                      {Math.round((phase.coverage ?? 1) * 100)}%
+                    </Text>
+                  )}
+                </SetupFieldRow>
+                {/* The bar keeps its place while a draft is edited: the
+                    slider is the same readout, made draggable. */}
+                <Box mt="3">
+                  {editInline ? (
+                    <PercentSlider
+                      value={phase.coverage ?? 1}
+                      onChange={(coverage) => stagePatch({ coverage })}
+                      ariaLabel="Included %"
+                    />
+                  ) : (
+                    <Box
+                      overflow="hidden"
+                      style={{
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: "var(--gray-a4)",
+                      }}
+                    >
+                      <Box
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (phase.coverage ?? 1) * 100))}%`,
+                          height: "100%",
+                          backgroundColor: "var(--violet-9)",
+                        }}
+                      />
+                    </Box>
+                  )}
                 </Box>
               </Box>
             ) : (
@@ -641,32 +719,73 @@ export default function TrafficAllocationFunnel({
 
 function AssignmentAttribute({
   experiment,
+  hashAttribute,
+  fallbackAttribute,
+  disableStickyBucketing,
+  editInline,
+  stagePatch,
 }: {
   experiment: ExperimentInterfaceStringDates;
+  hashAttribute: string;
+  fallbackAttribute: string;
+  disableStickyBucketing: boolean;
+  editInline: boolean;
+  stagePatch: (patch: Partial<ExperimentTargetingData>) => void;
 }) {
   const isHoldout = experiment.type === "holdout";
   const { useStickyBucketing } = useOrgSettings();
+  const attributeOptions = useHashAttributeOptions(
+    experiment.attributeScopeAllProjects || !experiment.project
+      ? null
+      : [experiment.project],
+    hashAttribute,
+  );
+
   return (
-    <Box>
-      <Text weight="semibold" color="text-high" mr="2">
-        Assignment Attribute{experiment.fallbackAttribute ? "s" : ""}:{" "}
-      </Text>
-      <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
-      {experiment.fallbackAttribute ? (
-        <>
-          , <AttributeBadge attributeId={experiment.fallbackAttribute} />
-        </>
-      ) : null}
+    <>
+      <SetupFieldRow
+        label={`Assignment attribute${fallbackAttribute ? "s" : ""}`}
+        content={editInline ? "control" : "text"}
+        tooltip="Hashed with the tracking key to decide which variation each user gets."
+      >
+        {editInline ? (
+          <SelectField
+            value={hashAttribute}
+            options={attributeOptions}
+            sort={false}
+            formatOptionLabel={formatAttributeOptionLabel}
+            onChange={(v) => stagePatch({ hashAttribute: v })}
+          />
+        ) : (
+          <Box>
+            <AttributeBadge attributeId={hashAttribute} />
+            {fallbackAttribute ? (
+              <>
+                , <AttributeBadge attributeId={fallbackAttribute} />
+              </>
+            ) : null}
+          </Box>
+        )}
+      </SetupFieldRow>
       {!isHoldout && useStickyBucketing ? (
-        <Box mt="1">
-          <Text weight="semibold" color="text-high" mr="2">
-            Sticky bucketing:
-          </Text>
-          <Text color="text-mid">
-            {experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
-          </Text>
-        </Box>
+        <SetupFieldRow
+          label="Sticky bucketing"
+          content="text"
+          tooltip="Keeps users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
+        >
+          {editInline ? (
+            <Switch
+              value={!disableStickyBucketing}
+              onChange={(on) => stagePatch({ disableStickyBucketing: !on })}
+              label={disableStickyBucketing ? "Disabled" : "Enabled"}
+            />
+          ) : (
+            <Text color="text-mid">
+              {disableStickyBucketing ? "Disabled" : "Enabled"}
+            </Text>
+          )}
+        </SetupFieldRow>
       ) : null}
-    </Box>
+    </>
   );
 }

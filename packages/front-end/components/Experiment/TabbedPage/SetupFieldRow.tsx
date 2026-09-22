@@ -15,6 +15,9 @@ const LABEL_OFFSET: Record<LabelSize, string> = { md: "10px", lg: "6px" };
 
 type LabelSize = "md" | "lg";
 
+/** Whether the row holds a control, which is taller than its own text, or text. */
+type RowContent = "control" | "text";
+
 /**
  * One field on the setup tab: its name on the left, the control on the right.
  * Anything explaining the field belongs in `tooltip`, not under the label.
@@ -23,12 +26,15 @@ export default function SetupFieldRow({
   label,
   labelSize = "md",
   tooltip,
+  content = "control",
   children,
 }: {
   label: string;
   /** `lg` for a field whose label doubles as the section's title. */
   labelSize?: LabelSize;
   tooltip?: string;
+  /** `text` for a row that only reads a value back, which needs no offset. */
+  content?: RowContent;
   children: ReactNode;
 }) {
   return (
@@ -40,7 +46,9 @@ export default function SetupFieldRow({
         width={LABEL_WIDTH}
         // Nudged down so the label reads level with the control beside it,
         // which centres its own text inside a taller box.
-        style={{ paddingTop: LABEL_OFFSET[labelSize] }}
+        style={{
+          paddingTop: content === "control" ? LABEL_OFFSET[labelSize] : "0",
+        }}
       >
         <Flex align="center" gap="1">
           <Text

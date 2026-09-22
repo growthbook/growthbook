@@ -20,7 +20,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
-import TrafficAllocationFunnel from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
+import TrafficAllocationFunnel, {
+  TargetingDraft,
+} from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import AnalysisPlan from "@/components/Experiment/TabbedPage/AnalysisPlan";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
@@ -46,6 +48,7 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
+  targetingDraft?: TargetingDraft;
   editTraffic?: ((variationId?: string) => void) | null;
   addVariation?: (() => void) | null;
   addVariationValues?: (() => void) | null;
@@ -69,6 +72,7 @@ export default function Implementation({
   urlRedirects,
   mutate,
   editTargeting,
+  targetingDraft,
   editTraffic,
   addVariation,
   addVariationValues,
@@ -214,6 +218,7 @@ export default function Implementation({
             experiment={experiment}
             editTraffic={pendingScheduledStart ? null : editTraffic}
             editTargeting={pendingScheduledStart ? null : editTargeting}
+            targetingDraft={targetingDraft}
             editNamespace={pendingScheduledStart ? null : editNamespace}
             addVariation={pendingScheduledStart ? null : addVariation}
             addVariationValues={

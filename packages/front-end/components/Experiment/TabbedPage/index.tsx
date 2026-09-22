@@ -66,6 +66,7 @@ import { ExperimentEditsProvider } from "./ExperimentEdits";
 import UnsavedEditsBar from "./UnsavedEditsBar";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
+import { TargetingDraft } from "./TrafficAllocationFunnel";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
@@ -99,6 +100,8 @@ export interface Props {
   editPhase?: ((i: number | null) => void) | null;
   editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
+  /** Targeting confirmed in a modal but not yet written. */
+  targetingDraft?: TargetingDraft;
   editTraffic?: ((variationId?: string) => void) | null;
   addVariation?: (() => void) | null;
   addVariationValues?: (() => void) | null;
@@ -133,6 +136,7 @@ function TabbedPageContents({
   envs,
   urlRedirects,
   editTargeting,
+  targetingDraft,
   editTraffic,
   addVariation,
   addVariationValues,
@@ -783,6 +787,7 @@ function TabbedPageContents({
                 visualChangesets={visualChangesets}
                 urlRedirects={urlRedirects}
                 editTargeting={editTargeting}
+                targetingDraft={targetingDraft}
                 editTraffic={editTraffic}
                 addVariation={addVariation}
                 addVariationValues={addVariationValues}

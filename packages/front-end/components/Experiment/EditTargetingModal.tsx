@@ -1,5 +1,6 @@
 import {
   ExperimentInterfaceStringDates,
+  ExperimentTargetingData,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
@@ -7,11 +8,7 @@ import { Box } from "@radix-ui/themes";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
-import {
-  type AttributeOptionForTooltip,
-  formatAttributeOptionLabel,
-  toAttributeOption,
-} from "@/components/Features/AttributeOptionTooltip";
+import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -28,6 +25,7 @@ import {
   useAttributeScopePicker,
 } from "./useAttributeScopePicker";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
+import useHashAttributeOptions from "./useHashAttributeOptions";
 
 export interface Props {
   close: () => void;
@@ -35,6 +33,11 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
+  /**
+   * Hands the confirmed targeting to the page's pending edits rather than
+   * writing it. The page's save bar owns the write from then on.
+   */
+  stageChanges?: (value: ExperimentTargetingData) => void;
 }
 
 export default function EditTargetingModal({
@@ -43,6 +46,7 @@ export default function EditTargetingModal({
   linkedFeatures,
   mutate,
   safeToEdit,
+  stageChanges,
 }: Props) {
   const { enforcement: enforcementScope, dropdown: dropdownScope } =
     getLinkedExperimentAttributeScopes(experiment.project, linkedFeatures);
@@ -99,35 +103,10 @@ export default function EditTargetingModal({
   );
 
   const attributeSchema = useAttributeSchema(false, effectiveAttributeProjects);
-  // Unfiltered (incl. archived) for keep-current tooltip metadata below.
-  const allAttributeSchema = useAttributeSchema(true);
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
-
-  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
-    .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map(toAttributeOption);
-
-  // If the current hashAttribute isn't in the list, add it for backwards
-  // compatibility (e.g. the attribute was archived or removed from the
-  // experiment's project after creation).
-  if (
-    form.watch("hashAttribute") &&
-    !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))
-  ) {
-    const full = allAttributeSchema.find(
-      (s) => s.property === form.watch("hashAttribute"),
-    );
-    hashAttributeOptions.push({
-      label: form.watch("hashAttribute"),
-      value: form.watch("hashAttribute"),
-      description: full?.description,
-      tags: full?.tags,
-      datatype: full?.datatype,
-      hashAttribute: full?.hashAttribute,
-      projects: full?.projects,
-    });
-  }
+  const hashAttributeOptions = useHashAttributeOptions(
+    effectiveAttributeProjects,
+    form.watch("hashAttribute"),
+  );
 
   const disableStickyBucketing = !!form.watch("disableStickyBucketing");
 
@@ -143,8 +122,9 @@ export default function EditTargetingModal({
         close={close}
         header="Edit Targeting"
         ctaEnabled={canSubmit}
+        cta={stageChanges ? "Confirm" : "Save"}
         submit={async () => {
-          await onSubmit(mutate, "targeting")();
+          await onSubmit(mutate, "targeting", stageChanges)();
           trackAddedTargeting();
         }}
         size="lg"

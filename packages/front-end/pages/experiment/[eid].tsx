@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
+  ExperimentTargetingData,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
@@ -46,6 +47,10 @@ const ExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  // Targeting the user has confirmed in the modal or changed on the page, held
+  // here beside the modal and written by the setup tab's save bar.
+  const [targetingDraft, setTargetingDraft] =
+    useState<ExperimentTargetingData | null>(null);
   const [trafficModalOpen, setTrafficModalOpen] = useState(false);
   const [trafficFocusVariation, setTrafficFocusVariation] = useState<
     string | null
@@ -267,6 +272,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
+          stageChanges={setTargetingDraft}
           // source="eid"
         />
       )}
@@ -329,6 +335,7 @@ const ExperimentPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
+          targetingDraft={{ value: targetingDraft, set: setTargetingDraft }}
           editTraffic={editTraffic}
           addVariation={addVariation}
           addVariationValues={addVariationValues}
