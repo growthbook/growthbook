@@ -12,6 +12,7 @@ import {
   onRetentionDelayOrModeChange,
   onShapeChange,
   retentionEnd,
+  normalizeRetentionWindow,
   retentionModeFromWindow,
   shapeForValueType,
   shapeFromColumnRef,
@@ -21,61 +22,108 @@ import {
   type MetricTypeSwitchState,
 } from "./metricFormTranslation";
 
+const dialect = { hasCountDistinctHLL: () => false };
+const hllDialect = { hasCountDistinctHLL: () => true };
+
+const columnDefaults = {
+  dateCreated: new Date(0),
+  dateUpdated: new Date(0),
+  name: "",
+  description: "",
+  numberFormat: "" as const,
+  deleted: false,
+};
+
 const factTable = {
+  id: "ft1",
   columns: [
-    { column: "revenue", name: "Revenue (USD)", datatype: "number" as const },
-    { column: "plan", datatype: "string" as const },
-    { column: "timestamp", datatype: "date" as const },
-    { column: "old_col", datatype: "number" as const, deleted: true },
-    { column: "user_id", datatype: "number" as const },
+    {
+      ...columnDefaults,
+      column: "revenue",
+      name: "Revenue (USD)",
+      datatype: "number" as const,
+    },
+    { ...columnDefaults, column: "plan", datatype: "string" as const },
+    { ...columnDefaults, column: "timestamp", datatype: "date" as const },
+    {
+      ...columnDefaults,
+      column: "old_col",
+      datatype: "number" as const,
+      deleted: true,
+    },
+    { ...columnDefaults, column: "user_id", datatype: "number" as const },
   ],
   userIdTypes: ["user_id"],
 };
 
 describe("columnsForShape", () => {
   it("returns [] for count/days/users", () => {
-    expect(columnsForShape("count", factTable)).toEqual([]);
-    expect(columnsForShape("days", factTable)).toEqual([]);
-    expect(columnsForShape("users", factTable)).toEqual([]);
+    expect(columnsForShape("count", factTable, dialect)).toEqual([]);
+    expect(columnsForShape("days", factTable, dialect)).toEqual([]);
+    expect(columnsForShape("users", factTable, dialect)).toEqual([]);
   });
 
   it("returns numeric columns for sum/max, excluding deleted and timestamp", () => {
-    expect(columnsForShape("sum", factTable)).toEqual(["revenue"]);
-    expect(columnsForShape("max", factTable)).toEqual(["revenue"]);
+    expect(columnsForShape("sum", factTable, dialect)).toEqual(["revenue"]);
+    expect(columnsForShape("max", factTable, dialect)).toEqual(["revenue"]);
   });
 
   it("returns string columns for distinct when hasCountDistinctHLL is true", () => {
-    expect(columnsForShape("distinct", factTable, true)).toEqual(["plan"]);
+    expect(columnsForShape("distinct", factTable, hllDialect)).toEqual([
+      "plan",
+    ]);
   });
 
   it("returns [] with no fact table", () => {
-    expect(columnsForShape("sum", null)).toEqual([]);
+    expect(columnsForShape("sum", null, dialect)).toEqual([]);
   });
 
   it("hides distinct when hasCountDistinctHLL is false, leaving other shapes alone", () => {
-    expect(columnsForShape("distinct", factTable, false)).toEqual([]);
-    expect(columnsForShape("sum", factTable, false)).toEqual(["revenue"]);
+    expect(columnsForShape("distinct", factTable, dialect)).toEqual([]);
+    expect(columnsForShape("sum", factTable, dialect)).toEqual(["revenue"]);
   });
 
   it("excludes userIdTypes columns even when numeric", () => {
-    expect(columnsForShape("sum", factTable)).not.toContain("user_id");
+    expect(columnsForShape("sum", factTable, dialect)).not.toContain("user_id");
+  });
+
+  it("excludes string identifiers from count-distinct choices", () => {
+    expect(
+      columnsForShape(
+        "distinct",
+        {
+          columns: [
+            { ...columnDefaults, column: "account_id", datatype: "string" },
+            { ...columnDefaults, column: "plan", datatype: "string" },
+          ],
+          userIdTypes: ["account_id"],
+        },
+        hllDialect,
+      ),
+    ).toEqual(["plan"]);
   });
 
   it("excludes the fact table's configured timestamp column, not just the literal string 'timestamp'", () => {
     const customTimestampTable = {
       columns: [
-        { column: "revenue", datatype: "number" as const },
-        { column: "event_time", datatype: "number" as const },
+        { ...columnDefaults, column: "revenue", datatype: "number" as const },
+        {
+          ...columnDefaults,
+          column: "event_time",
+          datatype: "number" as const,
+        },
       ],
       timestampColumn: "event_time",
     };
-    expect(columnsForShape("sum", customTimestampTable)).toEqual(["revenue"]);
+    expect(columnsForShape("sum", customTimestampTable, dialect)).toEqual([
+      "revenue",
+    ]);
   });
 });
 
 describe("availableShapes", () => {
   it("always includes count/days/users regardless of HLL or columns", () => {
-    expect(availableShapes(["count", "days", "users"], null, false)).toEqual([
+    expect(availableShapes(["count", "days", "users"], null, dialect)).toEqual([
       "count",
       "days",
       "users",
@@ -83,47 +131,54 @@ describe("availableShapes", () => {
   });
 
   it("excludes distinct when hasCountDistinctHLL is false", () => {
-    expect(availableShapes(["sum", "distinct"], factTable, false)).toEqual([
+    expect(availableShapes(["sum", "distinct"], factTable, dialect)).toEqual([
       "sum",
     ]);
-    expect(availableShapes(["sum", "distinct"], factTable, true)).toEqual([
-      "sum",
-      "distinct",
-    ]);
+    expect(availableShapes(["sum", "distinct"], factTable, hllDialect)).toEqual(
+      ["sum", "distinct"],
+    );
   });
 
   it("excludes sum/max/distinct when the fact table has no matching column", () => {
     const noNumericTable = {
-      columns: [{ column: "plan", datatype: "string" as const }],
+      columns: [
+        { ...columnDefaults, column: "plan", datatype: "string" as const },
+      ],
     };
     expect(
-      availableShapes(["count", "sum", "max"], noNumericTable, false),
+      availableShapes(["count", "sum", "max"], noNumericTable, dialect),
     ).toEqual(["count"]);
   });
 });
 
 describe("fitColumn", () => {
   it("returns the sentinel column for count/days/users regardless of current", () => {
-    expect(fitColumn("count", factTable, "revenue")).toBe("$$count");
-    expect(fitColumn("days", factTable, "revenue")).toBe("$$distinctDates");
-    expect(fitColumn("users", factTable, "revenue")).toBe("$$distinctUsers");
+    expect(fitColumn("count", factTable, "revenue", dialect)).toBe("$$count");
+    expect(fitColumn("days", factTable, "revenue", dialect)).toBe(
+      "$$distinctDates",
+    );
+    expect(fitColumn("users", factTable, "revenue", dialect)).toBe(
+      "$$distinctUsers",
+    );
   });
 
   it("keeps the current column when still valid for the shape", () => {
-    expect(fitColumn("sum", factTable, "revenue")).toBe("revenue");
+    expect(fitColumn("sum", factTable, "revenue", dialect)).toBe("revenue");
   });
 
   it("falls back to the first valid column when current is invalid", () => {
-    expect(fitColumn("sum", factTable, "plan")).toBe("revenue");
-    expect(fitColumn("distinct", factTable, "revenue", true)).toBe("plan");
+    expect(fitColumn("sum", factTable, "plan", dialect)).toBe("revenue");
+    expect(fitColumn("distinct", factTable, "revenue", hllDialect)).toBe(
+      "plan",
+    );
   });
 
   it("falls back to empty string when no valid column exists", () => {
-    expect(fitColumn("distinct", { columns: [] }, "revenue")).toBe("");
+    expect(fitColumn("distinct", { columns: [] }, "revenue", dialect)).toBe("");
   });
 
   it("falls back to empty string for distinct when hasCountDistinctHLL is false", () => {
-    expect(fitColumn("distinct", factTable, "plan", false)).toBe("");
+    expect(fitColumn("distinct", factTable, "plan", dialect)).toBe("");
   });
 });
 
@@ -165,11 +220,13 @@ describe("onShapeChange", () => {
   const base = { factTableId: "ft1", column: "$$count", rowFilters: [] };
 
   it("refits column and sets aggregation for sum/max/distinct", () => {
-    expect(onShapeChange(base, "sum", factTable)).toMatchObject({
+    expect(onShapeChange(base, "sum", factTable, dialect)).toMatchObject({
       column: "revenue",
       aggregation: "sum",
     });
-    expect(onShapeChange(base, "distinct", factTable, true)).toMatchObject({
+    expect(
+      onShapeChange(base, "distinct", factTable, hllDialect),
+    ).toMatchObject({
       column: "plan",
       aggregation: "count distinct",
     });
@@ -177,14 +234,14 @@ describe("onShapeChange", () => {
 
   it("clears aggregation for count/days/users", () => {
     const sumRef = { ...base, column: "revenue", aggregation: "sum" as const };
-    expect(onShapeChange(sumRef, "count", factTable)).toMatchObject({
+    expect(onShapeChange(sumRef, "count", factTable, dialect)).toMatchObject({
       column: "$$count",
       aggregation: undefined,
     });
   });
 
   it("can't land on a distinct column when hasCountDistinctHLL is false", () => {
-    expect(onShapeChange(base, "distinct", factTable, false)).toMatchObject({
+    expect(onShapeChange(base, "distinct", factTable, dialect)).toMatchObject({
       column: "",
       aggregation: "count distinct",
     });
@@ -201,7 +258,11 @@ describe("onFactTableChange", () => {
       aggregateFilterColumn: "$$count",
       aggregateFilter: ">= 3",
     };
-    const result = onFactTableChange(current, "new_ft", factTable);
+    const result = onFactTableChange(
+      current,
+      { ...factTable, id: "new_ft" },
+      dialect,
+    );
     expect(result.factTableId).toBe("new_ft");
     expect(result.column).toBe("revenue");
     expect(result.rowFilters).toEqual([]);
@@ -216,7 +277,11 @@ describe("onFactTableChange", () => {
       aggregation: "sum" as const,
       rowFilters: [],
     };
-    const result = onFactTableChange(current, "new_ft", factTable);
+    const result = onFactTableChange(
+      current,
+      { ...factTable, id: "new_ft" },
+      dialect,
+    );
     expect(result.column).toBe("revenue");
   });
 });
@@ -224,14 +289,14 @@ describe("onFactTableChange", () => {
 describe("onQuantileScopeChange", () => {
   it("restricts to numeric columns and clears aggregation for event scope", () => {
     const current = { factTableId: "ft1", column: "plan", rowFilters: [] };
-    const result = onQuantileScopeChange(current, "event", factTable);
+    const result = onQuantileScopeChange(current, "event", factTable, dialect);
     expect(result.column).toBe("revenue");
     expect(result.aggregation).toBeUndefined();
   });
 
   it("restores the shape-based column for unit scope", () => {
     const current = { factTableId: "ft1", column: "revenue", rowFilters: [] };
-    const result = onQuantileScopeChange(current, "unit", factTable);
+    const result = onQuantileScopeChange(current, "unit", factTable, dialect);
     expect(result.column).toBe("revenue");
     expect(result.aggregation).toBe("sum");
   });
@@ -316,9 +381,7 @@ describe("retention window reset rules", () => {
     expect(result.windowValue).toBe(1);
   });
 
-  it("converts windowUnit into delayUnit's scale before computing end", () => {
-    // 7 days + 24 hours = 8 days, not 31 - windowValue is in a different
-    // unit than delayValue and must be converted before the arithmetic.
+  it("uses the smaller unit for retention display and edits", () => {
     const mixedUnits = {
       type: "conversion" as const,
       delayValue: 7,
@@ -326,14 +389,20 @@ describe("retention window reset rules", () => {
       windowValue: 24,
       windowUnit: "hours" as const,
     };
-    expect(retentionEnd(mixedUnits)).toBe(8);
+    expect(retentionEnd(mixedUnits)).toBe(192);
+    expect(normalizeRetentionWindow(mixedUnits)).toMatchObject({
+      delayValue: 168,
+      delayUnit: "hours",
+      windowValue: 24,
+      windowUnit: "hours",
+    });
 
     const result = onRetentionDelayOrModeChange(mixedUnits, {
       type: "delay",
-      value: 8,
+      value: 192,
     });
-    expect(result.windowUnit).toBe("days");
-    expect(retentionEnd(result)).toBeGreaterThan(8);
+    expect(result.windowUnit).toBe("hours");
+    expect(retentionEnd(result)).toBe(193);
   });
 });
 
@@ -538,11 +607,15 @@ describe("formTypeFromStored", () => {
 describe("applyFormType", () => {
   const current: MetricTypeSwitchState = {
     metricType: "proportion",
-    numerator: { factTableId: "ft1", column: "$$count", rowFilters: [] },
+    numerator: {
+      factTableId: "ft1",
+      column: "$$distinctUsers",
+      rowFilters: [],
+    },
   };
 
   it("sets metricType and shape-appropriate column/aggregation", () => {
-    const result = applyFormType(current, "colSum", factTable);
+    const result = applyFormType(current, "colSum", factTable, dialect);
     expect(result.metricType).toBe("mean");
     expect(result.numerator).toMatchObject({
       column: "revenue",
@@ -561,24 +634,24 @@ describe("applyFormType", () => {
         aggregateFilter: ">= 3",
       },
     };
-    const result = applyFormType(withFilter, "rowCount", factTable);
+    const result = applyFormType(withFilter, "rowCount", factTable, dialect);
     expect(result.numerator?.aggregateFilterColumn).toBeUndefined();
     expect(result.numerator?.aggregateFilter).toBeUndefined();
   });
 
   it("sets numerator to null for funnel", () => {
-    const result = applyFormType(current, "funnel", factTable);
+    const result = applyFormType(current, "funnel", factTable, dialect);
     expect(result.metricType).toBe("funnel");
     expect(result.numerator).toBeNull();
   });
 
   it("preserves the fact table id across a type change", () => {
-    const result = applyFormType(current, "colMax", factTable);
+    const result = applyFormType(current, "colMax", factTable, dialect);
     expect(result.numerator?.factTableId).toBe("ft1");
   });
 
   it("initializes a denominator for ratio when none exists", () => {
-    const result = applyFormType(current, "ratio", factTable);
+    const result = applyFormType(current, "ratio", factTable, dialect);
     expect(result.denominator).toEqual({
       factTableId: "ft1",
       column: "$$count",
@@ -591,7 +664,7 @@ describe("applyFormType", () => {
       ...current,
       denominator: { factTableId: "ft2", column: "revenue", rowFilters: [] },
     };
-    const result = applyFormType(withDenominator, "ratio", factTable);
+    const result = applyFormType(withDenominator, "ratio", factTable, dialect);
     expect(result.denominator).toEqual(withDenominator.denominator);
   });
 
@@ -601,12 +674,12 @@ describe("applyFormType", () => {
       metricType: "ratio" as const,
       denominator: { factTableId: "ft2", column: "revenue", rowFilters: [] },
     };
-    const result = applyFormType(withDenominator, "colSum", factTable);
+    const result = applyFormType(withDenominator, "colSum", factTable, dialect);
     expect(result.denominator).toBeNull();
   });
 
   it("initializes quantileSettings for quantile when none exists", () => {
-    const result = applyFormType(current, "quantile", factTable);
+    const result = applyFormType(current, "quantile", factTable, dialect);
     expect(result.quantileSettings).toEqual({
       type: "unit",
       ignoreZeros: false,
@@ -623,7 +696,7 @@ describe("applyFormType", () => {
         quantile: 0.9,
       },
     };
-    const result = applyFormType(withSettings, "quantile", factTable);
+    const result = applyFormType(withSettings, "quantile", factTable, dialect);
     expect(result.quantileSettings).toEqual(withSettings.quantileSettings);
   });
 
@@ -637,7 +710,7 @@ describe("applyFormType", () => {
         quantile: 0.9,
       },
     };
-    const result = applyFormType(withSettings, "colSum", factTable);
+    const result = applyFormType(withSettings, "colSum", factTable, dialect);
     expect(result.quantileSettings).toBeNull();
   });
 
@@ -652,13 +725,13 @@ describe("applyFormType", () => {
         quantile: 0.9,
       },
     };
-    const result = applyFormType(withBoth, "funnel", factTable);
+    const result = applyFormType(withBoth, "funnel", factTable, dialect);
     expect(result.denominator).toBeNull();
     expect(result.quantileSettings).toBeNull();
   });
 
   it("initializes two funnel steps sharing the numerator's fact table when none exist", () => {
-    const result = applyFormType(current, "funnel", factTable);
+    const result = applyFormType(current, "funnel", factTable, dialect);
     expect(result.funnelSettings?.steps).toHaveLength(2);
     expect(
       result.funnelSettings?.steps.every((s) => s.factTableId === "ft1"),
@@ -676,23 +749,23 @@ describe("applyFormType", () => {
         ],
       },
     };
-    const result = applyFormType(withSteps, "funnel", factTable);
+    const result = applyFormType(withSteps, "funnel", factTable, dialect);
     expect(result.funnelSettings?.steps).toHaveLength(3);
   });
 
   it("uses $$distinctUsers for proportion, threshold, and retention (not $$count)", () => {
     expect(
-      applyFormType(current, "proportion", factTable).numerator,
+      applyFormType(current, "proportion", factTable, dialect).numerator,
     ).toMatchObject({
       column: "$$distinctUsers",
     });
     expect(
-      applyFormType(current, "threshold", factTable).numerator,
+      applyFormType(current, "threshold", factTable, dialect).numerator,
     ).toMatchObject({
       column: "$$distinctUsers",
     });
     expect(
-      applyFormType(current, "retention", factTable).numerator,
+      applyFormType(current, "retention", factTable, dialect).numerator,
     ).toMatchObject({
       column: "$$distinctUsers",
     });
@@ -700,7 +773,8 @@ describe("applyFormType", () => {
 
   it("uses $$distinctDates for dailyParticipation (not $$count)", () => {
     expect(
-      applyFormType(current, "dailyParticipation", factTable).numerator,
+      applyFormType(current, "dailyParticipation", factTable, dialect)
+        .numerator,
     ).toMatchObject({ column: "$$distinctDates" });
   });
 
@@ -719,7 +793,7 @@ describe("applyFormType", () => {
       "dailyParticipation",
     ] as const;
     for (const type of roundTrippableTypes) {
-      const applied = applyFormType(current, type, factTable, true);
+      const applied = applyFormType(current, type, factTable, hllDialect);
       expect(formTypeFromStored(applied, factTable)).toEqual({
         representable: true,
         type,
@@ -738,7 +812,7 @@ describe("applyFormType", () => {
         aggregateFilter: ">= 100",
       },
     };
-    const result = applyFormType(withFilter, "threshold", factTable);
+    const result = applyFormType(withFilter, "threshold", factTable, dialect);
     expect(result.numerator).toMatchObject({
       aggregateFilterColumn: "revenue",
       aggregateFilter: ">= 100",
@@ -746,7 +820,7 @@ describe("applyFormType", () => {
   });
 
   it("clears the threshold filter when switching to plain proportion", () => {
-    const withFilter = applyFormType(current, "threshold", factTable);
+    const withFilter = applyFormType(current, "threshold", factTable, dialect);
     if (!withFilter.numerator) throw new Error("expected a numerator");
     const customized = {
       ...withFilter,
@@ -756,7 +830,7 @@ describe("applyFormType", () => {
         aggregateFilter: ">= 100",
       },
     };
-    const result = applyFormType(customized, "proportion", factTable);
+    const result = applyFormType(customized, "proportion", factTable, dialect);
     expect(result.numerator?.aggregateFilterColumn).toBeUndefined();
     expect(result.numerator?.aggregateFilter).toBeUndefined();
   });
@@ -766,50 +840,101 @@ describe("applyFormType", () => {
       ...current,
       cappingSettings: { type: "percentile" as const, value: 0.99 },
     };
-    const result = applyFormType(withCapping, "quantile", factTable);
+    const result = applyFormType(withCapping, "quantile", factTable, dialect);
     expect(result.cappingSettings?.type).toBe("");
   });
 
-  it("clears absolute capping when switching to ratio (only percentile is supported)", () => {
-    const withCapping = {
-      ...current,
-      cappingSettings: { type: "absolute" as const, value: 100 },
-    };
-    const result = applyFormType(withCapping, "ratio", factTable);
-    expect(result.cappingSettings?.type).toBe("");
-  });
+  it.each([100, 0.5])(
+    "resets an absolute cap of %s to an unconfigured percentile for ratio",
+    (value) => {
+      const withCapping = {
+        ...current,
+        cappingSettings: {
+          type: "absolute" as const,
+          value,
+          ignoreZeros: true,
+        },
+      };
+      const result = applyFormType(withCapping, "ratio", factTable, dialect);
+      expect(result.cappingSettings).toEqual({
+        type: "percentile",
+        value: 0,
+        ignoreZeros: true,
+      });
+      expect(withCapping.cappingSettings).toEqual({
+        type: "absolute",
+        value,
+        ignoreZeros: true,
+      });
+    },
+  );
+
+  it.each(["", "percentile"] as const)(
+    "preserves %s capping when switching to ratio",
+    (type) => {
+      const withCapping = {
+        ...current,
+        cappingSettings: { type, value: 0.95, ignoreZeros: false },
+      };
+      expect(
+        applyFormType(withCapping, "ratio", factTable, dialect).cappingSettings,
+      ).toEqual(withCapping.cappingSettings);
+    },
+  );
 
   it("preserves capping when switching between two cappingOk types", () => {
     const withCapping = {
       ...current,
       cappingSettings: { type: "percentile" as const, value: 0.99 },
     };
-    const result = applyFormType(withCapping, "colSum", factTable);
+    const result = applyFormType(withCapping, "colSum", factTable, dialect);
     expect(result.cappingSettings?.type).toBe("percentile");
   });
 
-  it("resets the delay to a neutral value when switching away from retention", () => {
-    const retentionState: MetricTypeSwitchState = {
-      metricType: "retention",
-      numerator: {
-        factTableId: "ft1",
-        column: "$$distinctUsers",
-        rowFilters: [],
-      },
-      windowSettings: {
-        type: "conversion",
-        windowUnit: "days",
-        windowValue: 3,
-        delayUnit: "days",
-        delayValue: 7,
-      },
-    };
-    const result = applyFormType(retentionState, "proportion", factTable);
-    expect(result.windowSettings).toMatchObject({
-      delayValue: 0,
-      delayUnit: "hours",
-    });
-  });
+  it.each([
+    "proportion",
+    "threshold",
+    "funnel",
+    "rowCount",
+    "colSum",
+    "colMax",
+    "countDist",
+    "activeDays",
+    "ratio",
+    "quantile",
+    "dailyParticipation",
+  ] as const)(
+    "clears the delay and conversion window when leaving retention for %s",
+    (nextType) => {
+      const retentionState: MetricTypeSwitchState = {
+        metricType: "retention",
+        numerator: {
+          factTableId: "ft1",
+          column: "$$distinctUsers",
+          rowFilters: [],
+        },
+        windowSettings: {
+          type: "conversion",
+          windowUnit: "days",
+          windowValue: 3,
+          delayUnit: "days",
+          delayValue: 7,
+        },
+      };
+      const result = applyFormType(
+        retentionState,
+        nextType,
+        factTable,
+        dialect,
+      );
+      expect(result.windowSettings).toMatchObject({
+        delayValue: 0,
+        delayUnit: "hours",
+        type: "",
+        windowValue: 0,
+      });
+    },
+  );
 
   it("seeds a non-zero delay when switching into retention with a zero delay", () => {
     const withZeroDelay = {
@@ -822,7 +947,12 @@ describe("applyFormType", () => {
         delayValue: 0,
       },
     };
-    const result = applyFormType(withZeroDelay, "retention", factTable);
+    const result = applyFormType(
+      withZeroDelay,
+      "retention",
+      factTable,
+      dialect,
+    );
     expect(result.windowSettings).toMatchObject({
       delayValue: 7,
       delayUnit: "days",
@@ -843,7 +973,7 @@ describe("applyFormType", () => {
         delayValue: 12,
       },
     };
-    const result = applyFormType(withDelay, "retention", factTable);
+    const result = applyFormType(withDelay, "retention", factTable, dialect);
     expect(result.windowSettings?.delayValue).toBe(12);
     expect(result.windowSettings?.type).toBe("conversion");
   });
@@ -861,7 +991,7 @@ describe("applyFormType", () => {
         delayValue: 12,
       },
     };
-    const result = applyFormType(startingMode, "retention", factTable);
+    const result = applyFormType(startingMode, "retention", factTable, dialect);
     expect(result.windowSettings?.type).toBe("");
   });
 });
@@ -964,10 +1094,10 @@ describe("stored retention window semantics", () => {
       retentionEnd(
         onRetentionDelayOrModeChange(windowSettings, {
           type: "end",
-          value: 7.5,
+          value: 180,
         }),
       ),
-    ).toBe(7.5);
+    ).toBe(180);
   });
   it("does not reinterpret an experiment-end lookback as an exposure window", () => {
     expect(
@@ -977,5 +1107,143 @@ describe("stored retention window semantics", () => {
         windowSettings: { type: "lookback" },
       }),
     ).toEqual({ representable: false, reason: "retention-lookback-window" });
+  });
+});
+
+describe("PR review regressions", () => {
+  const table = {
+    ...factTable,
+    userIdColumns: { user_id: "uid" },
+    columns: [
+      ...factTable.columns,
+      { ...columnDefaults, column: "uid", datatype: "number" as const },
+      {
+        ...columnDefaults,
+        column: "event",
+        datatype: "string" as const,
+        alwaysInlineFilter: true,
+      },
+    ],
+  };
+  const filters = [{ column: "event", operator: "=", values: [""] }];
+  const current: MetricTypeSwitchState = {
+    metricType: "mean",
+    numerator: { factTableId: table.id, column: "$$count", rowFilters: [] },
+  };
+
+  it("excludes mapped identifier columns from metric values", () => {
+    expect(columnsForShape("sum", table, hllDialect)).toEqual(["revenue"]);
+    expect(
+      columnsForShape(
+        "distinct",
+        {
+          ...table,
+          columns: [{ ...columnDefaults, column: "uid", datatype: "string" }],
+        },
+        hllDialect,
+      ),
+    ).toEqual([]);
+  });
+
+  it("seeds inline filters for table changes, numerators, denominators, and funnel steps", () => {
+    const ref = { factTableId: "old", column: "$$count", rowFilters: [] };
+    expect(onFactTableChange(ref, table, hllDialect)).toMatchObject({
+      factTableId: table.id,
+      rowFilters: filters,
+    });
+    const numerator = applyFormType(
+      { metricType: "funnel", numerator: null },
+      "rowCount",
+      table,
+      hllDialect,
+    ).numerator;
+    expect(numerator).toMatchObject({
+      factTableId: table.id,
+      rowFilters: filters,
+    });
+    expect(
+      applyFormType(current, "ratio", table, hllDialect).denominator
+        ?.rowFilters,
+    ).toEqual(filters);
+    const steps = applyFormType(current, "funnel", table, hllDialect)
+      .funnelSettings?.steps;
+    expect(steps).toHaveLength(2);
+    steps?.forEach((step) => expect(step.rowFilters).toEqual(filters));
+    expect(onFactTableChange(ref, null, hllDialect)).toMatchObject({
+      factTableId: "",
+      rowFilters: [],
+    });
+  });
+
+  it("uses count when a unit quantile shape cannot be recovered", () => {
+    expect(
+      onQuantileScopeChange(
+        {
+          factTableId: "ft1",
+          column: "sketch",
+          aggregation: "kll merge",
+          rowFilters: [],
+        },
+        "unit",
+        { ...factTable, columns: [] },
+        hllDialect,
+      ),
+    ).toMatchObject({ column: "$$count", aggregation: undefined });
+  });
+
+  it("does not rewrite a ratio, quantile, or retention metric when its form type is unchanged", () => {
+    const numerator = {
+      factTableId: "ft1",
+      column: "revenue",
+      aggregation: "max" as const,
+      aggregateFilterColumn: "$$count",
+      aggregateFilter: ">= 3",
+      rowFilters: [],
+    };
+    for (const metricType of ["ratio", "quantile", "retention"] as const) {
+      const state = { metricType, numerator };
+      expect(applyFormType(state, metricType, table, hllDialect)).toBe(state);
+    }
+    const threshold: MetricTypeSwitchState = {
+      metricType: "proportion",
+      numerator,
+    };
+    expect(
+      applyFormType(threshold, "proportion", table, hllDialect).numerator
+        ?.aggregateFilterColumn,
+    ).toBeUndefined();
+  });
+
+  it("uses 25 hours for a day plus an hour and preserves fractional intervals", () => {
+    const ws = {
+      type: "conversion" as const,
+      delayValue: 1,
+      delayUnit: "days" as const,
+      windowValue: 1,
+      windowUnit: "hours" as const,
+    };
+    expect(retentionEnd(ws)).toBe(25);
+    expect(
+      onRetentionDelayOrModeChange(ws, { type: "end", value: 24.5 }),
+    ).toMatchObject({
+      delayValue: 24,
+      windowValue: 0.5,
+      delayUnit: "hours",
+      windowUnit: "hours",
+    });
+    expect(
+      normalizeRetentionWindow({
+        ...ws,
+        delayValue: 1,
+        delayUnit: "hours",
+        windowValue: 1,
+        windowUnit: "days",
+      }),
+    ).toMatchObject({
+      delayValue: 1,
+      windowValue: 24,
+      delayUnit: "hours",
+      windowUnit: "hours",
+    });
   });
 });

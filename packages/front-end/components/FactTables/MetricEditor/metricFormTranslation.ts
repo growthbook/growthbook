@@ -2,14 +2,19 @@ import {
   ColumnAggregation,
   ColumnRef,
   FactMetricType,
-  FactTableColumnType,
+  FactTableDefinition,
   FunnelSettings,
   FunnelStep,
   MetricCappingSettings,
   MetricQuantileSettings,
   MetricWindowSettings,
 } from "shared/types/fact-table";
-import { getFactTableTimestampColumn } from "shared/experiments";
+import {
+  getFactTableTimestampColumn,
+  getFactTableIdColumn,
+} from "shared/experiments";
+import { SqlDialect } from "shared/types/sql";
+import { getInitialInlineFilters } from "@/services/metrics";
 import { isMergeAggregationMetric } from "@/services/factMetrics";
 
 export const SHAPES = ["count", "sum", "max", "distinct", "days"] as const;
@@ -22,20 +27,41 @@ export type RatioShape = Shape | "users";
 // storedTypeAndNumeratorFor below).
 export const THRESHOLD_SHAPES = ["count", "sum"] as const;
 
-type MinimalColumn = {
-  column: string;
-  name?: string;
-  datatype: FactTableColumnType;
-  deleted?: boolean;
-};
 type MinimalFactTable =
-  | {
-      columns: MinimalColumn[];
-      userIdTypes?: string[];
-      timestampColumn?: string;
-    }
+  | (Pick<FactTableDefinition, "columns"> &
+      Partial<
+        Pick<
+          FactTableDefinition,
+          "id" | "userIdTypes" | "userIdColumns" | "timestampColumn"
+        >
+      >)
   | null
   | undefined;
+
+const SHAPE_SETTINGS = {
+  count: { column: "$$count", datatype: null, aggregation: undefined },
+  days: { column: "$$distinctDates", datatype: null, aggregation: undefined },
+  users: { column: "$$distinctUsers", datatype: null, aggregation: undefined },
+  sum: { column: null, datatype: "number", aggregation: "sum" },
+  max: { column: null, datatype: "number", aggregation: "max" },
+  distinct: { column: null, datatype: "string", aggregation: "count distinct" },
+} as const satisfies Record<
+  RatioShape,
+  {
+    column: string | null;
+    datatype: "number" | "string" | null;
+    aggregation: ColumnAggregation | undefined;
+  }
+>;
+
+function initialFilters(factTable: MinimalFactTable) {
+  return factTable
+    ? getInitialInlineFilters({
+        ...factTable,
+        userIdTypes: factTable.userIdTypes ?? [],
+      })
+    : [];
+}
 
 // columnsFor(shape, factTable) from the spec. [] means omit the Column field.
 // "distinct" also needs datasource.properties.hasCountDistinctHLL — where
@@ -45,14 +71,12 @@ type MinimalFactTable =
 export function columnsForShape(
   shape: RatioShape,
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = false,
+  dialect: Pick<SqlDialect, "hasCountDistinctHLL">,
 ): string[] {
   if (
     !factTable ||
-    shape === "count" ||
-    shape === "days" ||
-    shape === "users" ||
-    (shape === "distinct" && !hasCountDistinctHLL)
+    SHAPE_SETTINGS[shape].column !== null ||
+    (shape === "distinct" && !dialect.hasCountDistinctHLL())
   ) {
     return [];
   }
@@ -62,24 +86,26 @@ export function columnsForShape(
     (c) =>
       !c.deleted &&
       c.column !== timestampColumn &&
-      !userIdTypes.includes(c.column),
+      !userIdTypes.some(
+        (idType) =>
+          c.column === idType ||
+          c.column === getFactTableIdColumn(factTable, idType),
+      ),
   );
-  if (shape === "distinct") {
-    return columns.filter((c) => c.datatype === "string").map((c) => c.column);
-  }
-  return columns.filter((c) => c.datatype === "number").map((c) => c.column);
+  return columns
+    .filter((c) => c.datatype === SHAPE_SETTINGS[shape].datatype)
+    .map((c) => c.column);
 }
 
 export function fitColumn(
   shape: RatioShape,
   factTable: MinimalFactTable,
   currentColumn: string,
-  hasCountDistinctHLL = false,
+  dialect: Pick<SqlDialect, "hasCountDistinctHLL">,
 ): string {
-  if (shape === "count") return "$$count";
-  if (shape === "days") return "$$distinctDates";
-  if (shape === "users") return "$$distinctUsers";
-  const candidates = columnsForShape(shape, factTable, hasCountDistinctHLL);
+  const sentinel = SHAPE_SETTINGS[shape].column;
+  if (sentinel !== null) return sentinel;
+  const candidates = columnsForShape(shape, factTable, dialect);
   return candidates.includes(currentColumn)
     ? currentColumn
     : (candidates[0] ?? "");
@@ -92,10 +118,7 @@ export function fitColumn(
 export function aggregationForShape(
   shape: RatioShape,
 ): ColumnAggregation | undefined {
-  if (shape === "sum") return "sum";
-  if (shape === "max") return "max";
-  if (shape === "distinct") return "count distinct";
-  return undefined; // count / days / users carry no aggregation
+  return SHAPE_SETTINGS[shape].aggregation;
 }
 
 // Sentinel columns read as plain English in read-only views; a real column
@@ -111,12 +134,6 @@ export function columnValueLabel(
   return factTable?.columns.find((c) => c.column === column)?.name || column;
 }
 
-const SHAPES_NEEDING_COLUMNS: readonly RatioShape[] = [
-  "sum",
-  "max",
-  "distinct",
-];
-
 // Which of the given shapes are actually selectable right now - "everything
 // else follows from columnsFor(shape).length > 0" (spec's Gates section).
 // count/days/users never need a real column, so they're always available;
@@ -125,11 +142,11 @@ const SHAPES_NEEDING_COLUMNS: readonly RatioShape[] = [
 export function availableShapes(
   shapes: readonly RatioShape[],
   factTable: MinimalFactTable,
-  hasCountDistinctHLL: boolean,
+  dialect: Pick<SqlDialect, "hasCountDistinctHLL">,
 ): RatioShape[] {
   return shapes.filter((shape) =>
-    SHAPES_NEEDING_COLUMNS.includes(shape)
-      ? columnsForShape(shape, factTable, hasCountDistinctHLL).length > 0
+    SHAPE_SETTINGS[shape].column === null
+      ? columnsForShape(shape, factTable, dialect).length > 0
       : true,
   );
 }
@@ -154,11 +171,11 @@ export function onShapeChange(
   current: ColumnRef,
   newShape: RatioShape,
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = false,
+  dialect: Pick<SqlDialect, "hasCountDistinctHLL">,
 ): ColumnRef {
   return {
     ...current,
-    column: fitColumn(newShape, factTable, current.column, hasCountDistinctHLL),
+    column: fitColumn(newShape, factTable, current.column, dialect),
     aggregation: aggregationForShape(newShape),
   };
 }
@@ -167,16 +184,15 @@ export function onShapeChange(
 // given type (one vs. every part) is a MetricEditor (PR 3) orchestration call.
 export function onFactTableChange(
   current: ColumnRef,
-  newFactTableId: string,
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = false,
+  dialect: Pick<SqlDialect, "hasCountDistinctHLL">,
 ): ColumnRef {
-  const shape = shapeFromColumnRef(current) ?? "sum";
+  const shape = shapeFromColumnRef(current) ?? "count";
   return {
     ...current,
-    factTableId: newFactTableId,
-    column: fitColumn(shape, factTable, current.column, hasCountDistinctHLL),
-    rowFilters: [],
+    factTableId: factTable?.id ?? "",
+    column: fitColumn(shape, factTable, current.column, dialect),
+    rowFilters: initialFilters(factTable),
     aggregateFilterColumn: undefined,
     aggregateFilter: undefined,
   };
@@ -186,19 +202,19 @@ export function onQuantileScopeChange(
   current: ColumnRef,
   newScope: "unit" | "event",
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = false,
+  dialect: Pick<SqlDialect, "hasCountDistinctHLL">,
 ): ColumnRef {
   if (newScope === "event") {
     return {
       ...current,
-      column: fitColumn("sum", factTable, current.column),
+      column: fitColumn("sum", factTable, current.column, dialect),
       aggregation: undefined,
     };
   }
-  const shape = shapeFromColumnRef(current) ?? "sum";
+  const shape = shapeFromColumnRef(current) ?? "count";
   return {
     ...current,
-    column: fitColumn(shape, factTable, current.column, hasCountDistinctHLL),
+    column: fitColumn(shape, factTable, current.column, dialect),
     aggregation: aggregationForShape(shape),
   };
 }
@@ -233,48 +249,42 @@ function convertDuration(
   return (value * HOURS_PER_UNIT[fromUnit]) / HOURS_PER_UNIT[toUnit];
 }
 
-// Retention's Window row reads as one sentence with one shared unit (spec) -
-// delayUnit/windowUnit can still drift apart (the org-wide default seeds
-// them differently, hours vs. days, and non-retention types manage each via
-// separate, independent controls before a metric ever becomes retention).
-// The displayed "end" (delay + window) has to convert window into delay's
-// unit first, or a real 7-day delay plus a real 24-hour window silently
-// becomes "31 days" - correct-looking, wrong by a factor of 24.
-export function retentionEnd(
-  windowSettings: Pick<
-    MetricWindowSettings,
-    "delayValue" | "delayUnit" | "windowValue" | "windowUnit"
-  >,
-): number {
-  return (
-    windowSettings.delayValue +
-    convertDuration(
-      windowSettings.windowValue,
-      windowSettings.windowUnit,
-      windowSettings.delayUnit,
-    )
-  );
+type RetentionWindow = Pick<
+  MetricWindowSettings,
+  "delayValue" | "delayUnit" | "windowValue" | "windowUnit"
+>;
+
+export function normalizeRetentionWindow<T extends RetentionWindow>(
+  settings: T,
+): T {
+  const unit =
+    HOURS_PER_UNIT[settings.delayUnit] <= HOURS_PER_UNIT[settings.windowUnit]
+      ? settings.delayUnit
+      : settings.windowUnit;
+  return {
+    ...settings,
+    delayUnit: unit,
+    windowUnit: unit,
+    delayValue: convertDuration(settings.delayValue, settings.delayUnit, unit),
+    windowValue: convertDuration(
+      settings.windowValue,
+      settings.windowUnit,
+      unit,
+    ),
+  };
+}
+
+// End and edits use the shared unit returned by normalizeRetentionWindow.
+export function retentionEnd(windowSettings: RetentionWindow): number {
+  const ws = normalizeRetentionWindow(windowSettings);
+  return ws.delayValue + ws.windowValue;
 }
 
 export function onRetentionDelayOrModeChange(
   windowSettings: MetricWindowSettings,
   change: RetentionWindowChange,
 ): MetricWindowSettings {
-  // Normalize windowUnit into delayUnit's scale before any arithmetic below
-  // combines the two (self-healing: whatever drift existed before this call,
-  // every value this function writes back is consistent from here on).
-  const ws: MetricWindowSettings =
-    windowSettings.windowUnit === windowSettings.delayUnit
-      ? windowSettings
-      : {
-          ...windowSettings,
-          windowUnit: windowSettings.delayUnit,
-          windowValue: convertDuration(
-            windowSettings.windowValue,
-            windowSettings.windowUnit,
-            windowSettings.delayUnit,
-          ),
-        };
+  const ws = normalizeRetentionWindow(windowSettings);
 
   if (change.type === "mode") {
     // windowValue alone decides "starting" vs "between" in storage, but the
@@ -563,11 +573,15 @@ export type MetricTypeSwitchState = {
 
 const DEFAULT_QUANTILE = 0.5;
 
-function defaultFunnelStep(name: string, factTableId: string): FunnelStep {
+function defaultFunnelStep(
+  name: string,
+  factTableId: string,
+  factTable: MinimalFactTable,
+): FunnelStep {
   return {
     name,
     factTableId,
-    rowFilters: [],
+    rowFilters: initialFilters(factTable),
     optional: false,
     conversionWindow: null,
   };
@@ -583,20 +597,18 @@ function defaultFunnelStep(name: string, factTableId: string): FunnelStep {
  * — but never overwrites one that's already there, so switching away and
  * back doesn't lose it.
  */
-// Capping only applies to ratio + the five Value types (cappingOk); ratio
-// itself only supports percentile capping (MetricCappingSettingsForm already
-// hides "absolute" for it). Without this, a capping setting left over from a
-// previous type sits in the stored metric invisibly, since cappingOk(type)
-// already hides the field it would need to be edited back to "".
+// Absolute values have no percentile equivalent; zero requires a choice before saving.
 function resetCappingForTypeSwitch(
   cappingSettings: MetricCappingSettings | undefined,
   newFormType: FormMetricType,
 ): MetricCappingSettings | undefined {
   if (!cappingSettings) return cappingSettings;
-  const clear =
-    !cappingOk(newFormType) ||
-    (newFormType === "ratio" && cappingSettings.type === "absolute");
-  return clear ? { ...cappingSettings, type: "" } : cappingSettings;
+  if (newFormType === "ratio" && cappingSettings.type === "absolute") {
+    return { ...cappingSettings, type: "percentile", value: 0 };
+  }
+  return cappingOk(newFormType)
+    ? cappingSettings
+    : { ...cappingSettings, type: "" };
 }
 
 // Retention states its delay in the Window sentence itself; every other type
@@ -611,7 +623,13 @@ function resetWindowForTypeSwitch(
 ): MetricWindowSettings | undefined {
   if (!windowSettings) return windowSettings;
   if (currentMetricType === "retention" && newFormType !== "retention") {
-    return { ...windowSettings, delayValue: 0, delayUnit: "hours" };
+    return {
+      ...windowSettings,
+      delayValue: 0,
+      delayUnit: "hours",
+      type: "",
+      windowValue: 0,
+    };
   }
   if (currentMetricType !== "retention" && newFormType === "retention") {
     const withDelay =
@@ -639,11 +657,15 @@ export function applyFormType<T extends MetricTypeSwitchState>(
   current: T,
   newFormType: FormMetricType,
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = false,
+  dialect: Pick<SqlDialect, "hasCountDistinctHLL">,
 ): T {
+  const currentFormType = formTypeFromStored(current, factTable);
+  if (currentFormType.representable && currentFormType.type === newFormType)
+    return current;
   const { metricType, numerator: spec } =
     storedTypeAndNumeratorFor(newFormType);
-  const sourceFactTableId = current.numerator?.factTableId ?? "";
+  const sourceFactTableId =
+    current.numerator?.factTableId || factTable?.id || "";
   const cappingSettings = resetCappingForTypeSwitch(
     current.cappingSettings,
     newFormType,
@@ -660,8 +682,8 @@ export function applyFormType<T extends MetricTypeSwitchState>(
         ? current.funnelSettings
         : {
             steps: [
-              defaultFunnelStep("Step 1", sourceFactTableId),
-              defaultFunnelStep("Step 2", sourceFactTableId),
+              defaultFunnelStep("Step 1", sourceFactTableId, factTable),
+              defaultFunnelStep("Step 2", sourceFactTableId, factTable),
             ],
           };
     return {
@@ -677,9 +699,9 @@ export function applyFormType<T extends MetricTypeSwitchState>(
   }
 
   const base: ColumnRef = current.numerator ?? {
-    factTableId: "",
+    factTableId: factTable?.id ?? "",
     column: "",
-    rowFilters: [],
+    rowFilters: initialFilters(factTable),
   };
 
   const numerator: ColumnRef =
@@ -703,12 +725,7 @@ export function applyFormType<T extends MetricTypeSwitchState>(
         }
       : {
           ...base,
-          column: fitColumn(
-            spec.shape,
-            factTable,
-            base.column,
-            hasCountDistinctHLL,
-          ),
+          column: fitColumn(spec.shape, factTable, base.column, dialect),
           aggregation: aggregationForShape(spec.shape),
           aggregateFilterColumn: undefined,
           aggregateFilter: undefined,
@@ -727,7 +744,7 @@ export function applyFormType<T extends MetricTypeSwitchState>(
         ? (current.denominator ?? {
             factTableId: numerator.factTableId,
             column: "$$count",
-            rowFilters: [],
+            rowFilters: initialFilters(factTable),
           })
         : null,
     ...(cappingSettings !== undefined && { cappingSettings }),
