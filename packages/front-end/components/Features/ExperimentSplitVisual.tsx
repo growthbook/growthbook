@@ -19,7 +19,7 @@ import styles from "./ExperimentSplitVisual.module.scss";
 
 /** How tall the connector is, where its horizontal run sits, and how softly
  * it turns onto and off that run. */
-const CONNECTOR = { height: 24, bus: 10, radius: 6 };
+const CONNECTOR = { height: 20, bus: 10, radius: 6 };
 
 /**
  * A stem dropping onto a horizontal run, which drops again over each segment's
@@ -69,6 +69,28 @@ function SegmentConnector({ centers }: { centers: number[] }) {
         </svg>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The stem a percentage lands on its segment with, head and all in one shape:
+ * a CSS line and an icon either side of it round to different pixels.
+ * Proportioned to match the caret the funnel's other connectors end on.
+ */
+function SegmentStem() {
+  return (
+    <span className={styles.segmentStem}>
+      <svg width="9" height="13" aria-hidden>
+        <path
+          d="M 4.5 0 V 11.5 M 1.1 8.1 L 4.5 11.5 L 7.9 8.1"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   );
 }
 
@@ -136,7 +158,12 @@ export default function ExperimentSplitVisual({
         <span
           key={i}
           className={styles.segmentLabel}
-          style={{ left: left + width / 2 + "%" }}
+          style={{
+            left: left + width / 2 + "%",
+            ...(showConnector
+              ? { borderColor: getVariationColor(i, true) }
+              : {}),
+          }}
         >
           {parseFloat(width.toPrecision(4)) + "%"}
           {showValues && (
@@ -145,6 +172,7 @@ export default function ExperimentSplitVisual({
               - <strong>{name}</strong>
             </>
           )}
+          {showConnector ? <SegmentStem /> : null}
         </span>
       ))}
     </div>

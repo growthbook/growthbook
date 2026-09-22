@@ -128,9 +128,9 @@ function FunnelCard({
 
 function FunnelConnector({ label }: { label?: ReactNode }) {
   return (
-    <Flex direction="column" align="center" justify="center" pb="2">
+    <Flex direction="column" align="center" justify="center">
       <Box className={styles.connectorLine} height="15px" />
-      <Box mt="-3" className={styles.caret}>
+      <Box mt="-3" mb="-1" className={styles.caret}>
         <PiCaretDownBold size="11" />
       </Box>
       {label ? (
@@ -146,7 +146,7 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
   const cols = Math.min(count, 3);
 
   return (
-    <Box pb="2">
+    <Box>
       {label ? (
         <Flex direction="column" align="center" justify="center" mb="1">
           <Box className={styles.connectorLine} height="12px" />
@@ -182,7 +182,7 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
               />
             ) : null}
             <Box className={styles.connectorLine} height="22px" />
-            <Box mt="-3" className={styles.caret}>
+            <Box mt="-3" mb="-1" className={styles.caret}>
               <PiCaretDownBold size="11" />
             </Box>
           </Flex>

@@ -117,6 +117,15 @@
 }
 
 // Sits above the labels, taking the colour the funnel's other connectors use.
+.segmentStem {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  line-height: 0;
+  color: var(--gray-a6);
+  transform: translateX(-50%);
+}
+
 .connector {
   color: var(--slate-a6);
   line-height: 0;
@@ -125,8 +134,9 @@
 
 .labels_row_above {
   margin-top: 0;
-  // Exactly the stem's length, so it meets the bar rather than stopping short.
-  margin-bottom: 6px;
+  // The stem plus its head, so the arrow lands on the bar rather than
+  // stopping short.
+  margin-bottom: 14px;
   height: 20px;
 
   // A pill on a stem, so each figure reads as a label attached to its segment
@@ -137,16 +147,5 @@
     border-radius: 999px;
     background-color: var(--color-panel-solid);
     color: var(--color-text-mid);
-
-    &::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      top: 100%;
-      width: 1px;
-      height: 6px;
-      background-color: var(--gray-a6);
-      transform: translateX(-50%);
-    }
   }
 }
