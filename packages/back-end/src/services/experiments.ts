@@ -642,19 +642,24 @@ export function getSnapshotSettings({
     : exposureQuery?.userIdType
       ? [exposureQuery.userIdType]
       : [];
-  // Prefer the stored identifier type, but if the assignment query no longer
-  // declares it (its identifier types were edited after the experiment was
-  // configured), fall back to the query's first declared type rather than
-  // blocking analysis. The exposureQueryIdentifierType outdated-reason surfaces
-  // the drift. When no matching query is found there is nothing to validate
-  // against, so keep whatever was stored.
-  const storedIdentifierType = experiment.exposureQueryIdentifierType;
-  const exposureQueryIdentifierType =
+  // Block the run if the query no longer declares the stored identifier rather
+  // than silently analyzing on a different one. A missing query is left to the
+  // query builder to surface.
+  const storedIdentifierType =
+    experiment.exposureQueryIdentifierType || undefined;
+  if (
     storedIdentifierType &&
-    (exposureQueryIdentifierTypes.length === 0 ||
-      exposureQueryIdentifierTypes.includes(storedIdentifierType))
-      ? storedIdentifierType
-      : exposureQueryIdentifierTypes[0];
+    exposureQueryIdentifierTypes.length > 0 &&
+    !exposureQueryIdentifierTypes.includes(storedIdentifierType)
+  ) {
+    throw new Error(
+      `Identifier type "${storedIdentifierType}" is no longer declared by assignment query "${
+        exposureQuery?.name ?? experiment.exposureQueryId
+      }". Update the experiment's assignment settings to a supported identifier before running analysis.`,
+    );
+  }
+  const exposureQueryIdentifierType =
+    storedIdentifierType ?? exposureQueryIdentifierTypes[0];
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level

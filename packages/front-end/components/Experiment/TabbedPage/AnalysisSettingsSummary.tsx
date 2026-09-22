@@ -711,7 +711,9 @@ export default function AnalysisSettingsSummary({
     if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
       reasons.push(getExperimentOutdatedReasonLabel("exposureQueryId"));
     }
+    // A nullish stored type inherits the query default, matching the snapshot.
     if (
+      exp.exposureQueryIdentifierType &&
       isDifferent(
         exp.exposureQueryIdentifierType,
         snapshotSettings.exposureQueryIdentifierType,

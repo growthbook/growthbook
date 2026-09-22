@@ -794,12 +794,11 @@ export function getExposureQuery(
 
   if (!exposureQueryId) {
     const identifierType = userIdType ?? "anonymous_id";
+    // Prefer a primary-type match; analysis runs on the query's first type.
     return (
-      queries.find(
-        (q) =>
-          q.userIdTypes?.includes(identifierType) ||
-          q.userIdType === identifierType,
-      ) ?? null
+      queries.find((q) => q.userIdType === identifierType) ??
+      queries.find((q) => q.userIdTypes?.includes(identifierType)) ??
+      null
     );
   }
   return queries.find((q) => q.id === exposureQueryId) ?? null;
