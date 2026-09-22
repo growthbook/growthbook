@@ -58,17 +58,26 @@ export type SlackAssistantConfirmation = z.infer<
 >;
 
 const THINKING_TEXT = "_Thinking…_";
+// Slack rejects a block text object longer than this.
+const SLACK_TEXT_LIMIT = 3000;
 const TIMED_OUT_TEXT =
   "This request timed out. Please send a new message to continue.";
-/** Remove the bot mention (and any other leading user mention) from the text. */
+/**
+ * Remove the bot mention (and any other leading user mention) from the text.
+ * All other whitespace is kept verbatim: quoted values and pasted code depend on it.
+ */
 function stripBotMention(text: string, botUserId?: string): string {
   let t = text;
   if (botUserId) {
-    t = t.replace(new RegExp(`<@${botUserId}(\\|[^>]*)?>`, "g"), " ");
+    // Absorb the mention's surrounding spaces so "Ask <@BOT> about" reads "Ask about".
+    t = t.replace(
+      new RegExp(`[ \\t]*<@${botUserId}(\\|[^>]*)?>[ \\t]*`, "g"),
+      " ",
+    );
   }
   // Strip a leading mention of anyone, just in case the bot id wasn't passed.
   t = t.replace(/^\s*<@[^>]+>\s*/, " ");
-  return t.replace(/\s+/g, " ").trim();
+  return t.trim();
 }
 
 function postSlackAccountLink({
@@ -332,16 +341,27 @@ async function postPendingApproval({
   threadTs?: string;
   placeholderTs?: string | null;
 }): Promise<void> {
-  const summary = pa.summary || `${pa.method} ${pa.path}`;
+  const heading = pa.title
+    ? `Confirm: ${pa.title.slice(0, 150)}`
+    : "Confirm this change?";
+  // The agent stores `method path` as the summary when the model wrote none;
+  // show it only when there's no title to describe the change instead.
+  const fallbackSummary = `${pa.method} ${pa.path.split("?")[0]}`;
+  const detail = pa.title && pa.summary === fallbackSummary ? "" : pa.summary;
+  const mrkdwnSection = (markdown: string) => ({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: toSlackMrkdwn(markdown, { appOrigin: APP_ORIGIN }).slice(
+        0,
+        SLACK_TEXT_LIMIT,
+      ),
+    },
+  });
   const value = JSON.stringify({ c: conversationId, a: pa.id, t: threadTs });
   const blocks = [
-    {
-      type: "section",
-      text: {
-        type: "plain_text",
-        text: `Confirm this change?\n${summary.slice(0, 1800)}${reply ? `\n\n${reply.slice(0, 1000)}` : ""}`,
-      },
-    },
+    mrkdwnSection(detail ? `**${heading}**\n${detail}` : `**${heading}**`),
+    ...(reply ? [mrkdwnSection(reply.slice(0, 1000))] : []),
     {
       type: "actions",
       elements: [
@@ -366,7 +386,7 @@ async function postPendingApproval({
         token,
         channel,
         ts: placeholderTs,
-        text: "Confirm this change?",
+        text: heading,
         blocks,
       })
     : false;
@@ -374,7 +394,7 @@ async function postPendingApproval({
     await postSlackMessage({
       token,
       channel,
-      text: "Confirm this change?",
+      text: heading,
       blocks,
       threadTs: threadTs,
     });
@@ -459,6 +479,7 @@ export async function handleSlackAssistantConfirmation({
     });
     return;
   }
+  const actionClaim = `action:${slackTaskKey([teamId, target.organizationId, conversationId, actionId])}`;
 
   await withThreadTurn({
     context: target.context,
@@ -470,11 +491,26 @@ export async function handleSlackAssistantConfirmation({
         !existing ||
         !isCurrentSlackApproval(existing.pendingAction?.id, actionId)
       ) {
+        // The owner clicked a stale card. An unclaimed action was replaced by a
+        // newer message, so retire its card; a claimed one was already handled
+        // and its card shows the outcome.
+        const replaced =
+          await target.context.models.slackTaskClaims.claimOnce(actionClaim);
+        if (replaced && buttonsMessageTs) {
+          await updateSlackMessage({
+            token,
+            channel: channelId,
+            ts: buttonsMessageTs,
+            text: "_Replaced by a newer request._",
+          });
+        }
         await postSlackEphemeralMessage({
           token,
           channel: channelId,
           user: slackUserId,
-          text: "This action isn't yours to confirm.",
+          text: replaced
+            ? "This approval was replaced by a newer request. Use the latest one in this thread."
+            : "This approval was already handled.",
           threadTs,
         });
         return;
@@ -508,7 +544,7 @@ export async function handleSlackAssistantConfirmation({
             // dispatch can begin, retain this claim even if its outcome is uncertain.
             if (
               !(await current.context.models.slackTaskClaims.claimOnce(
-                `action:${slackTaskKey([teamId, target.organizationId, conversationId, actionId])}`,
+                actionClaim,
               ))
             ) {
               alreadySubmitted = true;

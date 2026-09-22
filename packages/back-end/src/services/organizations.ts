@@ -1768,11 +1768,6 @@ export async function getContextForUserIdInOrg(
   const isMember = org.members.some((m) => m.id === user.id);
   if (!isMember) return null;
 
-  // Slack and other non-HTTP callers don't run the license-loading middleware.
-  if (!getLicense(org.licenseKey)) {
-    await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
-  }
-
   const [teams, restrictedProjects] = await Promise.all([
     TeamModel.dangerousGetTeamsForOrganization(org.id),
     applyProjectRestrictions

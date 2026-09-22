@@ -127,6 +127,7 @@ it("replaces only the consented organization's account and rejects previous cons
     growthbookUserId: "user1",
   });
   expect(await model("org1").unlinkCurrentUser(previous)).toBe(false);
+  expect(links[0]).toMatchObject({ growthbookUserId: "user2" });
   await expect(model("org1").linkCurrentUser(originalProof)).rejects.toThrow(
     "already been used",
   );
@@ -167,7 +168,7 @@ it("rejects invalid proof and removed membership before storing a link", async (
   removed.org.members = [];
   await expect(
     new TestSlackUserLinkModel(removed).linkCurrentUser(proof()),
-  ).rejects.toThrow("valid Slack consent");
+  ).rejects.toThrow("not a member");
   expect(updateOne).not.toHaveBeenCalled();
 });
 

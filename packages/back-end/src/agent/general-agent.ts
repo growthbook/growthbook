@@ -465,6 +465,16 @@ const callApiInputSchema = z.object({
         "directly — do NOT wrap it in a JSON-encoded string. Example: " +
         '`{"foo": "bar"}`, not `"{\\"foo\\":\\"bar\\"}"`.',
     ),
+  title: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "A few words naming the change for a mutating call, verb first, in " +
+        "sentence case with no trailing punctuation: " +
+        '"Launch experiment checkout-redesign", "Archive Feature Flag new-nav". ' +
+        "Shown as the confirmation heading. Ignored for reads.",
+    ),
   summary: z
     .string()
     .min(1)
@@ -672,6 +682,7 @@ export function buildCoreAgentTools(
             ...(dispatchInput.body !== undefined
               ? { body: dispatchInput.body }
               : {}),
+            ...(input.title?.trim() ? { title: input.title.trim() } : {}),
             // The model's own summary when it supplied one — the confirmation
             // card hides a summary equal to `method path`, so without this a
             // multi-block write shows nothing but the endpoint.
@@ -724,6 +735,7 @@ export function buildCoreAgentTools(
             path: dispatchInput.path,
             ...(query ? { query } : {}),
             body: confirmedBody,
+            title: "Run SQL query",
             summary: costMessage ?? "Execute SQL query",
             createdAt: Date.now(),
           };

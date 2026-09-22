@@ -1,4 +1,5 @@
 import { slackUserLinkSchema, SlackUserLinkInterface } from "shared/validators";
+import { PermissionError } from "shared/util";
 import {
   getCollection,
   isDuplicateKeyError,
@@ -64,13 +65,15 @@ export class SlackUserLinkModel extends BaseClass {
   public async linkCurrentUser(state: string): Promise<void> {
     const proof = verifySlackLinkState(state);
     const { userId, org } = this.context;
-    if (
-      !proof ||
-      !userId ||
-      !org.members.some((member) => member.id === userId)
-    ) {
+    if (!proof || !userId) {
       throw new Error(
         "A valid Slack consent link and signed-in account are required.",
+      );
+    }
+    // Auth middleware lets superadmins into orgs they don't belong to.
+    if (!org.members.some((member) => member.id === userId)) {
+      throw new PermissionError(
+        "You are not a member of the selected GrowthBook organization.",
       );
     }
     const workspace = await SlackWorkspaceConnectionModel.dangerousGetForTeam(
@@ -129,18 +132,16 @@ export class SlackUserLinkModel extends BaseClass {
         "You must be signed in to disconnect your Slack account.",
       );
     }
-    const current = await this._findOne({
+    // One filtered delete, so a link replaced since the page loaded survives.
+    // Raw is safe here: this model has no audit log or delete hooks, and the
+    // filter enforces canDelete's owner check.
+    const { deletedCount } = await this._dangerousGetCollection().deleteOne({
+      organization: this.context.org.id,
       slackTeamId: identity.slackTeamId,
       slackUserId: identity.slackUserId,
+      growthbookUserId: this.context.userId,
+      linkId: identity.linkId,
     });
-    if (
-      !current ||
-      current.growthbookUserId !== this.context.userId ||
-      current.linkId !== identity.linkId
-    )
-      return false;
-    // A replacement between this read and delete can still be removed; BaseModel deletes by primary key.
-    await this._deleteOne(current);
-    return true;
+    return deletedCount === 1;
   }
 }

@@ -56,6 +56,7 @@ it("still parks Slack mutations for explicit confirmation", async () => {
       method: "POST",
       path: "/api/v1/features",
       body: { id: "checkout" },
+      title: " Create Feature Flag checkout ",
       summary: "Create the checkout Feature Flag",
     },
     { toolCallId: "call1", messages: [] },
@@ -64,6 +65,7 @@ it("still parks Slack mutations for explicit confirmation", async () => {
     method: "POST",
     path: "/api/v1/features",
     body: { id: "checkout" },
+    title: "Create Feature Flag checkout",
   });
   expect(emit).toHaveBeenCalledWith("confirm-action", expect.anything());
 });

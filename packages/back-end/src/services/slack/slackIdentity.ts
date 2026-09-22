@@ -5,11 +5,17 @@ import type {
 } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import type { Context } from "back-end/src/models/BaseModel";
+import { licenseInit } from "back-end/src/enterprise";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
 import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
+import { logger } from "back-end/src/util/logger";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 
 export type ResolvedSlackTarget = {
@@ -36,7 +42,8 @@ export type SlackAssistantTarget =
         | "no_bot_token"
         | "not_a_member"
         | "organization_unavailable"
-        | "assistant_disabled";
+        | "assistant_disabled"
+        | "license_unavailable";
       message: string;
       botToken?: string;
     };
@@ -188,6 +195,20 @@ export async function resolveSlackAssistantTarget({
       message:
         "The GrowthBook assistant is turned off for this workspace. An admin can turn it on in GrowthBook → Integrations → Slack.",
     };
+  // Agenda jobs skip the auth middleware that loads the license, and the AI
+  // plan gates read it.
+  try {
+    await licenseInit(context.org, getUserCodesForOrg, getLicenseMetaData);
+  } catch (e) {
+    logger.error(e, "Slack assistant: failed to load the organization license");
+    return {
+      ok: false,
+      reason: "license_unavailable",
+      botToken,
+      message:
+        "GrowthBook couldn't verify this organization's license. Please try again in a few minutes.",
+    };
+  }
   return {
     ok: true,
     context,

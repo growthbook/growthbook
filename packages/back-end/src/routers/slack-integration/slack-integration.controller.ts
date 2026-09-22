@@ -18,11 +18,7 @@ import {
 } from "back-end/src/services/slack/slackSettingsPreview";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
-import {
-  getContextFromReq,
-  getContextForUserIdInOrg,
-} from "back-end/src/services/organizations";
-import { findOrganizationById } from "back-end/src/models/OrganizationModel";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getSlackLinkConsent,
   getSlackAccountLinks,
@@ -372,15 +368,7 @@ export const postSlackLink = async (
         "Switch to the GrowthBook organization connected to this Slack workspace to link your account.",
     });
   }
-  const organization = await findOrganizationById(req.body.organizationId);
-  const memberContext = organization
-    ? await getContextForUserIdInOrg(organization, context.userId)
-    : null;
-  if (!memberContext)
-    return res.status(403).json({
-      message: "You are not a member of the selected GrowthBook organization.",
-    });
-  await memberContext.models.slackUserLinks.linkCurrentUser(req.body.state);
+  await context.models.slackUserLinks.linkCurrentUser(req.body.state);
   return res.json({ linked: true });
 };
 

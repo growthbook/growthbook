@@ -1,25 +1,15 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import { AI_PROVIDERS } from "shared/ai";
-import {
-  getLicense,
-  licenseInit,
-  orgHasPremiumFeature,
-} from "back-end/src/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { assertAIEnabled } from "back-end/src/enterprise/services/ai-access";
 import { getUserById } from "back-end/src/models/UserModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { getResolvedAIKeys } from "back-end/src/services/aiCredentials";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
-import {
-  getUserCodesForOrg,
-  getLicenseMetaData,
-} from "back-end/src/services/licenseData";
 
 jest.mock("back-end/src/enterprise", () => ({
   ...jest.requireActual("back-end/src/enterprise"),
-  getLicense: jest.fn(),
-  licenseInit: jest.fn(),
   orgHasPremiumFeature: jest.fn(),
 }));
 jest.mock("back-end/src/services/aiCredentials", () => ({
@@ -54,8 +44,6 @@ const org: OrganizationInterface = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  jest.mocked(getLicense).mockReturnValue(undefined);
-  jest.mocked(licenseInit).mockResolvedValue({ plan: "enterprise" });
   jest.mocked(orgHasPremiumFeature).mockReturnValue(true);
   jest.mocked(getResolvedAIKeys).mockResolvedValue({
     openai: { key: "", source: "none" },
@@ -86,26 +74,10 @@ async function getContext(organization = org) {
   return context;
 }
 
-it("loads the license for a user context without an HTTP authentication request", async () => {
-  await getContext();
-  expect(licenseInit).toHaveBeenCalledWith(
-    org,
-    getUserCodesForOrg,
-    getLicenseMetaData,
-  );
-});
-
-it("reuses an already loaded license", async () => {
-  jest.mocked(getLicense).mockReturnValue({ plan: "enterprise" });
-  await getContext();
-  expect(licenseInit).not.toHaveBeenCalled();
-});
-
-it("rejects non-members before loading their license", async () => {
+it("rejects non-members", async () => {
   expect(
     await getContextForUserIdInOrg({ ...org, members: [] }, "user_1"),
   ).toBeNull();
-  expect(licenseInit).not.toHaveBeenCalled();
   expect(getUserById).toHaveBeenCalledWith("user_1");
 });
 

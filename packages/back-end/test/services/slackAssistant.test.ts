@@ -25,10 +25,6 @@ jest.mock("back-end/src/services/slack/slackIdentity", () => ({
   resolveSlackAssistantTarget: jest.fn(),
   getSlackWorkspaceBotToken: jest.fn().mockResolvedValue("token"),
 }));
-jest.mock("back-end/src/services/slack/slackTaskSafety", () => ({
-  ...jest.requireActual("back-end/src/services/slack/slackTaskSafety"),
-  isCurrentSlackApproval: jest.fn().mockReturnValue(true),
-}));
 jest.mock("back-end/src/services/slack/slackWebApi", () => ({
   SlackRateLimitError: jest.requireActual(
     "back-end/src/services/slack/slackWebApi",
@@ -120,22 +116,86 @@ it.each([
   );
 });
 
+type PendingAction = NonNullable<
+  Extract<
+    Awaited<ReturnType<typeof runAgentTurnToCompletion>>,
+    { ok: true }
+  >["pendingAction"]
+>;
+const pendingAction = (overrides: Partial<PendingAction>): PendingAction => ({
+  id: "second",
+  method: "PUT",
+  path: "/api/v1/features/checkout",
+  summary: "PUT /api/v1/features/checkout",
+  createdAt: 0,
+  ...overrides,
+});
+
+it.each([
+  {
+    card: "a title and summary",
+    action: {
+      title: "Launch experiment checkout-redesign",
+      summary: "Starts the **50/50** split in production",
+    },
+    heading: "Confirm: Launch experiment checkout-redesign",
+    section:
+      "*Confirm: Launch experiment checkout-redesign*\nStarts the *50/50* split in production",
+  },
+  {
+    card: "a title without a summary",
+    action: { title: "Archive Feature Flag checkout" },
+    heading: "Confirm: Archive Feature Flag checkout",
+    section: "*Confirm: Archive Feature Flag checkout*",
+  },
+  {
+    card: "neither",
+    action: {},
+    heading: "Confirm this change?",
+    section: "*Confirm this change?*\nPUT /api/v1/features/checkout",
+  },
+])(
+  "heads the approval card from the model's title given $card",
+  async ({ action, heading, section }) => {
+    jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+      ok: true,
+      conversationId,
+      reply: "",
+      pendingAction: pendingAction(action),
+    });
+    await handleSlackAssistantConfirmation({
+      teamId: "T1",
+      channelId: "C1",
+      slackUserId: "U1",
+      conversationId,
+      actionId: "first",
+      decision: "confirm",
+      threadTs: "123.456",
+      buttonsMessageTs: "123.457",
+    });
+    expect(postSlackMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: heading,
+        blocks: [
+          { type: "section", text: { type: "mrkdwn", text: section } },
+          expect.objectContaining({ type: "actions" }),
+        ],
+      }),
+    );
+  },
+);
+
 it.each(["confirm", "cancel"] as const)(
   "offers fresh approval controls when a %s continuation parks another action",
   async (decision) => {
     jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
       ok: true,
       conversationId,
-      reply: "Next I can update the rule.",
-      pendingAction: {
+      reply: "Next I can **update** the rule.",
+      pendingAction: pendingAction({
         id: "second",
         summary: "Update the rule",
-      } as NonNullable<
-        Extract<
-          Awaited<ReturnType<typeof runAgentTurnToCompletion>>,
-          { ok: true }
-        >["pendingAction"]
-      >,
+      }),
     });
     await handleSlackAssistantConfirmation({
       teamId: "T1",
@@ -153,6 +213,10 @@ it.each(["confirm", "cancel"] as const)(
         threadTs: "123.456",
         text: "Confirm this change?",
         blocks: expect.arrayContaining([
+          {
+            type: "section",
+            text: { type: "mrkdwn", text: "Next I can *update* the rule." },
+          },
           expect.objectContaining({
             type: "actions",
             elements: expect.arrayContaining([
@@ -230,6 +294,54 @@ it("keeps controls retryable before dispatch but blocks replay after an uncertai
     }),
   );
 });
+
+it.each([
+  {
+    state: "replaced by a newer message",
+    unclaimed: true,
+    reply: "replaced by a newer request",
+  },
+  { state: "already handled", unclaimed: false, reply: "already handled" },
+])(
+  "tells the owner a stale approval was $state",
+  async ({ unclaimed, reply }) => {
+    getById.mockResolvedValueOnce({ pendingAction: { id: "newer" } });
+    claim.mockResolvedValueOnce(unclaimed);
+    await handleSlackAssistantConfirmation({
+      teamId: "T1",
+      channelId: "C1",
+      slackUserId: "U1",
+      conversationId,
+      actionId: "first",
+      decision: "confirm",
+      threadTs: "123.456",
+      buttonsMessageTs: "123.457",
+      interactionTs: "1",
+    });
+    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
+    // A replaced card loses its buttons; a handled one already shows its outcome.
+    expect(jest.mocked(updateSlackMessage).mock.calls).toEqual(
+      unclaimed
+        ? [
+            [
+              {
+                token: "token",
+                channel: "C1",
+                ts: "123.457",
+                text: "_Replaced by a newer request._",
+              },
+            ],
+          ]
+        : [],
+    );
+    expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user: "U1",
+        text: expect.stringContaining(reply),
+      }),
+    );
+  },
+);
 
 it("rejects approvals from an earlier link generation, even for the same account", async () => {
   const target = await resolveSlackAssistantTarget({
@@ -387,6 +499,41 @@ it.each(["C1", "G1", "D1"])(
         channel: channelId,
         threadTs: "123.456",
         text: "Answer",
+      }),
+    );
+  },
+);
+it.each([
+  {
+    text: '<@BOT> Set the value to "hello  world"',
+    message: 'Set the value to "hello  world"',
+  },
+  {
+    text: "<@BOT>\nSELECT id -- users only\nFROM users",
+    message: "SELECT id -- users only\nFROM users",
+  },
+  { text: "Split on\ttabs", message: "Split on\ttabs" },
+  { text: "Ask <@BOT|gb> about   this", message: "Ask about   this" },
+])(
+  "strips the mention without rewriting whitespace: $message",
+  async ({ text, message }) => {
+    jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+      ok: true,
+      conversationId,
+      reply: "Answer",
+      pendingAction: null,
+    });
+    await handleSlackAssistantMention({
+      teamId: "T1",
+      channelId: "C1",
+      slackUserId: "U1",
+      text,
+      messageTs: "123.456",
+      botUserId: "BOT",
+    });
+    expect(runAgentTurnToCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({ message }),
       }),
     );
   },
