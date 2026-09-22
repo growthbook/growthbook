@@ -5555,15 +5555,19 @@ describe("planRampBaseStateSync", () => {
       "hashAttribute",
       "value",
     ]);
-    expect(updates[0].startActions[0].patch).toEqual({
-      ruleId: "r1",
-      coverage: 0,
-      condition: '{"a":1}',
-      force: "b",
-      allEnvironments: false,
-      environments: ["production"],
-      hashAttribute: "email",
-    });
+    expect(updates[0].patches).toEqual([
+      {
+        targetId: "t1",
+        ruleId: "r1",
+        patch: {
+          condition: '{"a":1}',
+          force: "b",
+          allEnvironments: false,
+          environments: ["production"],
+          hashAttribute: "email",
+        },
+      },
+    ]);
   });
 
   it("refuses a field a step sets, naming the step and the plan routes", () => {

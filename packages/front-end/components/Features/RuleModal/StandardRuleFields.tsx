@@ -323,6 +323,16 @@ export default function StandardRuleFields({
       />
       <ConflictCallout field="description" />
 
+      {rampSyncsTargeting && (
+        <Callout status="info" mt="5">
+          This rule is part of a paused ramp-up.{" "}
+          {rampControlsCoverage
+            ? "The rollout % is managed by the ramp-up plan, so it can't be changed here. Anything else you change "
+            : "Anything you change "}
+          takes effect when you publish and stays in place as the ramp-up
+          continues.
+        </Callout>
+      )}
       {rampLocksTargeting && (
         <Callout status="info" mt="5" icon={<PiLockSimple />}>
           This rule is part of a running ramp-up. Pause it before changing the
@@ -548,16 +558,6 @@ export default function StandardRuleFields({
       <Heading as="h3" size="sm" mb="4" mt="6">
         Targeting
       </Heading>
-      {rampSyncsTargeting && (
-        <Callout status="info" mb="4">
-          This rule is part of a paused ramp-up.{" "}
-          {rampControlsCoverage
-            ? "The rollout % is managed by the ramp-up plan, so it can't be changed here. Anything else you change "
-            : "Anything you change "}
-          takes effect when you publish and stays in place as the ramp-up
-          continues.
-        </Callout>
-      )}
       {rampLocksTargeting ? (
         <Box mb="4" style={{ opacity: 0.6 }}>
           {hasTargetingConfigured({

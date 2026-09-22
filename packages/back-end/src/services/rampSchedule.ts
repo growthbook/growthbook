@@ -3,7 +3,6 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import pick from "lodash/pick";
 import {
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
@@ -885,9 +884,15 @@ function ruleFieldsAsStartPatch(
   return patch as Partial<RampStartPatch>;
 }
 
+// One start action's edited fields, keyed the way the engine binds actions.
+type RampStartActionPatch = {
+  targetId: string;
+  ruleId: string;
+  patch: Partial<RampStartPatch>;
+};
 export type RampBaseStateUpdate = {
   schedule: RampScheduleInterface;
-  startActions: RampStartAction[];
+  patches: RampStartActionPatch[];
   fields: string[];
 };
 export type RampBaseStateRefusal = {
@@ -936,7 +941,8 @@ export function planRampBaseStateSync({
   const label = (f: string) => (apiRequest ? f : (RAMP_FIELD_LABELS[f] ?? f));
   for (const schedule of schedules) {
     if (!ANCHORED_RAMP_SCHEDULE_STATUSES.includes(schedule.status)) continue;
-    const startActions = [...(schedule.startActions ?? [])];
+    const startActions = schedule.startActions ?? [];
+    const patches: RampStartActionPatch[] = [];
     const fields = new Set<string>();
     for (const target of schedule.targets) {
       if (
@@ -986,32 +992,44 @@ export function planRampBaseStateSync({
           continue;
         }
         const forTarget = (a: RampStartAction) => a.targetId === target.id;
-        let idx = startActions.findIndex(
-          (a) => forTarget(a) && a.patch.ruleId === liveRule.id,
-        );
-        if (idx < 0) {
-          idx = startActions.findIndex(
+        const anchor =
+          startActions.find(
+            (a) => forTarget(a) && a.patch.ruleId === liveRule.id,
+          ) ??
+          startActions.find(
             (a) =>
               forTarget(a) &&
               stemRuleId(a.patch.ruleId) === stemRuleId(liveRule.id),
           );
-        }
-        if (idx < 0) continue;
-        startActions[idx] = {
-          ...startActions[idx],
-          patch: {
-            ...startActions[idx].patch,
-            ...ruleFieldsAsStartPatch(next, changed),
-          },
-        };
+        if (!anchor) continue;
+        patches.push({
+          targetId: anchor.targetId,
+          ruleId: anchor.patch.ruleId,
+          patch: ruleFieldsAsStartPatch(next, changed),
+        });
         changed.forEach((f) => fields.add(f));
       }
     }
-    if (fields.size)
-      updates.push({ schedule, startActions, fields: [...fields] });
+    if (patches.length)
+      updates.push({ schedule, patches, fields: [...fields] });
   }
   return { refusals, updates };
 }
+
+function patchStartActions(
+  startActions: RampStartAction[],
+  patches: RampStartActionPatch[],
+): RampStartAction[] {
+  return startActions.map((a) => {
+    const p = patches.find(
+      (x) => x.targetId === a.targetId && x.ruleId === a.patch.ruleId,
+    );
+    return p ? { ...a, patch: { ...a.patch, ...p.patch } } : a;
+  });
+}
+
+const baseStateSyncReason = (revisionVersion: number, fields: string[]) =>
+  `Base state updated by publishing revision ${revisionVersion}: ${fields.join(", ")}`;
 
 export async function planRampBaseStateSyncForPublish(
   ctx: ReqContext | ApiReqContext,
@@ -1031,27 +1049,40 @@ export async function planRampBaseStateSyncForPublish(
   });
 }
 
-export type RampBaseStatePreImage = Pick<
-  RampScheduleInterface,
-  "id" | "startActions" | "eventHistory"
->;
+export type RampBaseStatePreImage = {
+  id: string;
+  // The edited start actions as they were, and the event row this write added.
+  patches: RampStartActionPatch[];
+  reason: string;
+};
 
-// Writes each planned base state; `written` collects pre-images as they land
-// so a caller's rewind covers a throw partway through.
+// Writes each planned base state under the advance lock against a fresh read,
+// so a step that landed since planning keeps its event row and anchor.
+// `written` collects pre-images as they land for a caller's rewind.
 export async function applyRampBaseStateSync(
   ctx: ReqContext | ApiReqContext,
   updates: RampBaseStateUpdate[],
   revisionVersion: number,
   written: RampBaseStatePreImage[],
 ): Promise<void> {
-  for (const { schedule, startActions, fields } of updates) {
-    written.push(pick(schedule, ["id", "startActions", "eventHistory"]));
-    await ctx.models.rampSchedules.updateById(schedule.id, {
-      startActions,
-      eventHistory: appendRampEvent(schedule, "config-edited", {
-        reason: `Base state updated by publishing revision ${revisionVersion}: ${fields.join(", ")}`,
-        userId: ctx.userId,
-      }),
+  for (const { schedule, patches, fields } of updates) {
+    const reason = baseStateSyncReason(revisionVersion, fields);
+    await runLockedRampScheduleAction(ctx, schedule.id, async (fresh) => {
+      const before = (fresh.startActions ?? []).flatMap((a) =>
+        patches.some(
+          (p) => p.targetId === a.targetId && p.ruleId === a.patch.ruleId,
+        )
+          ? [{ targetId: a.targetId, ruleId: a.patch.ruleId, patch: a.patch }]
+          : [],
+      );
+      written.push({ id: fresh.id, patches: before, reason });
+      await ctx.models.rampSchedules.updateById(fresh.id, {
+        startActions: patchStartActions(fresh.startActions ?? [], patches),
+        eventHistory: appendRampEvent(fresh, "config-edited", {
+          reason,
+          userId: ctx.userId,
+        }),
+      });
     });
   }
 }
@@ -1060,10 +1091,14 @@ export async function restoreRampBaseStates(
   ctx: ReqContext | ApiReqContext,
   preImages: RampBaseStatePreImage[],
 ): Promise<void> {
-  for (const { id, startActions, eventHistory } of preImages) {
-    await ctx.models.rampSchedules.updateById(id, {
-      startActions,
-      eventHistory,
+  for (const { id, patches, reason } of preImages) {
+    await runLockedRampScheduleAction(ctx, id, async (fresh) => {
+      await ctx.models.rampSchedules.updateById(id, {
+        startActions: patchStartActions(fresh.startActions ?? [], patches),
+        eventHistory: (fresh.eventHistory ?? []).filter(
+          (e) => !(e.type === "config-edited" && e.reason === reason),
+        ),
+      });
     });
   }
 }
