@@ -28,7 +28,9 @@ export default function ShapeSelect({
   hasCountDistinctHLL: boolean;
   label?: string;
 }) {
-  const options = availableShapes(shapes, factTable, hasCountDistinctHLL);
+  const options = availableShapes(shapes, factTable, {
+    hasCountDistinctHLL: () => hasCountDistinctHLL,
+  });
 
   return (
     <Select

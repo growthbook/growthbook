@@ -11,6 +11,7 @@ import Text from "@/ui/Text";
 import {
   onRetentionDelayOrModeChange,
   retentionEnd,
+  normalizeRetentionWindow,
   retentionModeFromWindow,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import { ThresholdBasisRow, ThresholdBasisValue } from "./ThresholdBasisRow";
@@ -23,6 +24,7 @@ const UNIT_OPTIONS = [
 ];
 
 function retentionWindowProse(windowSettings: MetricWindowSettings): string {
+  windowSettings = normalizeRetentionWindow(windowSettings);
   const mode = retentionModeFromWindow(windowSettings);
   if (mode === "starting") {
     return `Starting ${windowSettings.delayValue} ${windowSettings.delayUnit} after exposure`;
@@ -50,6 +52,7 @@ export default function RetentionFields({
   factTable: FactTableDefinition | null;
   canEdit?: boolean;
 }) {
+  windowSettings = normalizeRetentionWindow(windowSettings);
   const mode = retentionModeFromWindow(windowSettings);
   const hasThreshold = !!threshold.aggregateFilterColumn;
 
