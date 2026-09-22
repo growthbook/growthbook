@@ -100,6 +100,29 @@ export const notificationEventMetadata = {
     description:
       "Triggered when a held ramp schedule's start is approved by a user",
   },
+  "feature.rampSchedule.actions.errorPaused": {
+    label: "Ramp schedule paused on error",
+    description:
+      "Triggered when a feature ramp schedule pauses because a step could not be applied, for example a plan the engine refuses; `reason` says why",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.stepHeld": {
+    label: "Ramp step held by a health check",
+    description:
+      "Triggered when a monitored ramp step is held by a health check (SRM, multiple exposures, no traffic, a guardrail metric that failed to compute, an unhealthy signal metric). Sent once per check per step; `reason` says why",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.paused": {
+    label: "Ramp schedule paused",
+    description:
+      "Triggered when a feature ramp schedule is paused by a user or by its monitoring policy",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.resumed": {
+    label: "Ramp schedule resumed",
+    description: "Triggered when a paused feature ramp schedule is resumed",
+    preview: true,
+  },
   "feature.revision.created": {
     label: "New draft revision",
     description: "Triggered when a new draft revision is created for a feature",
@@ -753,6 +776,10 @@ export const notificationCategoryGroups: Record<
             "feature.rampSchedule.actions.step.approvalRequired",
             "feature.rampSchedule.actions.awaitingStartApproval",
             "feature.rampSchedule.actions.startApproved",
+            "feature.rampSchedule.actions.errorPaused",
+            "feature.rampSchedule.actions.stepHeld",
+            "feature.rampSchedule.actions.paused",
+            "feature.rampSchedule.actions.resumed",
           ],
         },
       ],

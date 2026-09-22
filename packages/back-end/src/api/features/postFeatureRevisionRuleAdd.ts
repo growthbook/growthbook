@@ -55,7 +55,9 @@ import {
   validateRuleReferences,
   collectRampPlanPatches,
   rampPatchEntries,
+  stagedFeature,
   validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import {
   assertRuleVariationsMatchExperiment,
@@ -164,11 +166,22 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     rampSchedule: inlineRampSchedule,
   });
   const ruleInput = req.body.rule;
+  const ruleId = uuidv4();
   await validateRampPlanPatches(
     req.context,
-    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
-      environments: [environment],
-    }),
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      await stagedFeature(req.context, feature, req.params.version),
+      {
+        id: ruleId,
+        type: ruleInput.type,
+        hashAttribute:
+          ruleInput.type === "rollout" ? ruleInput.hashAttribute : undefined,
+        environments: [environment],
+      },
+    ),
   );
 
   const { revision, created } = await resolveOrCreateRevision(
@@ -237,7 +250,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       });
     }
 
-    const rule = buildRuleFromInput(ruleInput, uuidv4());
+    const rule = buildRuleFromInput(ruleInput, ruleId);
 
     // Seed a new rollout off its own rule id so stacked rollouts hash
     // independently (same chokepoint the v2 add endpoint uses).

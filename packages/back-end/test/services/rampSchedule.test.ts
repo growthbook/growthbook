@@ -14,6 +14,7 @@
  *   rollbackToStep and jumpAheadToStep apply the effective accumulated patch so that
  *   arriving at step N from any direction yields the same rule state.
  */
+import omit from "lodash/omit";
 
 import type {
   RampScheduleInterface,
@@ -283,6 +284,67 @@ describe("applyPatchToRule", () => {
     enabled: true,
     condition: "",
   };
+
+  it("promotes a force rule to a rollout once its anchor names a hash attribute", () => {
+    const force: FeatureRule = {
+      id: "r2",
+      type: "force",
+      value: "true",
+      enabled: true,
+    };
+    // Identity comes from the start anchor; seed and hash version default.
+    expect(applyPatchToRule(force, { hashAttribute: "user_id" })).toEqual({
+      ...force,
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "r2",
+      hashVersion: 2,
+    });
+    expect(
+      applyPatchToRule(force, {
+        coverage: 0.5,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 1,
+      }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 0.5,
+      hashAttribute: "user_id",
+      seed: "s1",
+      hashVersion: 1,
+    });
+    // A hash attribute left on the rule (demoted from a rollout) serves too.
+    expect(
+      applyPatchToRule({ ...force, hashAttribute: "user_id" } as FeatureRule, {
+        coverage: 0.5,
+      }),
+    ).toMatchObject({ type: "rollout", hashAttribute: "user_id" });
+    // Without one anywhere nothing promotes: the engine refuses such a step
+    // before it gets here. Full or no coverage never promotes either.
+    expect(applyPatchToRule(force, { coverage: 0.5 }).type).toBe("force");
+    expect(applyPatchToRule(force, { coverage: 1 }).type).toBe("force");
+    expect(applyPatchToRule(force, { condition: "{}" }).type).toBe("force");
+  });
+
+  it("applies the anchor's identity to a rollout; clearing coverage means full coverage", () => {
+    expect(
+      applyPatchToRule(base, {
+        coverage: null,
+        hashAttribute: "user_id",
+        seed: "s1",
+      }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "s1",
+    });
+    expect(applyPatchToRule(base, { hashAttribute: null })).toMatchObject({
+      hashAttribute: "id",
+    });
+  });
 
   it("applies coverage patch", () => {
     const result = applyPatchToRule(base, { coverage: 0.5 });
@@ -570,6 +632,28 @@ describe("ramp force values are applied and stored as strings", () => {
 });
 
 describe("getStartPatchForRule", () => {
+  it("copies a rollout's bucketing identity; a force rule has none to copy", () => {
+    expect(
+      getStartPatchForRule({
+        id: "r1",
+        type: "rollout",
+        coverage: 0.2,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 2,
+        enabled: true,
+      } as FeatureRule),
+    ).toMatchObject({ hashAttribute: "user_id", seed: "s1", hashVersion: 2 });
+    expect(
+      getStartPatchForRule({
+        id: "r2",
+        type: "force",
+        value: "true",
+        enabled: true,
+      } as FeatureRule),
+    ).not.toHaveProperty("hashAttribute");
+  });
+
   it("captures explicit null clears for absent rule fields", () => {
     const patch = getStartPatchForRule({
       id: "r1",
@@ -823,9 +907,26 @@ describe("computeEffectivePatch", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
+
+  it("carries the anchor's identity into every step, so a jump buckets like stepping", () => {
+    const sched = {
+      ...sparseSchedule([
+        [action(TARGET_ID, { coverage: 0.1 })],
+        [action(TARGET_ID, { coverage: 0.5 })],
+      ]),
+      startActions: [action(TARGET_ID, { hashAttribute: "user_id" })],
+    } as unknown as ReturnType<typeof sparseSchedule>;
+    expect(eff(sched, 0)).toMatchObject({
+      coverage: 0.1,
+      hashAttribute: "user_id",
+    });
+    expect(eff(sched, 1)).toMatchObject({
+      coverage: 0.5,
+      hashAttribute: "user_id",
+    });
+  });
 
   it("stepIndex=-1 returns empty map (no steps applied yet)", () => {
     const sched = sparseSchedule([
@@ -1080,8 +1181,7 @@ describe("sparse inherit vs explicit clear", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
 
   // ── condition ────────────────────────────────────────────────────────────
@@ -2893,6 +2993,9 @@ describe("resumeSchedule", () => {
     const [, resumeUpdates] = updateById.mock.calls[0];
     expect(resumeUpdates.nextStepAt).not.toBeNull();
     expect(resumeUpdates.nextStepAt).toBeInstanceOf(Date);
+    expect(mockCreateEvent.mock.calls.at(-1)?.[0].event).toBe(
+      "rampSchedule.actions.resumed",
+    );
 
     // nextStepAt should be in the future (step interval not yet elapsed),
     // NOT set to now — the step needs to run its hold time first.
@@ -4409,6 +4512,45 @@ describe("startReadyScheduleNow", () => {
     const [eventArgs] = mockCreateEvent.mock.calls[0];
     expect(eventArgs.objectId).toBe(schedule.id);
   });
+
+  it("a first step the engine refuses pauses the schedule with the reason and rethrows", async () => {
+    const { ctx, schedule, updateById } = makeStartNowCtx({
+      steps: [
+        {
+          interval: 60,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+    });
+    (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
+      new Error("step refused"),
+    );
+
+    await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
+      "step refused",
+    );
+    expect(updateById).toHaveBeenCalledWith(
+      schedule.id,
+      expect.objectContaining({
+        status: "paused",
+        eventHistory: expect.arrayContaining([
+          expect.objectContaining({
+            type: "error-paused",
+            reason: "step refused",
+          }),
+        ]),
+      }),
+    );
+    expect(mockCreateEvent.mock.calls.map(([e]) => e.event)).toContain(
+      "rampSchedule.actions.errorPaused",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -5283,12 +5425,18 @@ describe("pauseSchedule", () => {
       },
     };
 
-    await pauseSchedule(ctx as never, schedule);
+    await pauseSchedule(ctx as never, schedule, "Guardrail breach");
 
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("paused");
     expect(updates.nextProcessAt).toEqual(futureCutoff);
     expect(updates.nextSnapshotAt).toBeNull();
+    const [eventArgs] = mockCreateEvent.mock.calls.at(-1) ?? [];
+    expect(eventArgs.event).toBe("rampSchedule.actions.paused");
+    expect(eventArgs.data.object).toMatchObject({
+      status: "paused",
+      reason: "Guardrail breach",
+    });
   });
 
   it("sets nextProcessAt to null when no cutoffDate exists", async () => {

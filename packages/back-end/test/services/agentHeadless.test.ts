@@ -89,7 +89,11 @@ it.each([false, true])(
         config,
         input: { message: "Next question", conversationId: "conv_test" },
       }),
-    ).toEqual({ ok: false, message: "Provider failed" });
+    ).toEqual({
+      ok: false,
+      // Raw provider errors are logged, never shown to the user.
+      message: "The assistant ran into an unexpected error. Please try again.",
+    });
   },
 );
 

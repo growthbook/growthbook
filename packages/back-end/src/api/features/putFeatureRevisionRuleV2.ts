@@ -42,7 +42,9 @@ import {
   resolveOrCreateRevision,
   collectRampPlanPatches,
   rampPatchEntries,
+  stagedFeature,
   validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
 import {
@@ -76,13 +78,20 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   }
   // Same environment-id check as the add endpoint, before a draft is created.
   assertValidRuleEnvironments(req.context, [patch]);
+  const staged = await stagedFeature(req.context, feature, req.params.version);
   await validateRampPlanPatches(
     req.context,
-    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
-      ...(feature.rules ?? []).find((r) => r.id === req.params.ruleId),
-      ...patch,
-      id: req.params.ruleId,
-    }),
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      staged,
+      {
+        ...(staged.rules ?? []).find((r) => r.id === req.params.ruleId),
+        ...patch,
+        id: req.params.ruleId,
+      },
+    ),
   );
 
   const { revision, created } = await resolveOrCreateRevision(
@@ -114,7 +123,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       [patch.config, ...(patch.variations?.map((v) => v.config) ?? [])],
       revision.defaultValue ?? feature.defaultValue,
       feature.baseConfig,
-      feature.project,
+      revision.metadata?.project ?? feature.project,
     );
 
     // Config backing comes only through the dedicated `config` field; a raw
