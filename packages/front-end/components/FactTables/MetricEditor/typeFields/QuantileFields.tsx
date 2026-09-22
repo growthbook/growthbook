@@ -101,12 +101,9 @@ export default function QuantileFields({
           onValueChange={(newScope) => {
             if (newScope !== "unit" && newScope !== "event") return;
             onNumeratorChange(
-              onQuantileScopeChange(
-                numerator,
-                newScope,
-                factTable,
-                hasCountDistinctHLL,
-              ),
+              onQuantileScopeChange(numerator, newScope, factTable, {
+                hasCountDistinctHLL: () => hasCountDistinctHLL,
+              }),
             );
             onQuantileSettingsChange({ ...quantileSettings, type: newScope });
           }}
@@ -128,12 +125,9 @@ export default function QuantileFields({
             hasCountDistinctHLL={hasCountDistinctHLL}
             onChange={(newShape) =>
               onNumeratorChange(
-                onShapeChange(
-                  numerator,
-                  newShape,
-                  factTable,
-                  hasCountDistinctHLL,
-                ),
+                onShapeChange(numerator, newShape, factTable, {
+                  hasCountDistinctHLL: () => hasCountDistinctHLL,
+                }),
               )
             }
           />
