@@ -15,14 +15,60 @@ export function mergeGlobalCss({
 }): string | undefined {
   const current = existing ?? "";
   const base = replace && replace.trim() ? replace : current;
-  const extra = append?.trim() ?? "";
-  // Stronger models sometimes re-emit a rule they already added.
+  // Stronger models sometimes re-emit rules they already added. Judge each
+  // appended rule on its own: drop the ones still in effect, keep the rest.
+  const fresh = splitRules(append?.trim() ?? "").filter(
+    (rule) => !isRuleInEffect(base, rule),
+  );
   const merged =
-    extra && !isRuleInEffect(base, extra)
-      ? [base.trim(), extra].filter(Boolean).join("\n\n")
+    fresh.length > 0
+      ? [base.trim(), fresh.join("\n\n")].filter(Boolean).join("\n\n")
       : base;
   return merged && merged !== current ? merged : undefined;
 }
+
+// Top-level rules of a stylesheet: a `selector { … }` block (a nested block
+// such as @media stays whole) or a `@import …;` statement. Comments and
+// strings are skipped for nesting, and a leading comment travels with the
+// rule that follows it.
+function splitRules(css: string): string[] {
+  const rules: string[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let start = 0;
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i];
+    if (quote) {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "/" && css[i + 1] === "*") {
+      const end = css.indexOf("*/", i + 2);
+      i = end === -1 ? css.length : end + 1;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === "{") {
+      depth++;
+    } else if (ch === "}") {
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) {
+        rules.push(css.slice(start, i + 1));
+        start = i + 1;
+      }
+    } else if (ch === ";" && depth === 0) {
+      rules.push(css.slice(start, i + 1));
+      start = i + 1;
+    }
+  }
+  rules.push(css.slice(start));
+  return rules.map((r) => r.trim()).filter(Boolean);
+}
+
+const stripLeadingComments = (rule: string): string =>
+  rule.replace(/^(\s*\/\*[\s\S]*?\*\/)*\s*/, "");
 
 // A rule (or bare selector) only counts where it starts the stylesheet or
 // follows the end of a previous rule or comment: `.nav button {…}` must not
@@ -51,12 +97,15 @@ function findRule(css: string, text: string, asSelector = false): number {
 // rule overrides is not "already there" — appending it again is exactly how
 // the cascade gets it back.
 function isRuleInEffect(css: string, rule: string): boolean {
-  const at = findRule(css, rule);
+  const body = stripLeadingComments(rule);
+  // A comment on its own adds nothing worth appending.
+  if (!body) return true;
+  const at = findRule(css, body);
   if (at === -1) return false;
-  const brace = rule.indexOf("{");
-  const selector = brace === -1 ? "" : rule.slice(0, brace).trim();
+  const brace = body.indexOf("{");
+  const selector = brace === -1 ? "" : body.slice(0, brace).trim();
   if (!selector) return true;
-  return findRule(css.slice(at + rule.length), selector, true) === -1;
+  return findRule(css.slice(at + body.length), selector, true) === -1;
 }
 
 export interface SkippedItem {

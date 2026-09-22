@@ -99,6 +99,34 @@ describe("mergeGlobalCss", () => {
       }),
     ).toBeUndefined();
   });
+
+  it("judges each appended rule on its own", () => {
+    // `a` is still in effect; `b` was overridden further down.
+    const sheet =
+      "a { color: red; }\n\nb { color: blue; }\n\nb { color: green; }";
+    expect(
+      mergeGlobalCss({
+        existing: sheet,
+        replace: null,
+        append: "a { color: red; }\nb { color: blue; }",
+      }),
+    ).toBe(`${sheet}\n\nb { color: blue; }`);
+  });
+
+  it("keeps a nested block whole, with its leading comment", () => {
+    const media =
+      "/* phones */\n@media (max-width: 600px) {\n  a { color: red; }\n}";
+    expect(mergeGlobalCss({ existing, replace: null, append: media })).toBe(
+      `${existing}\n\n${media}`,
+    );
+    expect(
+      mergeGlobalCss({
+        existing: `${existing}\n\n${media}`,
+        replace: null,
+        append: media,
+      }),
+    ).toBeUndefined();
+  });
 });
 
 describe("appendSkipped", () => {
