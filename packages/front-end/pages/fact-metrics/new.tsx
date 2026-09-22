@@ -88,8 +88,8 @@ export default function NewFactMetricPage() {
         </Callout>
       ) : !hasDatasource ? (
         <Callout status="info">
-          Connect a data source to create a metric.{" "}
-          <Link href="/datasources">Connect data source</Link>
+          Connect a Data Source to create a metric.{" "}
+          <Link href="/datasources">Connect Data Source</Link>
         </Callout>
       ) : !hasFactTable ? (
         <Callout status="info">
