@@ -9,12 +9,14 @@ import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getDefaultHashAttribute,
   filterEnvironmentsByFeature,
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
   getRuleAttributeScopeProjectIds,
   getTargetingProjectIds,
+  getRuleTargetingProjectIds,
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
@@ -1085,11 +1087,10 @@ export default function RuleModal({
       // When auto-promoting to rollout, ensure hashAttribute has a sensible value
       if (targetType === "rollout") {
         if (!form.getValues("hashAttribute")) {
-          const defaultHash =
-            attributeSchema?.find((a) => a.hashAttribute)?.property ||
-            attributeSchema?.[0]?.property ||
-            "id";
-          form.setValue("hashAttribute", defaultHash);
+          form.setValue(
+            "hashAttribute",
+            getDefaultHashAttribute(attributeSchema),
+          );
         }
       }
     }
@@ -2439,6 +2440,15 @@ export default function RuleModal({
     ? environments.map((e) => e.id)
     : selectedEnvironments;
 
+  const savedGroupProjects = settings.enforceSavedGroupProjectScope
+    ? getRuleTargetingProjectIds(
+        targetDraft
+          ? withStagedTargeting(baseFeature, targetDraft.metadata)
+          : feature,
+        { allProjects: scopeAllProjects, projects: selectedProjects },
+      )
+    : undefined;
+
   const modalContent = (
     <FormProvider {...form}>
       <PagedModal
@@ -2530,6 +2540,7 @@ export default function RuleModal({
               ruleType={ruleType}
               feature={feature}
               attributeProjects={effectiveAttributeProjects}
+              savedGroupProjects={savedGroupProjects}
               attributeSelectIndicator={attributeScopeToggle}
               environments={effectiveEnvList}
               defaultValues={defaultValues}
@@ -2568,6 +2579,7 @@ export default function RuleModal({
               hideNameField={true}
               feature={feature}
               attributeProjects={effectiveAttributeProjects}
+              savedGroupProjects={savedGroupProjects}
               attributeSelectIndicator={attributeScopeToggle}
               environments={environments.map((e) => e.id)}
               hashAttribute={form.watch("hashAttribute") as string}
@@ -2588,6 +2600,7 @@ export default function RuleModal({
           <SafeRolloutFields
             feature={feature}
             attributeProjects={effectiveAttributeProjects}
+            savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeScopeToggle}
             environment={environment}
             defaultValues={defaultValues}
@@ -2644,6 +2657,7 @@ export default function RuleModal({
                   feature={feature}
                   project={feature.project}
                   attributeProjects={effectiveAttributeProjects}
+                  savedGroupProjects={savedGroupProjects}
                   attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   defaultValues={defaultValues}
@@ -2715,6 +2729,7 @@ export default function RuleModal({
                   feature={feature}
                   project={feature.project}
                   attributeProjects={effectiveAttributeProjects}
+                  savedGroupProjects={savedGroupProjects}
                   attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   prerequisiteValue={form.watch("prerequisites") || []}

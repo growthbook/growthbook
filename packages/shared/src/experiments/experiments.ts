@@ -140,6 +140,71 @@ export function canInlineFilterColumn(
   return true;
 }
 
+export function getInlineFilterPromptColumns(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  rowFilters: RowFilter[] = [],
+): string[] {
+  const columns: string[] = [];
+  const add = (c: string) => {
+    if (!columns.includes(c)) columns.push(c);
+  };
+  factTable.columns.forEach((c) => {
+    if (
+      !c.alwaysInlineFilter ||
+      c.deleted ||
+      !canInlineFilterColumn(factTable, c.column)
+    ) {
+      return;
+    }
+    add(c.column);
+    const mapping = c.conditionalInlineFilters;
+    if (!mapping) return;
+    rowFilters.forEach((rf) => {
+      if (rf.column !== c.column) return;
+      if (rf.operator !== "=" && rf.operator !== "in") return;
+      const values = (rf.values ?? []).filter((v) => v !== "");
+      if (values.length !== 1) return;
+      const mapped = mapping[values[0]];
+      if (mapped) add(mapped);
+    });
+  });
+  return columns;
+}
+
+export function isEmptyInlineFilterPlaceholder(rf: RowFilter): boolean {
+  return rf.operator === "=" && (rf.values ?? []).every((v) => v === "");
+}
+
+// Runs after a filter edit - add secondary filters if needed
+export function reconcileInlineFilterPrompts(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  previous: RowFilter[],
+  next: RowFilter[],
+): RowFilter[] {
+  const before = new Set(getInlineFilterPromptColumns(factTable, previous));
+  const after = new Set(getInlineFilterPromptColumns(factTable, next));
+  let result = next;
+  for (const column of before) {
+    if (after.has(column)) continue;
+    result = result.filter(
+      (rf) => !(rf.column === column && isEmptyInlineFilterPlaceholder(rf)),
+    );
+  }
+  for (const column of after) {
+    if (before.has(column)) continue;
+    if (!result.some((rf) => rf.column === column)) {
+      result = [...result, { column, operator: "=", values: [""] }];
+    }
+  }
+  return result;
+}
+
 // Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,
 // and Databricks (Spark) use backticks. When the active data source's dialect
 // is unknown we assume the standard, which is correct for every dialect except
@@ -1043,6 +1108,8 @@ export function getRowFilterSQL({
         ? `(${comparisonColumn} IN ${list})`
         : `(${comparisonColumn} NOT IN ${list})`;
     }
+    case "matches_pattern":
+    case "not_matches_pattern":
     case "starts_with":
     case "ends_with":
     case "contains":

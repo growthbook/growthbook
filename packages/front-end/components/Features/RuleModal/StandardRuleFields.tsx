@@ -68,6 +68,7 @@ export default function StandardRuleFields({
   ruleType,
   feature,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   environments,
   defaultValues,
@@ -90,6 +91,7 @@ export default function StandardRuleFields({
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
@@ -548,6 +550,7 @@ export default function StandardRuleFields({
           )}
 
           <SavedGroupTargetingField
+            savedGroupProjects={savedGroupProjects}
             value={form.watch("savedGroups") || []}
             setValue={(savedGroups) =>
               form.setValue("savedGroups", savedGroups)
@@ -563,6 +566,7 @@ export default function StandardRuleFields({
             key={conditionKey}
             project={feature.project || ""}
             attributeProjects={attributeProjects}
+            savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeSelectIndicator}
             label="Attributes"
           />

@@ -11,6 +11,7 @@ import {
   validateRampPlanPatches,
   validateRuleAttributes,
   validateRulesReferences,
+  stagedFeatureOf,
 } from "back-end/src/api/features/validations";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -434,6 +435,18 @@ describe("collectRampPlanPatches", () => {
   });
 });
 
+describe("stagedFeatureOf", () => {
+  it("keeps the live rules when the draft has no rules snapshot", () => {
+    const live = {
+      id: "f1",
+      rules: [{ id: "r_live" }],
+    } as unknown as FeatureInterface;
+    expect(
+      stagedFeatureOf(live, { metadata: { project: "p_draft" } }),
+    ).toMatchObject({ project: "p_draft", rules: [{ id: "r_live" }] });
+  });
+});
+
 describe("validateRampPlanPatches", () => {
   const getAll = jest.fn();
   const ctx = {
@@ -704,6 +717,59 @@ describe("validateRampPlanPatches", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("refuses to ramp a force rule's coverage unless the rule or the plan's start state names a hash attribute", async () => {
+    const forceRule = { id: "fr_force", type: "force" };
+    const refused = run([{ coverage: 0.5 }], feature, forceRule);
+    await expect(refused).rejects.toThrow(BadRequestError);
+    await expect(refused).rejects.toThrow(
+      /Invalid ramp schedule patch: Rule "fr_force" on "checkout_flag" is a force rule with no hash attribute/,
+    );
+    // A rule not yet stored has no id; the refusal still names the problem.
+    await expect(
+      run([{ coverage: 0.5 }], feature, { type: "force" }),
+    ).rejects.toThrow(/The rule is a force rule with no hash attribute/);
+    // The start anchor's hash attribute or one left on the rule satisfies it;
+    // a rollout never needed one.
+    await expect(
+      run([{ coverage: 0.5 }, { hashAttribute: "id" }], feature, forceRule),
+    ).resolves.toBeUndefined();
+    await expect(
+      run([{ coverage: 0.5 }], feature, { ...forceRule, hashAttribute: "id" }),
+    ).resolves.toBeUndefined();
+    await expect(
+      run([{ coverage: 0.5 }], feature, {
+        ...forceRule,
+        type: "rollout",
+        hashAttribute: "id",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("holds an anchor's hash attribute to the organization's registered attributes", async () => {
+    const forceRule = { id: "fr_force", type: "force" };
+    const strict = {
+      ...ctx,
+      org: {
+        ...ctx.org,
+        settings: {
+          requireRegisteredAttributes: true,
+          attributeSchema: [{ property: "userId", datatype: "string" }],
+        },
+      },
+    } as ApiReqContext;
+    const runStrict = (patches: Parameters<typeof rampPatchEntries>[0]) =>
+      validateRampPlanPatches(
+        strict,
+        rampPatchEntries(patches, feature, forceRule),
+      );
+    await expect(
+      runStrict([{ coverage: 0.5, hashAttribute: "userID" }]),
+    ).rejects.toThrow(/userID/);
+    await expect(
+      runStrict([{ coverage: 0.5, hashAttribute: "userId" }]),
+    ).resolves.toBeUndefined();
+  });
+
   it("checks only existence for a plan with no target feature", async () => {
     await expect(run([prereqOnParent], null)).resolves.toBeUndefined();
     loadFeatures.mockResolvedValue([]);
@@ -755,6 +821,154 @@ describe("validateRampPlanPatches", () => {
     await expect(
       run([{ ...stale, ruleId: "fr_2" }], feature, null, stored),
     ).rejects.toThrow(/grp_gone/);
+  });
+});
+
+describe("Saved Group scope in ramp patches", () => {
+  const groups = [
+    {
+      id: "scoped",
+      type: "list",
+      projects: ["a"],
+      attributeKey: "id",
+      values: ["1"],
+    },
+    {
+      id: "nested",
+      type: "condition",
+      projects: [],
+      condition: '{"id":{"$inGroup":"scoped"}}',
+    },
+  ];
+  const getAllWithoutValues = jest.fn().mockResolvedValue(groups);
+  const context = {
+    org: { settings: { enforceSavedGroupProjectScope: true } },
+    models: {
+      savedGroups: {
+        getAll: jest.fn().mockResolvedValue(groups),
+        getAllWithoutValues,
+      },
+    },
+  } as unknown as ApiReqContext;
+  (context as { scanContextOverride?: ApiReqContext }).scanContextOverride =
+    context;
+  const rule: FeatureRule = {
+    id: "rule",
+    type: "force",
+    value: "true",
+    allEnvironments: true,
+  };
+  const feature = {
+    id: "flag",
+    project: "b",
+    rules: [rule],
+  } as FeatureInterface;
+  const condition = '{"id":{"$inGroup":"scoped"}}';
+  const validate = (
+    patch: Parameters<typeof rampPatchEntries>[0][number],
+    target = feature,
+    stored: unknown[] = [],
+  ) =>
+    validateRampPlanPatches(
+      context,
+      rampPatchEntries([patch], target, target.rules[0]),
+      { stored },
+    );
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it.each([
+    { condition },
+    { savedGroups: [{ match: "all" as const, ids: ["scoped"] }] },
+    { condition: '{"$savedGroups":["nested"]}' },
+  ])(
+    "rejects new out-of-scope targeting at plan write time (%j)",
+    async (patch) => {
+      await expect(validate(patch)).rejects.toThrow(
+        /Invalid ramp schedule patch: .*not available/,
+      );
+    },
+  );
+
+  it.each(["startActions", "steps", "endActions"])(
+    "checks references supplied in %s",
+    async (part) => {
+      const actions = [{ patch: { ruleId: rule.id, condition } }];
+      const plan =
+        part === "steps" ? { steps: [{ actions }] } : { [part]: actions };
+      await expect(
+        validateRampPlanPatches(
+          context,
+          rampPatchEntries(collectRampPlanPatches(plan), feature, rule),
+        ),
+      ).rejects.toThrow("not available");
+    },
+  );
+
+  it("keeps loose mode unchanged", async () => {
+    await expect(
+      validateRampPlanPatches(
+        { ...context, org: { ...context.org, settings: {} } },
+        rampPatchEntries([{ condition }], feature, rule),
+      ),
+    ).resolves.toBeUndefined();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
+  });
+
+  it("checks targetingProjects and the target rule's Project scope", async () => {
+    const multi = { ...feature, project: "a", targetingProjects: ["b"] };
+    await expect(validate({ condition }, multi)).rejects.toThrow(
+      "not available",
+    );
+    await expect(
+      validate(
+        { condition },
+        {
+          ...multi,
+          rules: [{ ...rule, allProjects: false, projects: ["a"] }],
+        },
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      validate({ condition }, { ...feature, project: "" }),
+    ).rejects.toThrow("not available");
+  });
+
+  it("preserves a live legacy reference when a ramp anchor replays it", async () => {
+    const legacy = { ...feature, rules: [{ ...rule, condition }] };
+    await expect(validate({ condition }, legacy)).resolves.toBeUndefined();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
+  });
+
+  it("preserves stored plan references through unrelated targeting edits", async () => {
+    const stored = [
+      { steps: [{ actions: [{ patch: { ruleId: rule.id, condition } }] }] },
+    ];
+    await expect(
+      validate(
+        { condition: '{"id":{"$inGroup":"scoped"},"country":"US"}' },
+        feature,
+        stored,
+      ),
+    ).resolves.toBeUndefined();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
+    await expect(
+      validate(
+        { condition, ruleId: "other" },
+        { ...feature, rules: [{ ...rule, id: "other" }] },
+        stored,
+      ),
+    ).rejects.toThrow("not available");
+  });
+
+  it("uses the patched condition when clearing an existing reference", async () => {
+    await expect(
+      validate(
+        { condition: "{}" },
+        { ...feature, rules: [{ ...rule, condition }] },
+      ),
+    ).resolves.toBeUndefined();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
   });
 });
 

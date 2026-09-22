@@ -1,32 +1,42 @@
 import { useMemo, useState } from "react";
+import { UseFormReturn } from "react-hook-form";
+import { ago } from "shared/dates";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
-  DEFAULT_NOTIFICATION_SETTINGS,
-  NotificationCardFormat,
   notificationCardFormats,
-  notificationCardFormatSchema,
-  NotificationSettings,
+  NotificationCardFormat,
+  notificationFiltersSchema,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
-import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiTrash } from "react-icons/pi";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiCircleFill, PiDotsThreeVertical, PiX } from "react-icons/pi";
 import {
-  eventWebHookEventOptions,
-  formatWebhookEventOptionLabel,
-} from "@/components/EventWebHooks/utils";
-import TagsInput from "@/components/Tags/TagsInput";
-import { useDefinitions } from "@/services/DefinitionsContext";
+  notificationEventOptions,
+  notificationCategories,
+  notificationEventMetadata,
+  previewNotificationEventNames,
+  PreviewNotificationEventName,
+  cardNotificationEventNames,
+} from "shared/notifications";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
-import MultiSelectField from "@/ui/MultiSelectField";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
+import { Select, SelectItem, SelectGroup, SelectLabel } from "@/ui/Select";
+import NotificationSubscriptionSettings from "@/components/Notifications/NotificationSubscriptionSettings";
+import NotificationSettingsCard from "@/components/Notifications/NotificationSettingsCard";
+import SlackEventPreview from "./SlackEventPreview";
+import { SlackChannelFormValues } from "./slackChannelForm";
 
 const REQUIRED_SCOPES = [
   "chat:write",
@@ -43,21 +53,16 @@ const REQUIRED_SCOPES = [
 ];
 
 const CARD_FORMAT_LABELS: Record<
-  (typeof notificationCardFormats)[number],
+  NotificationCardFormat,
   { label: string; description: string }
 > = {
-  compact: {
-    label: "Compact card",
-    description: "A short image highlighting the SRM warning.",
+  light: {
+    label: "Light",
+    description: "The card on a white background.",
   },
-  "compact-dark": {
-    label: "Compact dark",
-    description:
-      "A short image with a dark background and colored event header.",
-  },
-  detailed: {
-    label: "Detailed card",
-    description: "A larger image with the SRM warning and a results table.",
+  dark: {
+    label: "Dark",
+    description: "The same card on a dark background for dark Slack themes.",
   },
 };
 
@@ -83,39 +88,53 @@ const getSlackWorkspaceLabel = (
 export default function SlackChannelSettings({
   integration,
   workspace,
-  onSaved,
+  form,
   onDeleted,
 }: {
   integration: SlackOAuthIntegrationInterface;
   workspace: SlackWorkspaceConnectionFrontEndInterface;
-  onSaved: () => Promise<void>;
+  form: UseFormReturn<SlackChannelFormValues>;
   onDeleted: () => Promise<void>;
 }) {
   const { apiCall } = useAuth();
-  const { projects, tags } = useDefinitions();
-  const environments = useEnvironments();
-  const [enabled, setEnabled] = useState(integration.enabled);
-  const [events, setEvents] = useState(integration.events);
-  const initialNotificationSettings =
-    integration.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
-  const [notificationType, setNotificationType] = useState<
-    NotificationSettings["type"]
-  >(initialNotificationSettings.type);
-  const [cardFormat, setCardFormat] = useState<NotificationCardFormat>(
-    initialNotificationSettings.type === "image"
-      ? initialNotificationSettings.cardFormat
-      : DEFAULT_NOTIFICATION_SETTINGS.cardFormat,
-  );
-  const [filterProjects, setFilterProjects] = useState(
-    integration.projects || [],
-  );
-  const [filterEnvironments, setFilterEnvironments] = useState(
-    integration.environments || [],
-  );
-  const [filterTags, setFilterTags] = useState(integration.tags || []);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [sampleEvent, setSampleEvent] =
+    useState<PreviewNotificationEventName>("experiment.warning");
+  const [showSendTest, setShowSendTest] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const eventChoices = previewNotificationEventNames.map((event) => {
+    const option = notificationEventOptions.find((option) =>
+      option.events.some((name) => name === event),
+    );
+    return {
+      event,
+      label: `${notificationEventMetadata[event].label} (${cardNotificationEventNames.some((name) => name === event) ? "card" : "text"})`,
+      group: option
+        ? `${notificationCategories[option.category]} · ${option.group}`
+        : "Other events",
+    };
+  });
+  const selectSampleEvent = (value: string) => {
+    const event = previewNotificationEventNames.find(
+      (event) => event === value,
+    );
+    if (event) setSampleEvent(event);
+  };
+  const previewChoiceItems = [
+    ...new Set(eventChoices.map((option) => option.group)),
+  ].map((group) => (
+    <SelectGroup key={group}>
+      <SelectLabel>{group}</SelectLabel>
+      {eventChoices
+        .filter((option) => option.group === group)
+        .map(({ event, label }) => (
+          <SelectItem key={event} value={event}>
+            {label}
+          </SelectItem>
+        ))}
+    </SelectGroup>
+  ));
+  const { enabled, notificationSettings, ...filters } = form.watch();
+  const { events } = filters;
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -133,40 +152,6 @@ export default function SlackChannelSettings({
   const needsReconnect = REQUIRED_SCOPES.some(
     (scope) => !grantedScopes.has(scope),
   );
-
-  const save = async () => {
-    if (events.length === 0) {
-      setSaveError("Select at least one event.");
-      return;
-    }
-    setSaving(true);
-    setSaveError(null);
-    setSaved(false);
-    try {
-      await apiCall(`/integrations/slack/oauth/${integration.id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          enabled,
-          events,
-          projects: filterProjects,
-          environments: filterEnvironments,
-          tags: filterTags,
-          notificationSettings:
-            notificationType === "image"
-              ? { type: "image", cardFormat }
-              : { type: "text" },
-        }),
-      });
-      await onSaved();
-      setSaved(true);
-    } catch (error) {
-      setSaveError(
-        error instanceof Error ? error.message : "Failed to save settings.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const reconnect = async () => {
     setReconnecting(true);
@@ -197,6 +182,49 @@ export default function SlackChannelSettings({
 
   return (
     <>
+      {showSendTest && (
+        <ModalStandard
+          open
+          header="Send a Test Message"
+          trackingEventModalType="slack-send-test-message"
+          cta={`Send to ${getSlackChannelLabel(integration)}`}
+          close={() => setShowSendTest(false)}
+          submit={async () => {
+            const result = await apiCall<{ deliveredAs: "card" | "text" }>(
+              `/integrations/slack/${integration.id}/test`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  eventName: sampleEvent,
+                  notificationSettings,
+                }),
+              },
+            );
+            setTestResult(
+              `Test ${result.deliveredAs === "card" ? "card" : "message"} sent to ${getSlackChannelLabel(integration)}.`,
+            );
+          }}
+        >
+          <Text as="p" mb="3">
+            Posts a sample notification to {getSlackChannelLabel(integration)}{" "}
+            using the currently selected message format, without saving your
+            settings or creating a real event.
+          </Text>
+          <Box mb="4">
+            <Select
+              label="Message type"
+              value={sampleEvent}
+              setValue={selectSampleEvent}
+            >
+              {previewChoiceItems}
+            </Select>
+          </Box>
+          <SlackEventPreview
+            eventName={sampleEvent}
+            notificationSettings={notificationSettings}
+          />
+        </ModalStandard>
+      )}
       {confirmingDelete && (
         <ConfirmDialog
           title="Delete Slack Channel Connection?"
@@ -209,35 +237,83 @@ export default function SlackChannelSettings({
         />
       )}
 
-      <Flex direction="column" gap="5">
+      <Flex direction="column" gap="4">
         <Flex justify="between" align="start" gap="4" wrap="wrap">
           <Box>
-            <Heading as="h2" size="md" mb="1">
+            <Heading as="h3" size="md" mb="1">
               {getSlackChannelLabel(integration)}
             </Heading>
-            <Text color="text-mid">{getSlackWorkspaceLabel(workspace)}</Text>
+            <Text color="text-mid">
+              {getSlackWorkspaceLabel(workspace)}
+              {integration.lastRunAt
+                ? ` · last delivery ${ago(integration.lastRunAt)}`
+                : " · no deliveries yet"}
+            </Text>
           </Box>
-          <Flex align="center" gap="4">
-            <Checkbox
-              label="Enabled"
-              value={enabled}
-              setValue={(value) => {
-                setEnabled(value);
-                setSaved(false);
-              }}
-              weight="medium"
-            />
-            <Button
-              variant="outline"
-              color="red"
-              icon={<PiTrash />}
-              onClick={() => setConfirmingDelete(true)}
+          <Flex align="center" gap="3">
+            <Flex align="center" gap="2">
+              <PiCircleFill
+                size={8}
+                color={enabled ? "var(--green-9)" : "var(--gray-9)"}
+                aria-hidden
+              />
+              <Text weight="medium">{enabled ? "Active" : "Inactive"}</Text>
+            </Flex>
+            <DropdownMenu
+              menuPlacement="end"
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  aria-label="Channel actions"
+                >
+                  <PiDotsThreeVertical size={18} aria-hidden />
+                </IconButton>
+              }
             >
-              Delete
-            </Button>
+              <DropdownMenuItem
+                onClick={() =>
+                  form.setValue("enabled", !enabled, { shouldDirty: true })
+                }
+              >
+                {enabled ? "Disable notifications" : "Enable notifications"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowSendTest(true)}>
+                Send test
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                color="red"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                Delete channel
+              </DropdownMenuItem>
+            </DropdownMenu>
           </Flex>
         </Flex>
 
+        {testResult && (
+          <Callout
+            status="success"
+            action={
+              <Button
+                aria-label="Dismiss"
+                variant="ghost"
+                color="gray"
+                size="sm"
+                icon={<PiX />}
+                onClick={() => setTestResult(null)}
+              >
+                {null}
+              </Button>
+            }
+          >
+            {testResult}
+          </Callout>
+        )}
         {needsReconnect && (
           <Flex direction="column" gap="2">
             <Callout
@@ -257,139 +333,116 @@ export default function SlackChannelSettings({
           </Flex>
         )}
 
-        <Box>
-          <Heading as="h3" size="sm" mb="1">
-            Events
-          </Heading>
-          <Text as="p" color="text-mid" mb="3">
-            Choose the existing GrowthBook events sent to this channel.
-          </Text>
-          <MultiSelectField
-            value={events}
-            placeholder="Choose events"
-            sort={false}
-            size="lg"
-            options={eventWebHookEventOptions}
-            formatOptionLabel={(option, meta) =>
-              formatWebhookEventOptionLabel(option, meta)
+        <NotificationSubscriptionSettings
+          value={filters}
+          onChange={(filters) => {
+            for (const name of notificationFiltersSchema.keyof().options) {
+              form.setValue(name, filters[name], { shouldDirty: true });
             }
-            onChange={(value) => {
-              setEvents(value);
-              setSaved(false);
-            }}
-          />
-          {events.length === 0 && (
-            <Callout status="warning" mt="3">
-              Select at least one event before saving.
-            </Callout>
-          )}
-        </Box>
+          }}
+        />
 
-        <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
-          <Heading as="h3" size="sm" mb="1">
-            Notification Format
-          </Heading>
-          <Text as="p" color="text-mid" mb="3">
-            Choose how SRM warnings appear. Significance notifications and other
-            events remain text-only.
-          </Text>
-          <RadioGroup
-            gap="3"
-            value={notificationType}
-            options={[
-              { value: "text", label: "Text only" },
-              { value: "image", label: "Image card" },
-            ]}
-            setValue={(value) => {
-              if (value !== "text" && value !== "image") return;
-              setNotificationType(value);
-              setSaved(false);
-            }}
-          />
-          {notificationType === "image" && (
-            <Box mt="3">
-              <RadioGroup
-                gap="3"
-                value={cardFormat}
-                options={notificationCardFormats.map((format) => ({
-                  value: format,
-                  ...CARD_FORMAT_LABELS[format],
-                }))}
-                setValue={(value) => {
-                  setCardFormat(notificationCardFormatSchema.parse(value));
-                  setSaved(false);
-                }}
-              />
-            </Box>
-          )}
-        </Box>
+        {events.length === 0 && (
+          <Callout status="warning">
+            Select at least one event before saving. To pause all notifications,
+            choose Disable notifications from the channel actions menu, then
+            save your settings.
+          </Callout>
+        )}
 
-        <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
-          <Heading as="h3" size="sm" mb="1">
-            Filters
-          </Heading>
-          <Text as="p" color="text-mid" mb="3">
-            Leave a filter empty to include everything.
-          </Text>
-          <Grid columns={{ initial: "1", sm: "2" }} gap="4">
-            <MultiSelectField
-              label="Projects"
-              placeholder="All Projects"
-              value={filterProjects}
-              size="lg"
-              options={projects.map(({ id, name }) => ({
-                label: name,
-                value: id,
-              }))}
-              onChange={(value) => {
-                setFilterProjects(value);
-                setSaved(false);
-              }}
-            />
-            <MultiSelectField
-              label="Environments"
-              placeholder="All Environments"
-              value={filterEnvironments}
-              size="lg"
-              options={environments.map(({ id }) => ({
-                label: id,
-                value: id,
-              }))}
-              onChange={(value) => {
-                setFilterEnvironments(value);
-                setSaved(false);
-              }}
-            />
-            <Box>
-              <Text as="label" size="md" weight="semibold">
-                Tags
+        <NotificationSettingsCard>
+          <Flex gap="3" align="start" wrap="wrap">
+            <Box style={{ flex: "1 1 240px", minWidth: 0 }}>
+              <Heading as="h4" size="sm" mb="1">
+                Message Format
+              </Heading>
+              <Text as="p" color="text-mid" mb="3">
+                Choose how notifications will be sent to this channel. For
+                events that do not support images, text will be used instead.
               </Text>
-              <TagsInput
-                tagOptions={tags}
-                value={filterTags}
-                onChange={(value) => {
-                  setFilterTags(value);
-                  setSaved(false);
-                }}
-                autoFocus={false}
-                prompt="All tags"
-                creatable={false}
-              />
+              <Box style={{ maxWidth: 420 }}>
+                <RadioGroup
+                  gap="1"
+                  options={[
+                    {
+                      value: "text",
+                      label: "Text only",
+                      description: "Send every notification as a text message.",
+                    },
+                    ...notificationCardFormats.map((format) => ({
+                      value: format,
+                      ...CARD_FORMAT_LABELS[format],
+                    })),
+                  ]}
+                  value={
+                    notificationSettings.type === "text"
+                      ? "text"
+                      : notificationSettings.cardFormat
+                  }
+                  setValue={(value) => {
+                    if (value === "text") {
+                      form.setValue(
+                        "notificationSettings",
+                        { type: "text" },
+                        { shouldDirty: true },
+                      );
+                      return;
+                    }
+                    const format = notificationCardFormats.find(
+                      (format) => format === value,
+                    );
+                    if (format) {
+                      form.setValue(
+                        "notificationSettings",
+                        { type: "image", cardFormat: format },
+                        { shouldDirty: true },
+                      );
+                    }
+                  }}
+                />
+              </Box>
             </Box>
-          </Grid>
-        </Box>
-
-        <Flex align="center" gap="3">
-          <Button
-            onClick={save}
-            loading={saving}
-            disabled={events.length === 0}
-          >
-            Save settings
-          </Button>
-          {saved && <HelperText status="success">Saved.</HelperText>}
-          {saveError && <HelperText status="error">{saveError}</HelperText>}
-        </Flex>
+            <Box
+              p="3"
+              style={{
+                flex: "1 1 420px",
+                minWidth: 0,
+                background: "var(--gray-a2)",
+                border: "1px solid var(--gray-a4)",
+                borderRadius: 0,
+              }}
+            >
+              <Heading as="h4" size="sm" mb="1">
+                Preview
+              </Heading>
+              <Box mb="4">
+                <Select
+                  labelSize="sm"
+                  labelWeight="regular"
+                  size="sm"
+                  variant="surface"
+                  value={sampleEvent}
+                  setValue={selectSampleEvent}
+                >
+                  {previewChoiceItems}
+                </Select>
+              </Box>
+              <SlackEventPreview
+                eventName={sampleEvent}
+                notificationSettings={notificationSettings}
+              />
+              {notificationSettings.type === "image" &&
+                !cardNotificationEventNames.some(
+                  (event) => event === sampleEvent,
+                ) && (
+                  <Text as="p" color="text-mid" size="sm" mt="3">
+                    This event always uses text, regardless of the selected
+                    format.
+                  </Text>
+                )}
+            </Box>
+          </Flex>
+        </NotificationSettingsCard>
       </Flex>
     </>
   );
