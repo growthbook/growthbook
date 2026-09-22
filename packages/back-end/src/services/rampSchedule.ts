@@ -3,6 +3,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
+import pick from "lodash/pick";
 import {
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
@@ -1051,14 +1052,17 @@ export async function planRampBaseStateSyncForPublish(
 
 export type RampBaseStatePreImage = {
   id: string;
-  // The edited start actions as they were, and the event row this write added.
-  patches: RampStartActionPatch[];
-  reason: string;
+  // Per edited start action: the written fields and their values before.
+  patches: (RampStartActionPatch & { before: Partial<RampStartPatch> })[];
+  event: RampEvent;
 };
 
+const sameAction = (a: RampStartAction, p: RampStartActionPatch) =>
+  a.targetId === p.targetId && a.patch.ruleId === p.ruleId;
+
 // Writes each planned base state under the advance lock against a fresh read,
-// so a step that landed since planning keeps its event row and anchor.
-// `written` collects pre-images as they land for a caller's rewind.
+// so a step that landed since planning keeps its event row and anchor, and a
+// re-planned anchor refuses the publish instead of silently dropping the edit.
 export async function applyRampBaseStateSync(
   ctx: ReqContext | ApiReqContext,
   updates: RampBaseStateUpdate[],
@@ -1066,37 +1070,65 @@ export async function applyRampBaseStateSync(
   written: RampBaseStatePreImage[],
 ): Promise<void> {
   for (const { schedule, patches, fields } of updates) {
-    const reason = baseStateSyncReason(revisionVersion, fields);
     await runLockedRampScheduleAction(ctx, schedule.id, async (fresh) => {
-      const before = (fresh.startActions ?? []).flatMap((a) =>
-        patches.some(
-          (p) => p.targetId === a.targetId && p.ruleId === a.patch.ruleId,
-        )
-          ? [{ targetId: a.targetId, ruleId: a.patch.ruleId, patch: a.patch }]
-          : [],
-      );
-      written.push({ id: fresh.id, patches: before, reason });
+      const actions = fresh.startActions ?? [];
+      const anchors = patches.map((p) => actions.find((a) => sameAction(a, p)));
+      if (anchors.some((a) => !a)) {
+        throw new ConflictError(
+          `Ramp schedule "${fresh.name}" changed while publishing; retry the publish`,
+        );
+      }
+      const eventHistory = appendRampEvent(fresh, "config-edited", {
+        reason: baseStateSyncReason(revisionVersion, fields),
+        userId: ctx.userId,
+      });
+      written.push({
+        id: fresh.id,
+        patches: patches.map((p, i) => ({
+          ...p,
+          before: pick(anchors[i]!.patch, Object.keys(p.patch)),
+        })),
+        event: eventHistory[eventHistory.length - 1],
+      });
       await ctx.models.rampSchedules.updateById(fresh.id, {
-        startActions: patchStartActions(fresh.startActions ?? [], patches),
-        eventHistory: appendRampEvent(fresh, "config-edited", {
-          reason,
-          userId: ctx.userId,
-        }),
+        startActions: patchStartActions(actions, patches),
+        eventHistory,
       });
     });
   }
 }
 
+// Puts back only the fields this publish still owns (a later write wins) and
+// removes only the event row it added.
 export async function restoreRampBaseStates(
   ctx: ReqContext | ApiReqContext,
   preImages: RampBaseStatePreImage[],
 ): Promise<void> {
-  for (const { id, patches, reason } of preImages) {
+  for (const { id, patches, event } of preImages) {
     await runLockedRampScheduleAction(ctx, id, async (fresh) => {
+      const startActions = (fresh.startActions ?? []).map((a) => {
+        const p = patches.find((x) => sameAction(a, x));
+        if (!p) return a;
+        const patch = { ...a.patch } as Record<string, unknown>;
+        const written = p.patch as Record<string, unknown>;
+        const before = p.before as Record<string, unknown>;
+        for (const key of Object.keys(written)) {
+          if (!isEqual(patch[key], written[key])) continue;
+          if (key in before) patch[key] = before[key];
+          else delete patch[key];
+        }
+        return { ...a, patch: patch as RampStartPatch };
+      });
       await ctx.models.rampSchedules.updateById(id, {
-        startActions: patchStartActions(fresh.startActions ?? [], patches),
+        startActions,
         eventHistory: (fresh.eventHistory ?? []).filter(
-          (e) => !(e.type === "config-edited" && e.reason === reason),
+          (e) =>
+            !(
+              e.type === event.type &&
+              e.reason === event.reason &&
+              new Date(e.timestamp).getTime() ===
+                new Date(event.timestamp).getTime()
+            ),
         ),
       });
     });
