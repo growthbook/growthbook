@@ -1,6 +1,8 @@
 import {
   getConnectionSDKCapabilities,
   getSDKCapabilityVersion,
+  resolveSavedGroupRendering,
+  savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React, { useState } from "react";
@@ -46,20 +48,18 @@ export function useLargeSavedGroupSupport(
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
   (connections || []).forEach((conn) => {
-    const capabilities = getConnectionSDKCapabilities(conn);
-    if (
-      !capabilities.includes("savedGroupReferences") ||
-      !conn.savedGroupReferencesEnabled
-    ) {
+    // The format written to the payload, not the connection's setting, so this
+    // can never disagree with what the SDK receives.
+    const rendering = resolveSavedGroupRendering({
+      capabilities: getConnectionSDKCapabilities(conn),
+      savedGroupFormat: savedGroupFormatFromConnection(conn),
+    });
+    if (rendering === "inline") {
       unsupportedConnections.push(conn);
     }
     // A language with no version supporting the capability has nothing to
     // upgrade to, so there is nothing useful to say about it
-    if (
-      (!capabilities.includes("savedGroupReferencesV2") ||
-        !conn.savedGroupReferencesEnabled) &&
-      canSupportV2(conn)
-    ) {
+    if (rendering !== "referencesV2" && canSupportV2(conn)) {
       unsupportedConnectionsV2.push(conn);
     }
   });
@@ -123,21 +123,24 @@ export default function LargeSavedGroupPerformanceWarning({
   if (incompatibleConnections.length === 0) return null;
 
   // Two different causes land in the same list, and they need different advice.
-  // A Connection with the setting off needs it turned on; one that has it on
-  // and only lacks the capability needs an SDK upgrade.
-  const needsSettingOn = incompatibleConnections.some(
-    (conn) => !conn.savedGroupReferencesEnabled,
+  // A Connection asking for a format it can already have needs its setting
+  // changed; one already asking for more than its SDK can read needs an
+  // upgrade.
+  const wanted = (conn: SDKConnectionInterface) =>
+    savedGroupFormatFromConnection(conn);
+  const needsSettingChanged = incompatibleConnections.some((conn) =>
+    isCondition ? wanted(conn) !== "referencesV2" : wanted(conn) === "inline",
   );
-  const needsUpgrade = incompatibleConnections.some(
-    (conn) => conn.savedGroupReferencesEnabled,
+  const needsUpgrade = incompatibleConnections.some((conn) =>
+    isCondition ? wanted(conn) === "referencesV2" : wanted(conn) !== "inline",
   );
 
   const action =
-    needsSettingOn && needsUpgrade
-      ? 'Tip: upgrade your SDKs and enable "Pass Saved Groups by reference" to improve performance.'
+    needsSettingChanged && needsUpgrade
+      ? "Tip: upgrade your SDKs and change how they pass Saved Groups to improve performance."
       : needsUpgrade
         ? "Tip: upgrade your SDKs to improve performance."
-        : 'Tip: enable "Pass Saved Groups by reference" on your SDK Connections to improve performance.';
+        : "Tip: change how your SDK Connections pass Saved Groups to improve performance.";
 
   return (
     <Callout

@@ -20411,7 +20411,14 @@ paths:
                 remoteEvalEnabled:
                   type: boolean
                 savedGroupReferencesEnabled:
+                  description: Deprecated. Use `savedGroupFormat`.
                   type: boolean
+                savedGroupFormat:
+                  type: string
+                  enum:
+                    - inline
+                    - referencesV1
+                    - referencesV2
                 includeReferencedPrerequisites:
                   description: >-
                     Carry prerequisite Feature Flags into this payload even when
@@ -20532,7 +20539,14 @@ paths:
                 remoteEvalEnabled:
                   type: boolean
                 savedGroupReferencesEnabled:
+                  description: Deprecated. Use `savedGroupFormat`.
                   type: boolean
+                savedGroupFormat:
+                  type: string
+                  enum:
+                    - inline
+                    - referencesV1
+                    - referencesV2
                 includeReferencedPrerequisites:
                   description: >-
                     Carry prerequisite Feature Flags into this payload even when
@@ -64298,7 +64312,18 @@ components:
         remoteEvalEnabled:
           type: boolean
         savedGroupReferencesEnabled:
+          description: Deprecated. Use `savedGroupFormat`.
           type: boolean
+        savedGroupFormat:
+          description: >-
+            How Saved Groups are written into this connection's payload.
+            `referencesV2` needs an SDK version that supports it; the payload
+            steps down to `referencesV1` if not.
+          type: string
+          enum:
+            - inline
+            - referencesV1
+            - referencesV2
         includeReferencedPrerequisites:
           type: boolean
       required:

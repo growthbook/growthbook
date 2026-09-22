@@ -6,6 +6,7 @@ import {
   managedByValidator,
   ManagedBy,
   ApiSdkConnection,
+  savedGroupFormatValidator,
 } from "shared/validators";
 import {
   CreateSDKConnectionParams,
@@ -16,6 +17,10 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
+import {
+  savedGroupFormatFromConnection,
+  withLegacySavedGroupFlag,
+} from "shared/sdk-versioning";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
@@ -77,6 +82,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
+  savedGroupFormat: String,
   eventTracker: String,
   managedBy: {},
   key: {
@@ -127,6 +133,14 @@ function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
       .project;
     conn.projects = [project];
     (conn as SDKConnectionDocument & { project?: string }).project = "";
+  }
+
+  // Migrate the old on/off reference setting to the three-way format.
+  // Deliberately never picks referencesV2: moving an existing connection onto
+  // the new payload shape has to be someone's decision, not a side effect of
+  // deploying.
+  if (!conn.savedGroupFormat) {
+    conn.savedGroupFormat = savedGroupFormatFromConnection(conn);
   }
 
   return omit(conn, ["__v", "_id"]);
@@ -228,6 +242,7 @@ export const createSDKConnectionValidator = z
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
     includeReferencedPrerequisites: z.boolean().optional(),
     managedBy: managedByValidator.optional(),
   })
@@ -255,7 +270,7 @@ export async function createSDKConnection(
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
-    ...otherParams,
+    ...withLegacySavedGroupFlag(otherParams),
     includeReferencedPrerequisites,
     organization: context.org.id,
     languages: languages as SDKLanguage[],
@@ -345,6 +360,7 @@ export const editSDKConnectionValidator = z
     includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
     includeReferencedPrerequisites: z.boolean().optional(),
     eventTracker: z.string().optional(),
   })
@@ -359,7 +375,7 @@ export async function editSDKConnection(
     editSDKConnectionValidator.parse(updates);
 
   const otherChanges = {
-    ...rest,
+    ...withLegacySavedGroupFlag(rest),
     languages: languages as SDKLanguage[],
   };
 
@@ -417,6 +433,7 @@ export async function editSDKConnection(
     "includeTagsInMetadata",
     "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
+    "savedGroupFormat",
     "includeReferencedPrerequisites",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -680,6 +697,7 @@ export function toApiSDKConnectionInterface(
     proxySigningKey: connection.proxy.signingKey,
     remoteEvalEnabled: connection.remoteEvalEnabled,
     savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+    savedGroupFormat: savedGroupFormatFromConnection(connection),
     includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
   };
 }

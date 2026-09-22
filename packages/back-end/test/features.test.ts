@@ -1,5 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import { SavedGroupFormat } from "shared/types/sdk-connection";
 import { getSavedGroupPayloadStrategy } from "shared/sdk-versioning";
 import { FeatureDefinition } from "shared/types/sdk";
 import {
@@ -45,7 +46,7 @@ const v1Strategy = (groupMap: GroupMap) =>
 const v2Strategy = (groupMap: GroupMap) =>
   getSavedGroupPayloadStrategy({
     capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
-    savedGroupReferencesEnabled: true,
+    savedGroupFormat: "referencesV2",
     groupMap,
   });
 
@@ -3387,7 +3388,7 @@ describe("SDK Payloads", () => {
         dateUpdated: new Date(),
         projects: [],
         capabilities: ["savedGroupReferences"],
-        savedGroupReferencesEnabled: true,
+        savedGroupFormat: "referencesV2",
         usedSavedGroups: [cloneDeep(groupDef)],
         organization: organization,
         attributes: [secureStringAttr],
@@ -4114,14 +4115,14 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
   const v1 = () =>
     getSavedGroupPayloadStrategy({
       capabilities: ["savedGroupReferences"],
-      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV2",
       groupMap,
       organization: org,
     });
   const v2 = () =>
     getSavedGroupPayloadStrategy({
       capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
-      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV2",
       groupMap,
       organization: org,
     });
@@ -4346,7 +4347,7 @@ describe("experiment-ref phase prerequisites", () => {
   const parentConditionsFor = (
     prerequisiteCondition: string,
     capabilities: SDKCapability[],
-    savedGroupReferencesEnabled?: boolean,
+    savedGroupFormat?: SavedGroupFormat,
   ) =>
     getFeatureDefinition({
       feature: featureWithExperimentRef(),
@@ -4355,7 +4356,7 @@ describe("experiment-ref phase prerequisites", () => {
       experimentMap: experimentWithPrereq(prerequisiteCondition),
       safeRolloutMap,
       capabilities,
-      savedGroupReferencesEnabled,
+      savedGroupFormat,
       organization: baseOrganization,
     })?.rules?.[0]?.parentConditions;
 
@@ -4366,7 +4367,7 @@ describe("experiment-ref phase prerequisites", () => {
       parentConditionsFor(
         JSON.stringify({ $savedGroups: ["grp_cond"] }),
         ["prerequisites", "savedGroupReferences", "savedGroupReferencesV2"],
-        true,
+        "referencesV2",
       ),
     ).toEqual([
       { id: "parent_feature", condition: { $savedGroup: { id: "grp_cond" } } },
@@ -4378,7 +4379,7 @@ describe("experiment-ref phase prerequisites", () => {
       parentConditionsFor(
         JSON.stringify({ $savedGroups: ["grp_cond"] }),
         ["prerequisites", "savedGroupReferences"],
-        true,
+        "referencesV1",
       ),
     ).toEqual([{ id: "parent_feature", condition: { plan: "pro" } }]);
   });

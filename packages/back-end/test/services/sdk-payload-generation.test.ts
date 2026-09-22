@@ -17,7 +17,11 @@ import {
 } from "shared/types/organization";
 import { FeatureDefinition } from "shared/types/sdk";
 import { ConditionInterface } from "@growthbook/growthbook";
-import { getSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getSDKCapabilities,
+  savedGroupFormatFromConnection,
+} from "shared/sdk-versioning";
+import { SavedGroupFormat } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import {
   hashStrings,
@@ -235,7 +239,7 @@ for (const { label, capabilities } of CAPABILITY_SETS) {
       includeRedirectExperiments: false,
       includeRuleIds: false,
       hashSecureAttributes: false,
-      savedGroupReferencesEnabled: false,
+      savedGroupFormat: "inline",
     },
   });
   CONNECTION_PRESETS.push({
@@ -258,9 +262,9 @@ for (const { label, capabilities } of CAPABILITY_SETS) {
       includeVisualExperiments: false,
       includeDraftExperiments: false,
       includeRedirectExperiments: false,
-      savedGroupReferencesEnabled: capabilities.includes(
-        "savedGroupReferences",
-      ),
+      savedGroupFormat: capabilities.includes("savedGroupReferences")
+        ? "referencesV1"
+        : "inline",
     },
   });
 }
@@ -280,19 +284,19 @@ CONNECTION_PRESETS.push({
 });
 
 CONNECTION_PRESETS.push({
-  name: "savedGroupReferences + savedGroupReferencesEnabled true",
+  name: "savedGroupReferences + savedGroupFormat referencesV1",
   connection: {
     capabilities: ["savedGroupReferences", "bucketingV2"],
     environment: "production",
     projects: ["p1"],
-    savedGroupReferencesEnabled: true,
+    savedGroupFormat: "referencesV2",
     includeRuleIds: false,
     includeExperimentNames: false,
   },
 });
 
 CONNECTION_PRESETS.push({
-  name: "savedGroupReferencesV2 + savedGroupReferencesEnabled true",
+  name: "savedGroupReferencesV2 + savedGroupFormat referencesV2",
   connection: {
     capabilities: [
       "savedGroupReferences",
@@ -301,19 +305,19 @@ CONNECTION_PRESETS.push({
     ],
     environment: "production",
     projects: ["p1"],
-    savedGroupReferencesEnabled: true,
+    savedGroupFormat: "referencesV2",
     includeRuleIds: false,
     includeExperimentNames: false,
   },
 });
 
 CONNECTION_PRESETS.push({
-  name: "savedGroupReferences + savedGroupReferencesEnabled false (expand $inGroup)",
+  name: "savedGroupReferences + savedGroupFormat inline (expand $inGroup)",
   connection: {
     capabilities: ["looseUnmarshalling", "bucketingV2"],
     environment: "production",
     projects: ["p1"],
-    savedGroupReferencesEnabled: false,
+    savedGroupFormat: "inline",
   },
 });
 
@@ -410,7 +414,8 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
         connection.capabilities.includes("looseUnmarshalling");
       const hasSavedGroupRefs =
         connection.capabilities.includes("savedGroupReferences") &&
-        connection.savedGroupReferencesEnabled === true;
+        connection.savedGroupFormat !== undefined &&
+        connection.savedGroupFormat !== "inline";
 
       if (
         connection.projects &&
@@ -2280,6 +2285,91 @@ describe("getUsedSavedGroupIds", () => {
   });
 });
 
+describe("the connection's savedGroupFormat decides the payload", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
+  ]);
+  const organization = { id: "org", settings: {} } as OrganizationInterface;
+
+  const feature = {
+    id: "f",
+    organization: "org",
+    defaultValue: "off",
+    valueType: "string",
+    environmentSettings: {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            id: "r1",
+            type: "force",
+            value: "on",
+            enabled: true,
+            description: "",
+            savedGroups: [{ match: "all", ids: ["grp_list"] }],
+          },
+        ],
+      },
+    },
+  } as unknown as FeatureInterface;
+
+  const conditionFor = (
+    savedGroupFormat: SavedGroupFormat | undefined,
+    capabilities: string[],
+  ) =>
+    getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap: new Map(),
+      organization,
+      capabilities: capabilities as ConnectionPayloadOptions["capabilities"],
+      savedGroupFormat,
+    })?.rules?.[0]?.condition;
+
+  const V1 = ["savedGroupReferences"];
+  const V2 = ["savedGroupReferences", "savedGroupReferencesV2"];
+
+  it("writes each format to an SDK that can read it", () => {
+    expect(conditionFor("inline", V2)).toEqual({ id: { $in: ["u_1"] } });
+    expect(conditionFor("referencesV1", V1)).toEqual({
+      id: { $inGroup: "grp_list" },
+    });
+    expect(conditionFor("referencesV2", V2)).toEqual({
+      $savedGroup: { id: "grp_list" },
+    });
+  });
+
+  it("steps v2 down to v1 when the SDK cannot read v2", () => {
+    expect(conditionFor("referencesV2", V1)).toEqual({
+      id: { $inGroup: "grp_list" },
+    });
+  });
+
+  it("steps references down to inline when the SDK can read neither", () => {
+    expect(conditionFor("referencesV2", ["bucketingV2"])).toEqual({
+      id: { $in: ["u_1"] },
+    });
+  });
+
+  // A connection that predates the setting has it derived by the model, and
+  // that derivation never picks v2.
+  it("inlines for a connection with no format at all", () => {
+    expect(conditionFor(undefined, V2)).toEqual({ id: { $in: ["u_1"] } });
+  });
+
+  it("gives a migrated connection v1, never v2, even on a v2 SDK", () => {
+    const migrated = savedGroupFormatFromConnection({
+      savedGroupReferencesEnabled: true,
+    });
+    expect(migrated).toBe("referencesV1");
+    expect(conditionFor(migrated, V2)).toEqual({
+      id: { $inGroup: "grp_list" },
+    });
+  });
+});
+
 describe("applySavedGroupHashing leaves saved group ids alone", () => {
   it("does not hash ids nested in a Condition Group's own condition", () => {
     // A secure attribute earlier in the same object turns hashing on, and the
@@ -2393,7 +2483,7 @@ describe("a v2 payload carries no v1 saved group operators", () => {
         "savedGroupReferences",
         "savedGroupReferencesV2",
       ] as ConnectionPayloadOptions["capabilities"],
-      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV2",
     });
 
     const serialized = JSON.stringify(def);
@@ -2434,7 +2524,7 @@ describe("feature-level prerequisites saved groups", () => {
       safeRolloutMap: new Map(),
       organization,
       capabilities: capabilities as ConnectionPayloadOptions["capabilities"],
-      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV2",
     })?.rules?.[0]?.parentConditions?.[0]?.condition;
 
   it("rewrites a stored $inGroup under v2", () => {
@@ -2482,7 +2572,7 @@ describe("generateHoldoutsPayload saved groups", () => {
       holdoutsMap: holdoutsMap(condition),
       groupMap,
       capabilities: capabilities as ConnectionPayloadOptions["capabilities"],
-      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV2",
     })["$holdout:ho_1"]?.rules?.[0]?.condition;
 
   const V1 = ["savedGroupReferences"];

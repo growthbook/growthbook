@@ -118,7 +118,10 @@ import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  SavedGroupFormat,
+  SDKConnectionInterface,
+} from "shared/types/sdk-connection";
 import {
   getReviewAuthorityFootprint,
   governingReviewProjectsForFeature,
@@ -204,7 +207,7 @@ export function generateFeaturesPayload({
   includeExperimentScheduleInMetadata,
   projectsMap,
   capabilities,
-  savedGroupReferencesEnabled,
+  savedGroupFormat,
   organization,
   savedGroupStrategy,
   includeRuleIds,
@@ -236,7 +239,7 @@ export function generateFeaturesPayload({
   includeExperimentScheduleInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
   capabilities?: SDKCapability[];
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupFormat?: SavedGroupFormat;
   organization?: OrganizationInterface;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
   includeRuleIds?: boolean;
@@ -277,7 +280,7 @@ export function generateFeaturesPayload({
       safeRolloutMap,
       holdoutsMap,
       capabilities,
-      savedGroupReferencesEnabled,
+      savedGroupFormat,
       organization,
       savedGroupStrategy,
       includeRuleIds,
@@ -349,7 +352,7 @@ export function generateHoldoutsPayload({
   holdoutsMap,
   groupMap,
   capabilities,
-  savedGroupReferencesEnabled,
+  savedGroupFormat,
   savedGroupStrategy: providedSavedGroupStrategy,
 }: {
   holdoutsMap: Map<
@@ -358,7 +361,7 @@ export function generateHoldoutsPayload({
   >;
   groupMap: GroupMap;
   capabilities?: SDKCapability[];
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupFormat?: SavedGroupFormat;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
 }): Record<string, FeatureDefinition> {
   // Holdouts share the payload's savedGroups map, so they need the same format
@@ -368,7 +371,7 @@ export function generateHoldoutsPayload({
     providedSavedGroupStrategy ??
     getSavedGroupPayloadStrategy({
       capabilities,
-      savedGroupReferencesEnabled,
+      savedGroupFormat,
       groupMap,
     });
   const holdoutDefs: Record<string, FeatureDefinition> = {};
@@ -439,7 +442,7 @@ export function generateAutoExperimentsPayload({
   includeExperimentScheduleInMetadata,
   projectsMap,
   capabilities,
-  savedGroupReferencesEnabled,
+  savedGroupFormat,
   organization,
   savedGroupStrategy: providedSavedGroupStrategy,
   includeExperimentNames,
@@ -457,7 +460,7 @@ export function generateAutoExperimentsPayload({
   includeExperimentScheduleInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
   capabilities?: SDKCapability[];
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupFormat?: SavedGroupFormat;
   organization?: OrganizationInterface;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
   includeExperimentNames?: boolean;
@@ -466,7 +469,7 @@ export function generateAutoExperimentsPayload({
     providedSavedGroupStrategy ??
     getSavedGroupPayloadStrategy({
       capabilities,
-      savedGroupReferencesEnabled,
+      savedGroupFormat,
       groupMap,
       organization,
     });
@@ -1192,7 +1195,7 @@ export async function refreshSDKPayloadCache({
             includeRedirectExperiments: connection.includeRedirectExperiments,
             includeRuleIds: connection.includeRuleIds,
             hashSecureAttributes: connection.hashSecureAttributes,
-            savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+            savedGroupFormat: connection.savedGroupFormat,
             includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
             includeCustomFieldsInMetadata:
               connection.includeCustomFieldsInMetadata,
@@ -1247,7 +1250,7 @@ export type FeatureDefinitionsResponseArgs = {
   projects?: string[];
   capabilities: SDKCapability[];
   usedSavedGroups: SavedGroupInterface[];
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupFormat?: SavedGroupFormat;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
   contextualBandits?: ContextualBanditDefinitions;
   organization: OrganizationInterface;
@@ -1264,7 +1267,7 @@ export async function getFeatureDefinitionsResponse({
   capabilities,
   usedSavedGroups,
   contextualBandits,
-  savedGroupReferencesEnabled,
+  savedGroupFormat,
   savedGroupStrategy: providedSavedGroupStrategy,
   organization,
 }: FeatureDefinitionsResponseArgs): Promise<{
@@ -1297,7 +1300,7 @@ export async function getFeatureDefinitionsResponse({
     providedSavedGroupStrategy ??
     getSavedGroupPayloadStrategy({
       capabilities,
-      savedGroupReferencesEnabled,
+      savedGroupFormat,
       groupMap: new Map(usedSavedGroups.map((sg) => [sg.id, sg])),
       organization,
     });
@@ -1459,7 +1462,7 @@ export type FeatureDefinitionArgs = {
   includeTagsInMetadata?: boolean;
   includeExperimentScheduleInMetadata?: boolean;
   hashSecureAttributes?: boolean;
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupFormat?: SavedGroupFormat;
   includeReferencedPrerequisites?: boolean;
 };
 
@@ -1504,7 +1507,7 @@ export type ConnectionPayloadOptions = {
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
   hashSecureAttributes?: boolean;
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupFormat?: SavedGroupFormat;
   includeProjectIdInMetadata?: boolean;
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
@@ -1553,7 +1556,7 @@ export async function buildSDKPayloadForConnection(
     includeRedirectExperiments,
     includeRuleIds,
     hashSecureAttributes,
-    savedGroupReferencesEnabled,
+    savedGroupFormat,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
@@ -1654,7 +1657,7 @@ export async function buildSDKPayloadForConnection(
   // One strategy for the whole payload, so every part uses the same format.
   const savedGroupStrategy = getSavedGroupPayloadStrategy({
     capabilities,
-    savedGroupReferencesEnabled,
+    savedGroupFormat,
     groupMap: data.groupMap,
     organization: context.org,
   });
@@ -1670,7 +1673,7 @@ export async function buildSDKPayloadForConnection(
     safeRolloutMap: data.safeRolloutMap,
     holdoutsMap: holdoutsMapForConnection,
     capabilities,
-    savedGroupReferencesEnabled,
+    savedGroupFormat,
     organization: context.org,
     savedGroupStrategy,
     includeRuleIds,
@@ -1704,7 +1707,7 @@ export async function buildSDKPayloadForConnection(
     environment,
     prereqStateCache,
     capabilities,
-    savedGroupReferencesEnabled,
+    savedGroupFormat,
     organization: context.org,
     savedGroupStrategy,
     includeExperimentNames,
@@ -1879,7 +1882,7 @@ export async function getFeatureDefinitions(
       includeRedirectExperiments: args.includeRedirectExperiments,
       includeRuleIds: args.includeRuleIds,
       hashSecureAttributes: args.hashSecureAttributes,
-      savedGroupReferencesEnabled: args.savedGroupReferencesEnabled,
+      savedGroupFormat: args.savedGroupFormat,
       includeProjectIdInMetadata: args.includeProjectIdInMetadata,
       includeCustomFieldsInMetadata: args.includeCustomFieldsInMetadata,
       allowedCustomFieldsInMetadata: args.allowedCustomFieldsInMetadata,

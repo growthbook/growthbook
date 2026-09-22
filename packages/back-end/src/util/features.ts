@@ -33,6 +33,7 @@ import {
 } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
 import { GroupMap } from "shared/types/saved-group";
+import { SavedGroupFormat } from "shared/types/sdk-connection";
 import { cloneDeep, isNil, pick } from "lodash";
 import md5 from "md5";
 import {
@@ -911,7 +912,7 @@ export function getFeatureDefinition({
   safeRolloutMap,
   holdoutsMap,
   capabilities,
-  savedGroupReferencesEnabled,
+  savedGroupFormat,
   organization,
   savedGroupStrategy: providedSavedGroupStrategy,
   includeRuleIds,
@@ -938,7 +939,7 @@ export function getFeatureDefinition({
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
   capabilities?: SDKCapability[];
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupFormat?: SavedGroupFormat;
   organization?: OrganizationInterface;
   // Built once per payload build; omit on paths that have no SDK connection.
   savedGroupStrategy?: SavedGroupPayloadStrategy;
@@ -1112,7 +1113,7 @@ export function getFeatureDefinition({
     providedSavedGroupStrategy ??
     getSavedGroupPayloadStrategy({
       capabilities,
-      savedGroupReferencesEnabled,
+      savedGroupFormat,
       groupMap,
       organization,
     });

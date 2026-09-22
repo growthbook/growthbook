@@ -67,6 +67,9 @@ import { sdkLanguages } from "shared/constants";
 
 export type SDKLanguage = (typeof sdkLanguages)[number];
 
+/** The three ways Saved Groups can be written into a payload. */
+export type SavedGroupFormat = "inline" | "referencesV1" | "referencesV2";
+
 export interface SDKConnectionInterface {
   id: string;
   organization: string;
@@ -109,6 +112,16 @@ export interface SDKConnectionInterface {
   proxy: ProxyConnection;
 
   remoteEvalEnabled?: boolean;
+  /**
+   * How Saved Groups are written into this connection's payload. Absent on
+   * connections created before the setting existed; `toInterface` derives it
+   * from `savedGroupReferencesEnabled` for those.
+   */
+  savedGroupFormat?: SavedGroupFormat;
+  /**
+   * @deprecated Superseded by `savedGroupFormat`. Still written and still
+   * accepted by the API so existing integrations keep working.
+   */
   savedGroupReferencesEnabled?: boolean;
   managedBy?: ManagedBy;
 }

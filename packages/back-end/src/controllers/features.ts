@@ -63,6 +63,7 @@ import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
   SDKCapability,
+  savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import {
   ACTIVE_DRAFT_STATUSES,
@@ -525,7 +526,7 @@ export type SDKPayloadParams = Pick<
   | "includeRedirectExperiments"
   | "includeRuleIds"
   | "hashSecureAttributes"
-  | "savedGroupReferencesEnabled"
+  | "savedGroupFormat"
   | "remoteEvalEnabled"
   | "includeProjectIdInMetadata"
   | "includeCustomFieldsInMetadata"
@@ -577,7 +578,7 @@ export async function getPayloadParamsFromApiKey(
       includeTagsInMetadata: connection.includeTagsInMetadata,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
-      savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+      savedGroupFormat: savedGroupFormatFromConnection(connection),
       includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
       languages: connection.languages,
       sdkVersion: connection.sdkVersion,
@@ -698,11 +699,9 @@ export async function getFeatureDefinitionsWithCache({
       allowedCustomFieldsInMetadata: params.allowedCustomFieldsInMetadata,
       includeTagsInMetadata: params.includeTagsInMetadata,
       hashSecureAttributes: params.hashSecureAttributes,
-      savedGroupReferencesEnabled:
-        params.savedGroupReferencesEnabled !== undefined
-          ? params.savedGroupReferencesEnabled &&
-            capabilities.includes("savedGroupReferences")
-          : undefined,
+      // resolveSavedGroupRendering steps this down when the SDK cannot read
+      // it, so filtering here too would only make the two disagree.
+      savedGroupFormat: params.savedGroupFormat,
       includeReferencedPrerequisites: params.includeReferencedPrerequisites,
     });
 

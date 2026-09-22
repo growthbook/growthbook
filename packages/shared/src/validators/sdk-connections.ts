@@ -3,6 +3,13 @@ import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
+/** Keep in sync with SavedGroupFormat in shared/types/sdk-connection. */
+export const savedGroupFormatValidator = z.enum([
+  "inline",
+  "referencesV1",
+  "referencesV2",
+]);
+
 // Corresponds to schemas/SdkConnection.yaml
 export const apiSdkConnectionValidator = namedSchema(
   "SdkConnection",
@@ -47,7 +54,15 @@ export const apiSdkConnectionValidator = namedSchema(
       sseEnabled: z.boolean().optional(),
       hashSecureAttributes: z.boolean().optional(),
       remoteEvalEnabled: z.boolean().optional(),
-      savedGroupReferencesEnabled: z.boolean().optional(),
+      savedGroupReferencesEnabled: z
+        .boolean()
+        .optional()
+        .describe("Deprecated. Use `savedGroupFormat`."),
+      savedGroupFormat: savedGroupFormatValidator
+        .optional()
+        .describe(
+          "How Saved Groups are written into this connection's payload. `referencesV2` needs an SDK version that supports it; the payload steps down to `referencesV1` if not.",
+        ),
       includeReferencedPrerequisites: z.boolean().optional(),
     })
     .strict(),
@@ -84,7 +99,11 @@ const postSdkConnectionBody = z
     proxyHost: z.string().optional(),
     hashSecureAttributes: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
-    savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupReferencesEnabled: z
+      .boolean()
+      .optional()
+      .describe("Deprecated. Use `savedGroupFormat`."),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
     includeReferencedPrerequisites: z
       .boolean()
       .optional()

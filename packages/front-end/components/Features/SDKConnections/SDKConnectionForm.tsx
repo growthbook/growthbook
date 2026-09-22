@@ -19,6 +19,7 @@ import {
   getSDKCapabilityVersion,
   getSDKVersions,
   isSDKOutdated,
+  savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import {
   filterProjectsByEnvironment,
@@ -46,6 +47,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import Checkbox from "@/ui/Checkbox";
+import RadioGroup from "@/ui/RadioGroup";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
@@ -165,8 +167,12 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
-      savedGroupReferencesEnabled:
-        initialValue.savedGroupReferencesEnabled ?? false,
+      // New connections start on the newest format; existing ones keep what
+      // they have. `savedGroupFormat` is derived from the old boolean by the
+      // model, so it is always set for a connection that has been saved.
+      savedGroupFormat:
+        initialValue.savedGroupFormat ??
+        (edit ? savedGroupFormatFromConnection(initialValue) : "referencesV2"),
       includeProjectIdInMetadata:
         initialValue.includeProjectIdInMetadata ??
         (initialValue as { includeProjectId?: boolean }).includeProjectId ??
@@ -260,7 +266,7 @@ export default function SDKConnectionForm({
 
   useEffect(() => {
     if (!showSavedGroupSettings) {
-      form.setValue("savedGroupReferencesEnabled", false);
+      form.setValue("savedGroupFormat", "inline");
     }
   }, [showSavedGroupSettings, form]);
 
@@ -1178,61 +1184,76 @@ export default function SDKConnectionForm({
       {showSavedGroupSettings && (
         <Box mt="5">
           <Heading as="h4" size="sm" mb="3">
-            Saved Groups
+            <PremiumTooltip
+              commercialFeature="large-saved-groups"
+              body={
+                <>
+                  <p>
+                    Passing Saved Groups by reference sends each group once in
+                    its own key instead of copying it into every rule that uses
+                    it, so re-using a group stops growing the payload.
+                  </p>
+                  <HelperText status="warning" size="sm">
+                    Older SDK versions
+                    {form.watch("remoteEvalEnabled")
+                      ? " and remote evaluation tools (e.g. GrowthBook Proxy)"
+                      : ""}{" "}
+                    cannot read references. Check your SDK is up to date before
+                    changing this.
+                  </HelperText>
+                </>
+              }
+            >
+              Saved Groups <PiInfo />
+            </PremiumTooltip>
           </Heading>
-          <Box>
-            <Checkbox
-              weight="regular"
-              value={form.watch("savedGroupReferencesEnabled")}
-              setValue={(val) =>
-                form.setValue("savedGroupReferencesEnabled", val)
-              }
-              disabled={!hasLargeSavedGroupFeature}
-              label={
-                <PremiumTooltip
-                  commercialFeature="large-saved-groups"
-                  body={
-                    <>
-                      {supportsAllSavedGroupTypes ? (
-                        <p>
-                          Reduce the size of your payload by moving Saved Groups
-                          from inline evaluation to a separate key in the
-                          payload json. Re-using a Saved Group in multiple
-                          features or experiments will no longer meaningfully
-                          increase the size of your payload.
-                        </p>
-                      ) : (
-                        <>
-                          <p>
-                            Reduce the size of your payload by moving ID List
-                            Saved Groups from inline evaluation to a separate
-                            key in the payload json. Re-using an ID List in
-                            multiple features or experiments will no longer
-                            meaningfully increase the size of your payload.
-                          </p>
-                          <p>
-                            This SDK version covers ID Lists only. Condition
-                            Groups are still sent with every rule that uses them
-                            until you upgrade the SDK.
-                          </p>
-                        </>
-                      )}
-                      <HelperText status="warning" size="sm">
-                        This feature is not supported by old SDK versions
-                        {form.watch("remoteEvalEnabled")
-                          ? " or remote evaluation tools (e.g. GrowthBook Proxy)"
-                          : ""}
-                        . Ensure that your SDK implementation is up to date
-                        before enabling this feature.
-                      </HelperText>
-                    </>
-                  }
-                >
-                  Pass Saved Groups by reference <PiInfo />
-                </PremiumTooltip>
-              }
-            />
-          </Box>
+          <RadioGroup
+            value={form.watch("savedGroupFormat") ?? "inline"}
+            setValue={(val) =>
+              form.setValue(
+                "savedGroupFormat",
+                val as NonNullable<SDKConnectionInterface["savedGroupFormat"]>,
+              )
+            }
+            options={[
+              {
+                value: "inline",
+                label: "Pass Saved Groups inline",
+                description:
+                  "Every rule carries a copy of the groups it uses. Works with any SDK version.",
+              },
+              {
+                value: "referencesV1",
+                label: "Pass Saved Groups by reference (v1 serialization)",
+                description:
+                  "ID Lists are sent once and referenced. Condition Groups are still copied into each rule.",
+                disabled: !hasLargeSavedGroupFeature,
+                disabledReason:
+                  "Available with an Enterprise plan. Upgrade to use it.",
+              },
+              {
+                value: "referencesV2",
+                label: "Pass Saved Groups by reference (v2 serialization)",
+                description:
+                  "Every Saved Group is sent once and referenced, Condition Groups included.",
+                // Left selectable when it is already the saved value, so an SDK
+                // downgrade shows the warning rather than silently dropping the
+                // choice. Re-upgrading the SDK resumes v2.
+                disabled:
+                  (!hasLargeSavedGroupFeature || !supportsAllSavedGroupTypes) &&
+                  form.watch("savedGroupFormat") !== "referencesV2",
+                disabledReason: !hasLargeSavedGroupFeature
+                  ? "Available with an Enterprise plan. Upgrade to use it."
+                  : "This SDK version cannot read v2 references. Upgrade the SDK to use it.",
+                error:
+                  form.watch("savedGroupFormat") === "referencesV2" &&
+                  !supportsAllSavedGroupTypes
+                    ? "This SDK version cannot read v2 references, so the payload uses v1 until you upgrade it."
+                    : undefined,
+                errorLevel: "warning",
+              },
+            ]}
+          />
         </Box>
       )}
 

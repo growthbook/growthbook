@@ -8,6 +8,8 @@ import {
   buildV2SavedGroupsPayload,
   findAllReferencedSavedGroupIds,
   resolveSavedGroupRendering,
+  savedGroupFormatFromConnection,
+  withLegacySavedGroupFlag,
   getSavedGroupPayloadStrategy,
   withoutUnsupportedSavedGroupCapabilities,
   SAVED_GROUP_ERROR_CYCLE,
@@ -363,7 +365,7 @@ describe("createV2SavedGroupsOperatorHandler", () => {
   const rewrite = (condition: Record<string, unknown>) => {
     const strategy = getSavedGroupPayloadStrategy({
       capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
-      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV2",
       groupMap,
     });
     recursiveWalk(condition, strategy.createSavedGroupsOperatorHandler());
@@ -482,7 +484,7 @@ describe("referencesV2 finalizeCondition", () => {
   const finalize = (condition: Record<string, unknown>) => {
     getSavedGroupPayloadStrategy({
       capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
-      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV2",
       groupMap,
     }).finalizeCondition(condition);
     return condition;
@@ -635,7 +637,7 @@ describe("referencesV2 finalizeCondition", () => {
     ];
     getSavedGroupPayloadStrategy({
       capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
-      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV2",
       groupMap,
     }).finalizeCondition(parentConditions);
     expect(parentConditions).toEqual([
@@ -651,7 +653,7 @@ describe("referencesV2 finalizeCondition", () => {
     const condition = { country: { $inGroup: "list_country" } };
     getSavedGroupPayloadStrategy({
       capabilities: ["savedGroupReferences"],
-      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV2",
       groupMap,
     }).finalizeCondition(condition);
     expect(condition).toEqual({ country: { $inGroup: "list_country" } });
@@ -819,6 +821,9 @@ describe("buildV2SavedGroupsPayload", () => {
 });
 
 describe("resolveSavedGroupRendering", () => {
+  const V1 = ["savedGroupReferences"] as const;
+  const V2 = ["savedGroupReferences", "savedGroupReferencesV2"] as const;
+
   it("keeps reference operators when there is no SDK connection", () => {
     // Previews and the in-app evaluators pass no capabilities. They pass the
     // group values in separately when they evaluate.
@@ -828,83 +833,170 @@ describe("resolveSavedGroupRendering", () => {
     expect(
       resolveSavedGroupRendering({
         capabilities: undefined,
-        savedGroupReferencesEnabled: false,
+        savedGroupFormat: "inline",
         canInline: true,
       }),
     ).toBe("referencesV1");
   });
 
-  it("inlines when the connection opted out", () => {
+  it("inlines when the connection asks for inline", () => {
     expect(
       resolveSavedGroupRendering({
-        capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
-        savedGroupReferencesEnabled: false,
+        capabilities: [...V2],
+        savedGroupFormat: "inline",
         canInline: true,
       }),
     ).toBe("inline");
   });
 
-  it("treats an absent opt-in as disabled", () => {
+  it("treats an absent setting as inline", () => {
     expect(
       resolveSavedGroupRendering({
-        capabilities: ["savedGroupReferences"],
+        capabilities: [...V1],
         canInline: true,
       }),
     ).toBe("inline");
   });
 
-  it("inlines when the SDK cannot resolve references at all", () => {
+  it("gives each format to an SDK that can read it", () => {
     expect(
       resolveSavedGroupRendering({
-        capabilities: ["looseUnmarshalling"],
-        savedGroupReferencesEnabled: true,
-        canInline: true,
-      }),
-    ).toBe("inline");
-  });
-
-  it("falls back to v1 references when it cannot inline", () => {
-    // With no organization there is nothing to inline from, so the operators
-    // are left for a later pass.
-    expect(
-      resolveSavedGroupRendering({
-        capabilities: ["looseUnmarshalling"],
-        savedGroupReferencesEnabled: true,
-        canInline: false,
-      }),
-    ).toBe("referencesV1");
-  });
-
-  it("uses v1 references for an SDK that lacks the v2 capability", () => {
-    expect(
-      resolveSavedGroupRendering({
-        capabilities: ["savedGroupReferences"],
-        savedGroupReferencesEnabled: true,
+        capabilities: [...V1],
+        savedGroupFormat: "referencesV1",
         canInline: true,
       }),
     ).toBe("referencesV1");
-  });
-
-  it("uses v2 references only with both capabilities and the opt-in", () => {
     expect(
       resolveSavedGroupRendering({
-        capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
-        savedGroupReferencesEnabled: true,
+        capabilities: [...V2],
+        savedGroupFormat: "referencesV2",
         canInline: true,
       }),
     ).toBe("referencesV2");
   });
 
-  it("does not use v2 references without the v1 capability", () => {
+  it("steps v2 down to v1 when the SDK cannot read v2", () => {
+    expect(
+      resolveSavedGroupRendering({
+        capabilities: [...V1],
+        savedGroupFormat: "referencesV2",
+        canInline: true,
+      }),
+    ).toBe("referencesV1");
+  });
+
+  it("steps references down to inline when the SDK cannot read any", () => {
+    expect(
+      resolveSavedGroupRendering({
+        capabilities: ["looseUnmarshalling"],
+        savedGroupFormat: "referencesV2",
+        canInline: true,
+      }),
+    ).toBe("inline");
+  });
+
+  it("falls back to v1 when it cannot inline", () => {
+    // With no organization there is nothing to inline from, so the operators
+    // are left for a later pass.
+    expect(
+      resolveSavedGroupRendering({
+        capabilities: ["looseUnmarshalling"],
+        savedGroupFormat: "referencesV2",
+        canInline: false,
+      }),
+    ).toBe("referencesV1");
+  });
+
+  it("does not use v2 without the v1 capability", () => {
     // Cannot happen today, since v2 is newer than v1. Asking for both is what
     // stops the conditions and the savedGroups map disagreeing.
     expect(
       resolveSavedGroupRendering({
         capabilities: ["savedGroupReferencesV2"],
-        savedGroupReferencesEnabled: true,
+        savedGroupFormat: "referencesV2",
         canInline: true,
       }),
     ).toBe("inline");
+  });
+});
+
+describe("savedGroupFormatFromConnection", () => {
+  it("prefers the explicit format", () => {
+    expect(
+      savedGroupFormatFromConnection({
+        savedGroupFormat: "inline",
+        savedGroupReferencesEnabled: true,
+      }),
+    ).toBe("inline");
+  });
+
+  // Never picks v2: moving an existing connection onto the new payload shape
+  // has to be a deliberate choice.
+  it("migrates the old boolean, and never to v2", () => {
+    expect(
+      savedGroupFormatFromConnection({ savedGroupReferencesEnabled: true }),
+    ).toBe("referencesV1");
+    expect(
+      savedGroupFormatFromConnection({ savedGroupReferencesEnabled: false }),
+    ).toBe("inline");
+    expect(savedGroupFormatFromConnection({})).toBe("inline");
+  });
+});
+
+describe("withLegacySavedGroupFlag", () => {
+  // A rollback to a build that only reads the boolean must not strand the
+  // setting, so every write keeps the two in step.
+  it("derives the boolean from the format", () => {
+    expect(withLegacySavedGroupFlag({ savedGroupFormat: "inline" })).toEqual({
+      savedGroupFormat: "inline",
+      savedGroupReferencesEnabled: false,
+    });
+    expect(
+      withLegacySavedGroupFlag({ savedGroupFormat: "referencesV1" }),
+    ).toEqual({
+      savedGroupFormat: "referencesV1",
+      savedGroupReferencesEnabled: true,
+    });
+    expect(
+      withLegacySavedGroupFlag({ savedGroupFormat: "referencesV2" }),
+    ).toEqual({
+      savedGroupFormat: "referencesV2",
+      savedGroupReferencesEnabled: true,
+    });
+  });
+
+  it("leaves other fields alone", () => {
+    expect(
+      withLegacySavedGroupFlag({
+        savedGroupFormat: "referencesV1",
+        name: "conn",
+      }),
+    ).toEqual({
+      savedGroupFormat: "referencesV1",
+      savedGroupReferencesEnabled: true,
+      name: "conn",
+    });
+  });
+
+  // An edit that does not touch the format must not touch the boolean either,
+  // or a partial update would overwrite it.
+  it("changes nothing when the format is absent", () => {
+    expect(withLegacySavedGroupFlag({ name: "conn" })).toEqual({
+      name: "conn",
+    });
+  });
+
+  it("round-trips with savedGroupFormatFromConnection", () => {
+    (["inline", "referencesV1", "referencesV2"] as const).forEach((format) => {
+      const written = withLegacySavedGroupFlag({ savedGroupFormat: format });
+      expect(savedGroupFormatFromConnection(written)).toBe(format);
+      // And a build that only knows the boolean reads back the same intent
+      expect(
+        savedGroupFormatFromConnection({
+          savedGroupReferencesEnabled: written.savedGroupReferencesEnabled,
+        }),
+      ).toBe(format === "inline" ? "inline" : "referencesV1");
+    });
   });
 });
 
@@ -1022,7 +1114,7 @@ describe("getSavedGroupPayloadStrategy", () => {
       {
         strategy: getSavedGroupPayloadStrategy({
           capabilities: ["savedGroupReferences"],
-          savedGroupReferencesEnabled: true,
+          savedGroupFormat: "referencesV2",
           groupMap,
           organization: org,
         }),
@@ -1032,7 +1124,7 @@ describe("getSavedGroupPayloadStrategy", () => {
       {
         strategy: getSavedGroupPayloadStrategy({
           capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
-          savedGroupReferencesEnabled: true,
+          savedGroupFormat: "referencesV2",
           groupMap,
           organization: org,
         }),
