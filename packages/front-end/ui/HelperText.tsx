@@ -1,4 +1,4 @@
-import { Flex, Text, TextProps } from "@radix-ui/themes";
+import { Box, Flex, Text, TextProps } from "@radix-ui/themes";
 import { forwardRef, ReactElement, ReactNode } from "react";
 import {
   PiCheckCircleFill,
@@ -102,7 +102,7 @@ export default forwardRef<
             {renderedIcon}
           </div>
         )}
-        <div>{children}</div>
+        <Box>{children}</Box>
       </Flex>
     </Text>
   );

@@ -30,6 +30,7 @@ import {
   getEnvsFromRampSchedule,
   isRampScheduleServing,
   rampRuleEnvKey,
+  RAMP_PATCH_RULE_FIELDS,
   rampPlanControlledFields,
   rampTargetFootprint,
   rampTargetRuleIds,
@@ -1073,7 +1074,18 @@ export async function applyRampBaseStateSync(
     await runLockedRampScheduleAction(ctx, schedule.id, async (fresh) => {
       const actions = fresh.startActions ?? [];
       const anchors = patches.map((p) => actions.find((a) => sameAction(a, p)));
-      if (anchors.some((a) => !a)) {
+      // The gates ran on a pre-lock snapshot; a resume or re-plan since then
+      // must send the publish back through them rather than slip past.
+      const stale =
+        fresh.status === "running" ||
+        anchors.some((a) => !a) ||
+        patches.some((p) => {
+          const controlled = rampPlanControlledFields(fresh, p.targetId);
+          return Object.keys(p.patch).some((k) =>
+            controlled.has(RAMP_PATCH_RULE_FIELDS[k] ?? k),
+          );
+        });
+      if (stale) {
         throw new ConflictError(
           `Ramp schedule "${fresh.name}" changed while publishing; retry the publish`,
         );
