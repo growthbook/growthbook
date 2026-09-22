@@ -160,7 +160,7 @@ function FunnelCard({
           </Tooltip>
         ) : null}
       </Flex>
-      {children ? <Box mt="3">{children}</Box> : null}
+      {children ? <Box mt="1">{children}</Box> : null}
     </Box>
   );
 }
@@ -616,7 +616,7 @@ export default function TrafficAllocationFunnel({
                 </SetupFieldRow>
                 {/* The bar keeps its place while a draft is edited: the
                     slider is the same readout, made draggable. */}
-                <Box mt="3">
+                <Box mt="1">
                   {editInline ? (
                     <PercentSlider
                       value={phase.coverage ?? 1}
