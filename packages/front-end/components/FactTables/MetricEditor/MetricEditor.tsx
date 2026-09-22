@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef, FunnelSettings } from "shared/types/fact-table";
@@ -9,6 +9,7 @@ import useFullFactTable from "@/hooks/useFullFactTable";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
@@ -66,6 +67,9 @@ export default function MetricEditor({
   const { getFactTableById, getDatasourceById, factTables, project } =
     useDefinitions();
   const { hasCommercialFeature } = useUser();
+  const [showCappingConversionNotice, setShowCappingConversionNotice] =
+    useState(false);
+  const cappingSettings = form.watch("cappingSettings");
 
   const metricType = form.watch("metricType");
   const numerator = form.watch("numerator");
@@ -139,6 +143,7 @@ export default function MetricEditor({
   const formType = formTypeResult.type;
 
   function changeFormType(newFormType: FormMetricType) {
+    const previousCapping = form.getValues("cappingSettings");
     if (newFormType !== "ratio") denominatorTableOverridden.current = false;
     const result = applyFormType(
       {
@@ -152,7 +157,11 @@ export default function MetricEditor({
       },
       newFormType,
       factTable,
-      hasCountDistinctHLL,
+      { hasCountDistinctHLL: () => hasCountDistinctHLL },
+    );
+    setShowCappingConversionNotice(
+      previousCapping.type === "absolute" &&
+        result.cappingSettings?.type === "percentile",
     );
     form.setValue("metricType", result.metricType);
     // Funnel has no numerator - matches today's modal, which leaves the
@@ -173,12 +182,9 @@ export default function MetricEditor({
     const newFactTable = getFactTableById(newFactTableId) ?? null;
     form.setValue(
       "numerator",
-      onFactTableChange(
-        numerator,
-        newFactTableId,
-        newFactTable,
-        hasCountDistinctHLL,
-      ),
+      onFactTableChange(numerator, newFactTable, {
+        hasCountDistinctHLL: () => hasCountDistinctHLL,
+      }),
     );
     // Datasource is derived from the fact table, not selected directly (spec).
     if (newFactTable) form.setValue("datasource", newFactTable.datasource);
@@ -187,9 +193,8 @@ export default function MetricEditor({
         "denominator",
         onFactTableChange(
           denominator ?? { factTableId: "", column: "$$count", rowFilters: [] },
-          newFactTableId,
           newFactTable,
-          hasCountDistinctHLL,
+          { hasCountDistinctHLL: () => hasCountDistinctHLL },
         ),
       );
     }
@@ -224,6 +229,26 @@ export default function MetricEditor({
             quantileAvailableForDatasource={quantileAvailableForDatasource}
           />
         </Frame>
+
+        {formType === "ratio" &&
+          showCappingConversionNotice &&
+          cappingSettings.type === "percentile" &&
+          cappingSettings.value === 0 && (
+            <Callout
+              status="warning"
+              role="status"
+              action={
+                <Link onClick={() => setShowCappingConversionNotice(false)}>
+                  Dismiss
+                </Link>
+              }
+            >
+              Switching to Ratio automatically changed absolute capping to
+              percentile capping and reset the value to 0. Choose a percentile
+              before saving in Advanced settings → Analysis settings → &quot;Cap
+              User Values?&quot;.
+            </Callout>
+          )}
 
         <Frame>
           <Heading as="h4" size="sm" mb="1">
@@ -283,7 +308,7 @@ export default function MetricEditor({
                     numerator,
                     valueShape,
                     factTable,
-                    hasCountDistinctHLL,
+                    { hasCountDistinctHLL: () => hasCountDistinctHLL },
                   );
                   form.setValue("numerator", { ...refit, column });
                 }}
