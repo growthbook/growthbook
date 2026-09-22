@@ -554,44 +554,6 @@ export default function TrafficAllocationFunnel({
             </Flex>
           ) : null}
 
-          <FunnelCard
-            title="Targeting"
-            onEdit={editTargeting}
-            disabled={!safeToEdit}
-          >
-            <SetupFieldRow label="Audience" content="text">
-              {targetsEveryone ? (
-                <Text color="text-mid">
-                  <em>Everyone</em>
-                </Text>
-              ) : (
-                <Flex direction="column" gap="3">
-                  {hasCondition ? (
-                    <ConditionDisplay condition={phase.condition} />
-                  ) : null}
-                  {hasSavedGroups ? (
-                    <SavedGroupTargetingDisplay
-                      savedGroups={phase.savedGroups}
-                    />
-                  ) : null}
-                  {hasPrerequisites ? (
-                    <ConditionDisplay prerequisites={phase.prerequisites} />
-                  ) : null}
-                </Flex>
-              )}
-            </SetupFieldRow>
-            <AssignmentAttribute
-              experiment={experiment}
-              hashAttribute={hashAttribute}
-              fallbackAttribute={fallbackAttribute}
-              disableStickyBucketing={disableStickyBucketing}
-              editInline={editInline}
-              stagePatch={stagePatch}
-            />
-          </FunnelCard>
-
-          <FunnelConnector />
-
           {/* No pencil: the percentage edits in place, the split has its own
               editor, and each variation carries its own. */}
           <FunnelCard title="Traffic">
@@ -601,7 +563,7 @@ export default function TrafficAllocationFunnel({
                   label="Included %"
                   content={editInline ? "control" : "text"}
                   labelAlign="center"
-                  tooltip="The share of everyone who matches the targeting above that this experiment runs on."
+                  tooltip="The share of the matching audience this experiment runs on."
                 >
                   {editInline ? (
                     <PercentField
@@ -659,6 +621,44 @@ export default function TrafficAllocationFunnel({
                 </Text>
               </Flex>
             )}
+            <AssignmentAttribute
+              experiment={experiment}
+              hashAttribute={hashAttribute}
+              fallbackAttribute={fallbackAttribute}
+              disableStickyBucketing={disableStickyBucketing}
+              editInline={editInline}
+              stagePatch={stagePatch}
+            />
+          </FunnelCard>
+
+          <FunnelConnector />
+
+          <FunnelCard
+            title="Targeting"
+            onEdit={editTargeting}
+            disabled={!safeToEdit}
+          >
+            <SetupFieldRow label="Audience" content="text">
+              {targetsEveryone ? (
+                <Text color="text-mid">
+                  <em>Everyone</em>
+                </Text>
+              ) : (
+                <Flex direction="column" gap="3">
+                  {hasCondition ? (
+                    <ConditionDisplay condition={phase.condition} />
+                  ) : null}
+                  {hasSavedGroups ? (
+                    <SavedGroupTargetingDisplay
+                      savedGroups={phase.savedGroups}
+                    />
+                  ) : null}
+                  {hasPrerequisites ? (
+                    <ConditionDisplay prerequisites={phase.prerequisites} />
+                  ) : null}
+                </Flex>
+              )}
+            </SetupFieldRow>
           </FunnelCard>
         </Flex>
         {!isHoldout && (
