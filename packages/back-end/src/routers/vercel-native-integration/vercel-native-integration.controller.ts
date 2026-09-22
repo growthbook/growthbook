@@ -140,8 +140,9 @@ const getBearerToken = (req: Request) => {
 
 const VERCEL_ISSUER = "https://marketplace.vercel.com";
 
-// Vercel's system tokens carry a bare `account:<id>` subject
-const USER_SUBJECT = /^account:[0-9a-fA-F]+:user:[0-9a-fA-F]+$/;
+// Vercel's user and system token schemas are both additionalProperties: false,
+// so a user claim can only appear on a user token
+const USER_CLAIMS = ["user_id", "user_role", "user_email"];
 
 type VercelAuth =
   | ({ type: "user" } & z.infer<typeof userAuthenticationValidator>)
@@ -158,8 +159,10 @@ const verifyVercelToken = async (
       audience: VERCEL_CLIENT_ID,
     });
 
-    // The token's own subject decides this, never the caller's x-vercel-auth header
-    if (USER_SUBJECT.test(String(verified.payload.sub)))
+    // The token's own claims decide this, never the caller's x-vercel-auth
+    // header. Any user claim routes to the user validator, so a token that
+    // carries one can never skip the role check by failing to parse
+    if (USER_CLAIMS.some((claim) => claim in verified.payload))
       return {
         status: "authenticated",
         auth: { type: "user", ...userAuthenticationValidator.parse(verified) },
