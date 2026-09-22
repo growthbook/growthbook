@@ -30,8 +30,7 @@ import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
-import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
+import EditSplitModal from "@/components/Experiment/EditSplitModal";
 import VariationsTable, {
   VARIATION_GRID_COLUMNS,
   variationGridMaxWidth,
@@ -262,14 +261,6 @@ export default function TrafficAllocationFunnel({
       ...patch,
     }));
 
-  const stageWeight = (i: number, weight: number) =>
-    targetingDraft?.set((prev) => {
-      const base = prev ?? targetingDefaults;
-      const weights = [...(base.variationWeights ?? [])];
-      weights[i] = weight;
-      return { ...base, variationWeights: weights };
-    });
-
   useRegisterExperimentEdit("targeting", !!staged, {
     save: async () => {
       await apiCall(`/experiment/${experiment.id}/targeting`, {
@@ -291,6 +282,8 @@ export default function TrafficAllocationFunnel({
     staged?.disableStickyBucketing ??
     experiment.disableStickyBucketing ??
     false;
+
+  const [editingSplit, setEditingSplit] = useState(false);
 
   // The traffic modal writes as it saves, which would race whatever the page
   // is still holding.
@@ -449,12 +442,6 @@ export default function TrafficAllocationFunnel({
   const numVariations = phaseVariations.length;
   const variationWeights =
     staged?.variationWeights ?? storedPhase?.variationWeights ?? [];
-  const weightRows: SortableVariation[] = phaseVariations.map((v, i) => ({
-    id: v.id,
-    value: v.key,
-    name: v.name,
-    weight: variationWeights[i] ?? 0,
-  }));
 
   return (
     <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
@@ -630,20 +617,6 @@ export default function TrafficAllocationFunnel({
                     </Text>
                   )}
                 </SetupFieldRow>
-                {editInline && !isBandit ? (
-                  <SetupFieldRow label="Split" content="control">
-                    {/* Names and values belong to their own editors; this one
-                        only moves weight between variations. */}
-                    <FeatureVariationsInput
-                      variations={weightRows}
-                      setWeight={stageWeight}
-                      hideCoverage
-                      hideVariationIds
-                      showPreview={false}
-                      startEditingSplits
-                    />
-                  </SetupFieldRow>
-                ) : null}
                 {/* The bar keeps its place while a draft is edited: the
                     slider is the same readout, made draggable. */}
                 <Box mt="3">
@@ -698,9 +671,35 @@ export default function TrafficAllocationFunnel({
               <Box pb="4">
                 <Flex direction="column" align="center">
                   <Box className={styles.connectorLine} height="6px" />
-                  <Text size="sm" color="text-low">
-                    Split
-                  </Text>
+                  {/* The label stays centred on the stem, so the pencil hangs
+                      off its right rather than taking room in the row. */}
+                  <Box position="relative">
+                    <Text size="md" weight="medium" color="text-mid">
+                      Split
+                    </Text>
+                    {editInline ? (
+                      <Box
+                        position="absolute"
+                        left="100%"
+                        top="50%"
+                        ml="1"
+                        style={{ lineHeight: 0, transform: "translateY(-50%)" }}
+                      >
+                        <Tooltip content="Edit Split">
+                          <IconButton
+                            variant="ghost"
+                            color="violet"
+                            radius="medium"
+                            size="1"
+                            onClick={() => setEditingSplit(true)}
+                            aria-label="Edit Split"
+                          >
+                            <PiPencilSimple size="14" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    ) : null}
+                  </Box>
                 </Flex>
                 {/* Coverage is already shown above, so this bar is purely the
                     split between variations. Held to the grid's width so the
@@ -726,6 +725,19 @@ export default function TrafficAllocationFunnel({
                 </Box>
               </Box>
             )}
+
+            {editingSplit ? (
+              <EditSplitModal
+                variations={phaseVariations}
+                weights={variationWeights}
+                staged
+                close={() => setEditingSplit(false)}
+                onConfirm={(weights) => {
+                  stagePatch({ variationWeights: weights });
+                  setEditingSplit(false);
+                }}
+              />
+            ) : null}
 
             <VariationsTable
               experiment={experiment}
