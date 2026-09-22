@@ -4,6 +4,8 @@ on:
     paths:
       - "docs/**"
       - "scripts/check-docs-frontmatter.mjs"
+      - "scripts/check-doclink-registry.mjs"
+      - "packages/front-end/components/docSections.ts"
       - ".github/workflows/docs.yml"
   push:
     branches:
@@ -11,6 +13,8 @@ on:
     paths:
       - "docs/**"
       - "scripts/check-docs-frontmatter.mjs"
+      - "scripts/check-doclink-registry.mjs"
+      - "packages/front-end/components/docSections.ts"
       - ".github/workflows/docs.yml"
 jobs:
   # Mintlify hosts/deploys docs via their GitHub App; this job only validates content.
@@ -29,6 +33,9 @@ jobs:
 
       - name: Check YAML frontmatter quoting
         run: node scripts/check-docs-frontmatter.mjs
+
+      - name: Check DocLink registry targets
+        run: node scripts/check-doclink-registry.mjs
 
       - name: Install Mintlify CLI
         run: npm install -g mint
