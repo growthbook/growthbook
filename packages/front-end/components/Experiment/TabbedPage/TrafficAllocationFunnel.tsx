@@ -746,7 +746,7 @@ function AssignmentAttribute({
       <SetupFieldRow
         label={`Assignment attribute${fallbackAttribute ? "s" : ""}`}
         content={editInline ? "control" : "text"}
-        fieldMaxWidth="320px"
+        fieldMaxWidth="180px"
         tooltip="Hashed with the tracking key to decide which variation each user gets."
       >
         {editInline ? (

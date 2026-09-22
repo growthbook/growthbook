@@ -36,7 +36,10 @@ export default function SetupFieldRow({
   tooltip?: string;
   /** `text` for a row that only reads a value back, which needs no offset. */
   content?: RowContent;
-  /** Caps the control's width, for one that has no business filling the row. */
+  /**
+   * The width a control keeps, for one that has no business filling the row.
+   * It is also the point the row wraps at, in place of the usual threshold.
+   */
   fieldMaxWidth?: string;
   children: ReactNode;
 }) {
@@ -75,7 +78,7 @@ export default function SetupFieldRow({
       <Box
         flexGrow="1"
         style={{
-          minWidth: `min(100%, ${MIN_FIELD_WIDTH})`,
+          minWidth: `min(100%, ${fieldMaxWidth ?? MIN_FIELD_WIDTH})`,
           maxWidth: fieldMaxWidth,
         }}
       >
