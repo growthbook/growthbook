@@ -39,7 +39,9 @@ export function ThresholdBasisRow({
     "count";
 
   if (!canEdit) {
-    const hasColumn = columnsForShape(shape, factTable, false).length > 0;
+    const hasColumn =
+      columnsForShape(shape, factTable, { hasCountDistinctHLL: () => false })
+        .length > 0;
     return (
       <DataList
         maxColumns={1}
@@ -79,6 +81,7 @@ export function ThresholdBasisRow({
               newShape,
               factTable,
               value.aggregateFilterColumn || "",
+              { hasCountDistinctHLL: () => false },
             ),
           })
         }

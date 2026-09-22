@@ -43,7 +43,9 @@ export default function ColumnSelect({
     );
   }
 
-  const columns = columnsForShape(shape, factTable, hasCountDistinctHLL);
+  const columns = columnsForShape(shape, factTable, {
+    hasCountDistinctHLL: () => hasCountDistinctHLL,
+  });
   if (columns.length === 0) {
     if (
       !factTable ||
