@@ -19,6 +19,12 @@ type LabelSize = "md" | "lg";
 type RowContent = "control" | "text";
 
 /**
+ * Where the label sits against its field: level with the first line, or
+ * centred on the control — which only reads right for a control of one line.
+ */
+type LabelAlign = "top" | "center";
+
+/**
  * One field on the setup tab: its name on the left, the control on the right.
  * Anything explaining the field belongs in `tooltip`, not under the label.
  */
@@ -27,6 +33,7 @@ export default function SetupFieldRow({
   labelSize = "md",
   tooltip,
   content = "control",
+  labelAlign = "top",
   fieldMaxWidth,
   children,
 }: {
@@ -36,6 +43,8 @@ export default function SetupFieldRow({
   tooltip?: string;
   /** `text` for a row that only reads a value back, which needs no offset. */
   content?: RowContent;
+  /** `center` for a row whose control is a single line, such as a select. */
+  labelAlign?: LabelAlign;
   /**
    * The width a control keeps, for one that has no business filling the row.
    * It is also the point the row wraps at, in place of the usual threshold.
@@ -46,14 +55,22 @@ export default function SetupFieldRow({
   return (
     // Wraps rather than squeezing: below the width the field needs, the label
     // takes a row of its own. Driven by the row's own width, not the window's.
-    <Flex align="start" gap="4" py="2" wrap="wrap">
+    <Flex
+      align={labelAlign === "center" ? "center" : "start"}
+      gap="4"
+      py="2"
+      wrap="wrap"
+    >
       <Box
         flexShrink="0"
         width={LABEL_WIDTH}
         // Nudged down so the label reads level with the control beside it,
         // which centres its own text inside a taller box.
         style={{
-          paddingTop: content === "control" ? LABEL_OFFSET[labelSize] : "0",
+          paddingTop:
+            content === "control" && labelAlign === "top"
+              ? LABEL_OFFSET[labelSize]
+              : "0",
         }}
       >
         <Flex align="center" gap="1">
