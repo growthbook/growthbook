@@ -72,7 +72,21 @@ export async function putUser(
 
   // displayName is ignored: User.name is global across orgs, so a single IdP cannot rename them.
 
-  if (growthbookRole && growthbookRole !== currentMemberRole) {
+  let isActive = true;
+
+  // Deactivate before role updates so a failed sole-admin removal cannot leave a persisted demotion.
+  if (active === false) {
+    try {
+      await removeUserFromOrg(org, orgUser);
+      isActive = false;
+    } catch (e) {
+      return res.status(400).json({
+        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+        status: "400",
+        detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
+      });
+    }
+  } else if (growthbookRole && growthbookRole !== currentMemberRole) {
     if (!isRoleValid(growthbookRole, org)) {
       return res.status(400).json({
         schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
@@ -87,21 +101,6 @@ export async function putUser(
         schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
         status: "400",
         detail: `Unable to update the user's role: ${e.message}`,
-      });
-    }
-  }
-
-  let isActive = true;
-
-  if (active === false) {
-    try {
-      await removeUserFromOrg(org, orgUser);
-      isActive = false;
-    } catch (e) {
-      return res.status(400).json({
-        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-        status: "400",
-        detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
       });
     }
   }
