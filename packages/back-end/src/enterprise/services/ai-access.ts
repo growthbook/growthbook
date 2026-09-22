@@ -23,7 +23,7 @@ export class AIUsageLimitError extends Error {
   }
 }
 
-async function assertAIEnabled(context: ReqContext): Promise<void> {
+export async function assertAIEnabled(context: ReqContext): Promise<void> {
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
     throw new PlanDoesNotAllowError("Your plan does not support AI features.");
   }
@@ -77,50 +77,6 @@ async function runGate(
       ...(e instanceof AIUsageLimitError ? { retryAfter: e.retryAfter } : {}),
     });
     return false;
-  }
-}
-
-export type AIAccessResult =
-  | { ok: true }
-  | { ok: false; status: number; message: string; retryAfter?: number };
-
-export async function checkAIEnabled(
-  context: ReqContext,
-): Promise<AIAccessResult> {
-  try {
-    await assertAIEnabled(context);
-    return { ok: true };
-  } catch (e) {
-    const status =
-      e instanceof Error && "status" in e && typeof e.status === "number"
-        ? e.status
-        : 400;
-    return {
-      ok: false,
-      status,
-      message: e instanceof Error ? e.message : "AI access denied",
-    };
-  }
-}
-
-export async function checkAccessGates(
-  context: ReqContext,
-  target: AIUsageTarget = {},
-): Promise<AIAccessResult> {
-  try {
-    await assertAIAccess(context, target);
-    return { ok: true };
-  } catch (e) {
-    const status =
-      e instanceof Error && "status" in e && typeof e.status === "number"
-        ? e.status
-        : 400;
-    return {
-      ok: false,
-      status,
-      message: e instanceof Error ? e.message : "AI access denied",
-      ...(e instanceof AIUsageLimitError ? { retryAfter: e.retryAfter } : {}),
-    };
   }
 }
 

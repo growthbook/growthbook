@@ -32,8 +32,8 @@ import { logger } from "back-end/src/util/logger";
 import {
   runAIEnabledGates,
   enforceAIUsageCap,
-  checkAIEnabled,
-  checkAccessGates,
+  assertAIEnabled,
+  assertAIAccess,
   buildSystemPromptForRequest,
 } from "back-end/src/enterprise/services/ai-access";
 import {
@@ -607,7 +607,7 @@ export type RunAgentTurnResult =
       /** A mutation the agent parked for confirmation, or null. */
       pendingAction: AIAgentPendingAction | null;
     }
-  | { ok: false; status: number; message: string; retryAfter?: number };
+  | { ok: false; message: string };
 
 /** Minimal input for a headless turn — the non-HTTP analogue of the chat request body. */
 export interface HeadlessTurnInput {
@@ -667,14 +667,10 @@ export async function runAgentTurnToCompletion<TParams>({
 
   config.onStreamStart?.(body.conversationId);
 
-  const gate = await checkAIEnabled(context);
-  if (!gate.ok) {
-    return {
-      ok: false,
-      status: gate.status,
-      message: gate.message,
-      ...(gate.retryAfter !== undefined ? { retryAfter: gate.retryAfter } : {}),
-    };
+  try {
+    await assertAIEnabled(context);
+  } catch (e) {
+    return { ok: false, message: getErrorMessage(e, "AI access denied") };
   }
 
   const params = config.parseParams(body);
@@ -724,21 +720,20 @@ export async function runAgentTurnToCompletion<TParams>({
     beforeResolvePendingAction,
     signal,
     enforceUsageCap: async (model) => {
-      const capped = await checkAccessGates(context, { model });
-      if (capped.ok) return true;
-      capFailure = {
-        ok: false,
-        status: capped.status,
-        message: capped.message,
-        ...(capped.retryAfter !== undefined
-          ? { retryAfter: capped.retryAfter }
-          : {}),
-      };
-      return false;
+      try {
+        await assertAIAccess(context, { model });
+        return true;
+      } catch (e) {
+        capFailure = {
+          ok: false,
+          message: getErrorMessage(e, "AI access denied"),
+        };
+        return false;
+      }
     },
   });
   if (capFailure) return capFailure;
-  if (streamError) return { ok: false, status: 500, message: streamError };
+  if (streamError) return { ok: false, message: streamError };
 
   return {
     ok: true,

@@ -476,6 +476,26 @@ export const listSlackOAuthConnections = async (
   };
 };
 
+// A single connected workspace may be implied; several must be named.
+export const pickSlackWorkspaceConnection = (
+  connections: SlackWorkspaceConnectionInterface[],
+  teamId?: string,
+): SlackWorkspaceConnectionInterface => {
+  const connection = teamId
+    ? connections.find((candidate) => candidate.teamId === teamId)
+    : connections.length === 1
+      ? connections[0]
+      : undefined;
+  if (!connection) {
+    throw new Error(
+      connections.length > 1 && !teamId
+        ? "Multiple Slack workspaces are connected — specify which one."
+        : "No Slack workspace connection found. Connect to Slack first.",
+    );
+  }
+  return connection;
+};
+
 export const setSlackAssistantEnabled = async ({
   context,
   teamId,
@@ -485,19 +505,10 @@ export const setSlackAssistantEnabled = async ({
   teamId?: string;
   enabled: boolean;
 }): Promise<{ enabled: boolean }> => {
-  const connections = await context.models.slackWorkspaceConnections.getAll();
-  const target = teamId
-    ? connections.find((connection) => connection.teamId === teamId)
-    : connections.length === 1
-      ? connections[0]
-      : undefined;
-  if (!target) {
-    throw new Error(
-      connections.length > 1
-        ? "Multiple Slack workspaces are connected — specify which one."
-        : "No Slack workspace connection found.",
-    );
-  }
+  const target = pickSlackWorkspaceConnection(
+    await context.models.slackWorkspaceConnections.getAll(),
+    teamId,
+  );
   await context.models.slackWorkspaceConnections.update(target, {
     assistantEnabled: enabled,
   });
@@ -765,18 +776,7 @@ const resolveSlackWorkspace = async ({
     context.models.slackWorkspaceConnections.getAll(),
     getAllEventWebHooks(context.org.id),
   ]);
-  const connection = teamId
-    ? connections.find((candidate) => candidate.teamId === teamId)
-    : connections.length === 1
-      ? connections[0]
-      : undefined;
-  if (!connection) {
-    throw new Error(
-      connections.length > 1 && !teamId
-        ? "Multiple Slack workspaces are connected — specify which one."
-        : "No Slack workspace connection found. Connect to Slack first.",
-    );
-  }
+  const connection = pickSlackWorkspaceConnection(connections, teamId);
   return {
     connection,
     token: getSlackWorkspaceToken(connection),

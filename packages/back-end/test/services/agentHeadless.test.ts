@@ -1,7 +1,7 @@
 import { dispatchInternal } from "back-end/src/agent/dispatcher";
 import {
-  checkAIEnabled,
-  checkAccessGates,
+  assertAIEnabled,
+  assertAIAccess,
 } from "back-end/src/enterprise/services/ai-access";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -28,8 +28,8 @@ jest.mock("back-end/src/enterprise/services/ai", () => ({
   streamingChatCompletion: jest.fn(),
 }));
 jest.mock("back-end/src/enterprise/services/ai-access", () => ({
-  checkAIEnabled: jest.fn().mockResolvedValue({ ok: true }),
-  checkAccessGates: jest.fn().mockResolvedValue({ ok: true }),
+  assertAIEnabled: jest.fn(),
+  assertAIAccess: jest.fn(),
   buildSystemPromptForRequest: jest.fn().mockResolvedValue({ system: "test" }),
 }));
 jest.mock("back-end/src/enterprise/services/conversation-buffer", () => ({
@@ -89,7 +89,7 @@ it.each([false, true])(
         config,
         input: { message: "Next question", conversationId: "conv_test" },
       }),
-    ).toEqual({ ok: false, status: 500, message: "Provider failed" });
+    ).toEqual({ ok: false, message: "Provider failed" });
   },
 );
 
@@ -107,7 +107,7 @@ it("does not recycle an earlier answer when the new turn has no text", async () 
   ).toMatchObject({ ok: true, reply: "" });
 });
 
-it.each([checkAIEnabled, checkAccessGates])(
+it.each([assertAIEnabled, assertAIAccess])(
   "does not consume approval on a failed gate and permits a retry",
   async (gate) => {
     const buffer = await loadOrInitConversation(
@@ -130,11 +130,7 @@ it.each([checkAIEnabled, checkAccessGates])(
       confirmActionId: "action",
       confirmDecision: "confirm" as const,
     };
-    jest.mocked(gate).mockResolvedValueOnce({
-      ok: false,
-      status: 429,
-      message: "Limit reached",
-    });
+    jest.mocked(gate).mockRejectedValueOnce(new Error("Limit reached"));
     expect(
       await runAgentTurnToCompletion({
         context,
@@ -142,7 +138,7 @@ it.each([checkAIEnabled, checkAccessGates])(
         input,
         beforeResolvePendingAction,
       }),
-    ).toMatchObject({ ok: false });
+    ).toEqual({ ok: false, message: "Limit reached" });
     expect(beforeResolvePendingAction).not.toHaveBeenCalled();
     expect(buffer.getPendingAction()?.id).toBe("action");
     jest.mocked(dispatchInternal).mockResolvedValue({ status: 200, body: {} });

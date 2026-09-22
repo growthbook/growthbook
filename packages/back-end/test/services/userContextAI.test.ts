@@ -5,7 +5,7 @@ import {
   licenseInit,
   orgHasPremiumFeature,
 } from "back-end/src/enterprise";
-import { checkAIEnabled } from "back-end/src/enterprise/services/ai-access";
+import { assertAIEnabled } from "back-end/src/enterprise/services/ai-access";
 import { getUserById } from "back-end/src/models/UserModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
@@ -110,8 +110,7 @@ it("rejects non-members before loading their license", async () => {
 });
 
 it("explains a missing provider key when the AI setting is already enabled", async () => {
-  expect(await checkAIEnabled(await getContext())).toEqual({
-    ok: false,
+  await expect(assertAIEnabled(await getContext())).rejects.toMatchObject({
     status: 404,
     message:
       "AI is enabled, but no usable AI provider API key is configured. An admin can add one in GrowthBook → Settings → AI & Prompts.",
@@ -119,12 +118,11 @@ it("explains a missing provider key when the AI setting is already enabled", asy
 });
 
 it("directs disabled organizations to the AI toggle", async () => {
-  expect(
-    await checkAIEnabled(
+  await expect(
+    assertAIEnabled(
       await getContext({ ...org, settings: { aiEnabled: false } }),
     ),
-  ).toEqual({
-    ok: false,
+  ).rejects.toMatchObject({
     status: 404,
     message:
       "AI is disabled for this organization. An admin can enable AI in GrowthBook → Settings → General.",
@@ -137,14 +135,13 @@ it.each(AI_PROVIDERS)(
     const context = await getContext();
     const keys = await getResolvedAIKeys(context);
     keys[provider] = { key: "test-provider-key", source: "organization" };
-    expect(await checkAIEnabled(context)).toEqual({ ok: true });
+    await expect(assertAIEnabled(context)).resolves.toBeUndefined();
   },
 );
 
 it("preserves the plan failure when AI is configured", async () => {
   jest.mocked(orgHasPremiumFeature).mockReturnValue(false);
-  expect(await checkAIEnabled(await getContext())).toEqual({
-    ok: false,
+  await expect(assertAIEnabled(await getContext())).rejects.toMatchObject({
     status: 403,
     message: "Your plan does not support AI features.",
   });

@@ -96,31 +96,24 @@ beforeEach(() => {
 });
 
 it.each([
-  { status: 403, message: "Your plan does not support AI features." },
-  {
-    status: 404,
-    message:
-      "AI is enabled, but no usable AI provider API key is configured. An admin can add one in GrowthBook → Settings → AI & Prompts.",
-  },
-  { status: 429, message: "Over AI usage limits" },
-])(
-  "preserves the specific AI access failure ($status)",
-  async ({ status, message }) => {
-    jest
-      .mocked(runAgentTurnToCompletion)
-      .mockResolvedValue({ ok: false, status, message });
-    await handleSlackAssistantMention({
-      teamId: "T1",
-      channelId: "C1",
-      slackUserId: "U1",
-      text: "What experiments are running?",
-      messageTs: "123.456",
-    });
-    expect(postSlackMessage).toHaveBeenLastCalledWith(
-      expect.objectContaining({ text: message.replace(/&/g, "&amp;") }),
-    );
-  },
-);
+  "Your plan does not support AI features.",
+  "AI is enabled, but no usable AI provider API key is configured. An admin can add one in GrowthBook → Settings → AI & Prompts.",
+  "Over AI usage limits",
+])("preserves the specific AI access failure: %s", async (message) => {
+  jest
+    .mocked(runAgentTurnToCompletion)
+    .mockResolvedValue({ ok: false, message });
+  await handleSlackAssistantMention({
+    teamId: "T1",
+    channelId: "C1",
+    slackUserId: "U1",
+    text: "What experiments are running?",
+    messageTs: "123.456",
+  });
+  expect(postSlackMessage).toHaveBeenLastCalledWith(
+    expect.objectContaining({ text: message.replace(/&/g, "&amp;") }),
+  );
+});
 
 it.each(["confirm", "cancel"] as const)(
   "offers fresh approval controls when a %s continuation parks another action",
@@ -207,7 +200,6 @@ it("keeps controls retryable before dispatch but blocks replay after an uncertai
   };
   jest.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
     ok: false,
-    status: 429,
     message: "Limit reached",
   });
   await handleSlackAssistantConfirmation(input);

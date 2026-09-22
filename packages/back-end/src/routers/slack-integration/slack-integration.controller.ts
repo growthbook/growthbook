@@ -355,8 +355,11 @@ export const postSlackDisconnect = async (
 export const postSlackLinkConsent = async (
   req: AuthRequest<{ state: string }>,
   res: Response<SlackLinkConsent>,
-) =>
-  res.json(await getSlackLinkConsent(getContextFromReq(req), req.body.state));
+) => {
+  return res.json(
+    await getSlackLinkConsent(getContextFromReq(req), req.body.state),
+  );
+};
 
 export const postSlackLink = async (
   req: AuthRequest<SlackLinkBody>,
