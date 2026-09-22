@@ -134,9 +134,6 @@ export default function MetricTypeSelect({
         label={
           <Flex direction="column" gap="1" mb="2">
             <Text weight="semibold">Metric type</Text>
-            <Text size="sm" color="text-mid">
-              Description
-            </Text>
           </Flex>
         }
         triggerClassName={styles.trigger}
