@@ -301,16 +301,18 @@ code a {
   #content-area {
     margin-left: max(0px, calc(50vw - 348px - 18rem)) !important;
   }
+}
 
-  /* 404 is centered in the column already; the article offset above shifts it right. */
-  #content-area:has(.not-found-container) {
-    margin-left: 0 !important;
+/* The 404 hides the sidebar, but #body-content still keeps the 18rem sidebar
+   padding, so the message sits right of center. */
+@media (min-width: 1024px) {
+  #body-content:has(.not-found-container) {
+    padding-left: 0 !important;
   }
 }
 
-/* Mintlify pins the 404 to the top of the content column (py-48). Fill the
-   space under the navbar and center the card in that column. */
 #content-area:has(.not-found-container) {
+  margin-left: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: center !important;
