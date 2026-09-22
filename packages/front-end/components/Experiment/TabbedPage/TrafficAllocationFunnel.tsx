@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { Dispatch, ReactNode, SetStateAction, useMemo, useState } from "react";
 import clsx from "clsx";
 import {
   ExperimentInterfaceStringDates,
@@ -30,6 +30,8 @@ import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import VariationsTable, {
   VARIATION_GRID_COLUMNS,
   variationGridMaxWidth,
@@ -95,7 +97,11 @@ export interface Props {
 
 export interface TargetingDraft {
   value: ExperimentTargetingData | null;
-  set: (value: ExperimentTargetingData | null) => void;
+  /**
+   * Takes an updater as well as a value: rebalancing writes every weight in
+   * one tick, and each write has to see the one before it.
+   */
+  set: Dispatch<SetStateAction<ExperimentTargetingData | null>>;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -251,7 +257,18 @@ export default function TrafficAllocationFunnel({
   // Everything below reads the staged targeting where there is one, so a
   // confirmed change shows on the page before it is written.
   const stagePatch = (patch: Partial<ExperimentTargetingData>) =>
-    targetingDraft?.set({ ...(staged ?? targetingDefaults), ...patch });
+    targetingDraft?.set((prev) => ({
+      ...(prev ?? targetingDefaults),
+      ...patch,
+    }));
+
+  const stageWeight = (i: number, weight: number) =>
+    targetingDraft?.set((prev) => {
+      const base = prev ?? targetingDefaults;
+      const weights = [...(base.variationWeights ?? [])];
+      weights[i] = weight;
+      return { ...base, variationWeights: weights };
+    });
 
   useRegisterExperimentEdit("targeting", !!staged, {
     save: async () => {
@@ -288,6 +305,7 @@ export default function TrafficAllocationFunnel({
         condition: staged.condition,
         savedGroups: staged.savedGroups,
         prerequisites: staged.prerequisites,
+        variationWeights: staged.variationWeights,
       }
     : storedPhase;
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
@@ -429,6 +447,14 @@ export default function TrafficAllocationFunnel({
     : undefined;
   const phaseVariations = getLatestPhaseVariations(experiment);
   const numVariations = phaseVariations.length;
+  const variationWeights =
+    staged?.variationWeights ?? storedPhase?.variationWeights ?? [];
+  const weightRows: SortableVariation[] = phaseVariations.map((v, i) => ({
+    id: v.id,
+    value: v.key,
+    name: v.name,
+    weight: variationWeights[i] ?? 0,
+  }));
 
   return (
     <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
@@ -604,6 +630,20 @@ export default function TrafficAllocationFunnel({
                     </Text>
                   )}
                 </SetupFieldRow>
+                {editInline && !isBandit ? (
+                  <SetupFieldRow label="Split" content="control">
+                    {/* Names and values belong to their own editors; this one
+                        only moves weight between variations. */}
+                    <FeatureVariationsInput
+                      variations={weightRows}
+                      setWeight={stageWeight}
+                      hideCoverage
+                      hideVariationIds
+                      showPreview={false}
+                      startEditingSplits
+                    />
+                  </SetupFieldRow>
+                ) : null}
                 {/* The bar keeps its place while a draft is edited: the
                     slider is the same readout, made draggable. */}
                 <Box mt="3">
