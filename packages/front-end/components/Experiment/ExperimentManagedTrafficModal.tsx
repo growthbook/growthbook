@@ -476,10 +476,10 @@ function ManagedTrafficForm({
     label: null,
     valueAsId: isBandit,
     lockStructure: !safeToEdit,
-    hideCoverage: !safeToEdit,
+    // Coverage belongs to the setup tab's Traffic card, which edits it in
+    // place; this modal only moves traffic between variations.
+    hideCoverage: true,
     hideSplits: isBandit || !safeToEdit,
-    coverage: form.watch("coverage"),
-    setCoverage: (coverage: number) => form.setValue("coverage", coverage),
     setWeight: (i: number, weight: number) =>
       form.setValue(`variationWeights.${i}`, weight),
     variations:
@@ -670,11 +670,7 @@ function ManagedTrafficForm({
       trackingEventModalType="edit-traffic-modal"
       open={true}
       close={close}
-      header={
-        experiment.status === "draft"
-          ? "Edit Traffic & Variations"
-          : "Edit Variations"
-      }
+      header="Edit Variations"
       headerAction={
         isManaged || !feature || !editingValues ? undefined : (
           <DraftSelectorDropdown

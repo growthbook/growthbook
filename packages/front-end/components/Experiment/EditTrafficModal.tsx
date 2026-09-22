@@ -155,25 +155,18 @@ function EditTrafficForm({
       trackingEventModalType="edit-traffic-modal"
       open={true}
       close={close}
-      header="Edit Traffic & Variations"
+      header="Edit Variations"
       submit={submit}
       size="lg"
     >
       <Box pt="2">
         <FeatureVariationsInput
           label={null}
-          // The default copy is written for a feature rule. Here the traffic
-          // belongs to the experiment, and excluded users fall past its rules
-          // to whatever the flag serves next.
-          coverageTooltip={
-            experiment.linkedFeatures?.length
-              ? "Users not included in this experiment will flow through to subsequent feature flag rules"
-              : undefined
-          }
           valueAsId={isBandit}
           hideSplits={isBandit}
-          coverage={form.watch("coverage")}
-          setCoverage={(coverage) => form.setValue("coverage", coverage)}
+          // Coverage belongs to the setup tab's Traffic card, which edits it in
+          // place; this modal only moves traffic between variations.
+          hideCoverage
           setWeight={(i, weight) =>
             form.setValue(`variationWeights.${i}`, weight)
           }
