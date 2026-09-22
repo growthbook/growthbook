@@ -299,6 +299,7 @@ export default function TrafficAllocationFunnel({
         savedGroups: staged.savedGroups,
         prerequisites: staged.prerequisites,
         variationWeights: staged.variationWeights,
+        namespace: staged.namespace,
       }
     : storedPhase;
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
