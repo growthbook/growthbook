@@ -6,14 +6,12 @@ import React, {
   useState,
 } from "react";
 import { NextPage } from "next";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
 import { PiArrowClockwise } from "react-icons/pi";
-import LegacySlackIntegrationsPage from "@/components/SlackIntegrations/LegacySlackIntegrationsPage";
 import SlackWorkspacePanel from "@/components/SlackIntegrations/SlackWorkspacePanel";
 import useSlackNavigationGuard from "@/components/SlackIntegrations/useSlackNavigationGuard";
 import { SlackIntegrationsListViewContainer } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
@@ -699,19 +697,10 @@ const SlackWorkspacePage: NextPage = () => {
             ))}
           </Flex>
         )}
-        <SlackIntegrationsListViewContainer key={orgId} legacyOnly />
+        <SlackIntegrationsListViewContainer key={orgId} />
       </Flex>
     </Box>
   );
 };
 
-const SlackIntegrationsPage: NextPage = () => {
-  const workspaceUIEnabled = useFeatureIsOn("slack-workspace-ui");
-  return workspaceUIEnabled ? (
-    <SlackWorkspacePage />
-  ) : (
-    <LegacySlackIntegrationsPage />
-  );
-};
-
-export default SlackIntegrationsPage;
+export default SlackWorkspacePage;

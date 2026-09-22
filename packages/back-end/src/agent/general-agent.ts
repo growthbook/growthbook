@@ -65,11 +65,9 @@ How to use the \`askUser\` tool:
   arrives as the next chat message.
 
 How to end a turn:
-- Do all \`loadSkill\` / \`callApi\` work first, then end with ONE short plain-text
-  markdown message — that last message is the user-visible reply; everything
-  before it is collapsed as intermediate work. Keep it to 1–4 sentences (or a
-  short bulleted list), reference specific numbers from the API responses, and
-  don't restate the question, recap steps, or paste raw JSON.
+- End with ONE short plain-text markdown message. Keep it to 1–4 sentences (or
+  a short bulleted list), reference specific numbers from the API responses,
+  and don't restate the question, recap steps, or paste raw JSON.
 - Calling \`askUser\` is the alternative way to end a turn (the question is the
   user-visible content — emit no plain text after it).
 
@@ -743,6 +741,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   temperature: 0.1,
   maxSteps: 30,
   maxConsecutiveToolErrors: 5,
+  terminalToolNames: ["askUser"],
 };
 
 // =============================================================================

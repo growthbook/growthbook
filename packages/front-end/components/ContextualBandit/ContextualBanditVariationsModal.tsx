@@ -125,6 +125,7 @@ export default function ContextualBanditVariationsModal({
                 id: string;
                 name?: string;
                 description?: string;
+                key?: string;
               } = { id: v.id };
               if (v.name !== prev.name) patch.name = v.name;
               const prevDescription = prev.description ?? "";
@@ -132,9 +133,8 @@ export default function ContextualBanditVariationsModal({
               if (nextDescription !== prevDescription) {
                 patch.description = nextDescription;
               }
-              return patch.name !== undefined || patch.description !== undefined
-                ? [patch]
-                : [];
+              if (v.key !== prev.key) patch.key = v.key;
+              return Object.keys(patch).length > 1 ? [patch] : [];
             });
 
           if (addedVariations.length > 0 && linkedFeatures.length > 0) {
@@ -195,12 +195,11 @@ export default function ContextualBanditVariationsModal({
       >
         <FeatureVariationsInput
           label={null}
-          valueAsId
-          hideVariationIds
           hideSplits
           hideCoverage
           showDescriptions
           showPreview={false}
+          startEditingIndexes
           // Splits are hidden and weights are reconciled server-side, so the
           // weight is a placeholder the input requires but never shows. The
           // no-op setWeight is needed because FeatureVariationsInput only
