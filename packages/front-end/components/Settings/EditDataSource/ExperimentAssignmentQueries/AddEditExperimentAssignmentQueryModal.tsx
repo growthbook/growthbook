@@ -328,6 +328,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   label: i.userIdType,
                 }))}
                 required
+                sort={false}
                 value={userEnteredUserIdTypes}
                 onChange={(value) => {
                   // Only still-default queries follow identifier selection; a
