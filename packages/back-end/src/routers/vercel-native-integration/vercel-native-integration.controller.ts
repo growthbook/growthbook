@@ -28,6 +28,7 @@ import {
   getVercelSSOToken,
   syncVercelSdkConnection,
   deleteVercelSdkWebhook,
+  VERCEL_CLIENT_ID,
 } from "back-end/src/services/vercel-native-integration.service";
 import {
   createSDKConnection,
@@ -137,41 +138,43 @@ const getBearerToken = (req: Request) => {
   return undefined;
 };
 
-type CheckedAuth<T extends string | "user"> = T extends "user"
-  ? {
-      status: "authenticated";
-      authentication: z.infer<typeof userAuthenticationValidator>;
-    }
-  : {
-      status: "authenticated";
-      authentication: z.infer<typeof systemAuthenticationValidator>;
-    };
+const VERCEL_ISSUER = "https://marketplace.vercel.com";
 
-const checkAuth = async <T extends string | "user">({
-  token,
-  type,
-}: {
-  token: string;
-  type: T;
-}): Promise<CheckedAuth<T> | { status: "error"; message: string }> => {
+// Vercel signs user tokens with `account:<id>:user:<id>` and system tokens with
+// `account:<id>`
+const USER_SUBJECT = /^account:[0-9a-fA-F]+:user:[0-9a-fA-F]+$/;
+
+type VercelAuth =
+  | ({ type: "user" } & z.infer<typeof userAuthenticationValidator>)
+  | ({ type: "system" } & z.infer<typeof systemAuthenticationValidator>);
+
+const verifyVercelToken = async (
+  token: string,
+): Promise<
+  { status: "authenticated"; auth: VercelAuth } | { status: "error" }
+> => {
   try {
-    const payload = await jwtVerify(token, vercelJKWSKey);
+    const verified = await jwtVerify(token, vercelJKWSKey, {
+      issuer: VERCEL_ISSUER,
+      audience: VERCEL_CLIENT_ID,
+    });
 
-    if (type === "user")
+    // The token's own subject decides this, never the caller's x-vercel-auth header
+    if (USER_SUBJECT.test(String(verified.payload.sub)))
       return {
         status: "authenticated",
-        authentication: userAuthenticationValidator.parse(payload),
-      } as CheckedAuth<T>;
+        auth: { type: "user", ...userAuthenticationValidator.parse(verified) },
+      };
 
-    if (type === "system")
-      return {
-        status: "authenticated",
-        authentication: systemAuthenticationValidator.parse(payload),
-      } as CheckedAuth<T>;
-
-    return { status: "error", message: `Unsupported authentication: ${type}` };
+    return {
+      status: "authenticated",
+      auth: {
+        type: "system",
+        ...systemAuthenticationValidator.parse(verified),
+      },
+    };
   } catch (_err) {
-    return { status: "error", message: "Invalid credentials" };
+    return { status: "error" };
   }
 };
 
@@ -251,7 +254,8 @@ const getContext = async ({
 
   if (userEmail && !user) failed(400, "Invalid user!");
 
-  // TODO: Verify the token is for an admin user (or system)
+  // Marketplace calls act on the org's installation as a whole, so the context
+  // is org-admin by design; the caller's authority is checked in authContext
   const context = new ReqContextClass({
     org,
     auditUser: user
@@ -277,7 +281,11 @@ const getContext = async ({
   };
 };
 
-const authContext = async (req: Request, res: Response) => {
+const authContext = async (
+  req: Request,
+  res: Response,
+  { requireAdmin = true }: { requireAdmin?: boolean } = {},
+) => {
   const failed = (status: number, reason?: string) => {
     logger.warn(
       {
@@ -301,14 +309,21 @@ const authContext = async (req: Request, res: Response) => {
 
   if (!token) return failed(401, "Invalid credentials");
 
-  const checkedAuth = await checkAuth({
-    token,
-    type: String(req.headers["x-vercel-auth"]),
-  });
+  const checkedAuth = await verifyVercelToken(token);
 
-  if (checkedAuth.status === "error") return failed(401, checkedAuth.message);
+  if (checkedAuth.status === "error") return failed(401, "Invalid credentials");
 
-  const installationId = checkedAuth.authentication.payload.installation_id;
+  const { auth } = checkedAuth;
+
+  // Vercel's USER role covers its read-only Billing and Viewer roles
+  if (
+    requireAdmin &&
+    auth.type === "user" &&
+    auth.payload.user_role !== "ADMIN"
+  )
+    return failed(403, "Insufficient permissions");
+
+  const installationId = auth.payload.installation_id;
 
   if (!installationId) return failed(401, "Missing installation context");
 
@@ -321,11 +336,7 @@ const authContext = async (req: Request, res: Response) => {
   return getContext({
     installationId,
     resourceId: req.params.resource_id,
-    userEmail:
-      "user_email" in checkedAuth.authentication.payload &&
-      typeof checkedAuth.authentication.payload.user_email === "string"
-        ? checkedAuth.authentication.payload.user_email
-        : undefined,
+    userEmail: auth.type === "user" ? auth.payload.user_email : undefined,
     res,
   });
 };
@@ -347,12 +358,15 @@ export async function upsertInstallation(req: Request, res: Response) {
 
   if (!token) return res.status(401).send("Invalid credentials");
 
-  const checkedAuth = await checkAuth({ token, type: "user" });
+  const checkedAuth = await verifyVercelToken(token);
 
-  if (checkedAuth.status === "error")
-    return res.status(401).send(checkedAuth.message);
+  if (checkedAuth.status === "error" || checkedAuth.auth.type !== "user")
+    return res.status(401).send("Invalid credentials");
 
-  const { authentication } = checkedAuth;
+  const authentication = checkedAuth.auth;
+
+  if (authentication.payload.user_role !== "ADMIN")
+    return res.status(403).send("Insufficient permissions");
 
   const payload = req.body as UpsertInstallationPayload;
 
@@ -392,7 +406,7 @@ export async function upsertInstallation(req: Request, res: Response) {
 }
 
 export async function getInstallation(req: Request, res: Response) {
-  const { integration } = await authContext(req, res);
+  const { integration } = await authContext(req, res, { requireAdmin: false });
 
   // billingPlan is not initially set.
   const billingPlan = allBillingPlans.find(
@@ -611,7 +625,7 @@ export async function provisionResource(req: Request, res: Response) {
 }
 
 export async function getResource(req: Request, res: Response) {
-  const { resource } = await authContext(req, res);
+  const { resource } = await authContext(req, res, { requireAdmin: false });
 
   if (!resource) return res.status(400).send("Resource not found!");
 
@@ -645,7 +659,7 @@ export async function updateResource(req: Request, res: Response) {
 }
 
 export async function getPlans(req: Request, res: Response) {
-  const { integration } = await authContext(req, res);
+  const { integration } = await authContext(req, res, { requireAdmin: false });
 
   const plans = [...availableBillingPlans];
 
@@ -700,7 +714,10 @@ export async function getProducts(req: Request, res: Response) {
 
   let installationId: string | undefined;
   try {
-    const { payload } = await jwtVerify(token, vercelJKWSKey);
+    const { payload } = await jwtVerify(token, vercelJKWSKey, {
+      issuer: VERCEL_ISSUER,
+      audience: VERCEL_CLIENT_ID,
+    });
     installationId =
       typeof payload["installation_id"] === "string"
         ? payload["installation_id"]
@@ -745,13 +762,13 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     state: String(state),
   });
 
-  const checkedToken = await checkAuth({ token, type: "user" });
+  const checkedToken = await verifyVercelToken(token);
 
-  if (checkedToken.status === "error")
+  if (checkedToken.status === "error" || checkedToken.auth.type !== "user")
     return res.status(400).send("Invalid authentication token!");
 
   const {
-    authentication: {
+    auth: {
       payload: { user_email: userEmail, installation_id: installationId },
     },
   } = checkedToken;
