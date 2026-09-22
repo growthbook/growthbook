@@ -328,7 +328,36 @@ const BreakDownResults: FC<{
               setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label, row }) => {
                 if (row?.childRowType === "funnelStep") {
-                  return <FunnelStepLabel label={label} row={row} />;
+                  return (
+                    <div className="d-flex align-items-start justify-content-between w-100">
+                      <FunnelStepLabel label={label} row={row} />
+                      {drilldownContext && row && (
+                        <Link
+                          className="text-nowrap small"
+                          style={{ marginRight: 8, flexShrink: 0 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rawValue =
+                              row.dimensionValue ??
+                              (typeof row.label === "string" ? row.label : "");
+                            const value =
+                              formatDimensionValueForDisplay(rawValue);
+                            drilldownContext.openDrilldown(row, {
+                              initialTab: "slices",
+                              dimensionInfo: {
+                                id: dimensionId,
+                                name: dimension,
+                                value,
+                                rawValue,
+                              },
+                            });
+                          }}
+                        >
+                          + View by slice
+                        </Link>
+                      )}
+                    </div>
+                  );
                 }
 
                 const hasSteps = !!row?.numChildren;

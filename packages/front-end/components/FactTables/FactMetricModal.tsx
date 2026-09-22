@@ -1720,7 +1720,6 @@ function StandardFactMetricModal({
               funnelSettings: fs,
               quantileSettings: null,
               cappingSettings: { type: "" as const, value: 0 },
-              metricAutoSlices: [],
             };
 
             const trackProps = { type: "funnel", source };
@@ -2514,10 +2513,12 @@ function StandardFactMetricModal({
                 />
               )}
 
-              {type !== "funnel" &&
-                hasMetricSlicesFeature &&
+              {hasMetricSlicesFeature &&
                 (() => {
-                  const factTableId = form.watch("numerator.factTableId");
+                  const factTableId =
+                    type === "funnel"
+                      ? (funnelSettings?.steps?.[0]?.factTableId ?? "")
+                      : form.watch("numerator.factTableId");
                   const factTable = getFactTableById(factTableId);
                   const availableSlices =
                     factTable?.columns?.filter(

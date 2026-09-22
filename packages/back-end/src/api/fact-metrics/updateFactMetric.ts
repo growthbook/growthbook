@@ -61,7 +61,6 @@ export async function getUpdateFactMetricPropsFromBody(
     updates.denominator = null;
     updates.cappingSettings = { type: "", value: 0 };
     updates.quantileSettings = null;
-    updates.metricAutoSlices = [];
   } else {
     if (numerator === null) {
       throw new Error("Numerator required for non-funnel metrics");

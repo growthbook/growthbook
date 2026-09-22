@@ -1496,24 +1496,52 @@ export function funnelStepMetricId(
   baseMetricId: string,
   stepIndex: number,
 ): string {
-  return `${baseMetricId}?step=${stepIndex}`;
+  const sep = baseMetricId.includes("?") ? "&" : "?";
+  return `${baseMetricId}${sep}step=${stepIndex}`;
 }
 
 export function parseFunnelStepMetricId(
   metricId: string,
 ): FunnelStepMetricInfo {
-  const match = metricId.match(/^(.+)\?step=(\d+)$/);
-  if (!match) {
+  const qIndex = metricId.indexOf("?");
+  if (qIndex === -1) {
     return {
       isFunnelStepMetric: false,
       baseMetricId: metricId,
       stepIndex: null,
     };
   }
+
+  const baseId = metricId.substring(0, qIndex);
+  const parts = metricId.substring(qIndex + 1).split("&");
+
+  let stepIndex: number | null = null;
+  const otherParts: string[] = [];
+
+  for (const part of parts) {
+    const stepMatch = part.match(/^step=(\d+)$/);
+    if (stepMatch) {
+      stepIndex = parseInt(stepMatch[1], 10);
+    } else {
+      otherParts.push(part);
+    }
+  }
+
+  if (stepIndex === null) {
+    return {
+      isFunnelStepMetric: false,
+      baseMetricId: metricId,
+      stepIndex: null,
+    };
+  }
+
+  const baseMetricId =
+    otherParts.length > 0 ? `${baseId}?${otherParts.join("&")}` : baseId;
+
   return {
     isFunnelStepMetric: true,
-    baseMetricId: match[1],
-    stepIndex: parseInt(match[2], 10),
+    baseMetricId,
+    stepIndex,
   };
 }
 
@@ -2875,12 +2903,97 @@ export function expandDerivedMetricsInMap({
   for (const metric of baseMetrics) {
     if (!metric) continue;
     if (!isFactMetric(metric)) continue;
-    // A funnel expands into its per-step proportions instead of slices, which
-    // are not supported for funnel metrics yet.
     if (isFactFunnelMetric(metric)) {
+      // Unsliced step metrics (existing behavior)
       getFunnelStepMetrics(metric).forEach((stepMetric) => {
         metricMap.set(stepMetric.id, stepMetric);
       });
+
+      // Check whether a slice column exists on every step's fact table
+      const sliceColumnValidForAllSteps = (column: string): boolean =>
+        metric.funnelSettings.steps.every((step) => {
+          const ft = factTableMap.get(step.factTableId);
+          return ft?.columns.some(
+            (col) => col.column === column && !col.deleted,
+          );
+        });
+
+      const primaryFactTable = factTableMap.get(
+        getFactMetricPrimaryFactTableId(metric),
+      );
+
+      const addSlicedFunnel = (slicedFunnel: FactMetricInterface): void => {
+        metricMap.set(slicedFunnel.id, slicedFunnel);
+        getFunnelStepMetrics(slicedFunnel as FunnelFactMetricInterface).forEach(
+          (stepMetric) => {
+            metricMap.set(stepMetric.id, stepMetric);
+          },
+        );
+      };
+
+      // 1. Auto-slice funnel metrics
+      if (primaryFactTable) {
+        getAutoSliceMetrics({ metric, factTable: primaryFactTable })
+          .filter((sliced) => {
+            const sliceInfo = parseSliceMetricId(sliced.id);
+            return sliceInfo.sliceLevels.every((sl) =>
+              sliceColumnValidForAllSteps(sl.column),
+            );
+          })
+          .forEach(addSlicedFunnel);
+      }
+
+      // 2. Custom-slice funnel metrics
+      if (experiment.customMetricSlices && primaryFactTable) {
+        experiment.customMetricSlices.forEach((customSliceGroup) => {
+          const sortedSliceGroups = customSliceGroup.slices.sort((a, b) =>
+            a.column.localeCompare(b.column),
+          );
+
+          const hasAllRequiredColumns = sortedSliceGroups.every((slice) => {
+            const column = primaryFactTable.columns.find(
+              (col) => col.column === slice.column,
+            );
+            return (
+              column &&
+              !column.deleted &&
+              (column.datatype === "string" || column.datatype === "boolean") &&
+              !getFactTableIdColumns(primaryFactTable).includes(
+                column.column,
+              ) &&
+              sliceColumnValidForAllSteps(slice.column)
+            );
+          });
+
+          if (!hasAllRequiredColumns) return;
+
+          const sliceLevelsForString = sortedSliceGroups.map((d) => {
+            const column = primaryFactTable.columns.find(
+              (col) => col.column === d.column,
+            );
+            const levels =
+              column?.datatype === "boolean" && d.levels[0] === "null"
+                ? []
+                : d.levels;
+            return {
+              column: d.column,
+              datatype: (column?.datatype === "boolean"
+                ? "boolean"
+                : "string") as "string" | "boolean",
+              levels,
+            };
+          });
+
+          const sliceString =
+            generateSliceStringFromLevels(sliceLevelsForString);
+          addSlicedFunnel({
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
+            description: `Slice analysis of ${metric.name} for ${sortedSliceGroups.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
+          });
+        });
+      }
       continue;
     }
 

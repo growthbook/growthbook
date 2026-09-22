@@ -215,7 +215,7 @@ export type ExperimentTableRow = {
   // Child row presentation (generic parent/child)
   numChildren?: number;
   isChildRow?: boolean;
-  childRowType?: "slice" | "funnelStep";
+  childRowType?: "slice" | "funnelStep" | "funnelSlice";
   // Slice row properties
   isSliceRow?: boolean;
   parentRowId?: string;

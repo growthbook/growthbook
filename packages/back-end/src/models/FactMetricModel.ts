@@ -589,9 +589,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     if (data.quantileSettings) {
       throw new Error("Quantile settings are not supported for funnel metrics");
     }
-    if (data.metricAutoSlices?.length) {
-      throw new Error("Slices are not supported for funnel metrics");
-    }
 
     const previousSteps =
       existingMetric && isFactFunnelMetric(existingMetric)

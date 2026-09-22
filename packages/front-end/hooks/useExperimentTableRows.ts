@@ -22,6 +22,7 @@ import {
   dedupeSliceMetrics,
   SliceDataForMetric,
   isFactMetric,
+  getFactMetricPrimaryFactTableId,
   generateSliceString,
   generateSelectAllSliceString,
   isMetricGroupId,
@@ -560,12 +561,14 @@ export function generateRowsForMetric({
   let sliceData: SliceDataForMetric[] = [];
 
   if (shouldShowMetricSlices && isFactMetric(metric)) {
+    const factTableId = getFactMetricPrimaryFactTableId(
+      metric as FactMetricInterface,
+    );
+    const factTable = getFactTableById(factTableId);
+
     const standardSliceData = createAutoSliceDataForMetric({
       parentMetric: getExperimentMetricById(metricId),
-      factTable: getFactTableById(
-        (getExperimentMetricById(metricId) as FactMetricInterface)?.numerator
-          ?.factTableId || "",
-      ),
+      factTable,
       includeOther: true,
     });
 
@@ -573,9 +576,7 @@ export function generateRowsForMetric({
       metricId,
       metricName: newMetric?.name || "",
       customMetricSlices: customMetricSlices || [],
-      factTable: getFactTableById(
-        (metric as FactMetricInterface)?.numerator?.factTableId || "",
-      ),
+      factTable,
     });
 
     // Dedupe (auto and custom slices sometimes overlap)
@@ -767,6 +768,7 @@ export function generateRowsForMetric({
   }
 
   if (funnelSteps.length) {
+    // Two-level hierarchy: parent → steps (no slices)
     parentRow.numChildren = funnelSteps.length;
     funnelSteps.forEach((step, stepIndex) => {
       const stepMetricId = funnelStepMetricId(metricId, stepIndex);

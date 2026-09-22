@@ -170,6 +170,33 @@ describe("funnel step metric ids", () => {
       parseFunnelStepMetricId("fact__abc?dim:country=US").isFunnelStepMetric,
     ).toBe(false);
   });
+
+  it("parses a sliced funnel step (composite id)", () => {
+    expect(parseFunnelStepMetricId("fact__abc?dim:country=US&step=1")).toEqual({
+      isFunnelStepMetric: true,
+      baseMetricId: "fact__abc?dim:country=US",
+      stepIndex: 1,
+    });
+  });
+
+  it("builds a sliced funnel step id from a sliced base", () => {
+    const id = funnelStepMetricId("fact__abc?dim:country=US", 0);
+    expect(id).toBe("fact__abc?dim:country=US&step=0");
+    const parsed = parseFunnelStepMetricId(id);
+    expect(parsed).toEqual({
+      isFunnelStepMetric: true,
+      baseMetricId: "fact__abc?dim:country=US",
+      stepIndex: 0,
+    });
+  });
+
+  it("handles step param at the beginning of query string", () => {
+    expect(parseFunnelStepMetricId("fact__abc?step=2&dim:country=US")).toEqual({
+      isFunnelStepMetric: true,
+      baseMetricId: "fact__abc?dim:country=US",
+      stepIndex: 2,
+    });
+  });
 });
 
 const signupRowFilter: RowFilter = {
