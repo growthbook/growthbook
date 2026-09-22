@@ -59,7 +59,9 @@ export default function TemplateFieldMapping({
       availableDatasources.some((d) => d.id === ft.datasource),
   );
   const factTable = availableFactTables.find((ft) => ft.id === factTableId);
-  const numericOptions = factTable ? columnsForShape("sum", factTable) : [];
+  const numericOptions = factTable
+    ? columnsForShape("sum", factTable, { hasCountDistinctHLL: () => false })
+    : [];
   const stringOptions = factTable
     ? factTable.columns
         .filter(
