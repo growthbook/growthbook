@@ -214,6 +214,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
       {
         id: "",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         name: "user_id",
         description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
         dimensions: [],
