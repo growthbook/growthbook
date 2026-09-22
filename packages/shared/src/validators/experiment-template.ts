@@ -8,7 +8,7 @@ import { ownerEmailField, ownerField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
 // Groups an exposure query id with its chosen identifier type. Replaces the
-// deprecated flat exposureQueryId/exposureQueryIdentifierType fields.
+// deprecated flat exposureQueryId field.
 const apiExposureQueryRef = z.object({
   id: z.string(),
   identifierType: z.string(),
@@ -83,11 +83,6 @@ export const apiExperimentTemplateValidator = namedSchema(
     exposureQuery: apiExposureQueryRef.optional(),
     /** @deprecated use exposureQuery.id */
     exposureQueryId: z.string().meta({ deprecated: true }),
-    /** @deprecated use exposureQuery.identifierType */
-    exposureQueryIdentifierType: z
-      .string()
-      .optional()
-      .meta({ deprecated: true }),
 
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -140,19 +135,13 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
   datasource: z.string(),
   exposureQuery: apiExposureQueryRef
     .describe(
-      "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId/exposureQueryIdentifierType.",
+      "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
     )
     .optional(),
   /** @deprecated use exposureQuery.id */
   exposureQueryId: z
     .string()
     .describe("Deprecated: use exposureQuery instead.")
-    .optional()
-    .meta({ deprecated: true }),
-  /** @deprecated use exposureQuery.identifierType */
-  exposureQueryIdentifierType: z
-    .string()
-    .describe("Deprecated: use exposureQuery.identifierType instead.")
     .optional()
     .meta({ deprecated: true }),
 

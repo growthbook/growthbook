@@ -79,12 +79,6 @@ const reportAnalysisSettingsSchema = z
       )
       .optional()
       .meta({ deprecated: true }),
-    /** @deprecated use exposureQuery.identifierType */
-    exposureQueryIdentifierType: z
-      .string()
-      .describe("Deprecated: use exposureQuery.identifierType instead.")
-      .optional()
-      .meta({ deprecated: true }),
     segment: z.string().describe("Segment ID to filter users by").optional(),
     queryFilter: z
       .string()

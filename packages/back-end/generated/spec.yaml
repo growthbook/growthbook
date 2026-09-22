@@ -1493,6 +1493,10 @@ paths:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
+                                exposureQueryIdentifierType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 goalMetrics:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
@@ -2161,6 +2165,11 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     exposureQueryId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    exposureQueryIdentifierType:
                                       description: >-
                                         Read-only; ignored on write. Accepted so
                                         a GET response can be posted back
@@ -3037,6 +3046,10 @@ paths:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
+                                exposureQueryIdentifierType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 goalMetrics:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
@@ -3705,6 +3718,11 @@ paths:
                                         a GET response can be posted back
                                         unchanged.
                                     exposureQueryId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    exposureQueryIdentifierType:
                                       description: >-
                                         Read-only; ignored on write. Accepted so
                                         a GET response can be posted back
@@ -33213,12 +33231,6 @@ paths:
                           deprecated: true
                           description: 'Deprecated: use exposureQuery instead.'
                           type: string
-                        exposureQueryIdentifierType:
-                          deprecated: true
-                          description: >-
-                            Deprecated: use exposureQuery.identifierType
-                            instead.
-                          type: string
                         guardrailMetricIds:
                           minItems: 1
                           type: array
@@ -34310,8 +34322,7 @@ paths:
                             description: >-
                               The exposure query to use, grouping its ID with
                               the identifier type analyzed on. Mutually
-                              exclusive with the deprecated
-                              exposureQueryId/exposureQueryIdentifierType.
+                              exclusive with the deprecated exposureQueryId.
                             type: object
                             properties:
                               id:
@@ -34325,12 +34336,6 @@ paths:
                           exposureQueryId:
                             deprecated: true
                             description: 'Deprecated: use exposureQuery instead.'
-                            type: string
-                          exposureQueryIdentifierType:
-                            deprecated: true
-                            description: >-
-                              Deprecated: use exposureQuery.identifierType
-                              instead.
                             type: string
                         required:
                           - datasourceId
@@ -34715,8 +34720,7 @@ paths:
                             description: >-
                               The exposure query to use, grouping its ID with
                               the identifier type analyzed on. Mutually
-                              exclusive with the deprecated
-                              exposureQueryId/exposureQueryIdentifierType.
+                              exclusive with the deprecated exposureQueryId.
                             type: object
                             properties:
                               id:
@@ -34730,12 +34734,6 @@ paths:
                           exposureQueryId:
                             deprecated: true
                             description: 'Deprecated: use exposureQuery instead.'
-                            type: string
-                          exposureQueryIdentifierType:
-                            deprecated: true
-                            description: >-
-                              Deprecated: use exposureQuery.identifierType
-                              instead.
                             type: string
                         required:
                           - datasourceId
@@ -34981,7 +34979,7 @@ paths:
                   description: >-
                     The exposure query to use, grouping its ID with the
                     identifier type analyzed on. Mutually exclusive with the
-                    deprecated exposureQueryId/exposureQueryIdentifierType.
+                    deprecated exposureQueryId.
                   type: object
                   properties:
                     id:
@@ -34995,10 +34993,6 @@ paths:
                 exposureQueryId:
                   deprecated: true
                   description: 'Deprecated: use exposureQuery instead.'
-                  type: string
-                exposureQueryIdentifierType:
-                  deprecated: true
-                  description: 'Deprecated: use exposureQuery.identifierType instead.'
                   type: string
               required:
                 - datasourceId
@@ -35202,8 +35196,7 @@ paths:
                             description: >-
                               The exposure query to use, grouping its ID with
                               the identifier type analyzed on. Mutually
-                              exclusive with the deprecated
-                              exposureQueryId/exposureQueryIdentifierType.
+                              exclusive with the deprecated exposureQueryId.
                             type: object
                             properties:
                               id:
@@ -35217,12 +35210,6 @@ paths:
                           exposureQueryId:
                             deprecated: true
                             description: 'Deprecated: use exposureQuery instead.'
-                            type: string
-                          exposureQueryIdentifierType:
-                            deprecated: true
-                            description: >-
-                              Deprecated: use exposureQuery.identifierType
-                              instead.
                             type: string
                         required:
                           - datasourceId
@@ -35610,8 +35597,7 @@ paths:
                             description: >-
                               The exposure query to use, grouping its ID with
                               the identifier type analyzed on. Mutually
-                              exclusive with the deprecated
-                              exposureQueryId/exposureQueryIdentifierType.
+                              exclusive with the deprecated exposureQueryId.
                             type: object
                             properties:
                               id:
@@ -35625,12 +35611,6 @@ paths:
                           exposureQueryId:
                             deprecated: true
                             description: 'Deprecated: use exposureQuery instead.'
-                            type: string
-                          exposureQueryIdentifierType:
-                            deprecated: true
-                            description: >-
-                              Deprecated: use exposureQuery.identifierType
-                              instead.
                             type: string
                         required:
                           - datasourceId
@@ -49498,7 +49478,7 @@ paths:
                   description: >-
                     The exposure query to use, grouping its ID with the
                     identifier type analyzed on. Mutually exclusive with the
-                    deprecated exposureQueryId/exposureQueryIdentifierType.
+                    deprecated exposureQueryId.
                   type: object
                   properties:
                     id:
@@ -49512,10 +49492,6 @@ paths:
                 exposureQueryId:
                   deprecated: true
                   description: 'Deprecated: use exposureQuery instead.'
-                  type: string
-                exposureQueryIdentifierType:
-                  deprecated: true
-                  description: 'Deprecated: use exposureQuery.identifierType instead.'
                   type: string
                 hashAttribute:
                   type: string
@@ -49685,7 +49661,7 @@ paths:
                   description: >-
                     The exposure query to use, grouping its ID with the
                     identifier type analyzed on. Mutually exclusive with the
-                    deprecated exposureQueryId/exposureQueryIdentifierType.
+                    deprecated exposureQueryId.
                   type: object
                   properties:
                     id:
@@ -49699,10 +49675,6 @@ paths:
                 exposureQueryId:
                   deprecated: true
                   description: 'Deprecated: use exposureQuery instead.'
-                  type: string
-                exposureQueryIdentifierType:
-                  deprecated: true
-                  description: 'Deprecated: use exposureQuery.identifierType instead.'
                   type: string
                 hashAttribute:
                   type: string
@@ -49920,8 +49892,7 @@ paths:
                             description: >-
                               The exposure query to use, grouping its ID with
                               the identifier type analyzed on. Mutually
-                              exclusive with the deprecated
-                              exposureQueryId/exposureQueryIdentifierType.
+                              exclusive with the deprecated exposureQueryId.
                             type: object
                             properties:
                               id:
@@ -49935,12 +49906,6 @@ paths:
                           exposureQueryId:
                             deprecated: true
                             description: 'Deprecated: use exposureQuery instead.'
-                            type: string
-                          exposureQueryIdentifierType:
-                            deprecated: true
-                            description: >-
-                              Deprecated: use exposureQuery.identifierType
-                              instead.
                             type: string
                           hashAttribute:
                             type: string
@@ -69015,7 +68980,7 @@ components:
                   description: >-
                     The exposure query to use, grouping its ID with the
                     identifier type analyzed on. Mutually exclusive with the
-                    deprecated exposureQueryId/exposureQueryIdentifierType.
+                    deprecated exposureQueryId.
                   type: object
                   properties:
                     id:
@@ -69029,10 +68994,6 @@ components:
                 exposureQueryId:
                   deprecated: true
                   description: 'Deprecated: use exposureQuery instead.'
-                  type: string
-                exposureQueryIdentifierType:
-                  deprecated: true
-                  description: 'Deprecated: use exposureQuery.identifierType instead.'
                   type: string
               required:
                 - datasourceId
@@ -69422,10 +69383,6 @@ components:
               description: >-
                 Deprecated: use exposureQuery instead. Datasource exposure query
                 ID (Assignment Table).
-              type: string
-            exposureQueryIdentifierType:
-              deprecated: true
-              description: 'Deprecated: use exposureQuery.identifierType instead.'
               type: string
             segment:
               description: Segment ID to filter users by
@@ -73863,9 +73820,6 @@ components:
         exposureQueryId:
           deprecated: true
           type: string
-        exposureQueryIdentifierType:
-          deprecated: true
-          type: string
         hashAttribute:
           type: string
         fallbackAttribute:
@@ -77928,6 +77882,8 @@ components:
                   datasource:
                     type: string
                   exposureQueryId:
+                    type: string
+                  exposureQueryIdentifierType:
                     type: string
                   goalMetrics:
                     type: array

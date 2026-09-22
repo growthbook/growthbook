@@ -143,7 +143,9 @@ describe("rampScheduleToApiInterface exposureQuery", () => {
       id: "eq_1",
       identifierType: "anonymous_id",
     });
-    // deprecated flat fields still present for back-compat
+    expect(api.monitoringConfig).not.toHaveProperty(
+      "exposureQueryIdentifierType",
+    );
     expect(api.monitoringConfig?.exposureQueryId).toBe("eq_1");
   });
 });
@@ -164,7 +166,7 @@ describe("apiMonitoringConfigToInternal", () => {
     });
   });
 
-  it("passes through the deprecated flat fields when no object is set", () => {
+  it("passes through the deprecated flat id when no object is set", () => {
     expect(
       apiMonitoringConfigToInternal({
         datasourceId: "ds_1",
@@ -178,7 +180,7 @@ describe("apiMonitoringConfigToInternal", () => {
     });
   });
 
-  it("rejects the object together with the deprecated flat fields", () => {
+  it("rejects the object together with the deprecated flat id", () => {
     expect(() =>
       apiMonitoringConfigToInternal({
         datasourceId: "ds_1",

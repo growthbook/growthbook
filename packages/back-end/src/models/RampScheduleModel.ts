@@ -235,26 +235,26 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
 }
 
 // Translate an API monitoring config (which may carry a grouped `exposureQuery`
-// object) into the flat shape stored on the model. The object and the
-// deprecated flat exposureQueryId/exposureQueryIdentifierType are mutually
-// exclusive. exposureQueryId presence is enforced by the model's Zod schema.
+// object) into the flat shape stored on the model. The object and the deprecated
+// flat exposureQueryId are mutually exclusive. exposureQueryId presence is
+// enforced by the model's Zod schema.
 export function apiMonitoringConfigToInternal<
   T extends {
     exposureQuery?: { id: string; identifierType: string };
     exposureQueryId?: string;
-    exposureQueryIdentifierType?: string;
   },
 >(
   mc: T | null | undefined,
-): (Omit<T, "exposureQuery"> & { exposureQueryId: string }) | null {
+):
+  | (Omit<T, "exposureQuery"> & {
+      exposureQueryId: string;
+      exposureQueryIdentifierType?: string;
+    })
+  | null {
   if (!mc) return null;
-  if (
-    mc.exposureQuery &&
-    (mc.exposureQueryId !== undefined ||
-      mc.exposureQueryIdentifierType !== undefined)
-  ) {
+  if (mc.exposureQuery && mc.exposureQueryId !== undefined) {
     throw new Error(
-      "Cannot set exposureQuery together with the deprecated exposureQueryId or exposureQueryIdentifierType",
+      "Cannot set exposureQuery together with the deprecated exposureQueryId",
     );
   }
   const { exposureQuery, ...rest } = mc;
@@ -266,12 +266,33 @@ export function apiMonitoringConfigToInternal<
     ...(exposureQuery
       ? { exposureQueryIdentifierType: exposureQuery.identifierType }
       : {}),
-  } as Omit<T, "exposureQuery"> & { exposureQueryId: string };
+  } as Omit<T, "exposureQuery"> & {
+    exposureQueryId: string;
+    exposureQueryIdentifierType?: string;
+  };
 }
 
 export function rampScheduleToApiInterface(
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
+  let monitoringConfig: ApiRampScheduleInterface["monitoringConfig"] =
+    doc.monitoringConfig;
+  if (doc.monitoringConfig) {
+    const { exposureQueryIdentifierType, ...rest } = doc.monitoringConfig;
+    monitoringConfig = {
+      ...rest,
+      signalMetricIds: rest.signalMetricIds ?? [],
+      ...(rest.exposureQueryId && exposureQueryIdentifierType
+        ? {
+            exposureQuery: {
+              id: rest.exposureQueryId,
+              identifierType: exposureQueryIdentifierType,
+            },
+          }
+        : {}),
+    };
+  }
+
   return {
     id: doc.id,
     dateCreated: doc.dateCreated.toISOString(),
@@ -301,24 +322,7 @@ export function rampScheduleToApiInterface(
     nextProcessAt: dateToIso(doc.nextProcessAt),
     elapsedMs: doc.elapsedMs,
     lockdownConfig: doc.lockdownConfig,
-    monitoringConfig: doc.monitoringConfig
-      ? {
-          ...doc.monitoringConfig,
-          signalMetricIds: doc.monitoringConfig.signalMetricIds ?? [],
-          // Surface the grouped exposureQuery object alongside the deprecated
-          // flat fields. Present only when both are stored.
-          ...(doc.monitoringConfig.exposureQueryId &&
-          doc.monitoringConfig.exposureQueryIdentifierType
-            ? {
-                exposureQuery: {
-                  id: doc.monitoringConfig.exposureQueryId,
-                  identifierType:
-                    doc.monitoringConfig.exposureQueryIdentifierType,
-                },
-              }
-            : {}),
-        }
-      : doc.monitoringConfig,
+    monitoringConfig,
     experimentHealthAction: doc.experimentHealthAction,
     currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
     // The record is only meaningful for the current step (see the field's

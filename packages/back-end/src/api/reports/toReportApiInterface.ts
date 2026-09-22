@@ -77,8 +77,6 @@ export function toReportApiInterface(
               }
             : undefined,
         exposureQueryId: settings.exposureQueryId || undefined,
-        exposureQueryIdentifierType:
-          settings.exposureQueryIdentifierType || undefined,
         segment: settings.segment || undefined,
         queryFilter: settings.queryFilter || undefined,
         skipPartialData: settings.skipPartialData,
@@ -138,8 +136,6 @@ export function toReportApiInterface(
               }
             : undefined,
         exposureQueryId: args.exposureQueryId || undefined,
-        exposureQueryIdentifierType:
-          args.exposureQueryIdentifierType || undefined,
         segment: args.segment || undefined,
         queryFilter: args.queryFilter || undefined,
         skipPartialData: args.skipPartialData,

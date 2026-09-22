@@ -181,6 +181,7 @@ const experimentRule = baseRule
     coverage: z.number().optional(),
     datasource: z.string().optional(),
     exposureQueryId: z.string().optional(),
+    exposureQueryIdentifierType: z.string().optional(),
     goalMetrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),

@@ -121,12 +121,6 @@ const postRampScheduleValidator = {
             .describe("Deprecated: use exposureQuery instead.")
             .optional()
             .meta({ deprecated: true }),
-          /** @deprecated use exposureQuery.identifierType */
-          exposureQueryIdentifierType: z
-            .string()
-            .describe("Deprecated: use exposureQuery.identifierType instead.")
-            .optional()
-            .meta({ deprecated: true }),
           guardrailMetricIds: z.array(z.string()).min(1),
           signalMetricIds: z.array(z.string()).optional(),
           monitoringMode: z.enum(["auto", "manual"]).optional(),

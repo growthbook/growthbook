@@ -15,24 +15,19 @@ import { MakeModelClass } from "./BaseModel";
 const ID_PREFIX = "tmplt__";
 
 // The API accepts a grouped `exposureQuery: { id, identifierType }` object that
-// supersedes the deprecated flat exposureQueryId/exposureQueryIdentifierType.
-// The internal model stays flat, so project the object onto the flat fields
-// before it reaches the model. The object and the deprecated fields are
-// mutually exclusive.
+// supersedes the deprecated flat exposureQueryId. The internal model stays
+// flat, so project the object onto the flat fields before it reaches the model.
+// The object and the deprecated field are mutually exclusive.
 function normalizeTemplateExposureQueryBody(body: unknown): unknown {
   if (!body || typeof body !== "object") return body;
   const b = body as {
     exposureQuery?: { id: string; identifierType: string };
     exposureQueryId?: string;
-    exposureQueryIdentifierType?: string;
   };
   if (!b.exposureQuery) return body;
-  if (
-    b.exposureQueryId !== undefined ||
-    b.exposureQueryIdentifierType !== undefined
-  ) {
+  if (b.exposureQueryId !== undefined) {
     throw new Error(
-      "Cannot set exposureQuery together with the deprecated exposureQueryId or exposureQueryIdentifierType",
+      "Cannot set exposureQuery together with the deprecated exposureQueryId",
     );
   }
   const { exposureQuery, ...rest } = b;
@@ -160,14 +155,16 @@ export class ExperimentTemplatesModel extends BaseClass {
   protected override toApiInterface(
     doc: ExperimentTemplateInterface,
   ): ApiExperimentTemplateInterface {
-    const base = super.toApiInterface(doc) as ApiExperimentTemplateInterface;
+    const { exposureQueryIdentifierType, ...base } = super.toApiInterface(
+      doc,
+    ) as ExperimentTemplateInterface & ApiExperimentTemplateInterface;
     return {
       ...base,
       exposureQuery:
-        doc.exposureQueryId && doc.exposureQueryIdentifierType
+        doc.exposureQueryId && exposureQueryIdentifierType
           ? {
               id: doc.exposureQueryId,
-              identifierType: doc.exposureQueryIdentifierType,
+              identifierType: exposureQueryIdentifierType,
             }
           : undefined,
     };

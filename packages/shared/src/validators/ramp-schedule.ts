@@ -105,27 +105,21 @@ export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
 // API-facing monitoring config. Groups the exposure query id with its chosen
 // identifier type in `exposureQuery`, superseding the deprecated flat
-// exposureQueryId/exposureQueryIdentifierType. The internal rampMonitoringConfig
-// stays flat; API handlers translate between the two.
+// exposureQueryId. The internal rampMonitoringConfig stays flat; API handlers
+// translate between the two.
 export const apiRampMonitoringConfig = rampMonitoringConfig
   .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
   .extend({
     exposureQuery: z
       .object({ id: z.string(), identifierType: z.string() })
       .describe(
-        "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId/exposureQueryIdentifierType.",
+        "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
       )
       .optional(),
     /** @deprecated use exposureQuery.id */
     exposureQueryId: z
       .string()
       .describe("Deprecated: use exposureQuery instead.")
-      .optional()
-      .meta({ deprecated: true }),
-    /** @deprecated use exposureQuery.identifierType */
-    exposureQueryIdentifierType: z
-      .string()
-      .describe("Deprecated: use exposureQuery.identifierType instead.")
       .optional()
       .meta({ deprecated: true }),
   });
