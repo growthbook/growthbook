@@ -4,10 +4,11 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   bypassApprovalPermission,
   NO_ENVIRONMENT_BINDING,
+  DEFAULT_PERMISSION_ERROR_MESSAGE,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
-import { canPublishFeatureRevisionChange } from "back-end/src/revisions/featureDraftAuthority";
+import { featurePublishRefusal } from "back-end/src/revisions/featureDraftAuthority";
 import { logger } from "back-end/src/util/logger";
 import {
   applyHoldoutExperimentLinkage,
@@ -99,6 +100,8 @@ type FeatureDesiredState = {
   plan: FeatureMergePlan;
   createdRampScheduleIds?: string[];
   updatedFeature?: FeatureInterface;
+  // Captured at the write, even if a later read or satellite update fails.
+  writtenFeatureUpdates?: Partial<FeatureInterface>;
   // The stamp the apply's guarded write PUT on the feature document. Distinct
   // from `updatedFeature.dateUpdated`, which is a set-then-fetch and so carries a
   // rival's stamp when one lands in the gap — reading ownership from that says
@@ -227,20 +230,21 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
       rampActions: raw.rampActions,
     });
-    if (
-      !(await canPublishFeatureRevisionChange({
-        context: callerContext,
-        feature,
-        revision: raw,
-        environments: envsToCheck,
-        mergeChanges: plan.mergeResult,
-      }))
-    ) {
+    const refusal = await featurePublishRefusal({
+      context: callerContext,
+      feature,
+      revision: raw,
+      environments: envsToCheck,
+      mergeChanges: plan.mergeResult,
+    });
+    if (refusal !== null) {
       gates.push(
         makeBlockingGate({
           type: "permission-denied",
           messages: [
-            "You do not have permission to publish this Feature Flag in the environments this revision changes.",
+            refusal === DEFAULT_PERMISSION_ERROR_MESSAGE
+              ? "You do not have permission to publish this Feature Flag in the environments this revision changes."
+              : refusal,
           ],
         }),
       );
@@ -345,8 +349,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     return gates;
   },
 
-  async claim(context, revision, baseline, { comment }) {
+  async claim(context, revision, baseline, { comment, entityPreImage }) {
     const { claimed, claimStamp } = await claimFeatureRevisionAsPublished(
+      entityPreImage as unknown as FeatureInterface,
       rawRevision(revision),
       context.auditUser,
       {
@@ -460,8 +465,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
             feature,
             raw,
             mergeResult,
-            (stamp) => {
+            (stamp, written) => {
               desired.ourWriteStamp = stamp;
+              desired.writtenFeatureUpdates = written;
             },
             // Use sync-reported rollout images; later reads could capture worker progress.
             (postImages) => {
@@ -686,16 +692,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       rawRevision(revision),
       mergeResult,
     );
-    const restoreKeys = new Set([...Object.keys(changes), "version"]);
+    const restoreKeys = new Set([
+      ...Object.keys(desired.writtenFeatureUpdates ?? changes),
+      "version",
+    ]);
     // A holdout removal lands via removeHoldoutFromFeature rather than
     // `changes`, so include the key explicitly when the apply transitioned it.
     if (mergeResult.holdout !== undefined) restoreKeys.add("holdout");
-    const written: Record<string, unknown> = desired.updatedFeature
-      ? (desired.updatedFeature as unknown as Record<string, unknown>)
-      : {
-          ...changes,
-          ...(mergeResult.holdout === null ? { holdout: undefined } : {}),
-        };
+    const written: Record<string, unknown> = desired.writtenFeatureUpdates ??
+      (desired.updatedFeature as unknown as Record<string, unknown>) ?? {
+        ...changes,
+        ...(mergeResult.holdout === null ? { holdout: undefined } : {}),
+      };
     const restore = ownedRestoreValues({
       keys: restoreKeys,
       preImage: feature as unknown as Record<string, unknown>,
@@ -712,6 +720,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // Guard restoration on the ownership read; losing this CAS leaves the winner untouched.
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
+        preserveStoredValues: true,
       });
     }
     // Suppress this adapter's deferred update event after restoration.

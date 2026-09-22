@@ -57,6 +57,7 @@ import {
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
+  SqlDialect,
   SqlIdentifierQuote,
   StringMatchFn,
   TemplateVariables,
@@ -118,11 +119,14 @@ export function isLegacyMetric(m: ExperimentMetricDefinition): boolean {
 }
 
 export function canInlineFilterColumn(
-  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
   column: string,
 ): boolean {
   // If the column is one of the identifier columns, it is not eligible for prompting
-  if (factTable.userIdTypes.includes(column)) return false;
+  if (getFactTableIdColumns(factTable).includes(column)) return false;
 
   const dataType = getSelectedColumnDatatype({
     factTable,
@@ -135,6 +139,71 @@ export function canInlineFilterColumn(
   }
 
   return true;
+}
+
+export function getInlineFilterPromptColumns(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  rowFilters: RowFilter[] = [],
+): string[] {
+  const columns: string[] = [];
+  const add = (c: string) => {
+    if (!columns.includes(c)) columns.push(c);
+  };
+  factTable.columns.forEach((c) => {
+    if (
+      !c.alwaysInlineFilter ||
+      c.deleted ||
+      !canInlineFilterColumn(factTable, c.column)
+    ) {
+      return;
+    }
+    add(c.column);
+    const mapping = c.conditionalInlineFilters;
+    if (!mapping) return;
+    rowFilters.forEach((rf) => {
+      if (rf.column !== c.column) return;
+      if (rf.operator !== "=" && rf.operator !== "in") return;
+      const values = (rf.values ?? []).filter((v) => v !== "");
+      if (values.length !== 1) return;
+      const mapped = mapping[values[0]];
+      if (mapped) add(mapped);
+    });
+  });
+  return columns;
+}
+
+export function isEmptyInlineFilterPlaceholder(rf: RowFilter): boolean {
+  return rf.operator === "=" && (rf.values ?? []).every((v) => v === "");
+}
+
+// Runs after a filter edit - add secondary filters if needed
+export function reconcileInlineFilterPrompts(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  previous: RowFilter[],
+  next: RowFilter[],
+): RowFilter[] {
+  const before = new Set(getInlineFilterPromptColumns(factTable, previous));
+  const after = new Set(getInlineFilterPromptColumns(factTable, next));
+  let result = next;
+  for (const column of before) {
+    if (after.has(column)) continue;
+    result = result.filter(
+      (rf) => !(rf.column === column && isEmptyInlineFilterPlaceholder(rf)),
+    );
+  }
+  for (const column of after) {
+    if (before.has(column)) continue;
+    if (!result.some((rf) => rf.column === column)) {
+      result = [...result, { column, operator: "=", values: [""] }];
+    }
+  }
+  return result;
 }
 
 // Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,
@@ -1040,6 +1109,8 @@ export function getRowFilterSQL({
         ? `(${comparisonColumn} IN ${list})`
         : `(${comparisonColumn} NOT IN ${list})`;
     }
+    case "matches_pattern":
+    case "not_matches_pattern":
     case "starts_with":
     case "ends_with":
     case "contains":
@@ -1095,13 +1166,53 @@ export function getFactTableTemplateVariables(
   };
 }
 
-// The timestamp column in a fact table's SQL is configurable, defaulting to
-// `timestamp`. Query generation aliases it to `timestamp` when it first selects
-// from the fact table, so nothing downstream has to know the real name.
 export function getFactTableTimestampColumn(
   factTable: Pick<FactTableInterface, "timestampColumn"> | undefined | null,
 ): string {
   return factTable?.timestampColumn || "timestamp";
+}
+
+export function getFactTableIdColumn(
+  factTable: Pick<FactTableInterface, "userIdColumns"> | undefined | null,
+  idType: string,
+): string {
+  return factTable?.userIdColumns?.[idType] || idType;
+}
+
+export function getFactTableIdColumnExpression(
+  factTable:
+    | Pick<FactTableInterface, "userIdColumns" | "columns">
+    | undefined
+    | null,
+  idType: string,
+  dialect: Pick<SqlDialect, "jsonExtract" | "identifierQuote">,
+  alias = "",
+): string {
+  const column = getFactTableIdColumn(factTable, idType);
+  if (!factTable || column === idType) {
+    return alias ? `${alias}.${idType}` : idType;
+  }
+  // Use getColumnExpression to support virtual columns and JSON field paths
+  return getColumnExpression(
+    column,
+    factTable,
+    dialect.jsonExtract,
+    alias,
+    dialect.identifierQuote,
+  );
+}
+
+function getFactTableIdColumns(
+  factTable: Pick<FactTableInterface, "userIdTypes" | "userIdColumns">,
+): string[] {
+  return [
+    ...new Set(
+      factTable.userIdTypes.flatMap((idType) => [
+        idType,
+        getFactTableIdColumn(factTable, idType),
+      ]),
+    ),
+  ];
 }
 
 // TODO(sql): refactor to remove factTableMap
@@ -2924,7 +3035,7 @@ export function expandDerivedMetricsInMap({
             column &&
             !column.deleted &&
             (column.datatype === "string" || column.datatype === "boolean") &&
-            !factTable.userIdTypes.includes(column.column)
+            !getFactTableIdColumns(factTable).includes(column.column)
           );
         });
 

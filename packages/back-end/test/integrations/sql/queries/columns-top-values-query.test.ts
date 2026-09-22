@@ -73,6 +73,12 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     expect(sql7).not.toEqual(sql);
     expect(sql7).toMatch(/timestamp\s*>=/i);
   });
+
+  it("filters matching values before ranking them", () => {
+    const sql = buildSql(dialect, { searchTerm: "Needle" });
+    expect(sql).toMatch(/CASE\s+WHEN[\s\S]*LOWER/i);
+    expect(sql).toMatch(/needle/i);
+  });
 }
 
 // Dialects whose single-pass approximate top-k path replaces the exact

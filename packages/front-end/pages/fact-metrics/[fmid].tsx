@@ -514,7 +514,6 @@ export default function FactMetricPage() {
     <div className="pagecontents container-fluid">
       {auditModal && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Audit Log"
@@ -543,7 +542,6 @@ export default function FactMetricPage() {
       )}
       {showDeleteModal && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           header={`Delete Metric`}
           close={() => setShowDeleteModal(false)}

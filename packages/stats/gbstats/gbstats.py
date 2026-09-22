@@ -169,6 +169,12 @@ def get_dimension_column_name(dimension: str) -> str:
         dimension_column_name = "dim_exp_" + dimension.split(":")[1]
     elif dimension.startswith("precomputed:"):
         dimension_column_name = "dim_exp_" + dimension.split(":")[1]
+    # Neither alias may start with "dim_exp_", which post-stratification
+    # treats as strata columns
+    elif dimension.startswith("cutoff:"):
+        dimension_column_name = "dim_cutoff"
+    elif dimension.startswith("combo:"):
+        dimension_column_name = "dim_combo"
     elif dimension.startswith("dim_"):
         dimension_column_name = "dim_unit_" + dimension
 

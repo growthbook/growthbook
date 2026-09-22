@@ -203,6 +203,8 @@ Row Filters support a wide variety of operators:
 - `not_contains`
 - `starts_with`
 - `ends_with`
+- `matches_pattern` (glob: `*` matches any run of characters, `?` matches one)
+- `not_matches_pattern`
 - `sql_expr` (raw SQL for advanced use cases)
 - `saved_filter` (a saved SQL expression that can be reused across metrics)
 
@@ -212,7 +214,7 @@ Filters on date and timestamp columns are compared in UTC. The UI offers `=`, `<
 
 It's common to have an important "type" column that you use to build out metrics. For example, if your Fact Table is a raw event stream, there will be a column like `event_type` to differentiate between a page view, button click, purchase, etc.. You will almost always want to filter metrics using this column.
 
-After creating your Fact Table, you can edit a column and check the “Prompt all metrics” box. This helps GrowthBook better streamline the UI when creating metrics.
+After creating your Fact Table, you can edit a column and check the “Prompt metrics to filter on this column” box. This helps GrowthBook better streamline the UI when creating metrics.
 
 <Frame>![Marking an Event Type column](/static/images/metrics/inline-filter.png)</Frame>
 
@@ -221,6 +223,8 @@ When you check this box, GrowthBook will run a quick query looking for the top 1
 <Frame>![Event Type Filter UI](/static/images/metrics/event-type-filter-metric-form.png)</Frame>
 
 Another example use of this checkbox is for a `Page Path` column in a `Page Views` Fact Table. This will streamline creation of metrics such as "Visited /checkout", "Visited /pricing", and more.
+
+GrowthBook also supports secondary filters. On a broad Events table, after marking the `event_name` column to always filter, you can then choose secondary filter columns based on the selected event. For example, if the user picks the `Form Submit` event, you can have it automatically prompt for the `formId` column.
 
 ### User Filters
 

@@ -3,7 +3,12 @@ import type {
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
-import { parseStatsEngineResult } from "back-end/src/services/stats";
+import type { ExperimentReportVariation } from "shared/types/report";
+import {
+  analyzeExperimentTraffic,
+  getAnalysisSettingsForStatsEngine,
+  parseStatsEngineResult,
+} from "back-end/src/services/stats";
 
 const analysisSettings: ExperimentSnapshotAnalysisSettings = {
   dimensions: [""],
@@ -220,6 +225,40 @@ describe("parseStatsEngineResult", () => {
     ]);
   });
 
+  it("sums __multiple__ across dimension slices within a query and takes the max across queries", () => {
+    const row = (variation: string, dimension: string, users: number) => ({
+      variation,
+      dimension,
+      users,
+      count: users,
+      main_sum: 0,
+      main_sum_squares: 0,
+    });
+    const [result] = parseStatsEngineResult({
+      analysisSettings: [analysisSettings],
+      snapshotSettings: { variations },
+      queryResults: [
+        {
+          metrics: ["a"],
+          rows: [
+            row("control", "A", 100),
+            row("__multiple__", "A", 6),
+            row("__multiple__", "B", 300),
+            row("__multiple__", "C", 47),
+          ],
+        },
+        {
+          metrics: ["b"],
+          rows: [row("__multiple__", "A", 6), row("__multiple__", "B", 347)],
+        },
+      ],
+      unknownVariations: [],
+      result: [survivorResult],
+    });
+
+    expect(result.multipleExposures).toBe(353);
+  });
+
   it("uses an empty All dimension when nothing computed and nothing failed", () => {
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],
@@ -236,5 +275,80 @@ describe("parseStatsEngineResult", () => {
         variations: [],
       },
     ]);
+  });
+});
+
+describe("analyzeExperimentTraffic", () => {
+  const row = (
+    variation: string,
+    dimension_name: string,
+    dimension_value: string,
+    units: number,
+  ) => ({ variation, dimension_name, dimension_value, units });
+
+  it("sums __multiple__ rows once, via the exposure date dimension", () => {
+    const traffic = analyzeExperimentTraffic({
+      variations,
+      rows: [
+        row("control", "dim_exposure_date", "2026-01-01", 1000),
+        row("treatment", "dim_exposure_date", "2026-01-01", 1000),
+        row("__multiple__", "dim_exposure_date", "2026-01-01", 200),
+        row("__multiple__", "dim_exposure_date", "2026-01-02", 153),
+        row("__multiple__", "dim_exp_app_theme", "Sepia", 6),
+        row("__multiple__", "dim_exp_app_theme", "Light", 347),
+      ],
+    });
+    expect(traffic.multipleExposures).toBe(353);
+    expect(traffic.overall.variationUnits).toEqual([1000, 1000]);
+  });
+
+  it("reports 0 when there are no __multiple__ rows", () => {
+    const traffic = analyzeExperimentTraffic({
+      variations,
+      rows: [row("control", "dim_exposure_date", "2026-01-01", 1000)],
+    });
+    expect(traffic.multipleExposures).toBe(0);
+  });
+
+  it("omits multipleExposures when the traffic query failed", () => {
+    expect(
+      analyzeExperimentTraffic({ variations, rows: [], error: "boom" })
+        .multipleExposures,
+    ).toBeUndefined();
+    expect(
+      analyzeExperimentTraffic({ variations, rows: [] }).multipleExposures,
+    ).toBeUndefined();
+  });
+});
+
+describe("getAnalysisSettingsForStatsEngine", () => {
+  const reportVariations: ExperimentReportVariation[] = [
+    { id: "control", name: "Control", weight: 0.5, index: 0 },
+    { id: "treatment", name: "Treatment", weight: 0.5, index: 1 },
+  ];
+  const alphaFor = (
+    settings: Partial<ExperimentSnapshotAnalysisSettings>,
+  ): number =>
+    getAnalysisSettingsForStatsEngine(
+      { ...analysisSettings, ...settings },
+      reportVariations,
+      1,
+      14,
+    ).alpha;
+
+  it("sets alpha from the p-value threshold for frequentist analyses", () => {
+    expect(alphaFor({ statsEngine: "frequentist", pValueThreshold: 0.2 })).toBe(
+      0.2,
+    );
+    expect(alphaFor({ statsEngine: "frequentist" })).toBe(0.05);
+  });
+
+  it("holds Bayesian credible intervals at 95% regardless of the threshold", () => {
+    expect(alphaFor({ statsEngine: "bayesian", pValueThreshold: 0.2 })).toBe(
+      0.05,
+    );
+    expect(alphaFor({ statsEngine: "bayesian", pValueThreshold: 0.001 })).toBe(
+      0.05,
+    );
   });
 });

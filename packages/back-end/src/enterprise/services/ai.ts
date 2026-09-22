@@ -26,6 +26,8 @@ import {
   AIModel,
   AIPromptType,
   AIProvider,
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  getMaxOutputTokens,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
@@ -146,6 +148,74 @@ function getOpenAIProviderOptions(model: AIModel) {
   };
 }
 
+function splitAnthropicOptions(message: ModelMessage) {
+  const providerOptions = message.providerOptions ?? {};
+  const anthropic = providerOptions.anthropic;
+  const anthropicWithoutCache =
+    anthropic && typeof anthropic === "object" && !Array.isArray(anthropic)
+      ? Object.fromEntries(
+          Object.entries(anthropic).filter(([key]) => key !== "cacheControl"),
+        )
+      : {};
+  const otherProviders = Object.fromEntries(
+    Object.entries(providerOptions).filter(
+      ([provider]) => provider !== "anthropic",
+    ),
+  );
+  return { anthropicWithoutCache, otherProviders };
+}
+
+// Drops providerOptions entirely when nothing is left on it.
+function withProviderOptions(
+  message: ModelMessage,
+  providerOptions: Record<string, unknown>,
+): ModelMessage {
+  return {
+    ...message,
+    providerOptions:
+      Object.keys(providerOptions).length > 0 ? providerOptions : undefined,
+  } as ModelMessage;
+}
+
+function withAnthropicCacheControl(message: ModelMessage): ModelMessage {
+  const { anthropicWithoutCache, otherProviders } =
+    splitAnthropicOptions(message);
+  return withProviderOptions(message, {
+    ...otherProviders,
+    anthropic: {
+      ...anthropicWithoutCache,
+      cacheControl: { type: "ephemeral" as const },
+    },
+  });
+}
+
+function withoutAnthropicCacheControl(message: ModelMessage): ModelMessage {
+  const { anthropicWithoutCache, otherProviders } =
+    splitAnthropicOptions(message);
+  return withProviderOptions(message, {
+    ...otherProviders,
+    ...(Object.keys(anthropicWithoutCache).length > 0
+      ? { anthropic: anthropicWithoutCache }
+      : {}),
+  });
+}
+
+// One rolling breakpoint on the latest message; the system message keeps its own.
+function withAnthropicCacheBreakpoint(
+  messages: ModelMessage[],
+): ModelMessage[] {
+  const lastMessageIndex = messages.length - 1;
+
+  return messages.map((message, index) => {
+    if (message.role === "system") return message;
+    return index === lastMessageIndex
+      ? withAnthropicCacheControl(message)
+      : withoutAnthropicCacheControl(message);
+  });
+}
+
+export const _withAnthropicCacheBreakpoint = withAnthropicCacheBreakpoint;
+
 /**
  * The docs say OpenAI might not always return token usage info in rare edge cases.
  * So this is a fallback, so we can keep track of token usage on cloud regardless.
@@ -239,6 +309,31 @@ export const secondsUntilAICanBeUsedAgainForEmbeddings = async (
   const provider =
     getProviderForAIModel("embedding", embeddingModel) ?? undefined;
   return secondsUntilAICanBeUsedAgainForProvider(context, provider);
+};
+
+export const secondsUntilAICanBeUsedAgainForSTT = async (
+  context: ReqContext | ApiReqContext,
+): Promise<number> => {
+  if (!IS_CLOUD) return 0;
+  const { sttModel } = await getAISettingsForOrg(context);
+  const provider = getProviderForAIModel("stt", sttModel ?? "") ?? undefined;
+  return secondsUntilAICanBeUsedAgainForProvider(context, provider);
+};
+
+export const recordSTTUsage = async (
+  context: ReqContext | ApiReqContext,
+  audioBytes: number,
+  provider: AIProvider,
+): Promise<void> => {
+  if (!IS_CLOUD) return;
+  const { keySource } = await getAISettingsForOrg(context);
+  // The org pays its own provider directly, so nothing to meter.
+  if (keySource[provider] === "organization") return;
+  // ponytail: audio has no tokens, so charge a KB apiece. Add a minutes counter if dictation spend needs real attribution.
+  await updateTokenUsage({
+    numTokensUsed: Math.ceil(audioBytes / 1024),
+    organization: context.org,
+  });
 };
 
 const constructMessages = (
@@ -487,15 +582,44 @@ export const streamingChatCompletion = async ({
   let terminalUsage: TerminalUsage | undefined;
   let streamErrored = false;
 
+  // Stable prefix of every turn, so it gets a breakpoint of its own.
+  const baseSystemMessage: ModelMessage = { role: "system", content: system };
+  const systemMessage =
+    getProviderFromModel(model) === "anthropic"
+      ? withAnthropicCacheControl(baseSystemMessage)
+      : baseSystemMessage;
+
   const result = streamText({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
-    system,
-    messages,
+    messages: [systemMessage, ...messages],
     ...getOpenAIProviderOptions(model),
+    maxOutputTokens: getMaxOutputTokens(model),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+    ...(tools
+      ? {
+          tools,
+          stopWhen: stepCountIs(maxSteps),
+          // Same force-a-final-answer guard parsePrompt uses: a model that
+          // keeps calling tools until it exhausts maxSteps otherwise ends ON
+          // a tool call, and the stream closes having emitted no text at all.
+          prepareStep: ({
+            stepNumber,
+            messages: stepMessages,
+          }: {
+            stepNumber: number;
+            messages: ModelMessage[];
+          }) => ({
+            ...(getProviderFromModel(model) === "anthropic"
+              ? { messages: withAnthropicCacheBreakpoint(stepMessages) }
+              : {}),
+            ...(stepNumber >= maxSteps - 1
+              ? { toolChoice: "none" as const }
+              : {}),
+          }),
+        }
+      : {}),
     ...(abortSignal ? { abortSignal } : {}),
     onFinish: ({ totalUsage }) => {
       // onFinish's `usage` is only the last step; totalUsage covers the run.
@@ -564,7 +688,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   cacheSystemPrompt = false,
   onStepFinish,
   retryOnNoObject = true,
-  maxOutputTokens = 8000,
+  maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS,
   logContext,
 }: {
   context: ReqContext | ApiReqContext;
@@ -655,7 +779,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? temperature
     : undefined;
 
+  // Per-attempt step telemetry. Without it a no-output failure is
+  // indistinguishable from a model that answered in prose on step one —
+  // only the first is helped by a bigger maxSteps.
+  let stepsUsed = 0;
+  let toolsCalled: string[] = [];
+
   const generateOnce = async () => {
+    stepsUsed = 0;
+    toolsCalled = [];
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
@@ -663,7 +795,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       output: Output.object({
         schema: zodObjectSchema,
       }),
-      maxOutputTokens,
+      maxOutputTokens: getMaxOutputTokens(model, maxOutputTokens),
       ...(effectiveTemperature != null
         ? { temperature: effectiveTemperature }
         : {}),
@@ -683,7 +815,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
               stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
           }
         : {}),
-      ...(onStepFinish ? { onStepFinish } : {}),
+      onStepFinish: (step) => {
+        stepsUsed++;
+        for (const call of step.toolCalls ?? [])
+          toolsCalled.push(call.toolName);
+        onStepFinish?.(step);
+      },
     });
     // Read the lazy `output` getter HERE, inside this awaited function, so the
     // try/catch below catches BOTH generation failures. generateText only
@@ -730,6 +867,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       ...(logContext ?? {}),
       orgId: context.org.id,
       userId: context.userId,
+      stepsUsed,
+      maxSteps,
+      toolsCalled,
       errorType: objErr ? "no-object" : "no-output",
       finishReason: objErr?.finishReason,
       cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),

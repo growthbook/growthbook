@@ -1,6 +1,7 @@
 import cloneDeep from "lodash/cloneDeep";
 import {
   BANDIT_SRM_DIMENSION_NAME,
+  BAYESIAN_CREDIBLE_INTERVAL_ALPHA,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_TARGET_MDE,
@@ -17,6 +18,7 @@ import {
   isFactFunnelMetric,
   isRatioMetric,
   isRegressionAdjusted,
+  parseDimensionId,
   quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
@@ -94,6 +96,11 @@ export function getAnalysisSettingsForStatsEngine(
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const pValueThresholdNumber =
     Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+  // The threshold is a frequentist setting; Bayesian intervals stay at 95%.
+  const alpha =
+    settings.statsEngine === "bayesian"
+      ? BAYESIAN_CREDIBLE_INTERVAL_ALPHA
+      : pValueThresholdNumber;
 
   const analysisData: AnalysisSettingsForStatsEngine = {
     var_names: sortedVariations.map((v) => v.name),
@@ -107,9 +114,9 @@ export function getAnalysisSettingsForStatsEngine(
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
     phase_length_days: phaseLengthDays,
-    alpha: pValueThresholdNumber,
+    alpha,
     max_dimensions:
-      settings.dimensions[0]?.substring(0, 8) === "pre:date"
+      parseDimensionId(settings.dimensions[0] || "").kind === "date"
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
@@ -551,12 +558,15 @@ export function parseStatsEngineResult({
   let unknownVariationsCopy = [...unknownVariations];
 
   const experimentReportResults: ExperimentReportResults[] = [];
-  // TODO fix for dimension slices and move to health query
+  // Fallback when there is no traffic query; see analyzeExperimentTraffic.
+  // Rows are one per (variation × dimension slice), so sum the slices within
+  // a query; the unit set is the same across queries, so max is a safe merge
   const multipleExposures = Math.max(
     0,
-    ...queryResults.map(
-      (q) =>
-        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
+    ...queryResults.map((q) =>
+      q.rows
+        .filter((r) => r.variation === "__multiple__")
+        .reduce((sum, r) => sum + (Number(r.users) || 0), 0),
     ),
   );
 
@@ -852,6 +862,7 @@ export function analyzeExperimentTraffic({
   const trafficResults: ExperimentSnapshotTraffic = {
     overall: overallResult,
     dimension: {},
+    multipleExposures: 0,
   };
 
   let banditSrmSet = false;
@@ -859,6 +870,15 @@ export function analyzeExperimentTraffic({
     if (r.dimension_name === BANDIT_SRM_DIMENSION_NAME) {
       trafficResults.overall.srm = chi2pvalue(r.units, variations.length - 1);
       banditSrmSet = true;
+    }
+    // Every dimension repeats the __multiple__ units, so count them once
+    // via the exposure-date dimension (which also feeds the overall counts)
+    if (
+      r.variation === "__multiple__" &&
+      r.dimension_name === EXPOSURE_DATE_DIMENSION_NAME
+    ) {
+      trafficResults.multipleExposures =
+        (trafficResults.multipleExposures ?? 0) + (Number(r.units) || 0);
     }
     const variationIndex = variationIdMap[r.variation];
     // skip if variation is not found (this happens if variation is __multiple__)

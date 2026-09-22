@@ -177,6 +177,10 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "guardrail-failed",
+  "query-failed",
+  "ending-soon",
+  "stale",
   "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
@@ -317,10 +321,15 @@ export type ExperimentAnalysisSummaryHealth = z.infer<
   typeof experimentAnalysisSummaryHealth
 >;
 
-export const goalMetricStatus = ["won", "lost", "neutral"] as const;
+export const goalMetricStatus = ["won", "lost", "neutral", "errored"] as const;
 export type GoalMetricStatus = (typeof goalMetricStatus)[number];
 
-export const guardrailMetricStatus = ["safe", "lost", "neutral"] as const;
+export const guardrailMetricStatus = [
+  "safe",
+  "lost",
+  "neutral",
+  "errored",
+] as const;
 export type GuardrailMetricStatus = (typeof guardrailMetricStatus)[number];
 
 export const goalMetricResult = z.object({
@@ -1051,6 +1060,10 @@ export const apiExperimentResultsValidator = namedSchema(
       dimension: z.object({
         type: z.string(),
         id: z.string().optional(),
+        // Constituents of a "combo" dimension, in the order they were combined
+        dimensions: z
+          .array(z.object({ type: z.string(), id: z.string().optional() }))
+          .optional(),
       }),
       settings: apiExperimentAnalysisSettingsValidator,
       queryIds: z.array(z.string()),
@@ -1230,6 +1243,10 @@ export const apiExperimentBulkResultValidator = componentSchema(
         type: z.string(),
         id: z.string().optional(),
         precomputed: z.boolean(),
+        // Constituents of a "combo" dimension, in the order they were combined
+        dimensions: z
+          .array(z.object({ type: z.string(), id: z.string().optional() }))
+          .optional(),
       }),
       settings: apiBulkResultSettings,
       results: z.array(
@@ -1314,7 +1331,12 @@ const apiMetricOverrideEntryInput = z
 
 // Variation for input payloads
 const apiVariationInput = z.object({
-  id: z.string().optional(),
+  id: z
+    .string()
+    .describe(
+      "Stable variation id. On update, an omitted id is filled from the stored variation with the same key, or the same position, when the number of variations is unchanged.",
+    )
+    .optional(),
   variationId: z
     .string()
     .describe(
@@ -1344,7 +1366,7 @@ const apiPhaseInput = z.object({
   dateEnded: z.string().meta({ format: "date-time" }).optional(),
   reasonForStopping: z.string().optional(),
   seed: z.string().optional(),
-  coverage: z.number().optional(),
+  coverage: z.number().min(0).max(1).optional(),
   namespace: z
     .object({
       namespaceId: z.string(),
@@ -1378,12 +1400,14 @@ const apiPhaseInput = z.object({
     .optional(),
   ...phaseSavedGroupInput,
   variationWeights: z
-    .array(z.number())
+    .array(z.number().min(0).max(1))
     .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
     .meta({ deprecated: true })
     .optional(),
   trafficSplit: z
-    .array(z.object({ variationId: z.string(), weight: z.number() }))
+    .array(
+      z.object({ variationId: z.string(), weight: z.number().min(0).max(1) }),
+    )
     .describe("Per-variation weights. Mirrors the GET response.")
     .optional(),
 });
@@ -1637,7 +1661,7 @@ const updateExperimentBody = z
           dateEnded: z.string().meta({ format: "date-time" }).optional(),
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
-          coverage: z.number().optional(),
+          coverage: z.number().min(0).max(1).optional(),
           namespace: z
             .object({
               namespaceId: z.string(),
@@ -1675,14 +1699,19 @@ const updateExperimentBody = z
             .optional(),
           ...phaseSavedGroupInput,
           variationWeights: z
-            .array(z.number())
+            .array(z.number().min(0).max(1))
             .describe(
               "Deprecated: use `trafficSplit`. Takes precedence if set.",
             )
             .meta({ deprecated: true })
             .optional(),
           trafficSplit: z
-            .array(z.object({ variationId: z.string(), weight: z.number() }))
+            .array(
+              z.object({
+                variationId: z.string(),
+                weight: z.number().min(0).max(1),
+              }),
+            )
             .describe("Per-variation weights. Mirrors the GET response.")
             .optional(),
         }),
@@ -2096,6 +2125,29 @@ export const postExperimentStartValidator = {
   ] as const,
 };
 
+const postExperimentCommentBody = z
+  .object({
+    comment: z.string().trim().min(1, "Comment cannot be empty"),
+  })
+  .strict();
+
+export const postExperimentCommentValidator = {
+  bodySchema: postExperimentCommentBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.strictObject({ status: z.number() }),
+  summary: "Post a comment on an experiment",
+  description: "Adds a new comment to an experiment's discussion thread.",
+  operationId: "postExperimentComment",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/comment",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: { comment: "This looks good to ship." },
+  },
+};
+
 export const postExperimentStartChecklistManualCompleteValidator = {
   bodySchema: postExperimentStartChecklistManualCompleteBody,
   querySchema: z.never(),
@@ -2246,7 +2298,7 @@ export const postExperimentSnapshotValidator = {
       dimension: z
         .string()
         .describe(
-          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". Omit this field to create a standard snapshot.',
+          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". Use "cutoff:<ISO datetime>" (e.g. "cutoff:2026-01-15T00:12:00.000Z") to split units by whether they were first exposed before or after the cutoff; it must fall within the phase dates. Use "combo:<dimA>::<dimB>" (e.g. "combo:exp:country::dim_abc123") to break down by the intersection of two dimensions, each an Experiment Dimension or Unit Dimension id; values beyond the top 20 combined slices are merged into "(other)". Omit this field to create a standard snapshot.',
         )
         .optional(),
       phase: z

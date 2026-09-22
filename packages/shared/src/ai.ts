@@ -160,13 +160,19 @@ export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
 export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image";
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
-export function getProviderFromModel(model: AIModel): AIProvider {
-  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
+function providerOf(
+  map: Readonly<Record<string, readonly string[]>>,
+  model: string,
+  label: string,
+): AIProvider {
+  for (const [provider, models] of Object.entries(map)) {
+    if (models.includes(model)) return provider as AIProvider;
   }
-  throw new Error(`Model ${model} is not supported.`);
+  throw new Error(`${label} ${model} is not supported.`);
+}
+
+export function getProviderFromModel(model: AIModel): AIProvider {
+  return providerOf(AI_PROVIDER_MODEL_MAP, model, "Model");
 }
 
 // OpenAI reasoning models (the o-series and the entire GPT-5 family) are
@@ -193,6 +199,22 @@ const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
 export function supportsTemperature(model: AIModel): boolean {
   if (isReasoningModel(model)) return false;
   return !CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(model);
+}
+
+export const DEFAULT_MAX_OUTPUT_TOKENS = 8000;
+
+// Anthropic 400s when max_tokens exceeds the model's cap (other providers
+// clamp), so hand-maintain an entry for every model capped below the default.
+const MAX_OUTPUT_TOKENS_BY_MODEL: Readonly<Record<string, number>> = {
+  "claude-3-haiku-20240307": 4096,
+};
+
+export function getMaxOutputTokens(
+  model: AIModel,
+  desired: number = DEFAULT_MAX_OUTPUT_TOKENS,
+): number {
+  const modelMax = MAX_OUTPUT_TOKENS_BY_MODEL[model];
+  return modelMax === undefined ? desired : Math.min(desired, modelMax);
 }
 
 // Whether a text model can accept image input (vision). The model
@@ -534,23 +556,58 @@ export const AI_PROVIDER_EMBEDDING_MODEL_MAP = {
 export type EmbeddingModel =
   (typeof AI_PROVIDER_EMBEDDING_MODEL_MAP)[keyof typeof AI_PROVIDER_EMBEDDING_MODEL_MAP][number];
 
-// Helper to determine which provider an embedding model belongs to
 export function getProviderFromEmbeddingModel(
   model: EmbeddingModel,
 ): AIProvider {
-  for (const [provider, models] of Object.entries(
-    AI_PROVIDER_EMBEDDING_MODEL_MAP,
-  )) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
-  }
-  throw new Error(`Embedding model ${model} is not supported.`);
+  return providerOf(AI_PROVIDER_EMBEDDING_MODEL_MAP, model, "Embedding model");
 }
 
-// Text, embedding and image models each have their own registry, so callers
-// holding an org setting must say which one it came from.
-export type AIModelKind = "text" | "embedding" | "image";
+// Batch (file-POST) transcription models. Anthropic and Google are absent: no audio input, or upload-only.
+export const AI_PROVIDER_STT_MODEL_MAP = {
+  openai: [
+    "gpt-transcribe",
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+    "whisper-1",
+  ],
+  xai: ["grok-stt-1.0"],
+  mistral: ["voxtral-mini-latest"],
+} as const;
+
+export type STTModel =
+  (typeof AI_PROVIDER_STT_MODEL_MAP)[keyof typeof AI_PROVIDER_STT_MODEL_MAP][number];
+
+export type STTProvider = keyof typeof AI_PROVIDER_STT_MODEL_MAP;
+
+export function getProviderFromSTTModel(model: STTModel): STTProvider {
+  return providerOf(
+    AI_PROVIDER_STT_MODEL_MAP,
+    model,
+    "Transcription model",
+  ) as STTProvider;
+}
+
+// Each provider's first model, in registry order: a missing key degrades to the next provider.
+export const DEFAULT_STT_MODELS = Object.entries(AI_PROVIDER_STT_MODEL_MAP).map(
+  ([provider, models]) => [provider, models[0]] as [STTProvider, STTModel],
+);
+
+export const DEFAULT_STT_MODEL: STTModel = DEFAULT_STT_MODELS[0][1];
+
+/** Which model "use default" resolves to, given the providers that have a key. */
+export function resolveDefaultSTTModel(
+  providersWithKeys: readonly AIProvider[],
+): STTModel | null {
+  return (
+    DEFAULT_STT_MODELS.find(([provider]) =>
+      providersWithKeys.includes(provider),
+    )?.[1] ?? null
+  );
+}
+
+// Text, embedding, image and transcription models each have their own
+// registry, so callers holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image" | "stt";
 
 // Provider that serves `model`, or null when the id isn't in that registry.
 // Null rather than a throw: a stale org setting should read as "not selectable",
@@ -563,6 +620,7 @@ export function getProviderForAIModel(
     if (kind === "text") return getProviderFromModel(model as AIModel);
     if (kind === "embedding")
       return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    if (kind === "stt") return getProviderFromSTTModel(model as STTModel);
     return getImageModelMeta(model)?.provider ?? null;
   } catch {
     return null;
@@ -603,6 +661,12 @@ export const AI_MODEL_SETTINGS = [
     kind: "embedding",
     label: "Embedding model",
     fallback: DEFAULT_EMBEDDING_MODEL,
+  },
+  {
+    key: "sttModel",
+    kind: "stt",
+    label: "Dictation model",
+    fallback: DEFAULT_STT_MODEL,
   },
 ] as const;
 

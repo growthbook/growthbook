@@ -1,3 +1,5 @@
+import { isEqual } from "lodash";
+import { getFactTableTimestampColumn } from "shared/experiments";
 import { updateFactTableValidator } from "shared/validators";
 import {
   FactTableInterface,
@@ -7,6 +9,7 @@ import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTable
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateFactTable as updateFactTableInDb,
+  mergeUpsertColumns,
   upsertColumns,
   toFactTableApiInterface,
   getFactTable,
@@ -21,9 +24,39 @@ import {
   columnsHaveAutoSlices,
   columnsNeedDetection,
   validateAggregatedFactTableSettings,
+  validateColumnMappingTargets,
+  validateNewUserIdColumnKeys,
   validateVirtualColumnProps,
   validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
+
+export async function authorizeAndPersistFactTableUpdate({
+  context,
+  factTable,
+  parentUpdateData,
+  incomingColumns,
+}: {
+  context: ReqContext | ApiReqContext;
+  factTable: FactTableInterface;
+  parentUpdateData: UpdateFactTableProps;
+  incomingColumns: UpdateFactTableProps["columns"];
+}): Promise<void> {
+  if (!context.permissions.canUpdateFactTable(factTable, parentUpdateData)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (incomingColumns) {
+    await upsertColumns({
+      context,
+      factTable,
+      columns: incomingColumns,
+    });
+  }
+
+  await updateFactTableInDb(context, factTable, parentUpdateData);
+}
 
 export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator,
@@ -63,6 +96,28 @@ export const updateFactTable = createApiRequestHandler(
     }
   }
 
+  if (req.body.userIdColumns) {
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource for this fact table");
+    }
+    validateNewUserIdColumnKeys({
+      datasource,
+      userIdColumns: req.body.userIdColumns,
+      existingUserIdColumns: factTable.userIdColumns,
+    });
+  }
+
+  // The post-upsert state, so a mapping can point at a column this same request
+  // adds, retypes, or deletes.
+  validateColumnMappingTargets({
+    columns: mergeUpsertColumns(factTable.columns, req.body.columns ?? [])
+      .columns,
+    timestampColumn: req.body.timestampColumn,
+    userIdColumns: req.body.userIdColumns,
+    existing: factTable,
+  });
+
   if (req.body.aggregatedFactTableSettings) {
     if (!req.context.hasPremiumFeature("pipeline-mode")) {
       throw new Error(
@@ -93,10 +148,9 @@ export const updateFactTable = createApiRequestHandler(
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   if (req.body.owner !== undefined) data.owner = resolvedOwner ?? "";
 
-  let columnsUpserted = false;
-  if (data.columns) {
-    const incomingColumns = data.columns;
-
+  const incomingColumns = data.columns;
+  let columnRefreshWillBeNeeded = false;
+  if (incomingColumns) {
     let touchesVirtualColumn = false;
     for (const col of incomingColumns) {
       const existingCol = factTable.columns.find(
@@ -163,30 +217,37 @@ export const updateFactTable = createApiRequestHandler(
     ) {
       req.context.permissions.throwPermissionError();
     }
-
-    await upsertColumns({
-      context: req.context,
-      factTable,
-      columns: incomingColumns,
-    });
-    columnsUpserted = true;
-    delete data.columns;
+    columnRefreshWillBeNeeded = columnsNeedDetection(
+      mergeUpsertColumns(factTable.columns, incomingColumns).columns,
+    );
   }
+
+  const parentUpdateData = { ...data };
+  delete parentUpdateData.columns;
 
   const willRefresh =
-    needsColumnRefresh(factTable, data) ||
-    (columnsUpserted && columnsNeedDetection(factTable.columns));
+    needsColumnRefresh(factTable, parentUpdateData) ||
+    columnRefreshWillBeNeeded;
   if (willRefresh) {
-    data.columnRefreshPending = true;
+    parentUpdateData.columnRefreshPending = true;
   }
 
-  await updateFactTableInDb(req.context, factTable, data);
+  await authorizeAndPersistFactTableUpdate({
+    context: req.context,
+    factTable,
+    parentUpdateData,
+    incomingColumns,
+  });
   if (willRefresh) {
     await queueFactTableColumnsRefresh(factTable);
   }
 
-  if (data.tags) {
-    await addTagsDiff(req.organization.id, factTable.tags, data.tags);
+  if (parentUpdateData.tags) {
+    await addTagsDiff(
+      req.organization.id,
+      factTable.tags,
+      parentUpdateData.tags,
+    );
   }
 
   const updatedFactTable = {
@@ -204,11 +265,30 @@ export const updateFactTable = createApiRequestHandler(
 });
 
 export function needsColumnRefresh(
-  existing: Pick<FactTableInterface, "sql" | "eventName">,
+  existing: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "timestampColumn" | "userIdColumns"
+  >,
   changes: UpdateFactTableProps,
 ): boolean {
   const sqlChanged = changes.sql !== undefined && changes.sql !== existing.sql;
   const eventNameChanged =
     changes.eventName !== undefined && changes.eventName !== existing.eventName;
-  return sqlChanged || eventNameChanged;
+  // A changed timestamp column changes the detection query's date filter, so
+  // re-running it clears an error left by a wrong column.
+  const timestampColumnChanged =
+    changes.timestampColumn !== undefined &&
+    getFactTableTimestampColumn(changes) !==
+      getFactTableTimestampColumn(existing);
+  // The refresh is what re-derives userIdTypes from the mapping, so without
+  // this a newly mapped identifier would stay missing from userIdTypes.
+  const userIdColumnsChanged =
+    changes.userIdColumns !== undefined &&
+    !isEqual(changes.userIdColumns, existing.userIdColumns ?? {});
+  return (
+    sqlChanged ||
+    eventNameChanged ||
+    timestampColumnChanged ||
+    userIdColumnsChanged
+  );
 }

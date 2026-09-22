@@ -16,12 +16,19 @@ import type { ApiReqContext } from "back-end/types/api";
 // constant in postAIImageGen.ts — both paths bill the same way.
 const IMAGE_GEN_TOKEN_COST_PER_IMAGE = 1290;
 
+// A failed generation returns a tool result rather than throwing, so `warnings`
+// is the only machine-readable trace of it.
+export interface ImageTurnState {
+  count: number;
+  max: number;
+  generated: { url: string; width: number; height: number }[];
+  warnings: string[];
+}
+
 export interface GenerateImageToolContext {
   context: ApiReqContext;
-  // Counter shared across every generateImage call in a single chat
-  // turn so the AI can't burn through credits in a loop. The toolset
-  // factory creates one of these per request.
-  turnCounter: { count: number; max: number };
+  turnCounter: ImageTurnState;
+  quarantine: boolean;
 }
 
 const inputSchema = z.object({
@@ -39,6 +46,16 @@ const inputSchema = z.object({
     ),
 });
 
+// `gen/` has a 7-day TTL; the extension promotes out of it when the user
+// accepts. A persisting caller has no accept step, so it writes permanent.
+export function imageFilePath(
+  orgId: string,
+  ext: string,
+  quarantine: boolean,
+): string {
+  return `${quarantine ? "gen/" : ""}${orgId}/visual-editor/img_${uuidv4()}.${ext}`;
+}
+
 export function generateImageTool(toolCtx: GenerateImageToolContext) {
   return aiTool({
     description:
@@ -49,10 +66,9 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
         // Surfaced back to the model as the tool result; it will see this
         // and stop trying. Easier than throwing — exceptions inside a
         // tool can abort the whole turn depending on the SDK version.
-        return {
-          ok: false,
-          error: `Image-generation budget exhausted for this turn (max ${toolCtx.turnCounter.max} images). Wrap up with the images you've already generated.`,
-        } as const;
+        const error = `Image-generation budget exhausted for this turn (max ${toolCtx.turnCounter.max} images). Wrap up with the images you've already generated.`;
+        toolCtx.turnCounter.warnings.push(error);
+        return { ok: false, error } as const;
       }
 
       const { context } = toolCtx;
@@ -73,11 +89,10 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
       if (
         await secondsUntilAICanBeUsedAgainForProvider(context, imageProvider)
       ) {
-        return {
-          ok: false,
-          error:
-            "Daily AI usage limit reached — no more images can be generated today. Continue without generating images.",
-        } as const;
+        const error =
+          "Daily AI usage limit reached — no more images can be generated today. Continue without generating images.";
+        toolCtx.turnCounter.warnings.push(error);
+        return { ok: false, error } as const;
       }
 
       // Defensive single-image constraint. Even with the tool
@@ -101,10 +116,9 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
         });
 
         if (generated.length === 0) {
-          return {
-            ok: false,
-            error: "Image generation returned no images.",
-          } as const;
+          const error = "Image generation returned no images.";
+          toolCtx.turnCounter.warnings.push(error);
+          return { ok: false, error } as const;
         }
 
         // Reported for every org whichever key paid — see postAIImageGen.ts.
@@ -137,7 +151,11 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
 
         const img = generated[0];
         const optimized = await optimizeAIImage(img);
-        const filePath = `gen/${org.id}/visual-editor/img_${uuidv4()}.${optimized.ext}`;
+        const filePath = imageFilePath(
+          org.id,
+          optimized.ext,
+          toolCtx.quarantine,
+        );
         const url = await uploadFile(
           filePath,
           optimized.contentType,
@@ -146,6 +164,11 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
         );
 
         toolCtx.turnCounter.count += 1;
+        toolCtx.turnCounter.generated.push({
+          url,
+          width: optimized.width,
+          height: optimized.height,
+        });
         return {
           ok: true,
           url,
@@ -159,6 +182,7 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
           { err: e, orgId: org.id },
           "[ai-tool/generate-image] gen failed",
         );
+        toolCtx.turnCounter.warnings.push(`Image generation failed: ${msg}`);
         return { ok: false, error: msg } as const;
       }
     },

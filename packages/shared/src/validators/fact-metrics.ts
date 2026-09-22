@@ -31,6 +31,8 @@ const apiRowFilterValidator = z
       "is_false",
       "contains",
       "not_contains",
+      "matches_pattern",
+      "not_matches_pattern",
       "starts_with",
       "ends_with",
       "sql_expr",

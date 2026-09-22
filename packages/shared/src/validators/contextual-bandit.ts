@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { banditStageType, variation } from "./experiments";
+import { banditStageType, screenshot, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
@@ -29,6 +29,24 @@ export type LeafWeight = z.infer<typeof leafWeightValidator>;
 export const contextualBanditStatus = ["draft", "running", "stopped"] as const;
 export type ContextualBanditStatus = (typeof contextualBanditStatus)[number];
 
+// Absent = "active". See contextual-bandit-variation-changes.ts for semantics.
+const contextualBanditVariationStatus = [
+  "active",
+  "pending",
+  "deactivated",
+] as const;
+export type ContextualBanditVariationStatus =
+  (typeof contextualBanditVariationStatus)[number];
+
+// Only the stored document carries status; the server owns transitions.
+const contextualBanditVariation = variation.extend({
+  key: z.string().regex(/\S/, "Variation key cannot be empty."),
+  status: z.enum(contextualBanditVariationStatus).optional(),
+});
+export type ContextualBanditVariation = z.infer<
+  typeof contextualBanditVariation
+>;
+
 export const contextualBanditValidator = baseSchema
   .extend({
     name: z.string(),
@@ -45,7 +63,7 @@ export const contextualBanditValidator = baseSchema
     trackingKey: z.string(),
     hashAttribute: z.string(),
 
-    variations: z.array(variation),
+    variations: z.array(contextualBanditVariation),
 
     datasource: z.string(),
     contextualBanditQueryId: z.string(),
@@ -60,7 +78,6 @@ export const contextualBanditValidator = baseSchema
     banditVersion: z.number().int().nonnegative(),
 
     contextualAttributes: z.array(z.string()),
-    targetingAttributeColumns: z.array(z.string()).optional(),
 
     decisionMetric: z.string().optional(),
     minUsersPerLeaf: z.number().int().positive(),
@@ -107,6 +124,8 @@ const apiContextualBanditVariation = z.object({
   key: z.string(),
   name: z.string(),
   description: z.string().optional(),
+  // Tombstones are stripped from API responses; "deactivated" never appears here.
+  status: z.enum(["active", "pending"]).optional(),
 });
 
 export const apiContextualBanditValidator = namedSchema(
@@ -227,8 +246,6 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   trackingKey: z.string().optional(),
   hashAttribute: z.string().optional(),
 
-  variations: z.array(variation).optional(),
-
   datasource: z.string().optional(),
   contextualBanditQueryId: z.string().optional(),
 
@@ -256,7 +273,6 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
   seed: z.string().optional(),
-  variationWeights: z.array(variationWeightPairValidator).optional(),
 });
 
 export type ApiUpdateContextualBanditBody = z.infer<
@@ -272,7 +288,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "tags",
   "trackingKey",
   "hashAttribute",
-  "variations",
   "datasource",
   "contextualBanditQueryId",
   "contextualAttributes",
@@ -292,7 +307,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "savedGroups",
   "prerequisites",
   "seed",
-  "variationWeights",
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 export const apiContextualBanditStartValidator = {
@@ -311,8 +325,75 @@ export const apiContextualBanditStopValidator = {
   querySchema: z.never(),
 };
 
+export const apiContextualBanditUpdateVariationsValidator = {
+  paramsSchema: z.strictObject({ id: z.string() }),
+  bodySchema: z.strictObject({
+    addVariations: z
+      .array(
+        variation.extend({
+          id: z.string().optional(),
+          key: z.string().optional(),
+          screenshots: z.array(screenshot).optional(),
+          values: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe(
+              'Value this new arm serves on each currently-linked feature, keyed by feature id. Required for every linked feature. Encode as a string for every `valueType` (`"true"`, `"5"`, `"{\\"a\\":1}"`), matching how `feature.defaultValue` is set.',
+            ),
+        }),
+      )
+      .optional()
+      .describe(
+        "New arms to add. Omit `id` to have the server generate one and `key` to have the server assign the next integer.",
+      ),
+    removeVariationIds: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Ids of active arms to remove. Removed arms are tombstoned in place and their ids can never be re-added.",
+      ),
+    updateVariations: z
+      .array(
+        z.strictObject({
+          id: z.string(),
+          name: z.string().optional(),
+          description: z.string().optional(),
+          key: z
+            .string()
+            .optional()
+            .describe(
+              "New key for the arm. Must be unique across the contextual bandit's arms, including removed ones. The key is what SDKs report in exposure events, so renaming an arm on a running bandit orphans exposures already recorded under the old key.",
+            ),
+        }),
+      )
+      .optional()
+      .describe(
+        "Metadata edits to existing active arms. `name`, `description`, and `key` may be changed; values, weights, screenshots, and status are preserved.",
+      ),
+  }),
+  querySchema: z.never(),
+};
+
 export const apiContextualBanditLifecycleReturn = z.object({
   contextualBandit: apiContextualBanditValidator,
+});
+
+/**
+ * Return shape for the add/remove-variations endpoint. `featureDraftPublishFailures`
+ * lists linked features whose value for a newly-added arm was staged as a draft
+ * but could not be auto-published (e.g. needs approval), so the caller/UI can warn.
+ */
+export const apiContextualBanditVariationsReturn = z.object({
+  contextualBandit: apiContextualBanditValidator,
+  featureDraftPublishFailures: z
+    .array(
+      z.object({
+        featureId: z.string(),
+        revisionVersion: z.number(),
+        reason: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export const apiContextualBanditRefreshValidator = {
@@ -500,6 +581,14 @@ export const getContextualBanditResultsValidator = {
             z.object({
               numSplits: z.number().int().nonnegative(),
               totalSse: z.number(),
+              split: z
+                .object({
+                  leafClauses: z.array(contextualLeafClauseValidator),
+                  attribute: z.string(),
+                  leftLevels: z.array(z.string()),
+                  rightLevels: z.array(z.string()),
+                })
+                .optional(),
             }),
           ),
           overall: z.object({
@@ -508,6 +597,7 @@ export const getContextualBanditResultsValidator = {
                 variationId: z.string(),
                 variationName: z.string().optional(),
                 weight: z.number().nullable(),
+                mean: z.number().nullable(),
                 users: z.number().nullable(),
               }),
             ),

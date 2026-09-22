@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { analyzeExperimentPower } from "shared/enterprise";
 import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
@@ -576,6 +577,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       result.health = {
         traffic: trafficHealth,
       };
+      result.multipleExposures =
+        trafficHealth.multipleExposures ?? result.multipleExposures;
 
       const relativeAnalysis = this.model.analyses.find(
         (a) => a.settings.differenceType === "relative",
@@ -645,10 +648,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
-    await errorSnapshotIfStillRunning(this.context, this.model.id, {
-      queries: this.model.queries,
-      error,
-    });
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
+    await errorSnapshotIfStillRunning(
+      this.context,
+      this.model.id,
+      { queries: this.model.queries, error },
+      "unknown",
+    );
   }
 
   async updateModel({
@@ -657,12 +664,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     runStarted,
     result,
     error,
+    failureCause = "query",
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -680,6 +689,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (
