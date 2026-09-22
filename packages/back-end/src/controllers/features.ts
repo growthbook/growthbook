@@ -2680,15 +2680,9 @@ export async function postFeaturePublish(
     updatedFeature,
     revision,
   );
-  await dispatchFeatureRevisionEvent(
-    context,
-    updatedFeature,
-    publishedRevision,
-    "revision.published",
-    {},
-  );
-  // A revert that lands is ALSO a publish, so it owes both events — same rule
-  // as the generic engine and the direct revert doors.
+  // A revert that lands is ALSO a publish, so beside the `revision.published`
+  // the landing dispatched it owes the reverted event — same rule as the
+  // generic engine and the direct revert doors.
   const publishedRevertedTo = draftRevertedFromVersion(publishedRevision);
   if (publishedRevertedTo !== undefined) {
     await dispatchFeatureRevisionEvent(
@@ -3123,16 +3117,6 @@ export async function postFeatureRevert(
     finalRevision,
     "revision.reverted",
     { revertedToVersion: revision.version },
-  );
-
-  // A revert publishes a new revision, so emit the same lifecycle event as a
-  // regular publish — consumers watching `revision.published` see reverts too.
-  await dispatchFeatureRevisionEvent(
-    context,
-    updatedFeature,
-    finalRevision,
-    "revision.published",
-    {},
   );
 
   res.status(200).json({
@@ -6397,7 +6381,7 @@ export async function postFeatureArchive(
     if (newArchivedState === true && !feature.archived) {
       await assertFeatureArchiveDependentsGuard(context, feature);
     }
-    const updatedFeature = await publishRevision({
+    await publishRevision({
       context,
       feature,
       revision: draft,
@@ -6407,22 +6391,6 @@ export async function postFeatureArchive(
         "feature",
       ),
     });
-    // Re-fetch so the payload reflects the post-publish status ("published").
-    const publishedRevision =
-      (await getRevision({
-        context,
-        organization: context.org.id,
-        featureId: feature.id,
-        feature,
-        version: draft.version,
-      })) ?? draft;
-    await dispatchFeatureRevisionEvent(
-      context,
-      updatedFeature,
-      publishedRevision,
-      "revision.published",
-      {},
-    );
   }
 
   if (newArchivedState) {
