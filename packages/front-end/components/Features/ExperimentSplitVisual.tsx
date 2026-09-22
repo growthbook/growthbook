@@ -17,21 +17,15 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import styles from "./ExperimentSplitVisual.module.scss";
 
-/** How tall the connector is, and how it is put together. */
-const CONNECTOR = {
-  height: 34,
-  /** The shared drop the arms branch off. */
-  stem: 2,
-  /** The vertical run an arm settles into before its head. */
-  straight: 3,
-  head: 3,
-};
+/** How tall the connector is, where its horizontal run sits, and how softly
+ * it turns onto and off that run. */
+const CONNECTOR = { height: 24, bus: 10, radius: 6 };
 
 /**
- * A stem branching into one arrow per segment, each turning down over the
- * segment's midpoint. Drawn in pixels rather than percentages, so the corners
- * and heads keep their shape whatever the bar's width: the widths come in as
- * percentages, and the element measures itself to place them.
+ * A stem dropping onto a horizontal run, which drops again over each segment's
+ * midpoint. Drawn in pixels rather than percentages, so it keeps its shape
+ * whatever the bar's width: the widths come in as percentages, and the element
+ * measures itself to place them.
  */
 function SegmentConnector({ centers }: { centers: number[] }) {
   const box = useRef<HTMLDivElement>(null);
@@ -47,31 +41,22 @@ function SegmentConnector({ centers }: { centers: number[] }) {
     return () => observer.disconnect();
   }, []);
 
-  const { height, stem, straight, head } = CONNECTOR;
+  const { height, bus, radius } = CONNECTOR;
   const midX = width / 2;
-  const endY = height - head;
-  const turnY = endY - straight;
 
-  // One path for every arm: they share a stem, and separate elements would
-  // stack their alpha where they run together.
-  //
-  // Both controls sit on the vertical through the point they belong to, and
-  // well away from it: the arm sets off the way the stem goes and arrives at
-  // its head straight down too, with the whole sweep in between. A short
-  // tangent at either end spikes the curvature and the arm kinks.
+  // One path for the lot, arms and all: the stem is retraced by every arm, and
+  // separate elements would stack their alpha where they overlap.
   const d = centers
     .map((center) => {
       const x = (center / 100) * width;
       const dx = x - midX;
-      const dy = turnY - stem;
-      const arm =
-        Math.abs(dx) < 1
-          ? `M ${midX} ${stem} L ${x} ${endY}`
-          : `M ${midX} ${stem} C ${midX} ${stem + dy * 0.75},` +
-            ` ${x} ${turnY - dy * 0.75}, ${x} ${turnY} L ${x} ${endY}`;
+      if (Math.abs(dx) < radius) return `M ${midX} 0 L ${x} ${height}`;
+      const r = Math.sign(dx) * radius;
       return (
-        arm +
-        ` M ${x - head} ${endY - head} L ${x} ${endY} L ${x + head} ${endY - head}`
+        `M ${midX} 0 L ${midX} ${bus - radius}` +
+        ` Q ${midX} ${bus} ${midX + r} ${bus}` +
+        ` L ${x - r} ${bus} Q ${x} ${bus} ${x} ${bus + radius}` +
+        ` L ${x} ${height}`
       );
     })
     .join(" ");
@@ -80,14 +65,7 @@ function SegmentConnector({ centers }: { centers: number[] }) {
     <div ref={box} className={styles.connector}>
       {width > 0 ? (
         <svg width={width} height={height} aria-hidden>
-          <path
-            d={`M ${midX} 0 L ${midX} ${stem} ${d}`}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          <path d={d} fill="none" stroke="currentColor" strokeWidth="1" />
         </svg>
       ) : null}
     </div>
@@ -153,13 +131,7 @@ export default function ExperimentSplitVisual({
   });
 
   const labelsRow = showPercentages ? (
-    <div
-      className={clsx(
-        styles.labels_row,
-        slim && styles.labels_row_above,
-        showConnector && styles.labels_row_connected,
-      )}
-    >
+    <div className={clsx(styles.labels_row, slim && styles.labels_row_above)}>
       {segments.map(({ i, left, width, name }) => (
         <span
           key={i}

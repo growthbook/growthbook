@@ -123,11 +123,6 @@
   margin-top: -4px;
 }
 
-// With arrows coming down into the pills, their own stems would double up.
-.labels_row_connected .segmentLabel::after {
-  display: none;
-}
-
 .labels_row_above {
   margin-top: 0;
   // Exactly the stem's length, so it meets the bar rather than stopping short.
