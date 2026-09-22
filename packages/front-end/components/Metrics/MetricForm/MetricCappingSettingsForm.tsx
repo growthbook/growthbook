@@ -13,12 +13,6 @@ type TailSettings = {
   ignoreZeros?: boolean;
 } | null;
 
-function isUpperCapped(mode: CappingMode, value: number | undefined): boolean {
-  if (mode === "absolute") return (value ?? 0) > 0;
-  if (mode === "percentile") return (value ?? 0) > 0 && (value ?? 0) < 1;
-  return false;
-}
-
 function getCappingMode(cappingSettings: { type?: CappingType }): CappingMode {
   if (cappingSettings?.type === "percentile") {
     return "percentile";
@@ -55,7 +49,7 @@ function LegacyMetricCappingSettingsFormContent({
 
   const cappingOptions = [
     { value: "", label: "No" },
-    ...(metricType !== "ratio"
+    ...(metricType !== "ratio" || mode === "absolute"
       ? [{ value: "absolute", label: "Absolute capping" }]
       : []),
     ...(datasourceType !== "mixpanel"
@@ -63,8 +57,8 @@ function LegacyMetricCappingSettingsFormContent({
       : []),
   ];
 
-  const upperValue = cappingSettings?.value ?? 0;
-  const upperCapped = isUpperCapped(mode, upperValue);
+  const upperValue = cappingSettings?.value;
+  const upperHasValue = upperValue !== undefined && Number.isFinite(upperValue);
 
   const [upperFocused, setUpperFocused] = useState(false);
   const [upperDraft, setUpperDraft] = useState("");
@@ -83,54 +77,26 @@ function LegacyMetricCappingSettingsFormContent({
     }
     if (m === "absolute") {
       form.setValue("cappingSettings.type", "absolute");
-      form.setValue("cappingSettings.value", 0);
+      form.setValue("cappingSettings.value", undefined);
       form.setValue("cappingSettings.ignoreZeros", false);
       return;
     }
     form.setValue("cappingSettings.type", "percentile");
-    form.setValue("cappingSettings.value", 0);
+    form.setValue("cappingSettings.value", undefined);
     form.setValue("cappingSettings.ignoreZeros", false);
   };
 
   const flushUpperInput = (raw: string) => {
     const trimmed = raw.trim();
-    if (trimmed === "") {
-      form.setValue("cappingSettings.type", "");
-      form.setValue("cappingSettings.value", 0);
-      form.setValue("cappingSettings.ignoreZeros", false);
-      return;
-    }
-    const n = parseFloat(trimmed);
-    if (Number.isNaN(n)) {
-      form.setValue("cappingSettings.type", "");
-      form.setValue("cappingSettings.value", 0);
-      form.setValue("cappingSettings.ignoreZeros", false);
-      return;
-    }
-    if (mode === "absolute") {
-      if (n > 0) {
-        form.setValue("cappingSettings.type", "absolute");
-        form.setValue("cappingSettings.value", n);
-      } else {
-        form.setValue("cappingSettings.type", "");
-        form.setValue("cappingSettings.value", 0);
-        form.setValue("cappingSettings.ignoreZeros", false);
-      }
-    } else if (mode === "percentile") {
-      if (n > 0 && n < 1) {
-        form.setValue("cappingSettings.type", "percentile");
-        form.setValue("cappingSettings.value", n);
-      } else {
-        form.setValue("cappingSettings.type", "");
-        form.setValue("cappingSettings.value", 0);
-        form.setValue("cappingSettings.ignoreZeros", false);
-      }
-    }
+    form.setValue(
+      "cappingSettings.value",
+      trimmed === "" ? undefined : Number(trimmed),
+    );
   };
 
   const upperDisplayValue = upperFocused
     ? upperDraft
-    : upperCapped
+    : upperHasValue
       ? String(upperValue)
       : "";
 
@@ -166,20 +132,23 @@ function LegacyMetricCappingSettingsFormContent({
               value={upperDisplayValue}
               onFocus={() => {
                 setUpperFocused(true);
-                setUpperDraft(upperCapped ? String(upperValue) : "");
+                setUpperDraft(upperHasValue ? String(upperValue) : "");
               }}
               onBlur={(e) => {
                 flushUpperInput(e.target.value);
                 setUpperFocused(false);
               }}
-              onChange={(e) => setUpperDraft(e.target.value)}
+              onChange={(e) => {
+                setUpperDraft(e.target.value);
+                flushUpperInput(e.target.value);
+              }}
               helpText={
                 mode === "absolute"
                   ? "Maximum aggregated value per user"
                   : "All aggregated user values will be capped at this percentile (e.g. 0.99 = 99th percentile). Enter a number between 0 and 0.99999"
               }
             />
-            {mode === "percentile" && upperCapped ? (
+            {mode === "percentile" && upperHasValue ? (
               <Checkbox
                 label="Ignore zero values in percentile calculation"
                 value={cappingSettings?.ignoreZeros ?? false}
@@ -226,7 +195,7 @@ function FactCappingTailEditor({
 
   const cappingOptions = [
     { value: "", label: "No" },
-    ...(metricType !== "ratio"
+    ...(metricType !== "ratio" || mode === "absolute"
       ? [{ value: "absolute", label: "Absolute capping" }]
       : []),
     ...(datasourceType !== "mixpanel"
@@ -235,7 +204,8 @@ function FactCappingTailEditor({
   ];
 
   const rawValue = settings?.value;
-  const hasValue = rawValue != null && Number.isFinite(rawValue);
+  const hasValue =
+    rawValue !== undefined && rawValue !== null && Number.isFinite(rawValue);
 
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState("");
@@ -281,7 +251,7 @@ function FactCappingTailEditor({
       writeTail(mode, undefined);
       return;
     }
-    const n = parseFloat(trimmed);
+    const n = Number(trimmed);
     if (Number.isNaN(n)) {
       writeTail(mode, undefined);
       return;
@@ -342,7 +312,10 @@ function FactCappingTailEditor({
               flushInput(e.target.value);
               setFocused(false);
             }}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              flushInput(e.target.value);
+            }}
             helpText={valueHelpText}
           />
           {mode === "percentile" ? (

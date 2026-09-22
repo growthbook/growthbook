@@ -30236,7 +30236,9 @@ paths:
                     - steps
                   additionalProperties: false
                 cappingSettings:
-                  description: Controls how outliers are handled
+                  description: >-
+                    Upper cap. Omit on update to preserve it. Use type: none to
+                    disable it explicitly. Invalid values are rejected.
                   type: object
                   properties:
                     type:
@@ -30247,20 +30249,30 @@ paths:
                         - percentile
                     value:
                       description: >-
-                        When type is absolute, this is the absolute value. When
-                        type is percentile, this is the percentile value (from
-                        0.0 to 1.0).
+                        When type is absolute, this must be a finite number
+                        greater than zero. When type is percentile, this must be
+                        strictly between 0 and 1. Required when enabling capping
+                        or changing type; omitted values are preserved only for
+                        same-type updates.
                       type: number
                     ignoreZeros:
                       description: >-
                         If true and capping is `percentile`, zeros will be
                         ignored when calculating the percentile.
                       type: boolean
-                    lowerCappingSettings:
-                      description: >-
-                        Independent lower-tail (negative-value) capping
-                        settings. Configured separately from the upper tail, so
-                        the type can differ.
+                  required:
+                    - type
+                  additionalProperties: false
+                lowerCappingSettings:
+                  description: >-
+                    Independent lower cap. Omit on update to preserve it. Use
+                    null or type: none to disable it explicitly. Invalid values
+                    are rejected. For mixed cap types, the absolute bound takes
+                    precedence if thresholds cross.
+                  anyOf:
+                    - description: >-
+                        Independent lower-tail capping settings. Configured
+                        separately from the upper tail, so the type can differ.
                       type: object
                       properties:
                         type:
@@ -30271,9 +30283,12 @@ paths:
                             - percentile
                         value:
                           description: >-
-                            When type is absolute, this is the lower bound. When
-                            type is percentile, this is the lower percentile
-                            (from 0.0 to 1.0).
+                            When type is absolute, this is a finite lower bound,
+                            including zero or negative values. When type is
+                            percentile, this must be strictly between 0 and 1.
+                            Required when enabling capping or changing type;
+                            omitted values are preserved only for same-type
+                            updates.
                           type: number
                         ignoreZeros:
                           description: >-
@@ -30283,9 +30298,7 @@ paths:
                       required:
                         - type
                       additionalProperties: false
-                  required:
-                    - type
-                  additionalProperties: false
+                    - type: 'null'
                 windowSettings:
                   description: Controls the conversion window for the metric
                   type: object
@@ -30949,7 +30962,9 @@ paths:
                     - steps
                   additionalProperties: false
                 cappingSettings:
-                  description: Controls how outliers are handled
+                  description: >-
+                    Upper cap. Omit on update to preserve it. Use type: none to
+                    disable it explicitly. Invalid values are rejected.
                   type: object
                   properties:
                     type:
@@ -30960,20 +30975,30 @@ paths:
                         - percentile
                     value:
                       description: >-
-                        When type is absolute, this is the absolute value. When
-                        type is percentile, this is the percentile value (from
-                        0.0 to 1.0).
+                        When type is absolute, this must be a finite number
+                        greater than zero. When type is percentile, this must be
+                        strictly between 0 and 1. Required when enabling capping
+                        or changing type; omitted values are preserved only for
+                        same-type updates.
                       type: number
                     ignoreZeros:
                       description: >-
                         If true and capping is `percentile`, zeros will be
                         ignored when calculating the percentile.
                       type: boolean
-                    lowerCappingSettings:
-                      description: >-
-                        Independent lower-tail (negative-value) capping
-                        settings. Configured separately from the upper tail, so
-                        the type can differ.
+                  required:
+                    - type
+                  additionalProperties: false
+                lowerCappingSettings:
+                  description: >-
+                    Independent lower cap. Omit on update to preserve it. Use
+                    null or type: none to disable it explicitly. Invalid values
+                    are rejected. For mixed cap types, the absolute bound takes
+                    precedence if thresholds cross.
+                  anyOf:
+                    - description: >-
+                        Independent lower-tail capping settings. Configured
+                        separately from the upper tail, so the type can differ.
                       type: object
                       properties:
                         type:
@@ -30984,9 +31009,12 @@ paths:
                             - percentile
                         value:
                           description: >-
-                            When type is absolute, this is the lower bound. When
-                            type is percentile, this is the lower percentile
-                            (from 0.0 to 1.0).
+                            When type is absolute, this is a finite lower bound,
+                            including zero or negative values. When type is
+                            percentile, this must be strictly between 0 and 1.
+                            Required when enabling capping or changing type;
+                            omitted values are preserved only for same-type
+                            updates.
                           type: number
                         ignoreZeros:
                           description: >-
@@ -30996,9 +31024,7 @@ paths:
                       required:
                         - type
                       additionalProperties: false
-                  required:
-                    - type
-                  additionalProperties: false
+                    - type: 'null'
                 windowSettings:
                   description: Controls the conversion window for the metric
                   type: object
@@ -31991,7 +32017,10 @@ paths:
                               - steps
                             additionalProperties: false
                           cappingSettings:
-                            description: Controls how outliers are handled
+                            description: >-
+                              Upper cap. Omit on update to preserve it. Use
+                              type: none to disable it explicitly. Invalid
+                              values are rejected.
                             type: object
                             properties:
                               type:
@@ -32002,9 +32031,12 @@ paths:
                                   - percentile
                               value:
                                 description: >-
-                                  When type is absolute, this is the absolute
-                                  value. When type is percentile, this is the
-                                  percentile value (from 0.0 to 1.0).
+                                  When type is absolute, this must be a finite
+                                  number greater than zero. When type is
+                                  percentile, this must be strictly between 0
+                                  and 1. Required when enabling capping or
+                                  changing type; omitted values are preserved
+                                  only for same-type updates.
                                 type: number
                               ignoreZeros:
                                 description: >-
@@ -32012,11 +32044,21 @@ paths:
                                   will be ignored when calculating the
                                   percentile.
                                 type: boolean
-                              lowerCappingSettings:
-                                description: >-
-                                  Independent lower-tail (negative-value)
-                                  capping settings. Configured separately from
-                                  the upper tail, so the type can differ.
+                            required:
+                              - type
+                            additionalProperties: false
+                          lowerCappingSettings:
+                            description: >-
+                              Independent lower cap. Omit on update to preserve
+                              it. Use null or type: none to disable it
+                              explicitly. Invalid values are rejected. For mixed
+                              cap types, the absolute bound takes precedence if
+                              thresholds cross.
+                            anyOf:
+                              - description: >-
+                                  Independent lower-tail capping settings.
+                                  Configured separately from the upper tail, so
+                                  the type can differ.
                                 type: object
                                 properties:
                                   type:
@@ -32027,9 +32069,13 @@ paths:
                                       - percentile
                                   value:
                                     description: >-
-                                      When type is absolute, this is the lower
-                                      bound. When type is percentile, this is
-                                      the lower percentile (from 0.0 to 1.0).
+                                      When type is absolute, this is a finite
+                                      lower bound, including zero or negative
+                                      values. When type is percentile, this must
+                                      be strictly between 0 and 1. Required when
+                                      enabling capping or changing type; omitted
+                                      values are preserved only for same-type
+                                      updates.
                                     type: number
                                   ignoreZeros:
                                     description: >-
@@ -32040,9 +32086,7 @@ paths:
                                 required:
                                   - type
                                 additionalProperties: false
-                            required:
-                              - type
-                            additionalProperties: false
+                              - type: 'null'
                           windowSettings:
                             description: Controls the conversion window for the metric
                             type: object
@@ -67474,11 +67518,14 @@ components:
                 If true and capping is `percentile`, zeros will be ignored when
                 calculating the percentile.
               type: boolean
-            lowerCappingSettings:
-              description: >-
-                Independent lower-tail (negative-value) capping settings.
-                Configured separately from the upper tail, so the type can
-                differ.
+          required:
+            - type
+          additionalProperties: false
+        lowerCappingSettings:
+          anyOf:
+            - description: >-
+                Independent lower-tail capping settings. Configured separately
+                from the upper tail, so the type can differ.
               type: object
               properties:
                 type:
@@ -67500,9 +67547,7 @@ components:
               required:
                 - type
               additionalProperties: false
-          required:
-            - type
-          additionalProperties: false
+            - type: 'null'
         windowSettings:
           description: Controls the conversion window for the metric
           type: object

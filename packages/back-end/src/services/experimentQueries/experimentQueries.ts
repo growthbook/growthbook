@@ -1,5 +1,6 @@
 import {
   ExperimentMetricInterface,
+  needsPercentileCapSubquery,
   isFactMetric,
   isLegacyMetric,
   isLowerPercentileCappedMetric,
@@ -358,7 +359,7 @@ export function getFactMetricGroups(
   factMetrics.forEach((m) => {
     // Skip grouping metrics with percentile caps if they cannot be grouped at all
     if (
-      m.cappingSettings.type === "percentile" &&
+      needsPercentileCapSubquery(m) &&
       !integration.getSourceProperties().canGroupPercentileCappedMetrics
     ) {
       return;

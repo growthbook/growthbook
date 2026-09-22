@@ -683,6 +683,77 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     });
   });
 
+  it.each(["raw events", "daily aggregates"])(
+    "materializes uncapped covariates from %s when both tails are configured",
+    (source) => {
+      const metrics = [
+        factMetricFactory.build({
+          id: "fact_capped_mean",
+          metricType: "mean",
+          numerator: { factTableId: factTable.id, column: "amount" },
+          cappingSettings: { type: "percentile", value: 0.99 },
+          lowerCappingSettings: { type: "absolute", value: 0 },
+          regressionAdjustmentEnabled: true,
+        }),
+        factMetricFactory.build({
+          id: "fact_capped_ratio",
+          metricType: "ratio",
+          numerator: { factTableId: factTable.id, column: "amount" },
+          denominator: { factTableId: factTable.id, column: "orders" },
+          cappingSettings: { type: "percentile", value: 0.99 },
+          lowerCappingSettings: { type: "percentile", value: 0.05 },
+          regressionAdjustmentEnabled: true,
+        }),
+      ];
+      const params = {
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
+        activationMetric: null,
+        factTableMap,
+        factTableId: factTable.id,
+        metricSourceCovariateTableFullName: "proj.ds.covariates",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics,
+        lastCovariateSuccessfulMaxTimestamp: null,
+      };
+      const sql = (
+        source === "raw events"
+          ? integration.getInsertMetricSourceCovariateDataQuery({
+              ...params,
+              alignLegacyScanToDailyGrain: false,
+            })
+          : integration.getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+              {
+                ...params,
+                aggregatedTableFullName: "proj.ds.daily",
+                idType: "user_id",
+              },
+            )
+      ).replace(/\s+/g, " ");
+
+      expect(sql).not.toContain("value_cap");
+      expect(sql).not.toContain("GREATEST(");
+      expect(sql).not.toContain("LEAST(");
+      expect(sql).toContain(
+        "COALESCE(c.m0_covariate_value, 0) AS fact_capped_mean_value",
+      );
+      expect(sql).toContain(
+        "COALESCE(c.m1_covariate_value, 0) AS fact_capped_ratio_value",
+      );
+      expect(sql).toContain(
+        "COALESCE(c.m1_covariate_denominator, 0) AS fact_capped_ratio_denominator_value",
+      );
+      expect(metrics[0].lowerCappingSettings).toEqual({
+        type: "absolute",
+        value: 0,
+      });
+      expect(metrics[1].lowerCappingSettings).toEqual({
+        type: "percentile",
+        value: 0.05,
+      });
+    },
+  );
+
   it("getCreateMetricSourceTableQuery emits BYTES sketch + INT64 n_events columns", () => {
     const sql = integration.getCreateMetricSourceTableQuery({
       settings,

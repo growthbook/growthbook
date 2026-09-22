@@ -165,7 +165,7 @@ const apiLowerCappingSettings = z
       .optional(),
   })
   .describe(
-    "Independent lower-tail (negative-value) capping settings. Configured separately from the upper tail, so the type can differ.",
+    "Independent lower-tail capping settings. Configured separately from the upper tail, so the type can differ.",
   );
 
 const apiFunnelStep = z.object({
@@ -251,7 +251,6 @@ const apiCappingSettings = z
         "If true and capping is `percentile`, zeros will be ignored when calculating the percentile.",
       )
       .optional(),
-    lowerCappingSettings: apiLowerCappingSettings.optional(),
   })
   .describe("Controls how outliers are handled");
 
@@ -353,6 +352,7 @@ export const apiFactMetricValidator = namedSchema(
       quantileSettings: apiQuantileSettings.optional(),
       funnelSettings: apiFunnelSettings.optional(),
       cappingSettings: apiCappingSettings,
+      lowerCappingSettings: apiLowerCappingSettings.nullable().optional(),
       windowSettings: apiWindowSettings,
       priorSettings: apiPriorSettings,
       regressionAdjustmentSettings: apiRegressionAdjustmentSettings,
@@ -532,7 +532,7 @@ const postLowerCappingSettings = z
     value: z
       .number()
       .describe(
-        "When type is absolute, this is the lower bound. When type is percentile, this is the lower percentile (from 0.0 to 1.0).",
+        "When type is absolute, this is a finite lower bound, including zero or negative values. When type is percentile, this must be strictly between 0 and 1. Required when enabling capping or changing type; omitted values are preserved only for same-type updates.",
       )
       .optional(),
     ignoreZeros: z
@@ -542,8 +542,9 @@ const postLowerCappingSettings = z
       )
       .optional(),
   })
+  .strict()
   .describe(
-    "Independent lower-tail (negative-value) capping settings. Configured separately from the upper tail, so the type can differ.",
+    "Independent lower-tail capping settings. Configured separately from the upper tail, so the type can differ.",
   );
 
 const postCappingSettings = z
@@ -552,7 +553,7 @@ const postCappingSettings = z
     value: z
       .number()
       .describe(
-        "When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).",
+        "When type is absolute, this must be a finite number greater than zero. When type is percentile, this must be strictly between 0 and 1. Required when enabling capping or changing type; omitted values are preserved only for same-type updates.",
       )
       .optional(),
     ignoreZeros: z
@@ -561,8 +562,8 @@ const postCappingSettings = z
         "If true and capping is `percentile`, zeros will be ignored when calculating the percentile.",
       )
       .optional(),
-    lowerCappingSettings: postLowerCappingSettings.optional(),
   })
+  .strict()
   .describe("Controls how outliers are handled");
 
 const postWindowSettings = z
@@ -668,7 +669,17 @@ export const postFactMetricBodyFields = z.object({
     .optional(),
   quantileSettings: postQuantileSettings.optional(),
   funnelSettings: postFunnelSettings.optional(),
-  cappingSettings: postCappingSettings.optional(),
+  cappingSettings: postCappingSettings
+    .optional()
+    .describe(
+      "Upper cap. Omit on update to preserve it. Use type: none to disable it explicitly. Invalid values are rejected.",
+    ),
+  lowerCappingSettings: postLowerCappingSettings
+    .nullable()
+    .optional()
+    .describe(
+      "Independent lower cap. Omit on update to preserve it. Use null or type: none to disable it explicitly. Invalid values are rejected. For mixed cap types, the absolute bound takes precedence if thresholds cross.",
+    ),
   windowSettings: postWindowSettings.optional(),
   priorSettings: postPriorSettings.optional(),
   regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),

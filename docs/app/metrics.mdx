@@ -299,6 +299,21 @@ You can additionally choose to ignore zeros, which will compute the percentile w
 
 Because the percentile cap depends on the data in your experiment, it can be different from experiment to experiment, or even analysis to analysis. To find out what value was actually used for capping you can do the following: on the Experiment Results tab, click the three dot menu in the top right and select "View Queries". Each percentile capped metric will have a column with the `main_cap_value` that was used to cap that metric and represents the computed percentile of unit-level aggregate values.
 
+#### Lower-Tail Capping
+
+Fact Metrics can also set a lower bound (floor). Absolute floors can be zero or negative; percentile floors must be strictly between `0` and `1`, such as `0.05` for the fifth percentile.
+
+When both tails use the same type, the lower value must be less than the upper value. Two percentile tails must use the same **Ignore zeros** setting. Mixed types are allowed: if the computed percentile crosses the absolute bound, the absolute bound takes precedence.
+
+In the API, `cappingSettings` controls the upper tail and `lowerCappingSettings` is a separate top-level field:
+
+```json
+{
+  "cappingSettings": { "type": "percentile", "value": 0.99 },
+  "lowerCappingSettings": { "type": "absolute", "value": 0 }
+}
+```
+
 ### Metric Delay
 
 Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, if your underlying table reports whether a user is retained on any given day, you could set a metric delay to `24` hours.

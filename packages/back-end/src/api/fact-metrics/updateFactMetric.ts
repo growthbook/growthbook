@@ -1,7 +1,8 @@
 import { z } from "zod";
 import {
-  getCappingTailState,
   updateFactMetricValidator,
+  resolveCappingSettingsPatch,
+  validateFactMetricCapping,
 } from "shared/validators";
 import {
   FactMetricInterface,
@@ -38,6 +39,7 @@ export async function getUpdateFactMetricPropsFromBody(
     denominator,
     funnelSettings,
     cappingSettings,
+    lowerCappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
     riskThresholdSuccess,
@@ -62,7 +64,6 @@ export async function getUpdateFactMetricPropsFromBody(
     updates.funnelSettings = nextFunnelSettings;
     updates.numerator = null;
     updates.denominator = null;
-    updates.cappingSettings = { type: "", value: 0 };
     updates.quantileSettings = null;
     updates.metricAutoSlices = [];
   } else {
@@ -124,41 +125,15 @@ export async function getUpdateFactMetricPropsFromBody(
       throw new Error("Could not find denominator fact table");
     }
   }
-  if (cappingSettings && metricType !== "funnel") {
-    updates.cappingSettings = {
-      type: cappingSettings.type === "none" ? "" : cappingSettings.type,
-      value: cappingSettings.value ?? factMetric.cappingSettings.value,
-      ignoreZeros:
-        cappingSettings.ignoreZeros ?? factMetric.cappingSettings.ignoreZeros,
-    };
+  Object.assign(
+    updates,
+    resolveCappingSettingsPatch(
+      { cappingSettings, lowerCappingSettings },
+      factMetric,
+    ),
+  );
+  validateFactMetricCapping({ ...factMetric, ...updates }, factMetric);
 
-    // Independent lower-tail capping (own type/value/ignoreZeros).
-    const lowerCappingSettings = cappingSettings.lowerCappingSettings;
-    if (lowerCappingSettings !== undefined) {
-      const prevLower = factMetric.lowerCappingSettings;
-      const lowerType =
-        lowerCappingSettings.type === "none" ? "" : lowerCappingSettings.type;
-      const lowerValue = lowerCappingSettings.value ?? prevLower?.value ?? 0;
-      const lowerTails = getCappingTailState(undefined, {
-        type: lowerType,
-        value: lowerValue,
-      });
-      if (lowerTails.lowerPercentileCapped || lowerTails.lowerAbsoluteCapped) {
-        updates.lowerCappingSettings = {
-          type: lowerType,
-          value: lowerValue,
-          ignoreZeros: lowerTails.lowerPercentileCapped
-            ? (lowerCappingSettings.ignoreZeros ??
-              prevLower?.ignoreZeros ??
-              false)
-            : false,
-        };
-      } else {
-        // Explicitly clear the lower tail when disabled.
-        updates.lowerCappingSettings = null;
-      }
-    }
-  }
   if (windowSettings) {
     updates.windowSettings = {
       type: windowSettings.type === "none" ? "" : windowSettings.type,

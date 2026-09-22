@@ -9,12 +9,6 @@ import {
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import {
-  getCappingTailState,
-  validateCappingSettingsIgnoreZerosConsistency,
-  validateCappingSettingsOrdering,
-  validateCappingSettingsValueEntered,
-} from "shared/validators";
-import {
   FactMetricInterface,
   ColumnRef,
   CreateFactMetricProps,
@@ -30,6 +24,7 @@ import {
   FactTableColumnType,
   RowFilter,
   StandardFactMetricInterface,
+  FactMetricType,
 } from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
@@ -98,6 +93,21 @@ export interface Props {
   switchToLegacy?: () => void;
   source: string;
   datasource?: string;
+}
+
+function isCappableFactMetric(metricType: FactMetricType) {
+  switch (metricType) {
+    case "mean":
+      return true;
+    case "ratio":
+      return true;
+    case "proportion":
+    case "retention":
+    case "funnel":
+    case "dailyParticipation":
+    case "quantile":
+      return false;
+  }
 }
 
 function QuantileSelector({
@@ -1686,6 +1696,14 @@ function StandardFactMetricModal({
       close={close}
       submit={form.handleSubmit(
         async (values) => {
+          if (!isCappableFactMetric(values.metricType)) {
+            values.cappingSettings = {
+              type: "",
+              value: 0,
+              ignoreZeros: false,
+            };
+            values.lowerCappingSettings = null;
+          }
           if (values.metricType === "funnel") {
             const fs = funnelSettings;
             if (!fs || fs.steps.length < 2) {
@@ -1722,15 +1740,13 @@ function StandardFactMetricModal({
             }
 
             // Funnel events are described by funnelSettings.steps, so numerator /
-            // denominator are null and the capping/quantile/slice settings the
-            // backend forbids for funnels are reset.
+            // denominator are null; capping has already been validated.
             const funnelBody = {
               ...values,
               numerator: null,
               denominator: null,
               funnelSettings: fs,
               quantileSettings: null,
-              cappingSettings: { type: "" as const, value: 0 },
               metricAutoSlices: [],
             };
 
@@ -1839,85 +1855,6 @@ function StandardFactMetricModal({
 
           if (!values.numerator.aggregateFilterColumn) {
             values.numerator.aggregateFilter = undefined;
-          }
-
-          {
-            const isCappableType =
-              values.metricType !== "quantile" &&
-              values.metricType !== "proportion" &&
-              values.metricType !== "retention" &&
-              values.metricType !== "dailyParticipation";
-
-            if (isCappableType) {
-              validateCappingSettingsValueEntered(
-                values.cappingSettings,
-                false,
-              );
-              validateCappingSettingsValueEntered(
-                values.lowerCappingSettings,
-                true,
-              );
-            }
-
-            const tails = getCappingTailState(
-              values.cappingSettings,
-              values.lowerCappingSettings,
-            );
-
-            // Clean the upper tail when it is not actually enabled.
-            if (!tails.upperAbsoluteCapped && !tails.upperPercentileCapped) {
-              values.cappingSettings = {
-                type: "",
-                value: 0,
-                ignoreZeros: false,
-              };
-            }
-
-            // Clean the independent lower tail when it is not actually enabled.
-            if (!tails.lowerAbsoluteCapped && !tails.lowerPercentileCapped) {
-              values.lowerCappingSettings = null;
-            }
-
-            if (tails.anyCap) {
-              validateCappingSettingsOrdering(
-                values.cappingSettings,
-                values.lowerCappingSettings,
-              );
-              validateCappingSettingsIgnoreZerosConsistency(
-                values.cappingSettings,
-                values.lowerCappingSettings,
-              );
-            }
-          }
-
-          // reset capping that may be carried over to uncappable metrics
-          if (
-            values.metricType === "quantile" ||
-            values.metricType === "proportion" ||
-            values.metricType === "retention" ||
-            values.metricType === "dailyParticipation"
-          ) {
-            values.cappingSettings = {
-              type: "",
-              value: 0,
-            };
-            values.lowerCappingSettings = null;
-          }
-
-          if (
-            values.numerator.aggregateFilterColumn &&
-            values.metricType === "ratio"
-          ) {
-            if (values.numerator.column !== "$$distinctUsers") {
-              values.numerator.aggregateFilterColumn = "";
-              values.numerator.aggregateFilter = undefined;
-            } else {
-              if (values.cappingSettings?.type === "percentile") {
-                throw new Error(
-                  "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
-                );
-              }
-            }
           }
 
           if (!selectedDataSource) throw new Error("Must select a data source");
@@ -2200,10 +2137,6 @@ function StandardFactMetricModal({
                     }
 
                     form.setValue("quantileSettings", quantileSettings);
-                    // capping off for quantile metrics
-                    form.setValue("cappingSettings.type", "");
-                    form.setValue("cappingSettings.value", 0);
-                    form.setValue("lowerCappingSettings", null);
 
                     if (
                       quantileSettings.type === "event" &&
@@ -2224,23 +2157,6 @@ function StandardFactMetricModal({
                         numerator.factTableId || initialFactTable || "",
                       column: "$$count",
                     });
-                  }
-
-                  // When switching to ratio and using `absolute` capping, turn it off (only percentile supported)
-                  if (
-                    type === "ratio" &&
-                    form.watch("cappingSettings.type") === "absolute"
-                  ) {
-                    form.setValue("cappingSettings.type", "");
-                    form.setValue("cappingSettings.value", 0);
-                  }
-                  // Ratio metrics only support percentile capping; drop an
-                  // absolute lower tail when switching to ratio.
-                  if (
-                    type === "ratio" &&
-                    form.watch("lowerCappingSettings")?.type === "absolute"
-                  ) {
-                    form.setValue("lowerCappingSettings", null);
                   }
                 }}
                 options={[
@@ -2691,11 +2607,7 @@ function StandardFactMetricModal({
                         {type !== "retention" ? (
                           <MetricDelaySettings form={form} />
                         ) : null}
-                        {type !== "quantile" &&
-                        type !== "proportion" &&
-                        type !== "retention" &&
-                        type !== "dailyParticipation" &&
-                        type !== "funnel" ? (
+                        {isCappableFactMetric(form.watch("metricType")) ? (
                           <MetricCappingSettingsForm
                             form={form}
                             datasourceType={selectedDataSource.type}

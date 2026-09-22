@@ -1,8 +1,65 @@
 import {
+  factMetricValidator,
+  resolveCappingSettingsPatch,
+  validateFactMetricCapping,
+  validateCappingSettingsOrdering,
   validateCappingSettingsIgnoreZerosConsistency,
   validateCappingSettingsMetricTypeCompatibility,
   validateCappingSettingsValueEntered,
 } from "../../src/validators/fact-table";
+import {
+  apiFactMetricValidator,
+  postFactMetricValidator,
+  updateFactMetricValidator,
+} from "../../src/validators/fact-metrics";
+import { postBulkImportFactsValidator } from "../../src/validators/bulk-import";
+
+describe("top-level lower capping settings", () => {
+  const lowerCappingSettings = { type: "absolute", value: 0 };
+  const createBody = {
+    name: "Revenue",
+    metricType: "mean",
+    numerator: { factTableId: "ft_events", column: "value" },
+    lowerCappingSettings,
+  };
+
+  it("accepts lower-only capping in external create and bulk import requests", () => {
+    const created = postFactMetricValidator.bodySchema.parse(createBody);
+    const bulk = postBulkImportFactsValidator.bodySchema.parse({
+      factMetrics: [{ id: "fact__revenue", data: createBody }],
+    });
+    expect(created.lowerCappingSettings).toEqual(lowerCappingSettings);
+    expect(created).not.toHaveProperty("cappingSettings");
+    expect(bulk.factMetrics?.[0].data.lowerCappingSettings).toEqual(
+      lowerCappingSettings,
+    );
+  });
+
+  it.each([null, lowerCappingSettings])(
+    "accepts the same lower field in internal, external write, and response schemas: %j",
+    (lowerCappingSettings) => {
+      const payload = { lowerCappingSettings };
+      expect(
+        factMetricValidator.pick({ lowerCappingSettings: true }).parse(payload),
+      ).toEqual(payload);
+      expect(updateFactMetricValidator.bodySchema.parse(payload)).toEqual(
+        payload,
+      );
+      expect(
+        apiFactMetricValidator
+          .pick({ lowerCappingSettings: true })
+          .parse(payload),
+      ).toEqual(payload);
+    },
+  );
+
+  it("preserves upper-only requests without adding a lower cap", () => {
+    const payload = { cappingSettings: { type: "percentile", value: 0.99 } };
+    expect(updateFactMetricValidator.bodySchema.parse(payload)).toEqual(
+      payload,
+    );
+  });
+});
 
 describe("validateCappingSettingsMetricTypeCompatibility", () => {
   const percentileUpper = { type: "percentile" as const, value: 0.99 };
@@ -50,6 +107,19 @@ describe("validateCappingSettingsMetricTypeCompatibility", () => {
       ),
     ).toThrow(/Ratio metrics support only percentile capping/);
   });
+
+  it.each([0, -10])(
+    "rejects an absolute lower floor of %s on a ratio metric",
+    (value) => {
+      expect(() =>
+        validateCappingSettingsMetricTypeCompatibility(
+          "ratio",
+          percentileUpper,
+          { type: "absolute", value },
+        ),
+      ).toThrow(/Ratio metrics support only percentile capping/);
+    },
+  );
 
   it("rejects absolute caps on both tails of a ratio metric", () => {
     expect(() =>
@@ -221,19 +291,19 @@ describe("validateCappingSettingsValueEntered", () => {
   it("requires a percentile value strictly within (0, 1)", () => {
     expect(() =>
       validateCappingSettingsValueEntered({ type: "percentile" }, false),
-    ).toThrow(/percentile between 0 and 1/);
+    ).toThrow(/greater than 0 and less than 1/);
     expect(() =>
       validateCappingSettingsValueEntered(
         { type: "percentile", value: 0 },
         false,
       ),
-    ).toThrow(/percentile between 0 and 1/);
+    ).toThrow(/greater than 0 and less than 1/);
     expect(() =>
       validateCappingSettingsValueEntered(
         { type: "percentile", value: 1 },
         true,
       ),
-    ).toThrow(/percentile between 0 and 1/);
+    ).toThrow(/greater than 0 and less than 1/);
     expect(() =>
       validateCappingSettingsValueEntered(
         { type: "percentile", value: 0.99 },
@@ -245,13 +315,13 @@ describe("validateCappingSettingsValueEntered", () => {
   it("requires the upper absolute ceiling to be greater than 0", () => {
     expect(() =>
       validateCappingSettingsValueEntered({ type: "absolute" }, false),
-    ).toThrow(/maximum user value greater than 0/);
+    ).toThrow(/finite number greater than 0/);
     expect(() =>
       validateCappingSettingsValueEntered(
         { type: "absolute", value: 0 },
         false,
       ),
-    ).toThrow(/maximum user value greater than 0/);
+    ).toThrow(/finite number greater than 0/);
     expect(() =>
       validateCappingSettingsValueEntered(
         { type: "absolute", value: 15 },
@@ -273,6 +343,249 @@ describe("validateCappingSettingsValueEntered", () => {
     // But a floor with no value entered is still rejected.
     expect(() =>
       validateCappingSettingsValueEntered({ type: "absolute" }, true),
-    ).toThrow(/minimum user value/);
+    ).toThrow(/finite number/);
+  });
+});
+
+describe("capping writes", () => {
+  const metric = {
+    metricType: "mean" as const,
+    cappingSettings: {
+      type: "percentile" as const,
+      value: 0.99,
+      ignoreZeros: true,
+    },
+    lowerCappingSettings: {
+      type: "percentile" as const,
+      value: 0.05,
+      ignoreZeros: true,
+    },
+  };
+
+  it.each(["cappingSettings", "lowerCappingSettings"] as const)(
+    "rejects invalid values on %s without altering the original",
+    (key) => {
+      for (const value of [undefined, 0, -1, 1, 5, NaN, Infinity, -Infinity]) {
+        expect(() =>
+          resolveCappingSettingsPatch({ [key]: { type: "percentile", value } }),
+        ).toThrow();
+        if (value !== undefined) {
+          expect(() =>
+            resolveCappingSettingsPatch(
+              { [key]: { type: "percentile", value } },
+              metric,
+            ),
+          ).toThrow();
+        }
+      }
+      expect(metric.lowerCappingSettings.value).toBe(0.05);
+      expect(metric.cappingSettings.value).toBe(0.99);
+    },
+  );
+
+  it("preserves omissions and same-type partial updates", () => {
+    expect(resolveCappingSettingsPatch({}, metric)).toEqual({});
+    expect(
+      resolveCappingSettingsPatch(
+        { lowerCappingSettings: { type: "percentile", ignoreZeros: false } },
+        metric,
+      ),
+    ).toEqual({
+      lowerCappingSettings: {
+        type: "percentile",
+        value: 0.05,
+        ignoreZeros: false,
+      },
+    });
+  });
+
+  it.each(["cappingSettings", "lowerCappingSettings"] as const)(
+    "requires an explicit value when changing %s type",
+    (key) => {
+      expect(() =>
+        resolveCappingSettingsPatch({ [key]: { type: "absolute" } }, metric),
+      ).toThrow(`${key}.value`);
+      expect(() =>
+        resolveCappingSettingsPatch(
+          { [key]: { type: "percentile" } },
+          {
+            ...metric,
+            [key]: { type: "absolute", value: 0.5 },
+          },
+        ),
+      ).toThrow(`${key}.value`);
+    },
+  );
+
+  it.each([0, -10, 10])(
+    "preserves an explicit absolute floor of %s",
+    (value) => {
+      expect(
+        resolveCappingSettingsPatch({
+          lowerCappingSettings: { type: "absolute", value },
+        }),
+      ).toEqual({
+        lowerCappingSettings: { type: "absolute", value, ignoreZeros: false },
+      });
+    },
+  );
+
+  it.each(["", "none"] as const)(
+    "normalizes only an explicit disable (%s)",
+    (type) => {
+      expect(
+        resolveCappingSettingsPatch(
+          { cappingSettings: { type }, lowerCappingSettings: { type } },
+          metric,
+        ),
+      ).toEqual({
+        cappingSettings: { type: "", value: 0, ignoreZeros: false },
+        lowerCappingSettings: null,
+      });
+      expect(
+        resolveCappingSettingsPatch({ lowerCappingSettings: null }, metric),
+      ).toEqual({ lowerCappingSettings: null });
+    },
+  );
+
+  it("validates the merged pair and keeps mixed types independent", () => {
+    expect(() =>
+      validateFactMetricCapping(
+        {
+          ...metric,
+          lowerCappingSettings: {
+            type: "percentile",
+            value: 0.999,
+            ignoreZeros: true,
+          },
+        },
+        metric,
+      ),
+    ).toThrow(/less than upper/);
+    expect(() =>
+      validateFactMetricCapping(
+        {
+          ...metric,
+          lowerCappingSettings: {
+            type: "percentile",
+            value: 0.05,
+            ignoreZeros: false,
+          },
+        },
+        metric,
+      ),
+    ).toThrow(/Ignore zeros/);
+    expect(() =>
+      validateCappingSettingsOrdering(
+        { type: "absolute", value: 10 },
+        { type: "absolute", value: 10 },
+      ),
+    ).toThrow(/less than upper/);
+    expect(() =>
+      validateFactMetricCapping(
+        { ...metric, lowerCappingSettings: { type: "absolute", value: 100 } },
+        metric,
+      ),
+    ).not.toThrow();
+  });
+
+  it("preserves unchanged legacy values but validates the full pair when edited", () => {
+    const legacy = {
+      ...metric,
+      cappingSettings: { type: "percentile" as const, value: 0 },
+    };
+    expect(() =>
+      validateFactMetricCapping({ ...legacy }, legacy),
+    ).not.toThrow();
+    expect(resolveCappingSettingsPatch(legacy, legacy)).toEqual({
+      cappingSettings: legacy.cappingSettings,
+      lowerCappingSettings: legacy.lowerCappingSettings,
+    });
+    expect(() =>
+      validateFactMetricCapping(
+        { ...legacy, lowerCappingSettings: null },
+        legacy,
+      ),
+    ).toThrow(/cappingSettings.value/);
+  });
+
+  it.each([
+    "quantile",
+    "proportion",
+    "retention",
+    "dailyParticipation",
+    "funnel",
+  ] as const)(
+    "rejects new caps on %s and requires explicit disabling on type changes",
+    (metricType) => {
+      expect(() =>
+        validateFactMetricCapping({ ...metric, metricType }),
+      ).toThrow(/not supported/);
+      expect(() =>
+        validateFactMetricCapping({ ...metric, metricType }, metric),
+      ).toThrow(/not supported/);
+      expect(() =>
+        validateFactMetricCapping(
+          {
+            ...metric,
+            metricType,
+            cappingSettings: { type: "", value: 0 },
+            lowerCappingSettings: null,
+          },
+          metric,
+        ),
+      ).not.toThrow();
+    },
+  );
+
+  it("applies ratio absolute restrictions only on creation", () => {
+    const ratio = {
+      ...metric,
+      metricType: "ratio" as const,
+      lowerCappingSettings: { type: "absolute" as const, value: 0 },
+    };
+    expect(() => validateFactMetricCapping(ratio)).toThrow(/Ratio metrics/);
+    expect(() => validateFactMetricCapping(ratio, ratio)).not.toThrow();
+    expect(() =>
+      validateFactMetricCapping(
+        { ...ratio, lowerCappingSettings: { type: "absolute", value: -10 } },
+        ratio,
+      ),
+    ).not.toThrow();
+  });
+
+  it.each(["numerator", "denominator"] as const)(
+    "rejects a new user filter on %s with either tail",
+    (side) => {
+      const filtered = {
+        ...metric,
+        cappingSettings: { type: "" as const, value: 0 },
+        [side]: {
+          factTableId: "ft",
+          column: "$$distinctUsers",
+          aggregateFilterColumn: "amount",
+        },
+      };
+      expect(() => validateFactMetricCapping(filtered, metric)).toThrow(
+        /user filter/,
+      );
+      expect(() =>
+        validateFactMetricCapping(
+          { ...filtered, lowerCappingSettings: null },
+          metric,
+        ),
+      ).not.toThrow();
+    },
+  );
+
+  it("rejects obsolete nested lower settings instead of stripping them", () => {
+    expect(() =>
+      updateFactMetricValidator.bodySchema.parse({
+        cappingSettings: {
+          type: "none",
+          lowerCappingSettings: { type: "absolute", value: 0 },
+        },
+      }),
+    ).toThrow();
   });
 });

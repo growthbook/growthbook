@@ -1,4 +1,5 @@
 import { z } from "zod";
+import isEqual from "lodash/isEqual";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
@@ -332,11 +333,14 @@ export const cappingSettingsValidator = z
  * (API, DB, forms). Upper and lower tails are configured independently, each
  * with its own settings object of this shape.
  */
-export type CappingSettingsTailInput = {
-  type?: "" | "none" | "absolute" | "percentile" | null;
-  value?: number | null;
-  ignoreZeros?: boolean | null;
-};
+const cappingSettingsPatchValidator = cappingSettingsValidator.extend({
+  type: cappingTypeValidator.or(z.literal("none")),
+  value: z.number().optional(),
+});
+
+export type CappingSettingsTailInput = Partial<
+  z.infer<typeof cappingSettingsPatchValidator>
+>;
 
 export type CappingTailState = {
   upperPercentileCapped: boolean;
@@ -350,7 +354,7 @@ export type CappingTailState = {
 function normalizeCappingTypeForTails(
   type: CappingSettingsTailInput["type"],
 ): "" | "absolute" | "percentile" {
-  if (type == null || type === "" || type === "none") return "";
+  if (type === undefined || type === "" || type === "none") return "";
   return type;
 }
 
@@ -366,8 +370,17 @@ function getUpperTailFlags(cs: CappingSettingsTailInput | null | undefined): {
   const value = cs?.value;
   return {
     upperPercentileCapped:
-      type === "percentile" && value != null && value > 0 && value < 1,
-    upperAbsoluteCapped: type === "absolute" && value != null && value > 0,
+      type === "percentile" &&
+      value !== undefined &&
+      value !== null &&
+      value > 0 &&
+      value < 1,
+    upperAbsoluteCapped:
+      type === "absolute" &&
+      value !== undefined &&
+      value !== null &&
+      value > 0 &&
+      Number.isFinite(value),
   };
 }
 
@@ -383,9 +396,16 @@ function getLowerTailFlags(cs: CappingSettingsTailInput | null | undefined): {
   const value = cs?.value;
   return {
     lowerPercentileCapped:
-      type === "percentile" && value != null && value > 0 && value < 1,
+      type === "percentile" &&
+      value !== undefined &&
+      value !== null &&
+      value > 0 &&
+      value < 1,
     lowerAbsoluteCapped:
-      type === "absolute" && value != null && Number.isFinite(value),
+      type === "absolute" &&
+      value !== undefined &&
+      value !== null &&
+      Number.isFinite(value),
   };
 }
 
@@ -434,24 +454,17 @@ export function validateCappingSettingsOrdering(
   const upperValue = upper?.value;
   const lowerValue = lower?.value;
 
-  // Percentile lower cap must be strictly within (0, 1) when set.
-  if (
-    lowerType === "percentile" &&
-    lowerValue != null &&
-    lowerValue !== 0 &&
-    (lowerValue <= 0 || lowerValue >= 1 || !Number.isFinite(lowerValue))
-  ) {
-    throw new Error(
-      "Percentile lower cap must be greater than 0 and less than 1. Use 0 or omit for no lower cap.",
-    );
-  }
+  validateCappingSettingsValueEntered(upper, false);
+  validateCappingSettingsValueEntered(lower, true);
 
   // When both tails are absolute, the lower floor must be below the upper cap.
   if (
     upperType === "absolute" &&
     lowerType === "absolute" &&
-    upperValue != null &&
-    lowerValue != null &&
+    upperValue !== undefined &&
+    upperValue !== null &&
+    lowerValue !== undefined &&
+    lowerValue !== null &&
     upperValue > 0 &&
     lowerValue >= upperValue
   ) {
@@ -464,8 +477,10 @@ export function validateCappingSettingsOrdering(
   if (
     upperType === "percentile" &&
     lowerType === "percentile" &&
-    upperValue != null &&
-    lowerValue != null &&
+    upperValue !== undefined &&
+    upperValue !== null &&
+    lowerValue !== undefined &&
+    lowerValue !== null &&
     upperValue > 0 &&
     upperValue < 1 &&
     lowerValue > 0 &&
@@ -506,12 +521,20 @@ export function validateCappingSettingsValueEntered(
   if (type === "") return;
 
   const value = tail?.value;
-  const tailLabel = isLower ? '"Cap low values"' : '"Cap high values"';
+  const tailLabel = isLower
+    ? "lowerCappingSettings.value"
+    : "cappingSettings.value";
 
   if (type === "percentile") {
-    if (value == null || !Number.isFinite(value) || value <= 0 || value >= 1) {
+    if (
+      value === undefined ||
+      value === null ||
+      !Number.isFinite(value) ||
+      value <= 0 ||
+      value >= 1
+    ) {
       throw new Error(
-        `Enter a percentile between 0 and 1, or set ${tailLabel} to No.`,
+        `${tailLabel} must be greater than 0 and less than 1. Disable the cap explicitly to remove it.`,
       );
     }
     return;
@@ -520,15 +543,18 @@ export function validateCappingSettingsValueEntered(
   // Absolute: the lower floor may be 0 or negative, so any finite value is
   // valid; the upper ceiling must be greater than 0.
   if (isLower) {
-    if (value == null || !Number.isFinite(value)) {
-      throw new Error(`Enter a minimum user value, or set ${tailLabel} to No.`);
+    if (value === undefined || value === null || !Number.isFinite(value)) {
+      throw new Error(`${tailLabel} must be a finite number.`);
     }
     return;
   }
-  if (value == null || !Number.isFinite(value) || value <= 0) {
-    throw new Error(
-      `Enter a maximum user value greater than 0, or set ${tailLabel} to No.`,
-    );
+  if (
+    value === undefined ||
+    value === null ||
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
+    throw new Error(`${tailLabel} must be a finite number greater than 0.`);
   }
 }
 
@@ -547,6 +573,136 @@ export function validateCappingSettingsMetricTypeCompatibility(
 
   if (upperType === "absolute" || lowerType === "absolute") {
     throw new Error("Ratio metrics support only percentile capping.");
+  }
+}
+
+type CappingPair = Pick<
+  z.infer<typeof factMetricValidator>,
+  "cappingSettings" | "lowerCappingSettings"
+>;
+
+type CappingMetric = Partial<
+  Pick<
+    z.infer<typeof factMetricValidator>,
+    "metricType" | "numerator" | "denominator"
+  >
+> &
+  Partial<CappingPair>;
+
+function sameCappingTail(
+  a: CappingSettingsTailInput | null | undefined,
+  b: CappingSettingsTailInput | null | undefined,
+): boolean {
+  return (
+    normalizeCappingTypeForTails(a?.type) ===
+      normalizeCappingTypeForTails(b?.type) &&
+    (a?.value ?? null) === (b?.value ?? null) &&
+    (a?.ignoreZeros ?? false) === (b?.ignoreZeros ?? false)
+  );
+}
+
+export function resolveCappingSettingsPatch(
+  input: {
+    cappingSettings?: CappingSettingsTailInput;
+    lowerCappingSettings?: CappingSettingsTailInput | null;
+  },
+  previous?: Partial<CappingPair> | null,
+): Partial<CappingPair> {
+  const updates: Partial<CappingPair> = {};
+  for (const key of ["cappingSettings", "lowerCappingSettings"] as const) {
+    const supplied = input[key];
+    if (supplied === undefined) continue;
+    const tail =
+      supplied === null ? null : cappingSettingsPatchValidator.parse(supplied);
+    if (key === "cappingSettings" && tail === null) {
+      throw new Error(
+        "cappingSettings must be an object. Use type: none to disable it.",
+      );
+    }
+    const isLower = key === "lowerCappingSettings";
+    const type = normalizeCappingTypeForTails(tail?.type);
+    if (!type) {
+      if (isLower) updates.lowerCappingSettings = null;
+      else updates.cappingSettings = { type: "", value: 0, ignoreZeros: false };
+      continue;
+    }
+    const old = previous?.[key];
+    const sameType = type === old?.type;
+    const candidate = {
+      type,
+      value: tail?.value ?? (sameType ? old?.value : undefined),
+      ignoreZeros:
+        tail?.ignoreZeros ?? (sameType ? old?.ignoreZeros : false) ?? false,
+    };
+    // A full form submission may include unchanged legacy settings.
+    if (old && sameCappingTail(candidate, old)) {
+      updates[key] = old;
+      continue;
+    }
+    validateCappingSettingsValueEntered(candidate, isLower);
+    updates[key] = cappingSettingsValidator.parse(candidate);
+  }
+  return updates;
+}
+
+export function validateFactMetricCapping(
+  metric: CappingMetric,
+  previous: CappingMetric | null = null,
+): void {
+  const changed =
+    !previous ||
+    metric.metricType !== previous.metricType ||
+    !sameCappingTail(metric.cappingSettings, previous.cappingSettings) ||
+    !sameCappingTail(
+      metric.lowerCappingSettings,
+      previous.lowerCappingSettings,
+    );
+  if (changed) {
+    validateCappingSettingsOrdering(
+      metric.cappingSettings,
+      metric.lowerCappingSettings,
+    );
+    validateCappingSettingsIgnoreZerosConsistency(
+      metric.cappingSettings,
+      metric.lowerCappingSettings,
+    );
+    const enabled =
+      !!normalizeCappingTypeForTails(metric.cappingSettings?.type) ||
+      !!normalizeCappingTypeForTails(metric.lowerCappingSettings?.type);
+    if (
+      enabled &&
+      metric.metricType !== "mean" &&
+      metric.metricType !== "ratio"
+    ) {
+      throw new Error(
+        `Capping is not supported for ${metric.metricType} metrics. Disable both tails explicitly.`,
+      );
+    }
+    if (!previous) {
+      validateCappingSettingsMetricTypeCompatibility(
+        metric.metricType ?? "",
+        metric.cappingSettings,
+        metric.lowerCappingSettings,
+      );
+    }
+  }
+  const filterChanged = (["numerator", "denominator"] as const).some((key) => {
+    return (
+      metric[key]?.aggregateFilterColumn !==
+        previous?.[key]?.aggregateFilterColumn ||
+      !isEqual(metric[key]?.aggregateFilter, previous?.[key]?.aggregateFilter)
+    );
+  });
+  if (
+    (changed || filterChanged) &&
+    getCappingTailState(metric.cappingSettings, metric.lowerCappingSettings)
+      .anyCap &&
+    (metric.numerator?.aggregateFilterColumn ||
+      metric.denominator?.aggregateFilterColumn)
+  ) {
+    throw new Error(
+      "Cannot specify both capping and a user filter. Remove one of them explicitly.",
+    );
   }
 }
 

@@ -148,6 +148,7 @@ export function getMetricData(
       type: "" as const,
       value: 0,
     },
+    lowerCappingSettings: null,
   };
   const uncappedCoalesceMetric = capCoalesceValue(dialect, {
     valueCol: `m${numeratorValueAlias}.${alias}_value`,

@@ -14,9 +14,7 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   factMetricValidator,
   ApiFactMetric,
-  validateCappingSettingsOrdering,
-  validateCappingSettingsIgnoreZerosConsistency,
-  validateCappingSettingsMetricTypeCompatibility,
+  validateFactMetricCapping,
 } from "shared/validators";
 import {
   ColumnRef,
@@ -332,16 +330,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       newDoc.denominator = null;
     }
 
-    // Ratio metrics support only percentile capping.
-    if (newDoc.metricType === "ratio") {
-      if (newDoc.cappingSettings?.type === "absolute") {
-        newDoc.cappingSettings = { type: "", value: 0 };
-      }
-      if (newDoc.lowerCappingSettings?.type === "absolute") {
-        newDoc.lowerCappingSettings = null;
-      }
-    }
-
     if (newDoc.denominator) {
       newDoc.denominator = FactMetricModel.migrateColumnRef(newDoc.denominator);
     }
@@ -476,21 +464,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     factTableMap: Map<string, FactTableInterface>,
     context: Context,
   ): Promise<void> {
-    validateCappingSettingsOrdering(
-      data.cappingSettings,
-      data.lowerCappingSettings,
-    );
-
-    validateCappingSettingsIgnoreZerosConsistency(
-      data.cappingSettings,
-      data.lowerCappingSettings,
-    );
-
-    validateCappingSettingsMetricTypeCompatibility(
-      data.metricType,
-      data.cappingSettings,
-      data.lowerCappingSettings,
-    );
+    validateFactMetricCapping(data, previousData);
 
     if (data.metricType === "funnel" && !data.funnelSettings) {
       throw new Error("Funnel settings required for funnel metrics");
@@ -614,9 +588,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     }
     if (data.denominator) {
       throw new Error("Denominator not allowed for funnel metrics");
-    }
-    if (data.cappingSettings.type) {
-      throw new Error("Capping is not supported for funnel metrics");
     }
     if (data.quantileSettings) {
       throw new Error("Quantile settings are not supported for funnel metrics");
@@ -901,16 +872,14 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
         ...cappingSettings,
         type: cappingSettings.type || "none",
         ignoreZeros: cappingSettings.ignoreZeros ?? undefined,
-        ...(lowerCappingSettings
-          ? {
-              lowerCappingSettings: {
-                type: lowerCappingSettings.type || "none",
-                value: lowerCappingSettings.value,
-                ignoreZeros: lowerCappingSettings.ignoreZeros ?? undefined,
-              },
-            }
-          : {}),
       },
+      lowerCappingSettings: lowerCappingSettings
+        ? {
+            type: lowerCappingSettings.type || "none",
+            value: lowerCappingSettings.value,
+            ignoreZeros: lowerCappingSettings.ignoreZeros ?? undefined,
+          }
+        : null,
       windowSettings: {
         ...windowSettings,
         type: windowSettings.type || "none",
