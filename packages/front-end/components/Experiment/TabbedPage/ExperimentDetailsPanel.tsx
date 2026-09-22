@@ -83,7 +83,8 @@ export default function ExperimentDetailsPanel({
               <IconButton
                 size="1"
                 variant="ghost"
-                color="gray"
+                color="violet"
+                radius="medium"
                 disabled={!!editsBlocked}
                 aria-label="Edit details"
                 style={{

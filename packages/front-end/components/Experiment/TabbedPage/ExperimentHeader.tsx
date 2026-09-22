@@ -26,7 +26,7 @@ import {
   PiCheck,
   PiEye,
   PiLink,
-  PiPencilSimpleFill,
+  PiPencilSimple,
   PiPlus,
   PiSidebarSimple,
   PiSidebarSimpleFill,
@@ -1061,7 +1061,7 @@ export default function ExperimentHeader({
                       nextScheduledStartDate,
                       "MMM d, yyyy 'at' h:mm a (z)",
                     )}{" "}
-                    {editSchedule && <PiPencilSimpleFill className="ml-1" />}
+                    {editSchedule && <PiPencilSimple className="ml-1" />}
                   </Button>
                 ) : experiment.status === "draft" ? (
                   <Tooltip
@@ -1102,7 +1102,7 @@ export default function ExperimentHeader({
                 <IconButton
                   variant="ghost"
                   color="gray"
-                  radius="full"
+                  radius="medium"
                   size="3"
                   highContrast
                   ml="2"

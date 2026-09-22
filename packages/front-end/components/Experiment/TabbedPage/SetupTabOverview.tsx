@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { PiPencilSimpleFill, PiPlus, PiWarningFill } from "react-icons/pi";
+import { PiPencilSimple, PiPlus, PiWarningFill } from "react-icons/pi";
 import { format } from "date-fns-tz";
 import { PreLaunchChecklistDrawer } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
@@ -134,7 +134,7 @@ export default function SetupTabOverview({
                         <PiWarningFill color="var(--warning)" />
                       )}
                       <Text weight="semibold">{scheduleSummary}</Text>
-                      <PiPencilSimpleFill />
+                      <PiPencilSimple />
                     </Flex>
                   </Link>
                 </Tooltip>
@@ -152,7 +152,7 @@ export default function SetupTabOverview({
                           ? "Edit Schedule"
                           : "Add Schedule End")}
                     </Text>
-                    {experimentHasSchedule && <PiPencilSimpleFill />}
+                    {experimentHasSchedule && <PiPencilSimple />}
                   </Flex>
                 </Link>
               ) : null}

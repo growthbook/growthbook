@@ -9,7 +9,7 @@ import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   PiCameraLight,
   PiCameraPlusLight,
-  PiPencilSimpleFill,
+  PiPencilSimple,
   PiPlus,
   PiPlusCircle,
 } from "react-icons/pi";
@@ -328,12 +328,12 @@ export function VariationBox({
                   variant="ghost"
                   size="2"
                   color="violet"
-                  radius="full"
+                  radius="medium"
                   style={{ margin: 0 }}
                   onClick={() => onEditTraffic(v.id)}
                   aria-label="Edit variation"
                 >
-                  <PiPencilSimpleFill size="16" />
+                  <PiPencilSimple size="16" />
                 </IconButton>
               ) : null}
               {canEdit && onEditMetadata ? (
@@ -342,7 +342,7 @@ export function VariationBox({
                     <IconButton
                       variant="ghost"
                       color="gray"
-                      radius="full"
+                      radius="medium"
                       size="2"
                       highContrast
                       style={{ margin: 0 }}

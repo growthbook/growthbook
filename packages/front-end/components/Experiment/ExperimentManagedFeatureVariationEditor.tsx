@@ -13,7 +13,7 @@ import { getEqualWeights } from "shared/experiments";
 import {
   PiArrowsClockwise,
   PiInfo,
-  PiPencilSimpleFill,
+  PiPencilSimple,
   PiPlusBold,
 } from "react-icons/pi";
 import {
@@ -344,7 +344,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                         <IconButton
                           variant="ghost"
                           color="violet"
-                          radius="full"
+                          radius="medium"
                           size="1"
                           style={{ margin: 0 }}
                           onClick={(e) => {
@@ -353,7 +353,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                           }}
                           aria-label="Edit feature values"
                         >
-                          <PiPencilSimpleFill size={14} />
+                          <PiPencilSimple size={14} />
                         </IconButton>
                       </Tooltip>
                     )}
@@ -370,7 +370,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                           <IconButton
                             variant="ghost"
                             color="violet"
-                            radius="full"
+                            radius="medium"
                             size="1"
                             style={{ margin: 0 }}
                             onClick={(e) => {
@@ -379,7 +379,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                             }}
                             aria-label="Customize split"
                           >
-                            <PiPencilSimpleFill size={14} />
+                            <PiPencilSimple size={14} />
                           </IconButton>
                         </Tooltip>
                       )}

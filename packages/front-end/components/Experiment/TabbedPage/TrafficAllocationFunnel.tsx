@@ -21,7 +21,7 @@ import {
   IconButton,
   SegmentedControl,
 } from "@radix-ui/themes";
-import { PiCaretDownBold, PiPencilSimpleFill } from "react-icons/pi";
+import { PiCaretDownBold, PiPencilSimple } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ExperimentSplitVisual from "@/components/Features/ExperimentSplitVisual";
@@ -112,12 +112,12 @@ function FunnelCard({
           <IconButton
             variant="ghost"
             color="violet"
-            radius="full"
+            radius="medium"
             onClick={() => onEdit()}
             size="2"
             aria-label={`Edit ${title}`}
           >
-            <PiPencilSimpleFill size="16" />
+            <PiPencilSimple size="16" />
           </IconButton>
         ) : null}
       </Flex>
@@ -389,7 +389,7 @@ export default function TrafficAllocationFunnel({
                 <IconButton
                   variant="ghost"
                   color="gray"
-                  radius="full"
+                  radius="medium"
                   size="2"
                   highContrast
                   style={{ margin: 0 }}
@@ -449,12 +449,12 @@ export default function TrafficAllocationFunnel({
                 <IconButton
                   variant="ghost"
                   color="violet"
-                  radius="full"
+                  radius="medium"
                   size="2"
                   onClick={() => setEditEnvironments(true)}
                   aria-label="Edit environments"
                 >
-                  <PiPencilSimpleFill size="16" />
+                  <PiPencilSimple size="16" />
                 </IconButton>
               ) : null}
             </Flex>

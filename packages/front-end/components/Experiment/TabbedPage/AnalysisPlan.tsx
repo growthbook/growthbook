@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   PiCaretDownFill,
-  PiPencilSimpleFill,
+  PiPencilSimple,
   PiSlidersHorizontal,
 } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
@@ -343,7 +343,7 @@ export default function AnalysisPlan({
                 variant="ghost"
                 onClick={() => setUnlocked(true)}
               >
-                <PiPencilSimpleFill /> Edit
+                <PiPencilSimple /> Edit
               </Button>
             ) : null}
             {canEdit ? (

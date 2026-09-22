@@ -3,12 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { RiDraggable } from "react-icons/ri";
-import {
-  PiCaretDown,
-  PiCaretUp,
-  PiInfo,
-  PiPencilSimpleFill,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretUp, PiInfo, PiPencilSimple } from "react-icons/pi";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   ExperimentValue,
@@ -215,7 +210,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             <IconButton
               variant="ghost"
               color="violet"
-              radius="full"
+              radius="medium"
               size="1"
               style={{ margin: 0 }}
               onClick={(e) => {
@@ -224,7 +219,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
               }}
               aria-label="Edit feature values"
             >
-              <PiPencilSimpleFill size={14} />
+              <PiPencilSimple size={14} />
             </IconButton>
           </Tooltip>
         )}
@@ -403,7 +398,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   <IconButton
                     variant="ghost"
                     color="gray"
-                    radius="full"
+                    radius="medium"
                     size="2"
                     highContrast
                     style={{ margin: 0 }}
