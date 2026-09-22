@@ -258,11 +258,6 @@
       "count": 8
     }
   },
-  "packages/front-end/components/Experiment/EditDataSourceForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
     "no-restricted-imports": {
       "count": 2

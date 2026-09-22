@@ -212,7 +212,7 @@ export const ExperimentAssignmentQueries: FC<
                         skipMargin
                       />
                     ) : (
-                      <em className="text-muted">all data source projects</em>
+                      <em className="text-muted">All Data Source Projects</em>
                     )}
                   </Box>
                 </Flex>

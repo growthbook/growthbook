@@ -55,7 +55,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     ? userIdTypeOptions[0]?.value
     : "user_id";
 
-  const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
+  // Every selected identifier type must come back as a same-named column, so
+  // the prefilled query grows a `<type> as <type>` line per selection. Only
+  // applied while the query still matches this template for the prior
+  // selection — once a user customizes it (Customize SQL), it's left alone.
+  const buildDefaultQuery = (userIdTypes: string[]) => {
+    const ids = userIdTypes.length ? userIdTypes : [defaultUserId];
+    const idColumns = ids.map((id) => `  ${id} as ${id},`).join("\n");
+    return `SELECT\n${idColumns}\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
+  };
+  const defaultQuery = buildDefaultQuery(defaultUserId ? [defaultUserId] : []);
 
   const form = useForm<ExposureQuery>({
     defaultValues:
@@ -313,13 +322,24 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               <MultiSelectField
                 legacyHeight
                 label="Identifier types"
+                helpText="Each identifier type must be returned as a same-named column in the query below."
                 options={identityTypes.map((i) => ({
                   value: i.userIdType,
                   label: i.userIdType,
                 }))}
                 required
                 value={userEnteredUserIdTypes}
-                onChange={(value) => form.setValue("userIdTypes", value)}
+                onChange={(value) => {
+                  // Only still-default queries follow identifier selection; a
+                  // customized query (Customize SQL) is left as the user wrote it.
+                  if (
+                    form.getValues("query") ===
+                    buildDefaultQuery(userEnteredUserIdTypes)
+                  ) {
+                    form.setValue("query", buildDefaultQuery(value));
+                  }
+                  form.setValue("userIdTypes", value);
+                }}
               />
               {showIdentifierChangeWarning && (
                 <Callout status="warning" mb="3">
@@ -344,7 +364,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                       <Tooltip body="Limit this assignment query to specific projects. Only projects within the data source's projects are available. Leave empty to make it available for all of the data source's projects." />
                     </>
                   }
-                  placeholder="All projects"
+                  placeholder="All Data Source Projects"
                   value={userEnteredProjects}
                   options={projectOptions}
                   onChange={(value) => form.setValue("projects", value)}
@@ -353,7 +373,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               )}
               <div className="form-group">
                 <label className="mr-5">Query</label>
-                {userEnteredQuery === defaultQuery && (
+                {userEnteredQuery ===
+                  buildDefaultQuery(userEnteredUserIdTypes) && (
                   <Callout status="info">
                     The prefilled query below may require editing to fit your
                     data structure.
