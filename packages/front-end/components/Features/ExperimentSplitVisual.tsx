@@ -19,14 +19,16 @@ import styles from "./ExperimentSplitVisual.module.scss";
 
 /** How tall the connector is, and how it is put together. */
 const CONNECTOR = {
-  height: 30,
+  height: 34,
+  /** The shared drop the arms branch off. */
+  stem: 4,
   /** The vertical run an arm settles into before its head. */
   straight: 3,
   head: 3,
 };
 
 /**
- * One arrow per segment, all leaving the same point and turning down over their
+ * A stem branching into one arrow per segment, each turning down over the
  * segment's midpoint. Drawn in pixels rather than percentages, so the corners
  * and heads keep their shape whatever the bar's width: the widths come in as
  * percentages, and the element measures itself to place them.
@@ -45,27 +47,28 @@ function SegmentConnector({ centers }: { centers: number[] }) {
     return () => observer.disconnect();
   }, []);
 
-  const { height, straight, head } = CONNECTOR;
+  const { height, stem, straight, head } = CONNECTOR;
   const midX = width / 2;
   const endY = height - head;
   const turnY = endY - straight;
 
-  // One path for every arm: they meet at the top, and separate elements would
+  // One path for every arm: they share a stem, and separate elements would
   // stack their alpha where they run together.
   //
   // Both controls sit on the vertical through the point they belong to, and
-  // well away from it: the arm sets off straight down and arrives at its head
-  // straight down too, with the whole sweep in between. A short tangent at
-  // either end spikes the curvature and the arm kinks.
+  // well away from it: the arm sets off the way the stem goes and arrives at
+  // its head straight down too, with the whole sweep in between. A short
+  // tangent at either end spikes the curvature and the arm kinks.
   const d = centers
     .map((center) => {
       const x = (center / 100) * width;
       const dx = x - midX;
+      const dy = turnY - stem;
       const arm =
         Math.abs(dx) < 1
-          ? `M ${midX} 0 L ${x} ${endY}`
-          : `M ${midX} 0 C ${midX} ${turnY * 0.75},` +
-            ` ${x} ${turnY * 0.25}, ${x} ${turnY} L ${x} ${endY}`;
+          ? `M ${midX} ${stem} L ${x} ${endY}`
+          : `M ${midX} ${stem} C ${midX} ${stem + dy * 0.75},` +
+            ` ${x} ${turnY - dy * 0.75}, ${x} ${turnY} L ${x} ${endY}`;
       return (
         arm +
         ` M ${x - head} ${endY - head} L ${x} ${endY} L ${x + head} ${endY - head}`
@@ -78,7 +81,7 @@ function SegmentConnector({ centers }: { centers: number[] }) {
       {width > 0 ? (
         <svg width={width} height={height} aria-hidden>
           <path
-            d={d}
+            d={`M ${midX} 0 L ${midX} ${stem} ${d}`}
             fill="none"
             stroke="currentColor"
             strokeWidth="1"
