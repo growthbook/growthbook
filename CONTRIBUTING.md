@@ -84,7 +84,7 @@ This repository is a monorepo with the following packages:
 - **packages/sdk-js** is our javascript SDK (`@growthbook/growthbook` on npm)
 - **packages/sdk-react** is our React SDK (`@growthbook/growthbook-react` on npm)
 - **packages/stats** is our Python stats engine (`gbstats` on PyPi)
-- **docs** is a Docusaurus instance for our documentation site (https://docs.growthbook.io).
+- **docs** is a [Mintlify](https://mintlify.com) site for our documentation (https://docs.growthbook.io).
 
 Depending on what you're changing, you may need to edit one or more of these packages.
 
@@ -144,7 +144,7 @@ Day-to-day development uses `pnpm dev`, so you don't normally need to build the 
 
 ### Working on docs
 
-To start the docs site, first `cd docs` and then run `pnpm install` to install and `pnpm dev` to run the docs server. You can view the site at http://localhost:3200
+To start the docs site, `cd docs` and run `npx mint dev`. You can view the site at http://localhost:3000. Before pushing, run `npx mint validate` and `npx mint broken-links --check-anchors` — the same checks the Docs workflow runs.
 
 ### Working on the SDKs
 
