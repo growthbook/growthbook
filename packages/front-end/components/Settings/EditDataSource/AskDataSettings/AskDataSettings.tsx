@@ -54,8 +54,8 @@ export default function AskDataSettings({
         )}
       </Flex>
       <p>
-        Allow the AI assistant to run read-only SQL queries against this data
-        source.
+        Allow the in-app AI assistant to run read-only SQL queries against this
+        data source.
       </p>
 
       <Card>
@@ -163,8 +163,8 @@ function EditAskDataModal({
                     </SelectItem>
                   </Select>
                   <Text size="sm" color="text-mid">
-                    Controls whether the agent must confirm before running SQL
-                    queries
+                    Controls whether the in-app AI assistant must confirm before
+                    running SQL queries
                   </Text>
                 </Flex>
                 {policy === "auto-below-threshold" && (

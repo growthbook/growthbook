@@ -4,7 +4,7 @@ import type { SkillSummary } from "shared/ai-chat";
 import { logger } from "back-end/src/util/logger";
 
 /**
- * Agent skills teach the generic agent how to use slices of the GrowthBook
+ * Agent skills teach the in-app AI assistant how to use slices of the GrowthBook
  * REST API via the `callApi` tool.
  *
  * This module is the loader; the content is assembled at build time into

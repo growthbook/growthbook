@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-// Copies skills into generated/agent-skills for the in-app assistant.
+// Copies skills into generated/agent-skills for the in-app AI assistant.
 //
 // 1. Copy allowlisted skills from a growthbook/skills checkout. The allowlist
 //    is CANONICAL_SKILLS below; other skills in that repo are skipped.
-// 2. Merge in-app assistant skills from src/agent/skills-local. A skill
+// 2. Merge in-app AI assistant skills from src/agent/skills-local. A skill
 //    whose name collides with an allowlisted skill is skipped.
 
 import {

@@ -187,7 +187,7 @@ function preWorkToSteps(
 // ---------------------------------------------------------------------------
 
 /**
- * Site-wide chat panel for the generic GrowthBook agent. Reuses the existing
+ * Site-wide chat panel for the in-app AI assistant. Reuses the existing
  * `useAIChat` hook (the same one PA Explorer uses) configured for the
  * `/agent/chat` endpoint family.
  *

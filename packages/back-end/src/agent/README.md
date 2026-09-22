@@ -1,14 +1,14 @@
 # Agent skills
 
-The in-app assistant's flag, experiment, and analytics skills come from
+The in-app AI assistant's flag, experiment, and analytics skills come from
 [growthbook/skills](https://github.com/growthbook/skills). They are copied at
 build time, not checked in.
 
 `pnpm assemble-skills` (also run by `dev` and `build`) writes
 `generated/agent-skills/`. An allowlist in `scripts/assemble-agent-skills.mjs`
 copies only `feature-flags`, `experiments`, and `analytics` — not `gb-setup`.
-Skills that exist only for this assistant live in `skills-local/` and are
-merged in after. A local skill whose name matches an allowlisted one is skipped.
+Skills that exist only for this in-app AI assistant live in `skills-local/` and
+are merged in after. A local skill whose name matches an allowlisted one is skipped.
 
 ## Local checkout
 

@@ -46,6 +46,7 @@ describe("general agent system prompt", () => {
     expect(prompt).toContain(
       "`gb-call app-origin` is only for external shell adapters.",
     );
+    expect(prompt).toContain("in-app AI assistant");
   });
 
   it("does not advertise concrete skills outside the generated index", () => {
