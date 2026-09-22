@@ -35,7 +35,10 @@ import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 
 export function getInitialInlineFilters(
-  factTable: FactTableDefinition,
+  factTable: Pick<
+    FactTableDefinition,
+    "columns" | "userIdTypes" | "userIdColumns"
+  >,
   existingRowFilters?: RowFilter[],
 ): RowFilter[] {
   const rowFilters = [...(existingRowFilters || [])];
