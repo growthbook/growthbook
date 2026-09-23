@@ -386,7 +386,9 @@
               },
               {
                 "group": "Guides for Agents",
-                "pages": []
+                "pages": [
+                  "start-here"
+                ]
               }
             ]
           }
