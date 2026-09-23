@@ -103,6 +103,33 @@ describe("getMergeResultPublishEnvs", () => {
       expect(envs.sort()).toEqual([...ENVS].sort());
     });
 
+    it("widens to every env a ramp whose base state the publish rewrites can reach", async () => {
+      const envs = await getMergeResultPublishEnvs({
+        context: ctxWith(),
+        feature: feat(),
+        filledLiveRules: [],
+        result: {
+          metadata: { description: "x" },
+          environmentsEnabled: { dev: true },
+        } as unknown as MergeResultChanges,
+        environmentIds: ENVS,
+        anchoredSchedules: [
+          {
+            startActions: [
+              {
+                targetType: "feature-rule",
+                targetId: "t1",
+                patch: { ruleId: "r1", allEnvironments: true },
+              },
+            ],
+            steps: [],
+            endActions: [],
+          },
+        ],
+      });
+      expect(envs.sort()).toEqual([...ENVS].sort());
+    });
+
     it("does NOT widen for metadata that never reaches an SDK", async () => {
       const envs = await getMergeResultPublishEnvs({
         context: ctxWith(),

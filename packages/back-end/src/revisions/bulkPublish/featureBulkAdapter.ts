@@ -226,6 +226,11 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const { plan } = desiredState as unknown as FeatureDesiredState;
     const gates: PublishGate[] = [];
 
+    const rampBaseState = await planRampBaseStateSyncForPublish(
+      overlayContext,
+      feature,
+      plan.mergeResult,
+    );
     // Use caller context for footprint-aware landing authority.
     const envsToCheck = await getMergeResultPublishEnvs({
       context: callerContext,
@@ -235,6 +240,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       environmentIds: plan.environmentIds,
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
       rampActions: raw.rampActions,
+      anchoredSchedules: rampBaseState.updates.map((u) => u.schedule),
     });
     const refusal = await featurePublishRefusal({
       context: callerContext,
@@ -308,11 +314,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         }),
       );
     }
-    const rampBaseState = await planRampBaseStateSyncForPublish(
-      overlayContext,
-      feature,
-      plan.mergeResult,
-    );
     for (const refusal of rampBaseState.refusals) {
       gates.push(
         makeBlockingGate({

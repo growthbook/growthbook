@@ -122,6 +122,7 @@ import {
   getRevisionReviewRequirement,
   liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
+  getEnvsFromRampSchedule,
 } from "shared/util";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import { ApiReqContext } from "back-end/types/api";
@@ -4112,6 +4113,7 @@ export async function getMergeResultPublishEnvs({
   result,
   environmentIds,
   rampActions,
+  anchoredSchedules,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -4120,6 +4122,8 @@ export async function getMergeResultPublishEnvs({
   environmentIds: string[];
   /** The revision's ramp actions, whose reach the publish must answer for. */
   rampActions?: RevisionRampAction[];
+  /** Live schedules whose base state this publish rewrites; their replays reach every env they target. */
+  anchoredSchedules?: Parameters<typeof getEnvsFromRampSchedule>[0][];
 }): Promise<string[]> {
   // A project/targeting move makes environments applicable that the pre-move
   // feature excluded, so `environmentIds` (computed against the OLD project)
@@ -4169,9 +4173,14 @@ export async function getMergeResultPublishEnvs({
     liveRules: filledLiveRules,
     environmentIds: effectiveEnvironmentIds,
   });
-  return rampEnvs === "all"
-    ? [...effectiveEnvironmentIds]
-    : [...new Set([...base, ...rampEnvs])];
+  const scheduleEnvs = (anchoredSchedules ?? []).map(getEnvsFromRampSchedule);
+  if (rampEnvs === "all" || scheduleEnvs.includes("all")) {
+    return [...effectiveEnvironmentIds];
+  }
+  const reached = scheduleEnvs
+    .flatMap((envs) => (envs === "all" ? [] : envs))
+    .filter((env) => effectiveEnvironmentIds.includes(env));
+  return [...new Set([...base, ...rampEnvs, ...reached])];
 }
 
 // `undefined` = merge didn't touch holdout. Otherwise unions the active

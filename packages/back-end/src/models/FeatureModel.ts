@@ -4074,6 +4074,12 @@ async function publishRevisionInner({
   // publish authority; one that is entirely inert metadata is draft-class and
   // skips the gate (the semantic the features matrix pins for drafters
   // editing descriptions).
+  // A direct edit to a rule under a live ramp: refused while it runs or for a
+  // field the plan sets, otherwise carried into the ramp's base state below.
+  const rampBaseState = rampEnginePublish
+    ? { refusals: [], updates: [] }
+    : await planRampBaseStateSyncForPublish(context, feature, result);
+
   if (mergeResultTouchesPayload(result)) {
     await assertCanPublishFeatureRevision({
       context,
@@ -4091,16 +4097,11 @@ async function publishRevisionInner({
         ),
         // The draft's ramp actions reach environments no rule diff mentions.
         rampActions: revision.rampActions,
+        anchoredSchedules: rampBaseState.updates.map((u) => u.schedule),
       }),
       mergeChanges: result,
     });
   }
-
-  // A direct edit to a rule under a live ramp: refused while it runs or for a
-  // field the plan sets, otherwise carried into the ramp's base state below.
-  const rampBaseState = rampEnginePublish
-    ? { refusals: [], updates: [] }
-    : await planRampBaseStateSyncForPublish(context, feature, result);
 
   // Before any mutation: applyRevisionChanges advances feature.version, so a
   // later throw would leave the feature live on a still-draft revision.

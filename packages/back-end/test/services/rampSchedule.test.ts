@@ -5750,4 +5750,32 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
     });
     expect(writes.eventHistory).toEqual([older]);
   });
+
+  it("leaves the anchor alone when a later publish rewrote the base state, same value or not", async () => {
+    const event = { type: "config-edited", timestamp: new Date(1000), reason };
+    const later = { ...event, timestamp: new Date(2000) };
+    const { ctx, updateById } = makeCtx(
+      fresh({
+        startActions: [anchor({ condition: '{"a":1}' })],
+        eventHistory: [event, later],
+      }),
+    );
+    await restoreRampBaseStates(ctx, [
+      {
+        id: "rs_1",
+        patches: [
+          {
+            targetId: "t1",
+            ruleId: "r1",
+            patch: { condition: '{"a":1}' },
+            before: { condition: null },
+          },
+        ],
+        event,
+      },
+    ]);
+    const [, writes] = updateById.mock.calls[0];
+    expect(writes.startActions[0].patch.condition).toBe('{"a":1}');
+    expect(writes.eventHistory).toEqual([later]);
+  });
 });

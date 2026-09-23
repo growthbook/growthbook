@@ -1038,8 +1038,9 @@ function patchStartActions(
   });
 }
 
+const BASE_STATE_SYNC_PREFIX = "Base state updated by publishing revision";
 const baseStateSyncReason = (revisionVersion: number, fields: string[]) =>
-  `Base state updated by publishing revision ${revisionVersion}: ${fields.join(", ")}`;
+  `${BASE_STATE_SYNC_PREFIX} ${revisionVersion}: ${fields.join(", ")}`;
 
 export async function planRampBaseStateSyncForPublish(
   ctx: ReqContext | ApiReqContext,
@@ -1117,15 +1118,23 @@ export async function applyRampBaseStateSync(
   }
 }
 
-// Puts back only the fields this publish still owns (a later write wins) and
-// removes only the event row it added.
+// Puts back only the fields this publish still owns (a later write wins, even
+// one that wrote the same value) and removes only the event row it added.
 export async function restoreRampBaseStates(
   ctx: ReqContext | ApiReqContext,
   preImages: RampBaseStatePreImage[],
 ): Promise<void> {
   for (const { id, patches, event } of preImages) {
     await runLockedRampScheduleAction(ctx, id, async (fresh) => {
+      const at = (e: RampEvent) => new Date(e.timestamp).getTime();
+      const superseded = (fresh.eventHistory ?? []).some(
+        (e) =>
+          e.type === "config-edited" &&
+          e.reason?.startsWith(BASE_STATE_SYNC_PREFIX) &&
+          at(e) > at(event),
+      );
       const startActions = (fresh.startActions ?? []).map((a) => {
+        if (superseded) return a;
         const p = patches.find((x) => sameAction(a, x));
         if (!p) return a;
         const patch = { ...a.patch } as Record<string, unknown>;
@@ -1145,8 +1154,7 @@ export async function restoreRampBaseStates(
             !(
               e.type === event.type &&
               e.reason === event.reason &&
-              new Date(e.timestamp).getTime() ===
-                new Date(event.timestamp).getTime()
+              at(e) === at(event)
             ),
         ),
       });
