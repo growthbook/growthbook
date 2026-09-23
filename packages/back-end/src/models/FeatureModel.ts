@@ -3575,34 +3575,41 @@ async function applyDetachRampActions(
   for (const action of actions) {
     if (action.mode !== "detach") continue;
     try {
-      const existing = await context.models.rampSchedules.getById(
+      // Under the advance lock against a fresh read: a stale `targets` write
+      // would drop a concurrent add-target, and a step must not fire mid-detach.
+      await runLockedRampScheduleAction(
+        context,
         action.rampScheduleId,
-      );
-      if (existing) {
-        const detached = rampTargetsDetachedBy(existing.targets, action.ruleId);
-        const remainingTargets = existing.targets.filter(
-          (t) => !detached.includes(t),
-        );
-        if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
-          // Stop the linked SafeRollout before deletion so it doesn't continue
-          // taking snapshots against a ramp that no longer exists.
-          if (existing.safeRolloutId) {
-            await syncLinkedSafeRolloutForRampState(
-              context,
-              { ...existing, status: "rolled-back" },
-              "stopped",
-            );
-          }
-          await context.models.rampSchedules.dangerousDeleteByIdBypassPermission(
-            existing.id,
+        async (existing) => {
+          const detached = rampTargetsDetachedBy(
+            existing.targets,
+            action.ruleId,
           );
-        } else {
-          await context.models.rampSchedules.updateById(existing.id, {
-            targets: remainingTargets,
-          });
-        }
-      }
+          const remainingTargets = existing.targets.filter(
+            (t) => !detached.includes(t),
+          );
+          if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
+            // Stop the linked SafeRollout before deletion so it doesn't continue
+            // taking snapshots against a ramp that no longer exists.
+            if (existing.safeRolloutId) {
+              await syncLinkedSafeRolloutForRampState(
+                context,
+                { ...existing, status: "rolled-back" },
+                "stopped",
+              );
+            }
+            await context.models.rampSchedules.dangerousDeleteByIdBypassPermission(
+              existing.id,
+            );
+          } else {
+            await context.models.rampSchedules.updateById(existing.id, {
+              targets: remainingTargets,
+            });
+          }
+        },
+      );
     } catch (err) {
+      if (err instanceof NotFoundError) continue;
       logger.error(err, {
         msg: "Failed to apply revision ramp detach action",
         action,
@@ -4100,7 +4107,15 @@ async function publishRevisionInner({
   // publish authority; one that is entirely inert metadata is draft-class and
   // skips the gate (the semantic the features matrix pins for drafters
   // editing descriptions).
-  if (mergeResultTouchesPayload(result)) {
+  // Resolved before the landing gate and any mutation: the ramps a revert
+  // detaches reach environments its rule diff may not, and a failed read must
+  // block the revert rather than leave the ramp running over it.
+  const revertRampStops = await resolveRevertRampStopsForRevision(
+    context,
+    feature,
+    revision,
+  );
+  if (mergeResultTouchesPayload(result) || revertRampStops.detaches.length) {
     await assertCanPublishFeatureRevision({
       context,
       feature,
@@ -4116,7 +4131,10 @@ async function publishRevisionInner({
           feature,
         ),
         // The draft's ramp actions reach environments no rule diff mentions.
-        rampActions: revision.rampActions,
+        rampActions: [
+          ...(revision.rampActions ?? []),
+          ...revertRampStops.detaches,
+        ],
       }),
       mergeChanges: result,
     });
@@ -4144,11 +4162,6 @@ async function publishRevisionInner({
         .join("\n")}`,
     );
   }
-  const revertRampStops = await resolveRevertRampStopsForRevision(
-    context,
-    feature,
-    revision,
-  );
   assertRevertRampStopsAcknowledged(context, revertRampStops);
 
   const createActions = (revision.rampActions ?? []).filter(

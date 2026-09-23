@@ -16,6 +16,7 @@ import {
 import {
   holdsMoveDestination,
   metadataTouchesPayload,
+  rampActionFootprint,
   revertFootprint,
 } from "shared/permissions";
 import isEqual from "lodash/isEqual";
@@ -144,13 +145,12 @@ export default function RevertModal({
     },
   });
 
-  const rampStopWarning = targetRevision
-    ? revertRampStopWarning(
-        getRevertRampDetachActions(feature.id, targetRevision, rampSchedules),
-        rampSchedules,
-        { draft: mode === "new" },
-      )
-    : null;
+  const rampDetaches = targetRevision
+    ? getRevertRampDetachActions(feature.id, targetRevision, rampSchedules)
+    : [];
+  const rampStopWarning = revertRampStopWarning(rampDetaches, rampSchedules, {
+    draft: mode === "new",
+  });
 
   const environmentIds = environments.map((e) => e.id);
   const changedRuleEnvs = environmentIds.filter(
@@ -176,7 +176,7 @@ export default function RevertModal({
         enabled !== !!feature.environmentSettings?.[env]?.enabled,
     );
 
-  const affectedEnvs = revertTouchesGlobalState
+  const ruleEnvs = revertTouchesGlobalState
     ? revertFootprint({
         feature,
         targetRevision: targetRevisionForAction,
@@ -184,6 +184,16 @@ export default function RevertModal({
         changedEnvs: changedRuleEnvs,
       })
     : changedRuleEnvs;
+  // Detached ramps are felt wherever their rule serves, as the server gates.
+  const rampEnvs = rampActionFootprint({
+    rampActions: rampDetaches,
+    liveRules: feature.rules ?? [],
+    environmentIds,
+  });
+  const affectedEnvs =
+    rampEnvs === "all"
+      ? environmentIds
+      : [...new Set([...ruleEnvs, ...rampEnvs])];
 
   // Mirrors the two endpoints this modal calls. Reverting is its own authority:
   // the direct revert is gated on revertFeatures rather than publish, and revert

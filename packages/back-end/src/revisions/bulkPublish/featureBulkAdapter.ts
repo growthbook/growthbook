@@ -233,7 +233,12 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       result: plan.mergeResult,
       environmentIds: plan.environmentIds,
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
-      rampActions: raw.rampActions,
+      rampActions: [
+        ...(raw.rampActions ?? []),
+        ...(
+          await resolveRevertRampStopsForRevision(callerContext, feature, raw)
+        ).detaches,
+      ],
     });
     const refusal = await featurePublishRefusal({
       context: callerContext,
