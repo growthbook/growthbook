@@ -55,7 +55,12 @@ export async function resolveRevertRampStops(
     targetRevision,
     schedules,
   );
-  return { detaches, warning: revertRampStopWarning(detaches, schedules) };
+  return {
+    detaches,
+    warning: revertRampStopWarning(detaches, schedules, {
+      apiRequest: context.isApiRequest,
+    }),
+  };
 }
 
 // Resolved before the publish mutates anything, so a failed read blocks the

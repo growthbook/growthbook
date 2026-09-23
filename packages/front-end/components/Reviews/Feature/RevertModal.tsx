@@ -148,6 +148,7 @@ export default function RevertModal({
     ? revertRampStopWarning(
         getRevertRampDetachActions(feature.id, targetRevision, rampSchedules),
         rampSchedules,
+        { draft: mode === "new" },
       )
     : null;
 
@@ -310,11 +311,6 @@ export default function RevertModal({
           />
         </Box>
       </Flex>
-      {rampStopWarning && (
-        <Callout status="warning" mb="3">
-          {rampStopWarning}
-        </Callout>
-      )}
       <div className="list-group mb-4">
         {isLoadingRevision ? (
           <div className="text-muted">Loading revision…</div>
@@ -336,6 +332,11 @@ export default function RevertModal({
           setComment(e.target.value);
         }}
       />
+      {rampStopWarning && (
+        <Callout status="warning" size="sm" mt="3">
+          {rampStopWarning}
+        </Callout>
+      )}
     </Modal>
   );
 }

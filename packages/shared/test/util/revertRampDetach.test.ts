@@ -118,14 +118,39 @@ describe("getRevertRampDetachActions", () => {
 });
 
 describe("revertRampStopWarning", () => {
-  it("names each stopped schedule once", () => {
-    const schedules = [schedule("a", []), schedule("b", [])];
+  const schedules = [schedule("a", ["fr_1"]), schedule("b", ["fr_2", "fr_3"])];
+
+  it("deletes a ramp whose every rule is detached", () => {
     expect(revertRampStopWarning([], schedules)).toBeNull();
+    expect(revertRampStopWarning([detach("a", "fr_1")], schedules)).toBe(
+      'This revert will delete the ramp-up on Rule "fr_1".',
+    );
+    expect(
+      revertRampStopWarning([detach("a", "fr_1")], schedules, { draft: true }),
+    ).toBe(
+      'When published, this revert draft will delete the ramp-up on Rule "fr_1".',
+    );
+    expect(
+      revertRampStopWarning([detach("a", "fr_1")], schedules, {
+        apiRequest: true,
+      }),
+    ).toBe(
+      'This revert will delete the ramp schedule "Ramp a" (a) on Rule "fr_1".',
+    );
+  });
+
+  it("removes rules from a ramp that keeps others", () => {
+    expect(revertRampStopWarning([detach("b", "fr_2")], schedules)).toBe(
+      'This revert will remove Rule "fr_2" from its ramp-up.',
+    );
     expect(
       revertRampStopWarning(
-        [detach("a", "fr_1"), detach("a", "fr_2")],
+        [detach("a", "fr_1"), detach("b", "fr_2")],
         schedules,
+        { apiRequest: true },
       ),
-    ).toContain('stops the ramp schedule "Ramp a", which');
+    ).toBe(
+      'This revert will remove Rules "fr_1", "fr_2" from the ramp schedules "Ramp a" (a), "Ramp b" (b).',
+    );
   });
 });

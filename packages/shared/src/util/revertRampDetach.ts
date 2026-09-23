@@ -74,15 +74,41 @@ export function getRevertRampDetachActions(
   );
 }
 
+// Dashboard copy names the rules only; REST callers also get the schedules,
+// since they have no page showing them. A schedule left with no targets is
+// deleted, so the copy says "delete" when that is every affected schedule.
 export function revertRampStopWarning(
   detaches: RevisionRampDetachAction[],
-  schedules: Pick<RampScheduleInterface, "id" | "name">[],
+  schedules: Pick<RampScheduleInterface, "id" | "name" | "targets">[],
+  {
+    apiRequest = false,
+    draft = false,
+  }: { apiRequest?: boolean; draft?: boolean } = {},
 ): string | null {
-  const ids = new Set(detaches.map((d) => d.rampScheduleId));
-  if (!ids.size) return null;
-  const names = schedules.filter((s) => ids.has(s.id)).map((s) => s.name);
-  const quoted = names.map((n) => `"${n}"`).join(", ");
-  return names.length === 1
-    ? `Reverting to this revision stops the ramp schedule ${quoted}, which was added after it was published. The ramp is detached from this Feature Flag's rules without rolling back.`
-    : `Reverting to this revision stops the ramp schedules ${quoted}, which were added after it was published. The ramps are detached from this Feature Flag's rules without rolling back.`;
+  if (!detaches.length) return null;
+  const subject = draft
+    ? "When published, this revert draft will"
+    : "This revert will";
+  const quote = (ids: string[]) => ids.map((id) => `"${id}"`).join(", ");
+  const ruleIds = [...new Set(detaches.map((d) => d.ruleId))];
+  const affected = schedules.filter((s) =>
+    detaches.some((d) => d.rampScheduleId === s.id),
+  );
+  const deletesAll = affected.every((s) =>
+    s.targets.every((t) => !!t.ruleId && ruleIds.includes(t.ruleId)),
+  );
+  const plural = affected.length > 1;
+  const rules = `${ruleIds.length === 1 ? "Rule" : "Rules"} ${quote(ruleIds)}`;
+  const ramps = apiRequest
+    ? `the ramp ${plural ? "schedules" : "schedule"} ${affected
+        .map((s) => `"${s.name}" (${s.id})`)
+        .join(", ")}`
+    : plural
+      ? "their ramp-ups"
+      : "its ramp-up";
+  if (deletesAll) {
+    const target = apiRequest ? ramps : plural ? "the ramp-ups" : "the ramp-up";
+    return `${subject} delete ${target} on ${rules}.`;
+  }
+  return `${subject} remove ${rules} from ${ramps}.`;
 }
