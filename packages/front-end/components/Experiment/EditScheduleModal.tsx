@@ -51,7 +51,7 @@ export default function EditScheduleModal({
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
-  // Environments the experiment affects; when given, stop / rollout plans are
+  // Environments the experiment reaches; a scheduled start, stop or ship is
   // only offered to viewers who could run the experiment there.
   envs?: string[];
 }) {
