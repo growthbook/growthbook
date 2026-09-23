@@ -593,6 +593,71 @@ describe("cancelExperimentSnapshot", () => {
     expect(stored?.queries).toEqual([pointer(running, "failed")]);
   });
 
+  it("moves the report back when a runner errored the pinned run before the cancel's write", async () => {
+    const running = await insertQuery("running");
+    const { snapshot, reportId } = await insertReportSnapshot({
+      id: "snp_raced",
+      status: "error",
+      error: QUERY_CANCELLED_BY_USER_ERROR,
+      queries: [pointer(running, "running")],
+      reportSnapshotId: "snp_raced",
+      dateCreated: new Date("2025-01-02T00:00:00Z"),
+    });
+    await insertReportSnapshot({
+      id: "snp_prev_success",
+      status: "success",
+      queries: [],
+      reportSnapshotId: "snp_raced",
+      existingReportId: reportId,
+      dateCreated: new Date("2025-01-01T00:00:00Z"),
+    });
+
+    const result = await cancelExperimentSnapshot(context, {
+      ...snapshot,
+      status: "running",
+    });
+
+    expect(result.outcome).toBe("reconciled");
+    expect(await findSnapshotById(context, snapshot.id)).toMatchObject({
+      status: "error",
+      error: QUERY_CANCELLED_BY_USER_ERROR,
+    });
+    expect(await reportSnapshotId(reportId)).toBe("snp_prev_success");
+  });
+
+  it("keeps the report on a pinned run a runner finished successfully before the cancel's write", async () => {
+    const done = await insertQuery("succeeded");
+    const { snapshot, reportId } = await insertReportSnapshot({
+      id: "snp_raced",
+      status: "success",
+      queries: [pointer(done, "succeeded")],
+      withResults: true,
+      reportSnapshotId: "snp_raced",
+      dateCreated: new Date("2025-01-02T00:00:00Z"),
+    });
+    await insertReportSnapshot({
+      id: "snp_prev_success",
+      status: "success",
+      queries: [],
+      reportSnapshotId: "snp_raced",
+      existingReportId: reportId,
+      dateCreated: new Date("2025-01-01T00:00:00Z"),
+    });
+
+    const result = await cancelExperimentSnapshot(context, {
+      ...snapshot,
+      status: "running",
+    });
+
+    expect(result).toEqual({ outcome: "unchanged", cancelledQueryIds: [] });
+    const stored = await findSnapshotById(context, snapshot.id);
+    expect(stored?.status).toBe("success");
+    expect(
+      stored?.analyses[0].results[0].variations[0].metrics.met_1.value,
+    ).toBe(10);
+    expect(await reportSnapshotId(reportId)).toBe("snp_raced");
+  });
+
   it("refuses a second cancel and leaves everything unchanged", async () => {
     const running = await insertQuery("running", "job_live");
     const { snapshot } = await insertReportSnapshot({
