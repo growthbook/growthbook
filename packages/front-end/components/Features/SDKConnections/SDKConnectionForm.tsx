@@ -1247,7 +1247,7 @@ export default function SDKConnectionForm({
                 value: "inline",
                 label: "Pass Saved Groups inline",
                 description:
-                  "Saved Groups are copied inline wherever they are referenced in rules.",
+                  "Saved Groups are copied into every rule that uses them.",
               },
               {
                 value: "referencesV1",
@@ -1276,11 +1276,11 @@ export default function SDKConnectionForm({
                     )),
                 disabledReason: !hasLargeSavedGroupFeature
                   ? "Available with an Enterprise plan. Upgrade to use it."
-                  : "This SDK version cannot read v2 references. Upgrade the SDK to use it.",
+                  : "This SDK version cannot pass all Saved Groups by reference. Upgrade the SDK to use it.",
                 error:
                   form.watch("savedGroupFormat") === "referencesV2" &&
                   !supportsAllSavedGroupTypes
-                    ? "This SDK version cannot read v2 references, so the payload uses v1 until you upgrade it."
+                    ? "This SDK version cannot pass all Saved Groups by reference, so it passes ID Lists by reference until you upgrade it."
                     : undefined,
                 errorLevel: "warning",
               },
