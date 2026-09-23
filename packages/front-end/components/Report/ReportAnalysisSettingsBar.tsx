@@ -1,7 +1,7 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getEffectiveLookbackOverride } from "shared/experiments";
-import { getSnapshotAnalysis } from "shared/util";
+import { getAnalysisIdentifierType, getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
@@ -72,9 +72,15 @@ export default function ReportAnalysisSettingsBar({
     report.experimentAnalysisSettings.lookbackOverride,
   );
 
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,
-  )?.userIdType;
+  // The identifier the shown snapshot ran on, not the query's first.
+  const userIdType =
+    snapshot?.settings?.exposureQueryIdentifierType ??
+    getAnalysisIdentifierType(
+      datasourceSettings?.queries?.exposure?.find(
+        (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,
+      ),
+      report.experimentAnalysisSettings.exposureQueryIdentifierType,
+    );
 
   const totalUnits = useMemo(() => {
     let totalUsers = 0;

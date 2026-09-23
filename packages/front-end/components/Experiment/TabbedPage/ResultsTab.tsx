@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getAnalysisIdentifierType } from "shared/util";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -164,9 +165,12 @@ export default function ResultsTab({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  const userIdType = getAnalysisIdentifierType(
+    datasourceSettings?.queries?.exposure?.find(
+      (e) => e.id === experiment.exposureQueryId,
+    ),
+    experiment.exposureQueryIdentifierType,
+  );
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,

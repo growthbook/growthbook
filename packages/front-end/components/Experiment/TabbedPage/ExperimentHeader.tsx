@@ -7,7 +7,11 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { experimentHasLiveLinkedChanges, getHoldoutStage } from "shared/util";
+import {
+  getAnalysisIdentifierType,
+  experimentHasLiveLinkedChanges,
+  getHoldoutStage,
+} from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -213,9 +217,12 @@ export default function ExperimentHeader({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  const userIdType = getAnalysisIdentifierType(
+    datasourceSettings?.queries?.exposure?.find(
+      (e) => e.id === experiment.exposureQueryId,
+    ),
+    experiment.exposureQueryIdentifierType,
+  );
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,

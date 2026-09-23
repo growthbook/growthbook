@@ -31,7 +31,7 @@ import {
   OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON,
   IncrementalFullRefreshComparable,
 } from "shared/enterprise";
-import { getSnapshotAnalysis } from "shared/util";
+import { getAnalysisIdentifierType, getSnapshotAnalysis } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
@@ -148,11 +148,12 @@ export default function AnalysisSettingsSummary({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType =
-    experiment.exposureQueryIdentifierType ??
+  const userIdType = getAnalysisIdentifierType(
     datasourceSettings?.queries?.exposure?.find(
       (e) => e.id === experiment.exposureQueryId,
-    )?.userIdType;
+    ),
+    experiment.exposureQueryIdentifierType,
+  );
 
   const orgSettings = useOrgSettings();
   const pValueThreshold = usePValueThreshold(experiment.project);
