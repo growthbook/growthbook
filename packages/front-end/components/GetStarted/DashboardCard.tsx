@@ -60,6 +60,8 @@ export default function DashboardCard() {
         <DashboardSelector
           dashboards={projectDashboards}
           value={resolvedDashboard?.id ?? ""}
+          allowClear={!!selectedDashboardId}
+          clearLabel="Clear personal default"
           setValue={(id) => {
             setPicks((prev) => {
               const next = { ...prev };
