@@ -10,6 +10,44 @@
 //for testing use "http://localhost:3200"
 export const docsOrigin = "https://docs.growthbook.io";
 
+/**
+ * REST API reference, one entry per resource: the first page of that
+ * resource's group in the docs.json API navigation. Cmd+K lists these through
+ * `apiReferencePalette.ts`, so they are left out of the generic docs rows.
+ */
+export const apiReferenceSections = {
+  apiProjects: "/api/projects/operation/listProjects",
+  apiEnvironments: "/api/environments/operation/listEnvironments",
+  apiFeatures: "/api/features-v2/operation/listFeaturesV2",
+  apiDataSources: "/api/data-sources/operation/listDataSources",
+  apiFactTables: "/api/fact-tables/operation/listFactTables",
+  apiFactMetrics: "/api/fact-metrics/operation/listFactMetrics",
+  apiMetrics: "/api/metrics/operation/listMetrics",
+  apiExperiments: "/api/experiments/operation/listExperiments",
+  apiSnapshots: "/api/snapshots/operation/getExperimentSnapshot",
+  apiDimensions: "/api/dimensions/operation/listDimensions",
+  apiSegments: "/api/segments/operation/listSegments",
+  apiSdkConnections: "/api/sdk-connections/operation/listSdkConnections",
+  apiVisualChangesets: "/api/visual-changesets/operation/listVisualChangesets",
+  apiSavedGroups: "/api/saved-groups/operation/listSavedGroups",
+  apiOrganizations: "/api/organizations/operation/listOrganizations",
+  apiMembers: "/api/members/operation/listMembers",
+  apiCodeReferences: "/api/code-references/operation/listCodeRefs",
+  apiArchetypes: "/api/archetypes/operation/listArchetypes",
+  apiQueries: "/api/queries/operation/getQuery",
+  apiSettings: "/api/settings/operation/getSettings",
+  apiAttributes: "/api/attributes/operation/listAttributes",
+  apiUsage: "/api/usage/operation/getMetricUsage",
+  apiCustomFields: "/api/CustomFields/operation/listCustomFields",
+  apiDashboards: "/api/Dashboards/operation/getDashboard",
+  apiExperimentTemplates:
+    "/api/ExperimentTemplates/operation/getExperimentTemplate",
+  apiMetricGroups: "/api/MetricGroups/operation/getMetricGroup",
+  apiTeams: "/api/Teams/operation/getTeam",
+};
+
+export type ApiReferenceSection = keyof typeof apiReferenceSections;
+
 export const docSections = {
   //Pages
   home: "",
@@ -180,6 +218,7 @@ export const docSections = {
   metricSlices: "/app/metrics#metric-slices",
   faq: "/faq",
   cloudCdnUsageLimits: "/faq#what-are-the-growthbook-cloud-cdn-usage-limits",
+  ...apiReferenceSections,
 };
 
 export type DocSection = keyof typeof docSections;
