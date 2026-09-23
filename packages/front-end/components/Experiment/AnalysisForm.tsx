@@ -34,6 +34,7 @@ import {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
 import AssignmentQueryFields, {
+  AssignmentQueryDriftWarning,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -571,6 +572,9 @@ const AnalysisForm: FC<{
           </FormProvider>
         )}
 
+        {!editingDataSource && datasource?.properties?.exposureQueries && (
+          <AssignmentQueryDriftWarning selection={assignmentQuerySelection} />
+        )}
         {!editingDataSource ? (
           <Box className="rounded mb-3 px-3 py-2 bg-highlight">
             <Flex justify="between" align="start" gap="3">

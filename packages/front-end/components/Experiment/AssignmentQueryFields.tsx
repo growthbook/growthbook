@@ -216,6 +216,22 @@ export function useAssignmentQuerySelection({
   };
 }
 
+// Shown wherever a saved selection is displayed, including collapsed summaries.
+export function AssignmentQueryDriftWarning({
+  selection: { outOfScope, identifierUndeclared, identifierType },
+}: {
+  selection: Selection;
+}) {
+  if (!outOfScope && !identifierUndeclared) return null;
+  return (
+    <Callout status="warning" mb="3">
+      {identifierUndeclared
+        ? `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`
+        : "The selected assignment query is no longer scoped to this project. Results still update, but consider switching to a query that is."}
+    </Callout>
+  );
+}
+
 export default function AssignmentQueryFields({
   selection,
   initialOption,
@@ -235,20 +251,12 @@ export default function AssignmentQueryFields({
     identifierTypes,
     groupedIdentifierTypes,
     exposureQueryOptions,
-    outOfScope,
-    identifierUndeclared,
     setExposureQueryId,
     changeIdentifierType,
   } = selection;
   return (
     <>
-      {(outOfScope || identifierUndeclared) && (
-        <Callout status="warning" mb="3">
-          {identifierUndeclared
-            ? `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`
-            : "The selected assignment query is no longer scoped to this project. Results still update, but consider switching to a query that is."}
-        </Callout>
-      )}
+      <AssignmentQueryDriftWarning selection={selection} />
       <SelectField
         size={size}
         label={
