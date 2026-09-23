@@ -258,6 +258,10 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
+  // Opening from a funnel step row lands on that step's slices
+  const [funnelStepIndex, setFunnelStepIndex] = useState(
+    row.funnelStepIndex ?? 0,
+  );
   const hasDimensionTimeSeries =
     !dimensionInfo ||
     isDimensionPrecomputed(
@@ -392,7 +396,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
         <MetricDrilldownSlices
           metric={metric}
           rows={allRows}
-          variationNames={variations.map((v) => v.name)}
+          results={results}
           differenceType={localDifferenceType}
           setDifferenceType={setLocalDifferenceType}
           statsEngine={statsEngine}
@@ -415,6 +419,8 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           initialSortDirection={localSortDirection}
           searchTerm={sliceSearchTerm}
           setSearchTerm={setSliceSearchTerm}
+          funnelStepIndex={funnelStepIndex}
+          setFunnelStepIndex={setFunnelStepIndex}
           visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
           setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
           ssrPolyfills={ssrPolyfills}
@@ -444,7 +450,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           pValueCorrection={pValueCorrection}
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
-          variationNames={variations.map((v) => v.name)}
         />
       </TabsContent>
     </>

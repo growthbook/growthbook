@@ -25,7 +25,6 @@ interface MetricDrilldownDebugProps {
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
   setDifferenceType: (type: DifferenceType) => void;
-  variationNames: string[];
   baselineRow?: number;
   setBaselineRow: (baseline: number) => void;
   variationFilter?: number[];

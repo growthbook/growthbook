@@ -331,6 +331,9 @@ const CompactResults: FC<{
     // When no filter, filter out slice rows that aren't expanded
     return rows.filter((row) => {
       if (!row.isChildRow) return true; // Always include parent rows
+      // A funnel expands into its steps only; its slices are per-step and live
+      // in the metric drilldown's Slices tab.
+      if (row.isSliceRow && isFactFunnelMetric(row.metric)) return false;
       // Check if parent metric is expanded
       if (row.parentRowId) {
         const expandedKey = `${row.parentRowId}:${row.resultGroup}`;

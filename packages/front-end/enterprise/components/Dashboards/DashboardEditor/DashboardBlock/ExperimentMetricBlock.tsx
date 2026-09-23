@@ -11,6 +11,7 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -158,6 +159,9 @@ export default function ExperimentMetricBlock({
     // When no filter, filter out slice rows that aren't expanded
     return rows.filter((row) => {
       if (!row.isChildRow) return true; // Always include parent rows
+      // A funnel expands into its steps only; its slices are per-step and live
+      // in the metric drilldown's Slices tab.
+      if (row.isSliceRow && isFactFunnelMetric(row.metric)) return false;
       // For slice rows, check if parent metric is expanded
       if (row.parentRowId) {
         const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
