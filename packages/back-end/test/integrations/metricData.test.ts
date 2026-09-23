@@ -78,19 +78,21 @@ describe("getMetricData uncapped expressions", () => {
 
       expect(data.computeUncappedMetric).toBe(true);
       expect(data.regressionAdjusted).toBe(true);
-      expect(data.uncappedCoalesceMetric).toBe("COALESCE(m.m0_value, 0)");
+      expect(data.uncappedCoalesceMetric).toBe(
+        "CAST(COALESCE(m.m0_value, 0) AS FLOAT64)",
+      );
       expect(data.uncappedCoalesceCovariate).toBe(
-        "COALESCE(cov.m0_covariate_value, 0)",
+        "CAST(COALESCE(cov.m0_covariate_value, 0) AS FLOAT64)",
       );
       expect(data.capCoalesceMetric).toContain("GREATEST(");
       expect(data.capCoalesceCovariate).toContain("GREATEST(");
 
       if (metricType === "ratio") {
         expect(data.uncappedCoalesceDenominator).toBe(
-          "COALESCE(m1.m0_denominator, 0)",
+          "CAST(COALESCE(m1.m0_denominator, 0) AS FLOAT64)",
         );
         expect(data.uncappedCoalesceDenominatorCovariate).toBe(
-          "COALESCE(cov1.m0_covariate_denominator, 0)",
+          "CAST(COALESCE(cov1.m0_covariate_denominator, 0) AS FLOAT64)",
         );
         expect(data.capCoalesceDenominator).toContain("GREATEST(");
         expect(data.capCoalesceDenominatorCovariate).toContain("GREATEST(");
