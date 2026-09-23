@@ -90,9 +90,27 @@ export function getAffectedEnvsForExperiment({
   const envs = new Set<string>();
   const orgEnvIds = orgEnvironments.map((e) => e.id);
   const collect = (
-    feature: FeatureInterface,
+    linkedFeature: FeatureInterface,
     revision?: FeatureRevisionInterface,
   ) => {
+    // A draft can also switch environments on; judge it as it will land.
+    const feature = revision?.environmentsEnabled
+      ? {
+          ...linkedFeature,
+          environmentSettings: Object.fromEntries(
+            orgEnvIds.map((env) => [
+              env,
+              {
+                ...linkedFeature.environmentSettings?.[env],
+                enabled:
+                  revision.environmentsEnabled?.[env] ??
+                  linkedFeature.environmentSettings?.[env]?.enabled ??
+                  false,
+              },
+            ]),
+          ),
+        }
+      : linkedFeature;
     const matches = getMatchingRules(
       feature,
       (rule) =>

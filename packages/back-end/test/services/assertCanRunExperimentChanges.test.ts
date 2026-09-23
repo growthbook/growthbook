@@ -287,6 +287,23 @@ describe("starting an experiment whose rule is still in a draft", () => {
     ]);
   });
 
+  it("counts an environment the pending draft switches on", async () => {
+    getFeaturesByIdsMock.mockResolvedValue([
+      { ...feature, environmentSettings: { production: { enabled: false } } },
+    ]);
+    getRevisionMock.mockResolvedValue({
+      status: "draft",
+      rules: [draftRule],
+      environmentsEnabled: { production: true },
+    });
+    await expect(
+      assertCanRunExperimentChanges(context, draft, { status: "running" }),
+    ).rejects.toThrow("permission denied");
+    expect(canRunExperiment).toHaveBeenCalledWith({ project: "proj_1" }, [
+      "production",
+    ]);
+  });
+
   it("skips a start that reaches nothing: no live rule and the queued draft is gone", async () => {
     getRevisionMock.mockResolvedValue({
       status: "published",
