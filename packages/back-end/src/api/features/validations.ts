@@ -719,8 +719,10 @@ export async function validateRulesReferences(
 ): Promise<void> {
   if (!rules.length) return;
   const groupMap = await getSavedGroupMap(context);
+  const savedGroupIds = new Set(groupMap.keys());
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
+    assertPrerequisiteGroupIds(rule.prerequisites ?? [], savedGroupIds);
     validateRuleReferencesWithGroups(rule, groupMap);
   }
 }
@@ -837,9 +839,16 @@ export async function validatePrerequisiteReferences(
   prerequisites: FeaturePrerequisite[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
-  const savedGroupIds = new Set(
-    (await context.models.savedGroups.getAll()).map((sg) => sg.id),
+  assertPrerequisiteGroupIds(
+    prerequisites,
+    new Set((await context.models.savedGroups.getAll()).map((sg) => sg.id)),
   );
+}
+
+function assertPrerequisiteGroupIds(
+  prerequisites: FeaturePrerequisite[],
+  savedGroupIds: Set<string>,
+): void {
   for (const prereq of prerequisites) {
     if (prereq.condition && prereq.condition !== "{}") {
       const inGroupError = findInvalidInGroupId(

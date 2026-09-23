@@ -38,6 +38,43 @@ describe("loadSavedGroupReferences", () => {
     jest.mocked(getAllExperiments).mockResolvedValue([]);
   });
 
+  it("sees a group named only inside a prerequisite condition, on every holder", async () => {
+    const gate = { id: "parent", condition: '{"value":{"$inGroup":"sg_1"}}' };
+    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+      {
+        id: "f_rule",
+        environmentSettings: { production: { enabled: true } },
+        rules: [
+          {
+            type: "force",
+            enabled: true,
+            allEnvironments: true,
+            prerequisites: [gate],
+          },
+        ],
+      },
+      {
+        id: "f_top",
+        environmentSettings: {},
+        rules: [],
+        prerequisites: [gate],
+      },
+    ] as never);
+    jest
+      .mocked(getAllExperiments)
+      .mockResolvedValue([
+        { id: "exp", name: "exp", phases: [{ prerequisites: [gate] }] },
+      ] as never);
+
+    const refs = await loadSavedGroupReferences(
+      context([bandit("cb", { prerequisites: [gate] })]),
+      "sg_1",
+    );
+    expect(refs?.features.map((f) => f.id)).toEqual(["f_rule", "f_top"]);
+    expect(refs?.experiments.map((e) => e.id)).toEqual(["exp"]);
+    expect(refs?.contextualBandits.map((cb) => cb.id)).toEqual(["cb"]);
+  });
+
   it("counts bandits that name the group in their condition or saved groups", async () => {
     const refs = await loadSavedGroupReferences(
       context([

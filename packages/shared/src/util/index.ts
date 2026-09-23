@@ -751,6 +751,23 @@ export function ratioVarianceFromSums({
   );
 }
 
+// Targeting names a saved group in its condition, its saved-group list, or a
+// prerequisite's condition; all three reach the SDK payload.
+export function targetingReferencesSavedGroup(
+  targeting: {
+    condition?: string | null;
+    savedGroups?: { ids: string[] }[] | null;
+    prerequisites?: { condition?: string | null }[] | null;
+  },
+  savedGroupId: string,
+): boolean {
+  return (
+    !!targeting.condition?.includes(savedGroupId) ||
+    !!targeting.savedGroups?.some((g) => g.ids.includes(savedGroupId)) ||
+    !!targeting.prerequisites?.some((p) => p.condition?.includes(savedGroupId))
+  );
+}
+
 export function featuresReferencingSavedGroups({
   savedGroups,
   features,
@@ -765,14 +782,17 @@ export function featuresReferencingSavedGroups({
     savedGroups.forEach((savedGroup) => {
       const matches = getMatchingRules(
         feature,
-        (rule) =>
-          rule.condition?.includes(savedGroup.id) ||
-          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
+        (rule) => targetingReferencesSavedGroup(rule, savedGroup.id),
         environments.map((e) => e.id),
       );
 
-      if (matches.length > 0) {
+      if (
+        matches.length > 0 ||
+        targetingReferencesSavedGroup(
+          { prerequisites: feature.prerequisites },
+          savedGroup.id,
+        )
+      ) {
         referenceMap[savedGroup.id] ||= [];
         referenceMap[savedGroup.id].push(feature);
       }
@@ -794,11 +814,8 @@ export function experimentsReferencingSavedGroups({
   > = {};
   savedGroups.forEach((savedGroup) => {
     experiments.forEach((experiment) => {
-      const matchingPhases = experiment.phases.filter(
-        (phase) =>
-          phase.condition?.includes(savedGroup.id) ||
-          phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
+      const matchingPhases = experiment.phases.filter((phase) =>
+        targetingReferencesSavedGroup(phase, savedGroup.id),
       );
 
       if (matchingPhases.length > 0) {

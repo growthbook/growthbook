@@ -1,6 +1,7 @@
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
+  targetingReferencesSavedGroup,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -121,11 +122,7 @@ export async function loadSavedGroupReferences(
     .filter(
       (cb) =>
         !cb.archived &&
-        groupIds.some(
-          (id) =>
-            cb.condition?.includes(id) ||
-            cb.savedGroups?.some((g) => g.ids.includes(id)),
-        ),
+        groupIds.some((id) => targetingReferencesSavedGroup(cb, id)),
     )
     .map((cb) => ({ id: cb.id, name: cb.name, project: cb.project }));
 

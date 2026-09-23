@@ -203,6 +203,24 @@ describe("validateRulesReferences", () => {
     expect(getAll).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects a prerequisite whose condition names an unknown group", async () => {
+    await expect(
+      validateRulesReferences(
+        [
+          {
+            prerequisites: [
+              {
+                id: "parent",
+                condition: '{"value": {"$inGroup": "grp_missing"}}',
+              },
+            ],
+          },
+        ],
+        ctx,
+      ),
+    ).rejects.toThrow(/prerequisite "parent".*grp_missing/);
+  });
+
   it("does not load saved groups for an empty rules list", async () => {
     await validateRulesReferences([], ctx);
     expect(getAll).not.toHaveBeenCalled();
