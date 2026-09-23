@@ -1,4 +1,5 @@
 export * from "./agreements";
+export * from "./ask-data";
 export * from "./base-model";
 export * from "./config";
 export * from "./config-revisions";
@@ -34,6 +35,7 @@ export * from "./saved-group-revisions";
 export * from "./saved-group-revision-notifications";
 export * from "./saved-queries";
 export * from "./segment";
+export * from "./auto-run";
 export * from "./shared";
 export * from "./signup-attribution";
 export * from "./snapshot-analysis-chunks";
@@ -43,12 +45,14 @@ export * from "./event-forwarder-config";
 export * from "./event-forwarder-access-test";
 export * from "./event-forwarder-status";
 export * from "./event-webhook";
+export * from "./notification-card";
 export * from "./feature-webhook-schemas";
 // Load watch before events - events imports base-types which imports validators, creating a cycle.
 // Having watch (and apikey) loaded first ensures they're available when the cycle is hit.
 export * from "./watch";
 export * from "./apikey";
 export * from "./figma-connection";
+export * from "./slack-workspace-connection";
 export * from "./ai-credential";
 export * from "./events";
 export * from "./experiment-decision";
@@ -93,3 +97,7 @@ export * from "./contextual-bandit-query";
 export * from "./contextual-bandit-snapshot";
 export * from "./contextual-bandit-event";
 export * from "./api-errors";
+export * from "./experiment-alerts";
+export * from "./holdout-notifications";
+export * from "./slack-user-link";
+export * from "./slack-task-claim";

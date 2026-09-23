@@ -145,6 +145,7 @@ import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
@@ -165,6 +166,7 @@ import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ram
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
+import { autoRunRouter } from "./routers/auto-run/auto-run.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
@@ -313,8 +315,15 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// 2mb default; 10mb for screenshot upload and visual-editor AI image
-// gen (the latter accepts a base64-encoded reference image).
+// Inbound Slack traffic (Events API + Interactivity). Mounted ahead of the
+// global JSON parser because Slack signs the raw request bytes (see the
+// router). It only registers /events and /interactions; everything else under
+// this prefix falls through to the session-authed slackIntegrationRouter below.
+// Never add those two paths to that router.
+app.use("/integrations/slack", slackActionsRouter);
+
+// 2mb default; 10mb for screenshot upload and the visual-editor AI routes
+// that accept base64-encoded images.
 app.use((req, res, next) => {
   const isScreenshotUpload =
     req.method === "POST" &&
@@ -328,10 +337,14 @@ app.use((req, res, next) => {
   const isVisualEditorFigmaToVariant =
     req.method === "POST" &&
     req.path === "/api/v1/visual-editor/ai/figma-to-variant";
+  // AI edits carry up to two base64 image attachments.
+  const isVisualEditorEdit =
+    req.method === "POST" && req.path === "/api/v1/visual-editor/ai/edit";
   const needsLargeBody =
     isScreenshotUpload ||
     isVisualEditorImageGen ||
-    isVisualEditorFigmaToVariant;
+    isVisualEditorFigmaToVariant ||
+    isVisualEditorEdit;
   bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
@@ -590,6 +603,7 @@ if (OAUTH_AS_ENABLED) {
 app.use(organizationsRouter);
 
 app.use("/environment", environmentRouter);
+app.use("/auto-runs", autoRunRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
@@ -1041,7 +1055,7 @@ app.post(
 app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
 app.get("/features/status", featuresController.getFeaturesStatus);
 app.get("/features/draft-states", featuresController.getFeatureDraftStates);
-app.get("/features/stale", featuresController.getFeaturesStaleStates);
+app.get("/features/health", featuresController.getFeaturesHealth);
 app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.get("/features/content-search", featuresController.getFeatureContentSearch);
 app.get(
@@ -1049,10 +1063,6 @@ app.get(
   featuresController.getFeatureDependencyIndex,
 );
 app.get("/features/ramp-states", featuresController.getFeatureRampStates);
-app.get(
-  "/features/experiment-states",
-  featuresController.getFeatureExperimentStates,
-);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
@@ -1172,7 +1182,8 @@ app.get(
 app.use("/events", eventsRouter);
 app.use(eventWebHooksRouter);
 
-// Slack integration
+// Slack integration settings (session-authed). /events and /interactions on
+// this prefix belong to slackActionsRouter, mounted before the JSON parser.
 app.use("/integrations/slack", slackIntegrationRouter);
 
 // Data Export

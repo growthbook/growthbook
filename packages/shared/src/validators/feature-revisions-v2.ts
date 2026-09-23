@@ -61,8 +61,10 @@ const rampScheduleInputV2 = standaloneRampScheduleInput.extend({
     .describe(
       "The rule state to roll back to (the rollback/jump-to-start anchor). " +
         'Merged onto the rule\'s current state, so `{ "coverage": 0 }` keeps ' +
-        "existing targeting but rolls back to 0%. This affects rollbacks only — " +
-        "it is NOT applied when the ramp starts. On create, omitting it infers " +
+        "existing targeting but rolls back to 0%. Steps accumulate on it, and it " +
+        "is the only place a plan sets `hashAttribute` (plus optional `seed` and " +
+        "`hashVersion`), which a partial-coverage step on a force rule requires " +
+        "unless the rule has one. On create, omitting it infers " +
         "the anchor from the rule's current coverage (and returns a warning if " +
         "that isn't 0%); on update of a live schedule, omitting it leaves the " +
         "existing anchor unchanged.",
@@ -148,13 +150,13 @@ const ruleScopeInput = {
     .boolean()
     .optional()
     .describe(
-      "When true the rule applies to all environments. Defaults to false.",
+      "When true the rule applies to all environments. Omit both scope fields to apply to all environments.",
     ),
   environments: z
     .array(z.string())
     .optional()
     .describe(
-      "Specific environment IDs this rule applies to. Used when allEnvironments is false.",
+      "Environment IDs the rule applies to. Ignored when allEnvironments is true; with allEnvironments false, an omitted or empty list scopes the rule to no environment.",
     ),
 };
 
@@ -347,8 +349,16 @@ const rulePatchSchemaV2 = z
     controlValue: z.string().optional(),
     variationValue: z.string().optional(),
     // V2: scope can be updated via patch
-    allEnvironments: z.boolean().optional(),
-    environments: z.array(z.string()).optional(),
+    allEnvironments: z
+      .boolean()
+      .optional()
+      .describe("Omit both scope fields to keep the current scope."),
+    environments: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Environment IDs the rule applies to. Ignored when allEnvironments is true.",
+      ),
   })
   .strict();
 
@@ -979,6 +989,18 @@ export const putFeatureRevisionMetadataV2Validator = {
       description: z.string().optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),
+      targetingAllProjects: z
+        .boolean()
+        .describe(
+          "Stage delivering this feature to every project. Requires the `targetFeatures` permission unscoped to any project.",
+        )
+        .optional(),
+      targetingProjects: z
+        .array(z.string())
+        .describe(
+          "Stage the secondary project IDs this feature is delivered to. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project.",
+        )
+        .optional(),
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),

@@ -14,13 +14,14 @@
  *   rollbackToStep and jumpAheadToStep apply the effective accumulated patch so that
  *   arriving at step N from any direction yields the same rule state.
  */
+import omit from "lodash/omit";
 
 import type {
   RampScheduleInterface,
   RampStepAction,
   SafeRolloutInterface,
 } from "shared/validators";
-import type { FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   isAwaitingApproval,
   isReadyForApproval,
@@ -28,6 +29,7 @@ import {
   startApprovalPending,
   resolveStartApproval,
 } from "shared/src/validators/ramp-schedule";
+import { getJSONValue } from "shared/src/sdk-versioning/sdk-payload";
 import {
   computeNextStepAt,
   computeAutoAdvanceTarget,
@@ -54,6 +56,15 @@ import {
   approveAndPublishStep,
   computeNextProcessAt,
   pauseSchedule,
+  normalizeRampActionsForceValues,
+  normalizeRampPlanForceValues,
+  planRampBaseStateSync,
+  planRampBaseStateSyncForPublish,
+  applyRampBaseStateSync,
+  restoreRampBaseStates,
+  rampStartValuesOf,
+  forceMatchesValueType,
+  remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -63,6 +74,12 @@ import {
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
   publishRevision: jest.fn(),
+}));
+
+// The fire-time targeting check imports the whole validations module graph;
+// this suite asserts only that it is asked, and when.
+jest.mock("back-end/src/api/features/validations", () => ({
+  validateRampPlanPatches: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
@@ -94,11 +111,20 @@ jest.mock("back-end/src/util/secrets", () => ({
 
 // Pull in mocked module references AFTER the mock declarations.
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
-import { createRevision } from "back-end/src/models/FeatureRevisionModel";
+import { validateRampPlanPatches } from "back-end/src/api/features/validations";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
-import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
+import {
+  ConflictError,
+  RampAdvanceLockBusyError,
+} from "back-end/src/util/errors";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
+const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
 const mockPublishRevision = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
@@ -266,6 +292,67 @@ describe("applyPatchToRule", () => {
     condition: "",
   };
 
+  it("promotes a force rule to a rollout once its anchor names a hash attribute", () => {
+    const force: FeatureRule = {
+      id: "r2",
+      type: "force",
+      value: "true",
+      enabled: true,
+    };
+    // Identity comes from the start anchor; seed and hash version default.
+    expect(applyPatchToRule(force, { hashAttribute: "user_id" })).toEqual({
+      ...force,
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "r2",
+      hashVersion: 2,
+    });
+    expect(
+      applyPatchToRule(force, {
+        coverage: 0.5,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 1,
+      }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 0.5,
+      hashAttribute: "user_id",
+      seed: "s1",
+      hashVersion: 1,
+    });
+    // A hash attribute left on the rule (demoted from a rollout) serves too.
+    expect(
+      applyPatchToRule({ ...force, hashAttribute: "user_id" } as FeatureRule, {
+        coverage: 0.5,
+      }),
+    ).toMatchObject({ type: "rollout", hashAttribute: "user_id" });
+    // Without one anywhere nothing promotes: the engine refuses such a step
+    // before it gets here. Full or no coverage never promotes either.
+    expect(applyPatchToRule(force, { coverage: 0.5 }).type).toBe("force");
+    expect(applyPatchToRule(force, { coverage: 1 }).type).toBe("force");
+    expect(applyPatchToRule(force, { condition: "{}" }).type).toBe("force");
+  });
+
+  it("applies the anchor's identity to a rollout; clearing coverage means full coverage", () => {
+    expect(
+      applyPatchToRule(base, {
+        coverage: null,
+        hashAttribute: "user_id",
+        seed: "s1",
+      }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "s1",
+    });
+    expect(applyPatchToRule(base, { hashAttribute: null })).toMatchObject({
+      hashAttribute: "id",
+    });
+  });
+
   it("applies coverage patch", () => {
     const result = applyPatchToRule(base, { coverage: 0.5 });
     expect((result as { coverage?: number }).coverage).toBe(0.5);
@@ -343,7 +430,237 @@ describe("applyPatchToRule", () => {
   });
 });
 
+// A rule's `value` is a string; a ramp patch's `force` may arrive as any JSON
+// type (the schema allows it and older editors sent booleans/objects parsed
+// from the value field). Whatever arrives must land on the rule as its string
+// form, or the payload builder serves the wrong thing (boolean false -> true,
+// object -> null).
+describe("ramp force values are applied and stored as strings", () => {
+  const boolRule: FeatureRule = {
+    id: "r1",
+    type: "force",
+    value: "true",
+    enabled: true,
+    condition: "",
+  };
+
+  it("applyPatchToRule stores a force as the string the payload parses, and clears on undefined", () => {
+    const value = (rule: FeatureRule, force: unknown) =>
+      (applyPatchToRule(rule, { force }) as { value?: unknown }).value;
+    expect(value(boolRule, false)).toBe("false");
+    expect(getJSONValue("boolean", value(boolRule, false) as string)).toBe(
+      false,
+    );
+    expect(value({ ...boolRule, value: "{}" }, { limit: 5 })).toBe(
+      '{"limit":5}',
+    );
+    expect(value(boolRule, "false")).toBe("false");
+    expect(value(boolRule, undefined)).toBeUndefined();
+  });
+
+  it("normalizeRampActionsForceValues stringifies, validates against the feature, and leaves other actions alone", () => {
+    const feature = { valueType: "boolean" as const };
+    const actions: RampStepAction[] = [
+      {
+        targetType: "feature-rule",
+        targetId: "t1",
+        patch: { ruleId: "r1", force: false },
+      },
+      {
+        targetType: "feature-rule",
+        targetId: "t1",
+        patch: { ruleId: "r1", coverage: 0.5 },
+      },
+    ];
+    const out = normalizeRampActionsForceValues(actions, feature);
+    expect(out[0].patch.force).toBe("false");
+    expect(out[1]).toBe(actions[1]);
+    // Without a feature it only stringifies.
+    expect(
+      normalizeRampActionsForceValues(actions.slice(0, 1))[0].patch.force,
+    ).toBe("false");
+    // An action with no patch (unvalidated dashboard body) is left alone.
+    const noPatch = { targetType: "feature-rule" } as unknown as RampStepAction;
+    expect(normalizeRampActionsForceValues([noPatch], feature)[0]).toBe(
+      noPatch,
+    );
+  });
+
+  it("a start value echoing its target's rule or stored anchor is not judged; a typed one is", () => {
+    const feature = {
+      valueType: "boolean" as const,
+      rules: [{ id: "r1", type: "force", value: "True" }],
+    } as unknown as Pick<FeatureInterface, "valueType" | "rules">;
+    const stored: RampStepAction[] = [
+      { targetType: "feature-rule", targetId: "tgt_a", patch: { force: 1 } },
+    ];
+    const targets = [
+      { id: "tgt_a", ruleId: "r1" },
+      { id: "tgt_b", ruleId: "r2" },
+    ];
+    const known = rampStartValuesOf(feature, targets, stored);
+    expect([...known.get("tgt_a")!].sort()).toEqual(["1", "True"]);
+    expect(known.get("tgt_b")!.size).toBe(0);
+
+    const plan = (targetId: string, force: unknown) =>
+      ({
+        steps: [],
+        startActions: [
+          { targetType: "feature-rule", targetId, patch: { force } },
+        ],
+      }) as Pick<
+        RampScheduleInterface,
+        "steps" | "startActions" | "endActions"
+      >;
+    const opts = { knownStartValues: known };
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", "True"), feature, opts),
+    ).not.toThrow();
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", 1), feature, opts),
+    ).not.toThrow();
+    // Another target's legacy value is not an echo for this target.
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_b", "True"), feature, opts),
+    ).toThrow('Start value (action 1): Must be "true" or "false"');
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", "False"), feature, opts),
+    ).toThrow('Start value (action 1): Must be "true" or "false"');
+  });
+
+  it("normalizeRampActionsForceValues rejects a value the feature type does not accept", () => {
+    expect(() =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule",
+            targetId: "t1",
+            patch: { ruleId: "r1", force: "False" },
+          },
+        ],
+        { valueType: "boolean" },
+        "Step 1 value",
+      ),
+    ).toThrow('Step 1 value (action 1): Must be "true" or "false"');
+    expect(() =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule",
+            targetId: "t1",
+            patch: { ruleId: "r1", force: "ten" },
+          },
+        ],
+        { valueType: "number" },
+      ),
+    ).toThrow(/valid number/);
+  });
+
+  it("template values: a typed value that fits the feature is kept as its string form; a string that fits is kept; misfits are dropped", () => {
+    expect(forceMatchesValueType(false, "boolean")).toBe(true);
+    expect(forceMatchesValueType("false", "boolean")).toBe(true);
+    expect(forceMatchesValueType("nope", "boolean")).toBe(false);
+    expect(forceMatchesValueType("10", "number")).toBe(true);
+    expect(forceMatchesValueType(10, "boolean")).toBe(false);
+    const out = remapTemplateActions(
+      [
+        {
+          targetType: "feature-rule",
+          targetId: "template-target",
+          patch: { ruleId: "template-rule", coverage: 1, force: false },
+        },
+      ],
+      "t1",
+      "r1",
+      "boolean",
+    );
+    expect(out[0]).toEqual({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", coverage: 1, force: "false" },
+    });
+  });
+
+  it("normalizeRampActionsForceValues checks the value type only, never the feature's JSON schema, and can leave start anchors unjudged", () => {
+    const feature = {
+      valueType: "json" as const,
+      jsonSchema: {
+        schemaType: "schema" as const,
+        schema: JSON.stringify({
+          type: "object",
+          required: ["limit"],
+          properties: { limit: { type: "number" } },
+        }),
+        simple: { type: "object" as const, fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    };
+    const mk = (force: unknown): RampStepAction => ({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", force },
+    });
+    // Fails the schema (no `limit`) but is valid JSON: accepted and stringified.
+    expect(
+      normalizeRampActionsForceValues([mk({ other: 1 })], feature)[0].patch
+        .force,
+    ).toBe('{"other":1}');
+    // Start anchors can be exempted from the type check entirely.
+    const plan = normalizeRampPlanForceValues(
+      { startActions: [mk("not json at all {")], steps: [] } as Pick<
+        RampScheduleInterface,
+        "steps" | "startActions" | "endActions"
+      >,
+      feature,
+      { validateStartActions: false },
+    );
+    expect(plan.startActions?.[0].patch.force).toBe("not json at all {");
+  });
+
+  it("normalizeRampPlanForceValues covers steps, startActions and endActions and leaves absent parts absent", () => {
+    const feature = { valueType: "number" as const };
+    const mk = (force: unknown): RampStepAction => ({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", force },
+    });
+    const out = normalizeRampPlanForceValues(
+      {
+        steps: [{ interval: 60, actions: [mk(1)] }],
+        endActions: [mk(2.5)],
+      } as Pick<RampScheduleInterface, "steps" | "endActions" | "startActions">,
+      feature,
+    );
+    expect(out.steps?.[0].actions[0].patch.force).toBe("1");
+    expect(out.endActions?.[0].patch.force).toBe("2.5");
+    expect("startActions" in out).toBe(false);
+  });
+});
+
 describe("getStartPatchForRule", () => {
+  it("copies a rollout's bucketing identity; a force rule has none to copy", () => {
+    expect(
+      getStartPatchForRule({
+        id: "r1",
+        type: "rollout",
+        coverage: 0.2,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 2,
+        enabled: true,
+      } as FeatureRule),
+    ).toMatchObject({ hashAttribute: "user_id", seed: "s1", hashVersion: 2 });
+    expect(
+      getStartPatchForRule({
+        id: "r2",
+        type: "force",
+        value: "true",
+        enabled: true,
+      } as FeatureRule),
+    ).not.toHaveProperty("hashAttribute");
+  });
+
   it("captures explicit null clears for absent rule fields", () => {
     const patch = getStartPatchForRule({
       id: "r1",
@@ -597,9 +914,26 @@ describe("computeEffectivePatch", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
+
+  it("carries the anchor's identity into every step, so a jump buckets like stepping", () => {
+    const sched = {
+      ...sparseSchedule([
+        [action(TARGET_ID, { coverage: 0.1 })],
+        [action(TARGET_ID, { coverage: 0.5 })],
+      ]),
+      startActions: [action(TARGET_ID, { hashAttribute: "user_id" })],
+    } as unknown as ReturnType<typeof sparseSchedule>;
+    expect(eff(sched, 0)).toMatchObject({
+      coverage: 0.1,
+      hashAttribute: "user_id",
+    });
+    expect(eff(sched, 1)).toMatchObject({
+      coverage: 0.5,
+      hashAttribute: "user_id",
+    });
+  });
 
   it("stepIndex=-1 returns empty map (no steps applied yet)", () => {
     const sched = sparseSchedule([
@@ -854,8 +1188,7 @@ describe("sparse inherit vs explicit clear", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
 
   // ── condition ────────────────────────────────────────────────────────────
@@ -1545,6 +1878,67 @@ describe("featureEntityHandler.applyActions", () => {
     auditUser: { type: "system" },
   } as never;
 
+  it.each([false, true])(
+    "preserves persisted targeting only on restoration (forward=%s)",
+    async (forward) => {
+      const live = { ...makeFeature(), project: "b" } as FeatureInterface;
+      mockGetFeature.mockResolvedValue(live);
+      const strictContext = {
+        org: { id: ORG_ID, settings: { enforceSavedGroupProjectScope: true } },
+        environments: [],
+        scanContextOverride: {
+          models: {
+            savedGroups: {
+              getAllWithoutValues: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: "old-group", type: "list", projects: ["a"] },
+                ]),
+            },
+          },
+        },
+      } as unknown as Parameters<typeof featureEntityHandler.applyActions>[0];
+      mockCreateRevision.mockImplementationOnce(
+        async ({ context, feature, changes, savedGroupScopeBaseline }) => {
+          await assertFeatureSavedGroupScope(
+            context,
+            { ...feature, rules: changes.rules ?? feature.rules },
+            savedGroupScopeBaseline
+              ? [feature, savedGroupScopeBaseline]
+              : feature,
+          );
+          return makeRevision() as never;
+        },
+      );
+      const action = featureEntityHandler.applyActions(
+        strictContext,
+        FEATURE_ID,
+        [
+          {
+            targetType: "feature-rule",
+            targetId: TARGET_ID,
+            patch: {
+              ruleId: RULE_ID,
+              savedGroups: [{ match: "all", ids: ["old-group"] }],
+            },
+          },
+        ],
+        {
+          stepLabel: forward ? "Advance" : "Rollback",
+          user: { type: "system" },
+          judgeTargeting: forward,
+        },
+      );
+      if (forward) {
+        await expect(action).rejects.toThrow("not available");
+        expect(mockPublishRevision).not.toHaveBeenCalled();
+      } else {
+        await expect(action).resolves.toBeUndefined();
+        expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
   it("calls publishRevision with sparse-patched rules", async () => {
     const actions = [
       {
@@ -1563,6 +1957,113 @@ describe("featureEntityHandler.applyActions", () => {
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patchedRule = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patchedRule as { coverage?: number })?.coverage).toBe(0.5);
+  });
+
+  it('applies a raw boolean force as the string "false" so the payload serves false', async () => {
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature([
+        {
+          id: RULE_ID,
+          uid: "ruid_" + RULE_ID,
+          allEnvironments: true,
+          type: "force" as const,
+          value: "true",
+          enabled: true,
+          condition: "",
+        },
+      ]),
+      valueType: "boolean" as const,
+      defaultValue: "false",
+    } as never);
+    const actions = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        // What older editors and REST callers send: a JSON boolean, not "false".
+        patch: { ruleId: RULE_ID, force: false as unknown },
+      },
+    ];
+    await featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
+      stepLabel: "Ramp [1 of 1]: Test",
+      user: { type: "system" },
+    });
+
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const patchedRule = (forceResult.rules ?? []).find(
+      (r: FeatureRule) => r.id === RULE_ID,
+    ) as FeatureRule & { value?: unknown };
+    expect(patchedRule.value).toBe("false");
+    expect(getJSONValue("boolean", patchedRule.value as string)).toBe(false);
+  });
+
+  it("never refuses at fire time: an anchor whose value fails the feature's current JSON schema (or is legacy text) is still applied, so a rollback cannot get stuck", async () => {
+    // The rule's pre-ramp value predates a schema that now requires `limit`.
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature([
+        {
+          id: RULE_ID,
+          uid: "ruid_" + RULE_ID,
+          allEnvironments: true,
+          type: "force" as const,
+          value: '{"limit":9}',
+          enabled: true,
+          condition: "",
+        },
+      ]),
+      valueType: "json" as const,
+      defaultValue: "{}",
+      jsonSchema: {
+        schemaType: "schema" as const,
+        schema: JSON.stringify({
+          type: "object",
+          required: ["limit"],
+          properties: { limit: { type: "number" } },
+        }),
+        simple: { type: "object" as const, fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    } as never);
+    // Rollback to the captured anchor: `force` is the old stored text.
+    const rollback = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        patch: { ruleId: RULE_ID, coverage: 1, force: '{"old":true}' },
+      },
+    ];
+    await featureEntityHandler.applyActions(ctx, FEATURE_ID, rollback, {
+      stepLabel: "Ramp rolled back",
+      user: { type: "system" },
+    });
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const rules: FeatureRule[] =
+      mockPublishRevision.mock.calls[0][0].result.rules ?? [];
+    expect(
+      (rules.find((r) => r.id === RULE_ID) as { value?: unknown }).value,
+    ).toBe('{"old":true}');
+
+    // And a value the TYPE does not accept (legacy "True" on a boolean flag)
+    // is applied as-is rather than refused.
+    mockPublishRevision.mockClear();
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature(),
+      valueType: "boolean" as const,
+      defaultValue: "false",
+    } as never);
+    await featureEntityHandler.applyActions(
+      ctx,
+      FEATURE_ID,
+      [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, force: "True" },
+        },
+      ],
+      { stepLabel: "Ramp rolled back", user: { type: "system" } },
+    );
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
 
   it("throws when the rule is not found (no env scope)", async () => {
@@ -1712,6 +2213,35 @@ describe("advanceStep — interval step", () => {
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("judges the step's stored targeting against the live rule before it lands", async () => {
+    const { ctx } = makeContext({ currentStepIndex: -1 });
+    await advanceStep(ctx as never, makeSchedule({ currentStepIndex: -1 }));
+    expect(validateRampPlanPatches).toHaveBeenCalledTimes(1);
+    expect(validateRampPlanPatches).toHaveBeenCalledWith(
+      ctx,
+      [
+        expect.objectContaining({
+          patch: expect.objectContaining({ ruleId: RULE_ID, coverage: 0.3 }),
+          rule: expect.objectContaining({ id: RULE_ID }),
+        }),
+      ],
+      {
+        stored: [
+          {
+            startActions: [
+              {
+                patch: expect.objectContaining({
+                  ruleId: RULE_ID,
+                  environments: ["production"],
+                }),
+              },
+            ],
+          },
+        ],
+      },
+    );
   });
 
   it("increments currentStepIndex", async () => {
@@ -2209,6 +2739,11 @@ describe("rollbackToStep", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
+  afterEach(() => {
+    // Rollbacks are never judged; refusing a retreat is worse than a stale step.
+    expect(validateRampPlanPatches).not.toHaveBeenCalled();
+  });
+
   it("applies accumulated effective patch when rolling back — excludes steps after target", async () => {
     // Schedule at step 2 with condition that was set in step 0 and overridden in step 2.
     // Rolling back to step 0 should apply the step-0 effective state, not step-2's condition.
@@ -2297,6 +2832,49 @@ describe("rollbackToStep", () => {
     await rollbackToStep(ctx as never, schedule, -1);
 
     expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+
+  it("restores a missing anchor from the activating revision before rolling back to -1", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      targets: [
+        {
+          id: TARGET_ID,
+          entityType: "feature",
+          entityId: FEATURE_ID,
+          ruleId: RULE_ID,
+          status: "active",
+          activatingRevisionVersion: 4,
+        },
+      ],
+    });
+    // The activating revision holds the rule at its pre-ramp 5%; the live
+    // feature (10%) is already at a ramp step and must not be used.
+    mockGetRevision.mockResolvedValue(
+      makeRevision({
+        version: 4,
+        rules: [{ ...makeFeature().rules[0], coverage: 0.05 }],
+      }) as never,
+    );
+    const { ctx, updateById } = makeContext({ currentStepIndex: 1 });
+
+    await rollbackToStep(ctx as never, schedule, -1);
+
+    expect(mockGetRevision).toHaveBeenCalledWith(
+      expect.objectContaining({ featureId: FEATURE_ID, version: 4 }),
+    );
+    const [, healed] = updateById.mock.calls[0];
+    expect(healed.startActions).toEqual([
+      expect.objectContaining({
+        targetId: TARGET_ID,
+        patch: expect.objectContaining({ ruleId: RULE_ID, coverage: 0.05 }),
+      }),
+    ]);
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const patched = (forceResult.rules ?? []).find(
+      (r: FeatureRule) => r.id === RULE_ID,
+    );
+    expect((patched as { coverage?: number })?.coverage).toBe(0.05);
   });
 
   it("sets status to rolled-back for full rollback (targetStepIndex=-1)", async () => {
@@ -2422,6 +3000,9 @@ describe("resumeSchedule", () => {
     const [, resumeUpdates] = updateById.mock.calls[0];
     expect(resumeUpdates.nextStepAt).not.toBeNull();
     expect(resumeUpdates.nextStepAt).toBeInstanceOf(Date);
+    expect(mockCreateEvent.mock.calls.at(-1)?.[0].event).toBe(
+      "rampSchedule.actions.resumed",
+    );
 
     // nextStepAt should be in the future (step interval not yet elapsed),
     // NOT set to now — the step needs to run its hold time first.
@@ -3938,6 +4519,45 @@ describe("startReadyScheduleNow", () => {
     const [eventArgs] = mockCreateEvent.mock.calls[0];
     expect(eventArgs.objectId).toBe(schedule.id);
   });
+
+  it("a first step the engine refuses pauses the schedule with the reason and rethrows", async () => {
+    const { ctx, schedule, updateById } = makeStartNowCtx({
+      steps: [
+        {
+          interval: 60,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+    });
+    (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
+      new Error("step refused"),
+    );
+
+    await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
+      "step refused",
+    );
+    expect(updateById).toHaveBeenCalledWith(
+      schedule.id,
+      expect.objectContaining({
+        status: "paused",
+        eventHistory: expect.arrayContaining([
+          expect.objectContaining({
+            type: "error-paused",
+            reason: "step refused",
+          }),
+        ]),
+      }),
+    );
+    expect(mockCreateEvent.mock.calls.map(([e]) => e.event)).toContain(
+      "rampSchedule.actions.errorPaused",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -4812,12 +5432,18 @@ describe("pauseSchedule", () => {
       },
     };
 
-    await pauseSchedule(ctx as never, schedule);
+    await pauseSchedule(ctx as never, schedule, "Guardrail breach");
 
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("paused");
     expect(updates.nextProcessAt).toEqual(futureCutoff);
     expect(updates.nextSnapshotAt).toBeNull();
+    const [eventArgs] = mockCreateEvent.mock.calls.at(-1) ?? [];
+    expect(eventArgs.event).toBe("rampSchedule.actions.paused");
+    expect(eventArgs.data.object).toMatchObject({
+      status: "paused",
+      reason: "Guardrail breach",
+    });
   });
 
   it("sets nextProcessAt to null when no cutoffDate exists", async () => {
@@ -4850,5 +5476,429 @@ describe("pauseSchedule", () => {
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("paused");
     expect(updates.nextProcessAt).toBeNull();
+  });
+});
+
+describe("planRampBaseStateSync", () => {
+  const rule = (over: Record<string, unknown> = {}) =>
+    ({
+      type: "rollout",
+      id: "r1",
+      description: "",
+      value: "a",
+      coverage: 0.5,
+      hashAttribute: "id",
+      enabled: true,
+      allEnvironments: true,
+      ...over,
+    }) as FeatureRule;
+  const schedule = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "rs_1",
+      name: "Ramp",
+      status: "paused",
+      targets: [
+        {
+          id: "t1",
+          entityType: "feature",
+          entityId: "f1",
+          ruleId: "r1",
+          status: "active",
+        },
+      ],
+      startActions: [
+        {
+          targetType: "feature-rule",
+          targetId: "t1",
+          patch: { ruleId: "r1", coverage: 0, condition: null, force: "a" },
+        },
+      ],
+      steps: [
+        {
+          interval: 3600,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: "t1",
+              patch: { ruleId: "r1", coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+      endActions: [],
+      ...over,
+    }) as unknown as RampScheduleInterface;
+  const plan = (
+    live: FeatureRule,
+    next: FeatureRule,
+    s: RampScheduleInterface = schedule(),
+    { featureId = "f1", apiRequest = true } = {},
+  ) =>
+    planRampBaseStateSync({
+      featureId,
+      schedules: [s],
+      liveRules: [live],
+      nextRules: [next],
+      apiRequest,
+    });
+  const dashboard = (next: FeatureRule, s = schedule()) =>
+    plan(rule(), next, s, { apiRequest: false }).refusals[0].message;
+  const untouched = { refusals: [], updates: [] };
+
+  it("writes fields no step sets into the start action, the environment pair and identity included", () => {
+    const { refusals, updates } = plan(
+      rule(),
+      rule({
+        condition: '{"a":1}',
+        value: "b",
+        allEnvironments: false,
+        environments: ["production"],
+        hashAttribute: "email",
+      }),
+    );
+    expect(refusals).toEqual([]);
+    expect(updates[0].patches).toEqual([
+      {
+        targetId: "t1",
+        ruleId: "r1",
+        patch: {
+          condition: '{"a":1}',
+          force: "b",
+          allEnvironments: false,
+          environments: ["production"],
+          hashAttribute: "email",
+        },
+      },
+    ]);
+  });
+
+  it("refuses a field a step sets, naming the step and, for the API, the plan routes", () => {
+    const { refusals, updates } = plan(rule(), rule({ coverage: 0.9 }));
+    expect(updates).toEqual([]);
+    expect(refusals).toHaveLength(1);
+    expect(refusals[0].kind).toBe("ramp-controlled-field");
+    expect(refusals[0].message).toMatch(
+      /coverage is set by step 1 of ramp schedule "Ramp"/,
+    );
+    expect(refusals[0].message).toMatch(/PUT \/api\/v1\/ramp-schedules\/rs_1/);
+    expect(dashboard(rule({ coverage: 0.9 }))).toMatch(
+      /the rollout % is set by step 1 of its ramp-up\. Change it in the ramp-up plan/,
+    );
+  });
+
+  describe("a legacy all-environment target over migrated siblings", () => {
+    const sibling = (env: string, over: Record<string, unknown> = {}) =>
+      rule({
+        id: `r1__${env}`,
+        allEnvironments: false,
+        environments: [env],
+        ...over,
+      });
+    const live = [sibling("dev"), sibling("production")];
+    const legacy = schedule({
+      targets: [
+        {
+          id: "t1",
+          entityType: "feature",
+          entityId: "f1",
+          ruleId: "r1",
+          environment: null,
+          status: "active",
+        },
+      ],
+    });
+    const planSiblings = (next: FeatureRule[], apiRequest = true) =>
+      planRampBaseStateSync({
+        featureId: "f1",
+        schedules: [legacy],
+        liveRules: live,
+        nextRules: next,
+        apiRequest,
+      });
+
+    it.each([
+      [
+        "edited differently",
+        [
+          sibling("dev", { condition: '{"a":1}' }),
+          sibling("production", { condition: '{"b":2}' }),
+        ],
+      ],
+      [
+        "edited in one environment only",
+        [sibling("dev", { condition: '{"a":1}' }), sibling("production")],
+      ],
+    ])(
+      "refuses siblings %s, since their one anchor replays onto both",
+      (_, next) => {
+        const { refusals, updates } = planSiblings(next);
+        expect(updates).toEqual([]);
+        expect(refusals).toHaveLength(1);
+        expect(refusals[0]).toMatchObject({
+          kind: "ramp-shared-base-state",
+          scheduleId: "rs_1",
+        });
+        expect(refusals[0].message).toMatch(
+          /DELETE \/api\/v2\/features\/f1\/revisions\/\{version\}\/rules\/r1__dev\/ramp-schedule/,
+        );
+        expect(planSiblings(next, false).refusals[0].message).toBe(
+          'Rule "r1__dev" shares its ramp-up with Rule "r1__production", so this change would also apply there. Remove the ramp-up, publish the change, then add a new ramp-up.',
+        );
+      },
+    );
+
+    it("syncs an edit every sibling agrees on into their shared anchor", () => {
+      expect(
+        planSiblings([
+          sibling("dev", { condition: '{"a":1}' }),
+          sibling("production", { condition: '{"a":1}' }),
+        ]),
+      ).toEqual({
+        refusals: [],
+        updates: [
+          {
+            schedule: legacy,
+            patches: [
+              { targetId: "t1", ruleId: "r1", patch: { condition: '{"a":1}' } },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
+  it("refuses any change while a stepped schedule runs; a step-less one just syncs", () => {
+    const running = schedule({ status: "running" });
+    const { refusals, updates } = plan(
+      rule(),
+      rule({ condition: "{}" }),
+      running,
+    );
+    expect(updates).toEqual([]);
+    expect(refusals).toHaveLength(1);
+    expect(refusals[0].kind).toBe("ramp-running");
+    expect(refusals[0].message).toMatch(
+      /POST \/api\/v1\/ramp-schedules\/rs_1\/actions\/pause/,
+    );
+    expect(dashboard(rule({ condition: "{}" }), running)).toMatch(
+      /has a running ramp-up\. Pause it before publishing/,
+    );
+    const stepless = plan(
+      rule(),
+      rule({ condition: "{}" }),
+      schedule({ status: "running", steps: [] }),
+    );
+    expect(stepless.refusals).toEqual([]);
+    expect(stepless.updates[0].patches[0].patch).toEqual({ condition: "{}" });
+  });
+
+  it("leaves unanchored statuses, other features, `enabled`, unchanged and merely re-shaped rules alone", () => {
+    for (const status of ["pending", "completed", "rolled-back"]) {
+      expect(
+        plan(rule(), rule({ condition: "{}" }), schedule({ status })),
+      ).toEqual(untouched);
+    }
+    expect(
+      plan(rule(), rule({ condition: "{}" }), schedule(), { featureId: "f2" }),
+    ).toEqual(untouched);
+    expect(plan(rule(), rule({ enabled: false }))).toEqual(untouched);
+    expect(plan(rule(), rule())).toEqual(untouched);
+    // The rule editor fills in what a REST-created rule left implicit.
+    expect(
+      plan(
+        rule({
+          hashVersion: undefined,
+          savedGroups: undefined,
+          condition: undefined,
+        }),
+        rule({ hashVersion: 1, savedGroups: [], condition: "" }),
+      ),
+    ).toEqual(untouched);
+  });
+
+  it("leaves out targets the publish detaches, except under a running stepped schedule", async () => {
+    const plan = (s: RampScheduleInterface, detaching = false) =>
+      planRampBaseStateSyncForPublish(
+        {
+          isApiRequest: true,
+          models: {
+            rampSchedules: {
+              findAnchoredByTargetFeature: jest.fn().mockResolvedValue([s]),
+            },
+          },
+        } as never,
+        { id: "f1", rules: [rule()] } as never,
+        // Coverage is set by the plan's step, so it is refused either way.
+        { rules: [rule({ coverage: 1 })] },
+        detaching
+          ? {
+              detaching: [
+                {
+                  mode: "detach",
+                  rampScheduleId: "rs_1",
+                  ruleId: "r1",
+                  deleteScheduleWhenEmpty: true,
+                },
+              ],
+            }
+          : {},
+      );
+    const paused = schedule();
+    expect((await plan(paused)).refusals).toHaveLength(1);
+    expect(await plan(paused, true)).toEqual(untouched);
+    // The detach lands after the save; a firing step could win the lock.
+    const running = await plan(schedule({ status: "running" }), true);
+    expect(running.refusals.map((r) => r.kind)).toEqual(["ramp-running"]);
+  });
+});
+
+describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
+  const anchor = (patch: Record<string, unknown>) => ({
+    targetType: "feature-rule",
+    targetId: "t1",
+    patch: { ruleId: "r1", coverage: 0, ...patch },
+  });
+  const fresh = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "rs_1",
+      name: "Ramp",
+      status: "paused",
+      steps: [],
+      endActions: [],
+      startActions: [anchor({ condition: null })],
+      eventHistory: [],
+      ...over,
+    }) as unknown as RampScheduleInterface;
+  const makeCtx = (doc: RampScheduleInterface) => {
+    const updateById = jest.fn().mockResolvedValue(doc);
+    const ctx = {
+      userId: "u1",
+      models: {
+        rampSchedules: {
+          getById: jest.fn().mockResolvedValue(doc),
+          updateById,
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    } as unknown as Parameters<typeof applyRampBaseStateSync>[0];
+    return { ctx, updateById };
+  };
+  const update = {
+    schedule: fresh(),
+    patches: [
+      { targetId: "t1", ruleId: "r1", patch: { condition: '{"a":1}' } },
+    ],
+    fields: ["condition"],
+  };
+  const reason = "Base state updated by publishing revision 3: r1: condition";
+
+  it("patches the fresh anchor, appends the event and keeps a pre-image for the rewind", async () => {
+    const paused = { type: "paused", timestamp: new Date() };
+    const { ctx, updateById } = makeCtx(fresh({ eventHistory: [paused] }));
+    const written: Parameters<typeof restoreRampBaseStates>[1] = [];
+    await applyRampBaseStateSync(ctx, [update], 3, written);
+    const [, writes] = updateById.mock.calls[0];
+    expect(writes.startActions[0].patch).toEqual({
+      ruleId: "r1",
+      coverage: 0,
+      condition: '{"a":1}',
+    });
+    expect(writes.eventHistory).toEqual([
+      paused,
+      expect.objectContaining({ type: "config-edited", reason, userId: "u1" }),
+    ]);
+    expect(written[0].patches[0].before).toEqual({ condition: null });
+  });
+
+  it("refuses when the schedule resumed, the plan took the field or the anchor moved since planning", async () => {
+    const step = (patch: Record<string, unknown>) => ({
+      interval: 1,
+      actions: [anchor(patch)],
+    });
+    for (const doc of [
+      fresh({ status: "running", steps: [step({ coverage: 1 })] }),
+      fresh({ steps: [step({ condition: "{}" })] }),
+      fresh({ startActions: [] }),
+    ]) {
+      const { ctx, updateById } = makeCtx(doc);
+      await expect(
+        applyRampBaseStateSync(ctx, [update], 3, []),
+      ).rejects.toThrow(ConflictError);
+      expect(updateById).not.toHaveBeenCalled();
+    }
+  });
+
+  it("rewinds only the fields it still owns and drops only its own event", async () => {
+    const event = { type: "config-edited", timestamp: new Date(), reason };
+    const older = { ...event, timestamp: new Date(Date.now() - 1000) };
+    const { ctx, updateById } = makeCtx(
+      fresh({
+        startActions: [anchor({ condition: '{"a":1}', force: "later" })],
+        eventHistory: [older, event],
+      }),
+    );
+    await restoreRampBaseStates(ctx, [
+      {
+        id: "rs_1",
+        patches: [
+          {
+            targetId: "t1",
+            ruleId: "r1",
+            patch: { condition: '{"a":1}', force: "b" },
+            before: { condition: null },
+          },
+        ],
+        event,
+      },
+    ]);
+    const [, writes] = updateById.mock.calls[0];
+    expect(writes.startActions[0].patch).toEqual({
+      ruleId: "r1",
+      coverage: 0,
+      condition: null,
+      force: "later",
+    });
+    expect(writes.eventHistory).toEqual([older]);
+  });
+
+  it("leaves a field alone once a later publish rewrote it on the same rule, same value, even same millisecond", async () => {
+    const event = { type: "config-edited", timestamp: new Date(1000), reason };
+    const preImage = {
+      id: "rs_1",
+      patches: [
+        {
+          targetId: "t1",
+          ruleId: "r1",
+          patch: { condition: '{"a":1}' },
+          before: { condition: null },
+        },
+      ],
+      event,
+    };
+    const restoredWith = async (later: { reason: string }) => {
+      const laterEvent = { ...event, ...later };
+      const { ctx, updateById } = makeCtx(
+        fresh({
+          startActions: [anchor({ condition: '{"a":1}' })],
+          eventHistory: [event, laterEvent],
+        }),
+      );
+      await restoreRampBaseStates(ctx, [preImage]);
+      const [, writes] = updateById.mock.calls[0];
+      expect(writes.eventHistory).toEqual([laterEvent]);
+      return writes.startActions[0].patch.condition;
+    };
+    expect(await restoredWith({ reason })).toBe('{"a":1}');
+    expect(
+      await restoredWith({
+        reason: "Base state updated by publishing revision 4: r2: condition",
+      }),
+    ).toBeNull();
+    expect(
+      await restoredWith({
+        reason: "Base state updated by publishing revision 4: r1: value",
+      }),
+    ).toBeNull();
   });
 });

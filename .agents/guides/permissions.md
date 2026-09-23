@@ -22,6 +22,9 @@ Can be granted for all projects or specific projects:
 - `readData`, `addComments`
 - per flag entity (`Features`/`Configs`/`Constants`): `edit*Drafts`, `review*`,
   `bypassApproval*`
+- `targetFeatures` — deliver a Feature Flag into another project via Targeting
+  Projects; checked in the ADDED project (`canTargetFeatureProjects`,
+  `holdsTargetingDestination`), unscoped for "all projects"
 - `editSavedGroupDrafts`, `reviewSavedGroups`, `publishSavedGroups`,
   `revertSavedGroups`, `createSavedGroups`, `deleteSavedGroups`,
   `bypassApprovalSavedGroups`
@@ -81,7 +84,8 @@ const permissionsUtil = usePermissionsUtil();
 // Feature permissions
 permissionsUtil.canCreateFeature({ project }, environments);
 permissionsUtil.canEditFeatureDrafts(feature);
-permissionsUtil.canReviewFeatureDrafts(feature);
+permissionsUtil.canReviewFeatureDrafts(feature, footprint, approverProjects);
+permissionsUtil.canTargetFeatureProjects(addedProjects); // or "all"
 permissionsUtil.canDeleteFeature(feature, environments);
 permissionsUtil.canPublishFeature(feature, environments);
 permissionsUtil.canRevertFeature(feature, environments);
@@ -205,11 +209,25 @@ context.permissions.canManageBilling();
 
 // Project-scoped permissions
 context.permissions.canEditFeatureDrafts(feature);
-context.permissions.canReviewFeatureDrafts(feature);
+// Reviewers of a strict-mode Targeting Project with its own rule are eligible
+// too; the third argument is `getRevisionReviewRequirement(...).approverProjects`.
+context.permissions.canReviewFeatureDrafts(
+  feature,
+  footprint,
+  approverProjects,
+);
+// Targeting Projects: gate the DELTA with `holdsTargetingDestination` (shared).
+// Staging writes judge it against `stagingTargetingBase` (live, the draft, and
+// the revision the draft was created from); landing judges against live.
+context.permissions.canTargetFeatureProjects(addedProjects);
 
 // Environment-scoped permissions
 context.permissions.canPublishFeature(feature, environments);
 context.permissions.canRunExperiment(experiment, environments);
+// For an experiment, resolve `environments` with getExperimentAffectedEnvs
+// (services/experiments): live linked rules, changesets, AND the drafts a start
+// will publish. A draft experiment is live nowhere, so live-only reach skipped
+// the check at launch. assertCanRunExperimentInAffectedEnvironments wraps it.
 
 // Throw error if permission denied
 context.permissions.throwPermissionError();

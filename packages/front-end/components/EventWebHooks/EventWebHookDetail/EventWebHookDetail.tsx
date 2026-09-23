@@ -11,6 +11,7 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   EventWebHookEditParams,
   useIconForState,
@@ -22,6 +23,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
+import LinkButton from "@/ui/LinkButton";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -57,6 +59,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   editError,
 }) => {
   const { getProjectById } = useDefinitions();
+  const permissionsUtils = usePermissionsUtil();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const {
@@ -143,6 +146,16 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   if (!payloadType) return null;
 
   const loading = state?.type === "loading";
+  const slackSettingsUrl =
+    payloadType === "slack" &&
+    eventWebHook.slack?.teamId &&
+    permissionsUtils.canManageIntegrations()
+      ? eventWebHook.slack.channelId
+        ? `/integrations/slack?channel=${encodeURIComponent(eventWebHook.id)}`
+        : `/integrations/slack?workspace=${encodeURIComponent(
+            eventWebHook.slack.teamId,
+          )}`
+      : null;
 
   return (
     <Box>
@@ -167,9 +180,15 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         </Flex>
 
         <Flex align="center" gap="4">
-          <Button icon={<PiPencilSimpleFill />} onClick={onEditModalOpen}>
-            Edit
-          </Button>
+          {slackSettingsUrl ? (
+            <LinkButton href={slackSettingsUrl} icon={<PiPencilSimpleFill />}>
+              Edit Slack settings
+            </LinkButton>
+          ) : (
+            <Button icon={<PiPencilSimpleFill />} onClick={onEditModalOpen}>
+              Edit
+            </Button>
+          )}
 
           <DropdownMenu
             trigger={
@@ -349,7 +368,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         </div>
       </Box>
 
-      {isModalOpen ? (
+      {isModalOpen && !slackSettingsUrl ? (
         <EventWebHookAddEditModal
           isOpen={isModalOpen}
           onClose={onModalClose}

@@ -77,6 +77,94 @@ describe("BigQuery reservation job config", () => {
   });
 });
 
+describe("BigQuery getExternalQueryStatus (status-only)", () => {
+  let integration: BigQuery;
+  let mockJob: { getMetadata: jest.Mock };
+  let mockClientJob: jest.Mock;
+
+  beforeEach(() => {
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    integration = new BigQuery("", {});
+
+    mockJob = { getMetadata: jest.fn() };
+    mockClientJob = jest.fn().mockReturnValue(mockJob);
+
+    jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .spyOn(integration as any, "getClient")
+      .mockReturnValue({ job: mockClientJob });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("maps DONE + errorResult to failed with the warehouse message", async () => {
+    mockJob.getMetadata.mockResolvedValue([
+      {
+        status: {
+          state: "DONE",
+          errorResult: { message: "Query exceeded resource limits" },
+        },
+      },
+    ]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "failed",
+      error: "Query exceeded resource limits",
+    });
+  });
+
+  it("maps a clean DONE to succeeded", async () => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state: "DONE" } }]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "succeeded",
+    });
+  });
+
+  it.each(["RUNNING", "PENDING"])("maps %s to running", async (state) => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state } }]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "running",
+    });
+  });
+
+  it.each([
+    ["missing status", {}],
+    ["missing state", { status: {} }],
+    ["unfamiliar state", { status: { state: "SOMETHING_NEW" } }],
+  ])("maps %s to unknown/unrecognized", async (_, metadata) => {
+    mockJob.getMetadata.mockResolvedValue([metadata]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "unrecognized",
+    });
+  });
+
+  it("maps a 404 to unknown/expired", async () => {
+    mockJob.getMetadata.mockRejectedValue(
+      Object.assign(new Error("Job x: not found"), { code: 404 }),
+    );
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "expired",
+    });
+  });
+
+  it("maps a thrown request error to unknown/unreachable", async () => {
+    mockJob.getMetadata.mockRejectedValue(new Error("network exploded"));
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "unreachable",
+    });
+  });
+
+  it("passes location through to client.job when metadata has one", async () => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state: "DONE" } }]);
+    await integration.getExternalQueryStatus("job_1", { location: "EU" });
+    expect(mockClientJob).toHaveBeenCalledWith("job_1", { location: "EU" });
+  });
+});
+
 describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
   let integration: BigQuery;
 

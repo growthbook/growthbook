@@ -18,6 +18,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
 import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
+import JourneyGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/JourneyGraphTypeSelector";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -38,10 +39,12 @@ import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import SqlTabContent from "./SqlTabContent";
 import FunnelTabContent from "./FunnelTabContent";
+import JourneyTabContent from "./JourneyTabContent";
 import GroupBySection from "./GroupBySection";
 import SaveFunnelMetricAction from "./SaveFunnelMetricAction";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
+import ChartSettingsSection from "./ChartSettingsSection";
 import SchemaBrowserSection from "./SchemaBrowserSection";
 
 interface Props {
@@ -105,13 +108,20 @@ export default function ExplorerSideBar({
     activeType === "sql" &&
     dataset?.type === "sql" &&
     Object.keys(dataset.columnTypes).length === 0;
+  const isRawTable =
+    activeType === "sql" && draftExploreState.chartType === "rawTable";
 
   const hasFunnelInputs =
     dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTableId);
+  const hasJourneyInputs = dataset?.type === "journey" && !!dataset.factTableId;
   const hasInputs =
     dataset?.type === "funnel"
       ? hasFunnelInputs
-      : (dataset?.values?.length ?? 0) > 0;
+      : dataset?.type === "journey"
+        ? hasJourneyInputs
+        : isRawTable && dataset?.type === "sql"
+          ? Object.keys(dataset.columnTypes).length > 0
+          : (dataset?.values?.length ?? 0) > 0;
   const dateRangeValue: DateRangeCompareValue = {
     dateRange: draftExploreState.dateRange,
     comparison: compareEnabled
@@ -290,6 +300,8 @@ export default function ExplorerSideBar({
             <Text weight="medium">Chart Type</Text>
             {activeType === "funnel" ? (
               <FunnelGraphTypeSelector />
+            ) : activeType === "journey" ? (
+              <JourneyGraphTypeSelector />
             ) : (
               <GraphTypeSelector />
             )}
@@ -322,7 +334,7 @@ export default function ExplorerSideBar({
                   range, and applying a change claims it. */}
               <DateRangeCompareDropdown
                 fullWidth
-                showCompare
+                showCompare={activeType !== "journey" && !isRawTable}
                 showGranularity={isTimeSeriesChart}
                 value={dateRangeValue}
                 onChange={applyDateRange}
@@ -421,17 +433,22 @@ export default function ExplorerSideBar({
         {activeType === "data_source" && <DatasourceTabContent />}
         {activeType === "sql" && showChartControls && <SqlTabContent />}
         {activeType === "funnel" && <FunnelTabContent />}
+        {activeType === "journey" && <JourneyTabContent />}
       </Box>
 
       {showChartControls &&
         activeType !== "funnel" &&
+        activeType !== "journey" &&
         showAsAppliesTo(draftExploreState, getFactMetricById) && (
           <ShowAsSection />
         )}
-      {showChartControls && hasInputs && <GroupBySection />}
+      {showChartControls && hasInputs && !isRawTable && <GroupBySection />}
       {activeType === "funnel" && renderingInDashboardSidebar && (
         <SaveFunnelMetricAction />
       )}
+      {showChartControls &&
+        activeType !== "funnel" &&
+        activeType !== "journey" && <ChartSettingsSection />}
     </Flex>
   );
 }

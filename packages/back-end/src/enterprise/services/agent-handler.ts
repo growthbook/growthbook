@@ -3,8 +3,9 @@ import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIModel, AIPromptType } from "shared/ai";
 import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
-import { stringifyToolResultForStorage } from "shared/ai-chat";
+import { getMessageText, stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
+import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
@@ -31,6 +32,8 @@ import { logger } from "back-end/src/util/logger";
 import {
   runAIEnabledGates,
   enforceAIUsageCap,
+  assertAIEnabled,
+  assertAIAccess,
   buildSystemPromptForRequest,
 } from "back-end/src/enterprise/services/ai-access";
 import {
@@ -144,6 +147,9 @@ export interface AgentConfig<TParams = unknown> {
    * with a user-facing message. Defaults to 3.
    */
   maxConsecutiveToolErrors?: number;
+
+  /** Tool results that end the turn without another model step. */
+  terminalToolNames?: readonly string[];
 }
 
 // =============================================================================
@@ -183,6 +189,8 @@ const activeStreamControllers = new Map<string, AbortController>();
 const SSE_KEEPALIVE_MS = 15_000;
 // Keep this below the client's 60-second stale-stream threshold.
 const DB_HEARTBEAT_MS = 30_000;
+const PUBLIC_STREAM_ERROR =
+  "The assistant ran into an unexpected error. Please try again.";
 
 // SSE pings keep the connection open; Mongo updates support reloads and
 // cancellation handled by another server instance.
@@ -261,7 +269,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     res: Response,
   ): Promise<void> => {
     const body = req.body as AgentRequestBody;
-    const { message, conversationId } = body;
+    const { conversationId } = body;
     const context = getContextFromReq(req);
 
     config.onStreamStart?.(conversationId);
@@ -283,237 +291,471 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       config.agentType,
     );
 
-    const storedModel = buffer.getModel() as AIModel | undefined;
-
-    // Stored model, else the user's per-request choice, else the org-level
-    // prompt override, else the org default. Each candidate is filtered through
-    // the org's key state, so on Cloud a managed org stays pinned to
-    // GrowthBook's model while a BYOK org gets the one it picked — silently
-    // discarding those picks was the bug. Also catches a stored model
-    // disallowed mid-conversation by a downgrade.
-    const { keySource, defaultAIModel } = await getAISettingsForOrg(
+    let transportEmit: AgentEmit | undefined;
+    await executeAgentTurn({
       context,
-      false,
-    );
-    const overrideModel: AIModel | undefined =
-      getAllowedAIModel("text", storedModel, keySource) ||
-      getAllowedAIModel("text", body.model, keySource) ||
-      getAllowedAIModel("text", dbOverrideModel, keySource);
-
-    const resolvedModel = overrideModel || defaultAIModel;
-
-    // Waits until here because the BYOK exemption is per provider, so it needs
-    // the resolved model. Must stay above setSseHeaders: a 429 is JSON.
-    if (!(await enforceAIUsageCap(context, res, resolvedModel))) {
-      return;
-    }
-
-    buffer.setModel(resolvedModel);
-
-    setSseHeaders(res);
-    const emit = createEmit(res, buffer);
-    const tools = config.buildTools(context, buffer, params, emit);
-
-    const isFirstMessage = buffer.getMessages().length === 0;
-
-    // Deterministic mutation-confirmation gate. If a prior turn parked a
-    // pending mutation, act on the user's explicit decision before running
-    // the model — the model is never relied upon to confirm or replay it.
-    const pendingAction = buffer.getPendingAction();
-    const decision =
-      typeof body.confirmDecision === "string"
-        ? body.confirmDecision
-        : undefined;
-    const actionId =
-      typeof body.confirmActionId === "string"
-        ? body.confirmActionId
-        : undefined;
-    const isConfirm =
-      !!pendingAction &&
-      decision === "confirm" &&
-      actionId === pendingAction.id;
-    const isCancel =
-      !!pendingAction &&
-      decision === "cancel" &&
-      (!actionId || actionId === pendingAction.id);
-
-    // Resolve a parked mutation, if any, BEFORE appending a superseding user
-    // message — the replayed call/result pair must directly follow the prior
-    // assistant turn. On confirm we dispatch the real call; on cancel or any
-    // other message (a supersede) we record a "rejected" result. Either way
-    // the model sees an ordinary tool result and continues, agnostic of the
-    // gate. A cancel/supersede with a follow-up message lets the model react
-    // to the rejection plus the new instruction in the same turn.
-    if (pendingAction) {
-      await resolvePendingAction(
-        context,
-        buffer,
-        pendingAction,
-        emit,
-        isConfirm,
-      );
-      buffer.setPendingAction(undefined);
-    }
-
-    // A confirm/cancel decision is a control signal, not a chat message — we
-    // don't persist a visible "Confirm"/"Cancel" user bubble for it. Any other
-    // message (including one that supersedes a pending action) is a normal
-    // user turn, appended after the parked action has been resolved.
-    if (!isConfirm && !isCancel) {
-      const datasourceHint =
-        config.injectDatasourceHint && typeof body.datasourceId === "string"
-          ? body.datasourceId
-          : undefined;
-      const skills = Array.from(new Set(body.skills ?? []));
-      const mentions =
-        config.resolveMentions && body.mentions?.length
-          ? await config.resolveMentions(context, body.mentions, params)
-          : body.mentions;
-      appendUserMessage(
-        buffer,
-        message,
-        body.currentPage,
-        datasourceHint,
-        mentions,
-        skills,
-      );
-      if (config.resolveSkill) {
-        for (const name of skills) {
-          seedSkillLoad(buffer, emit, name, config.resolveSkill);
+      config,
+      body,
+      params,
+      buffer,
+      system,
+      orgAdditionalPrompt,
+      dbOverrideModel,
+      prepareTransport: () => {
+        setSseHeaders(res);
+        transportEmit = createEmit(res, buffer);
+        return transportEmit;
+      },
+      enforceUsageCap: (model) => enforceAIUsageCap(context, res, model),
+      onBeforeStream: (stopKeepalive) => res.on("close", stopKeepalive),
+      finish: () => {
+        if (!res.writableFinished && !res.destroyed) {
+          transportEmit?.("done", {});
+          res.end();
         }
-      }
-    }
-    buffer.setStreaming(true);
-
-    persistConversation(context.models.aiConversations, buffer).catch((err) => {
-      logger.error(err, "Failed to persist user message");
+      },
     });
-
-    const messagesForLLM = toModelMessages(buffer.getMessages());
-
-    const titlePromise: Promise<void> = isFirstMessage
-      ? generateTitle(context, config, message, overrideModel, buffer, emit)
-      : Promise.resolve();
-
-    const abortController = new AbortController();
-    activeStreamControllers.set(conversationId, abortController);
-    let cancelledExternally = false;
-
-    const markCancelledExternally = (): void => {
-      cancelledExternally = true;
-      abortController.abort();
-    };
-
-    const checkCancellation = async (): Promise<boolean> => {
-      if (cancelledExternally) return true;
-      const doc = await context.models.aiConversations.getById(conversationId);
-      if (doc && !doc.isStreaming) {
-        markCancelledExternally();
-        return true;
-      }
-      return false;
-    };
-
-    const heartbeats = startStreamHeartbeats({
-      conversations: context.models.aiConversations,
-      conversationId,
-      emit,
-      onCancelled: markCancelledExternally,
-    });
-
-    // Continue the DB heartbeat so the result survives a disconnected client.
-    res.on("close", heartbeats.stopSseKeepalive);
-
-    try {
-      const stream = await streamingChatCompletion({
-        context,
-        system,
-        messages: messagesForLLM,
-        temperature: config.temperature,
-        type: config.promptType,
-        isDefaultPrompt: !orgAdditionalPrompt,
-        overrideModel,
-        tools,
-        maxSteps: config.maxSteps,
-        abortSignal: abortController.signal,
-      });
-
-      try {
-        await processStream(
-          stream.result,
-          config,
-          buffer,
-          emit,
-          abortController,
-          () => {
-            // A tool just parked a mutation for confirmation: stop the turn
-            // deterministically so the model can't continue past the gate. The
-            // pending state is persisted below and acted on next turn.
-            if (buffer.getPendingAction()) {
-              abortController.abort();
-            }
-            void (async () => {
-              if (await checkCancellation()) return;
-              await persistConversation(context.models.aiConversations, buffer);
-            })().catch((err) => {
-              logger.error(
-                err,
-                "Failed to persist intermediate conversation state",
-              );
-            });
-          },
-        );
-
-        try {
-          await stream.result.response;
-        } catch {
-          // Provider errors after stream close — already handled
-        }
-      } finally {
-        await stream.completeAccounting();
-      }
-
-      await titlePromise;
-    } finally {
-      heartbeats.stopSseKeepalive();
-      heartbeats.stopDbHeartbeat();
-      activeStreamControllers.delete(conversationId);
-
-      try {
-        config.onCleanup?.(conversationId);
-      } catch {
-        // ignore cleanup errors
-      }
-
-      buffer.setStreaming(false);
-
-      if (!cancelledExternally) {
-        await checkCancellation();
-      }
-
-      // Persist the final assistant/tool turn BEFORE closing the stream. The
-      // client kicks off syncMessagesFromServer() the instant it sees the SSE
-      // stream close, so MongoDB must already hold the final state. If we
-      // persisted fire-and-forget after res.end() (as before), that GET could
-      // race ahead of the write and return stale messages missing the just-
-      // streamed reply — which then visibly disappeared until the next refresh.
-      // persistConversation swallows its own errors, so this never throws.
-      if (!cancelledExternally) {
-        await persistConversation(context.models.aiConversations, buffer);
-      }
-
-      if (!res.writableFinished && !res.destroyed) {
-        emit("done", {});
-        res.end();
-      }
-    }
   };
 }
 
-// =============================================================================
-// Helpers
-// =============================================================================
+/**
+ * Run one agent turn: resolve the model, apply the usage cap, handle any parked
+ * mutation, stream the completion, and persist. Transport-agnostic — the SSE
+ * handler and the headless runner both drive it, differing only in `emit` and
+ * the optional HTTP hooks.
+ */
+async function executeAgentTurn<TParams>({
+  context,
+  config,
+  body,
+  params,
+  buffer,
+  system,
+  orgAdditionalPrompt,
+  dbOverrideModel,
+  prepareTransport,
+  beforeResolvePendingAction,
+  enforceUsageCap,
+  onBeforeStream,
+  finish,
+  signal,
+}: {
+  context: ReqContext;
+  config: AgentConfig<TParams>;
+  body: AgentRequestBody;
+  params: TParams;
+  buffer: ConversationBuffer;
+  system: string;
+  orgAdditionalPrompt: unknown;
+  dbOverrideModel: AIModel | undefined;
+  /** Initialize transport output only after access/usage gates pass. */
+  prepareTransport: () => AgentEmit;
+  /** Acquire a transport-specific replay guard only after all access gates pass. */
+  beforeResolvePendingAction?: () => Promise<void>;
+  /** Return false to abort before streaming (HTTP writes a 429 itself). */
+  enforceUsageCap: (model: AIModel) => Promise<boolean>;
+  /** Hook to stop the SSE keepalive when the client disconnects. */
+  onBeforeStream?: (stopKeepalive: () => void) => void;
+  /** Close out the transport (SSE emits "done" and ends the response). */
+  finish?: () => void;
+  /** Caller deadline. Aborting it cancels the turn like an external cancel. */
+  signal?: AbortSignal;
+}): Promise<void> {
+  const { message } = body;
+  const { conversationId } = buffer;
+  const storedModel = buffer.getModel() as AIModel | undefined;
 
+  // Stored model, else the user's per-request choice, else the org-level
+  // prompt override, else the org default. Each candidate is filtered through
+  // the org's key state, so on Cloud a managed org stays pinned to
+  // GrowthBook's model while a BYOK org gets the one it picked — silently
+  // discarding those picks was the bug. Also catches a stored model
+  // disallowed mid-conversation by a downgrade.
+  const { keySource, defaultAIModel } = await getAISettingsForOrg(
+    context,
+    false,
+  );
+  const overrideModel: AIModel | undefined =
+    getAllowedAIModel("text", storedModel, keySource) ||
+    getAllowedAIModel("text", body.model, keySource) ||
+    getAllowedAIModel("text", dbOverrideModel, keySource);
+
+  const resolvedModel = overrideModel || defaultAIModel;
+
+  // Waits until here because the BYOK exemption is per provider, so it needs
+  // the resolved model. Must stay above setSseHeaders: a 429 is JSON.
+  if (!(await enforceUsageCap(resolvedModel))) {
+    return;
+  }
+
+  const emit = prepareTransport();
+  buffer.setModel(resolvedModel);
+
+  const tools = config.buildTools(context, buffer, params, emit);
+
+  const isFirstMessage = buffer.getMessages().length === 0;
+
+  // Deterministic mutation-confirmation gate. If a prior turn parked a
+  // pending mutation, act on the user's explicit decision before running
+  // the model — the model is never relied upon to confirm or replay it.
+  const pendingAction = buffer.getPendingAction();
+  const decision =
+    typeof body.confirmDecision === "string" ? body.confirmDecision : undefined;
+  const actionId =
+    typeof body.confirmActionId === "string" ? body.confirmActionId : undefined;
+  const isConfirm =
+    !!pendingAction && decision === "confirm" && actionId === pendingAction.id;
+  const isCancel =
+    !!pendingAction &&
+    decision === "cancel" &&
+    (!actionId || actionId === pendingAction.id);
+
+  // Resolve a parked mutation, if any, BEFORE appending a superseding user
+  // message — the replayed call/result pair must directly follow the prior
+  // assistant turn. On confirm we dispatch the real call; on cancel or any
+  // other message (a supersede) we record a "rejected" result. Either way
+  // the model sees an ordinary tool result and continues, agnostic of the
+  // gate. A cancel/supersede with a follow-up message lets the model react
+  // to the rejection plus the new instruction in the same turn.
+  if (pendingAction) {
+    await beforeResolvePendingAction?.();
+    // Re-checked here, not only when the model proposed it: the user can
+    // navigate off the dashboard between the card appearing and clicking
+    // Confirm, and the stored call would then write to an off-screen one.
+    const offScreenNow = isConfirm
+      ? offScreenDashboardWriteRejection({
+          method: pendingAction.method,
+          path: pendingAction.path,
+          currentPage:
+            typeof body.currentPage === "string" ? body.currentPage : null,
+        })
+      : undefined;
+    await resolvePendingAction(
+      context,
+      buffer,
+      pendingAction,
+      emit,
+      isConfirm && !offScreenNow,
+      offScreenNow,
+    );
+    buffer.setPendingAction(undefined);
+  }
+
+  // A confirm/cancel decision is a control signal, not a chat message — we
+  // don't persist a visible "Confirm"/"Cancel" user bubble for it. Any other
+  // message (including one that supersedes a pending action) is a normal
+  // user turn, appended after the parked action has been resolved.
+  if (!isConfirm && !isCancel) {
+    const datasourceHint =
+      config.injectDatasourceHint && typeof body.datasourceId === "string"
+        ? body.datasourceId
+        : undefined;
+    const skills = Array.from(new Set(body.skills ?? []));
+    const mentions =
+      config.resolveMentions && body.mentions?.length
+        ? await config.resolveMentions(context, body.mentions, params)
+        : body.mentions;
+    appendUserMessage(
+      buffer,
+      message,
+      body.currentPage,
+      datasourceHint,
+      mentions,
+      skills,
+    );
+    if (config.resolveSkill) {
+      const seeded = new Set<string>();
+      for (const name of skills) {
+        // A leaf picked from the `/` menu arrives without the domain router the
+        // model would have read on its way there, so its shared conventions
+        // would be missing. Seed the router first, as the two-step flow does.
+        const domain = name.split("/")[0];
+        for (const target of domain === name ? [name] : [domain, name]) {
+          if (seeded.has(target)) continue;
+          seeded.add(target);
+          seedSkillLoad(buffer, emit, target, config.resolveSkill);
+        }
+      }
+    }
+  }
+  buffer.setStreaming(true);
+
+  persistConversation(context.models.aiConversations, buffer).catch((err) => {
+    logger.error(err, "Failed to persist user message");
+  });
+
+  const messagesForLLM = toModelMessages(buffer.getMessages());
+
+  const titlePromise: Promise<void> = isFirstMessage
+    ? generateTitle(context, config, message, overrideModel, buffer, emit)
+    : Promise.resolve();
+
+  const abortController = new AbortController();
+  activeStreamControllers.set(conversationId, abortController);
+  let cancelledExternally = false;
+
+  const markCancelledExternally = (): void => {
+    cancelledExternally = true;
+    abortController.abort();
+  };
+  signal?.addEventListener("abort", markCancelledExternally, { once: true });
+  if (signal?.aborted) markCancelledExternally();
+
+  const checkCancellation = async (): Promise<boolean> => {
+    if (cancelledExternally) return true;
+    const doc = await context.models.aiConversations.getById(conversationId);
+    if (doc && !doc.isStreaming) {
+      markCancelledExternally();
+      return true;
+    }
+    return false;
+  };
+
+  const heartbeats = startStreamHeartbeats({
+    conversations: context.models.aiConversations,
+    conversationId,
+    emit,
+    onCancelled: markCancelledExternally,
+  });
+
+  // Continue the DB heartbeat so the result survives a disconnected client.
+  onBeforeStream?.(heartbeats.stopSseKeepalive);
+
+  try {
+    const stream = await streamingChatCompletion({
+      context,
+      system,
+      messages: messagesForLLM,
+      temperature: config.temperature,
+      type: config.promptType,
+      isDefaultPrompt: !orgAdditionalPrompt,
+      overrideModel,
+      tools,
+      maxSteps: config.maxSteps,
+      abortSignal: abortController.signal,
+    });
+
+    try {
+      await processStream(
+        stream.result,
+        config,
+        buffer,
+        emit,
+        abortController,
+        () => {
+          // A tool just parked a mutation for confirmation: stop the turn
+          // deterministically so the model can't continue past the gate. The
+          // pending state is persisted below and acted on next turn.
+          if (buffer.getPendingAction()) {
+            abortController.abort();
+          }
+          void (async () => {
+            if (await checkCancellation()) return;
+            await persistConversation(context.models.aiConversations, buffer);
+          })().catch((err) => {
+            logger.error(
+              err,
+              "Failed to persist intermediate conversation state",
+            );
+          });
+        },
+      );
+
+      try {
+        await stream.result.response;
+      } catch {
+        // Provider errors after stream close — already handled
+      }
+    } finally {
+      await stream.completeAccounting();
+    }
+
+    await titlePromise;
+  } finally {
+    heartbeats.stopSseKeepalive();
+    heartbeats.stopDbHeartbeat();
+    signal?.removeEventListener("abort", markCancelledExternally);
+    activeStreamControllers.delete(conversationId);
+
+    try {
+      config.onCleanup?.(conversationId);
+    } catch {
+      // ignore cleanup errors
+    }
+
+    buffer.setStreaming(false);
+
+    if (!cancelledExternally) {
+      await checkCancellation();
+    }
+
+    // Persist the final assistant/tool turn BEFORE closing the stream. The
+    // client kicks off syncMessagesFromServer() the instant it sees the SSE
+    // stream close, so MongoDB must already hold the final state. If we
+    // persisted fire-and-forget after res.end() (as before), that GET could
+    // race ahead of the write and return stale messages missing the just-
+    // streamed reply — which then visibly disappeared until the next refresh.
+    // persistConversation swallows its own errors, so this never throws.
+    if (!cancelledExternally) {
+      await persistConversation(context.models.aiConversations, buffer);
+    }
+
+    finish?.();
+  }
+}
+
+export type RunAgentTurnResult =
+  | {
+      ok: true;
+      conversationId: string;
+      /** The assistant's final user-visible reply text (may be empty). */
+      reply: string;
+      /** A mutation the agent parked for confirmation, or null. */
+      pendingAction: AIAgentPendingAction | null;
+    }
+  | { ok: false; message: string };
+
+/** Minimal input for a headless turn — the non-HTTP analogue of the chat request body. */
+export interface HeadlessTurnInput {
+  message: string;
+  conversationId: string;
+  /** Optional page/context hint, surfaced to the model the same way the UI does. */
+  currentPage?: string;
+  /** Optional product-analytics datasource hint (only used by agents that opt in). */
+  datasourceId?: string;
+  /**
+   * Resolve a parked mutation from a prior turn. `confirmDecision: "confirm"`
+   * dispatches the stored call; "cancel" records a rejection. `message` is
+   * typically empty for these control turns.
+   */
+  confirmActionId?: string;
+  confirmDecision?: "confirm" | "cancel";
+}
+
+/**
+ * Run a single agent turn to completion with no HTTP/SSE transport and return
+ * the assistant's final reply as a string. Used by non-browser callers (e.g.
+ * the Slack bot) that need the answer rather than a stream.
+ *
+ * The caller must build a permission-scoped `context` for the acting user
+ * (e.g. via getContextForUserIdInOrg) — the agent's API calls run with exactly
+ * that context's permissions, so a Slack user can't read anything they
+ * couldn't read in the app.
+ */
+export async function runAgentTurnToCompletion<TParams>({
+  context,
+  config,
+  input,
+  beforeResolvePendingAction,
+  signal,
+}: {
+  context: ReqContext;
+  config: AgentConfig<TParams>;
+  input: HeadlessTurnInput;
+  beforeResolvePendingAction?: () => Promise<void>;
+  signal?: AbortSignal;
+}): Promise<RunAgentTurnResult> {
+  // No explicit model choice: `model` is only ever a *candidate* passed through
+  // getAllowedAIModel, so omitting it falls through to the org's default (the
+  // same outcome as a UI client that doesn't pin one).
+  const body = {
+    message: input.message,
+    conversationId: input.conversationId,
+    ...(input.currentPage ? { currentPage: input.currentPage } : {}),
+    ...(input.datasourceId ? { datasourceId: input.datasourceId } : {}),
+    ...(input.confirmActionId
+      ? { confirmActionId: input.confirmActionId }
+      : {}),
+    ...(input.confirmDecision
+      ? { confirmDecision: input.confirmDecision }
+      : {}),
+  } as AgentRequestBody;
+
+  config.onStreamStart?.(body.conversationId);
+
+  try {
+    await assertAIEnabled(context);
+  } catch (e) {
+    return { ok: false, message: getErrorMessage(e, "AI access denied") };
+  }
+
+  const params = config.parseParams(body);
+  const {
+    system,
+    orgAdditionalPrompt,
+    overrideModel: dbOverrideModel,
+  } = await buildSystemPromptForRequest(context, config, params);
+  const buffer = await loadOrInitConversation(
+    context.models.aiConversations,
+    body.conversationId,
+    context.userId,
+    config.agentType,
+  );
+
+  const previousMessageCount = buffer.getMessages().length;
+  let streamError: string | null = null;
+  const emit: AgentEmit = (event, data) => {
+    if (event === "error") {
+      const message =
+        data && typeof data === "object" && "message" in data
+          ? data.message
+          : null;
+      streamError =
+        typeof message === "string"
+          ? message
+          : "The assistant could not complete this request.";
+    }
+    // Keep the streamed-at timestamp fresh so stale-stream detection matches
+    // the HTTP path even without an SSE sink.
+    buffer.touchStreamedAt();
+  };
+
+  // Re-checks the cap with the resolved model (the BYOK exemption is per
+  // provider), mirroring the HTTP path's post-resolution check.
+  let capFailure: RunAgentTurnResult | null = null;
+  await executeAgentTurn({
+    context,
+    config,
+    body,
+    params,
+    buffer,
+    system,
+    orgAdditionalPrompt,
+    dbOverrideModel,
+    prepareTransport: () => emit,
+    beforeResolvePendingAction,
+    signal,
+    enforceUsageCap: async (model) => {
+      try {
+        await assertAIAccess(context, { model });
+        return true;
+      } catch (e) {
+        capFailure = {
+          ok: false,
+          message: getErrorMessage(e, "AI access denied"),
+        };
+        return false;
+      }
+    },
+  });
+  if (capFailure) return capFailure;
+  if (streamError) return { ok: false, message: streamError };
+
+  return {
+    ok: true,
+    conversationId: buffer.conversationId,
+    reply: extractFinalAssistantText(
+      buffer.getMessages().slice(previousMessageCount),
+    ),
+    pendingAction: buffer.getPendingAction() ?? null,
+  };
+}
+
+/**
+ * Transport-agnostic core of a single agent turn, shared between the HTTP
+ * handler and the headless runner. Transport coupling (SSE headers, `res.end`,
+ * access-gate error responses) lives in the callers.
+ */
 function appendUserMessage(
   buffer: ConversationBuffer,
   message: string,
@@ -611,13 +853,24 @@ async function resolvePendingAction(
   pendingAction: AIAgentPendingAction,
   emit: AgentEmit,
   confirmed: boolean,
+  rejection?: string,
 ): Promise<void> {
   const toolCallId = randomUUID();
+  // Strip `confirm` from the body the model sees so it doesn't copy it into
+  // follow-up calls and bypass the cost confirmation gate.
+  const sanitizedBody =
+    pendingAction.body && typeof pendingAction.body === "object"
+      ? Object.fromEntries(
+          Object.entries(pendingAction.body as Record<string, unknown>).filter(
+            ([k]) => k !== "confirm",
+          ),
+        )
+      : pendingAction.body;
   const args: Record<string, unknown> = {
     method: pendingAction.method,
     path: pendingAction.path,
     ...(pendingAction.query ? { query: pendingAction.query } : {}),
-    ...(pendingAction.body !== undefined ? { body: pendingAction.body } : {}),
+    ...(sanitizedBody !== undefined ? { body: sanitizedBody } : {}),
   };
 
   emit("tool-call-input", {
@@ -635,17 +888,29 @@ async function resolvePendingAction(
       query: pendingAction.query,
       body: pendingAction.body,
     };
-    const dispatched = await dispatchInternal(context, dispatchInput);
-    result = dispatched;
-    isError = !(dispatched.status >= 200 && dispatched.status < 300);
+    // The replayed call's own ignoreWarnings/skip* flags apply. Setting them on
+    // the shared context is safe: the replay runs before the model resumes, so
+    // nothing else dispatches on it meanwhile.
+    context.dispatchedRequest = {
+      body: pendingAction.body,
+      query: pendingAction.query,
+    };
+    try {
+      const dispatched = await dispatchInternal(context, dispatchInput);
+      result = dispatched;
+      isError = !(dispatched.status >= 200 && dispatched.status < 300);
+    } finally {
+      context.dispatchedRequest = null;
+    }
   } else {
-    // Not a tool error — a deliberate user decision. Phrased so the model
-    // treats it as a stop signal rather than something to retry.
+    // Not a tool error — a deliberate user decision, or a guard that no longer
+    // holds. Phrased so the model treats it as a stop signal, not a retry.
     result = {
       status: "rejected",
       message:
+        rejection ??
         "The user reviewed this change and chose not to run it. Do not retry " +
-        "it; acknowledge and wait for their next instruction.",
+          "it; acknowledge and wait for their next instruction.",
     };
   }
 
@@ -744,6 +1009,7 @@ async function processStream<TParams>(
     abortController,
     config.maxConsecutiveToolErrors,
     onStepPersist,
+    new Set(config.terminalToolNames),
   );
 
   try {
@@ -774,12 +1040,16 @@ async function processStream<TParams>(
           emit("reasoning-delta", { text: part.text });
           break;
         case "error": {
-          const errorMsg = getErrorMessage(
-            (part as ErrorPart).error,
-            "An error occurred",
+          logger.error(
+            {
+              err: (part as ErrorPart).error,
+              conversationId: buffer.conversationId,
+              promptType: config.promptType,
+            },
+            "AI agent model stream failed",
           );
-          emit("error", { message: errorMsg });
-          processor.setError(errorMsg);
+          emit("error", { message: PUBLIC_STREAM_ERROR });
+          processor.setError(PUBLIC_STREAM_ERROR);
           break;
         }
         case "file":
@@ -805,11 +1075,29 @@ async function processStream<TParams>(
     }
   } catch (err) {
     if (!processor.isAborted && !abortController.signal.aborted) {
-      const errorMsg = getErrorMessage(err, "An error occurred");
-      emit("error", { message: errorMsg });
-      processor.setError(errorMsg);
+      logger.error(
+        {
+          err,
+          conversationId: buffer.conversationId,
+          promptType: config.promptType,
+        },
+        "AI agent stream processing failed",
+      );
+      emit("error", { message: PUBLIC_STREAM_ERROR });
+      processor.setError(PUBLIC_STREAM_ERROR);
     }
   }
 
   processor.flush();
+}
+
+function extractFinalAssistantText(messages: AIChatMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m && m.role === "assistant") {
+      const text = getMessageText(m).trim();
+      if (text) return text;
+    }
+  }
+  return "";
 }

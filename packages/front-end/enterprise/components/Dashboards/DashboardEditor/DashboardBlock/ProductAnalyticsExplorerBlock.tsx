@@ -19,7 +19,10 @@ import { isEqual } from "lodash";
 import { ProductAnalyticsExploration } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import useApi from "@/hooks/useApi";
-import { explorationPollDelayMs } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  explorationPollDelayMs,
+  isTableChartType,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
@@ -210,9 +213,7 @@ export function ProductAnalyticsExplorerVisualization({
     );
   }
 
-  const shouldShowTable = ["table", "timeseries-table"].includes(
-    block.config?.chartType ?? "",
-  );
+  const shouldShowTable = isTableChartType(block.config?.chartType);
 
   return (
     <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>

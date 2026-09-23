@@ -57,6 +57,7 @@ export default function BanditRefNewFields({
   feature,
   project,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   environments,
   prerequisiteValue,
@@ -87,6 +88,7 @@ export default function BanditRefNewFields({
   feature?: FeatureInterface;
   project?: string;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   prerequisiteValue: FeaturePrerequisite[];
@@ -256,6 +258,7 @@ export default function BanditRefNewFields({
           <TargetingFieldsGroup
             project={project || ""}
             attributeProjects={attributeProjects}
+            savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}

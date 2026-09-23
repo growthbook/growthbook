@@ -5,6 +5,8 @@ sidebarTitle: Connecting to Your Data Warehouse
 slug: /warehouses
 ---
 
+import CloudEgressIP from '/snippets/partials/_cloud-egress-ip.mdx';
+
 <Tip>
 **Don't have a data warehouse?**
 
@@ -21,7 +23,7 @@ One of the major benefits of GrowthBook is that your data remains securely store
 Your data should be safe from modification as GrowthBook only runs `SELECT` queries (or the equivalent for non-SQL data sources).
 Still we still always recommend creating read-only users with as few permissions as possible - ideally just read permissions on the tables with the data that needs to be aggregated.
 
-If you are using GrowthBook Cloud (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
+<CloudEgressIP />
 
 ## Saving your connection configuration on Growthbook Cloud or your self hosted server
 

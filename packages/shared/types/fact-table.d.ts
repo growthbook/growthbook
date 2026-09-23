@@ -11,7 +11,9 @@ import {
   columnRefValidator,
   metricTypeValidator,
   factTableColumnTypeValidator,
+  factTableTypeValidator,
   testFactFilterPropsValidator,
+  testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
@@ -30,11 +32,13 @@ import {
   funnelStepValidator,
   funnelOrderingValidator,
   funnelSettingsValidator,
+  conditionalInlineFiltersValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
+export type FactTableType = z.infer<typeof factTableTypeValidator>;
 
 // Funnel step / settings types (validators live in validators/fact-table).
 export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
@@ -55,6 +59,9 @@ export interface ColumnInterface {
   dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
+  // value -> extra column to prompt for when this column is filtered to that
+  // value; see getInlineFilterPromptColumns in shared/experiments.
+  conditionalInlineFilters?: ConditionalInlineFilters;
   topValues?: string[];
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;
@@ -93,12 +100,13 @@ export interface FactTableInterface {
   tags: string[];
   datasource: string;
   userIdTypes: string[];
+  userIdColumns?: Record<string, string>; // defaults to the id type names
   sql: string;
-  // Column in the fact table SQL holding the event timestamp. Empty/undefined
-  // means "timestamp". SQL generation aliases it to `timestamp` in the first CTE
-  // that selects from the fact table, so everything downstream is unchanged.
-  timestampColumn?: string;
+  timestampColumn?: string; // defaults to "timestamp"
   eventName: string;
+  // Set when the table was created through a flow that asked. Absent on older
+  // fact tables, which predate the question.
+  tableType?: FactTableType;
   columns: ColumnInterface[];
   columnsError?: string | null;
   columnRefreshPending?: boolean;
@@ -169,6 +177,9 @@ export type LegacyColumnRef = ColumnRef & {
 };
 
 export type RowFilter = z.infer<typeof rowFilterValidator>;
+export type ConditionalInlineFilters = z.infer<
+  typeof conditionalInlineFiltersValidator
+>;
 
 export type LegacyFactMetricInterface = Omit<
   FactMetricInterface,
@@ -200,6 +211,7 @@ export type UpdateFactFilterProps = z.infer<
   typeof updateFactFilterPropsValidator
 >;
 export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
+export type TestRowFiltersProps = z.infer<typeof testRowFiltersPropsValidator>;
 export type TestVirtualColumnProps = z.infer<
   typeof testVirtualColumnPropsValidator
 >;
@@ -213,6 +225,17 @@ export type CreateVirtualColumnProps = z.infer<
 export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 
+/**
+ * Columns detected by running a Fact Table's SQL, before anything is persisted.
+ * Returned by the test-query endpoint so the create flow can show the columns
+ * and their types, and post them back with the new Fact Table.
+ */
+export type DetectedFactTableColumn = {
+  column: string;
+  datatype: FactTableColumnType;
+  jsonFields?: JSONColumnFields;
+};
+
 export type FactTableMap = Map<string, FactTableInterface>;
 
 // Accepts both full fact tables and slimmed definitions. Use for utils that
@@ -224,4 +247,11 @@ export type FactFilterTestResults = {
   duration?: number;
   error?: string;
   results?: TestQueryRow[];
+};
+
+export type RowFilterTestResults = FactFilterTestResults & {
+  // The generated WHERE clause body, shown next to the sample rows so the user
+  // can see what their filters compile to. Only the dialect can build it, so it
+  // comes back with the results rather than being derived on the front-end.
+  where: string;
 };

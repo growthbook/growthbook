@@ -233,7 +233,7 @@ Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook inst
 
 #### Synchronous Init
 
-There is a alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
+There is an alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
@@ -390,7 +390,7 @@ This same tracking callback is used for both feature flag experiments and Visual
 
 ### Feature Flag Experiments
 
-There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+Evaluating the feature is what enrolls a user and fires `trackingCallback`. See [Feature Flag Experiments](/features/feature-flag-experiments).
 
 ```js
 // If this has an active experiment and the user is included,
@@ -548,7 +548,7 @@ const gb = new GrowthBook<AppFeatures>({
 Now, all feature flag methods will be strictly typed.
 
 ```ts
-// feature.value will by type `number`
+// feature.value will be type `number`
 const feature = gb.evalFeature("font-size");
 console.log(feature.value);
 
@@ -1279,7 +1279,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 
 ## Examples
 
-- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+- [TypeScript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
 
 ## Supported Features
 

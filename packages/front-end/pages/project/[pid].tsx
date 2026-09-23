@@ -2,7 +2,6 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiDetective } from "react-icons/pi";
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
-import NextLink from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
@@ -18,6 +17,8 @@ import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import ProjectApprovalSettings from "@/components/Projects/ProjectApprovalSettings";
 import ProjectAccessSettings from "@/components/Projects/ProjectAccessSettings";
+import DeleteProjectModal from "@/components/Projects/DeleteProjectModal";
+import ProjectTeams from "@/components/Projects/ProjectTeams";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
@@ -25,6 +26,7 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -33,6 +35,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import PageHead from "@/components/Layout/PageHead";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -76,10 +79,14 @@ const ProjectPage: FC = () => {
     null,
   );
   const [saveMsg, setSaveMsg] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});
 
   const permissionsUtil = usePermissionsUtil();
   const canEditSettings = permissionsUtil.canUpdateProject(pid);
+  // Externally managed projects are deleted from their manager, not here.
+  const canDelete =
+    permissionsUtil.canDeleteProject(pid) && !p?.managedBy?.type;
 
   const form = useForm<ProjectSettings>({ mode: "onChange" });
 
@@ -146,7 +153,11 @@ const ProjectPage: FC = () => {
     return (
       <div className="container pagecontents">
         <Callout status="error">
-          Project <code>{pid}</code> does not exist.
+          Project{" "}
+          <Text as="span" size="inherit" mono>
+            {pid}
+          </Text>{" "}
+          does not exist.
         </Callout>
       </div>
     );
@@ -159,6 +170,16 @@ const ProjectPage: FC = () => {
           existing={modalOpen}
           close={() => setModalOpen(null)}
           onSuccess={() => mutateDefinitions()}
+        />
+      )}
+      {deleteOpen && (
+        <DeleteProjectModal
+          project={p}
+          close={() => setDeleteOpen(false)}
+          onDeleted={async () => {
+            await mutateDefinitions();
+            router.push("/projects");
+          }}
         />
       )}
       {editChecklistOpen && (
@@ -200,14 +221,17 @@ const ProjectPage: FC = () => {
               ) : null}
             </Flex>
             <Flex gap="6" mb="4">
-              <Metadata
-                label="Public ID"
-                value={<code>{p.publicId || p.id}</code>}
-              />
-              <Metadata
-                label="ID"
-                value={<code className="text-muted">{p.id}</code>}
-              />
+              <Metadata label="ID" value={<Text mono>{p.id}</Text>} />
+              {p.publicId && (
+                <Metadata
+                  label="Public ID (SDK payloads)"
+                  value={
+                    <Text color="text-low" mono>
+                      {p.publicId}
+                    </Text>
+                  }
+                />
+              )}
             </Flex>
           </Flex>
           <DropdownMenu
@@ -218,6 +242,7 @@ const ProjectPage: FC = () => {
                 radius="full"
                 size="2"
                 highContrast
+                aria-label="Project actions"
               >
                 <BsThreeDotsVertical size={18} />
               </IconButton>
@@ -229,6 +254,17 @@ const ProjectPage: FC = () => {
               <DropdownMenuItem onClick={() => setModalOpen(p)}>
                 Edit project settings
               </DropdownMenuItem>
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    color="red"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    Delete project
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuGroup>
           </DropdownMenu>
         </Flex>
@@ -238,20 +274,12 @@ const ProjectPage: FC = () => {
           </Box>
         ) : (
           <Box>
-            <NextLink
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(p);
-              }}
-            >
-              Add a description
-            </NextLink>
+            <Link onClick={() => setModalOpen(p)}>Add a description</Link>
           </Box>
         )}
 
         <Box mt="4">
-          <Tabs defaultValue="members">
+          <Tabs defaultValue="members" persistInURL>
             <TabsList>
               <TabsTrigger value="members">Roles & Permissions</TabsTrigger>
               <TabsTrigger value="approvals">Approvals</TabsTrigger>
@@ -422,7 +450,11 @@ const ProjectPage: FC = () => {
                   </Flex>
                 </Frame>
                 <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
-                  <div className="container-fluid pagecontents d-flex">
+                  <div
+                    className="container-fluid pagecontents d-flex"
+                    // Keep the Save button clear of the help widget
+                    style={{ paddingRight: "80px" }}
+                  >
                     <div className="flex-grow-1 mr-4">
                       {saveMsg && (
                         <TempMessage
@@ -455,6 +487,7 @@ const ProjectPage: FC = () => {
               </TabsContent>
               <TabsContent value="members">
                 <ProjectAccessSettings project={p} />
+                <ProjectTeams project={pid} />
                 <MemberList
                   mutate={refreshOrganization}
                   project={pid}

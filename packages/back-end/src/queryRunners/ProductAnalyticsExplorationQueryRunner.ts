@@ -7,6 +7,7 @@ import { FactMetricInterface, FactTableMap } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
 import { transformProductAnalyticsRowsToResult } from "shared/enterprise";
 import { UpdateProps } from "shared/types/base-model";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
@@ -67,6 +68,13 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
     const rows = query.result as Record<string, unknown>[];
     if (!rows) {
       throw new Error("Product analytics exploration query result not found");
+    }
+    if (this.model.config.chartType === "rawTable") {
+      return {
+        rows: [],
+        rawRows: rows.slice(0, SQL_ROW_LIMIT),
+        truncated: rows.length > SQL_ROW_LIMIT,
+      };
     }
     const { orderedMetricIds } = (
       this.integration as SqlIntegration
