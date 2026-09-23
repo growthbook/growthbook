@@ -14,6 +14,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
+import { FaQuestionCircle } from "react-icons/fa";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -36,11 +37,22 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
-/** Join adjustment names into a readable list ("a, b, and c"). */
-function formatAdjustmentList(items: string[]): string {
-  if (items.length <= 1) return items[0] ?? "";
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+function AnalysisSettingInfo({ description }: { description: string }) {
+  return (
+    <Tooltip
+      className="text-muted"
+      body={
+        <div className="text-left">
+          <div>{description}</div>
+          <div className="mt-2">
+            Click in the table to drill down and see the impact.
+          </div>
+        </div>
+      }
+    >
+      <FaQuestionCircle size={12} style={{ display: "block" }} />
+    </Tooltip>
+  );
 }
 
 export interface Props {
@@ -205,33 +217,20 @@ export default function ResultsTab({
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
 
-  // Table-level note: a prior/CUPED/post-stratification adjusts every result
-  // column (Chance to Win, lift, and the intervals), not just the raw diff.
+  // Each active adjustment (Bayesian prior/CUPED/post-stratification) alters
+  // every result column, not just the raw diff. Surface a per-setting tooltip.
   const engineIsBayesian =
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) !== "frequentist";
   const anyMetricUsesProperPrior =
     snapshot?.settings?.metricSettings?.some(
       (m) => m.computedSettings?.properPrior,
     ) ?? false;
-  const adjustmentLabels: string[] = [];
-  if (engineIsBayesian && anyMetricUsesProperPrior) {
-    adjustmentLabels.push("Bayesian prior");
-  }
-  if (analysis?.settings?.regressionAdjusted) {
-    adjustmentLabels.push("CUPED");
-  }
-  if (
-    analysis?.settings?.postStratificationEnabled &&
-    !organization?.settings?.disablePrecomputedDimensions
-  ) {
-    adjustmentLabels.push("post-stratification");
-  }
-  const adjustmentMessage =
-    hasData && adjustmentLabels.length > 0
-      ? `Results below are affected by ${formatAdjustmentList(
-          adjustmentLabels,
-        )}.`
-      : null;
+  const priorUsed = hasData && engineIsBayesian && anyMetricUsesProperPrior;
+  const cupedUsed = hasData && !!analysis?.settings?.regressionAdjusted;
+  const postStratificationUsed =
+    hasData &&
+    !!analysis?.settings?.postStratificationEnabled &&
+    !organization?.settings?.disablePrecomputedDimensions;
 
   return (
     <div>
@@ -243,13 +242,7 @@ export default function ResultsTab({
       ) : null}
 
       <Box>
-        <Flex
-          direction="row"
-          align="start"
-          gap="3"
-          mx="1"
-          mb={adjustmentMessage ? "1" : "4"}
-        >
+        <Flex direction="row" align="start" gap="3" mx="1" mb="4">
           {!(
             experiment.type === "multi-armed-bandit" &&
             experiment.status === "running"
@@ -264,31 +257,46 @@ export default function ResultsTab({
           ) : null}
           {hasData && (
             <>
-              <Metadata
-                label="Engine"
-                value={
-                  analysis?.settings?.statsEngine === "frequentist"
-                    ? "Frequentist"
-                    : "Bayesian"
-                }
-              />
-              <Metadata
-                label="CUPED"
-                value={
-                  analysis?.settings?.regressionAdjusted
-                    ? "Enabled"
-                    : "Disabled"
-                }
-              />
-              {!organization?.settings?.disablePrecomputedDimensions ? (
+              <Flex align="center" gap="1">
                 <Metadata
-                  label="Post-Stratification"
+                  label="Engine"
                   value={
-                    analysis?.settings?.postStratificationEnabled
+                    analysis?.settings?.statsEngine === "frequentist"
+                      ? "Frequentist"
+                      : "Bayesian"
+                  }
+                />
+                {priorUsed ? (
+                  <AnalysisSettingInfo description="A Bayesian prior shrinks metric estimates towards the prior mean." />
+                ) : null}
+              </Flex>
+              <Flex align="center" gap="1">
+                <Metadata
+                  label="CUPED"
+                  value={
+                    analysis?.settings?.regressionAdjusted
                       ? "Enabled"
                       : "Disabled"
                   }
                 />
+                {cupedUsed ? (
+                  <AnalysisSettingInfo description="CUPED adjusts for pre-exposure mean imbalances across variations to reduce variance." />
+                ) : null}
+              </Flex>
+              {!organization?.settings?.disablePrecomputedDimensions ? (
+                <Flex align="center" gap="1">
+                  <Metadata
+                    label="Post-Stratification"
+                    value={
+                      analysis?.settings?.postStratificationEnabled
+                        ? "Enabled"
+                        : "Disabled"
+                    }
+                  />
+                  {postStratificationUsed ? (
+                    <AnalysisSettingInfo description="Post-stratification adjusts for within-dimension imbalances to reduce variance." />
+                  ) : null}
+                </Flex>
               ) : null}
               {analysis?.settings?.statsEngine === "frequentist" ? (
                 <Metadata
@@ -376,11 +384,6 @@ export default function ResultsTab({
             </>
           )}
         </Flex>
-        {adjustmentMessage ? (
-          <Text as="p" size="1" color="gray" mx="1" mb="4">
-            {adjustmentMessage}
-          </Text>
-        ) : null}
       </Box>
 
       <div className="appbox">
