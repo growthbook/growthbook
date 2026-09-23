@@ -95,7 +95,12 @@ const structureNodeSchema = z.object({
   docOrder: z.number().int().nonnegative().optional(),
   prevSiblingSelector: z.string().optional(),
   nextSiblingSelector: z.string().optional(),
+  // Computed layout, so the model knows a sibling inserted inside lands on
+  // the same row.
+  layout: z.enum(["flex-row", "flex-column", "grid"]).optional(),
 });
+
+const layoutSchema = z.enum(["flex-row", "flex-column", "grid"]).optional();
 
 // Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
 // gives the LLM real selectors to pick from rather than guessing.
@@ -125,6 +130,9 @@ const domDigestSchema = z.object({
       }),
     )
     .default([]),
+  // `parentSelector` / `parentLayout` (newer extensions): the direct parent
+  // and whether it lays its children out in a row, so an insert meant to go
+  // below a button row anchors to the row, not the button.
   buttons: z
     .array(
       z.object({
@@ -133,6 +141,8 @@ const domDigestSchema = z.object({
         text: z.string(),
         href: z.string().optional(),
         sectionSelector: z.string().optional(),
+        parentSelector: z.string().optional(),
+        parentLayout: layoutSchema,
       }),
     )
     .default([]),
@@ -143,6 +153,8 @@ const domDigestSchema = z.object({
         text: z.string(),
         href: z.string(),
         sectionSelector: z.string().optional(),
+        parentSelector: z.string().optional(),
+        parentLayout: layoutSchema,
       }),
     )
     .default([]),
@@ -165,6 +177,8 @@ const domDigestSchema = z.object({
         alt: z.string().optional(),
         src: z.string(),
         sectionSelector: z.string().optional(),
+        parentSelector: z.string().optional(),
+        parentLayout: layoutSchema,
       }),
     )
     .default([]),
@@ -429,6 +443,7 @@ Inserting new elements (banners, notices, sections, new blocks) — use the \`in
 - When the user asks to ADD, insert, prepend, append, or place NEW content on the page (a promotional banner, an announcement bar, a new section, a CTA that doesn't exist yet), return it in the \`insert\` array. Do NOT try to add content by setting or appending "html" on "body"/"html"/a container — that replaces the container's entire contents and crashes the page.
 - Each insert entry has: \`targetSelector\` (an existing element from the catalog to anchor to), \`position\` (beforebegin / afterbegin / beforeend / afterend, relative to that element), and \`html\` (the NEW markup ONLY — never the page's existing content).
 - "A full-width banner at the TOP of the page" → { targetSelector: "body", position: "afterbegin", html: "<div …>…</div>" }. "At the very bottom" → targetSelector "body", position "beforeend". Directly before/after a specific section → that section's selector with "beforebegin"/"afterend".
+- BELOW or ABOVE a row of items — buttons in a row, cards in a grid, nav links: anchor to the items' CONTAINER (\`afterend\` / \`beforebegin\` on the container), never to one of the items. An item's parent is almost always a flex row or a grid, so a sibling inserted next to an item lands on the same row no matter what width you give it. The catalog shows each button's and image's direct parent with its layout — e.g. \`parent: .hero-buttons (flex-row)\` — and the Page outline marks containers \`<div flex-row>\` / \`<div grid>\`; when the parent is one of those, target the parent. \`describeContainer\` and \`getComputedStyles\` (display) answer it for anything else.
 - Style the inserted markup with inline styles, or add rules in \`cssAppend\`. Give your new elements their own class names so your CSS can target them. (If the request wants a photographic image inside the banner, call \`generateImage\` and place the returned URL in the markup.)
 - You may return \`insert\` alongside \`mutations\` and \`cssAppend\` in one response. Inserts are applied idempotently and are safe on "body". Return an empty \`insert\` array when the request doesn't add any new elements.
 
@@ -491,7 +506,7 @@ Global JS that adds elements must be idempotent:
 - Prefer \`insert\` for new content — it is already guarded. When JS must create DOM, stamp a marker attribute on what you insert (e.g. \`data-gb-promo\`) and return early if \`document.querySelector('[data-gb-promo]')\` already exists.
 
 Tools you may call before producing the final JSON output:
-- \`generateImage\` — generate a single AI image and get a hosted URL. Call when the user asks to replace, set, or insert any image (or any background-image). The URL you get back can be placed directly into a mutation's \`value\` — as a \`src\` for <img>, inside a \`background-image: url(...)\` style, or as part of HTML markup for a new <img>. Pick the aspectRatio that matches where the image will appear (16:9 hero, 1:1 avatar, etc.). Call once per image; for multi-image requests (e.g. "build a carousel of 3 slides"), call multiple times. You are budgeted up to 3 image generations per turn.
+- \`generateImage\` — generate a single AI image and get a hosted URL. Call when the user asks to replace, set, or insert an image that does not exist yet (or any background-image). Never call it to recreate or approximate an image the user ATTACHED this turn — place the attachment's hosted URL from the Attached images block instead. A request for a distinct NEW image alongside an attachment ("place this logo and generate a hero background") still generates the new one. The URL you get back can be placed directly into a mutation's \`value\` — as a \`src\` for <img>, inside a \`background-image: url(...)\` style, or as part of HTML markup for a new <img>. Pick the aspectRatio that matches where the image will appear (16:9 hero, 1:1 avatar, etc.). Call once per image; for multi-image requests (e.g. "build a carousel of 3 slides"), call multiple times. You are budgeted up to 3 image generations per turn.
 - \`searchImageLibrary\` — list recent images the user has previously uploaded or generated. Useful when the user says "use one of my existing images" or references a prior visual. The results don't include visual content, only URLs and dates — prefer \`generateImage\` when the user describes a specific look.
 - \`getDesignTokens\` — fetch the organization's brand guidelines. Call when the user asks for changes that should be "on brand", "match our style", or "use our colors". Skip for purely tactical edits.
 - \`searchPastExperiments\` — search the user's previous A/B tests by name, hypothesis, or description. Call when the user references prior work ("similar to the pricing test", "what's worked here before", "try what we did on signup"). Returns experiment names + hypotheses + ids — never raw conversion numbers or revenue. Use the results to inform DIRECTION ("similar prior tests have leaned warmer/bolder/shorter"), not as a source of quoted numeric claims.
@@ -560,6 +575,21 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
     for (const it of items) lines.push(`- ${it}`);
   };
   const inSection = (s?: string) => (s ? ` (in \`${s}\`)` : "");
+  // Section plus the direct parent and its layout, for entries an insert
+  // might anchor to.
+  const where = (e: {
+    sectionSelector?: string;
+    parentSelector?: string;
+    parentLayout?: string;
+  }) => {
+    const parts = [
+      e.sectionSelector ? `in \`${e.sectionSelector}\`` : "",
+      e.parentSelector
+        ? `parent: \`${e.parentSelector}\`${e.parentLayout ? ` (${e.parentLayout})` : ""}`
+        : "",
+    ].filter(Boolean);
+    return parts.length ? ` (${parts.join("; ")})` : "";
+  };
   // Structural section first so the model treats body/html/main as
   // first-class targets for global styling requests, not fallbacks.
   section(
@@ -592,14 +622,13 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
       (b) =>
         `\`${b.selector}\` <${b.tag}> "${b.text}"${
           b.href ? ` → ${b.href}` : ""
-        }${inSection(b.sectionSelector)}`,
+        }${where(b)}`,
     ),
   );
   section(
     "Links",
     digest.links.map(
-      (l) =>
-        `\`${l.selector}\` "${l.text}" → ${l.href}${inSection(l.sectionSelector)}`,
+      (l) => `\`${l.selector}\` "${l.text}" → ${l.href}${where(l)}`,
     ),
   );
   section(
@@ -623,7 +652,7 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
       (img) =>
         `\`${img.selector}\`${img.alt ? ` alt="${img.alt}"` : ""} src=${
           img.src
-        }${inSection(img.sectionSelector)}`,
+        }${where(img)}`,
     ),
   );
   section(
@@ -656,10 +685,19 @@ const allDigestSelectors = (
   const out = new Set<string>();
   for (const s of digest.structural) out.add(s.selector);
   for (const h of digest.headings) out.add(h.selector);
-  for (const b of digest.buttons) out.add(b.selector);
-  for (const l of digest.links) out.add(l.selector);
+  for (const b of digest.buttons) {
+    out.add(b.selector);
+    if (b.parentSelector) out.add(b.parentSelector);
+  }
+  for (const l of digest.links) {
+    out.add(l.selector);
+    if (l.parentSelector) out.add(l.parentSelector);
+  }
   for (const i of digest.inputs) out.add(i.selector);
-  for (const img of digest.images) out.add(img.selector);
+  for (const img of digest.images) {
+    out.add(img.selector);
+    if (img.parentSelector) out.add(img.parentSelector);
+  }
   for (const el of digest.elements ?? []) out.add(el.selector);
   // html/body always resolve, even without a content-script digest.
   out.add("html");
@@ -707,7 +745,7 @@ const buildPrompt = ({
           )
           .join(
             "\n",
-          )}\nDecide from the request what each is for. To PLACE it on the page (replace an image, set a background, insert it), use its hosted URL verbatim as the src / background-image / <img> in inserted markup — never a data: URI. As a REFERENCE ("make it look like this", "match this layout"), read it for colors, layout, and copy, and don't put it on the page unless asked.\n`
+          )}\nDecide from the request what each is for. To PLACE it on the page (replace an image, set a background, insert it), use its hosted URL verbatim as the src / background-image / <img> in inserted markup — never a data: URI. As a REFERENCE ("make it look like this", "match this layout"), read it for colors, layout, and copy, and don't put it on the page unless asked. Never call generateImage to recreate an attached image — the attachment already has a hosted URL.\n`
       : "";
   const historyBlock =
     conversationHistory && conversationHistory.length > 0
@@ -1217,6 +1255,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     pageStructure,
     imageState,
     quarantineImages: !persist,
+    attachmentCount: attachments?.length ?? 0,
   });
   // Cast through unknown — the job store is invariant in TFinal for
   // type-erasure reasons but each job is used with one schema only.

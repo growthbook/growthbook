@@ -43,6 +43,7 @@ const nodes: PageStructureNode[] = [
     tag: "div",
     classes: ["grid"],
     docOrder: 3,
+    layout: "grid",
   },
   {
     selector: "footer",
@@ -97,7 +98,7 @@ describe("renderPageOutline", () => {
         "- `main` <main>",
         '  - `.hero` <section> "Build faster with GrowthBook and ship m…"',
         '  - `#features` <section#features> "Features"',
-        "    - `#features .grid` <div>",
+        "    - `#features .grid` <div grid>",
         '  - `#pricing` <section#pricing> "Simple pricing"',
         "- `footer` <footer>",
       ].join("\n"),
@@ -132,7 +133,12 @@ describe("describeContainer", () => {
       prevSiblingSelector: ".hero",
       nextSiblingSelector: "#pricing",
       children: [
-        { selector: "#features .grid", tag: "div", classes: ["grid"] },
+        {
+          selector: "#features .grid",
+          tag: "div",
+          classes: ["grid"],
+          layout: "grid",
+        },
       ],
     });
   });

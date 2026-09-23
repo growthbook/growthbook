@@ -16,6 +16,7 @@ export interface PageStructureNode {
   docOrder?: number;
   prevSiblingSelector?: string;
   nextSiblingSelector?: string;
+  layout?: "flex-row" | "flex-column" | "grid";
 }
 
 export interface StructureTreeNode {
@@ -66,10 +67,12 @@ export function buildStructureTree(
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : `${s.slice(0, n - 1)}…`;
 
+// Layout rides in the tag so a row or grid is visible where the model picks
+// an insert anchor.
 const describeLine = (n: PageStructureNode): string =>
-  `\`${n.selector}\` <${n.tag}${n.id ? `#${n.id}` : ""}>${
-    n.label ? ` "${truncate(n.label, 40)}"` : ""
-  }`;
+  `\`${n.selector}\` <${n.tag}${n.id ? `#${n.id}` : ""}${
+    n.layout ? ` ${n.layout}` : ""
+  }>${n.label ? ` "${truncate(n.label, 40)}"` : ""}`;
 
 // Indented outline of the top of the tree. Deeper levels stay reachable via
 // describeContainer, so the budget goes to the containers a request is most
@@ -112,6 +115,7 @@ export interface ContainerSummary {
   label?: string;
   classes?: string[];
   role?: string;
+  layout?: PageStructureNode["layout"];
 }
 
 export interface ContainerDescription extends ContainerSummary {
@@ -128,6 +132,7 @@ const summarize = (n: PageStructureNode): ContainerSummary => ({
   ...(n.label ? { label: n.label } : {}),
   ...(n.classes?.length ? { classes: n.classes } : {}),
   ...(n.role ? { role: n.role } : {}),
+  ...(n.layout ? { layout: n.layout } : {}),
 });
 
 export function describeContainer(

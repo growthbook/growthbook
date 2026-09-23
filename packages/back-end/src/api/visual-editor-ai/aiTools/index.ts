@@ -43,6 +43,8 @@ export interface VisualEditorToolsetOptions {
   disabled?: boolean;
   imageState?: ImageTurnState;
   quarantineImages?: boolean;
+  // See GenerateImageToolContext.attachmentCount.
+  attachmentCount?: number;
 }
 
 export function newImageTurnState(): ImageTurnState {
@@ -62,6 +64,7 @@ export function buildVisualEditorTools({
   disabled = false,
   imageState,
   quarantineImages = true,
+  attachmentCount = 0,
 }: VisualEditorToolsetOptions): ToolSet | undefined {
   if (disabled) return undefined;
   const turnCounter = imageState ?? newImageTurnState();
@@ -71,6 +74,7 @@ export function buildVisualEditorTools({
       context,
       turnCounter,
       quarantine: quarantineImages,
+      attachmentCount,
     }),
     searchImageLibrary: searchImageLibraryTool(context),
     getDesignTokens: getDesignTokensTool(context),
