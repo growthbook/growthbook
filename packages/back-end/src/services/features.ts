@@ -45,6 +45,7 @@ import {
   withoutUnsupportedSavedGroupCapabilities,
   findAllReferencedSavedGroupIds,
   readSavedGroupReferenceId,
+  savedGroupFormatFromConnection,
   SavedGroupPayloadStrategy,
   SDKCapability,
   buildConstantValueMap,
@@ -1195,7 +1196,7 @@ export async function refreshSDKPayloadCache({
             includeRedirectExperiments: connection.includeRedirectExperiments,
             includeRuleIds: connection.includeRuleIds,
             hashSecureAttributes: connection.hashSecureAttributes,
-            savedGroupFormat: connection.savedGroupFormat,
+            savedGroupFormat: savedGroupFormatFromConnection(connection),
             includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
             includeCustomFieldsInMetadata:
               connection.includeCustomFieldsInMetadata,
