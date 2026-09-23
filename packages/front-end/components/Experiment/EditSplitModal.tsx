@@ -71,8 +71,11 @@ export default function EditSplitModal({
             <VariationLabel number={i} name={v.name ?? `Variation ${i}`} />
             <PercentField
               value={weights[i] ?? 0}
-              // The rest of the split absorbs the change, as it does everywhere
-              // else a weight is edited.
+              // Held until the field is left, as the variations table does:
+              // the rest of the split moves under the pointer otherwise. The
+              // rest then absorbs the change, fractions and all.
+              commitOn="blur"
+              step="any"
               onChange={(weight) => setWeights(rebalance(weights, i, weight))}
               ariaLabel={`${v.name || v.key || `Variation ${i}`} split`}
             />

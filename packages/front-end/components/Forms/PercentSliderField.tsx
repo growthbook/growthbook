@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Box, Flex, Slider } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import { decimalToPercent, percentToDecimal } from "@/services/utils";
@@ -11,12 +12,34 @@ export interface Props {
   onChange: (value: number) => void;
   disabled?: boolean;
   ariaLabel?: string;
+  /**
+   * "blur" holds what is typed until the field is left, for a field whose
+   * change moves the other fields around it. "change" reports every keystroke.
+   */
+  commitOn?: "change" | "blur";
+  /** Whole percentages by default; "any" takes fractions. */
+  step?: number | "any";
 }
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
 /** The typed half: a percentage in a field that carries its own "%". */
-export function PercentField({ value, onChange, disabled, ariaLabel }: Props) {
+export function PercentField({
+  value,
+  onChange,
+  disabled,
+  ariaLabel,
+  commitOn = "change",
+  step = 1,
+}: Props) {
+  const percent = isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0);
+  // What is being typed, which only becomes the value once the field is left.
+  const [typed, setTyped] = useState<string | number>(percent);
+  useEffect(() => setTyped(percent), [percent]);
+
+  const onBlurCommit = commitOn === "blur";
+  const commit = (raw: string) => onChange(clamp(percentToDecimal(raw)));
+
   return (
     <Box
       position="relative"
@@ -26,12 +49,15 @@ export function PercentField({ value, onChange, disabled, ariaLabel }: Props) {
       <Field
         size="md"
         disabled={disabled}
-        value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}
-        onChange={(e) => onChange(clamp(percentToDecimal(e.target.value)))}
+        value={onBlurCommit ? typed : percent}
+        onChange={(e) =>
+          onBlurCommit ? setTyped(e.target.value) : commit(e.target.value)
+        }
+        onBlur={onBlurCommit ? (e) => commit(e.target.value) : undefined}
         type="number"
         min={0}
         max={100}
-        step="1"
+        step={step}
         aria-label={ariaLabel}
       />
       <Text as="span">%</Text>
