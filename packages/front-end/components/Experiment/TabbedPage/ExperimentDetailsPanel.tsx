@@ -1,6 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import { PiPencilSimple } from "react-icons/pi";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -21,8 +20,7 @@ import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionField";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
-import Tooltip from "@/ui/Tooltip";
-import styles from "./ExperimentDetailsPanel.module.scss";
+import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -66,23 +64,19 @@ export default function ExperimentDetailsPanel({
 
   const pencil = (label: string, onClick: () => void) =>
     canEdit ? (
-      <span className={styles.edit}>
-        <Tooltip content={editsBlocked ?? label}>
-          <IconButton
-            size="1"
-            variant="ghost"
-            color="violet"
-            radius="medium"
-            disabled={!!editsBlocked}
-            aria-label={label}
-            style={{ margin: 0 }}
-            onClick={onClick}
-          >
-            <PiPencilSimple size={14} />
-          </IconButton>
-        </Tooltip>
-      </span>
+      <QuickEditButton
+        label={label}
+        onClick={onClick}
+        blockedReason={editsBlocked}
+      />
     ) : null;
+
+  // Each field of the General block opens its own quick editor. The key only
+  // changes while nothing is serving it.
+  const fieldAction = (field: QuickField) => {
+    if (field === "trackingKey" && experiment.status !== "draft") return null;
+    return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
+  };
   const isHoldout = experiment.type === "holdout";
   const { canEdit } = useExperimentEditing(experiment, disableEditing);
 
@@ -140,7 +134,7 @@ export default function ExperimentDetailsPanel({
               }
             />
             {!isHoldout && (
-              <Box className={styles.revealsEdit}>
+              <Box className={revealsQuickEdit}>
                 <DescriptionField
                   stacked
                   experiment={experiment}
@@ -155,11 +149,14 @@ export default function ExperimentDetailsPanel({
             <Separator size="4" />
             <PanelSection
               title="General"
-              action={pencil("Edit details", () =>
-                isHoldout ? setShowEditInfoModal(true) : editSection("general"),
-              )}
+              action={
+                isHoldout
+                  ? pencil("Edit details", () => setShowEditInfoModal(true))
+                  : null
+              }
             >
               <ProjectTagBar
+                fieldAction={isHoldout ? undefined : fieldAction}
                 vertical
                 experiment={experiment}
                 holdout={holdout}
@@ -225,6 +222,15 @@ export default function ExperimentDetailsPanel({
   );
 }
 
+type QuickField = "project" | "trackingKey" | "owner" | "tags";
+
+const QUICK_FIELD_LABELS: Record<QuickField, string> = {
+  project: "Edit project",
+  trackingKey: "Edit experiment key",
+  owner: "Edit owner",
+  tags: "Edit tags",
+};
+
 /** A titled block of the panel, with the button that edits it. */
 function PanelSection({
   title,
@@ -236,7 +242,7 @@ function PanelSection({
   children: ReactNode;
 }) {
   return (
-    <Flex direction="column" gap="4" className={styles.revealsEdit}>
+    <Flex direction="column" gap="4" className={revealsQuickEdit}>
       <Flex align="center" justify="between" gap="2">
         <Text
           size="sm"

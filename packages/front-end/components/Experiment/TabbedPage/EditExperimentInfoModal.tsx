@@ -22,12 +22,27 @@ import {
 
 export type FocusSelector = "project" | "tags" | "name" | "projects";
 
-/** Which of the experiment's details the modal edits; all of them by default. */
-export type InfoSection = "all" | "general" | "description" | "customFields";
+/**
+ * Which of the experiment's details the modal edits. One field makes a quick,
+ * narrow editor; custom fields are edited as a block.
+ */
+export type InfoSection =
+  | "all"
+  | "name"
+  | "trackingKey"
+  | "owner"
+  | "tags"
+  | "project"
+  | "description"
+  | "customFields";
 
 const SECTION_HEADERS: Record<InfoSection, string> = {
   all: "Edit Info",
-  general: "Edit Details",
+  name: "Edit Name",
+  trackingKey: "Edit Experiment Key",
+  owner: "Edit Owner",
+  tags: "Edit Tags",
+  project: "Edit Project",
   description: "Edit Description",
   customFields: "Edit Additional Fields",
 };
@@ -49,6 +64,8 @@ export default function EditExperimentInfoModal({
 }: Props) {
   const shows = (part: Exclude<InfoSection, "all">) =>
     section === "all" || section === part;
+  const focus: InfoSection | FocusSelector =
+    section === "all" ? focusSelector : section;
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
@@ -88,7 +105,7 @@ export default function EditExperimentInfoModal({
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
-      size="lg"
+      size={section === "all" || section === "description" ? "lg" : "md"}
       trackingEventModalSource="experiment-more-menu"
       header={SECTION_HEADERS[section]}
       submit={form.handleSubmit(async (data) => {
@@ -99,36 +116,45 @@ export default function EditExperimentInfoModal({
         mutate();
       })}
     >
-      {shows("general") ? (
+      {shows("name") ? (
+        <Field
+          size="legacy"
+          autoFocus={focus === "name"}
+          label="Experiment Name"
+          {...form.register("name")}
+          required
+        />
+      ) : null}
+      {shows("trackingKey") ? (
+        <Field
+          size="legacy"
+          autoFocus={focus === "trackingKey"}
+          disabled={experiment.status !== "draft"}
+          label="Experiment Key"
+          {...form.register("trackingKey")}
+          required
+        />
+      ) : null}
+      {shows("owner") ? (
+        <SelectOwner
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
+        />
+      ) : null}
+      {shows("tags") ? (
+        <div className="form-group">
+          <Box mb="2">
+            <Text weight="semibold">Tags</Text>
+          </Box>
+          <TagsInput
+            autoFocus={focus === "tags"}
+            value={form.watch("tags") ?? []}
+            onChange={(tags) => form.setValue("tags", tags)}
+          />
+        </div>
+      ) : null}
+      {shows("project") ? (
         <>
-          <Field
-            size="legacy"
-            autoFocus={focusSelector === "name"}
-            label="Experiment Name"
-            {...form.register("name")}
-            required
-          />
-          <Field
-            size="legacy"
-            disabled={experiment.status !== "draft"}
-            label="Experiment Key"
-            {...form.register("trackingKey")}
-            required
-          />
-          <SelectOwner
-            value={form.watch("owner")}
-            onChange={(v) => form.setValue("owner", v)}
-          />
-          <div className="form-group">
-            <Box mb="2">
-              <Text weight="semibold">Tags</Text>
-            </Box>
-            <TagsInput
-              autoFocus={focusSelector === "tags"}
-              value={form.watch("tags") ?? []}
-              onChange={(tags) => form.setValue("tags", tags)}
-            />
-          </div>
           <SelectField
             size="legacy"
             label={
@@ -142,7 +168,7 @@ export default function EditExperimentInfoModal({
                 />
               </>
             }
-            autoFocus={focusSelector === "project"}
+            autoFocus={focus === "project"}
             value={form.watch("project")}
             onChange={(v) => form.setValue("project", v)}
             options={projectOptions}

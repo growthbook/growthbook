@@ -73,7 +73,7 @@ const focusFirstField: NonNullable<
   const content = e.currentTarget as HTMLElement;
   e.preventDefault();
   const field = content.querySelector<HTMLElement>(
-    "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([disabled]), textarea:not([disabled])",
+    "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([disabled]), textarea:not([disabled]), [contenteditable='true']",
   );
   (field ?? content).focus();
 };

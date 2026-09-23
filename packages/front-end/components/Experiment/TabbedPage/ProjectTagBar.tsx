@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
@@ -30,6 +31,10 @@ export interface Props {
   editTags?: (() => void) | null;
   /** Stack the fields for the side panel instead of the header's wrapping row. */
   vertical?: boolean;
+  /** The quick-edit button for one field's row, where that field is editable. */
+  fieldAction?: (
+    field: "project" | "trackingKey" | "owner" | "tags",
+  ) => ReactNode;
 }
 
 export default function ProjectTagBar({
@@ -41,6 +46,7 @@ export default function ProjectTagBar({
   editTags,
   isManaged,
   vertical,
+  fieldAction,
 }: Props) {
   const {
     projects,
@@ -267,6 +273,7 @@ export default function ProjectTagBar({
         size="sm"
         stacked={vertical}
         label="Project"
+        action={fieldAction?.("project")}
         value={renderProjectMetaDataValue()}
       />
     ) : holdout ? (
@@ -329,6 +336,7 @@ export default function ProjectTagBar({
             size="sm"
             stacked={vertical}
             label="Experiment Key"
+            action={fieldAction?.("trackingKey")}
             value={trackingKey || "None"}
           />
         )}
@@ -348,6 +356,7 @@ export default function ProjectTagBar({
           size="sm"
           stacked={vertical}
           label="Owner"
+          action={fieldAction?.("owner")}
           value={renderOwner()}
         />
         <Metadata
@@ -379,6 +388,7 @@ export default function ProjectTagBar({
             size="sm"
             stacked={vertical}
             label="Tags"
+            action={fieldAction?.("tags")}
             value={renderTagsValue()}
           />
         )}

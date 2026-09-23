@@ -89,6 +89,9 @@ import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHo
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 import ExperimentActionButtons from "./ExperimentActionButtons";
+import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
+import EditExperimentInfoModal from "./EditExperimentInfoModal";
+import { useEditsBlockedReason } from "./ExperimentEdits";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
 
@@ -367,6 +370,8 @@ export default function ExperimentHeader({
     ? permissionsUtil.canDeleteExperiment(experiment)
     : permissionsUtil.canDeleteHoldout(holdout);
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
+  const [editingName, setEditingName] = useState(false);
+  const editsBlocked = useEditsBlockedReason();
 
   let hasRunExperimentsPermission = true;
   if (envs.length > 0) {
@@ -996,9 +1001,18 @@ export default function ExperimentHeader({
         />
       ) : null}
 
+      {editingName ? (
+        <EditExperimentInfoModal
+          experiment={experiment}
+          setShowEditInfoModal={setEditingName}
+          mutate={mutate}
+          section="name"
+        />
+      ) : null}
+
       <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-0">
         <Flex direction="row" align="start" justify="between" gap="5">
-          <Flex align="center" gap="2">
+          <Flex align="center" gap="2" className={revealsQuickEdit}>
             <Heading
               as="h1"
               size="2xl"
@@ -1008,6 +1022,13 @@ export default function ExperimentHeader({
             >
               {experiment.name}
             </Heading>
+            {canEditExperiment && !isHoldout ? (
+              <QuickEditButton
+                label="Edit name"
+                onClick={() => setEditingName(true)}
+                blockedReason={editsBlocked}
+              />
+            ) : null}
             <Box style={{ userSelect: "none" }}>
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
