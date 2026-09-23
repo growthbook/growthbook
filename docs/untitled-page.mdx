@@ -1,1 +1,2124 @@
+---
+description: "Implement GrowthBook feature flags across Next.js Server Components, Client Components, and Route Handlers with stable identity, safe fallbacks, tests, observability, rollout controls, and a complete removal path."
+sidebarTitle: "Production feature flags for Next.js"
+last_verified: {}
+last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
+tested_stack:
+  next: "16.3.0"
+  react: "19.2.8"
+  typescript: "5.x"
+  flags: "4.3.0"
+  "@flags-sdk/growthbook": "0.3.1"
+  "@growthbook/growthbook": "1.7.0"
+  "@growthbook/growthbook-react": "1.7.0"
+---
 
+## TL;DR
+
+This guide adds one production feature flag to a Next.js App Router application without creating server/client disagreement or an unsafe dependency on remote configuration. It gives requests a stable identity, resolves the same decision across Server Components, Client Components, and Route Handlers, keeps the legacy checkout as the code fallback, and separates evaluation logs from experiment exposure events.
+
+The rollout follows a 0 → 1 → 100 sequence: deploy a disabled foundation, prove one internal path with parity and failure tests, then expand deliberately and remove the flag only after the new checkout becomes the code default.
+
+_This guide is optimized for AI coding agents, and it is recommended that you hand it off to your agent of choice for implementation._
+
+## Guide map
+
+| Phase | What the agent does | Receipt to return |
+| --- | --- | --- |
+| 0 — Make safe | Inspect runtime boundaries, choose identity and fallback behavior, add typed flags, and deploy with the feature disabled | Repository findings, passing tests, and legacy behavior in every surface |
+| 1 — Prove one path | Enable an internal cohort, compare page/API decisions, verify exposure semantics, and inject payload and identity failures | Matching decisions, bounded configuration behavior, and a tested kill switch |
+| 100 — Operate and remove | Ramp traffic, monitor outcomes, make the new checkout the default, and delete the temporary branch and flag | Rollout record, rollback proof, ownership, and cleanup diff |
+
+## Give this guide to your coding agent
+
+Copy this page's URL and the prompt below into a coding agent that can inspect your repository. Replace `REPLACE_WITH_REPOSITORY` with the repository path or name and `REPLACE_WITH_GUIDE_URL` with this page's public URL. Start in a branch, worktree, or disposable clone, and use a non-production GrowthBook environment for the first pass.
+
+```text
+You are working in REPLACE_WITH_REPOSITORY.
+
+Your task is to add production-ready GrowthBook feature flags to this Next.js
+App Router application while preserving current behavior and a known-safe
+fallback.
+
+Read REPLACE_WITH_GUIDE_URL in full before editing. Also read the repository's
+local agent instructions. Treat the operator's instructions, repository truth,
+and current official product/framework documentation as authoritative when they
+conflict with the guide. Revalidate the guide's tested versions and volatile
+surfaces before copying an executable step.
+
+Inspect the repository first. Adapt the reference implementation to its existing
+identity, analytics, logging, secrets, tests, and deployment conventions; do not
+blindly overwrite files or invent credentials, identifiers, metrics, or domains.
+Complete phase 0 and the safe, non-production parts of phase 1. Do not perform a
+production deployment, enable production traffic, or make another external write
+unless I explicitly authorize that exact action.
+
+Return: your fit or reject decision; assumptions; files changed; commands and
+tests run; feature-delivery, identity, parity, exposure, failure, and rollback
+receipts; deviations from the guide; and the remaining manual or production
+steps. If you cannot fetch the guide URL, stop and ask me for its Markdown
+version. Do not proceed from the TL;DR alone.
+```
+
+Use this guide when the request sounds simple:
+
+> Add feature flags to this Next.js app.
+
+The first Boolean is easy. The production task is larger. The same decision must resolve consistently in a Server Component, a Client Component, and a Route Handler. Anonymous users need durable identities. Logged-in users and organizations need an explicit randomization unit. A missing payload must select known-safe behavior. A flag change must propagate on a bounded schedule. Experiment exposure events must mean what their name says. The code also needs a final state in which the temporary branch and flag no longer exist.
+
+This guide implements that complete path for a Next.js App Router application. It starts with a disabled `new-checkout-flow` flag, enables it for internal users, expands it through a deterministic percentage rollout, and ends by deleting the flag after the new path becomes the code default.
+
+## Task contract
+
+**Task:** Put a new checkout flow behind a GrowthBook feature flag and operate it from 0% to 100% exposure without requiring a deployment for each rollout step.
+
+**Use this guide when:**
+
+- The repository uses Next.js App Router.
+- At least 1 decision happens in a Server Component, Server Function, or Route Handler.
+- The team needs runtime targeting, gradual rollout, a kill switch, or an experiment path.
+- The old implementation can remain available during rollout.
+- The application runs with the Node.js runtime for the server-side integration shown here.
+
+**Do not use this guide when:**
+
+- The value is build-time configuration such as a public API base URL.
+- The condition is authorization, an entitlement, a billing limit, or a security boundary. Keep those checks in the authoritative server-side policy layer.
+- The change cannot safely support 2 implementations at once, such as an incompatible destructive database migration without a compatibility phase.
+- The application is a static export with no request-time server. Use a browser SDK integration instead and accept that the SDK payload and client-visible rules reach the browser.
+- A single environment variable, changed only through a reviewed deployment, satisfies the full lifecycle.
+
+**Tested stack:** Next.js 16.3.0, React 19.2.8, TypeScript 5, `flags` 4.3.0, `@flags-sdk/growthbook` 0.3.1, and GrowthBook JavaScript/React SDK 1.7.0. Next.js 16 renamed `middleware.ts` to `proxy.ts` and made `cookies()` and `headers()` asynchronous. For Next.js 15, keep the same identity design but use the file convention and APIs supported by that version.
+
+**Required access:**
+
+- Read and edit access to the Next.js repository.
+- A GrowthBook organization with permission to create an SDK Connection and a feature flag.
+- Environment-variable access for local, preview, staging, and production deployments.
+- Access to server logs or the application's analytics pipeline.
+- A non-production environment in which the new and old paths can both be exercised.
+
+**Files created or changed in the primary implementation:**
+
+```text
+.env.local
+src/proxy.ts
+src/lib/auth/viewer.ts
+src/lib/feature-flags/attributes.ts
+src/lib/feature-flags/telemetry.ts
+src/lib/feature-flags/flags.ts
+src/app/checkout/page.tsx
+src/app/checkout/checkout-client.tsx
+src/app/api/checkout/config/route.ts
+src/lib/feature-flags/evaluation.test.ts
+src/lib/feature-flags/attributes.test.ts
+tests/feature-flag-parity.spec.ts
+```
+
+**End state:**
+
+- The old checkout remains the code fallback until the rollout is complete.
+- The same request identity receives the same decision in the page and API.
+- A missing, disabled, malformed, timed-out, or unreachable GrowthBook payload selects the old checkout.
+- Server logs distinguish feature evaluation from experiment exposure.
+- Development, staging, and production use SDK keys tied to their own environments.
+- CI rejects unknown feature keys and exercises both code paths.
+- The team can turn the new path off, verify the rollback, and later remove both the old path and the flag.
+
+**Rollback:** Set the production feature environment to disabled or publish a top-priority rule that forces `false`. Verify the page and the API return the legacy path for a known identity. Do not delete the flag during an incident. Deletion removes it from the SDK payload, which invokes the code fallback, but it also discards the clearest control-plane receipt while responders are diagnosing the problem.
+
+## First inspect the repository
+
+Do not install an SDK until you know where the decision must run. Run these commands from the application root:
+
+```bash
+node --version
+npm ls next react react-dom --depth=0
+find src app pages -maxdepth 3 -type f 2>/dev/null | sort | sed -n '1,200p'
+grep -R "use client" -n src/app app 2>/dev/null | sed -n '1,120p'
+grep -R "cookies()\|headers()\|export async function \(GET\|POST\)" -n src/app app 2>/dev/null | sed -n '1,160p'
+grep -R "FEATURE_\|FLAG_\|process\.env.*CHECKOUT\|Math\.random" -n src app pages 2>/dev/null | sed -n '1,160p'
+```
+
+Use PowerShell equivalents on Windows:
+
+```powershell
+node --version
+npm ls next react react-dom --depth=0
+rg --files src app pages 2>$null | Select-Object -First 200
+rg -n 'use client|cookies\(\)|headers\(\)|export async function (GET|POST)' src app 2>$null
+rg -n 'FEATURE_|FLAG_|process\.env.*CHECKOUT|Math\.random' src app pages 2>$null
+```
+
+Record these answers before changing code:
+
+1. Is the repository App Router, Pages Router, or mixed?
+2. Is the checkout route rendered dynamically or prerendered?
+3. Which part of the decision belongs on the server?
+4. Does a Client Component only need the resolved value, or must it evaluate flags independently after hydration?
+5. What authenticated identity already exists: user, account, workspace, organization, or none?
+6. What anonymous identifier already exists, and who owns its consent and retention policy?
+7. Does an analytics event pipeline already reach the data source used for experimentation?
+8. Does the deployment run Node.js, Edge, static export, or a mixture?
+9. Is the application deployed on Vercel, self-hosted as multiple Next.js instances, or hosted on another platform?
+10. What is the safe behavior when configuration cannot load?
+
+If any answer is unknown, preserve the old path and make `false` the fallback. A coding agent should not infer an identity strategy, analytics contract, or safe failure state from a component name.
+
+### Repository decision tree
+
+Follow this decision tree:
+
+```text
+Does any flag decision protect server behavior or sensitive rules?
+|
++-- Yes --> Evaluate on the server.
+|           |
+|           +-- Using Next.js App Router with Vercel Flags conventions?
+|           |     |
+|           |     +-- Yes --> Use @flags-sdk/growthbook as the primary path.
+|           |     +-- No  --> Use @growthbook/growthbook directly on the server.
+|           |
+|           +-- Does a Client Component need the value?
+|                 |
+|                 +-- Only for rendering/actions --> Pass the resolved primitive as a prop.
+|                 +-- It must evaluate independently --> Hydrate a decrypted payload and identical
+|                                                       attributes, or use front-end remote evaluation.
+|
++-- No --> Is the application front-end-only?
+            |
+            +-- Yes --> Use @growthbook/growthbook-react.
+            +-- No  --> Prefer server evaluation and pass the result down.
+```
+
+The default in this guide is the first server-side branch: `@flags-sdk/growthbook`. It fits App Router's request model, provides a request-deduplicated `identify` function, supports Vercel Flags tooling, and keeps flag definitions in one typed module. The direct JavaScript and React SDK path appears later as a coherent alternative, not as code to mix into the same decision.
+
+## Choose the integration boundary
+
+The packages overlap, but they solve different integration problems.
+
+| Path | Use it for | Where evaluation runs | Main tradeoff |
+| --- | --- | --- | --- |
+| `@flags-sdk/growthbook` | App Router backends and hybrid apps using the Flags SDK convention | Server by default | Adds the Flags SDK abstraction and uses a shared `GrowthBookClient` behind the adapter |
+| `@growthbook/growthbook` | Direct Server Component, Route Handler, Node.js, or custom payload integration | Wherever you instantiate it | You own request scoping, payload caching, hydration, and lifecycle |
+| `@growthbook/growthbook-react` | Client Components that must evaluate or react to changes in the browser | Browser; React context and hooks | The browser receives a payload unless you use remote evaluation; server/client identity and hydration require care |
+
+Use only 1 evaluation owner for a particular decision. If a Server Component evaluates `new-checkout-flow`, pass that Boolean into the Client Component. Do not evaluate it again in the browser just because the component contains `"use client"`. Re-evaluating can create a hydration mismatch, a different assignment, and a duplicate experiment exposure.
+
+The GrowthBook [Next.js adapter reference](/lib/nextjs), [JavaScript SDK reference](/lib/js), and [React SDK reference](/lib/react) cover each package separately. This guide covers the application architecture between them.
+
+## Create the GrowthBook environment boundary
+
+Create separate SDK Connections for development, staging, and production. Each connection maps to 1 GrowthBook environment and has its own client key. The production process must receive only the production key. See [GrowthBook environments and SDK connections](/features/environments#environments-and-sdks).
+
+In GrowthBook:
+
+1. Open **SDK Configuration**.
+2. Confirm the built-in `dev`, `staging`, and `production` environments exist.
+3. Create a Next.js/Flags SDK Connection for each environment used by the application.
+4. Copy each connection's client key. It begins with `sdk-`.
+5. Keep the production connection server-side. Do not prefix these variables with `NEXT_PUBLIC_` in the primary adapter path.
+
+Create `.env.local` for local development:
+
+```bash
+GROWTHBOOK_CLIENT_KEY="sdk_REPLACE_WITH_DEV_KEY"
+GROWTHBOOK_API_HOST="https://cdn.growthbook.io"
+
+# Optional. Set only if SDK payload encryption is enabled for this connection.
+GROWTHBOOK_DECRYPTION_KEY=""
+
+# Optional. Used only to pseudonymize diagnostic unit ids in this guide.
+FEATURE_TELEMETRY_HASH_KEY="replace-with-a-random-server-only-secret"
+```
+
+The SDK client key identifies a read-only SDK payload endpoint; it is not an administrative API credential. Still, keeping the primary integration server-side prevents targeting rules and unused variations from being sent to the browser. Treat the decryption key, telemetry hash key, webhook secret, Flags Explorer API key, and `FLAGS_SECRET` as actual secrets. Never expose them through `NEXT_PUBLIC_` variables or browser props.
+
+Set the staging and production values in the deployment platform rather than committing them. Then verify the environment has a key without printing the key itself:
+
+```bash
+node -e "for (const k of ['GROWTHBOOK_CLIENT_KEY']) { if (!process.env[k]) process.exitCode = 1; console.log(k, process.env[k] ? 'set' : 'missing') }"
+```
+
+Expected receipt:
+
+```text
+GROWTHBOOK_CLIENT_KEY set
+```
+
+If it prints `missing`, stop. A silent empty key makes every feature fall back and can conceal a broken production integration.
+
+## Create a safe first feature
+
+In GrowthBook, create a feature with these fields:
+
+```text
+Key: new-checkout-flow
+Type: Boolean
+Description: Owner: Checkout team. Remove after the new checkout is the code default and the rollback window closes.
+Default value: false
+```
+
+Feature keys cannot be renamed after creation. Use a semantic key that describes the behavior, not a ticket number or launch date. Review [feature key, type, state, and fallback behavior](/features/basics) before choosing a key.
+
+Enable the feature in `dev`. Leave `staging` and `production` at `false` until the code is deployed. In each environment, add rules in this order:
+
+1. Force `true` when `employee` is `true`.
+2. Optionally force `true` for an explicit test organization.
+3. Roll out `true` by percentage when `identity_ready` is `true`.
+4. Fall through to the feature default, `false`.
+
+GrowthBook evaluates rules top to bottom, and the first matching rule wins. A percentage rollout should hash on the unit that must stay together:
+
+- Use `organization_id` when every member of a B2B account must receive the same checkout.
+- Use `user_id` when assignments should follow authenticated users across devices.
+- Use `anonymous_id` when the experience begins before login and must remain stable through that browser journey.
+- Use `id` only after defining exactly what `id` represents in the application.
+
+Do not hash on email, session ID, request ID, URL, or a value that changes during the workflow. Read [targeting attributes](/features/targeting) and [percentage rollout behavior](/features/rules#targeting-rule-forced-value-or-percentage-rollout) before publishing the production rule.
+
+## Implement the server-first adapter path
+
+Install pinned major/minor versions for the first implementation. A lockfile should capture the exact transitive versions used by CI:
+
+```bash
+npm install @flags-sdk/growthbook@0.3.1 flags@4.3.0
+npm install --save-dev vitest@4.1.10 @playwright/test@1.62.1
+```
+
+Expected receipt:
+
+```text
+added ... packages
+found 0 vulnerabilities
+```
+
+Treat the vulnerability line as a package-manager receipt, not a security guarantee. Run the repository's normal dependency review and security checks.
+
+<Note>
+  **Current adapter spelling**
+
+  `@flags-sdk/growthbook` 0.3.1 exports `createGrowthbookAdapter`, with a lowercase `b` in `book`. Older examples use `createGrowthBookAdapter`. Pin the package and use the spelling exported by that version. If the import fails, inspect the installed package declaration rather than guessing.
+</Note>
+
+### Establish an anonymous identity before rendering
+
+Server Components can read cookies, but they cannot set a cookie during render. The first request therefore needs a boundary that creates the anonymous ID, forwards it to the current render, and sets it for later requests.
+
+In Next.js 16, create `src/proxy.ts`:
+
+```ts
+import { NextResponse, type NextRequest } from "next/server";
+
+const COOKIE_NAME = "gb_anon_id";
+const REQUEST_HEADER = "x-gb-anon-id";
+const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+
+export function proxy(request: NextRequest) {
+  const existingId = request.cookies.get(COOKIE_NAME)?.value;
+  if (existingId) return NextResponse.next();
+
+  const anonymousId = crypto.randomUUID();
+  const requestHeaders = new Headers(request.headers);
+
+  // The new cookie is not visible to this request, so forward the same value
+  // in an internal request header for the first render.
+  requestHeaders.set(REQUEST_HEADER, anonymousId);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+
+  response.cookies.set({
+    name: COOKIE_NAME,
+    value: anonymousId,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: ONE_YEAR_SECONDS,
+  });
+
+  return response;
+}
+
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)",
+  ],
+};
+```
+
+This Proxy covers pages, Route Handlers, and Server Functions while excluding static files. If the repository already has `proxy.ts`, merge this logic into it. Next.js permits only 1 Proxy file. If the application requires cookie consent before persistent analytics identifiers, do not set this cookie until consent is established. Use the application's existing consent and identity system instead.
+
+For Next.js 15 and earlier, use the supported `middleware.ts` convention. The first-request invariant stays the same: the value forwarded to the render and the value written to the cookie must be identical.
+
+Verify the cookie without exposing it in application logs:
+
+```bash
+curl -sS -D - http://localhost:3000/checkout -o /dev/null | grep -i '^set-cookie: gb_anon_id='
+```
+
+Expected receipt on the first request:
+
+```text
+set-cookie: gb_anon_id=...; Path=/; ...; HttpOnly; SameSite=lax
+```
+
+A second request that sends the cookie should not rotate it. Rotation changes percentage assignments and invalidates experiment joins.
+
+### Define the authenticated viewer boundary
+
+Do not make a feature SDK responsible for authentication. Create `src/lib/auth/viewer.ts` as the adapter between the application's existing server-side session and feature attributes:
+
+```ts
+export interface Viewer {
+  userId: string;
+  organizationId?: string;
+  plan?: "free" | "pro" | "enterprise";
+  isEmployee: boolean;
+}
+
+/**
+ * Anonymous-only default. Replace this function with the application's
+ * authoritative server-side session lookup before using authenticated rules.
+ */
+export async function getViewer(): Promise<Viewer | null> {
+  return null;
+}
+```
+
+This file is intentionally safe and limited: the anonymous integration works, while authenticated targeting remains unavailable until an engineer connects a trusted session. Never populate it from arbitrary `x-user-id` or `x-plan` request headers. A caller can forge those headers unless a trusted ingress strips and replaces them.
+
+For an Auth.js application, the replacement has this shape:
+
+```ts
+import { auth } from "@/auth";
+
+export interface Viewer {
+  userId: string;
+  organizationId?: string;
+  plan?: "free" | "pro" | "enterprise";
+  isEmployee: boolean;
+}
+
+export async function getViewer(): Promise<Viewer | null> {
+  const session = await auth();
+  const user = session?.user;
+  if (!user?.id) return null;
+
+  return {
+    userId: user.id,
+    organizationId: user.organizationId ?? undefined,
+    plan: user.plan ?? undefined,
+    isEmployee: user.roles?.includes("employee") ?? false,
+  };
+}
+```
+
+Adapt field names to the application's augmented session type. Derive `isEmployee` from a trusted role or directory claim, not from an email suffix supplied by the browser.
+
+### Resolve one request-scoped attribute object
+
+Create `src/lib/feature-flags/attributes.ts`:
+
+```ts
+import type { Attributes } from "@flags-sdk/growthbook";
+import type { Identify } from "flags";
+import { dedupe } from "flags/next";
+import { cookies, headers } from "next/headers";
+import { getViewer, type Viewer } from "@/lib/auth/viewer";
+
+const COOKIE_NAME = "gb_anon_id";
+const REQUEST_HEADER = "x-gb-anon-id";
+
+export interface AppAttributes extends Attributes {
+  id: string;
+  anonymous_id: string;
+  user_id: string;
+  organization_id: string;
+  employee: boolean;
+  plan: "anonymous" | "free" | "pro" | "enterprise";
+  identity_ready: boolean;
+}
+
+export function buildGrowthBookAttributes(
+  anonymousId: string | undefined,
+  viewer: Viewer | null,
+): AppAttributes {
+  const stableAnonymousId = anonymousId ?? "";
+  const userId = viewer?.userId ?? "";
+
+  return {
+    // This canonical example switches the primary id at login. See the identity
+    // section before using id as an experiment hash attribute.
+    id: userId || stableAnonymousId || "missing-identity",
+    anonymous_id: stableAnonymousId,
+    user_id: userId,
+    organization_id: viewer?.organizationId ?? "",
+    employee: viewer?.isEmployee ?? false,
+    plan: viewer?.plan ?? (viewer ? "free" : "anonymous"),
+    identity_ready: Boolean(userId || stableAnonymousId),
+  };
+}
+
+export const getRequestAttributes = dedupe(async () => {
+  const [cookieStore, headerStore, viewer] = await Promise.all([
+    cookies(),
+    headers(),
+    getViewer(),
+  ]);
+
+  const anonymousId =
+    cookieStore.get(COOKIE_NAME)?.value ??
+    headerStore.get(REQUEST_HEADER) ??
+    undefined;
+
+  return buildGrowthBookAttributes(anonymousId, viewer);
+});
+
+export const identify = getRequestAttributes satisfies Identify<AppAttributes>;
+```
+
+`dedupe` ensures the request computes attributes once even if several flags call `identify`. All flag decisions in that request therefore see the same snapshot. The attribute object excludes email, access tokens, names, raw roles, and the session object.
+
+The `missing-identity` sentinel is not a valid rollout population. Every percentage or experiment rule in this guide includes `identity_ready = true`. That condition prevents all requests with a broken Proxy or session boundary from sharing 1 deterministic bucket.
+
+### Add evaluation and exposure receipts
+
+Feature evaluation and experiment exposure are different events:
+
+- A **feature evaluation** occurs whenever code asks for a feature value. A force rule and a percentage rollout do not create experiment exposures.
+- An **experiment exposure** occurs when an experiment rule assigns a variation and invokes the SDK tracking callback.
+
+Create `src/lib/feature-flags/telemetry.ts`:
+
+```ts
+import { createHmac } from "node:crypto";
+
+type JsonScalar = string | number | boolean | null;
+
+export interface FeatureEvaluationReceipt {
+  featureKey: string;
+  value: JsonScalar;
+  source: string;
+  ruleId?: string;
+  unitIdHash?: string;
+}
+
+export interface ExperimentExposureReceipt {
+  experimentId: string;
+  variationId: string;
+  featureId?: string;
+  hashAttribute?: string;
+  hashValue?: string;
+}
+
+function pseudonymize(value: unknown): string | undefined {
+  const key = process.env.FEATURE_TELEMETRY_HASH_KEY;
+  if (!key || typeof value !== "string" || !value) return undefined;
+
+  return createHmac("sha256", key).update(value).digest("hex");
+}
+
+export function recordFeatureEvaluation(
+  receipt: Omit<FeatureEvaluationReceipt, "unitIdHash">,
+  unitId: unknown,
+): void {
+  console.info(
+    "feature_evaluated",
+    JSON.stringify({ ...receipt, unitIdHash: pseudonymize(unitId) }),
+  );
+}
+
+export async function recordExperimentExposure(
+  receipt: ExperimentExposureReceipt,
+): Promise<void> {
+  console.info("experiment_viewed", JSON.stringify(receipt));
+}
+```
+
+This logging sink is executable and gives you an immediate receipt. It is not automatically an experimentation data pipeline. Before starting an experiment, replace or extend these functions so the events reach the warehouse or analytics source queried by GrowthBook. Preserve the exact assignment identifier required to join exposure and outcome data. If policy prohibits logging the raw `hashValue`, map it through a stable pseudonymization scheme that the outcome pipeline also uses.
+
+Feature diagnostics can query feature-evaluation events after you configure a **Feature Usage Query**. The [Feature Evaluation Diagnostics](/features/diagnostics) reference documents the required `feature_key` and `timestamp` fields and optional value, rule, and unit metadata.
+
+### Define typed flags in one server-only module
+
+Create `src/lib/feature-flags/flags.ts`:
+
+```ts
+import "server-only";
+
+import { createGrowthbookAdapter } from "@flags-sdk/growthbook";
+import { flag } from "flags/next";
+import { after } from "next/server";
+import { identify, type AppAttributes } from "./attributes";
+import { recordExperimentExposure, recordFeatureEvaluation } from "./telemetry";
+
+function requireServerEnvironment(name: "GROWTHBOOK_CLIENT_KEY"): string {
+  const value = process.env[name];
+  if (!value)
+    throw new Error(`Missing required server environment variable: ${name}`);
+  return value;
+}
+
+const growthbookAdapter = createGrowthbookAdapter({
+  clientKey: requireServerEnvironment("GROWTHBOOK_CLIENT_KEY"),
+  apiHost: process.env.GROWTHBOOK_API_HOST || "https://cdn.growthbook.io",
+  clientOptions: {
+    decryptionKey: process.env.GROWTHBOOK_DECRYPTION_KEY || undefined,
+    onFeatureUsage: (featureKey, result, user) => {
+      recordFeatureEvaluation(
+        {
+          featureKey,
+          value:
+            typeof result.value === "string" ||
+            typeof result.value === "number" ||
+            typeof result.value === "boolean" ||
+            result.value === null
+              ? result.value
+              : JSON.stringify(result.value),
+          source: result.source,
+          ruleId: result.ruleId,
+        },
+        user.attributes.id,
+      );
+    },
+  },
+  initOptions: {
+    timeout: 1_200,
+    streaming: false,
+  },
+});
+
+growthbookAdapter.setTrackingCallback((experiment, result) => {
+  after(async () => {
+    await recordExperimentExposure({
+      experimentId: experiment.key,
+      variationId: result.key,
+      featureId: result.featureId,
+      hashAttribute: result.hashAttribute,
+      hashValue: result.hashValue,
+    });
+  });
+});
+
+export const newCheckoutFlowFlag = flag<boolean, AppAttributes>({
+  key: "new-checkout-flow",
+  description: "Use the new checkout flow",
+  defaultValue: false,
+  options: [false, true],
+  identify,
+  adapter: growthbookAdapter.feature<boolean>(),
+});
+```
+
+The `server-only` import makes an accidental Client Component import fail at build time. The flag fallback is `false`, which points to code that already works. The adapter initializes lazily and evaluates with the request attributes returned by `identify`.
+
+The 1,200 ms timeout limits cold-start waiting for a feature payload. It is not a universal latency target. Choose a value using your deployment region, observed CDN behavior, and application latency budget. The SDK can use a cached payload when one exists; on a first cold start with no usable payload, the feature returns the fallback.
+
+### Pass the server decision into the Client Component
+
+Create `src/app/checkout/checkout-client.tsx`:
+
+```ts
+"use client";
+
+import { useState } from "react";
+
+export function CheckoutClient({
+  useNewFlow,
+}: {
+  useNewFlow: boolean;
+}) {
+  const [status, setStatus] = useState<"idle" | "submitting" | "complete">(
+    "idle",
+  );
+
+  async function submit() {
+    setStatus("submitting");
+    // Replace this delay with the existing checkout mutation.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    setStatus("complete");
+  }
+
+  return (
+    <section
+      aria-labelledby="checkout-heading"
+      data-new-checkout-flow={useNewFlow ? "on" : "off"}
+    >
+      <h1 id="checkout-heading">Checkout</h1>
+
+      {useNewFlow ? (
+        <div data-testid="new-checkout">
+          <p>Review your address, delivery, and payment in one step.</p>
+          <button type="button" onClick={submit} disabled={status === "submitting"}>
+            {status === "submitting" ? "Submitting…" : "Place order"}
+          </button>
+        </div>
+      ) : (
+        <div data-testid="legacy-checkout">
+          <p>Continue through the existing checkout steps.</p>
+          <button type="button" onClick={submit} disabled={status === "submitting"}>
+            {status === "submitting" ? "Submitting…" : "Continue"}
+          </button>
+        </div>
+      )}
+
+      <p role="status" aria-live="polite">
+        {status === "complete" ? "Order submitted." : ""}
+      </p>
+    </section>
+  );
+}
+```
+
+This component is interactive, but it does not need to evaluate the flag. The Server Component owns the decision and passes a serializable Boolean. That eliminates a second payload fetch and a second experiment evaluation.
+
+Create `src/app/checkout/page.tsx`:
+
+```ts
+import { CheckoutClient } from "./checkout-client";
+import { newCheckoutFlowFlag } from "@/lib/feature-flags/flags";
+
+export default async function CheckoutPage() {
+  const useNewFlow = await newCheckoutFlowFlag();
+
+  return <CheckoutClient useNewFlow={useNewFlow} />;
+}
+```
+
+Because `identify` reads cookies and headers, the route is request-dependent. Do not force this page to static rendering. If the surrounding layout uses Cache Components, keep the flag evaluation in the dynamic part of the tree and pass request values into cached functions rather than reading cookies inside a cached scope.
+
+### Use the same flag in a Route Handler
+
+The backend must not assume the browser used a particular path. Evaluate the same server flag in the API boundary. Create `src/app/api/checkout/config/route.ts`:
+
+```ts
+import { newCheckoutFlowFlag } from "@/lib/feature-flags/flags";
+
+export async function GET() {
+  const useNewFlow = await newCheckoutFlowFlag();
+
+  return Response.json(
+    {
+      checkoutFlow: useNewFlow ? "new" : "legacy",
+    },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+      },
+    },
+  );
+}
+```
+
+Use this read-only endpoint as a parity receipt. In a real checkout mutation, evaluate the flag again inside the authenticated POST handler, then validate authorization, inventory, pricing, and payment independently. A feature flag may choose an implementation; it must never grant permission or bypass validation.
+
+Start the application:
+
+```bash
+npm run dev
+```
+
+Then request both surfaces with the same cookie jar:
+
+```bash
+curl -sS -c /tmp/gb-cookies.txt http://localhost:3000/checkout > /tmp/checkout.html
+curl -sS -b /tmp/gb-cookies.txt http://localhost:3000/api/checkout/config
+grep -o 'data-new-checkout-flow="[^"]*"' /tmp/checkout.html
+```
+
+With the feature disabled or unavailable, the receipts are:
+
+```text
+{"checkoutFlow":"legacy"}
+data-new-checkout-flow="off"
+```
+
+If they disagree, do not roll out. Check Proxy coverage, cookie forwarding, session consistency, SDK keys, and whether one response was cached publicly.
+
+## Make identity an explicit product contract
+
+Deterministic hashing only produces stable assignments when the hash input is stable. The SDK cannot repair an identity model that changes halfway through a workflow.
+
+The canonical code exposes 4 identifiers for different purposes:
+
+| Attribute | Meaning | Typical use | Known boundary |
+| --- | --- | --- | --- |
+| `anonymous_id` | Durable browser identity created before render | Pre-login journeys and anonymous rollouts | Changes when cookies are cleared or across devices |
+| `user_id` | Authenticated application user | User-level targeting and cross-device assignment | Empty before login |
+| `organization_id` | Account, workspace, or tenant | B2B rollouts that must keep a tenant together | Empty for users without a selected organization |
+| `id` | Canonical compatibility identifier | Simple rules after the team accepts its transition behavior | Changes from anonymous ID to user ID at login in this example |
+
+Do not create an experiment rule until the team writes down its randomization unit. A checkout experiment that begins before authentication usually needs `anonymous_id`. A seat-management change should usually use `organization_id`. A personal settings change may use `user_id`.
+
+### Handle anonymous-to-authenticated transitions deliberately
+
+The example's `id` changes at login. That is useful for authenticated targeting, but it can rebucket a user if an experiment hashes on `id`. Choose 1 of these patterns instead of accepting the transition accidentally:
+
+1. **Hash on `anonymous_id` for the whole pre-login journey.** Preserve the cookie through checkout. Join the eventual conversion to that anonymous ID in the event pipeline.
+2. **Hash on `user_id` only after authentication.** Add a rule condition requiring a non-empty user ID, and keep anonymous users on the fallback.
+3. **Hash on `organization_id` for account-level behavior.** Require a selected organization and ensure every backend call resolves the same organization from the trusted session.
+4. **Use sticky bucketing when the experiment requires assignment continuity across identifier or experiment changes.** Sticky bucketing requires an implemented storage service and is a paid-plan capability in GrowthBook Cloud. It is not part of this guide's free baseline.
+
+Never copy an anonymous assignment into a user profile without considering shared devices. A browser used by 2 accounts can otherwise transfer an experimental state from one user to another. If you persist assignments, include the experiment key, bucket version, chosen identifier type, creation time, and removal policy.
+
+### Keep tenant selection consistent
+
+Many B2B applications let one user switch organizations. Resolve `organization_id` from the same server-side tenant context used for authorization. Do not read it from a query string and trust it as a targeting attribute.
+
+For an organization rollout:
+
+1. Confirm the route's authorized organization.
+2. Put that ID into `organization_id`.
+3. Configure the GrowthBook rollout to hash on `organization_id`.
+4. Add a condition that `organization_id` is not empty.
+5. Test 2 users in the same organization and 2 organizations with the same user.
+
+The page and the mutation endpoint must resolve the same organization. A UI-only organization assignment is not sufficient because the server still chooses which implementation handles the request.
+
+### Treat attribute changes as schema migrations
+
+Define `anonymous_id`, `user_id`, `organization_id`, `employee`, `plan`, and `identity_ready` under **SDK Configuration → Attributes** with matching data types. Attribute values are evaluated by the SDK; the attribute definitions in GrowthBook provide targeting metadata and authoring controls.
+
+Before renaming or changing an attribute:
+
+- Find every flag and experiment that references it.
+- Find every SDK that sends it.
+- Check case, empty-string, and missing-value behavior.
+- Check the identifier selected by active experiments.
+- Deploy code that sends both old and new attributes.
+- Migrate rules.
+- Wait through the active assignment and cache window.
+- Remove the old attribute only after the old rules and SDKs are gone.
+
+An attribute migration is not complete when the UI saves. It is complete when every running SDK version and rule agrees on the new schema.
+
+## Understand what the adapter does at runtime
+
+`@flags-sdk/growthbook` 0.3.1 creates a shared `GrowthBookClient`. The flag wrapper supplies request-specific attributes as a `UserContext`, so attributes do not need to mutate a global singleton. The adapter lazily initializes the client, refreshes its payload, evaluates the feature, and returns the flag's `defaultValue` when the result is `null`.
+
+This distinction matters:
+
+- **Feature definition delivery can involve I/O.** The adapter must obtain and refresh the SDK payload from GrowthBook's CDN or an optional Global Config store.
+- **Rule evaluation is local after the payload is available.** The SDK evaluates targeting conditions and deterministic hashing in the process.
+- **Remote evaluation is a different mode.** It sends attributes to a remote evaluator and is not the baseline in this guide.
+- **Experiment tracking is application I/O.** Your callback sends an exposure to an analytics or warehouse pipeline; GrowthBook does not infer that event merely because a rule exists.
+
+Do not convert “local evaluation” into an absolute “no network” claim. A normal flag check does not require a remote decision call, but payload refresh, Global Config, streaming, remote evaluation, and analytics each have their own network behavior.
+
+### Use the default adapter when defaults are enough
+
+The custom adapter in this guide validates required configuration and sets observability callbacks. A smaller application can use the default singleton:
+
+```ts
+import { growthbookAdapter } from "@flags-sdk/growthbook";
+
+export const exampleFlag = flag({
+  key: "example-flag",
+  defaultValue: false,
+  identify,
+  adapter: growthbookAdapter.feature<boolean>(),
+});
+```
+
+The default adapter reads `GROWTHBOOK_CLIENT_KEY`, `GROWTHBOOK_API_HOST`, `GROWTHBOOK_APP_ORIGIN`, and optional Global Config variables. It logs a missing client key rather than enforcing the deployment check used above. Keep an independent environment-variable preflight if a missing key should fail the build or startup.
+
+### Do not use one mutable `GrowthBook` instance per user
+
+An unsafe server implementation often looks like this:
+
+```ts
+// Do not do this in a server module.
+const gb = new GrowthBook();
+
+export async function decideForUser(userId: string) {
+  gb.setAttributes({ id: userId });
+  return gb.isOn("new-checkout-flow");
+}
+```
+
+Concurrent requests can overwrite attributes between calls. The adapter avoids that pattern by passing user context into each evaluation. If you use the older `GrowthBook` class directly on the server, create a request-scoped instance and destroy it after extracting results and deferred tracking data.
+
+## Use the direct JavaScript and React SDK path when needed
+
+Use this alternative when the repository does not use the Flags SDK convention, needs complete ownership of Next.js fetch caching, or already has a direct GrowthBook integration. Do not install it alongside the primary adapter for the same flag.
+
+The alternative below does 4 things:
+
+1. Fetches the SDK payload with Next.js Data Cache tags.
+2. Creates a request-scoped server SDK instance.
+3. Evaluates server flags before rendering.
+4. Hydrates a decrypted payload and the same attributes for client-only flags.
+
+If rules or unused variations are sensitive, stop after step 3 and pass resolved values as props. Hydration sends the decrypted payload to the browser. Front-end remote evaluation keeps rules off the client, but the current React SDK documentation does not support remote evaluation in a hybrid SSR/client integration. Choose server evaluation instead of forcing those modes together.
+
+Install the direct packages only for this branch:
+
+```bash
+npm install @growthbook/growthbook@1.7.0 @growthbook/growthbook-react@1.7.0
+```
+
+### Define strict feature types
+
+Create `src/lib/feature-flags/app-features.ts`:
+
+```ts
+export interface AppFeatures {
+  "new-checkout-flow": boolean;
+  "client-checkout-help": boolean;
+}
+```
+
+The first feature is server-owned. The second exists only to demonstrate a client-owned decision. Keeping them separate prevents duplicate exposure tracking.
+
+### Fetch and initialize on the server
+
+Create `src/lib/feature-flags/direct-server.ts`:
+
+```ts
+import "server-only";
+
+import {
+  GrowthBook,
+  type Attributes,
+  type FeatureApiResponse,
+} from "@growthbook/growthbook";
+import { after } from "next/server";
+import type { AppFeatures } from "./app-features";
+import { recordExperimentExposure, recordFeatureEvaluation } from "./telemetry";
+
+const CACHE_TAG = "growthbook-features";
+const apiHost = process.env.GROWTHBOOK_API_HOST || "https://cdn.growthbook.io";
+const clientKey = process.env.GROWTHBOOK_CLIENT_KEY;
+
+if (!clientKey) {
+  throw new Error(
+    "Missing required server environment variable: GROWTHBOOK_CLIENT_KEY",
+  );
+}
+
+export async function loadGrowthBookPayload(): Promise<{
+  payload: FeatureApiResponse;
+  source: "next-cache-or-network" | "safe-fallback";
+}> {
+  try {
+    const response = await fetch(`${apiHost}/api/features/${clientKey}`, {
+      cache: "force-cache",
+      next: {
+        revalidate: 300,
+        tags: [CACHE_TAG],
+      },
+      signal: AbortSignal.timeout(1_200),
+    });
+
+    if (!response.ok) {
+      throw new Error(`GrowthBook payload returned HTTP ${response.status}`);
+    }
+
+    return {
+      payload: (await response.json()) as FeatureApiResponse,
+      source: "next-cache-or-network",
+    };
+  } catch (error) {
+    console.error("growthbook_payload_fallback", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      payload: { features: {} },
+      source: "safe-fallback",
+    };
+  }
+}
+
+export async function createDirectServerGrowthBook(attributes: Attributes) {
+  const { payload, source } = await loadGrowthBookPayload();
+
+  const growthbook = new GrowthBook<AppFeatures>({
+    attributes,
+    decryptionKey: process.env.GROWTHBOOK_DECRYPTION_KEY || undefined,
+    trackingCallback: (experiment, result) => {
+      after(async () => {
+        await recordExperimentExposure({
+          experimentId: experiment.key,
+          variationId: result.key,
+          featureId: result.featureId,
+          hashAttribute: result.hashAttribute,
+          hashValue: result.hashValue,
+        });
+      });
+    },
+    onFeatureUsage: (featureKey, result) => {
+      recordFeatureEvaluation(
+        {
+          featureKey,
+          value:
+            typeof result.value === "string" ||
+            typeof result.value === "number" ||
+            typeof result.value === "boolean" ||
+            result.value === null
+              ? result.value
+              : JSON.stringify(result.value),
+          source: result.source,
+          ruleId: result.ruleId,
+        },
+        attributes.id,
+      );
+    },
+  });
+
+  await growthbook.init({ payload });
+
+  return { growthbook, source };
+}
+```
+
+The explicit fetch endpoint is `{apiHost}/api/features/{clientKey}`. It is a read-only SDK Connection endpoint. Next.js caches successful responses for up to 300 seconds and associates them with `growthbook-features`. The fallback is an empty payload, which makes unknown features use their code fallbacks.
+
+`AbortSignal.timeout()` requires the tested Node.js runtime. For an older runtime, use an `AbortController` timer. Do not omit the bounded failure path on a request-critical page.
+
+### Hydrate client-only features without flicker
+
+Create `src/lib/feature-flags/direct-provider.tsx`:
+
+```ts
+"use client";
+
+import {
+  GrowthBook,
+  GrowthBookProvider,
+  type Attributes,
+  type FeatureApiResponse,
+} from "@growthbook/growthbook-react";
+import { useEffect, useMemo, type PropsWithChildren } from "react";
+import type { AppFeatures } from "./app-features";
+
+declare global {
+  interface Window {
+    dataLayer?: Array<Record<string, unknown>>;
+  }
+}
+
+export function DirectGrowthBookProvider({
+  payload,
+  attributes,
+  children,
+}: PropsWithChildren<{
+  payload: FeatureApiResponse;
+  attributes: Attributes;
+}>) {
+  const growthbook = useMemo(
+    () =>
+      new GrowthBook<AppFeatures>({
+        attributes,
+        trackingCallback: (experiment, result, user) => {
+          window.dataLayer?.push({
+            event: "experiment_viewed",
+            experimentId: experiment.key,
+            variationId: result.key,
+            featureId: result.featureId,
+            hashAttribute: result.hashAttribute,
+            hashValue: result.hashValue,
+            assignmentId: user?.attributes[result.hashAttribute],
+          });
+        },
+      }).initSync({ payload }),
+    [attributes, payload],
+  );
+
+  useEffect(() => () => growthbook.destroy(), [growthbook]);
+
+  return (
+    <GrowthBookProvider growthbook={growthbook}>
+      {children}
+    </GrowthBookProvider>
+  );
+}
+```
+
+`initSync` prevents the first client render from evaluating against an empty payload. It cannot decrypt encrypted payloads, so the server must pass `getDecryptedPayload()`. That is why this pattern is inappropriate when the payload itself must stay private.
+
+The example pushes browser exposures to `dataLayer`. Confirm that Google Tag Manager, or another consumer of that array, sends the event to the data source queried by GrowthBook. If the application uses Segment, RudderStack, Snowplow, or a custom tracker, replace the callback with that tracker's established event contract.
+
+Create a client-only component, `src/app/checkout/client-checkout-help.tsx`:
+
+```ts
+"use client";
+
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import type { AppFeatures } from "@/lib/feature-flags/app-features";
+
+export function ClientCheckoutHelp() {
+  const showHelp = useFeatureIsOn<AppFeatures>("client-checkout-help");
+
+  if (!showHelp) return null;
+
+  return (
+    <aside aria-label="Checkout help">
+      Need help? Contact support before placing the order.
+    </aside>
+  );
+}
+```
+
+Then use the direct path as a complete alternative `src/app/checkout/page.tsx`:
+
+```ts
+import { CheckoutClient } from "./checkout-client";
+import { ClientCheckoutHelp } from "./client-checkout-help";
+import { DirectGrowthBookProvider } from "@/lib/feature-flags/direct-provider";
+import { createDirectServerGrowthBook } from "@/lib/feature-flags/direct-server";
+import { getRequestAttributes } from "@/lib/feature-flags/attributes";
+
+export default async function CheckoutPage() {
+  const attributes = await getRequestAttributes();
+  const { growthbook, source } =
+    await createDirectServerGrowthBook(attributes);
+
+  const useNewFlow = growthbook.isOn("new-checkout-flow");
+  const payload = growthbook.getDecryptedPayload();
+  growthbook.destroy();
+
+  return (
+    <div data-feature-payload-source={source}>
+      <CheckoutClient useNewFlow={useNewFlow} />
+      <DirectGrowthBookProvider payload={payload} attributes={attributes}>
+        <ClientCheckoutHelp />
+      </DirectGrowthBookProvider>
+    </div>
+  );
+}
+```
+
+The server evaluates `new-checkout-flow` once. The browser evaluates only `client-checkout-help`. If both flags become experiments, their exposures come from different tracking callbacks by design.
+
+### Choose server or browser tracking, not both
+
+For each experiment, document its evaluation owner:
+
+```text
+new-checkout-flow
+  evaluation owner: server
+  exposure event owner: server trackingCallback
+  outcome identifier: anonymous_id
+
+client-checkout-help
+  evaluation owner: browser
+  exposure event owner: browser trackingCallback
+  outcome identifier: user_id
+```
+
+If the same experiment must be evaluated on both sides, deduplicate by an event key derived from experiment ID, variation ID, assignment identifier, and experiment phase. Do not deduplicate only by page view. A user can legitimately enter separate experiments on one page, and experiment phases can reuse a feature key.
+
+## Design feature definition delivery
+
+Feature evaluation correctness depends on which payload a process holds. Choose a delivery strategy instead of combining every cache layer.
+
+### Adapter baseline: CDN plus SDK cache
+
+Without Global Config, the adapter initializes its `GrowthBookClient` from the SDK endpoint and uses the JavaScript SDK's caching and stale-while-revalidate behavior. The adapter requests a refresh before evaluation. In a long-lived Node.js process, the in-memory cache can serve later requests. In serverless deployments, each warm isolate has its own memory and a new isolate can start without that cache.
+
+Use this baseline when:
+
+- A short propagation window is acceptable.
+- The code fallback is safe on a cold start.
+- The deployment does not require a shared configuration store.
+- The team can observe payload-source failures.
+
+Do not claim a flag has propagated merely because it is published in the GrowthBook UI. Verify an application request from each deployment region or instance class that matters.
+
+### Vercel adapter option: Global Config
+
+`@flags-sdk/growthbook` 0.3.1 supports Vercel Global Config. Set these server variables:
+
+```bash
+GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING="replace-with-vercel-connection-string"
+GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY="replace-with-item-key"
+```
+
+The item key defaults to the GrowthBook client key. Configure an SDK Webhook on the same GrowthBook SDK Connection to update the Global Config item when the payload changes. The adapter's older Edge Config variables remain deprecated fallbacks, but new integrations should use the Global Config names exported by the installed adapter.
+
+This option adds another operational dependency. Verify all of the following:
+
+- The webhook updates the item tied to the same SDK client key used by the app.
+- The GrowthBook environment and Vercel deployment environment match.
+- The config store size can hold the SDK payload.
+- A missing or malformed item falls back safely.
+- The Vercel API token used by the webhook has only the required scope and has a rotation owner.
+
+The [Next.js Flags adapter documentation](/lib/nextjs#edge-config) in the pinned GrowthBook source uses the earlier Edge Config terminology. Check the installed adapter and current Vercel provider documentation when configuring this optional path.
+
+### Direct SDK option: Next.js Data Cache plus webhook
+
+The direct implementation tags its payload fetch. Add a signed webhook Route Handler to invalidate that tag. Create `src/app/api/internal/growthbook-webhook/route.ts`:
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { revalidateTag } from "next/cache";
+
+export const runtime = "nodejs";
+
+const CACHE_TAG = "growthbook-features";
+const MAX_CLOCK_SKEW_SECONDS = 5 * 60;
+
+function verifySignature(
+  body: string,
+  webhookId: string,
+  timestamp: string,
+  signatureHeader: string,
+  secret: string,
+): boolean {
+  const timestampNumber = Number(timestamp);
+  if (!Number.isFinite(timestampNumber)) return false;
+
+  const age = Math.abs(Date.now() / 1000 - timestampNumber);
+  if (age > MAX_CLOCK_SKEW_SECONDS) return false;
+
+  const expectedBase64 = createHmac("sha256", secret)
+    .update(`${webhookId}.${timestamp}.${body}`)
+    .digest("base64");
+  const expected = Buffer.from(expectedBase64);
+
+  return signatureHeader.split(" ").some((versionedSignature) => {
+    const [version, encoded] = versionedSignature.split(",", 2);
+    if (version !== "v1" || !encoded) return false;
+
+    const received = Buffer.from(encoded);
+    return (
+      received.length === expected.length && timingSafeEqual(received, expected)
+    );
+  });
+}
+
+export async function POST(request: Request) {
+  const secret = process.env.GROWTHBOOK_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("growthbook_webhook_secret_missing");
+    return new Response("Webhook unavailable", { status: 503 });
+  }
+
+  const webhookId = request.headers.get("webhook-id") || "";
+  const timestamp = request.headers.get("webhook-timestamp") || "";
+  const signature = request.headers.get("webhook-signature") || "";
+  const body = await request.text();
+
+  if (
+    !webhookId ||
+    !timestamp ||
+    !signature ||
+    !verifySignature(body, webhookId, timestamp, signature, secret)
+  ) {
+    return new Response("Invalid signature", { status: 401 });
+  }
+
+  // expire: 0 makes the next tagged read block for fresh data.
+  revalidateTag(CACHE_TAG, { expire: 0 });
+
+  console.info("growthbook_payload_cache_invalidated", { webhookId });
+  return new Response(null, { status: 200 });
+}
+```
+
+Set `GROWTHBOOK_WEBHOOK_SECRET` to the shared secret shown for that SDK Webhook. In GrowthBook, configure an **HTTP Endpoint** SDK Webhook with this Route Handler's HTTPS URL and test it. GrowthBook signs SDK webhooks and retries a failed delivery up to 2 additional times. Read the [SDK Webhooks signature and payload reference](/app/webhooks/sdk-webhooks) before changing the verification code.
+
+The handler verifies the raw request body before parsing it and rejects messages older than 5 minutes. Record processed `webhook-id` values in a durable store if duplicate processing would have side effects. Cache invalidation is idempotent, so an in-memory duplicate guard is not required here.
+
+For self-hosted Next.js with multiple application instances, confirm the Data Cache and tag invalidation are shared. Default local caches do not automatically coordinate every instance. A webhook that reaches only 1 node can leave other nodes stale until their time-based revalidation. Use a shared cache handler, broadcast invalidation, or rely on a delivery layer designed for the deployment topology.
+
+### Streaming is optional, not the default answer
+
+The direct JavaScript and React SDKs can subscribe to server-sent event updates when streaming is enabled. GrowthBook Cloud and GrowthBook Proxy support the documented streaming path. The Flags adapter explicitly initializes with streaming disabled in its current implementation.
+
+Use streaming only when the application genuinely needs faster propagation than a webhook or bounded cache window. Account for connection limits, reconnect behavior, serverless lifecycle, background tabs, and self-hosted proxy availability. A kill switch still needs a code fallback because a stream cannot help a process that never obtained a valid initial payload.
+
+## Enforce feature keys and values with TypeScript
+
+A fallback gives runtime safety. Strict feature types give change-time safety. Use both.
+
+The primary Flags adapter already declares the local flag as `flag<boolean, AppAttributes>` and `growthbookAdapter.feature<boolean>()`. A string value cannot reach the component without a TypeScript error. Centralizing exports also makes direct string references easy to find:
+
+```ts
+// src/lib/feature-flags/index.ts
+export { newCheckoutFlowFlag } from "./flags";
+export type { AppAttributes } from "./attributes";
+```
+
+Do not export the adapter itself. Application modules should consume named decisions, not construct arbitrary feature keys throughout the codebase.
+
+For the direct SDK path, parameterize `GrowthBook<AppFeatures>` as shown above. Then a typo such as this fails compilation:
+
+```ts
+growthbook.isOn("new-chekout-flow");
+// Type error: "new-chekout-flow" is not a key of AppFeatures.
+```
+
+### Generate types from GrowthBook
+
+For a large feature set, generate `AppFeatures` rather than maintaining it manually. Install the current GrowthBook CLI and authenticate with a Secret Key or Personal Access Token that can read the intended organization:
+
+```bash
+npm install --global growthbook@1.0.0
+growthbook auth login
+growthbook whoami
+growthbook generate-types \
+  --output ./src/lib/feature-flags/generated \
+  --filename app-features.ts
+```
+
+Expected files:
+
+```text
+src/lib/feature-flags/generated/app-features.ts
+```
+
+Inspect the file before using it. Confirm `new-checkout-flow` is Boolean and confirm the command read the intended GrowthBook organization and project.
+
+Add deterministic scripts to `package.json`:
+
+```json
+{
+  "scripts": {
+    "feature-types:generate": "growthbook generate-types --no-interactive --output ./src/lib/feature-flags/generated --filename app-features.ts",
+    "feature-types:check": "npm run feature-types:generate && git diff --exit-code -- src/lib/feature-flags/generated/app-features.ts"
+  }
+}
+```
+
+In CI, provide the CLI credential as `GBCLI_BEARER_AUTH` through the secret store. Do not put it in `.env.example`, a generated file, a test snapshot, or build logs. If CI cannot contact GrowthBook, choose 1 policy explicitly:
+
+- Block merges because the generated feature contract is authoritative.
+- Run generation in a scheduled job and make normal CI validate the checked-in result.
+- Keep a manually reviewed local interface and skip live generation.
+
+Do not silently regenerate types and commit them from an untrusted pull request. A generated file is still a source change and requires review.
+
+### Validate the exact key inventory
+
+Run this search in CI or during review:
+
+```bash
+grep -RhoE '(isOn|getFeatureValue|evalFeature)\("[A-Za-z0-9_-]+"' src \
+  | sed -E 's/.*\("([A-Za-z0-9_-]+)"/\1/' \
+  | sort -u
+```
+
+The primary adapter path should produce few or no raw method calls because flags are named exports. Search for raw keys too:
+
+```bash
+grep -R "new-checkout-flow" -n src tests
+```
+
+Expected call sites are the central flag declaration, fixtures, tests, and migration metadata. A raw key in an unrelated component is a sign that the abstraction boundary is leaking.
+
+## Test behavior without a live control plane
+
+Tests should prove evaluation semantics with a fixed payload. They should not depend on whichever rule happens to be published in a shared development environment.
+
+### Test the attribute builder
+
+Create `src/lib/feature-flags/attributes.test.ts`:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { buildGrowthBookAttributes } from "./attributes";
+
+describe("buildGrowthBookAttributes", () => {
+  it("uses a durable anonymous identity before login", () => {
+    expect(buildGrowthBookAttributes("anon-123", null)).toEqual({
+      id: "anon-123",
+      anonymous_id: "anon-123",
+      user_id: "",
+      organization_id: "",
+      employee: false,
+      plan: "anonymous",
+      identity_ready: true,
+    });
+  });
+
+  it("uses trusted viewer fields after login", () => {
+    expect(
+      buildGrowthBookAttributes("anon-123", {
+        userId: "user-456",
+        organizationId: "org-789",
+        plan: "pro",
+        isEmployee: true,
+      }),
+    ).toEqual({
+      id: "user-456",
+      anonymous_id: "anon-123",
+      user_id: "user-456",
+      organization_id: "org-789",
+      employee: true,
+      plan: "pro",
+      identity_ready: true,
+    });
+  });
+
+  it("marks a missing identity as ineligible for rollout", () => {
+    expect(buildGrowthBookAttributes(undefined, null)).toMatchObject({
+      id: "missing-identity",
+      identity_ready: false,
+    });
+  });
+});
+```
+
+This test exercises the pure boundary, not Next.js request APIs. Keep cookie/header integration in an end-to-end test.
+
+### Test rules with a fixed SDK payload
+
+Create `src/lib/feature-flags/evaluation.test.ts`:
+
+```ts
+import {
+  GrowthBookClient,
+  type FeatureApiResponse,
+} from "@flags-sdk/growthbook";
+import { describe, expect, it } from "vitest";
+import type { AppAttributes } from "./attributes";
+
+interface TestFeatures {
+  "new-checkout-flow": boolean;
+}
+
+const payload: FeatureApiResponse = {
+  features: {
+    "new-checkout-flow": {
+      defaultValue: false,
+      rules: [
+        {
+          id: "employee-rule",
+          condition: { employee: true },
+          force: true,
+        },
+        {
+          id: "rollout-rule",
+          condition: { identity_ready: true },
+          force: true,
+          coverage: 0.5,
+          hashAttribute: "id",
+        },
+      ],
+    },
+  },
+};
+
+function attributes(
+  id: string,
+  overrides: Partial<AppAttributes> = {},
+): AppAttributes {
+  return {
+    id,
+    anonymous_id: id,
+    user_id: "",
+    organization_id: "",
+    employee: false,
+    plan: "anonymous",
+    identity_ready: true,
+    ...overrides,
+  };
+}
+
+function evaluate(id: string, overrides: Partial<AppAttributes> = {}) {
+  const growthbook = new GrowthBookClient<TestFeatures>().initSync({ payload });
+  const value = growthbook.getFeatureValue("new-checkout-flow", false, {
+    attributes: attributes(id, overrides),
+  });
+  growthbook.destroy();
+  return value;
+}
+
+describe("new-checkout-flow fixture", () => {
+  it("falls back for a missing identity", () => {
+    expect(evaluate("missing-identity", { identity_ready: false })).toBe(false);
+  });
+
+  it("forces employees into the new path", () => {
+    expect(evaluate("employee-1", { employee: true })).toBe(true);
+  });
+
+  it("is deterministic for the same identifier", () => {
+    const first = evaluate("stable-user-1");
+    expect(evaluate("stable-user-1")).toBe(first);
+    expect(evaluate("stable-user-1")).toBe(first);
+  });
+
+  it("places a population on both sides of a 50% rollout", () => {
+    const values = new Set(
+      Array.from({ length: 200 }, (_, index) => evaluate(`user-${index}`)),
+    );
+    expect(values).toEqual(new Set([true, false]));
+  });
+
+  it("uses the code fallback for an unknown feature", () => {
+    const growthbook = new GrowthBookClient();
+    growthbook.initSync({ payload: { features: {} } });
+    expect(
+      growthbook.getFeatureValue("new-checkout-flow", false, {
+        attributes: attributes("user-1"),
+      }),
+    ).toBe(false);
+    growthbook.destroy();
+  });
+});
+```
+
+This fixture mirrors the intended rule order but remains independent of the GrowthBook UI. Update it deliberately when the rollout architecture changes. It proves that employee targeting wins, missing identity falls back, repeated identity is stable, and the rollout includes both variations.
+
+### Test both components
+
+The decision and the rendering branches are separate contracts. Use the repository's React test runner to render `CheckoutClient` with `useNewFlow={false}` and `useNewFlow={true}`. Assert that the legacy and new test IDs are mutually exclusive. If the repository has no component-test setup, the Playwright test below covers the deployed branch while the fixed SDK test covers both values.
+
+### Test page and API parity
+
+Create `tests/feature-flag-parity.spec.ts`:
+
+```ts
+import { expect, test } from "@playwright/test";
+
+test("checkout page and API use the same stable assignment", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/checkout");
+
+  const root = page.locator("[data-new-checkout-flow]");
+  const pageValue = await root.getAttribute("data-new-checkout-flow");
+  expect(["on", "off"]).toContain(pageValue);
+
+  const cookies = await context.cookies();
+  const anonymousCookie = cookies.find(
+    (cookie) => cookie.name === "gb_anon_id",
+  );
+  expect(anonymousCookie?.value).toBeTruthy();
+
+  const response = await context.request.get("/api/checkout/config");
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as { checkoutFlow: "new" | "legacy" };
+
+  expect(body.checkoutFlow === "new" ? "on" : "off").toBe(pageValue);
+
+  await page.reload();
+  await expect(root).toHaveAttribute("data-new-checkout-flow", pageValue!);
+});
+```
+
+Use a Playwright configuration whose `baseURL` points at a production build under test. `context.request` shares cookies with that browser context. A standalone `request` fixture does not represent the same browser session, so do not use it for this parity check.
+
+### Run the verification sequence
+
+Add or adapt these scripts:
+
+```json
+{
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "build": "next build"
+  }
+}
+```
+
+Run:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+```
+
+Expected receipt:
+
+```text
+typecheck: exit 0
+unit tests: all passed
+next build: exit 0
+Playwright parity test: passed
+```
+
+Do not report the integration as verified if a command was skipped. State which layer remains unverified: types, evaluation semantics, production build, live payload, browser parity, analytics delivery, or rollout propagation.
+
+## Observe decisions without corrupting experiments
+
+An application needs 3 separate observability channels:
+
+1. **Payload health:** Did initialization use a current payload, a cache, a timeout, or a fallback?
+2. **Feature evaluation:** Which feature, value, source, and rule did the SDK return?
+3. **Experiment exposure:** Which experiment assigned which variation to which randomization unit?
+
+Do not combine them into 1 ambiguous `flag_used` event.
+
+### Payload health
+
+The direct path returns `source` as `next-cache-or-network` or `safe-fallback`. Emit a counter for the fallback and alert on a sustained rate, not a single cold-start failure. The adapter's underlying `init()` response can report `network`, `cache`, `init`, `error`, or `timeout`; if payload-source telemetry is operationally required, wrap initialization during process warm-up or use the direct path where that receipt is explicit.
+
+Useful dimensions are deployment environment, application version, region, SDK client-key fingerprint, and payload `dateUpdated`. Do not log the full payload. It can contain internal flag names, rule structures, and variations.
+
+### Feature evaluation
+
+Use `onFeatureUsage` for diagnostics and code-reference signals. Include:
+
+```text
+timestamp
+feature_key
+value
+source
+rule_id
+deployment_environment
+application_version
+unit_id_hash (optional)
+```
+
+Sample high-volume events or aggregate them if cost requires it, but keep enough coverage to diagnose a rollout. Never infer exposure counts from feature-usage diagnostics. A feature can be evaluated speculatively without the user seeing the behavior.
+
+### Experiment exposure
+
+An exposure event should fire only when an experiment rule assigns a variation at the point of exposure. The adapter's `trackingCallback` fires when an experiment-backed feature is evaluated. Structure the component tree so evaluation is close to the actual experience. Do not evaluate all known experiment flags in the root layout “just in case.” That overcounts users who never reach the feature.
+
+At minimum, preserve:
+
+```text
+timestamp
+experiment_id
+variation_id
+feature_id
+hash_attribute
+assignment identifier or approved pseudonym
+experiment phase when present
+```
+
+The assignment identifier in the exposure table must join to the same unit in the outcome table. A hashed exposure ID cannot join to a raw outcome ID unless the outcome pipeline applies the same hash.
+
+### Verify event delivery
+
+For server logging, exercise a known experiment identity and search the logs:
+
+```bash
+curl -sS -c /tmp/gb-cookies.txt http://localhost:3000/checkout > /dev/null
+```
+
+Expected structured lines resemble:
+
+```text
+feature_evaluated {"featureKey":"new-checkout-flow","value":false,"source":"defaultValue",...}
+```
+
+`experiment_viewed` should not appear for a force or percentage-rollout rule. It should appear only after you replace the rollout with an experiment rule and the identity is included.
+
+In the warehouse, run a bounded query adapted to the application's schema:
+
+```sql
+SELECT
+  experiment_id,
+  variation_id,
+  COUNT(*) AS exposures,
+  COUNT(DISTINCT assignment_id) AS units
+FROM experiment_exposures
+WHERE timestamp >= CURRENT_TIMESTAMP - INTERVAL '1 hour'
+  AND experiment_id = 'new-checkout-flow'
+GROUP BY 1, 2
+ORDER BY 1, 2;
+```
+
+The query syntax differs by warehouse. The required receipt is not a particular row count. It is evidence that the test identity appears once under the expected experiment, variation, and unit.
+
+## Secure the integration
+
+Feature flags are operational controls, not security controls.
+
+### Keep authorization outside the flag
+
+This is unsafe:
+
+```ts
+if (await adminDashboardFlag()) {
+  return readAllCustomerData();
+}
+```
+
+This preserves authorization:
+
+```ts
+await requirePermission("customer-data:read");
+
+if (await newCustomerDataViewFlag()) {
+  return readCustomerDataWithNewView();
+}
+
+return readCustomerDataWithLegacyView();
+```
+
+A flag may choose 2 authorized implementations. It cannot make an unauthorized user authorized.
+
+### Minimize attributes
+
+Send only fields used for targeting or assignment. Prefer opaque application IDs over email. If email-based targeting is unavoidable, configure a secure-string attribute and hash it exactly as documented in the [JavaScript SDK secure attributes](/lib/js#secure-attributes) reference. Secure attribute hashing changes what appears in the SDK payload; it does not remove the need to control where the salt and raw values live.
+
+Keep attributes out of broad logs. The telemetry example pseudonymizes the unit ID when a telemetry key is configured. Review the retention period and access policy for that derived identifier.
+
+### Decide whether the payload may reach the browser
+
+Local browser evaluation exposes the SDK payload to the browser. Do not put secrets in feature values or targeting rules. Feature flags are configuration, not a secret manager.
+
+Use server evaluation when:
+
+- Rule conditions reveal internal account lists or unreleased product logic.
+- Unused JSON/string variations contain sensitive configuration.
+- The decision protects server behavior.
+- A client could tamper with the rendered choice and the server must remain authoritative.
+
+Front-end remote evaluation can keep rules and unused variations off the client, but it introduces remote evaluation calls when relevant attributes change and has deployment and plan requirements. It is not supported for the hybrid React pattern described earlier. Read [remote evaluation requirements](/self-host/remote-evaluation) before selecting it.
+
+### Separate credentials by purpose
+
+Use distinct credentials:
+
+- `GROWTHBOOK_CLIENT_KEY`: read-only SDK payload identity for 1 environment.
+- `GROWTHBOOK_DECRYPTION_KEY`: decrypts encrypted SDK payloads; server-only in this guide.
+- `GROWTHBOOK_WEBHOOK_SECRET`: verifies SDK webhook requests.
+- `GROWTHBOOK_API_KEY`: optional read-only metadata access for Flags Explorer; never needed for normal evaluation.
+- `FLAGS_SECRET`: protects the Vercel Flags discovery/override endpoint when that optional tooling is enabled.
+- `GBCLI_BEARER_AUTH`: CLI credential for type generation or other reviewed automation.
+
+Never reuse the webhook secret as a telemetry hash key or application session secret. Give each a separate rotation procedure.
+
+### Protect the optional Flags Explorer endpoint
+
+Flags Explorer is not required for the implementation. If the team enables it, use `createFlagsDiscoveryEndpoint`, a read-only GrowthBook API credential, and `FLAGS_SECRET` as documented in the [Next.js adapter Flags Explorer integration](/lib/nextjs#flags-explorer-integration). Do not expose an unprotected route that lists internal flag metadata.
+
+## Know which controls require a plan
+
+The baseline in this guide does not require an advanced release feature. A GrowthBook Cloud Starter organization can use built-in environments, Boolean flags, advanced targeting, manual percentage rollout, and an instant kill switch. The current Cloud Starter plan is limited by seats, projects, and included CDN usage even though feature flag and traffic counts are not priced per evaluation. Check the [current GrowthBook pricing page](https://www.growthbook.io/pricing) before promising limits or availability.
+
+As verified on August 12, 2026:
+
+- **Cloud Starter baseline:** Default environments, unlimited feature flags, manual percentage rollouts, advanced targeting, kill switches, stale flag management, flag history, and standard webhooks.
+- **Cloud Pro additions relevant here:** Scheduled feature flags, Safe Rollouts with automated rollback, sticky bucketing, code references, encrypted SDK endpoints, and remote evaluation.
+- **Cloud Enterprise additions relevant here:** Ramp schedules, approval workflows, exportable audit logs, advanced access controls, and other governed release controls.
+- **Self-hosted:** Open-source and commercial feature availability differs from GrowthBook Cloud. Verify the deployed license and server version rather than copying Cloud assumptions.
+
+The GrowthBook environment documentation says the built-in `production`, `dev`, `staging`, and `test` environments are available to free organizations. Custom environment packaging has changed over time, so confirm current plan details before creating per-branch or per-region environments.
+
+The implementation must remain safe without plan-gated automation. If Safe Rollouts or ramp schedules are unavailable, use manual checkpoints with explicit stop criteria and a named operator.
+
+## Roll out from 0 to 1 to 100
+
+A rollout is a sequence of verified state transitions, not a slider movement. Write the release record before exposing customers:
+
+```text
+Feature: new-checkout-flow
+Owner: Checkout team
+Incident owner: On-call engineer
+Randomization unit: organization_id
+Safe code fallback: false -> legacy checkout
+Primary health signals: checkout API error rate, payment authorization failure rate
+User signal: completed checkout / started checkout
+Rollback authority: On-call engineer may force false without product approval
+Maximum propagation objective: 5 minutes
+Cleanup issue: CHECKOUT-1234
+Cleanup deadline: 14 days after 100% and rollback-window approval
+```
+
+Replace thresholds with values grounded in the application's baseline. “No obvious errors” is not a stop criterion.
+
+### Stage 0: Merge dark code
+
+Before enabling the feature for anyone:
+
+1. Create the flag with `false` as its default.
+2. Keep production disabled.
+3. Deploy both implementations.
+4. Confirm a missing payload renders the legacy component and API path.
+5. Confirm the new code does not run hidden side effects while its UI is off.
+6. Run type, unit, build, and parity tests.
+7. Confirm server logs show `defaultValue` or fallback behavior for a known request.
+
+“Dark” means unreachable by normal users, not merely hidden with CSS. Do not execute a new payment mutation and hide its output.
+
+### Stage 1: Enable internal identities
+
+Publish the top-priority employee rule in `dev`, then staging, then production. Use a trusted `employee` attribute. Verify:
+
+- An employee sees the new component and API path.
+- A non-employee with the same plan stays on the legacy path.
+- The same identity receives the same value after navigation and refresh.
+- The new path passes functional checkout tests.
+- The kill switch returns the employee to the legacy path.
+- Feature-evaluation receipts contain the intended `ruleId`.
+
+If production rules take longer than the propagation objective, stop and debug delivery before exposing customers. Do not compensate by repeatedly publishing the same change.
+
+### Stage 2: Enable a test organization
+
+For B2B checkout, target 1 opt-in organization before percentage rollout. This reveals tenant-context errors that employee targeting may miss. Confirm that 2 users in the organization receive the same result and a user who switches to another organization receives that organization's result.
+
+For a consumer application, use an explicit beta cohort or a small allowlist of durable IDs. Keep allowlists small; large ID lists expand the SDK payload and become hard to govern.
+
+### Stage 3: Start a manual percentage rollout
+
+Add a percentage rule below the internal and test-account rules:
+
+```text
+Conditions: identity_ready = true
+Hash attribute: organization_id
+Serve value: true
+Coverage: 1%
+```
+
+If anonymous or user assignment is intended, change only the hash attribute. Do not switch the hash attribute after rollout starts. A switch changes the bucket population and invalidates comparison across stages.
+
+At 1%, wait long enough to observe the application's normal traffic cycle and delayed errors. Check:
+
+- Payload fallback and initialization errors.
+- Checkout page and API parity.
+- Server error and timeout rates by feature value.
+- Payment or order-creation errors by feature value.
+- Support reports and client exceptions.
+- Assignment balance as a diagnostic, if the population is large enough.
+- The count of missing identities.
+
+A manual percentage rollout is a release control, not automatically an A/B test. Do not calculate a causal lift from sampled application logs unless you created an experiment rule, recorded valid exposures, joined outcomes on the randomization unit, and followed an analysis plan.
+
+### Stage 4: Expand through checkpoints
+
+A default manual schedule is:
+
+```text
+1% -> 5% -> 25% -> 50% -> 100%
+```
+
+The percentages are not universal. Increase the first cohort when traffic is low enough that 1% produces no signal. Add regional or account-tier checkpoints when the failure domain demands them. At every transition:
+
+1. Record the old and new coverage.
+2. Record who published it.
+3. Record the observation start and earliest next decision time.
+4. Verify the published payload reaches the application.
+5. Compare operational signals against predeclared stop thresholds.
+6. Exercise a known legacy and new identity.
+7. Either advance, hold, or roll back.
+
+Do not change coverage, rule order, hash attribute, variation meaning, and application code at the same time. Multiple simultaneous changes make a regression hard to attribute.
+
+### Stage 5: Reach 100% without deleting the fallback
+
+At 100%, every eligible identity receives the new value, but the release is not finished. Keep the legacy path during a bounded rollback window. Verify:
+
+- All intended populations are eligible; empty identifiers are not silently falling through.
+- Disabled environments still use the code fallback.
+- A top-priority force-`false` rule returns a test identity to legacy.
+- The production process has received the 100% payload in every relevant region.
+- Background workers and Route Handlers that use the flag agree with the page.
+- No active experiment still depends on the old variation.
+
+Set the cleanup decision date while the rollout context is fresh. A flag at 100% is not maintenance-free. It preserves 2 branches, 2 test surfaces, and a mutable production decision.
+
+## Rollback: run the drill before it is needed
+
+The safe rollback for this guide is a control-plane change, followed by an application receipt.
+
+### Roll back a normal rollout
+
+1. Open `new-checkout-flow` in GrowthBook.
+2. Draft a production change that forces `false` above every other rule, or disable the production feature environment.
+3. Publish the change using the organization's normal review policy.
+4. Wait no longer than the stated propagation objective.
+5. Request `/checkout` and `/api/checkout/config` with the same known identity.
+6. Confirm the page says `off`, the API says `legacy`, and new checkouts use the old implementation.
+7. Confirm error signals recover.
+8. Leave the rollback rule and incident evidence in place until the cause is understood.
+
+If the optional signed webhook backs the direct cache path, confirm the webhook returns HTTP 200 and the next request obtains a fresh payload. If Global Config backs the adapter, confirm its item changed. If neither receipt exists, a UI publish is not proof that the application changed.
+
+### Roll back when GrowthBook is unavailable
+
+If the control plane is unavailable but the application has a cached `true` payload, a code fallback alone does not override that cached value. Plan an application-level emergency mechanism for changes whose risk requires independence from the flag delivery plane. Options include:
+
+- A server-only environment variable such as `FORCE_LEGACY_CHECKOUT=true`, read before the SDK decision and changed through the deployment platform.
+- An operational configuration store already used for emergency controls.
+- A deployment that changes the code default and bypasses the new path.
+
+If you add an emergency override, keep it narrow and observable:
+
+```ts
+export async function shouldUseNewCheckout(): Promise<boolean> {
+  if (process.env.FORCE_LEGACY_CHECKOUT === "true") {
+    console.warn("feature_emergency_override", {
+      featureKey: "new-checkout-flow",
+      value: false,
+    });
+    return false;
+  }
+
+  return newCheckoutFlowFlag();
+}
+```
+
+Call `shouldUseNewCheckout()` from both page and API instead of calling the raw flag. Document who can set the variable, how long a deployment change takes, and how the override is removed. Do not create a generic unsigned header that forces arbitrary flags.
+
+### Do not use rollback to reverse incompatible data
+
+The legacy code path must remain compatible with state written by the new path. Use expand-and-contract migrations:
+
+1. Deploy schema changes that both versions can read.
+2. Write backward-compatible data.
+3. Roll out the new behavior.
+4. Wait through the rollback window.
+5. Migrate or backfill data.
+6. Remove legacy reads only after rollback is no longer required.
+
+A feature flag can select code. It cannot make an irreversible database write reversible.
+
+## Use the failure matrix during review
+
+Review these cases before production:
+
+| Failure | Expected behavior | Receipt | Response |
+| --- | --- | --- | --- |
+| `GROWTHBOOK_CLIENT_KEY` missing | Build/startup fails in the canonical implementation | Missing-variable error without key value | Fix deployment configuration; do not launch |
+| SDK endpoint times out on cold start | `new-checkout-flow` resolves `false` | Payload fallback or default-value event | Investigate delivery; keep legacy path |
+| Last valid payload is cached | Cached decision may continue until refresh | Payload source and `dateUpdated` | Compare staleness with operational objective |
+| Feature is disabled in the environment | Feature is omitted; code fallback resolves `false` | `unknownFeature` or fallback receipt | Expected kill-switch behavior |
+| Feature key is misspelled | Typecheck fails; untyped call falls back | CI type error or unknown-feature receipt | Correct key; never create a second flag to match typo |
+| Anonymous cookie is missing | Proxy creates one; first render receives matching header | `Set-Cookie` and parity test | Fix matcher if `identity_ready` remains false |
+| Cookie is blocked or cleared | User may receive a new anonymous assignment | New pseudonymous unit receipt | Use authenticated/account identity if continuity is required |
+| Page and API use different tenant context | Parity or tenant tests fail | Conflicting values/rule IDs | Fix authoritative organization resolution |
+| Client re-evaluates a server-owned flag | Hydration mismatch or duplicate exposure can occur | Browser warning or duplicate event key | Pass resolved primitive; remove second evaluation |
+| Webhook signature is invalid or stale | Route returns 401; cache remains unchanged | HTTP status and no invalidation log | Check raw body, secret, timestamp, and clock |
+| Webhook reaches only 1 self-hosted instance | Some instances retain stale payload | Region/instance payload timestamps differ | Coordinate cache tags through shared infrastructure |
+| Analytics callback fails | Feature remains usable; exposure may be missing | Tracking error counter | Retry or queue event; do not fabricate exposure later without identity |
+| Emergency override is active | Page and API always use legacy path | `feature_emergency_override` warning | Resolve incident, then remove override deliberately |
+| New path writes incompatible data | Rollback may be unsafe | Schema/data compatibility checks fail | Stop rollout; use expand-and-contract migration |
+
+The failure state must be visible. “Falls back safely” without a counter or log turns a broken integration into a long-lived silent release failure.
+
+## Know when DIY is the better answer
+
+GrowthBook is not necessary for every Boolean. Keep a deployment-time environment variable when all of these are true:
+
+- The value changes only through a normal deployment.
+- No user, account, attribute, or percentage targeting is required.
+- The application has 1 environment or environment differences already map cleanly to deployment configuration.
+- No non-developer needs to operate the value.
+- No experiment will use the decision.
+- No audit, approval, usage diagnostic, or stale-flag workflow is required.
+- A code deployment is an acceptable rollback mechanism.
+- The configuration is expected to remain permanent rather than become temporary release debt.
+
+For example, `ENABLE_VERBOSE_LOCAL_LOGS` in a developer-only build may be a valid environment variable. An entitlement such as `CAN_EXPORT_BILLING_DATA` should remain in the permission system, not GrowthBook.
+
+### The DIY threshold
+
+A homegrown Boolean usually evolves through this sequence:
+
+```text
+if statement
+-> environment-specific value
+-> runtime mutation
+-> authenticated admin endpoint
+-> per-user or per-account targeting
+-> deterministic percentage hashing
+-> cache and invalidation
+-> change history and review
+-> experiment exposure events
+-> result analysis
+-> stale-flag inventory and cleanup
+```
+
+DIY is still reasonable when the team deliberately needs only the first 1 or 2 stages. It becomes an internal platform when several later stages are requirements.
+
+GrowthBook's value in this task is not that it computes `if (enabled)`. The application still owns both branches. GrowthBook supplies a shared feature model, environment-specific payloads, targeting rules, deterministic assignment, an operator interface, integration points for experiments, and lifecycle metadata. The team still owns identity correctness, authorization, analytics delivery, application compatibility, incident response, and code removal.
+
+### Compare the maintenance obligation
+
+Use this decision record:
+
+| Requirement | Environment variable or small DIY layer | GrowthBook path |
+| --- | --- | --- |
+| Change without deployment | Requires a separate config service | Publish a feature revision |
+| Stable percentage rollout | Implement and test hashing semantics | Configure a percentage rule and identifier |
+| User/account targeting | Build rule storage and evaluator | Pass attributes and configure rules |
+| Server/client consistency | Still an application responsibility | Still an application responsibility; adapter helps centralize decisions |
+| Kill switch | Deployment or custom runtime control | Disable or force the safe value; delivery still needs verification |
+| Experiment assignment | Build tracking contract and analysis | SDK callback plus GrowthBook experiment workflow; event pipeline still required |
+| Audit and approvals | Build or use existing change management | Available controls vary by plan |
+| Flag cleanup | Search and ticket manually | Stale management and optional code references assist; engineering removes code |
+| Infrastructure ownership | Own every control-plane component | Use GrowthBook Cloud or operate Self-Hosted GrowthBook |
+
+Do not select GrowthBook only to avoid writing 1 conditional. Select it when the release and measurement lifecycle would otherwise become internal infrastructure.
+
+## Remove the flag after the release
+
+The terminal state is not “100% on.” It is 1 implementation with no temporary decision.
+
+### Establish removal criteria at creation
+
+Record:
+
+```text
+Owner: Checkout team
+Expected lifetime: 30 days
+Removal condition: 100% for 14 days, no rollback, health thresholds met
+Removal issue: CHECKOUT-1234
+Legacy code owner: Checkout team
+Data migration dependency: none / link
+```
+
+Flag history and stale detection can identify candidates, but they cannot prove that deleting a branch is safe. An engineer must review side effects, tests, background jobs, and data compatibility.
+
+### Remove the losing branch in order
+
+After the rollback window:
+
+1. Confirm no active experiment, ramp, or incident depends on the flag.
+2. Confirm production has been stable at `true` for the agreed period.
+3. Change code so the new checkout is unconditional.
+4. Remove the legacy component, API implementation, imports, tests, and telemetry dimensions used only by the split.
+5. Deploy the unconditional code while the GrowthBook flag still exists.
+6. Verify checkout behavior and health.
+7. Archive the GrowthBook feature.
+8. Wait through the maximum old-application deployment window.
+9. Delete the feature only if organizational retention policy allows it.
+10. Remove the key from generated types and fixtures.
+
+Deploying unconditional code before archiving the control ensures an older running instance can still evaluate the known key while the new instances no longer depend on it.
+
+Search for residue:
+
+```bash
+grep -R "new-checkout-flow\|newCheckoutFlowFlag\|legacy-checkout" -n src tests
+```
+
+Expected receipt after cleanup:
+
+```text
+# no matches
+```
+
+Then regenerate types and run the full verification sequence. If a background worker or mobile client still uses the feature, the key is not ready for deletion even if the Next.js repository is clean.
+
+## Definition of done
+
+The integration is complete only when every applicable statement is true.
+
+### Architecture and identity
+
+- [ ] The repository inspection identifies App Router, runtime, auth boundary, analytics path, hosting topology, and safe fallback.
+- [ ] Server-owned decisions evaluate on the server and reach Client Components as resolved values.
+- [ ] The page and Route Handler use the same request identity and organization context.
+- [ ] The anonymous ID is durable, consent-compatible, and available on the first render.
+- [ ] Percentage rules and experiments exclude missing identities.
+- [ ] The randomization unit is documented and does not change mid-rollout.
+
+### Delivery and failure behavior
+
+- [ ] Development, staging, and production use SDK Connections tied to the correct GrowthBook environments.
+- [ ] No server credential is exposed through `NEXT_PUBLIC_` variables or browser props.
+- [ ] Initialization has a bounded timeout and a known-safe `false` fallback.
+- [ ] The deployed cache strategy has a measured propagation objective.
+- [ ] Webhook or Global Config delivery, when used, has a successful live receipt.
+- [ ] Multi-instance cache invalidation is coordinated or explicitly bounded by time.
+- [ ] An independent emergency rollback exists if the change's risk requires it.
+
+### Tests and observability
+
+- [ ] TypeScript rejects an unknown feature key and wrong feature value type.
+- [ ] Unit tests cover employee targeting, missing identity, deterministic assignment, both rollout sides, and unknown-feature fallback.
+- [ ] The production build succeeds.
+- [ ] Playwright proves the page and API agree before and after refresh.
+- [ ] Feature evaluation and experiment exposure use separate event contracts.
+- [ ] An experiment exposure reaches the actual analytics or warehouse destination before an experiment starts.
+- [ ] Logs and metrics can distinguish a current payload from a fallback or stale payload.
+
+### Operations and lifecycle
+
+- [ ] Internal targeting succeeds before customer exposure.
+- [ ] Every percentage checkpoint has named stop conditions and a release record.
+- [ ] A rollback drill forces the legacy page and API path within the stated objective.
+- [ ] Both code paths remain data-compatible through the rollback window.
+- [ ] The feature has an owner, cleanup issue, and removal deadline.
+- [ ] The final state removes the legacy branch, the flag check, fixtures, generated type, and feature after old deployments no longer depend on it.
+
+Run the final local receipt:
+
+```bash
+npm run feature-types:check
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+```
+
+Then capture 3 live receipts from staging:
+
+```text
+1. Known internal identity -> page on, API new
+2. Known control identity -> page off, API legacy
+3. Forced rollback -> both identities page off, API legacy
+```
+
+If the team cannot produce all 3, the integration has reached “code merged,” not “production-ready feature flags.”
+
+## Source map and freshness contract
+
+This guide was verified on August 12, 2026 against GrowthBook commit [`e44a15af063860c7118f52508746356d55e5a91d`](https://github.com/growthbook/growthbook/commit/e44a15af063860c7118f52508746356d55e5a91d), the released package versions in `tested_stack`, and current Next.js 16 documentation.
+
+Primary GrowthBook source paths used:
+
+- [`docs/docs/lib/nextjs.mdx`](https://github.com/growthbook/growthbook/blob/e44a15af063860c7118f52508746356d55e5a91d/docs/docs/lib/nextjs.mdx) for the Flags adapter, identification, tracking, optional config store, and Flags Explorer behavior.
+- [`docs/docs/lib/js.mdx`](https://github.com/growthbook/growthbook/blob/e44a15af063860c7118f52508746356d55e5a91d/docs/docs/lib/js.mdx) for initialization, caching, deferred tracking, remote evaluation, strict TypeScript, secure attributes, and feature usage.
+- [`docs/docs/lib/react.mdx`](https://github.com/growthbook/growthbook/blob/e44a15af063860c7118f52508746356d55e5a91d/docs/docs/lib/react.mdx) for React Server Components, client hydration, and tracking patterns.
+- [`packages/sdk-js/src/GrowthBookClient.ts`](https://github.com/growthbook/growthbook/blob/e44a15af063860c7118f52508746356d55e5a91d/packages/sdk-js/src/GrowthBookClient.ts) and [`packages/sdk-js/src/core.ts`](https://github.com/growthbook/growthbook/blob/e44a15af063860c7118f52508746356d55e5a91d/packages/sdk-js/src/core.ts) for request-scoped user contexts, init results, evaluation callbacks, and cleanup behavior.
+- [`packages/sdk-js/test/typed-features.test.ts`](https://github.com/growthbook/growthbook/blob/e44a15af063860c7118f52508746356d55e5a91d/packages/sdk-js/test/typed-features.test.ts) and [`packages/sdk-react/test/main.test.tsx`](https://github.com/growthbook/growthbook/blob/e44a15af063860c7118f52508746356d55e5a91d/packages/sdk-react/test/main.test.tsx) for strict typing and React integration test coverage.
+- [Feature fundamentals](/features/basics), [rules](/features/rules), [targeting](/features/targeting), [environments](/features/environments), [diagnostics](/features/diagnostics), and [SDK Webhooks](/app/webhooks/sdk-webhooks) for control-plane behavior and operator receipts.
+
+External primary sources used:
+
+- The released [`@flags-sdk/growthbook` adapter source](https://github.com/vercel/flags/blob/main/packages/adapter-growthbook/src/index.ts) for the current `createGrowthbookAdapter` spelling, Global Config variables, refresh behavior, and request-scoped user context.
+- Vercel's [GrowthBook Flags SDK example](https://github.com/vercel/examples/tree/main/flags-sdk/growthbook) for current Next.js 16 identification, server tracking, and client tracking glue.
+- Next.js [`cookies()` behavior](https://nextjs.org/docs/app/api-reference/functions/cookies), [`proxy.ts` convention](https://nextjs.org/docs/app/api-reference/file-conventions/proxy), [`after()` lifecycle](https://nextjs.org/docs/app/api-reference/functions/after), [`fetch` cache options](https://nextjs.org/docs/app/api-reference/functions/fetch), and [`revalidateTag`](https://nextjs.org/docs/app/api-reference/functions/revalidateTag) for framework-specific behavior.
+- The current [GrowthBook plan matrix](https://www.growthbook.io/pricing) for plan-gated feature labels. Pricing and packaging are volatile.
+
+Reverify this guide when any dependency in this manifest changes:
+
+```yaml
+guide: nextjs-app-router-production-feature-flags
+verified_at: 2026-08-12
+growthbook_commit: e44a15af063860c7118f52508746356d55e5a91d
+depends_on:
+  - docs/docs/lib/nextjs.mdx
+  - docs/docs/lib/js.mdx
+  - docs/docs/lib/react.mdx
+  - docs/docs/features/basics.mdx
+  - docs/docs/features/rules.mdx
+  - docs/docs/features/targeting.mdx
+  - docs/docs/features/environments.mdx
+  - docs/docs/features/diagnostics.mdx
+  - docs/docs/webhooks/sdk-webhooks.mdx
+  - packages/sdk-js/src/**
+  - packages/sdk-js/test/**
+  - packages/sdk-react/src/**
+  - packages/sdk-react/test/**
+  - vercel/flags/packages/adapter-growthbook/**
+volatile:
+  - Next.js request APIs, Proxy, Data Cache, and revalidation behavior
+  - @flags-sdk/growthbook export names and config-store variables
+  - GrowthBook JavaScript and React SDK initialization and tracking APIs
+  - GrowthBook CLI type-generation syntax
+  - Cloud and self-hosted plan availability
+  - Vercel Global Config integration and limits
+verification:
+  - type generation diff
+  - TypeScript compile
+  - unit tests with fixed payload
+  - production Next.js build
+  - Playwright identity and page/API parity
+  - signed webhook or config-store update receipt when configured
+  - staging rollout and rollback drill
+  - experiment exposure readback from the destination data source
+```
+
+When a merged pull request touches a dependency, update the executable fixture first. Run the full verification list. Then change this guide. A source edit is evidence that the page may be stale; it is not evidence that its behavior changed.
