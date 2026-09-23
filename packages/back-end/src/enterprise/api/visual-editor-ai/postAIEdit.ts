@@ -28,7 +28,11 @@ import {
 } from "back-end/src/api/visual-editor-ai/insertPrimitive";
 import {
   appendSkipped,
+  hasUnguardedDomInsert,
+  isUserNamedSelector,
   mergeGlobalCss,
+  movePlacementProblem,
+  selectorsFoundByTool,
 } from "back-end/src/api/visual-editor-ai/editOutput";
 
 // Output-token caps for the edit generation, main and retry alike. A `css`
@@ -367,6 +371,7 @@ Position-move rules (critical):
     cssAppend: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
 - Real position moves are well-suited to relocating a block-level element into a different container (e.g. moving a <section> to before another <section> under <main>) and to reordering siblings that are themselves direct children of the parent. They're a poor fit for reordering items wrapped in <li>/<div> (nav menus, lists) — prefer the CSS \`order\` approach above for those.
 - The source selector and parentSelector must NOT match the same element — that's a no-op or, worse, a self-cycle.
+- The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT element, a sibling. To move an element UP, insertBeforeSelector is the sibling currently ABOVE it; to move it above section Y, insertBeforeSelector is Y's selector. Get those selectors from \`findElements\` (search for the neighbouring section's heading text or class). If you can't identify the destination sibling, don't guess — leave the move out and list it in \`skipped\`, asking the user to click the element it should go before.
 - For every move you propose, set value to null. Do not put position data in value.
 - Never combine position with action "append" or "remove". Always action "set".
 
@@ -411,6 +416,10 @@ DOM mutations vs global JS precedence — critical:
 - Example A — "change the headline to Welcome": DOM mutation on the headline. No JS.
 - Example B — "show a countdown timer in the headline that updates every second": JS only — the timer needs to keep writing. Do NOT also emit a mutation setting the headline text, or the mutation will fight the timer.
 - Example C — "when the button is clicked, swap its label": JS only — the label change is event-driven. Do NOT emit a class/text mutation on the button.
+
+Global JS that adds elements must be idempotent:
+- The SDK re-runs variation JS every time it re-applies the variation (SPA navigation, re-evaluation), and removing the <script> doesn't undo what it did. JS that inserts nodes without checking first duplicates them on the live site.
+- Prefer \`insert\` for new content — it is already guarded. When JS must create DOM, stamp a marker attribute on what you insert (e.g. \`data-gb-promo\`) and return early if \`document.querySelector('[data-gb-promo]')\` already exists.
 
 Tools you may call before producing the final JSON output:
 - \`generateImage\` — generate a single AI image and get a hosted URL. Call when the user asks to replace, set, or insert any image (or any background-image). The URL you get back can be placed directly into a mutation's \`value\` — as a \`src\` for <img>, inside a \`background-image: url(...)\` style, or as part of HTML markup for a new <img>. Pick the aspectRatio that matches where the image will appear (16:9 hero, 1:1 avatar, etc.). Call once per image; for multi-image requests (e.g. "build a carousel of 3 slides"), call multiple times. You are budgeted up to 3 image generations per turn.
@@ -731,6 +740,9 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       if (n.parentSelector) trustedSelectors.add(n.parentSelector);
     }
   }
+  // Live findElements matches are added as the tool answers (onStepFinish).
+  const isTrusted = (s: string) =>
+    trustedSelectors.has(s) || isUserNamedSelector(prompt, s);
 
   // visualEditorAIContext is the free-text brand guidelines admins set in
   // Settings → AI Settings. Appended to the system prompt (not the user
@@ -818,29 +830,48 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     explanation: string;
   }> => {
     let result = raw;
+    // One self-correct retry covers both uncatalogued selectors and
+    // malformed moves; the hints are concatenated so a single call fixes both.
+    const hints: string[] = [];
     if (domDigest && trustedSelectors.size > 0 && result.mutations.length > 0) {
       const misses = result.mutations
         .flatMap(requiredSelectors)
-        .filter((s) => !trustedSelectors.has(s));
+        .filter((s) => !isTrusted(s));
       if (misses.length > 0) {
         const uniqueMisses = Array.from(new Set(misses));
-        const retryHint = `RETRY: Your previous attempt used selectors that are NOT in the page-elements catalog: ${uniqueMisses
-          .map((s) => `\`${s}\``)
-          .join(
-            ", ",
-          )}. For position moves, the parent and insert-before targets count too — they must be in the catalog. Resolve this ONE of two ways: (1) if the user NAMED one of these selectors explicitly in their request (a class/id/attribute), it's valid — don't drop it, move that change into \`cssAppend\` instead (a CSS rule can target selectors the catalog doesn't list); (2) otherwise pick a matching selector verbatim from the catalog. Only return mutations = [] if neither applies and no catalog entry plausibly matches — and even then, still complete any global/body or user-named-class portion via \`cssAppend\`.`;
-        try {
-          result = await runRetry(retryHint);
-        } catch (e) {
-          logger.warn(
-            { err: e },
-            "[visual-editor-ai] self-correct retry failed",
-          );
-        }
+        hints.push(
+          `RETRY: Your previous attempt used selectors that are NOT in the page-elements catalog: ${uniqueMisses
+            .map((s) => `\`${s}\``)
+            .join(
+              ", ",
+            )}. For position moves, the parent and insert-before targets count too — they must be in the catalog. Resolve this ONE of two ways: (1) if the user NAMED one of these selectors explicitly in their request (a class/id/attribute), it's valid — don't drop it, move that change into \`cssAppend\` instead (a CSS rule can target selectors the catalog doesn't list); (2) otherwise pick a matching selector verbatim from the catalog. Only return mutations = [] if neither applies and no catalog entry plausibly matches — and even then, still complete any global/body or user-named-class portion via \`cssAppend\`.`,
+        );
+      }
+    }
+    const badMoves = result.mutations.flatMap((m) => {
+      const problem = movePlacementProblem(m);
+      return problem ? [`\`${m.selector}\`: ${problem}`] : [];
+    });
+    if (badMoves.length > 0) {
+      hints.push(
+        `RETRY: These position moves can't be applied — ${badMoves.join("; ")}. The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT sibling (the one currently above it to move up; section Y's selector to move above Y) and parentSelector must be its container. Get those selectors from \`findElements\`. If you can't identify the destination, leave the move out and list it in \`skipped\`.`,
+      );
+    }
+    if (hints.length > 0) {
+      try {
+        result = await runRetry(hints.join("\n\n"));
+      } catch (e) {
+        logger.warn({ err: e }, "[visual-editor-ai] self-correct retry failed");
       }
     }
 
     let droppedUnsafeHtml = false;
+    const droppedMoves: Array<{ selector: string; problem: string }> = [];
+    const droppedUnknown: Array<{ selector: string; missing: string[] }> = [];
+    // The retry's output is the last word, so its selectors get the same
+    // check the first attempt did: an uncatalogued one applies to nothing on
+    // the page while the explanation reads as done.
+    const canJudgeSelectors = !!domDigest && trustedSelectors.size > 0;
     const sanitizedMutations = result.mutations.filter((m) => {
       const attr = m.attribute === "text" ? "html" : m.attribute;
       // Guard (#3): never let an html mutation replace a page-root container
@@ -855,27 +886,25 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         );
         return false;
       }
-      if (m.attribute !== "position") return true;
-      if (!m.parentSelector) {
+      const problem = movePlacementProblem(m);
+      if (problem) {
+        droppedMoves.push({ selector: m.selector, problem });
         logger.warn(
-          { selector: m.selector },
-          "[visual-editor-ai] dropping position mutation: missing parentSelector",
+          { selector: m.selector, problem },
+          "[visual-editor-ai] dropping position mutation",
         );
         return false;
       }
-      if (m.parentSelector === m.selector) {
-        logger.warn(
-          { selector: m.selector },
-          "[visual-editor-ai] dropping self-targeting position mutation",
-        );
-        return false;
-      }
-      if (m.insertBeforeSelector && m.insertBeforeSelector === m.selector) {
-        logger.warn(
-          { selector: m.selector },
-          "[visual-editor-ai] dropping position mutation: insertBefore == selector",
-        );
-        return false;
+      if (canJudgeSelectors) {
+        const missing = requiredSelectors(m).filter((s) => !isTrusted(s));
+        if (missing.length > 0) {
+          droppedUnknown.push({ selector: m.selector, missing });
+          logger.warn(
+            { selector: m.selector, missing },
+            "[visual-editor-ai] dropping mutation with uncatalogued selectors after retry",
+          );
+          return false;
+        }
       }
       return true;
     });
@@ -936,7 +965,35 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       explanation +=
         " (Skipped an unsafe change that would have replaced the entire page. To add content to the page, ask me to insert a banner or section instead.)";
     }
-    explanation = appendSkipped(explanation, result.skipped);
+    if (
+      result.js &&
+      result.js !== currentChange?.js &&
+      hasUnguardedDomInsert(result.js)
+    ) {
+      logger.warn(
+        { visualChangesetId, variationId },
+        "[visual-editor-ai] js inserts DOM without an existence guard",
+      );
+      explanation +=
+        " (This change adds elements with custom JavaScript that doesn't check whether they already exist, so they may duplicate when the page re-renders. If you see duplicates, ask me to make it idempotent.)";
+    }
+    // A move dropped here would otherwise vanish while the explanation still
+    // claims it happened.
+    explanation = appendSkipped(explanation, [
+      ...(result.skipped ?? []),
+      ...droppedMoves.map((d) => ({
+        request: `Move \`${d.selector}\``,
+        reason: `${d.problem}. Click the element it should go before and ask again.`,
+      })),
+      ...droppedUnknown.map((d) => ({
+        request: `Change \`${d.selector}\``,
+        reason: `${d.missing
+          .map((s) => `\`${s}\``)
+          .join(
+            ", ",
+          )} isn't among the captured page elements. Click the element on the page and ask again.`,
+      })),
+    ]);
 
     const css = mergeGlobalCss({
       existing: currentChange?.css,
@@ -1042,7 +1099,10 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       variationId,
       pickedSelectors: elementContext.map((e) => e.selector),
     },
-    onStepFinish: ({ toolCalls }) => {
+    onStepFinish: ({ toolCalls, toolResults }) => {
+      for (const r of toolResults ?? []) {
+        for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
+      }
       if (toolCalls && toolCalls.length > 0) {
         logger.debug(
           {

@@ -1,6 +1,10 @@
 import {
   appendSkipped,
+  hasUnguardedDomInsert,
+  isUserNamedSelector,
   mergeGlobalCss,
+  movePlacementProblem,
+  selectorsFoundByTool,
 } from "back-end/src/api/visual-editor-ai/editOutput";
 
 describe("mergeGlobalCss", () => {
@@ -153,5 +157,144 @@ describe("appendSkipped", () => {
     expect(appendSkipped("Done.", [{ request: "  ", reason: "x" }])).toBe(
       "Done.",
     );
+  });
+});
+
+describe("movePlacementProblem", () => {
+  const move = (over: Record<string, unknown>) => ({
+    attribute: "position",
+    selector: ".pricing",
+    parentSelector: "main",
+    insertBeforeSelector: ".features",
+    ...over,
+  });
+
+  it("accepts a well-formed move and ignores non-moves", () => {
+    expect(movePlacementProblem(move({}))).toBeNull();
+    expect(
+      movePlacementProblem(move({ insertBeforeSelector: null })),
+    ).toBeNull();
+    expect(
+      movePlacementProblem({
+        attribute: "html",
+        selector: ".x",
+        parentSelector: ".x",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a move with no destination container", () => {
+    expect(movePlacementProblem(move({ parentSelector: null }))).toMatch(
+      /parentSelector/,
+    );
+  });
+
+  it("rejects a move whose destination is the element itself", () => {
+    expect(movePlacementProblem(move({ parentSelector: ".pricing" }))).toMatch(
+      /element itself/,
+    );
+    expect(
+      movePlacementProblem(move({ insertBeforeSelector: ".pricing" })),
+    ).toMatch(/before itself/);
+  });
+});
+
+describe("hasUnguardedDomInsert", () => {
+  it("flags inserts with no existence check", () => {
+    expect(
+      hasUnguardedDomInsert(
+        `document.querySelector('.hero').insertAdjacentHTML('beforeend', '<div class="badge">New</div>');`,
+      ),
+    ).toBe(true);
+    expect(
+      hasUnguardedDomInsert(
+        `const el = document.createElement('div'); document.body.appendChild(el);`,
+      ),
+    ).toBe(true);
+    expect(hasUnguardedDomInsert(`el.innerHTML += '<li>x</li>';`)).toBe(true);
+  });
+
+  it("passes inserts guarded by an existence check or a marker", () => {
+    expect(
+      hasUnguardedDomInsert(
+        `if (document.querySelector('[data-gb-badge]')) return; hero.insertAdjacentHTML('beforeend', '<div data-gb-badge>New</div>');`,
+      ),
+    ).toBe(false);
+    expect(
+      hasUnguardedDomInsert(
+        `if (!document.getElementById('gb-promo')) { document.body.appendChild(node); }`,
+      ),
+    ).toBe(false);
+    expect(
+      hasUnguardedDomInsert(`if (el.dataset.gbDone) return; el.append(x);`),
+    ).toBe(false);
+  });
+
+  it("ignores JS that doesn't insert anything", () => {
+    expect(
+      hasUnguardedDomInsert(`el.textContent = 'Hi'; el.style.color = 'red';`),
+    ).toBe(false);
+    expect(hasUnguardedDomInsert(null)).toBe(false);
+    expect(hasUnguardedDomInsert("")).toBe(false);
+  });
+});
+
+describe("selectorsFoundByTool", () => {
+  it("returns a live findElements call's matches and its query", () => {
+    expect(
+      selectorsFoundByTool({
+        toolName: "findElements",
+        input: { selector: ".plan-card", limit: 10 },
+        output: {
+          ok: true,
+          matches: [
+            { selector: ".plan-card:nth-child(1)", tag: "div", text: "Pro" },
+            { selector: ".plan-card:nth-child(2)", tag: "div", text: "Team" },
+          ],
+        },
+      }),
+    ).toEqual([
+      ".plan-card:nth-child(1)",
+      ".plan-card:nth-child(2)",
+      ".plan-card",
+    ]);
+  });
+
+  it("trusts nothing from a miss, an error, or another tool", () => {
+    expect(
+      selectorsFoundByTool({
+        toolName: "findElements",
+        input: { selector: ".nope" },
+        output: { ok: true, matches: [] },
+      }),
+    ).toEqual([]);
+    expect(
+      selectorsFoundByTool({
+        toolName: "findElements",
+        input: { selector: "div[" },
+        output: { ok: false, error: "Invalid selector" },
+      }),
+    ).toEqual([]);
+    expect(
+      selectorsFoundByTool({
+        toolName: "getExperimentVariations",
+        input: {},
+        output: { ok: true, matches: [{ selector: ".other-page" }] },
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("isUserNamedSelector", () => {
+  it("accepts a class, id or attribute selector quoted in the request", () => {
+    const prompt = "make .promo-banner, #pricing and [data-card] blue";
+    expect(isUserNamedSelector(prompt, ".promo-banner")).toBe(true);
+    expect(isUserNamedSelector(prompt, "#pricing")).toBe(true);
+    expect(isUserNamedSelector(prompt, "[data-card]")).toBe(true);
+  });
+
+  it("ignores bare tags and selectors the user didn't type", () => {
+    expect(isUserNamedSelector("change a link", "a")).toBe(false);
+    expect(isUserNamedSelector("change the hero", ".hero-cta")).toBe(false);
   });
 });
