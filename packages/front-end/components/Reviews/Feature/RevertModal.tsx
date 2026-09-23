@@ -4,20 +4,24 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import type { RampScheduleInterface } from "shared/validators";
 import {
   filterEnvironmentsByFeature,
   getReviewSetting,
+  getRevertRampDetachActions,
   getRevertTargetArchived,
   getRulesForEnvironment,
+  revertRampStopWarning,
 } from "shared/util";
 import {
   holdsMoveDestination,
   metadataTouchesPayload,
+  rampActionFootprint,
   revertFootprint,
 } from "shared/permissions";
 import isEqual from "lodash/isEqual";
 import { Flex, Box } from "@radix-ui/themes";
-import useApi from "@/hooks/useApi";
+import { useFeatureRevisionByVersion } from "@/hooks/useFeatureRevisionByVersion";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 // eslint-disable-next-line no-restricted-imports
@@ -31,6 +35,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorForChanges, {
   DraftMode,
@@ -44,6 +49,7 @@ export interface Props {
   revisionList: MinimalFeatureRevisionInterface[];
   /** Full revisions for diff preview — lazily cached. */
   allRevisions: FeatureRevisionInterface[];
+  rampSchedules: RampScheduleInterface[];
   close: () => void;
   mutate: () => void;
   setVersion: (version: number) => void;
@@ -54,6 +60,7 @@ export default function RevertModal({
   revision,
   revisionList,
   allRevisions,
+  rampSchedules,
   close,
   mutate,
   setVersion,
@@ -111,19 +118,11 @@ export default function RevertModal({
     effectiveApprovalsRequired ? "new" : "publish",
   );
 
-  const targetRevisionFromCache = allRevisions.find(
-    (r) => r.version === targetVersion,
+  const targetRevision = useFeatureRevisionByVersion(
+    feature.id,
+    targetVersion,
+    allRevisions,
   );
-  // If the selected version isn't in the parent's lazy cache, fetch it directly.
-  const { data: fetchedRevisionData } = useApi<{
-    status: 200;
-    revisions: FeatureRevisionInterface[];
-  }>(`/feature/${feature.id}/revisions?versions=${targetVersion}`, {
-    shouldRun: () => !targetRevisionFromCache,
-  });
-  const targetRevision =
-    targetRevisionFromCache ??
-    fetchedRevisionData?.revisions?.find((r) => r.version === targetVersion);
   const isLoadingRevision = !targetRevision;
   // Fall back to current revision only for submit/permissions — never for the diff.
   const targetRevisionForAction = targetRevision ?? revision;
@@ -136,6 +135,13 @@ export default function RevertModal({
       ...targetRevisionForAction,
       archived: getRevertTargetArchived(targetRevisionForAction),
     },
+  });
+
+  const rampDetaches = targetRevision
+    ? getRevertRampDetachActions(feature.id, targetRevision, rampSchedules)
+    : [];
+  const rampStopWarning = revertRampStopWarning(rampDetaches, rampSchedules, {
+    draft: mode === "new",
   });
 
   const environmentIds = environments.map((e) => e.id);
@@ -162,7 +168,7 @@ export default function RevertModal({
         enabled !== !!feature.environmentSettings?.[env]?.enabled,
     );
 
-  const affectedEnvs = revertTouchesGlobalState
+  const ruleEnvs = revertTouchesGlobalState
     ? revertFootprint({
         feature,
         targetRevision: targetRevisionForAction,
@@ -170,6 +176,17 @@ export default function RevertModal({
         changedEnvs: changedRuleEnvs,
       })
     : changedRuleEnvs;
+  // Detached ramps are felt wherever their rule serves, as the server gates.
+  const rampEnvs = rampActionFootprint({
+    rampActions: rampDetaches,
+    liveRules: feature.rules ?? [],
+    environmentIds,
+    schedules: rampSchedules,
+  });
+  const affectedEnvs =
+    rampEnvs === "all"
+      ? environmentIds
+      : [...new Set([...ruleEnvs, ...rampEnvs])];
 
   // Mirrors the two endpoints this modal calls. Reverting is its own authority:
   // the direct revert is gated on revertFeatures rather than publish, and revert
@@ -318,6 +335,11 @@ export default function RevertModal({
           setComment(e.target.value);
         }}
       />
+      {rampStopWarning && (
+        <Callout status="warning" size="sm" mt="3">
+          {rampStopWarning}
+        </Callout>
+      )}
     </Modal>
   );
 }
