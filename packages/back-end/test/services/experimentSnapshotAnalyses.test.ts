@@ -324,6 +324,32 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
     expect(result.results[0].metrics[0].variations[0].variationId).toBe("0");
   });
 
+  it("describes the experiment's current assignment query, not the snapshot's", () => {
+    const snapshot = makeSnapshot();
+    snapshot.settings = {
+      ...snapshot.settings,
+      exposureQueryId: "eq_old",
+      exposureQueryIdentifierType: "user_id",
+    };
+    const experiment = {
+      ...makeExperiment(),
+      exposureQueryId: "eq_new",
+      exposureQueryIdentifierType: "anonymous_id",
+    };
+
+    const { settings } = toSnapshotApiInterface(
+      experiment,
+      snapshot,
+      new Map(),
+    );
+
+    expect(settings.assignmentQuery).toEqual({
+      id: "eq_new",
+      identifierType: "anonymous_id",
+    });
+    expect(settings.assignmentQueryId).toBe("eq_new");
+  });
+
   it("emits 0 (not null) for missing statistics to preserve its contract", () => {
     const snapshot = makeSnapshot();
     snapshot.analyses = [

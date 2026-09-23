@@ -3507,14 +3507,13 @@ export function toSnapshotApiInterface(
       "",
     settings: {
       datasourceId: experiment.datasource || "",
-      ...(experiment.exposureQueryId &&
-      (snapshot.settings.exposureQueryIdentifierType ??
-        experiment.exposureQueryIdentifierType)
+      // Legacy contract: settings describe the current experiment, not the
+      // snapshot (bulk results are the snapshot-authoritative view).
+      ...(experiment.exposureQueryId && experiment.exposureQueryIdentifierType
         ? {
             assignmentQuery: {
               id: experiment.exposureQueryId,
-              identifierType: (snapshot.settings.exposureQueryIdentifierType ??
-                experiment.exposureQueryIdentifierType) as string,
+              identifierType: experiment.exposureQueryIdentifierType,
             },
           }
         : {}),
