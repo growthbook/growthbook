@@ -157,7 +157,8 @@ describe("publishing a rule edit under a running ramp schedule", () => {
     });
     expect(doc?.eventHistory.at(-1)).toMatchObject({
       type: "config-edited",
-      reason: "Base state updated by publishing revision 2: condition",
+      reason:
+        "Base state updated by publishing revision 2: fr_ramped: condition",
     });
   });
 

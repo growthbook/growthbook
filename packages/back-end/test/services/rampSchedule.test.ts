@@ -5680,7 +5680,7 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
     ],
     fields: ["condition"],
   };
-  const reason = "Base state updated by publishing revision 3: condition";
+  const reason = "Base state updated by publishing revision 3: r1: condition";
 
   it("patches the fresh anchor, appends the event and keeps a pre-image for the rewind", async () => {
     const paused = { type: "paused", timestamp: new Date() };
@@ -5751,31 +5751,43 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
     expect(writes.eventHistory).toEqual([older]);
   });
 
-  it("leaves the anchor alone when a later publish rewrote the base state, same value or not", async () => {
+  it("leaves a field alone once a later publish rewrote it on the same rule, same value or not", async () => {
     const event = { type: "config-edited", timestamp: new Date(1000), reason };
-    const later = { ...event, timestamp: new Date(2000) };
-    const { ctx, updateById } = makeCtx(
-      fresh({
-        startActions: [anchor({ condition: '{"a":1}' })],
-        eventHistory: [event, later],
+    const preImage = {
+      id: "rs_1",
+      patches: [
+        {
+          targetId: "t1",
+          ruleId: "r1",
+          patch: { condition: '{"a":1}' },
+          before: { condition: null },
+        },
+      ],
+      event,
+    };
+    const restoredWith = async (later: { reason: string }) => {
+      const laterEvent = { ...event, ...later, timestamp: new Date(2000) };
+      const { ctx, updateById } = makeCtx(
+        fresh({
+          startActions: [anchor({ condition: '{"a":1}' })],
+          eventHistory: [event, laterEvent],
+        }),
+      );
+      await restoreRampBaseStates(ctx, [preImage]);
+      const [, writes] = updateById.mock.calls[0];
+      expect(writes.eventHistory).toEqual([laterEvent]);
+      return writes.startActions[0].patch.condition;
+    };
+    expect(await restoredWith({ reason })).toBe('{"a":1}');
+    expect(
+      await restoredWith({
+        reason: "Base state updated by publishing revision 4: r2: condition",
       }),
-    );
-    await restoreRampBaseStates(ctx, [
-      {
-        id: "rs_1",
-        patches: [
-          {
-            targetId: "t1",
-            ruleId: "r1",
-            patch: { condition: '{"a":1}' },
-            before: { condition: null },
-          },
-        ],
-        event,
-      },
-    ]);
-    const [, writes] = updateById.mock.calls[0];
-    expect(writes.startActions[0].patch.condition).toBe('{"a":1}');
-    expect(writes.eventHistory).toEqual([later]);
+    ).toBeNull();
+    expect(
+      await restoredWith({
+        reason: "Base state updated by publishing revision 4: r1: value",
+      }),
+    ).toBeNull();
   });
 });

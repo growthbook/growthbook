@@ -1039,8 +1039,30 @@ function patchStartActions(
 }
 
 const BASE_STATE_SYNC_PREFIX = "Base state updated by publishing revision";
-const baseStateSyncReason = (revisionVersion: number, fields: string[]) =>
-  `${BASE_STATE_SYNC_PREFIX} ${revisionVersion}: ${fields.join(", ")}`;
+const ruleField = (patchKey: string) =>
+  RAMP_PATCH_RULE_FIELDS[patchKey] ?? patchKey;
+
+// "… revision 3: fr_a: condition, value; fr_b: coverage" — the rewind reads
+// this back to see which fields a later publish took over.
+function baseStateSyncReason(
+  revisionVersion: number,
+  patches: RampStartActionPatch[],
+): string {
+  const perRule = patches.map(
+    (p) => `${p.ruleId}: ${Object.keys(p.patch).map(ruleField).join(", ")}`,
+  );
+  return `${BASE_STATE_SYNC_PREFIX} ${revisionVersion}: ${perRule.join("; ")}`;
+}
+
+function baseStateSyncFields(reason: string): Map<string, Set<string>> {
+  const byRule = new Map<string, Set<string>>();
+  for (const entry of reason.slice(reason.indexOf(": ") + 2).split("; ")) {
+    const i = entry.indexOf(": ");
+    if (i > 0)
+      byRule.set(entry.slice(0, i), new Set(entry.slice(i + 2).split(", ")));
+  }
+  return byRule;
+}
 
 export async function planRampBaseStateSyncForPublish(
   ctx: ReqContext | ApiReqContext,
@@ -1078,7 +1100,7 @@ export async function applyRampBaseStateSync(
   revisionVersion: number,
   written: RampBaseStatePreImage[],
 ): Promise<void> {
-  for (const { schedule, patches, fields } of updates) {
+  for (const { schedule, patches } of updates) {
     await runLockedRampScheduleAction(ctx, schedule.id, async (fresh) => {
       const actions = fresh.startActions ?? [];
       const anchors = patches.map((p) => actions.find((a) => sameAction(a, p)));
@@ -1099,7 +1121,7 @@ export async function applyRampBaseStateSync(
         );
       }
       const eventHistory = appendRampEvent(fresh, "config-edited", {
-        reason: baseStateSyncReason(revisionVersion, fields),
+        reason: baseStateSyncReason(revisionVersion, patches),
         userId: ctx.userId,
       });
       written.push({
@@ -1127,20 +1149,25 @@ export async function restoreRampBaseStates(
   for (const { id, patches, event } of preImages) {
     await runLockedRampScheduleAction(ctx, id, async (fresh) => {
       const at = (e: RampEvent) => new Date(e.timestamp).getTime();
-      const superseded = (fresh.eventHistory ?? []).some(
+      const laterWrites = (fresh.eventHistory ?? []).filter(
         (e) =>
           e.type === "config-edited" &&
           e.reason?.startsWith(BASE_STATE_SYNC_PREFIX) &&
           at(e) > at(event),
       );
       const startActions = (fresh.startActions ?? []).map((a) => {
-        if (superseded) return a;
         const p = patches.find((x) => sameAction(a, x));
         if (!p) return a;
+        const takenOver = new Set(
+          laterWrites.flatMap((e) => [
+            ...(baseStateSyncFields(e.reason ?? "").get(p.ruleId) ?? []),
+          ]),
+        );
         const patch = { ...a.patch } as Record<string, unknown>;
         const written = p.patch as Record<string, unknown>;
         const before = p.before as Record<string, unknown>;
         for (const key of Object.keys(written)) {
+          if (takenOver.has(ruleField(key))) continue;
           if (!isEqual(patch[key], written[key])) continue;
           if (key in before) patch[key] = before[key];
           else delete patch[key];
