@@ -1,11 +1,10 @@
-import omit from "lodash/omit";
 import {
   ApiExperimentTemplateInterface,
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
 import {
-  parseAssignmentQueryInput,
+  flattenExposureQueryInput,
   toApiAssignmentQueryRef,
 } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
@@ -24,21 +23,9 @@ const ID_PREFIX = "tmplt__";
 // model stays flat.
 function normalizeTemplateExposureQueryBody(body: unknown): unknown {
   if (!body || typeof body !== "object") return body;
-  const b = body as {
-    exposureQuery?: { id: string; identifierType: string };
-    exposureQueryId?: string;
-  };
-  if (!b.exposureQuery) return body;
-  const { id, identifierType } = parseAssignmentQueryInput(
-    b.exposureQuery,
-    b.exposureQueryId,
-    "exposureQuery",
+  return flattenExposureQueryInput(
+    body as Parameters<typeof flattenExposureQueryInput>[0],
   );
-  return {
-    ...omit(b, "exposureQuery"),
-    exposureQueryId: id,
-    exposureQueryIdentifierType: identifierType,
-  };
 }
 
 // Both fields are optional in the API body, so creates must check for one.

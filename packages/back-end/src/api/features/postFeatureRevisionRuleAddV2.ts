@@ -11,7 +11,7 @@ import type { FeatureRule, SafeRolloutRule } from "shared/validators";
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
-  parseAssignmentQueryInput,
+  flattenExposureQueryInput,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
@@ -272,16 +272,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           };
         }
       ).safeRolloutFields;
-      const {
-        id: exposureQueryId,
-        identifierType: exposureQueryIdentifierType,
-      } = parseAssignmentQueryInput(
-        validatableFields.exposureQuery,
-        validatableFields.exposureQueryId,
-        "exposureQuery",
-      );
       const validatedFields = await validateCreateSafeRolloutFields(
-        { ...validatableFields, exposureQueryId, exposureQueryIdentifierType },
+        flattenExposureQueryInput(validatableFields),
         req.context,
         feature.project ?? "",
       );

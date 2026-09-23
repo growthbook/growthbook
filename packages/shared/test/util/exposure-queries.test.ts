@@ -9,6 +9,7 @@ import {
   isExposureQueryAvailableForProjects,
   hasAssignmentQuerySelectionChanged,
   toApiAssignmentQueryRef,
+  flattenExposureQueryInput,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -424,5 +425,38 @@ describe("toApiAssignmentQueryRef", () => {
     expect(
       toApiAssignmentQueryRef("eq_gone", undefined, [multi]),
     ).toBeUndefined();
+  });
+});
+
+describe("flattenExposureQueryInput", () => {
+  it("maps the grouped object onto the flat fields and keeps the rest", () => {
+    expect(
+      flattenExposureQueryInput({
+        exposureQuery: { id: "eq_1", identifierType: "user_id" },
+        datasourceId: "ds_1",
+      }),
+    ).toEqual({
+      exposureQueryId: "eq_1",
+      exposureQueryIdentifierType: "user_id",
+      datasourceId: "ds_1",
+    });
+  });
+
+  it("leaves a partial body without either field untouched", () => {
+    const flat = flattenExposureQueryInput({ name: "renamed" } as {
+      name: string;
+      exposureQueryId?: string;
+    });
+    expect(flat).toEqual({ name: "renamed" });
+    expect(flat).not.toHaveProperty("exposureQueryId");
+  });
+
+  it("rejects the grouped object together with the deprecated id", () => {
+    expect(() =>
+      flattenExposureQueryInput({
+        exposureQuery: { id: "eq_1", identifierType: "user_id" },
+        exposureQueryId: "eq_1",
+      }),
+    ).toThrow("Cannot set exposureQuery together with the deprecated");
   });
 });

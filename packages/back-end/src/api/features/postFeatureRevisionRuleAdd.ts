@@ -16,7 +16,7 @@ import type {
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
-  parseAssignmentQueryInput,
+  flattenExposureQueryInput,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
@@ -284,16 +284,8 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       // the stored ramp-up shape is larger.
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
-      const {
-        id: exposureQueryId,
-        identifierType: exposureQueryIdentifierType,
-      } = parseAssignmentQueryInput(
-        validatableFields.exposureQuery,
-        validatableFields.exposureQueryId,
-        "exposureQuery",
-      );
       const validatedFields = await validateCreateSafeRolloutFields(
-        { ...validatableFields, exposureQueryId, exposureQueryIdentifierType },
+        flattenExposureQueryInput(validatableFields),
         req.context,
         feature.project ?? "",
       );

@@ -55,6 +55,35 @@ export function parseAssignmentQueryInput(
 }
 
 /**
+ * Maps a REST body's grouped `exposureQuery` onto the stored flat
+ * `exposureQueryId` / `exposureQueryIdentifierType`, keeping every other field.
+ * Keys are only set when given, so partial update bodies stay partial.
+ */
+export function flattenExposureQueryInput<
+  T extends {
+    exposureQuery?: { id: string; identifierType: string };
+    exposureQueryId?: string;
+  },
+>(
+  body: T,
+): Omit<T, "exposureQuery"> & {
+  exposureQueryId?: string;
+  exposureQueryIdentifierType?: string;
+} {
+  const { exposureQuery, ...rest } = body;
+  const { id, identifierType } = parseAssignmentQueryInput(
+    exposureQuery,
+    body.exposureQueryId,
+    "exposureQuery",
+  );
+  return {
+    ...rest,
+    ...(id !== undefined ? { exposureQueryId: id } : {}),
+    ...(identifierType ? { exposureQueryIdentifierType: identifierType } : {}),
+  };
+}
+
+/**
  * For resources spanning several projects (holdouts): the query must be usable
  * by every one of them. No projects means all projects, so only an unscoped
  * query qualifies.

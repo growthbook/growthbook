@@ -1,5 +1,4 @@
 import escapeRegExp from "lodash/escapeRegExp";
-import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
 import { ExposureQuery } from "shared/types/datasource";
@@ -22,7 +21,7 @@ import {
   stemRuleId,
   isRampScheduleServing,
   unanchoredRampTargets,
-  parseAssignmentQueryInput,
+  flattenExposureQueryInput,
   toApiAssignmentQueryRef,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
@@ -248,29 +247,13 @@ export function apiMonitoringConfigToInternal<
     exposureQuery?: { id: string; identifierType: string };
     exposureQueryId?: string;
   },
->(
-  mc: T | null | undefined,
-):
-  | (Omit<T, "exposureQuery"> & {
-      exposureQueryId: string;
-      exposureQueryIdentifierType?: string;
-    })
-  | null {
+>(mc: T | null | undefined) {
   if (!mc) return null;
-  const { id, identifierType } = parseAssignmentQueryInput(
-    mc.exposureQuery,
-    mc.exposureQueryId,
-    "exposureQuery",
-  );
-  if (!id) throw new Error("monitoringConfig.exposureQuery is required");
-  return {
-    ...omit(mc, "exposureQuery"),
-    exposureQueryId: id,
-    ...(identifierType ? { exposureQueryIdentifierType: identifierType } : {}),
-  } as Omit<T, "exposureQuery"> & {
-    exposureQueryId: string;
-    exposureQueryIdentifierType?: string;
-  };
+  const { exposureQueryId, ...flat } = flattenExposureQueryInput(mc);
+  if (!exposureQueryId) {
+    throw new Error("monitoringConfig.exposureQuery is required");
+  }
+  return { ...flat, exposureQueryId };
 }
 
 export function monitoringConfigToApi(
