@@ -490,6 +490,11 @@ describe("parseDatabricksEventForwarderTablePrefix", () => {
     ).toEqual({ catalog: "main", schema: "analytics", tablePrefix: "gb" });
   });
 
+  it("defaults an empty prefix to gb", () => {
+    expect(parseDatabricksEventForwarderTablePrefix("main.analytics.")).toEqual(
+      { catalog: "main", schema: "analytics", tablePrefix: "gb" },
+    );
+  });
   it("rejects anything but three parts", () => {
     expect(() => parseDatabricksEventForwarderTablePrefix("main.gb")).toThrow(
       /catalog\.schema\.prefix/,

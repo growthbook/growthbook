@@ -577,9 +577,8 @@ export function parseDatabricksEventForwarderTablePrefix(
   return {
     catalog: assertDatabricksIdentifier(segments[0], "Catalog"),
     schema: assertDatabricksIdentifier(segments[1], "Schema"),
-    tablePrefix: normalizeDatabricksTablePrefixForEventForwarder(
-      assertNonEmptySegment(segments[2], "Table prefix"),
-    ),
+    // Empty prefix falls back to the default, like BigQuery and Snowflake.
+    tablePrefix: normalizeDatabricksTablePrefixForEventForwarder(segments[2]),
   };
 }
 
