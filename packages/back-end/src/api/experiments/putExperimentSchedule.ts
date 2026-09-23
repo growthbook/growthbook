@@ -21,8 +21,8 @@ export const putExperimentSchedule = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
-  // A scheduled stop or rollout is a deferred status change and takes the same
-  // permission as making it now; notify-only and start-only schedules do not.
+  // A schedule that will start, stop or ship is a deferred status change and
+  // takes the same permission as making it now; notify-only ends do not.
   if (scheduleWriteNeedsRunPermission(experiment, req.body)) {
     await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
   }
