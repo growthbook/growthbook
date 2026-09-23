@@ -7,6 +7,10 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
+  rampPlanLacksHashAttribute,
+  rampPlanControlledFields,
+  getDefaultHashAttribute,
+  stringifyFeatureValue,
   validateFeatureValue,
   assertSchemaMatchesValueType,
   getValidation,
@@ -15,6 +19,7 @@ import {
   getLiveChangesSinceBase,
   evaluatePublishGovernance,
   isScheduledPublishPending,
+  pendingScheduleWarning,
   isScheduledPublishDue,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
@@ -1054,6 +1059,85 @@ describe("scheduled / deferred publish helpers", () => {
     ...over,
   });
 
+  describe("rampPlanControlledFields", () => {
+    it("maps each field a step or the end state sets on the target to where it is first set", () => {
+      const plan = {
+        steps: [
+          {
+            actions: [
+              { targetId: "t1", patch: { ruleId: "r1", coverage: 0.25 } },
+              { targetId: "t2", patch: { ruleId: "r2", condition: "{}" } },
+            ],
+          },
+          {
+            actions: [
+              {
+                targetId: "t1",
+                patch: { ruleId: "r1", coverage: 0.5, force: "b" },
+              },
+            ],
+          },
+        ],
+        endActions: [
+          {
+            targetId: "t1",
+            patch: { ruleId: "r1", coverage: 1, savedGroups: [] },
+          },
+        ],
+      };
+      expect([...rampPlanControlledFields(plan, "t1")]).toEqual([
+        ["coverage", "step 1"],
+        ["value", "step 2"],
+        ["savedGroups", "end state"],
+      ]);
+      expect([...rampPlanControlledFields(plan, "t3")]).toEqual([]);
+    });
+  });
+
+  describe("rampPlanLacksHashAttribute", () => {
+    it("is true when a patch for the rule sets partial coverage and none names a hash attribute", () => {
+      const plan = (patches: Record<string, unknown>[]) => ({
+        steps: patches.map((patch) => ({ actions: [{ patch }] })),
+      });
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 0.5 }]), "r1")).toBe(
+        true,
+      );
+      expect(
+        rampPlanLacksHashAttribute(
+          {
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            ...plan([{ coverage: 0.5 }]),
+          },
+          "r1",
+        ),
+      ).toBe(false);
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 1 }]), "r1")).toBe(
+        false,
+      );
+      expect(
+        rampPlanLacksHashAttribute(
+          plan([{ ruleId: "r2", coverage: 0.5 }]),
+          "r1",
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("getDefaultHashAttribute", () => {
+    it("prefers a marked id, then the first marked attribute, then id", () => {
+      const attr = (property: string, hashAttribute?: boolean) =>
+        ({ property, datatype: "string", hashAttribute }) as never;
+      expect(
+        getDefaultHashAttribute([attr("device", true), attr("id", true)]),
+      ).toBe("id");
+      expect(getDefaultHashAttribute([attr("device", true), attr("id")])).toBe(
+        "device",
+      );
+      expect(getDefaultHashAttribute([attr("id")])).toBe("id");
+      expect(getDefaultHashAttribute(undefined)).toBe("id");
+    });
+  });
+
   describe("isScheduledPublishPending", () => {
     it("true for an armed, dated, active draft", () => {
       expect(isScheduledPublishPending(rev())).toBe(true);
@@ -1067,6 +1151,15 @@ describe("scheduled / deferred publish helpers", () => {
       expect(isScheduledPublishPending(rev({ scheduledPublishAt: null }))).toBe(
         false,
       );
+    });
+    it("warns about a pending schedule, naming its date", () => {
+      expect(pendingScheduleWarning(rev())).toMatch(
+        new RegExp(`scheduled to publish on ${future.toUTCString()}`),
+      );
+      expect(pendingScheduleWarning(rev({ status: "published" }))).toBeNull();
+      expect(
+        pendingScheduleWarning(rev({ autoPublishOnApproval: false })),
+      ).toBeNull();
     });
     it("false once published or discarded", () => {
       expect(isScheduledPublishPending(rev({ status: "published" }))).toBe(
@@ -2069,6 +2162,16 @@ describe("validateJSONFeatureValue", () => {
       enabled: false,
     };
     expect(validateJSONFeatureValue(value, feature).valid).toEqual(true);
+  });
+});
+
+describe("stringifyFeatureValue", () => {
+  it("leaves strings alone and JSON-encodes everything else", () => {
+    expect(stringifyFeatureValue('{"limit": 5}')).toBe('{"limit": 5}');
+    expect(stringifyFeatureValue(false)).toBe("false");
+    expect(stringifyFeatureValue(10)).toBe("10");
+    expect(stringifyFeatureValue(null)).toBe("null");
+    expect(stringifyFeatureValue({ limit: 5 })).toBe('{"limit":5}');
   });
 });
 

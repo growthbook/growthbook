@@ -40,6 +40,11 @@ import {
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  stagedFeature,
+  validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
 import {
@@ -73,6 +78,21 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   }
   // Same environment-id check as the add endpoint, before a draft is created.
   assertValidRuleEnvironments(req.context, [patch]);
+  const staged = await stagedFeature(req.context, feature, req.params.version);
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      staged,
+      {
+        ...(staged.rules ?? []).find((r) => r.id === req.params.ruleId),
+        ...patch,
+        id: req.params.ruleId,
+      },
+    ),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -103,7 +123,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       [patch.config, ...(patch.variations?.map((v) => v.config) ?? [])],
       revision.defaultValue ?? feature.defaultValue,
       feature.baseConfig,
-      feature.project,
+      revision.metadata?.project ?? feature.project,
     );
 
     // Config backing comes only through the dedicated `config` field; a raw
@@ -248,9 +268,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values, whose schema lives on the config). Opt out with
     // ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
-      rules: [updatedRule as FeatureRule],
-    });
+    assertFeatureValuesValid(
+      req.context,
+      feature,
+      { rules: [updatedRule as FeatureRule] },
+      { rules: [oldRule] },
+    );
     // Config-backed rule values additionally validate against the backing
     // config's schema + invariants. Same check the publish path runs; a no-op
     // for non-config values.
@@ -329,6 +352,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       resolvedRampAction = normalizeInlineRampSchedule(
         inlineRampSchedule,
         updatedRule.id,
+        feature,
       );
       updatedRule.scheduleRules = [];
       updatedRule.scheduleType = "none";

@@ -5,11 +5,9 @@ import { getFactMetricFactTableIds } from "shared/experiments";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import FactTableModal from "@/components/FactTables/FactTableModal";
 import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
@@ -97,7 +95,6 @@ export default function FactTablesPage() {
   const permissionsUtil = usePermissionsUtil();
 
   const [createFactOpen, setCreateFactOpen] = useState(false);
-  const twoStepCreate = useFeatureIsOn("new-fact-table-modal");
   const [showArchived, setShowArchived] = useState(false);
 
   const factMetricCounts: Record<string, number> = {};
@@ -216,12 +213,9 @@ export default function FactTablesPage() {
 
   return (
     <Box className="pagecontents container-fluid">
-      {createFactOpen &&
-        (twoStepCreate ? (
-          <NewFactTableModal close={() => setCreateFactOpen(false)} />
-        ) : (
-          <FactTableModal close={() => setCreateFactOpen(false)} />
-        ))}
+      {createFactOpen && (
+        <NewFactTableModal close={() => setCreateFactOpen(false)} />
+      )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
       <Flex align="center" justify="between" gap="3" mb="4">
         <Heading as="h1" size="xl" mb="0">

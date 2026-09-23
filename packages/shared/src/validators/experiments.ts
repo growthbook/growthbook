@@ -177,6 +177,10 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "guardrail-failed",
+  "query-failed",
+  "ending-soon",
+  "stale",
   "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
@@ -452,6 +456,9 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
+  // User who staged it; the job runs the change on their authority, as the
+  // scheduled feature publish runs on its arming user's. Absent for org keys.
+  scheduledBy: z.string().optional(),
 });
 
 export const experimentInterface = z
