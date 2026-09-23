@@ -1,1 +1,1974 @@
+---
+description: "A complete React and TypeScript implementation for designing a valid experiment, assigning stable variations, proving the data path, reading trustworthy results, and removing the losing code."
+sidebarTitle: "Run a free JavaScript A/B test"
+last_verified: {}
+last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
+tested_stack:
+  - "@growthbook/growthbook 1.7.0"
+  - "@growthbook/growthbook-react 1.7.0"
+  - "React 19.2.8"
+  - "Vite 8.2.1"
+  - "TypeScript 7.0.2"
+  - "Node.js 22"
+  - "Vitest 4"
+---
 
+## TL;DR
+
+This guide turns a reversible signup-flow change into one defensible A/B test in a React and TypeScript application. It covers hypothesis and sample-size checks, stable browser assignment, safe control fallback, activation-time exposure, outcome instrumentation, Managed Warehouse and bring-your-own-warehouse paths, health checks, interpretation, and cleanup.
+
+The 0 → 1 → 100 path proves that the experiment is worth running and that exposure joins to outcomes, launches one controlled experiment, and finishes with a documented ship, iterate, or stop decision plus removal of temporary experiment code. If traffic, consent, identity, or measurement cannot support a valid test, reject the experiment.
+
+_This guide is optimized for AI coding agents, and it is recommended that you hand it off to your agent of choice for implementation._
+
+## Guide map
+
+| Phase | What the agent does | Receipt to return |
+| --- | --- | --- |
+| 0 — Design and instrument | Define the decision, unit, metric, detectable effect, event contract, and control fallback | Written experiment contract, feasibility check, and joinable test events |
+| 1 — Run one valid test | Configure the feature and experiment, verify stable assignment and exposure, and launch controlled traffic | Assignment, exposure, outcome, SRM, and multiple-exposure checks |
+| 100 — Decide and clean up | Interpret against the predeclared rule, ship or stop, preserve the result, and remove dead branches | Decision record, production verification, and cleanup receipt |
+
+## Give this guide to your coding agent
+
+Copy this page's URL and the prompt below into a coding agent that can inspect your repository. Replace `REPLACE_WITH_REPOSITORY` with the repository path or name and `REPLACE_WITH_GUIDE_URL` with this page's public URL. Start in a branch, worktree, or disposable clone, and use a non-production GrowthBook environment and synthetic or approved test events for the first pass.
+
+```text
+You are working in REPLACE_WITH_REPOSITORY.
+
+Your task is to determine whether this JavaScript application has one valid,
+decision-relevant A/B test that fits the guide. If it does, implement the
+non-production foundation and prove the assignment-to-outcome data path. If it
+does not, reject the experiment and explain which smaller rollout or research
+method fits better.
+
+Read REPLACE_WITH_GUIDE_URL in full before editing. Also read the repository's
+local agent instructions. Treat the operator's instructions, repository truth,
+and current official product/framework documentation as authoritative when they
+conflict with the guide. Revalidate the guide's tested versions, plan boundaries,
+and volatile surfaces before copying an executable step.
+
+Do not invent a hypothesis, business metric, minimum detectable effect, consent
+basis, stable identifier, or warehouse schema. Adapt the reference files to the
+existing analytics and identity contracts. Complete phase 0 and the safe,
+non-production parts of phase 1. Do not start production traffic, create or alter
+a live experiment, or make another external write unless I explicitly authorize
+that exact action.
+
+Return: the fit or reject decision; assumptions; files changed; commands and
+tests run; assignment, exposure, outcome-join, SRM, multiple-exposure, failure,
+and rollback receipts; deviations from the guide; and the remaining manual or
+production steps. If you cannot fetch the guide URL, stop and ask me for its
+Markdown version. Do not proceed from the TL;DR alone.
+```
+
+## Task
+
+Add a valid A/B test to an existing React application without paying for an experimentation plan. The application assigns each eligible browser to one signup flow, keeps that assignment stable, records exposure when the flow is actually rendered, records signup outcomes with the same identifier, and produces enough evidence to make a ship, iterate, or stop decision.
+
+This is an implementation guide for a coding agent. It does not stop after installing an SDK or rendering 2 components. It covers the decisions and evidence that turn a random split into an experiment:
+
+- A falsifiable hypothesis and a predeclared decision rule.
+- A defensible experimental unit.
+- A traffic and sample-size feasibility check.
+- Stable assignment and safe fallback behavior.
+- Separate assignment, exposure, activation, and outcome concepts.
+- Managed Warehouse and bring-your-own-warehouse data paths.
+- SQL receipts that prove events can join before results are trusted.
+- Sample ratio mismatch (SRM), multiple-exposure, and bias checks.
+- Bayesian and fixed-horizon frequentist interpretation.
+- Rollout, rollback, and removal of temporary experiment code.
+
+The reference change tests whether a streamlined signup flow improves signup completion. Replace the feature name, variants, and outcome with values from the repository you are working in. Keep the architecture and verification sequence.
+
+An AI coding agent receiving a prompt such as “is there any free experimentation I should set up?” should not invent a test merely because it can write a random branch. It should first determine whether a useful experiment exists. If it does, this guide takes the repository from 0, to 1 correct experiment, to a repeatable production workflow.
+
+## Use this guide when
+
+- You have 2 behaviors that can coexist behind one code-level feature flag.
+- You can define one primary outcome that would change a product decision.
+- You can assign a stable user, account, or anonymous browser identifier.
+- The treatment is reversible and both variants are safe enough for production.
+- You have enough eligible traffic to detect the smallest effect worth acting on.
+- You want GrowthBook Cloud Starter with Managed Warehouse, or the free GrowthBook path connected to an existing warehouse.
+
+## Do not use this guide when
+
+- **There is no decision to make.** If the new path is required for legal, security, or platform compatibility reasons, validate it and release it. Do not randomize it.
+- **The treatment is not safe.** Fix correctness, accessibility, security, and data-loss risks before exposing real users.
+- **Traffic is too low.** A test that needs 6 months to detect a useful effect will usually accumulate product changes, seasonality, and implementation drift faster than evidence.
+- **The variants change several unrelated things.** If the treatment changes pricing, onboarding, and navigation together, the result cannot identify the mechanism.
+- **Users influence each other across variants.** A marketplace, collaboration product, classroom, or team workflow may require account-, group-, or cluster-level assignment instead of user assignment.
+- **You cannot observe the outcome.** A rendered treatment without a trustworthy conversion or quality event is a rollout, not an analyzable experiment.
+- **The outcome is too delayed for the operating window.** If the meaningful outcome arrives 6 months later, use an earlier validated proxy or another research design.
+- **Consent or policy forbids the required tracking.** Do not generate a persistent anonymous identifier or send events until the application has the required consent or legal basis.
+
+When a test is inappropriate, choose the smallest fitting alternative: a unit test, usability study, internal canary, percentage rollout, interrupted time-series analysis, or a direct release with operational monitoring.
+
+## Tested stack
+
+The code in this guide targets a client-rendered React application created with Vite and TypeScript. It was verified against the GrowthBook JavaScript and React SDK source at commit `e44a15af063860c7118f52508746356d55e5a91d`, where both packages are version `1.7.0`.
+
+The same design works in other JavaScript frameworks, but the location of initialization and the moment of exposure will differ. For Next.js, Remix, or another server-rendered framework, do not copy the browser-only bootstrap blindly. Use the framework-specific SDK guidance and preserve the identity, event, and decision contracts in this guide.
+
+## Required access
+
+You need:
+
+- Read and write access to the application repository.
+- Permission to install npm packages and run the build and test suite.
+- A GrowthBook organization with permission to create a data source, SDK connection, feature, metric, and experiment.
+- Access to GrowthBook SQL Explorer for the Managed Warehouse path, or read access to the existing analytics warehouse for the BYOW path.
+- The application’s analytics-consent policy and current identifier conventions.
+- A product owner who can approve the hypothesis, minimum detectable effect, and final decision.
+
+The GrowthBook client key is designed for SDK use and will be present in the browser bundle. It is not an admin API secret. Never put a GrowthBook secret API key, warehouse password, or service credential in a `VITE_*` variable.
+
+## Files the agent will create or change
+
+The reference implementation creates or changes these files:
+
+```text
+.env.example
+src/
+  analytics/
+    signup-events.ts
+  experimentation/
+    device-id.ts
+    growthbook.ts
+  features/
+    signup/
+      SignupExperiment.tsx
+  App.tsx
+  main.tsx
+  vite-env.d.ts
+tests/
+  growthbook-assignment.test.ts
+  signup-events.test.ts
+```
+
+It also creates these GrowthBook resources:
+
+```text
+Managed Warehouse data source (or one existing BYOW data source)
+JavaScript/React SDK connection
+String feature: signup-flow
+Experiment tracking key: signup-flow-v1
+Proportion metric: Signup completed
+Experiment: Streamlined signup flow
+```
+
+## End state
+
+You are done only when all of the following are true:
+
+1. `signup-flow` returns only `control` or `streamlined`, and its code fallback is `control`.
+2. A stable `device_id` is available before the flag is evaluated.
+3. Repeated evaluations for the same `device_id` return the same variation.
+4. The feature is evaluated on the signup route, not globally on application boot.
+5. Rendering the feature under an experiment rule records one deduplicated `Experiment Viewed` exposure with tracking key `signup-flow-v1`.
+6. `Signup Completed` records the same `device_id` used for assignment.
+7. SQL receipts show exposures and outcomes in the intended data source and prove they join by identifier.
+8. The observed traffic split has no unresolved SRM warning.
+9. Multiple exposures and variation-ID checks are clean.
+10. The primary metric, target effect, minimum runtime, sample target, and stopping rule were written before launch.
+11. The result is interpreted at the predeclared horizon, not the first moment a dashboard turns green.
+12. The final decision is recorded, the experiment rule is stopped, and the losing path has an owner and removal date.
+
+## Rollback
+
+Rollback has 3 layers. Keep them independent so an incident does not require a code deployment.
+
+1. **Behavior rollback:** In GrowthBook, replace or disable the experiment rule and serve `control` to everyone. Verify the application returns the control experience for a known test identifier.
+2. **Analysis rollback:** Mark the experiment phase invalid if assignment or tracking was broken. Do not delete evidence. Fix the cause and start a new phase or experiment with a new seed and documented start time.
+3. **Code rollback:** Revert the application commit only if the shared feature wrapper or event code is itself unsafe. A config-fetch failure already falls back to `control`, so ordinary treatment rollback should not require this step.
+
+Stopping or finishing an experiment in the analysis UI does not necessarily stop the feature rule that serves it. Stop both the analysis and the assignment rule, then verify the effective feature value.
+
+## Understand the system before changing code
+
+A useful A/B test is a chain of contracts, not a random-number function:
+
+```text
+eligible unit
+  -> stable identifier
+  -> deterministic assignment
+  -> real treatment exposure
+  -> outcome event
+  -> identifier join
+  -> metric aggregation
+  -> health checks
+  -> predeclared decision
+  -> rollout and cleanup
+```
+
+If one arrow breaks, the result may still look precise while answering the wrong question.
+
+The reference architecture is:
+
+```text
+Browser on /signup
+  |-- device_id in a first-party cookie
+  |-- GrowthBook SDK fetches feature definitions
+  |-- local SDK evaluation returns control or streamlined
+  |-- tracking plug-in sends Experiment Viewed
+  |-- form sends Signup Started / Signup Completed
+  v
+GrowthBook regional event ingestor
+  v
+Managed ClickHouse warehouse
+  |-- experiment_views
+  |-- events
+  v
+GrowthBook assignment query + proportion metric
+  v
+Health checks, effect estimate, and decision record
+```
+
+Normal feature evaluation is local after the SDK has a payload. The event send is a separate asynchronous operation. This distinction matters during failure handling: an ingestion outage should not block signup, and a feature-payload failure should return the code fallback.
+
+### Separate assignment, exposure, activation, and outcome
+
+These terms are easy to collapse. Keep them distinct:
+
+- **Assignment** is the deterministic mapping from an identifier to a variation.
+- **Exposure** means the unit actually encountered the treatment boundary. In this guide, evaluating `signup-flow` inside the signup component triggers the SDK experiment event.
+- **Activation** is an optional, pre-treatment condition used to restrict analysis when assignment must happen earlier than meaningful exposure. It must not be influenced by the treatment.
+- **Outcome** is behavior after exposure, such as completing signup.
+
+Do not log exposure when the SDK initializes in `main.tsx`. Initialization only downloads definitions. The experiment event occurs when code evaluates a feature whose first matching rule is an experiment.
+
+Do not use `Signup Started` as an activation metric for this experiment if the streamlined flow can change whether a visitor starts. Filtering on a post-treatment event can select different populations in each variation and bias the estimate. Evaluate the feature at the moment the signup UI is rendered instead.
+
+## Step 0: Decide whether the repository contains a valid experiment
+
+Do this before opening GrowthBook.
+
+### Inspect the repository
+
+From the application root, collect evidence about the existing stack and instrumentation:
+
+```bash
+node --version
+npm --version
+npm pkg get dependencies devDependencies scripts
+rg -n "analytics|track\(|identify\(|user_id|device_id|anonymous_id|experiment|feature.?flag" src
+rg -n "signup|register|create.?account|onboarding" src tests
+rg -n "cookie|consent|privacy|localStorage" src
+```
+
+If `rg` is unavailable, use the repository’s normal search tool. Do not assume that `id`, `anonymousId`, and `userId` mean the same thing. Trace each identifier from creation through event ingestion.
+
+Write down:
+
+```text
+Framework and rendering mode:
+Signup route and entry component:
+Existing analytics client:
+Existing anonymous identifier:
+Authenticated user identifier:
+Consent gate:
+Current signup-start event:
+Current signup-complete event:
+Current baseline completion rate:
+Eligible units per day:
+Known bots, QA traffic, or internal traffic filters:
+```
+
+If the application already has a durable anonymous identifier that reaches the warehouse, reuse it. Creating a second device ID often produces unjoinable event streams and inflates unique-user counts.
+
+### Write the hypothesis as a decision contract
+
+Use one sentence:
+
+```text
+For first-time visitors who render the signup page, replacing the 3-step signup
+flow with a 1-page flow will increase 24-hour signup completion from 10.0% to at
+least 11.5% without increasing client-side signup errors by more than 0.5
+percentage points; if the experiment is healthy and the 95% interval excludes
+effects worse than -0.5 points at the fixed sample horizon, ship the streamlined
+flow, otherwise retain control or iterate.
+```
+
+This contract specifies:
+
+- **Population:** first-time visitors who render signup.
+- **Treatment:** 3 steps versus 1 page.
+- **Primary metric:** signup completion within 24 hours.
+- **Baseline:** 10.0%.
+- **Minimum worthwhile effect:** 1.5 absolute percentage points, or 15% relative.
+- **Harm boundary:** no more than 0.5 absolute points of primary-metric harm, plus an operational error guardrail.
+- **Decision time:** a fixed sample horizon and minimum runtime.
+
+Do not write “the new signup page will perform better.” That statement does not define how much better matters, which population counts, or what result changes the decision.
+
+### Choose the experimental unit
+
+The experimental unit is the entity independently assigned to a treatment. The assignment attribute in GrowthBook must represent that entity.
+
+Use this test:
+
+> Could 2 candidate units receive different variants without contaminating each other’s experience or outcome?
+
+For the reference signup flow, the visitor is anonymous before conversion. A first-party `device_id` is a reasonable unit if one person using 2 devices can legitimately count as 2 independently treated browsers. It is not perfect person-level identity. State that limitation in the decision record.
+
+Choose a different unit when the treatment operates elsewhere:
+
+| Treatment boundary | Usually assign by | Why |
+| --- | --- | --- |
+| Anonymous signup page | `device_id` | Available before account creation and stable across page reloads |
+| Logged-in personal UI | `user_id` | One person should keep one experience across devices when identity joins support it |
+| Team collaboration workflow | `account_id` or `workspace_id` | Team members affect one another; mixed variants contaminate the workflow |
+| Session-specific ordering | `session_id` | A new treatment per session is intentional and the outcome is session-level |
+| Store- or region-wide operation | `store_id` or `region_id` | Treatment is applied to the cluster, not each customer |
+
+Never assign on a value that changes during the outcome window. Assigning anonymous visitors on `device_id`, then analyzing only `user_id` after signup, silently drops non-converters and biases the result. This guide keeps `device_id` on both pre- and post-signup events. The authenticated `user_id` is additive.
+
+### Check traffic feasibility before building
+
+Estimate the sample needed to detect the minimum worthwhile effect. The following approximation uses a 2-sided alpha of `0.05`, 80% power, equal groups, and a binary outcome. It is a planning estimate, not a replacement for a reviewed analysis plan.
+
+Create `scripts/estimate-signup-sample.mjs` temporarily or run the body in a Node REPL:
+
+```js
+const baseline = 0.1;
+const relativeMde = 0.15;
+const treatment = baseline * (1 + relativeMde);
+
+// z critical values for two-sided alpha=0.05 and power=0.80
+const zAlpha = 1.95996398454;
+const zPower = 0.84162123357;
+const pooled = (baseline + treatment) / 2;
+const absoluteDifference = Math.abs(treatment - baseline);
+
+const numerator = Math.pow(
+  zAlpha * Math.sqrt(2 * pooled * (1 - pooled)) +
+    zPower * Math.sqrt(baseline * (1 - baseline) + treatment * (1 - treatment)),
+  2,
+);
+
+const perVariation = Math.ceil(numerator / Math.pow(absoluteDifference, 2));
+
+const total = perVariation * 2;
+const eligibleUnitsPerDay = 500;
+
+console.log({
+  baseline,
+  treatment,
+  perVariation,
+  total,
+  estimatedDays: Math.ceil(total / eligibleUnitsPerDay),
+});
+```
+
+Expected planning output:
+
+```text
+{
+  baseline: 0.1,
+  treatment: 0.115,
+  perVariation: 6693,
+  total: 13386,
+  estimatedDays: 27
+}
+```
+
+The formula follows the normal approximation for comparing proportions. Review the assumptions when conversion is rare, traffic is clustered, groups are unequal, or the unit contributes repeated outcomes. The [NIST sample-size guidance for proportions](https://itl.nist.gov/div898/handbook/prc/section2/prc242.htm) documents the relationship among effect size, significance level, and power.
+
+Estimate eligible units from the exact entry population, not total site traffic. If only 100 eligible browsers arrive per day, the same test needs roughly 134 days before allowing for bot filters, event loss, or the 24-hour conversion window. That is a strong reason to test a larger change, use a more frequent valid metric, or skip the experiment.
+
+Do not reduce the target effect after launch because the dashboard is inconclusive. Changing the target after seeing results changes the decision rule. Stop, record the invalidated plan, and design a new test if the business threshold genuinely changes.
+
+### Choose the data path
+
+GrowthBook analyzes experiment assignments and metrics in a data warehouse. Pick one path before writing event code:
+
+| Path | Use it when | Event implementation | Free-path note |
+| --- | --- | --- | --- |
+| Managed Warehouse | The project has no reliable warehouse pipeline, or you need the shortest validated path | `growthbookTrackingPlugin()` plus `gb.logEvent()` | Available on GrowthBook Cloud Starter; monthly event allowance is finite |
+| Bring Your Own Warehouse (BYOW) | Product events already reach a supported warehouse with stable identifiers | `trackingCallback` to the existing analytics client plus existing outcome tracking | Available on Starter; warehouse compute and storage remain yours |
+| Event Forwarder | You own a warehouse but want GrowthBook to manage event delivery | GrowthBook SDK event helpers | Pro or Enterprise; not the free path in this guide |
+
+See [Choose Your Data Path](/app/choose-data-path) for the current architecture and plan comparison. Each experiment uses one data source. Do not send exposure to Managed Warehouse and outcomes only to a separate warehouse, then expect one analysis to join them.
+
+The canonical implementation below uses Managed Warehouse. The BYOW replacement appears later.
+
+## Step 1: Provision the Managed Warehouse and SDK connection
+
+### Create the data source
+
+In GrowthBook Cloud:
+
+1. Open **Metrics and Data → Data Sources**.
+2. Choose **Managed Warehouse** and click **Create**.
+3. Record the selected data region: `us-east-1` or `eu-west-1`.
+4. Open the generated data source and confirm these tables exist: `events`, `experiment_views`, and `feature_usage`.
+5. Open **SQL Explorer** and confirm a read-only query runs.
+
+The Managed Warehouse provisions a ClickHouse data source, an Events fact table, built-in `user_id` and `device_id` identifiers, and starter metrics. The complete data shape is documented in [Managed Warehouse](/app/managed-warehouse).
+
+### Create the SDK connection
+
+1. Open **SDK Connections**.
+2. Click **Add SDK Connection**.
+3. Select JavaScript or React and the production environment.
+4. Copy the public client key, which begins with `sdk-`.
+5. Under the connection’s **Attributes**, ensure `device_id` exists as a string and is marked as an **Identifier**.
+6. Add `user_id` as a string identifier if the application adds it after signup.
+7. Add `app_environment` and `app_version` as non-identifier string attributes only if you will use them for diagnostics.
+
+Attribute names are an interface between code, SDK rules, event ingestion, assignment queries, and metrics. Treat a rename as a data migration.
+
+### Install the SDK packages
+
+Pin the versions while implementing so a later release does not change the test fixture during review:
+
+```bash
+npm install @growthbook/growthbook@1.7.0 @growthbook/growthbook-react@1.7.0
+npm install --save-dev vitest@4 jsdom @testing-library/react @testing-library/jest-dom
+```
+
+Keep the repository’s existing package manager and lockfile. If it uses pnpm or Yarn, translate the install command instead of introducing a second lockfile.
+
+After installation, verify the resolved versions:
+
+```bash
+npm ls @growthbook/growthbook @growthbook/growthbook-react
+```
+
+Expected result:
+
+```text
+@growthbook/growthbook@1.7.0
+@growthbook/growthbook-react@1.7.0
+```
+
+### Add public environment configuration
+
+Create `.env.example`:
+
+```bash
+VITE_GROWTHBOOK_CLIENT_KEY=sdk_REPLACE_WITH_PUBLIC_CLIENT_KEY
+VITE_GROWTHBOOK_API_HOST=https://cdn.growthbook.io
+VITE_GROWTHBOOK_INGESTOR_HOST=https://us1.gb-ingest.com
+VITE_APP_ENVIRONMENT=development
+VITE_APP_VERSION=local
+```
+
+For a Managed Warehouse in `eu-west-1`, use:
+
+```bash
+VITE_GROWTHBOOK_INGESTOR_HOST=https://eu-west-1.gb-ingest.com
+```
+
+Sending events to the wrong regional host means they do not reach the ClickHouse cluster attached to the data source. Do not infer the region from the user’s browser. It is an organization-level configuration value.
+
+Add the real values to the deployment platform’s environment configuration. Commit `.env.example`; do not commit `.env.local`.
+
+Create `src/vite-env.d.ts` so misspelled environment variables fail during type checking:
+
+```ts
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_GROWTHBOOK_CLIENT_KEY: string;
+  readonly VITE_GROWTHBOOK_API_HOST?: string;
+  readonly VITE_GROWTHBOOK_INGESTOR_HOST?: string;
+  readonly VITE_APP_ENVIRONMENT: string;
+  readonly VITE_APP_VERSION: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+```
+
+## Step 2: Implement a stable anonymous identifier
+
+The identifier must exist before `signup-flow` is evaluated and must survive reloads through the conversion window. This implementation uses a host-only, first-party cookie. It does not put email, name, IP address, or another direct personal identifier in GrowthBook.
+
+Create `src/experimentation/device-id.ts`:
+
+```ts
+const COOKIE_NAME = "app_device_id";
+const MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
+
+function readCookie(name: string): string | null {
+  const encodedName = `${encodeURIComponent(name)}=`;
+  const match = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(encodedName));
+
+  if (!match) return null;
+  return decodeURIComponent(match.slice(encodedName.length));
+}
+
+function writeCookie(name: string, value: string): void {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = [
+    `${encodeURIComponent(name)}=${encodeURIComponent(value)}`,
+    "Path=/",
+    `Max-Age=${MAX_AGE_SECONDS}`,
+    "SameSite=Lax",
+    secure,
+  ].join("; ");
+}
+
+export function getOrCreateDeviceId(): string {
+  const existing = readCookie(COOKIE_NAME);
+  if (existing) return existing;
+
+  const created = window.crypto.randomUUID();
+  writeCookie(COOKIE_NAME, created);
+  return created;
+}
+```
+
+This code assumes the application is allowed to create the measurement cookie. If consent is required, call `getOrCreateDeviceId()` only after the consent manager reports an allowed state. Before consent, render `control` without running or tracking the experiment. Do not substitute a new in-memory identifier on every page load; that re-randomizes returning visitors.
+
+If the app already maintains a durable anonymous ID, delete this file and pass the existing value as `device_id`. If experiments cross subdomains, a host-only cookie is not enough. Use the same parent-domain cookie policy as the existing identity system and test redirects explicitly. A new ID on the destination subdomain can cause re-bucketing and SRM.
+
+## Step 3: Initialize GrowthBook with controlled event schemas
+
+Create `src/experimentation/growthbook.ts`:
+
+```ts
+import { GrowthBook } from "@growthbook/growthbook-react";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
+import { getOrCreateDeviceId } from "./device-id";
+
+const ALLOWED_EVENT_NAMES = new Set([
+  "Experiment Viewed",
+  "Feature Evaluated",
+  "Signup Started",
+  "Signup Completed",
+  "Signup Failed",
+]);
+
+function required(name: keyof ImportMetaEnv): string {
+  const value = import.meta.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+function cleanPageUrl(): string {
+  const url = new URL(window.location.href);
+  return `${url.origin}${url.pathname}`;
+}
+
+function getIngestorHost(): string {
+  const configured =
+    import.meta.env.VITE_GROWTHBOOK_INGESTOR_HOST ??
+    "https://us1.gb-ingest.com";
+
+  const allowed = new Set([
+    "https://us1.gb-ingest.com",
+    "https://eu-west-1.gb-ingest.com",
+  ]);
+
+  if (!allowed.has(configured)) {
+    throw new Error(`Unsupported GrowthBook ingestor host: ${configured}`);
+  }
+
+  return configured;
+}
+
+export const growthbook = new GrowthBook({
+  apiHost:
+    import.meta.env.VITE_GROWTHBOOK_API_HOST ?? "https://cdn.growthbook.io",
+  clientKey: required("VITE_GROWTHBOOK_CLIENT_KEY"),
+  attributes: {
+    device_id: getOrCreateDeviceId(),
+    app_environment: required("VITE_APP_ENVIRONMENT"),
+    app_version: required("VITE_APP_VERSION"),
+  },
+  url: cleanPageUrl(),
+  plugins: [
+    growthbookTrackingPlugin({
+      ingestorHost: getIngestorHost(),
+      eventFilter: ({ eventName }) => ALLOWED_EVENT_NAMES.has(eventName),
+      transport: "auto",
+    }),
+  ],
+});
+
+export async function initializeGrowthBook(): Promise<void> {
+  const result = await growthbook.init({
+    timeout: 1_500,
+    streaming: false,
+  });
+
+  if (!result.success) {
+    console.warn("GrowthBook initialized without a fresh feature payload", {
+      source: result.source,
+      message: result.error?.message,
+    });
+  }
+}
+
+export function setAuthenticatedUser(userId: string): void {
+  growthbook.updateAttributes({ user_id: userId });
+}
+```
+
+The important behavior is deliberate:
+
+- `device_id` exists before feature evaluation.
+- The public client key loads the SDK payload.
+- The event plug-in automatically emits `Experiment Viewed` and `Feature Evaluated` and powers `growthbook.logEvent()`.
+- The event filter rejects accidental custom event names. It does not make unsafe properties safe, so the event functions below use a closed schema.
+- The URL drops query parameters, which may contain email addresses, invitation tokens, or campaign data that should not be copied without review.
+- `init()` waits at most 1.5 seconds. It returns an object rather than throwing for ordinary fetch failures.
+- A missing payload causes `useFeatureValue("signup-flow", "control")` to return the explicit control fallback.
+- Streaming is off for the first implementation. Add it only when the application needs it and after testing lifecycle behavior.
+
+The tracking plug-in maps a string `user_id` attribute to the top-level warehouse `user_id` column. It maps `device_id`, `anonymous_id`, or `id` to the top-level `device_id` column, preferring an explicit `device_id`. Use one key for one ID space. Never put a logged-in user ID in `id` and later introduce a browser ID in `device_id`; that mixes identifier semantics.
+
+The plug-in batches events, uses fetch with `credentials: "omit"`, keeps eligible browser requests alive across navigation, and uses `sendBeacon` during unload when available. Await a critical completion event before redirecting anyway. Delivery is still not a transactional guarantee, so server-confirmed business outcomes should also remain in the application database or existing analytics source of truth.
+
+## Step 4: Define narrow outcome events
+
+Create `src/analytics/signup-events.ts`:
+
+```ts
+import { growthbook } from "../experimentation/growthbook";
+
+export type SignupFlow = "control" | "streamlined";
+export type SignupMethod = "email" | "google" | "github";
+export type SignupFailureCode =
+  | "validation"
+  | "duplicate_account"
+  | "rate_limited"
+  | "server_error"
+  | "network_error";
+
+const SCHEMA_VERSION = 1;
+
+export function trackSignupStarted(flow: SignupFlow): Promise<void> {
+  return growthbook.logEvent("Signup Started", {
+    schema_version: SCHEMA_VERSION,
+    flow,
+  });
+}
+
+export function trackSignupCompleted(input: {
+  flow: SignupFlow;
+  method: SignupMethod;
+}): Promise<void> {
+  return growthbook.logEvent("Signup Completed", {
+    schema_version: SCHEMA_VERSION,
+    flow: input.flow,
+    method: input.method,
+  });
+}
+
+export function trackSignupFailed(input: {
+  flow: SignupFlow;
+  code: SignupFailureCode;
+}): Promise<void> {
+  return growthbook.logEvent("Signup Failed", {
+    schema_version: SCHEMA_VERSION,
+    flow: input.flow,
+    code: input.code,
+  });
+}
+```
+
+These functions cannot accept an email, display name, password, free-form error message, or request body. That is intentional. Store operational debugging detail in the application’s approved logging system with its own access and retention controls.
+
+The `flow` property is diagnostic. Do not calculate experiment lift by filtering this property. The authoritative variation comes from the experiment exposure table. If application code and exposure data disagree, investigate rather than making the outcome property the source of truth.
+
+## Step 5: Evaluate the feature at the treatment boundary
+
+The signup component is the first place that needs the feature value. That is where the application should evaluate it. Do not evaluate every experiment in a global provider “for convenience.” Broad evaluation adds people who never encounter the treatment, dilutes effects, consumes event allowance, and makes activation filtering necessary.
+
+Create `src/features/signup/SignupExperiment.tsx`:
+
+```ts
+import { FormEvent, useRef, useState } from "react";
+import { useFeatureValue } from "@growthbook/growthbook-react";
+import {
+  SignupFailureCode,
+  SignupFlow,
+  SignupMethod,
+  trackSignupCompleted,
+  trackSignupFailed,
+  trackSignupStarted,
+} from "../../analytics/signup-events";
+import { setAuthenticatedUser } from "../../experimentation/growthbook";
+
+type SignupResponse = {
+  userId: string;
+  redirectTo: string;
+};
+
+class SignupRequestError extends Error {
+  constructor(public readonly code: SignupFailureCode) {
+    super(code);
+  }
+}
+
+async function createAccount(input: {
+  email: string;
+  password: string;
+  method: SignupMethod;
+}): Promise<SignupResponse> {
+  const response = await fetch("/api/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(input),
+  });
+
+  if (response.status === 409) {
+    throw new SignupRequestError("duplicate_account");
+  }
+  if (response.status === 422) {
+    throw new SignupRequestError("validation");
+  }
+  if (response.status === 429) {
+    throw new SignupRequestError("rate_limited");
+  }
+  if (!response.ok) {
+    throw new SignupRequestError("server_error");
+  }
+
+  const value = (await response.json()) as Partial<SignupResponse>;
+  if (!value.userId || !value.redirectTo) {
+    throw new SignupRequestError("server_error");
+  }
+
+  return {
+    userId: value.userId,
+    redirectTo: value.redirectTo,
+  };
+}
+
+function normalizeFlow(value: unknown): SignupFlow {
+  return value === "streamlined" ? "streamlined" : "control";
+}
+
+function toFailureCode(error: unknown): SignupFailureCode {
+  if (error instanceof SignupRequestError) return error.code;
+  if (error instanceof TypeError) return "network_error";
+  return "server_error";
+}
+
+export function SignupExperiment() {
+  // Evaluating a feature backed by an experiment rule emits the exposure.
+  // The explicit fallback keeps the known-good flow during config failure.
+  const flow = normalizeFlow(
+    useFeatureValue("signup-flow", "control"),
+  );
+
+  const started = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function recordFirstInteraction(): void {
+    if (started.current) return;
+    started.current = true;
+    void trackSignupStarted(flow);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "");
+    const password = String(form.get("password") ?? "");
+    const method: SignupMethod = "email";
+
+    try {
+      const account = await createAccount({ email, password, method });
+
+      // Add the opaque authenticated ID without replacing device_id.
+      setAuthenticatedUser(account.userId);
+
+      // Await the SDK event flush before a full-page navigation.
+      await trackSignupCompleted({ flow, method });
+      window.location.assign(account.redirectTo);
+    } catch (caught) {
+      const code = toFailureCode(caught);
+      void trackSignupFailed({ flow, code });
+      setError("We could not create the account. Check the form and try again.");
+      setSubmitting(false);
+    }
+  }
+
+  if (flow === "streamlined") {
+    return (
+      <main>
+        <h1>Create your account</h1>
+        <p>Enter your details once to start.</p>
+        <form onFocus={recordFirstInteraction} onSubmit={submit}>
+          <label>
+            Work email
+            <input name="email" type="email" autoComplete="email" required />
+          </label>
+          <label>
+            Password
+            <input
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              minLength={12}
+              required
+            />
+          </label>
+          {error ? <p role="alert">{error}</p> : null}
+          <button disabled={submitting} type="submit">
+            {submitting ? "Creating account…" : "Create account"}
+          </button>
+        </form>
+      </main>
+    );
+  }
+
+  return (
+    <main>
+      <h1>Start your account setup</h1>
+      <p>Step 1 of 3: Create your login.</p>
+      <form onFocus={recordFirstInteraction} onSubmit={submit}>
+        <label>
+          Work email
+          <input name="email" type="email" autoComplete="email" required />
+        </label>
+        <label>
+          Password
+          <input
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={12}
+            required
+          />
+        </label>
+        {error ? <p role="alert">{error}</p> : null}
+        <button disabled={submitting} type="submit">
+          {submitting ? "Saving…" : "Continue"}
+        </button>
+      </form>
+    </main>
+  );
+}
+```
+
+The 2 example forms intentionally use the same API contract. In a real application, preserve all validation, accessibility, abuse-prevention, and security behavior in both paths. An experiment must not weaken password policy or omit legal consent to create a visually simpler treatment.
+
+`Signup Started` records once per mounted component after first form focus. It is useful for diagnosing funnel behavior, but it is not the denominator of the canonical proportion metric. The experiment exposure is the denominator because the hypothesis is about visitors who render the signup treatment.
+
+The API creates the account before the browser records completion. This is appropriate for a UI experiment receipt, but the application database remains the durable source of account creation. For stronger delivery guarantees, emit the completion event from the server-side account transaction into the same warehouse with the same `device_id`, passed through a validated request field or first-party session. Do not block account creation on a third-party analytics response.
+
+### Mount the feature only on the eligible route
+
+Create or update `src/App.tsx`:
+
+```ts
+import { SignupExperiment } from "./features/signup/SignupExperiment";
+
+export default function App() {
+  if (window.location.pathname === "/signup") {
+    return <SignupExperiment />;
+  }
+
+  return (
+    <main>
+      <h1>Example application</h1>
+      <a href="/signup">Create an account</a>
+    </main>
+  );
+}
+```
+
+Use the repository’s router in production. The invariant is what matters: the component calling `useFeatureValue()` must only mount for the eligible population.
+
+### Initialize before the first render
+
+Create or update `src/main.tsx`:
+
+```ts
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { GrowthBookProvider } from "@growthbook/growthbook-react";
+import App from "./App";
+import {
+  growthbook,
+  initializeGrowthBook,
+} from "./experimentation/growthbook";
+
+async function bootstrap(): Promise<void> {
+  await initializeGrowthBook();
+
+  const root = document.getElementById("root");
+  if (!root) throw new Error("Missing #root element");
+
+  createRoot(root).render(
+    <StrictMode>
+      <GrowthBookProvider growthbook={growthbook}>
+        <App />
+      </GrowthBookProvider>
+    </StrictMode>,
+  );
+}
+
+void bootstrap();
+```
+
+Waiting prevents a visible control-to-treatment flicker. The maximum wait is bounded by the SDK initialization timeout. If initialization times out, the app renders the control fallback and logs a diagnostic warning.
+
+React Strict Mode may render components more than once in development. The SDK deduplicates repeated feature and experiment events for the same evaluation context. Outcome events are custom events and are not automatically deduplicated, so the form handler must not emit `Signup Completed` twice. The production API should also use its own idempotency control for account creation.
+
+### Build before configuring production traffic
+
+Run the repository’s checks:
+
+```bash
+npm run typecheck
+npm test -- --run
+npm run build
+```
+
+If the repository uses different script names, inspect `package.json` and run the equivalent type-check, unit-test, and production-build commands. Do not publish an experiment rule to compensate for code that does not build.
+
+## Step 6: Create the feature and experiment rule
+
+### Create a string feature
+
+In GrowthBook:
+
+1. Open **Features** and click **Add Feature**.
+2. Set the key to `signup-flow`. Feature keys cannot be renamed after creation.
+3. Choose **String** as the type.
+4. Set the default value to `control` in every environment.
+5. Leave production enabled with no rule until the code containing the fallback and both paths is deployed.
+
+A Boolean flag can represent old versus new, but a string flag makes the variation contract explicit and leaves room for a separately named follow-up without converting `true` and `false` into ambiguous semantics.
+
+Deploy the dormant code first. Verify that production still serves `control` with no experiment rule. This separates deployment risk from treatment risk.
+
+### Add the experiment rule
+
+After the dormant deployment is verified:
+
+1. Open `signup-flow` and create a draft revision.
+2. Click **Add Rule → Experiment**.
+3. Set the tracking key to `signup-flow-v1`.
+4. Set **Assign variations based on attribute** to `device_id`.
+5. Map variation `0` to `control` and variation `1` to `streamlined`.
+6. Set overall exposure to `100%` and relative weights to `50% / 50%` for the canonical test.
+7. Limit the rule to the production environment and any explicit eligibility targeting.
+8. Review, publish, and record the exact UTC publication time.
+
+Keep relative variation weights fixed for the whole experiment. If risk requires a smaller initial audience, keep the 50/50 relative split and reduce overall exposure. You can increase overall exposure later without moving already included units between variations. Changing 90/10 to 50/50 mid-experiment can move assignments and create multiple exposures.
+
+GrowthBook hashes the experiment seed with the assignment attribute. The mapping is deterministic for the same phase and identifier. See [Feature Flag Experiments](/features/feature-flag-experiments) and [Feature Flag Rules](/features/rules) for current rule behavior.
+
+### Confirm the feature payload before trusting events
+
+Open the SDK connection endpoint shown in GrowthBook or inspect the request to `cdn.growthbook.io` in browser DevTools. Confirm the `signup-flow` definition contains an experiment rule and the expected values.
+
+Then open `/signup` with a clean browser profile and check:
+
+```text
+1. The app renders one complete signup flow.
+2. Reloading preserves the same flow.
+3. The app_device_id cookie remains unchanged.
+4. The SDK payload request succeeds or the control fallback renders.
+5. A request reaches the configured gb-ingest.com regional host.
+6. The request body contains Experiment Viewed with signup-flow-v1.
+7. The request body contains device_id but no email or password.
+```
+
+Do not use one browser profile to prove traffic balance. Stability means that profile should remain in one variation.
+
+## Step 7: Prove the Managed Warehouse data path with SQL
+
+Wait for test events to arrive, then use **SQL Explorer**. Replace the tracking key only if you deliberately changed it.
+
+### Confirm exposure counts and units
+
+```sql
+SELECT
+  experimentId,
+  variationId,
+  count() AS exposure_events,
+  uniqExact(device_id) AS exposed_devices
+FROM experiment_views
+WHERE timestamp >= now() - INTERVAL 1 HOUR
+  AND experimentId = 'signup-flow-v1'
+GROUP BY experimentId, variationId
+ORDER BY variationId
+```
+
+Expected result after testing with separate clean profiles:
+
+```text
+experimentId     variationId  exposure_events  exposed_devices
+signup-flow-v1   0            >= 1             >= 1
+signup-flow-v1   1            >= 1             >= 1
+```
+
+You may need several fresh profiles to reach both deterministic buckets. Do not modify one profile’s cookie during a real phase to force it into the other group.
+
+### Confirm custom events and identifier coverage
+
+```sql
+SELECT
+  event_name,
+  count() AS event_count,
+  uniqExact(device_id) AS devices,
+  countIf(isNull(device_id) OR device_id = '') AS missing_device_id
+FROM events
+WHERE timestamp >= now() - INTERVAL 1 HOUR
+  AND event_name IN ('Signup Started', 'Signup Completed', 'Signup Failed')
+GROUP BY event_name
+ORDER BY event_name
+```
+
+`missing_device_id` must be `0`. A completion with no assignment identifier cannot contribute to this device-level experiment.
+
+### Confirm exposures join to outcomes
+
+This query takes each device’s first recorded exposure and checks for a completion in the following 24 hours:
+
+```sql
+WITH first_exposure AS (
+  SELECT
+    device_id,
+    argMin(variationId, timestamp) AS variation_id,
+    min(timestamp) AS exposed_at
+  FROM experiment_views
+  WHERE experimentId = 'signup-flow-v1'
+    AND timestamp >= now() - INTERVAL 7 DAY
+    AND NOT isNull(device_id)
+    AND device_id != ''
+  GROUP BY device_id
+), completion AS (
+  SELECT
+    e.device_id,
+    min(e.timestamp) AS completed_at
+  FROM events AS e
+  WHERE e.event_name = 'Signup Completed'
+    AND e.timestamp >= now() - INTERVAL 7 DAY
+    AND NOT isNull(e.device_id)
+    AND e.device_id != ''
+  GROUP BY e.device_id
+)
+SELECT
+  x.variation_id,
+  count() AS exposed_devices,
+  countIf(
+    c.completed_at >= x.exposed_at
+    AND c.completed_at < x.exposed_at + INTERVAL 24 HOUR
+  ) AS completed_devices
+FROM first_exposure AS x
+LEFT JOIN completion AS c ON c.device_id = x.device_id
+GROUP BY x.variation_id
+ORDER BY x.variation_id
+```
+
+This is a data-path receipt, not the final experiment analysis. GrowthBook’s generated metric query handles configured windows, health exclusions, and statistical aggregation. The receipt must nevertheless show plausible denominators and at least one known test completion.
+
+### Check for multiple exposures
+
+```sql
+SELECT
+  device_id,
+  groupUniqArray(variationId) AS variations,
+  min(timestamp) AS first_seen,
+  max(timestamp) AS last_seen
+FROM experiment_views
+WHERE experimentId = 'signup-flow-v1'
+  AND timestamp >= now() - INTERVAL 7 DAY
+  AND NOT isNull(device_id)
+  AND device_id != ''
+GROUP BY device_id
+HAVING uniqExact(variationId) > 1
+ORDER BY first_seen
+LIMIT 100
+```
+
+Expected result: zero rows. If rows appear, do not interpret lift. Common causes include a changing cookie, changed relative weights, mixed assignment attributes, cross-subdomain identity loss, or an assignment query that aliases the wrong ID.
+
+### Inspect event properties without exposing raw form data
+
+```sql
+SELECT
+  event_name,
+  properties.schema_version::Nullable(Int64) AS schema_version,
+  properties.flow::Nullable(String) AS flow,
+  properties.method::Nullable(String) AS method,
+  properties.code::Nullable(String) AS failure_code,
+  count() AS events
+FROM events
+WHERE timestamp >= now() - INTERVAL 1 HOUR
+  AND event_name IN ('Signup Started', 'Signup Completed', 'Signup Failed')
+GROUP BY event_name, schema_version, flow, method, failure_code
+ORDER BY event_name, flow
+```
+
+Only the closed properties defined in `signup-events.ts` should appear. If an email, password, full URL query, free-form error, access token, or request body appears anywhere in the event, stop the experiment, remove the field, and follow the organization’s incident and deletion policy.
+
+## Step 8: Define the fact metric and analysis
+
+The Managed Warehouse creates an Events fact table. Build the primary metric on it rather than writing a one-off metric query.
+
+### Create the primary proportion metric
+
+1. Open **Metrics and Data → Fact Tables → Events**.
+2. Click **Add Metric**.
+3. Choose **Proportion**.
+4. Name it `Signup completed`.
+5. Set the goal to **Increase**.
+6. Add a row filter: `event_name = Signup Completed`.
+7. Set a 24-hour conversion window if signup is expected to complete within one day.
+8. Set a minimum data threshold that prevents interpretation of tiny counts.
+9. Save the metric and use its preview to verify recent completions.
+
+A proportion metric measures the percentage of exposed units with at least one matching row. Repeated `Signup Completed` events from one device still count that device once. See [Metrics and Fact Tables](/app/metrics) and [Metric Examples](/app/metrics/examples) for current metric semantics.
+
+If the business outcome is revenue, sessions, or another non-binary quantity, do not coerce it into a proportion metric to stay on the free path. Use the metric type that represents the decision and check its current plan availability. A free but invalid metric is not useful.
+
+### Create the experiment record
+
+The feature rule may create or link an experiment automatically. If it does not:
+
+1. Open **Experiments** and click **Add → Create New Experiment**.
+2. Set the name to `Streamlined signup flow`.
+3. Paste the predeclared hypothesis.
+4. Set the assignment attribute to `device_id`.
+5. Set the experiment key to `signup-flow-v1`.
+6. Select the Managed Warehouse data source and its experiment assignment query.
+7. Add `Signup completed` as the single goal metric.
+8. Confirm the baseline variation is `control` and the comparison is `streamlined`.
+9. Set the analysis start time to the recorded rule publication time.
+
+The experiment key, feature rule tracking key, and exposure `experimentId` must match exactly. Variation IDs must match the values represented by the experiment record. A variation-ID mismatch is a data-quality failure, not a naming inconvenience.
+
+Do not add every available metric as a goal. One primary goal limits metric shopping and makes the decision legible. Track client error rate, API error rate, latency, and abuse signals as operational guardrails in the application’s monitoring system on Starter. If the current plan supports dedicated guardrail metrics, add only the predeclared ones and keep the external operational alerts.
+
+## BYOW branch: Keep the existing event pipeline
+
+Use this branch instead of the Managed Warehouse tracking plug-in when the application already sends trustworthy product events to a supported warehouse. Do not run both implementations for one experiment unless you intentionally maintain 2 independent analysis systems.
+
+The GrowthBook SDK still performs assignment. Your existing analytics client records exposure and outcomes. GrowthBook queries the warehouse read-only.
+
+### Define one warehouse event contract
+
+Adapt this interface to the repository’s analytics client:
+
+```ts
+export type AnalyticsContext = {
+  device_id: string;
+  user_id?: string;
+  app_environment: string;
+  app_version: string;
+};
+
+export type AnalyticsEvent = {
+  event_name: string;
+  occurred_at: string;
+  properties: Record<string, string | number | boolean | null>;
+  context: AnalyticsContext;
+};
+
+export interface ProductAnalytics {
+  track(event: AnalyticsEvent): void | Promise<void>;
+}
+```
+
+The physical warehouse table should preserve at least:
+
+```text
+event_id       unique and idempotent event identifier
+occurred_at    timestamp in UTC
+event_name     stable event name
+device_id      anonymous assignment identifier
+user_id        nullable authenticated identifier
+properties     typed columns or JSON
+```
+
+Generate `event_id` in the existing pipeline and deduplicate retries there. Do not use `(device_id, event_name)` as a unique key; the same device can validly start signup more than once.
+
+### Replace the Managed Warehouse plug-in with a tracking callback
+
+The BYOW version of `src/experimentation/growthbook.ts` should use the existing analytics client:
+
+```ts
+import { GrowthBook } from "@growthbook/growthbook-react";
+import { analytics } from "../analytics/client";
+import { getOrCreateDeviceId } from "./device-id";
+
+const deviceId = getOrCreateDeviceId();
+
+function context(userId?: string) {
+  return {
+    device_id: deviceId,
+    user_id: userId,
+    app_environment: import.meta.env.VITE_APP_ENVIRONMENT,
+    app_version: import.meta.env.VITE_APP_VERSION,
+  };
+}
+
+export const growthbook = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: import.meta.env.VITE_GROWTHBOOK_CLIENT_KEY,
+  attributes: {
+    device_id: deviceId,
+    app_environment: import.meta.env.VITE_APP_ENVIRONMENT,
+    app_version: import.meta.env.VITE_APP_VERSION,
+  },
+  trackingCallback: (experiment, result, user) => {
+    const rawUserId = user.attributes.user_id;
+    const userId = typeof rawUserId === "string" ? rawUserId : undefined;
+
+    return analytics.track({
+      event_name: "Experiment Viewed",
+      occurred_at: new Date().toISOString(),
+      properties: {
+        experiment_id: experiment.key,
+        variation_id: result.key,
+        feature_id: result.featureId ?? null,
+        hash_attribute: result.hashAttribute,
+        hash_value: result.hashValue ?? null,
+      },
+      context: context(userId),
+    });
+  },
+});
+
+export async function initializeGrowthBook(): Promise<void> {
+  const result = await growthbook.init({ timeout: 1_500 });
+  if (!result.success) {
+    console.warn("GrowthBook feature payload unavailable", {
+      source: result.source,
+      message: result.error?.message,
+    });
+  }
+}
+
+export function setAuthenticatedUser(userId: string): void {
+  growthbook.updateAttributes({ user_id: userId });
+}
+```
+
+SDK `1.7.0` passes a third `user` argument to `trackingCallback`. Read identifiers from `user.attributes`, because those are the attributes used at evaluation time. Reading a mutable global user object can record an identity different from the one the SDK hashed.
+
+Replace `growthbook.logEvent()` in `signup-events.ts` with `analytics.track()` using the same `context()` helper. Better yet, route both exposure and custom events through the application’s existing typed analytics module so they share retries, consent, timestamps, and identifier rules.
+
+### Configure the assignment query
+
+On **Metrics and Data → Data Sources**, add or edit a device-level experiment assignment query. Adapt column and JSON syntax to the warehouse:
+
+```sql
+SELECT
+  device_id,
+  occurred_at AS timestamp,
+  properties:experiment_id::STRING AS experiment_id,
+  properties:variation_id::STRING AS variation_id
+FROM analytics.product_events
+WHERE event_name = 'Experiment Viewed'
+  AND device_id IS NOT NULL
+```
+
+The query must return exactly the identifier column plus `timestamp`, `experiment_id`, and `variation_id`. Return repeated legitimate exposure rows; GrowthBook uses them to detect units exposed to more than one variation.
+
+Define a fact table over outcomes:
+
+```sql
+SELECT
+  occurred_at AS timestamp,
+  device_id,
+  user_id,
+  event_name,
+  properties:method::STRING AS signup_method,
+  properties:code::STRING AS failure_code
+FROM analytics.product_events
+WHERE device_id IS NOT NULL
+```
+
+Then create the same `Signup completed` proportion metric filtered to `event_name = 'Signup Completed'`.
+
+If exposure uses `device_id` but the only durable completion has `user_id`, add an identifier join table that maps both IDs from login or account creation. The better canonical design keeps `device_id` on the completion event as shown. Never join all anonymous devices to a user retroactively without reviewing how shared devices, account switching, and historical identity affect the experiment unit.
+
+### Run warehouse receipts before launching
+
+Use the warehouse’s SQL dialect to prove:
+
+```sql
+-- Every exposure has one assignment identifier.
+SELECT
+  COUNT(*) AS exposures,
+  COUNT_IF(device_id IS NULL OR device_id = '') AS missing_device_id
+FROM analytics.product_events
+WHERE event_name = 'Experiment Viewed'
+  AND properties:experiment_id::STRING = 'signup-flow-v1';
+
+-- No device has both variations.
+SELECT
+  device_id,
+  COUNT(DISTINCT properties:variation_id::STRING) AS variation_count
+FROM analytics.product_events
+WHERE event_name = 'Experiment Viewed'
+  AND properties:experiment_id::STRING = 'signup-flow-v1'
+GROUP BY device_id
+HAVING variation_count > 1;
+```
+
+Also join first exposure to completion using the exact fact-table logic. Compare a handful of event IDs to application logs. GrowthBook can only analyze the data the warehouse returns; a successful SDK callback does not prove warehouse ingestion or SQL aliases.
+
+## Step 9: Add tests that protect assignment and event semantics
+
+Tests should prove properties, not hard-code a bucket produced by an undocumented hash calculation.
+
+### Test deterministic assignment and exposure deduplication
+
+Create `tests/growthbook-assignment.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from "vitest";
+import { GrowthBook } from "@growthbook/growthbook";
+
+const features = {
+  "signup-flow": {
+    defaultValue: "control",
+    rules: [
+      {
+        key: "signup-flow-v1",
+        variations: ["control", "streamlined"],
+        weights: [0.5, 0.5],
+        coverage: 1,
+        hashAttribute: "device_id",
+      },
+    ],
+  },
+};
+
+describe("signup-flow assignment", () => {
+  it("returns the same variation for repeated evaluation", () => {
+    const trackingCallback = vi.fn();
+    const gb = new GrowthBook({
+      features,
+      attributes: { device_id: "test-device-001" },
+      trackingCallback,
+    });
+
+    const first = gb.getFeatureValue("signup-flow", "control");
+    const second = gb.getFeatureValue("signup-flow", "control");
+
+    expect(["control", "streamlined"]).toContain(first);
+    expect(second).toBe(first);
+    expect(trackingCallback).toHaveBeenCalledTimes(1);
+    expect(trackingCallback.mock.calls[0][0].key).toBe("signup-flow-v1");
+    expect(trackingCallback.mock.calls[0][2].attributes.device_id).toBe(
+      "test-device-001",
+    );
+
+    gb.destroy();
+  });
+
+  it("returns the code fallback when the assignment ID is absent", () => {
+    const trackingCallback = vi.fn();
+    const gb = new GrowthBook({
+      features,
+      attributes: {},
+      trackingCallback,
+    });
+
+    expect(gb.getFeatureValue("signup-flow", "control")).toBe("control");
+    expect(trackingCallback).not.toHaveBeenCalled();
+
+    gb.destroy();
+  });
+
+  it("can reach both variations across many independent IDs", () => {
+    const values = new Set<string>();
+
+    for (let index = 0; index < 200; index += 1) {
+      const gb = new GrowthBook({
+        features,
+        attributes: { device_id: `test-device-${index}` },
+      });
+      values.add(gb.getFeatureValue("signup-flow", "control"));
+      gb.destroy();
+    }
+
+    expect(values).toEqual(new Set(["control", "streamlined"]));
+  });
+});
+```
+
+This fixture uses the same feature-definition shape the SDK consumes. It does not call GrowthBook Cloud and must not replace a live payload receipt.
+
+### Test the closed event schema
+
+Create `tests/signup-events.test.ts`:
+
+```ts
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { logEvent } = vi.hoisted(() => ({
+  logEvent: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("../src/experimentation/growthbook", () => ({
+  growthbook: { logEvent },
+}));
+
+import {
+  trackSignupCompleted,
+  trackSignupFailed,
+  trackSignupStarted,
+} from "../src/analytics/signup-events";
+
+describe("signup event contract", () => {
+  beforeEach(() => logEvent.mockClear());
+
+  it("records start with a versioned, non-PII payload", async () => {
+    await trackSignupStarted("control");
+    expect(logEvent).toHaveBeenCalledWith("Signup Started", {
+      schema_version: 1,
+      flow: "control",
+    });
+  });
+
+  it("records completion without accepting form fields", async () => {
+    await trackSignupCompleted({
+      flow: "streamlined",
+      method: "email",
+    });
+
+    expect(logEvent).toHaveBeenCalledWith("Signup Completed", {
+      schema_version: 1,
+      flow: "streamlined",
+      method: "email",
+    });
+
+    const payload = JSON.stringify(logEvent.mock.calls[0]);
+    expect(payload).not.toMatch(/password|@example\.com|access_token/i);
+  });
+
+  it("uses allowlisted failure codes instead of raw errors", async () => {
+    await trackSignupFailed({
+      flow: "control",
+      code: "rate_limited",
+    });
+    expect(logEvent).toHaveBeenCalledWith("Signup Failed", {
+      schema_version: 1,
+      flow: "control",
+      code: "rate_limited",
+    });
+  });
+});
+```
+
+### Add browser and API tests
+
+The unit tests do not cover cookie persistence, real SDK payloads, navigation, or ingestion. Add the following cases to the repository’s browser suite:
+
+```text
+same context + same app_device_id + reload -> same visible flow
+missing or timed-out SDK payload -> control flow
+control flow -> successful /api/signup -> one completion call -> redirect
+streamlined flow -> successful /api/signup -> one completion call -> redirect
+failed /api/signup -> no completion event + one allowlisted failure event
+password and email -> absent from ingestion request
+new browser context -> new app_device_id
+consent denied -> no experiment cookie, exposure, or custom event
+```
+
+Mock the SDK payload to exercise both variations deterministically. Keep one smoke test against a non-production SDK connection so payload shape, client key, and region configuration cannot drift unnoticed.
+
+Test the signup API separately for idempotency. A double click, retry, or back-button submission must not create 2 accounts. Analytics deduplication cannot repair a duplicated business transaction.
+
+## Step 10: Respect free, Pro, and Enterprise boundaries
+
+Plan packaging changes. Verify [current GrowthBook pricing](https://www.growthbook.io/pricing) immediately before publishing this guide or promising a capability. As verified on 2026-08-12, the relevant boundaries are:
+
+| Capability | Cloud Starter | Cloud Pro | Cloud Enterprise |
+| --- | --- | --- | --- |
+| Feature flags, feature-flag experiments, and traffic | Unlimited | Unlimited | Unlimited |
+| Members and projects | Up to 3 members, 1 project | Up to 50 members, 3 projects | Contract-specific |
+| Data path | Managed Warehouse or BYOW | Managed Warehouse, BYOW, or Event Forwarder | Managed Warehouse, BYOW, or Event Forwarder |
+| Core statistics | Bayesian, frequentist, SRM detection, multiple-testing corrections | Starter plus advanced methods | Pro plus enterprise methods and controls |
+| Metric types needed here | Proportion and mean available | Adds ratio, retention, and quantile | Adds enterprise metric management and slices |
+| Sequential testing | Not included | Included | Included |
+| CUPED variance reduction | Not included | Included | Included |
+| Power Calculator and Decision Framework | Not included | Included | Included |
+| Safe Rollouts | Not included | Included | Included |
+| Post-stratification, holdouts, custom experiment templates and checklists | Not included | Not included | Included according to the current comparison |
+
+The canonical test needs only a string feature, feature-flag experiment, proportion metric, Bayesian or fixed-horizon frequentist analysis, and SRM detection. Those are on the Starter path.
+
+Do not tell a Starter user to “enable sequential testing,” “turn on CUPED,” or “use a Safe Rollout.” On Starter, use a fixed horizon for frequentist analysis, plan the sample with a documented external calculation, and monitor operational harm in the application’s existing alerting system. Upgrade features can reduce variance, formalize decisions, or automate release monitoring, but they do not make a weak hypothesis or broken identifier valid.
+
+### Budget Managed Warehouse events
+
+Unlimited experiment traffic does not mean unlimited Managed Warehouse ingestion. The current GrowthBook Get Started page states a Starter allowance of up to 1 million events per month and a Pro allowance of 2 million before paid overage. The exact allowance and price are volatile; confirm the organization’s usage screen and pricing page before launch.
+
+The [Managed Warehouse limit behavior](/app/managed-warehouse#what-happens-if-i-exceed-my-event-limit) is especially important on a free plan: when the limit is reached, event tracking stops for the remainder of the month and resets the next month. An experiment that keeps assigning users after outcome ingestion stops produces unusable results.
+
+Estimate monthly volume before launch:
+
+```text
+monthly events ≈ eligible SDK sessions ×
+  (experiment exposure + feature usage + signup started probability +
+   signup completion probability + signup failure probability)
+```
+
+Reloads and separate SDK instances can produce additional exposures even though events are deduplicated within an instance. Query real staging or canary data rather than assuming exactly 2 events per visitor. Create a usage alert with enough headroom to stop the experiment cleanly before ingestion stops.
+
+Do not send large form payloads. In addition to privacy risk, browsers impose a shared size quota on keepalive requests. The current JavaScript tracking plug-in avoids keepalive for batches near that limit and attempts unload-safe delivery, but small typed events remain the reliable design.
+
+## Step 11: Launch with a preflight record
+
+Commit a short analysis plan beside the product specification or experiment record before publishing the rule:
+
+```yaml
+experiment_key: signup-flow-v1
+feature_key: signup-flow
+hypothesis: >-
+  A one-page signup flow increases 24-hour completion from 10.0% to at
+  least 11.5% for first-time signup-page visitors.
+unit: device_id
+population: first-time visitors who render /signup
+variations:
+  "0": control
+  "1": streamlined
+allocation: 50/50
+primary_metric: Signup completed
+metric_window: 24 hours after first exposure
+baseline_rate: 0.10
+minimum_worthwhile_effect:
+  absolute: 0.015
+  relative: 0.15
+planned_sample:
+  per_variation: 6693
+  total: 13386
+minimum_runtime_days: 14
+maximum_runtime_days: 42
+frequentist_alpha: 0.05
+planned_power: 0.80
+operational_guardrails:
+  - signup API 5xx rate
+  - client exception rate on /signup
+  - p95 signup API latency
+  - account-creation duplication rate
+decision_owner: product-owner@example.invalid
+cleanup_owner: engineering-owner@example.invalid
+```
+
+Use aliases or internal IDs instead of real email addresses if this document could be public. The example `.invalid` addresses are placeholders.
+
+### Run the prelaunch checklist
+
+Before production assignment begins, verify:
+
+- Both variants pass accessibility, visual, API, and abuse-prevention tests.
+- `control` is behaviorally equivalent to the pre-experiment path.
+- The deployed application returns control when the SDK endpoint is blocked.
+- `device_id` is generated or retrieved before feature evaluation.
+- Consent behavior matches policy in every supported region.
+- The SDK connection targets the correct environment.
+- The event ingestor host matches the Managed Warehouse region.
+- A known test exposure and completion join in SQL.
+- The experiment key and variation IDs match across feature rule, event table, assignment query, and experiment record.
+- Internal employees, synthetic monitoring, automated tests, and known bots are excluded consistently if they are outside the target population.
+- Operational alerts identify variation where possible without using the untrusted outcome property as assignment truth.
+- The rollback owner can serve `control` without deploying code.
+
+For a higher-risk first implementation, run an A/A test in which both variations execute identical code while the complete assignment and analysis path runs. An A/A test can reveal SRM, event loss, and identity problems. It cannot prove the treatment is safe or that the future metric will have enough power.
+
+### Ramp exposure without changing weights
+
+If the new UI passed preproduction tests but you still want a small operational canary:
+
+1. Publish with 5% overall exposure and a 50/50 relative split.
+2. Verify API error, client error, and latency signals for at least one full operating period.
+3. Check exposures, identifier coverage, and multiple-exposure SQL.
+4. Increase overall exposure to 100% while keeping the 50/50 weights.
+5. Record each exposure change and time.
+
+The 5% stage is not a substitute for sufficient experimental sample. Its purpose is operational verification. If the treatment is safe enough after the canary, full experiment exposure reaches the planned sample sooner.
+
+## Step 12: Treat health failures as blockers
+
+GrowthBook runs experiment health checks. Open the experiment’s **Health** tab before reading metric lift. See [Experiment Results](/app/experiment-results#experiment-health) for the current checks.
+
+### Sample ratio mismatch
+
+SRM means the observed allocation is implausibly different from the configured allocation. GrowthBook uses a chi-squared check and, by default, raises the warning at a very strict p-value threshold. It is evidence of an assignment, delivery, eligibility, or data problem—not evidence that one variant is popular.
+
+Investigate:
+
+- Conditional rendering that evaluates one variation more often.
+- JavaScript errors that prevent one variant from completing exposure tracking.
+- An unstable or missing assignment ID.
+- Cookie behavior across domains or consent states.
+- A changed relative allocation.
+- Bot, internal, or geography filters applied after assignment.
+- Ingestor blocking that differs by browser or route.
+- An assignment query that drops one variation value.
+
+Do not “correct” SRM by deleting rows until the split looks balanced. Fix the cause, invalidate the affected phase, and restart with documented boundaries.
+
+### Multiple exposures
+
+A device appearing in both variations usually means it changed assignment identity, the experiment weights or seed changed, or the assignment query is wrong. Compare the first and last event attributes for affected devices. If assignment switched, the causal contrast is contaminated. Fix and restart rather than selecting whichever variation appeared first without a predeclared rule.
+
+### Pre-exposure imbalance
+
+If a metric differs substantially before exposure, first rule out SRM and multiple exposure. Then inspect timestamp latency, daily aggregates timestamped at the start of a day, outliers, and mismatched randomization and analysis units. A user-level outcome analyzed against session-level assignment can create misleading precision and imbalance.
+
+### Failure matrix
+
+| Symptom | Likely cause | Evidence to collect | Safe action |
+| --- | --- | --- | --- |
+| Everyone sees control | Missing payload, disabled feature, wrong environment, or missing `device_id` | SDK init result, payload, feature diagnostics, attributes | Keep control; fix staging or connection before restarting |
+| No exposure rows | Wrong regional host, blocked request, no experiment rule, or feature never evaluated | Browser request, SQL receipt, payload rule | Do not launch analysis; fix delivery |
+| Exposures but no outcomes | Outcome event not sent, wrong data source, or identifier missing | Event query, network request, API completion logs | Stop or pause; restore outcome path before collecting more assignments |
+| Outcomes do not join | `device_id` absent after signup or analysis uses `user_id` | Identifier-coverage and join queries | Fix identity propagation; invalidate affected data |
+| SRM warning | Assignment, delivery, eligibility, or query asymmetry | Health tab, counts by browser/date, raw exposure sample | Do not interpret; fix and restart |
+| Multiple exposures | Identifier or allocation changed | Per-device variation query, cookie timeline | Revert config, fix identity, restart phase |
+| Huge immediate lift | Instrumentation bug, low counts, or denominator loss | Raw numerator/denominator, missing IDs, error logs | Apply Twyman’s Law: assume bug until disproved |
+| Dashboard goes flat after a win | Peeking, novelty, or winner’s curse | Original stopping rule, time series, shipped cohort | Do not rewrite history; run a confirmatory test if decision risk warrants it |
+| Free ingestion limit approaches | Event projection was low or unrelated events share the data source | Usage screen and event counts by name | Stop cleanly or move to an appropriate data path before events drop |
+| Ingestor outage | Network or service failure | Browser/server delivery errors, warehouse freshness | Keep signup working; do not treat the missing interval as valid experiment data |
+
+The [experiment troubleshooting guide](/kb/experiments/troubleshooting-experiments) provides additional causes. Preserve screenshots, queries, timestamps, and config revisions with the incident record.
+
+## Step 13: Use activation only when assignment must happen early
+
+The canonical implementation evaluates the flag inside the signup page, so exposure is already close to treatment. It does not need activation filtering.
+
+Use an activation metric only when the application must assign earlier—for example, it downloads both modal implementations at page load but only some visitors become eligible to see the modal. The activation event must occur before the treatment can affect it or be independent of assignment.
+
+Valid candidate:
+
+```text
+Signup route rendered before either signup variant is selected
+```
+
+Invalid candidate for this treatment:
+
+```text
+Visitor focused the signup form
+```
+
+The streamlined form may change focus behavior. Filtering to focusers conditions on a treatment-affected event and can bias the groups.
+
+If activation is unavoidable:
+
+1. Define a binomial activation metric on the independent event.
+2. Add it under **Experiment → Overview → Analysis Settings → Activation Metric**.
+3. Verify the activation event carries the assignment identifier.
+4. Compare activation rates across variations. A material difference is evidence the activation condition may not be independent.
+5. Document both intent-to-treat results and the activated analysis when decision risk warrants it.
+
+Moving the actual feature evaluation closer to treatment is usually easier to reason about than repairing broad assignment with a filter.
+
+## Step 14: Interpret results without shopping for a win
+
+Do not begin with the effect estimate. Use this order:
+
+1. Confirm data freshness through the full conversion window.
+2. Confirm the experiment reached the predeclared minimum runtime and fixed sample target, or the maximum runtime rule applies.
+3. Confirm SRM, multiple exposure, variation mapping, and identifier checks are clean.
+4. Confirm operational guardrails did not cross the rollback boundary.
+5. Read the primary metric’s point estimate and uncertainty interval.
+6. Compare the interval with the minimum worthwhile effect and harm boundary.
+7. Review secondary diagnostics as explanations, not alternate primary outcomes.
+8. Record one decision and its reasoning.
+
+### Bayesian interpretation on Starter
+
+GrowthBook’s Bayesian engine reports a **Chance to Win** and a distribution for percent change. The default UI highlights a variation above the configured winning threshold and a clear loser below the corresponding lower threshold.
+
+Read the result as a distribution of plausible effects under the model and priors. Do not translate “95% Chance to Win” into “there is a 95% chance the implementation is correct.” Health, instrumentation, model assumptions, and practical effect size remain separate questions.
+
+A high Chance to Win with most plausible effects below the 15% relative minimum may be statistically persuasive but not commercially worthwhile. Conversely, an inconclusive Chance to Win with a wide interval may mean the test lacks precision, not that the variants are equal.
+
+Although Bayesian monitoring does not use the same fixed-horizon p-value rule, predeclare the minimum runtime, sample target, harm rule, and decision cadence. Repeatedly changing the decision after each dashboard refresh still creates an unstable operating process.
+
+### Frequentist interpretation on Starter
+
+GrowthBook’s frequentist engine reports a p-value and confidence interval. On the free path, sequential testing is not included, so use the fixed horizon written before launch.
+
+- Do not stop the first time `p < 0.05`.
+- Do not extend only because `p = 0.06`.
+- Do not change the primary metric after viewing results.
+- Do not call `p = 0.20` proof that the variants are identical.
+- Do not call a tiny but precisely estimated effect a win if it fails the business threshold.
+
+At the planned horizon, a confidence interval entirely above `0` supports a nonzero positive effect at the configured alpha. An interval also above the 15% relative minimum supports the stronger claim that the treatment likely clears the predeclared business threshold. An interval spanning material harm and material benefit is inconclusive. An interval narrow enough to exclude the worthwhile effect can justify stopping even when the point estimate is positive.
+
+If the sample target lands before 14 days, continue to the predeclared minimum runtime to include weekly traffic patterns. After stopping assignment, wait until the last exposed unit’s 24-hour conversion window closes before the final analysis.
+
+### Treat segment findings as hypotheses
+
+Browser, country, acquisition source, and device breakdowns can reveal bugs or plausible effect differences. They also create many opportunities for chance findings.
+
+Use slices to diagnose implementation first. If a surprising subgroup changes the shipping decision and was not predeclared, run a dedicated follow-up experiment or require stronger independent evidence. Do not target the treatment only to the “winning” slice discovered after the fact and describe it as confirmed personalization.
+
+### Record the decision
+
+Use a durable record:
+
+```yaml
+decision: ship_streamlined
+decided_at: 2026-09-30T18:00:00Z
+analysis_window:
+  start: 2026-09-01T16:00:00Z
+  end: 2026-09-29T16:00:00Z
+units:
+  control: 6842
+  streamlined: 6799
+primary_metric:
+  name: Signup completed
+  control: 0.101
+  streamlined: 0.117
+  relative_effect: 0.158
+  interval: "REPLACE_WITH_EXPORTED_INTERVAL"
+health:
+  srm: pass
+  multiple_exposure: pass
+  identifier_coverage: pass
+guardrails:
+  signup_api_5xx: pass
+  client_exceptions: pass
+  duplicate_accounts: pass
+decision_reason: >-
+  The experiment reached its fixed sample and minimum runtime, passed health
+  checks, cleared the predeclared primary-metric threshold, and did not cross
+  operational harm limits.
+follow_up:
+  remove_control_path_by: 2026-10-14
+```
+
+The values are illustrative. Never paste them into a real decision record.
+
+## Step 15: Move from one experiment to a maintained system
+
+The end state is not a dashboard with a winner. It is one production behavior, one readable code path, and a reusable experiment contract.
+
+### Ship the selected behavior
+
+For a `ship_streamlined` decision:
+
+1. Stop the experiment analysis and record the final result.
+2. Replace the experiment rule with a forced `streamlined` value for production, or use the product’s approved temporary-rollout workflow.
+3. Confirm the assignment callback no longer records new experiment exposures.
+4. Monitor the full population through at least one normal operating cycle.
+5. Open a cleanup change that makes streamlined behavior unconditional.
+6. Remove the control component, temporary variant types, diagnostic `flow` properties, and experiment-only tests.
+7. Deploy the cleanup with the flag still forcing `streamlined`.
+8. Verify the unconditional implementation.
+9. Remove the feature check, archive the feature, and retain the experiment decision record.
+
+For `retain_control`:
+
+1. Force `control` immediately.
+2. Stop analysis after the last conversion window closes.
+3. Remove the streamlined code and experiment-only events.
+4. Remove the feature check if there is no active rollout need.
+5. Record what was learned and whether a materially different follow-up is justified.
+
+For `iterate`:
+
+1. Return everyone to `control` unless the treatment is required for another reason.
+2. Do not mutate the old treatment under the same running phase.
+3. Create a new treatment with a new hypothesis and tracking key, such as `signup-flow-v2`.
+4. Recalculate feasibility from the new minimum worthwhile effect.
+5. Repeat the preflight and data receipts.
+
+Never leave a 100% “winner” experiment running indefinitely. It keeps emitting exposure events, obscures the current decision, and makes future maintainers afraid to remove dead code.
+
+### Add an experiment pull-request checklist
+
+After the first implementation, require experiment changes to state:
+
+```text
+[ ] Feature key and tracking key
+[ ] Control fallback
+[ ] Experimental unit and assignment attribute
+[ ] Exact exposure boundary
+[ ] Primary metric and window
+[ ] Minimum worthwhile effect and sample estimate
+[ ] Consent and PII review
+[ ] SQL or analytics receipts
+[ ] Unit, browser, and failure tests
+[ ] Rollback owner
+[ ] Expected end date and cleanup owner
+```
+
+CI can enforce typed feature keys and event schemas. It cannot decide whether the experimental unit or business threshold is sensible. Keep a human review boundary for those choices.
+
+### Monitor drift
+
+Add alerts or scheduled checks for:
+
+- A material drop in exposure or completion freshness.
+- Missing `device_id` on any canonical signup event.
+- A new variation value outside `control` and `streamlined`.
+- Units exposed to multiple variations.
+- Managed Warehouse usage approaching the plan allowance.
+- `signup-flow` still referenced after its cleanup deadline.
+
+The application’s release process should fail or warn when a temporary feature key outlives its owner and deadline. Automatic detection can open an issue; engineering review should remove the code.
+
+## DIY versus GrowthBook
+
+A coding agent can create a visual split in a few lines:
+
+```ts
+const flow = Math.random() < 0.5 ? "control" : "streamlined";
+```
+
+That code is not an experiment. It can assign a different flow on every render, reload, or request. It has no exposure event, no identity contract, no consistent traffic allocation, no health check, no metric join, no audit trail, and no removal workflow.
+
+An improved DIY implementation might hash a persisted identifier, store a configuration document, emit events, and calculate a result. At that point the team owns:
+
+- Identifier generation, consent, persistence, and cross-device semantics.
+- A deterministic hashing algorithm and compatibility policy.
+- Remote configuration, environment separation, authentication, and audit history.
+- Caching, invalidation, fallback, and incident behavior.
+- Exposure deduplication and unload-safe delivery.
+- Assignment, outcome, and identity-join schemas.
+- SRM and multiple-exposure detection.
+- Metric windows, denominators, outlier rules, and statistical methods.
+- Reproducible results and decision records.
+- Flag ownership, stale detection, and code cleanup.
+
+DIY remains reasonable when all of these are true:
+
+- The split is a short-lived internal engineering test rather than evidence for a product decision.
+- Assignment already lives in a trusted system of record.
+- The organization has a reviewed experimentation library and analysis pipeline.
+- The team accepts ownership of health checks, statistics, privacy, and lifecycle.
+- GrowthBook would duplicate a mature internal platform rather than replace one-off code.
+
+GrowthBook is compelling when the request that sounds like “split users 50/50” is really “operate a reliable assignment-to-decision system.” It keeps the assignment rule, feature delivery, warehouse analysis, health evidence, and experiment history connected while letting the application keep an explicit code fallback and, on BYOW, keep its source data in the existing warehouse.
+
+The value is not that an AI agent cannot write a hash. The value is that the next agent can inspect the feature, trace the metric, reproduce the decision, and safely remove the losing code without reverse-engineering a private mini-platform.
+
+## Definition of done
+
+Use this final, falsifiable checklist. “The feature renders” is not enough.
+
+### Design
+
+- [ ] The hypothesis names population, treatment, primary metric, minimum worthwhile effect, and harm boundary.
+- [ ] The assignment unit matches the entity that independently receives treatment.
+- [ ] Baseline rate and eligible traffic come from current data.
+- [ ] Sample target, minimum runtime, maximum runtime, and stopping rule are recorded before launch.
+- [ ] Both variants are reversible and safe enough for production.
+
+### Implementation
+
+- [ ] `device_id` or the chosen identifier exists before evaluation and remains stable through the outcome window.
+- [ ] The code fallback is the known-good control.
+- [ ] The feature is evaluated only at the real treatment boundary.
+- [ ] Feature payload timeout renders control without blocking signup indefinitely.
+- [ ] Exposure and outcome use the same identifier type.
+- [ ] Event functions accept only reviewed, typed properties.
+- [ ] Email, password, tokens, raw form values, and unreviewed URL queries are absent from events.
+- [ ] Type-check, unit tests, browser tests, and production build pass.
+
+### Data
+
+- [ ] The regional ingestor or BYOW destination receives an exposure and a known completion.
+- [ ] SQL receipts show zero missing assignment IDs for canonical events.
+- [ ] Exposures join to outcomes in the configured conversion window.
+- [ ] Experiment key and variation IDs match every layer.
+- [ ] Multiple-exposure query returns zero unresolved rows.
+- [ ] Projected event volume fits the current plan with operating headroom.
+
+### Analysis
+
+- [ ] GrowthBook uses the correct data source, assignment query, identifier, and proportion metric.
+- [ ] SRM, multiple-exposure, and relevant pre-exposure checks pass.
+- [ ] The last assigned unit has completed the metric window before final analysis.
+- [ ] Bayesian or frequentist results are interpreted according to the predeclared rule.
+- [ ] Segment exploration is labeled exploratory unless predeclared.
+- [ ] Operational guardrails remain within their thresholds.
+
+### Decision and cleanup
+
+- [ ] A ship, retain, or iterate decision includes dates, sample, effect interval, health status, and owner.
+- [ ] The experiment rule no longer assigns new units after the decision.
+- [ ] Production serves the selected behavior without depending on a completed experiment.
+- [ ] The losing code has been removed or has a dated cleanup change.
+- [ ] The temporary feature is archived after code removal.
+- [ ] The experiment record and SQL receipts remain available for future review.
+
+## Source map and freshness
+
+This guide was verified against GrowthBook public source commit `e44a15af063860c7118f52508746356d55e5a91d` on 2026-08-12.
+
+### Product and SDK dependencies
+
+| Guide claim or artifact | Source dependency |
+| --- | --- |
+| React initialization, hooks, provider, and tracking callback | `docs/docs/lib/react.mdx`, `packages/sdk-react/src/**` |
+| JavaScript initialization result and fallback behavior | `docs/docs/lib/js.mdx`, `packages/sdk-js/src/GrowthBook.ts`, `packages/sdk-js/src/types/growthbook.ts` |
+| Tracking plug-in region, identifier promotion, batching, deduplication, and unload transport | `packages/sdk-js/src/plugins/growthbook-tracking.ts`, `packages/sdk-js/test/plugins/growthbook-tracking.test.ts` |
+| Experiment event properties and exposure callback timing | `packages/sdk-js/src/core.ts` |
+| Managed tables, identifiers, SQL Explorer, and event limits | `docs/docs/experimentation-analysis/managed-warehouse.mdx` |
+| Managed Warehouse, BYOW, and Event Forwarder choice | `docs/docs/experimentation-analysis/choose-your-data-path.mdx` |
+| Feature experiment seed, assignment attribute, coverage, and weights | `docs/docs/features/feature-flag-experiments.mdx`, `docs/docs/features/rules.mdx` |
+| Fact tables, proportion metrics, filters, and conversion windows | `docs/docs/metrics/metrics.mdx`, `docs/docs/metrics/metric-examples.mdx` |
+| Experiment creation and analysis settings | `docs/docs/experimentation-analysis/experiment-configuration.mdx` |
+| Bayesian, frequentist, SRM, pre-exposure, and multiple-exposure interpretation | `docs/docs/experimentation-analysis/experiment-results.mdx`, `docs/docs/using/experimenting.mdx` |
+| Plan boundaries and Managed Warehouse allowance | `https://www.growthbook.io/pricing`, `https://www.growthbook.io/get-started` |
+
+### Volatile details to reverify
+
+Before the next publication or substantial edit, recheck:
+
+- Latest `@growthbook/growthbook` and `@growthbook/growthbook-react` versions and peer requirements.
+- `init()` return fields and plug-in option names.
+- Regional ingestion hosts and event payload mapping.
+- Managed Warehouse allowance, stop/overage behavior, and SQL column names.
+- Starter, Pro, and Enterprise availability for metric types, sequential testing, CUPED, power tools, guardrails, and release controls.
+- GrowthBook UI labels for SDK connections, features, fact tables, metrics, and experiments.
+- React, Vite, TypeScript, Vitest, and Node versions in the tested fixture.
+
+### Automated freshness trigger
+
+Mark this guide for review when a merged pull request changes any of these paths:
+
+```yaml
+guide: free-ab-test-javascript
+depends_on:
+  - docs/docs/lib/js.mdx
+  - docs/docs/lib/react.mdx
+  - docs/docs/features/feature-flag-experiments.mdx
+  - docs/docs/features/rules.mdx
+  - docs/docs/experimentation-analysis/managed-warehouse.mdx
+  - docs/docs/experimentation-analysis/choose-your-data-path.mdx
+  - docs/docs/experimentation-analysis/experiment-configuration.mdx
+  - docs/docs/experimentation-analysis/experiment-results.mdx
+  - docs/docs/metrics/metrics.mdx
+  - packages/sdk-js/src/core.ts
+  - packages/sdk-js/src/GrowthBook.ts
+  - packages/sdk-js/src/plugins/growthbook-tracking.ts
+  - packages/sdk-react/src/**
+volatile:
+  - npm package versions
+  - pricing and plan availability
+  - managed event allowance
+  - ingestion hosts
+verification:
+  - type-check fixture
+  - run Vitest suite
+  - build Vite application
+  - inspect SDK payload
+  - run Managed Warehouse SQL receipts
+  - recheck pricing page
+```
+
+Update the executable fixture and tests before changing prose. A passing build does not prove analytics correctness, so rerun the SQL receipts and health checks whenever identifier, event, assignment, or metric code changes.
