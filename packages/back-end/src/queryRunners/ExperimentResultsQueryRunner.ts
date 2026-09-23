@@ -692,7 +692,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       failureCause,
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
+    // The cancel owns report.snapshot for a cancelled run: it deletes the run
+    // or moves the report back to its latest successful snapshot.
     if (
+      failureCause !== "cancelled" &&
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)
     ) {

@@ -1,4 +1,4 @@
-import type { QueryRunnerFailureCause } from "shared/types/query";
+import type { Queries, QueryRunnerFailureCause } from "shared/types/query";
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
@@ -25,6 +25,7 @@ import {
   AnalysisMetaEntry,
   buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
+import type { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { notifySnapshotUpdateFailure } from "back-end/src/services/experimentSnapshotNotifications";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
@@ -902,6 +903,20 @@ export async function deleteSnapshotById(context: Context, id: string) {
   });
 }
 
+export async function deleteSnapshotIfRunning(
+  context: Context,
+  id: string,
+): Promise<boolean> {
+  const { deletedCount } = await ExperimentSnapshotModel.deleteOne({
+    organization: context.org.id,
+    id,
+    status: "running",
+  });
+  if (!deletedCount) return false;
+  await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(id);
+  return true;
+}
+
 export async function deleteAllSnapshotsForExperiment(
   context: Context,
   experimentId: string,
@@ -1052,6 +1067,43 @@ export async function errorSnapshotIfStillRunning(
     failureCause,
   });
   return true;
+}
+
+/** Rewrites only the pointers of a concluded snapshot; status, error and results are left alone. */
+export async function reconcileSnapshotQueryPointers(
+  context: Context,
+  id: string,
+  queries: Queries,
+): Promise<boolean> {
+  const { modifiedCount } = await ExperimentSnapshotModel.updateOne(
+    {
+      organization: context.org.id,
+      id,
+      status: { $in: ["success", "error"] },
+    },
+    { $set: { queries } },
+  );
+  return modifiedCount > 0;
+}
+
+/** Newest successful snapshot a report owns. `experiment` is in the filter so the experiment indexes serve it. */
+export async function findLatestSuccessfulReportSnapshotId(
+  context: Context,
+  report: Pick<ExperimentSnapshotReportInterface, "id" | "experimentId">,
+): Promise<string | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization: context.org.id,
+      report: report.id,
+      ...(report.experimentId ? { experiment: report.experimentId } : {}),
+      status: "success",
+    },
+    { id: 1 },
+    { sort: { dateCreated: -1 } },
+  )
+    .lean<{ id: string }>()
+    .exec();
+  return doc?.id ?? null;
 }
 
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
