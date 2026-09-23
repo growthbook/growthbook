@@ -563,11 +563,13 @@ export async function assertValidAssignmentQuerySelectionChange(
   ) {
     return;
   }
-  if (!(await loadDatasource())) return;
+  const loaded = await loadDatasource();
+  if (!loaded) return;
   assertValidAssignmentQuerySelection({
-    exposureQueries: await loadExposureQueries(),
+    exposureQueries: loaded.settings.queries?.exposure ?? [],
     exposureQueryId: next.exposureQueryId,
     identifierType: next.identifierType,
+    datasourceProjects: loaded.projects,
     ...(await getScope()),
   });
 }

@@ -336,25 +336,50 @@ describe("assertValidAssignmentQuerySelection", () => {
 });
 
 describe("isExposureQueryAvailableForProjects", () => {
-  it("allows an unscoped query for any projects, including all", () => {
-    expect(isExposureQueryAvailableForProjects({ projects: [] }, [])).toBe(
+  it("allows an unrestricted query for any projects, including all", () => {
+    expect(isExposureQueryAvailableForProjects({ projects: [] }, [], [])).toBe(
       true,
     );
-    expect(isExposureQueryAvailableForProjects({}, ["prj_a"])).toBe(true);
+    expect(isExposureQueryAvailableForProjects({}, ["prj_a"], undefined)).toBe(
+      true,
+    );
   });
 
   it("requires a scoped query to cover every project", () => {
     const query = { projects: ["prj_a", "prj_b"] };
-    expect(isExposureQueryAvailableForProjects(query, ["prj_a"])).toBe(true);
-    expect(isExposureQueryAvailableForProjects(query, ["prj_a", "prj_c"])).toBe(
-      false,
+    expect(isExposureQueryAvailableForProjects(query, ["prj_a"], [])).toBe(
+      true,
     );
+    expect(
+      isExposureQueryAvailableForProjects(query, ["prj_a", "prj_c"], []),
+    ).toBe(false);
   });
 
   it("rejects a scoped query when all projects are covered", () => {
     expect(
-      isExposureQueryAvailableForProjects({ projects: ["prj_a"] }, []),
+      isExposureQueryAvailableForProjects({ projects: ["prj_a"] }, [], []),
     ).toBe(false);
+  });
+
+  it("applies the data source's projects to an unscoped query", () => {
+    const dsProjects = ["prj_a", "prj_b"];
+    expect(
+      isExposureQueryAvailableForProjects({ projects: [] }, [], dsProjects),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        ["prj_a", "prj_c"],
+        dsProjects,
+      ),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        ["prj_b"],
+        dsProjects,
+      ),
+    ).toBe(true);
   });
 });
 

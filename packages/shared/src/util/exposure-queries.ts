@@ -89,14 +89,18 @@ export function flattenExposureQueryInput<
 
 /**
  * For resources spanning several projects (holdouts): the query must be usable
- * by every one of them. No projects means all projects, so only an unscoped
- * query qualifies.
+ * by every one of them. A query with no projects inherits its data source's,
+ * and no projects on either means all. A holdout with no projects covers all
+ * projects, so only an unrestricted query qualifies.
  */
 export function isExposureQueryAvailableForProjects(
   query: Pick<ExposureQuery, "projects">,
   projects: string[],
+  datasourceProjects: string[] | undefined,
 ): boolean {
-  const scope = query.projects ?? [];
+  const scope = query.projects?.length
+    ? query.projects
+    : (datasourceProjects ?? []);
   if (!scope.length) return true;
   if (!projects.length) return false;
   return projects.every((project) => scope.includes(project));
@@ -114,12 +118,15 @@ export function assertValidAssignmentQuerySelection({
   identifierType,
   project,
   projects,
+  datasourceProjects,
 }: {
   exposureQueries: ExposureQuery[];
   exposureQueryId: string;
   identifierType?: string;
   project: string | undefined;
   projects?: string[];
+  // Inherited by queries without their own project scope (holdout check).
+  datasourceProjects?: string[];
 }): ExposureQuery {
   const query = exposureQueries.find((q) => q.id === exposureQueryId);
   if (!query) {
@@ -134,7 +141,9 @@ export function assertValidAssignmentQuerySelection({
     );
   }
   if (projects) {
-    if (!isExposureQueryAvailableForProjects(query, projects)) {
+    if (
+      !isExposureQueryAvailableForProjects(query, projects, datasourceProjects)
+    ) {
       throw new Error(
         projects.length
           ? `Assignment query "${exposureQueryId}" is not available for every project this holdout covers (${projects.join(", ")})`

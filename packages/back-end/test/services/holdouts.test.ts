@@ -1029,6 +1029,43 @@ describe("assertValidAssignmentQuery", () => {
       ).toThrow("can't be used by a holdout that covers all projects");
     });
 
+    it("applies the data source's projects to an unscoped query", () => {
+      const scopedDatasource = {
+        projects: ["prj_a", "prj_b"],
+        settings: {
+          queries: {
+            exposure: [
+              {
+                id: "exq_inherits",
+                name: "Inherits",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+                query: "SELECT 1",
+                dimensions: [],
+                projects: [],
+              },
+            ],
+          },
+        },
+      } as unknown as DataSourceInterface;
+      expect(() =>
+        assertValidAssignmentQuery(
+          scopedDatasource,
+          "exq_inherits",
+          undefined,
+          [],
+        ),
+      ).toThrow("can't be used by a holdout that covers all projects");
+      expect(
+        assertValidAssignmentQuery(
+          scopedDatasource,
+          "exq_inherits",
+          undefined,
+          ["prj_a"],
+        )?.id,
+      ).toBe("exq_inherits");
+    });
+
     it("skips the scope check when projects is undefined", () => {
       expect(
         assertValidAssignmentQuery(

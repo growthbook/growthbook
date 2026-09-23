@@ -64,9 +64,20 @@ export function useAssignmentQuerySelection({
   const scopedQueries = useMemo(() => {
     const all = datasource?.settings?.queries?.exposure ?? [];
     return projects
-      ? all.filter((q) => isExposureQueryAvailableForProjects(q, projects))
+      ? all.filter((q) =>
+          isExposureQueryAvailableForProjects(
+            q,
+            projects,
+            datasource?.projects,
+          ),
+        )
       : getExposureQueriesForProject(all, project);
-  }, [datasource?.settings?.queries?.exposure, project, projects]);
+  }, [
+    datasource?.settings?.queries?.exposure,
+    datasource?.projects,
+    project,
+    projects,
+  ]);
   const keptQuery = keptQueryId
     ? datasource?.settings?.queries?.exposure?.find((q) => q.id === keptQueryId)
     : undefined;

@@ -56,7 +56,7 @@ import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-avai
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { dangerouslyGetDataSourceByIdBypassPermission } from "back-end/src/models/DataSourceModel";
 import { logger } from "back-end/src/util/logger";
 import {
   getChangesToStartExperiment,
@@ -374,6 +374,7 @@ export function assertValidAssignmentQuery(
     identifierType,
     project: undefined,
     projects,
+    datasourceProjects: datasource?.projects,
   });
 }
 
@@ -385,16 +386,27 @@ export async function assertHoldoutAssignmentQueryCoversProjects(
   projects: string[],
 ): Promise<void> {
   if (!experiment.datasource || !experiment.exposureQueryId) return;
-  const datasource = await getDataSourceById(context, experiment.datasource);
+  const datasource = await dangerouslyGetDataSourceByIdBypassPermission(
+    context,
+    experiment.datasource,
+  );
   const query = datasource?.settings?.queries?.exposure?.find(
     (q) => q.id === experiment.exposureQueryId,
   );
   // A query that no longer exists is surfaced when analysis runs.
-  if (!query || isExposureQueryAvailableForProjects(query, projects)) return;
+  if (
+    !query ||
+    isExposureQueryAvailableForProjects(query, projects, datasource?.projects)
+  ) {
+    return;
+  }
+  const scopeSource = query.projects?.length
+    ? "the query's"
+    : "its data source's";
   throw new BadRequestError(
     projects.length
-      ? `This holdout's assignment query "${query.name || query.id}" isn't available for every selected project. Scope the query to these projects or choose another query first.`
-      : `This holdout's assignment query "${query.name || query.id}" is scoped to specific projects, so the holdout can't cover all projects. Remove the query's project scope or choose another query first.`,
+      ? `This holdout's assignment query "${query.name || query.id}" isn't available for every selected project because of ${scopeSource} project scope. Widen that scope or choose another query first.`
+      : `This holdout's assignment query "${query.name || query.id}" is limited by ${scopeSource} project scope, so the holdout can't cover all projects. Widen that scope or choose another query first.`,
   );
 }
 
