@@ -2,6 +2,9 @@ import type { AuditInterfaceInput } from "shared/types/audit";
 import type { ExperimentInterface } from "shared/types/experiment";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { logger } from "back-end/src/util/logger";
+import { getEnvironments } from "back-end/src/util/organization.util";
 
 // The visual editor edits DRAFT experiments. Once an experiment is running
 // or stopped (or archived), its variations, traffic split, and analysis are
@@ -55,18 +58,28 @@ export function requireVisualChangeWrite(
   // app does for any experiment with visual changes.
   const envs = getAffectedEnvsForExperiment({
     experiment: { ...experiment, hasVisualChangesets: true },
-    orgEnvironments: req.context.org.settings?.environments || [],
+    // The SDK's default environments when none are configured; an empty list
+    // would pass the check vacuously.
+    orgEnvironments: getEnvironments(req.context.org),
   });
   if (!req.context.permissions.canRunExperiment(experiment, envs)) {
     req.context.permissions.throwPermissionError();
   }
+  // The write already landed, so a failed audit is logged, not surfaced.
   return () =>
-    req.audit({
-      event: "experiment.update",
-      entity: { object: "experiment", id: experiment.id },
-      details: JSON.stringify({
-        visualChangesetId,
-        liveVisualChangeEdit: true,
-      }),
-    });
+    req
+      .audit({
+        event: "experiment.update",
+        entity: { object: "experiment", id: experiment.id },
+        details: auditDetailsUpdate(experiment, experiment, {
+          visualChangesetId,
+          liveVisualChangeEdit: true,
+        }),
+      })
+      .catch((err) =>
+        logger.error(
+          { err, experimentId: experiment.id, visualChangesetId },
+          "Failed to audit a live visual change edit",
+        ),
+      );
 }
