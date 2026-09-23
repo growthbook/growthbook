@@ -8,6 +8,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
   rampPlanLacksHashAttribute,
+  rampPlanControlledFields,
   getDefaultHashAttribute,
   stringifyFeatureValue,
   validateFeatureValue,
@@ -1056,6 +1057,41 @@ describe("scheduled / deferred publish helpers", () => {
     autoPublishOnApproval: true,
     scheduledPublishAt: future,
     ...over,
+  });
+
+  describe("rampPlanControlledFields", () => {
+    it("maps each field a step or the end state sets on the target to where it is first set", () => {
+      const plan = {
+        steps: [
+          {
+            actions: [
+              { targetId: "t1", patch: { ruleId: "r1", coverage: 0.25 } },
+              { targetId: "t2", patch: { ruleId: "r2", condition: "{}" } },
+            ],
+          },
+          {
+            actions: [
+              {
+                targetId: "t1",
+                patch: { ruleId: "r1", coverage: 0.5, force: "b" },
+              },
+            ],
+          },
+        ],
+        endActions: [
+          {
+            targetId: "t1",
+            patch: { ruleId: "r1", coverage: 1, savedGroups: [] },
+          },
+        ],
+      };
+      expect([...rampPlanControlledFields(plan, "t1")]).toEqual([
+        ["coverage", "step 1"],
+        ["value", "step 2"],
+        ["savedGroups", "end state"],
+      ]);
+      expect([...rampPlanControlledFields(plan, "t3")]).toEqual([]);
+    });
   });
 
   describe("rampPlanLacksHashAttribute", () => {
