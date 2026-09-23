@@ -1,3 +1,4 @@
+import { format } from "shared/sql";
 import { SqlDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
@@ -21,6 +22,31 @@ export default class Redshift extends SqlIntegration {
   }
   hasEfficientPercentile(): boolean {
     return false;
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
+  }
+  getDefaultDatabase() {
+    return this.params.database || "";
+  }
+  // Redshift has no CREATE OR REPLACE TABLE. Without ephemeral mode this only
+  // runs for pipeline validation, whose table name is random.
+  getExperimentUnitsTableQueryFromCte(
+    unitsTableFullName: string,
+    cteSql: string,
+  ): string {
+    return format(
+      `
+      CREATE TABLE ${unitsTableFullName}
+      ${this.createUnitsTableOptions()}
+      AS (
+        WITH
+        ${cteSql}
+        SELECT * FROM __experimentUnits
+      );
+    `,
+      this.getSqlDialect().formatDialect,
+    );
   }
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(

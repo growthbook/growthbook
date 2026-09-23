@@ -225,7 +225,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
           })
           .join("\n")}
       FROM __newCovariateValues c
-      )
+      ) __insertRows
       `,
     dialect.formatDialect,
   );

@@ -2499,7 +2499,7 @@ export default abstract class SqlIntegration
           , dv.metric_date AS metric_date
         FROM __newDailyValues dv
         CROSS JOIN __maxTimestamp mt
-)
+) __insertRows
       `,
       this.getSqlDialect().formatDialect,
     );
