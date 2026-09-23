@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiClockBold, PiPlus, PiUserBold, PiX } from "react-icons/pi";
 import { DetectedColumn } from "shared/types/fact-table";
 import Avatar from "@/ui/Avatar";
@@ -49,7 +49,10 @@ export default function ColumnMappingRow({
                 {KIND_BADGES[kind].icon}
               </Avatar>
             </Tooltip>
-          ) : null}
+          ) : (
+            // Keeps labels aligned with the badged rows.
+            <Box width="var(--space-5)" flexShrink="0" />
+          )}
           <Text size="sm" weight="medium">
             {label}
           </Text>
