@@ -4,7 +4,7 @@ import {
   getDefaultIdentifierType,
   getIdentifierTypeForHashAttribute,
   getExposureQueriesForProject,
-  getExposureQueryIdentifierType,
+  getDefaultIdentifierTypeForQuery,
   getExposureQueryIdentifierTypes,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
@@ -202,29 +202,31 @@ describe("getExposureQueryIdentifierTypes", () => {
   });
 });
 
-describe("getExposureQueryIdentifierType", () => {
+describe("getDefaultIdentifierTypeForQuery", () => {
   const query = makeExposureQuery({
     userIdType: "user_id",
     userIdTypes: ["user_id", "anonymous_id"],
   });
 
   it("returns the preferred identifier when the query declares it", () => {
-    expect(getExposureQueryIdentifierType(query, "anonymous_id")).toBe(
+    expect(getDefaultIdentifierTypeForQuery(query, "anonymous_id")).toBe(
       "anonymous_id",
     );
   });
 
   it("ignores a preferred identifier the query does not declare", () => {
-    expect(getExposureQueryIdentifierType(query, "device_id")).toBe("user_id");
+    expect(getDefaultIdentifierTypeForQuery(query, "device_id")).toBe(
+      "user_id",
+    );
   });
 
   it("returns the first declared identifier when no preference is given", () => {
-    expect(getExposureQueryIdentifierType(query)).toBe("user_id");
+    expect(getDefaultIdentifierTypeForQuery(query)).toBe("user_id");
   });
 
   it("falls back to the deprecated scalar for a legacy query", () => {
     expect(
-      getExposureQueryIdentifierType(
+      getDefaultIdentifierTypeForQuery(
         makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
       ),
     ).toBe("user_id");

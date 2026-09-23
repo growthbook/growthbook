@@ -25,7 +25,7 @@ import {
   getFactMetricPrimaryFactTableId,
   parseDimensionId,
 } from "shared/experiments";
-import { getExposureQueryIdentifierTypes, isDefined } from "shared/util";
+import { getAnalysisIdentifierType, isDefined } from "shared/util";
 import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
@@ -679,11 +679,10 @@ export function getReportSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === report.experimentAnalysisSettings.exposureQueryId,
   );
-  const exposureQueryIdentifierType =
-    report.experimentAnalysisSettings.exposureQueryIdentifierType ??
-    (exposureQuery
-      ? getExposureQueryIdentifierTypes(exposureQuery)[0]
-      : undefined);
+  const exposureQueryIdentifierType = getAnalysisIdentifierType(
+    exposureQuery,
+    report.experimentAnalysisSettings.exposureQueryIdentifierType,
+  );
 
   // expand metric groups and scrub unjoinable metrics
   const goalMetrics = expandMetricGroups(

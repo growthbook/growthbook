@@ -1,5 +1,8 @@
 import { FC } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getAnalysisIdentifierType,
+  isProjectListValidForProject,
+} from "shared/util";
 import {
   getFactMetricFactTableIds,
   isBinomialMetric,
@@ -8,7 +11,6 @@ import {
   isMetricJoinable,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQueryIdentifierType } from "@/services/datasources";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 
@@ -70,7 +72,7 @@ const MetricSelector: FC<
     (e) => e.id === exposureQueryId,
   );
   const userIdType = exposureQuery
-    ? getExposureQueryIdentifierType(exposureQuery, exposureQueryIdentifierType)
+    ? getAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
     : undefined;
 
   const options: MetricOption[] = [

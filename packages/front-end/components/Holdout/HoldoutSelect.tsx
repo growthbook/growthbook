@@ -1,10 +1,9 @@
 import { useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getHoldoutStage } from "shared/util";
+import { getAnalysisIdentifierType, getHoldoutStage } from "shared/util";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQueryIdentifierType } from "@/services/datasources";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -61,12 +60,13 @@ export const HoldoutSelect = ({
       const exposureQuery = experiment
         ? exposureQueries.find((e) => e.id === experiment.exposureQueryId)
         : undefined;
-      const userIdType = exposureQuery
-        ? getExposureQueryIdentifierType(
+      const userIdType =
+        (exposureQuery &&
+          getAnalysisIdentifierType(
             exposureQuery,
             experiment?.exposureQueryIdentifierType,
-          )
-        : "";
+          )) ||
+        "";
       return {
         ...holdout,
         experiment: experimentsMap.get(

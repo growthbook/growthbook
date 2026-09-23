@@ -27,7 +27,7 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getExposureQueriesForProject,
-  getExposureQueryIdentifierType,
+  getDefaultIdentifierTypeForQuery,
   getExposureQueryIdentifierTypes,
   getHashAttributeIdentifierTypeMap,
 } from "@/services/datasources";
@@ -177,7 +177,7 @@ export function getAutoExposureQueryIdentifierType({
     ) ?? [];
   return (
     declared.find((identifierType) => linked.includes(identifierType)) ??
-    getExposureQueryIdentifierType(exposureQuery)
+    getDefaultIdentifierTypeForQuery(exposureQuery)
   );
 }
 

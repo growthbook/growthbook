@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { getAnalysisIdentifierType } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
 import {
@@ -15,10 +16,7 @@ import {
 import { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import {
-  getExposureQuery,
-  getExposureQueryIdentifierType,
-} from "@/services/datasources";
+import { getExposureQuery } from "@/services/datasources";
 import Callout from "@/ui/Callout";
 import MetricsSelector from "./MetricsSelector";
 
@@ -219,10 +217,7 @@ export default function ExperimentMetricsSelector({
       exposureQueryId,
     );
     const randomizationUnitUserIdType = exposureQuery
-      ? getExposureQueryIdentifierType(
-          exposureQuery,
-          exposureQueryIdentifierType,
-        )
+      ? getAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
       : undefined;
 
     if (!randomizationUnitUserIdType) {

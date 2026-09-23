@@ -1,5 +1,8 @@
 import { FC, ReactNode, useCallback, useMemo, useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getAnalysisIdentifierType,
+  isProjectListValidForProject,
+} from "shared/util";
 import {
   ExperimentMetricDefinition,
   getFactMetricFactTableIds,
@@ -24,7 +27,6 @@ import MetricName from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
-import { getExposureQueryIdentifierType } from "@/services/datasources";
 
 type MetricOption = {
   id: string;
@@ -170,7 +172,7 @@ const MetricsSelector: FC<{
     (e) => e.id === exposureQueryId,
   );
   const userIdType = exposureQuery
-    ? getExposureQueryIdentifierType(exposureQuery, exposureQueryIdentifierType)
+    ? getAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
     : undefined;
 
   const filteredOptions = useMemo(() => {

@@ -40,8 +40,8 @@ import {
   naiveFlattenV1Rules,
   validateCondition,
   assertExposureQueryDeclaresIdentifierType,
-  getExposureQueryIdentifierTypes,
   toApiAssignmentQueryRef,
+  getAnalysisIdentifierType,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -640,20 +640,17 @@ export function getSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === experiment.exposureQueryId,
   );
-  const exposureQueryIdentifierTypes = exposureQuery
-    ? getExposureQueryIdentifierTypes(exposureQuery)
-    : [];
-  const storedIdentifierType =
-    experiment.exposureQueryIdentifierType || undefined;
   // A missing query is left to the query builder to surface.
   if (exposureQuery) {
     assertExposureQueryDeclaresIdentifierType(
       exposureQuery,
-      storedIdentifierType,
+      experiment.exposureQueryIdentifierType,
     );
   }
-  const exposureQueryIdentifierType =
-    storedIdentifierType ?? exposureQueryIdentifierTypes[0];
+  const exposureQueryIdentifierType = getAnalysisIdentifierType(
+    exposureQuery,
+    experiment.exposureQueryIdentifierType,
+  );
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
@@ -4657,11 +4654,10 @@ export function postExperimentApiPayloadToInterface(
       payload.assignmentQueryId ||
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
-    exposureQueryIdentifierType:
-      payload.assignmentQueryIdentifierType ??
-      (assignmentQuery
-        ? getExposureQueryIdentifierTypes(assignmentQuery)[0]
-        : undefined),
+    exposureQueryIdentifierType: getAnalysisIdentifierType(
+      assignmentQuery,
+      payload.assignmentQueryIdentifierType,
+    ),
     name: payload.name || "",
     type: payload.type || "standard",
     phases,

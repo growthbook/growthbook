@@ -11,7 +11,8 @@ import {
 import { config, FullModalPowerCalculationParams } from "shared/power";
 import {
   isProjectListValidForProject,
-  resolveExposureQueryIdentifierType,
+  getAnalysisIdentifierType,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -89,12 +90,19 @@ export const SelectStep = ({
 
           return {
             ...exp,
-            exposureQueryUserIdType: exposureQuery
-              ? (resolveExposureQueryIdentifierType(
-                  exposureQuery,
+            // Excludes experiments whose identifier the query no longer declares,
+            // since their analysis can't run either.
+            exposureQueryUserIdType:
+              exposureQuery &&
+              (!exp.exposureQueryIdentifierType ||
+                getExposureQueryIdentifierTypes(exposureQuery).includes(
                   exp.exposureQueryIdentifierType,
-                ) ?? undefined)
-              : undefined,
+                ))
+                ? getAnalysisIdentifierType(
+                    exposureQuery,
+                    exp.exposureQueryIdentifierType,
+                  )
+                : undefined,
             allMetrics: getAllMetricIdsFromExperiment(exp, false, metricGroups),
           };
         })

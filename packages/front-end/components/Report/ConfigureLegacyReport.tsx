@@ -22,12 +22,11 @@ import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
+import { getAnalysisIdentifierType, isDefined } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getExposureQuery,
-  getExposureQueryIdentifierType,
   getExposureQueryIdentifierTypes,
 } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -202,12 +201,10 @@ export default function ConfigureLegacyReport({
     project: experiment?.project,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
-    // Reports without a stored type analyze on the query's first identifier.
-    identifierType:
-      storedIdentifierType ||
-      (exposureQuery
-        ? getExposureQueryIdentifierType(exposureQuery)
-        : undefined),
+    identifierType: getAnalysisIdentifierType(
+      exposureQuery,
+      storedIdentifierType,
+    ),
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
     autoRepair: false,

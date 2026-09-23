@@ -52,7 +52,7 @@ import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
-import { parsePlainJSONObject } from "shared/util";
+import { getAnalysisIdentifierType, parsePlainJSONObject } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import {
@@ -101,10 +101,7 @@ import { RolloutHashingOptions } from "@/components/Features/RolloutPercentInput
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
-import {
-  getExposureQuery,
-  getExposureQueryIdentifierType,
-} from "@/services/datasources";
+import { getExposureQuery } from "@/services/datasources";
 import { useAssignmentQuerySelection } from "@/components/Experiment/AssignmentQueryFields";
 import styles from "./RampScheduleSection.module.scss";
 
@@ -1020,11 +1017,10 @@ export default function RampScheduleSection({
     project: feature?.project,
     hashAttribute,
     exposureQueryId: state.monitoring.exposureQueryId,
-    identifierType:
-      state.monitoring.exposureQueryIdentifierType ||
-      (selectedMonitoringExposureQuery
-        ? getExposureQueryIdentifierType(selectedMonitoringExposureQuery)
-        : undefined),
+    identifierType: getAnalysisIdentifierType(
+      selectedMonitoringExposureQuery,
+      state.monitoring.exposureQueryIdentifierType,
+    ),
     setExposureQueryId: setMonitoringExposureQueryId,
     setIdentifierType: setMonitoringIdentifierType,
     autoRepair: !hasSavedMonitoring && !readOnly,
@@ -3968,10 +3964,10 @@ export default function RampScheduleSection({
               )
             : null;
           const userUnitLabel = formatUserUnitLabel(
-            monitoringConfig?.exposureQueryIdentifierType ||
-              (monitoringExposureQuery
-                ? getExposureQueryIdentifierType(monitoringExposureQuery)
-                : undefined),
+            getAnalysisIdentifierType(
+              monitoringExposureQuery ?? undefined,
+              monitoringConfig?.exposureQueryIdentifierType,
+            ),
           );
           const formatMetricNames = (metricIds: string[] = []) => {
             if (!metricIds.length) return "None";

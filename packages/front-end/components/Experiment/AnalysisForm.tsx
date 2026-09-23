@@ -14,7 +14,10 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getAnalysisIdentifierType,
+  isProjectListValidForProject,
+} from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -25,7 +28,6 @@ import {
   getDefaultIdentifierType,
   getExposureQueriesForProject,
   getExposureQuery,
-  getExposureQueryIdentifierType,
   getHashAttributeIdentifierTypeMap,
   getSelectableIdentifierTypes,
 } from "@/services/datasources";
@@ -153,10 +155,10 @@ const AnalysisForm: FC<{
     experiment.exposureQueryId,
     experiment.userIdType,
   );
-  // Legacy experiments analyze on the query's first identifier; with no query
-  // yet, pre-fill from the hash attribute's linkage.
+  // Show what the experiment analyzes on, even a drifted identifier, so the
+  // form can flag it; with no query yet, pre-fill from the hash attribute.
   const initialIdentifierType = initialExposureQuery
-    ? getExposureQueryIdentifierType(
+    ? getAnalysisIdentifierType(
         initialExposureQuery,
         experiment.exposureQueryIdentifierType,
       )

@@ -32,7 +32,7 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getExposureQuery,
-  getExposureQueryIdentifierType,
+  getDefaultIdentifierTypeForQuery,
 } from "@/services/datasources";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
@@ -193,7 +193,7 @@ export function getNewExperimentDatasourceDefaults({
     datasource: initialDatasource.id,
     exposureQueryId: exposureQuery?.id || "",
     exposureQueryIdentifierType: exposureQuery
-      ? getExposureQueryIdentifierType(
+      ? getDefaultIdentifierTypeForQuery(
           exposureQuery,
           initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
         )

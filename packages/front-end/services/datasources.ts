@@ -809,7 +809,9 @@ export function getExposureQuery(
 
 export { getExposureQueryIdentifierTypes };
 
-export function getExposureQueryIdentifierType(
+// For defaulting a new selection: `preferredIdentifierType` when the query
+// declares it, else the query's first. Saved records use getAnalysisIdentifierType.
+export function getDefaultIdentifierTypeForQuery(
   exposureQuery: ExposureQuery,
   preferredIdentifierType?: string,
 ): string {

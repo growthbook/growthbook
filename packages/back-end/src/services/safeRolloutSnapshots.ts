@@ -10,7 +10,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import {
-  getExposureQueryIdentifierTypes,
+  getAnalysisIdentifierType,
   getSafeRolloutSnapshotAnalysis,
   isDefined,
 } from "shared/util";
@@ -322,11 +322,10 @@ export function getSafeRolloutSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === safeRollout.exposureQueryId,
   );
-  const exposureQueryIdentifierType =
-    safeRollout.exposureQueryIdentifierType ??
-    (exposureQuery
-      ? getExposureQueryIdentifierTypes(exposureQuery)[0]
-      : undefined);
+  const exposureQueryIdentifierType = getAnalysisIdentifierType(
+    exposureQuery,
+    safeRollout.exposureQueryIdentifierType,
+  );
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(

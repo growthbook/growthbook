@@ -16,19 +16,18 @@ export function getExposureQueryIdentifierTypes(
 }
 
 /**
- * The identifier an analysis runs on: the stored one, or the query's first when
- * none is stored. Null when the stored one is no longer declared, since
- * analysis refuses to run on it.
+ * The identifier a saved record analyzes on: the stored one, even if its query
+ * no longer declares it (analysis then refuses to run), else the query's first.
+ * For defaulting a new record, prefer an identifier the query declares.
  */
-export function resolveExposureQueryIdentifierType(
-  query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
+export function getAnalysisIdentifierType(
+  query: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
   storedIdentifierType: string | undefined,
-): string | null {
-  const identifierTypes = getExposureQueryIdentifierTypes(query);
-  if (!storedIdentifierType) return identifierTypes[0] ?? null;
-  return identifierTypes.includes(storedIdentifierType)
-    ? storedIdentifierType
-    : null;
+): string | undefined {
+  return (
+    storedIdentifierType ||
+    (query ? getExposureQueryIdentifierTypes(query)[0] : undefined)
+  );
 }
 
 function firstIdentifierType(query: ExposureQueryIdentity): string {
@@ -130,10 +129,10 @@ export function toApiAssignmentQueryRef(
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
 ): { id: string; identifierType: string } | undefined {
   if (!id) return undefined;
-  const query = exposureQueries.find((q) => q.id === id);
-  const identifierType =
-    storedIdentifierType ||
-    (query ? getExposureQueryIdentifierTypes(query)[0] : undefined);
+  const identifierType = getAnalysisIdentifierType(
+    exposureQueries.find((q) => q.id === id),
+    storedIdentifierType,
+  );
   return identifierType ? { id, identifierType } : undefined;
 }
 

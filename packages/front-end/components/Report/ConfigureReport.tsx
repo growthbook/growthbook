@@ -1,4 +1,5 @@
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
+import { getAnalysisIdentifierType } from "shared/util";
 import React, { RefObject, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -23,10 +24,7 @@ import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlic
 import AssignmentQueryFields, {
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
-import {
-  getExposureQueryIdentifierType,
-  getExposureQueryIdentifierTypes,
-} from "@/services/datasources";
+import { getExposureQueryIdentifierTypes } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricAnalysisWindowSelector from "@/components/Experiment/MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "@/components/Experiment/MetricsOverridesSelector";
@@ -181,12 +179,10 @@ export default function ConfigureReport({
     project: experiment?.project,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
-    // Reports without a stored type analyze on the query's first identifier.
-    identifierType:
-      storedIdentifierType ||
-      (exposureQuery
-        ? getExposureQueryIdentifierType(exposureQuery)
-        : undefined),
+    identifierType: getAnalysisIdentifierType(
+      exposureQuery,
+      storedIdentifierType,
+    ),
     setExposureQueryId,
     setIdentifierType: setExposureQueryIdentifierType,
     autoRepair: false,
