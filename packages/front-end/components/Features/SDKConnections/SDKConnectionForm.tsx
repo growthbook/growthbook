@@ -1,6 +1,7 @@
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
+  SavedGroupFormat,
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { useForm } from "react-hook-form";
@@ -47,7 +48,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import Checkbox from "@/ui/Checkbox";
-import RadioGroup from "@/ui/RadioGroup";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
@@ -264,6 +264,12 @@ export default function SDKConnectionForm({
     () => currentSdkCapabilities.includes("savedGroupReferencesV2"),
     [currentSdkCapabilities],
   );
+  // Offer v2 only when upgrading the SDK can reach it.
+  const allSavedGroupTypesAvailable = latestSdkCapabilities.includes(
+    "savedGroupReferencesV2",
+  );
+  const savedAsAllSavedGroupTypes =
+    edit && initialValue.savedGroupFormat === "referencesV2";
 
   useEffect(() => {
     if (!showSavedGroupSettings) {
@@ -1233,58 +1239,71 @@ export default function SDKConnectionForm({
               Saved Groups <PiInfo />
             </PremiumTooltip>
           </Heading>
-          <RadioGroup
+          <SelectField
+            label="Pass Saved Groups by reference"
+            sort={false}
+            isClearable={false}
             value={form.watch("savedGroupFormat") ?? "inline"}
-            setValue={(val) => {
+            onChange={(val) => {
               savedGroupFormatChosen.current = true;
-              form.setValue(
-                "savedGroupFormat",
-                val as NonNullable<SDKConnectionInterface["savedGroupFormat"]>,
-              );
+              form.setValue("savedGroupFormat", val as SavedGroupFormat);
             }}
             options={[
-              {
-                value: "inline",
-                label: "Pass Saved Groups inline",
-                description:
-                  "Saved Groups are copied into every rule that uses them.",
-              },
+              { value: "inline", label: "Off" },
               {
                 value: "referencesV1",
-                label: "Pass ID Lists by reference",
-                description:
-                  "ID Lists are sent once per payload and referenced wherever they are used in rules.",
-                disabled: !hasLargeSavedGroupFeature,
-                disabledReason:
-                  "Available with an Enterprise plan. Upgrade to use it.",
+                label: "ID Lists only",
+                isDisabled: !hasLargeSavedGroupFeature,
               },
-              {
-                value: "referencesV2",
-                label: "Pass all Saved Groups by reference",
-                description:
-                  "All Saved Groups are sent once per payload and referenced wherever they are used in rules.",
-                // An SDK downgrade on a saved connection keeps this
-                // selectable, so the choice shows a warning rather than being
-                // silently dropped, and re-upgrading the SDK resumes v2. That
-                // only applies to a connection already on v2, never to a new
-                // one, and never without the plan.
-                disabled:
-                  !hasLargeSavedGroupFeature ||
-                  (!supportsAllSavedGroupTypes &&
-                    !(
-                      edit && initialValue.savedGroupFormat === "referencesV2"
-                    )),
-                disabledReason: !hasLargeSavedGroupFeature
-                  ? "Available with an Enterprise plan. Upgrade to use it."
-                  : "This SDK version cannot pass all Saved Groups by reference. Upgrade the SDK to use it.",
-                error:
-                  form.watch("savedGroupFormat") === "referencesV2" &&
-                  !supportsAllSavedGroupTypes
-                    ? "This SDK version cannot pass all Saved Groups by reference, so it passes ID Lists by reference until you upgrade it."
-                    : undefined,
-                errorLevel: "warning",
-              },
+              ...(allSavedGroupTypesAvailable || savedAsAllSavedGroupTypes
+                ? [
+                    {
+                      value: "referencesV2",
+                      label: "All Saved Groups",
+                      // An SDK downgrade on a saved connection keeps this
+                      // selectable, so the choice shows a warning rather than
+                      // being silently dropped, and re-upgrading the SDK
+                      // resumes v2. That only applies to a connection already
+                      // on v2, never to a new one, and never without the plan.
+                      isDisabled:
+                        !hasLargeSavedGroupFeature ||
+                        (!supportsAllSavedGroupTypes &&
+                          !savedAsAllSavedGroupTypes),
+                    },
+                  ]
+                : []),
             ]}
+            formatOptionLabel={({ value, label }, { context }) => {
+              let note: string | null = null;
+              if (context === "menu" && value !== "inline") {
+                if (!hasLargeSavedGroupFeature) note = "Enterprise";
+                else if (value === "referencesV2")
+                  note = supportsAllSavedGroupTypes
+                    ? "Recommended"
+                    : allSavedGroupTypesAvailable
+                      ? "Needs a newer SDK"
+                      : null;
+              }
+              return (
+                <Flex justify="between" gap="3">
+                  <span>{label}</span>
+                  {note && (
+                    <Text size="sm" color="text-low">
+                      {note}
+                    </Text>
+                  )}
+                </Flex>
+              );
+            }}
+            error={
+              form.watch("savedGroupFormat") === "referencesV2" &&
+              !supportsAllSavedGroupTypes
+                ? allSavedGroupTypesAvailable
+                  ? "This SDK version cannot pass all Saved Groups by reference, so it passes ID Lists by reference until you upgrade it."
+                  : "This SDK cannot pass all Saved Groups by reference, so it passes ID Lists by reference."
+                : undefined
+            }
+            errorLevel="warning"
           />
         </Box>
       )}
