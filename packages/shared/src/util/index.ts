@@ -26,6 +26,7 @@ import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import {
   featureHasEnvironment,
   getAttributeScopeProjectIds,
+  getTargetingProjectIds,
   StagedTargetingScope,
   TargetingScopedEntity,
 } from "./features";
@@ -458,6 +459,21 @@ export function ruleProjectScope(rule: {
   // project, never "all". Only the legacy state (no scope fields) falls back to all.
   if (rule.allProjects !== false && rule.projects == null) return null;
   return Array.isArray(rule.projects) ? rule.projects : [];
+}
+
+// Effective delivery Projects for a rule. Unlike attribute discovery, an
+// empty primary Project remains its own delivery scope, represented by "".
+export function getRuleTargetingProjectIds(
+  entity: TargetingScopedEntity,
+  rule: { allProjects?: boolean; projects?: string[] },
+): string[] | null {
+  const projects = getTargetingProjectIds(entity);
+  const ruleProjects = ruleProjectScope(rule);
+  return ruleProjects === null
+    ? projects
+    : projects === null
+      ? ruleProjects
+      : ruleProjects.filter((p) => projects.includes(p));
 }
 
 // Attribute scope for one rule: the feature's scope narrowed to the projects

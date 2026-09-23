@@ -63,14 +63,22 @@ import {
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
 import {
+  applyRampBaseStateSync,
   assertFeatureNotLockedByRamp,
+  planRampBaseStateSyncForPublish,
+  RampBaseStatePreImage,
   RampLockdownError,
+  restoreRampBaseStates,
 } from "back-end/src/services/rampSchedule";
 import {
   bulkPublishFields,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
-import { getErrorMessage } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  getErrorMessage,
+} from "back-end/src/util/errors";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
@@ -99,7 +107,13 @@ type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
   plan: FeatureMergePlan;
   createdRampScheduleIds?: string[];
+  // Ramp anchors the apply rewrote, captured as each write lands.
+  rampBaseStatePreImages?: RampBaseStatePreImage[];
+  // Schedules the gate-time plan authorized; the apply refuses any newcomer.
+  anchoredScheduleIds?: string[];
   updatedFeature?: FeatureInterface;
+  // Captured at the write, even if a later read or satellite update fails.
+  writtenFeatureUpdates?: Partial<FeatureInterface>;
   // The stamp the apply's guarded write PUT on the feature document. Distinct
   // from `updatedFeature.dateUpdated`, which is a set-then-fetch and so carries a
   // rival's stamp when one lands in the gap — reading ownership from that says
@@ -215,9 +229,19 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   }) {
     const feature = entity as unknown as FeatureInterface;
     const raw = rawRevision(revision);
-    const { plan } = desiredState as unknown as FeatureDesiredState;
+    const desired = desiredState as unknown as FeatureDesiredState;
+    const { plan } = desired;
     const gates: PublishGate[] = [];
 
+    const rampBaseState = await planRampBaseStateSyncForPublish(
+      overlayContext,
+      feature,
+      plan.mergeResult,
+      callerContext.isApiRequest,
+    );
+    desired.anchoredScheduleIds = rampBaseState.updates.map(
+      (u) => u.schedule.id,
+    );
     // Use caller context for footprint-aware landing authority.
     const envsToCheck = await getMergeResultPublishEnvs({
       context: callerContext,
@@ -227,6 +251,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       environmentIds: plan.environmentIds,
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
       rampActions: raw.rampActions,
+      anchoredUpdates: rampBaseState.updates,
     });
     const refusal = await featurePublishRefusal({
       context: callerContext,
@@ -300,6 +325,26 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         }),
       );
     }
+    for (const refusal of rampBaseState.refusals) {
+      gates.push(
+        makeBlockingGate({
+          type: refusal.kind,
+          messages: [refusal.message],
+          resolution:
+            refusal.kind === "ramp-running"
+              ? {
+                  action: "pause",
+                  method: "POST",
+                  path: `/ramp-schedules/${refusal.scheduleId}/actions/pause`,
+                }
+              : {
+                  action: "edit-plan",
+                  method: "PUT",
+                  path: `/ramp-schedules/${refusal.scheduleId}`,
+                },
+        }),
+      );
+    }
     if (
       await hasPublishLockingScheduledSibling(
         feature.organization,
@@ -347,8 +392,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     return gates;
   },
 
-  async claim(context, revision, baseline, { comment }) {
+  async claim(context, revision, baseline, { comment, entityPreImage }) {
     const { claimed, claimStamp } = await claimFeatureRevisionAsPublished(
+      entityPreImage as unknown as FeatureInterface,
       rawRevision(revision),
       context.auditUser,
       {
@@ -422,6 +468,34 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
     }
 
+    // Re-planned here: a ramp may have started since the gates ran. Refusals
+    // are gates above; a live one now is a 400 like the single-entity path.
+    const rampBaseState = await planRampBaseStateSyncForPublish(
+      context,
+      feature,
+      mergeResult,
+    );
+    if (rampBaseState.refusals.length) {
+      throw new BadRequestError(
+        rampBaseState.refusals.map((r) => r.message).join("\n"),
+      );
+    }
+    const authorized = new Set(desired.anchoredScheduleIds ?? []);
+    if (rampBaseState.updates.some((u) => !authorized.has(u.schedule.id))) {
+      throw new ConflictError(
+        "A ramp schedule was attached to this feature while publishing; retry the publish",
+      );
+    }
+    if (rampBaseState.updates.length) {
+      desired.rampBaseStatePreImages = [];
+      await applyRampBaseStateSync(
+        context,
+        rampBaseState.updates,
+        raw.version,
+        desired.rampBaseStatePreImages,
+      );
+    }
+
     // Create ramps before the feature write and retain leaked IDs for compensation.
     desired.createdRampScheduleIds = await applyRampCreateActionsForRevision(
       context,
@@ -462,8 +536,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
             feature,
             raw,
             mergeResult,
-            (stamp) => {
+            (stamp, written) => {
               desired.ourWriteStamp = stamp;
+              desired.writtenFeatureUpdates = written;
             },
             // Use sync-reported rollout images; later reads could capture worker progress.
             (postImages) => {
@@ -539,6 +614,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // A CAS loser may still have created ramps before the guarded feature write.
     if (revision.casLost) {
       const desired = desiredState as unknown as FeatureDesiredState;
+      if (desired.rampBaseStatePreImages?.length) {
+        await restoreRampBaseStates(context, desired.rampBaseStatePreImages);
+      }
       if (desired.createdRampScheduleIds?.length) {
         const failedIds = await rollbackCreatedRampSchedules(
           context,
@@ -647,6 +725,19 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       assertNoReversalFailures();
     }
 
+    if (desired.rampBaseStatePreImages?.length) {
+      try {
+        await restoreRampBaseStates(context, desired.rampBaseStatePreImages);
+      } catch (e) {
+        reversalFailures.push("ramp base states");
+        logger.error(
+          e,
+          `bulk publish compensation: failed to restore ramp base states for feature ${feature.id}`,
+        );
+      }
+      assertNoReversalFailures();
+    }
+
     // Delete created ramps only after all satellites are restored.
     if (desired.createdRampScheduleIds?.length) {
       const failedIds = await rollbackCreatedRampSchedules(
@@ -688,16 +779,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       rawRevision(revision),
       mergeResult,
     );
-    const restoreKeys = new Set([...Object.keys(changes), "version"]);
+    const restoreKeys = new Set([
+      ...Object.keys(desired.writtenFeatureUpdates ?? changes),
+      "version",
+    ]);
     // A holdout removal lands via removeHoldoutFromFeature rather than
     // `changes`, so include the key explicitly when the apply transitioned it.
     if (mergeResult.holdout !== undefined) restoreKeys.add("holdout");
-    const written: Record<string, unknown> = desired.updatedFeature
-      ? (desired.updatedFeature as unknown as Record<string, unknown>)
-      : {
-          ...changes,
-          ...(mergeResult.holdout === null ? { holdout: undefined } : {}),
-        };
+    const written: Record<string, unknown> = desired.writtenFeatureUpdates ??
+      (desired.updatedFeature as unknown as Record<string, unknown>) ?? {
+        ...changes,
+        ...(mergeResult.holdout === null ? { holdout: undefined } : {}),
+      };
     const restore = ownedRestoreValues({
       keys: restoreKeys,
       preImage: feature as unknown as Record<string, unknown>,
@@ -714,6 +807,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // Guard restoration on the ownership read; losing this CAS leaves the winner untouched.
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
+        preserveStoredValues: true,
       });
     }
     // Suppress this adapter's deferred update event after restoration.

@@ -26,6 +26,14 @@ export const RULE_ID_ENV_SUFFIX_DELIMITER = "__";
 // stemRuleId("fr_abc")             → "fr_abc"
 // stemRuleId("fr_abc__production") → "fr_abc"
 // stemRuleId("fr_abc__dev__2")     → "fr_abc"
+// A ramp target names its rule by stem, so a suffixed sibling id matches too.
+export function rampTargetMatchesRule(
+  target: { ruleId?: string | null },
+  ruleId: string,
+): boolean {
+  return !!target.ruleId && stemRuleId(target.ruleId) === stemRuleId(ruleId);
+}
+
 export function stemRuleId(id: string): string {
   const i = id.indexOf(RULE_ID_ENV_SUFFIX_DELIMITER);
   return i === -1 ? id : id.slice(0, i);

@@ -12,6 +12,8 @@ import {
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import {
+  rampPlanLacksHashAttribute,
+  getRuleAttributeScopeProjectIds,
   findStoredRuleCounterpart,
   stemRuleId,
   validateCondition,
@@ -22,8 +24,13 @@ import {
   assertFeatureValuesValid,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { normalizeRampPlanForceValues } from "back-end/src/services/rampSchedule";
+import {
+  applyPatchToRule,
+  normalizeRampPlanForceValues,
+} from "back-end/src/services/rampSchedule";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import { configCheckedRuleValues } from "back-end/src/services/configValidation";
 import {
   assertValidExperimentPrerequisites,
@@ -119,6 +126,36 @@ export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
 }
 
+// The feature as a draft stages it: the revision's project, targeting and
+// rules over the live ones, so a write into the draft is judged in its scope.
+export function stagedFeatureOf(
+  feature: FeatureInterface,
+  revision: Pick<FeatureRevisionInterface, "metadata" | "rules">,
+): FeatureInterface {
+  return {
+    ...feature,
+    ...featureForSavedGroupValidation(feature, revision),
+    rules: revision.rules ?? feature.rules,
+  };
+}
+
+// Same, read without creating a draft, so a refusal cannot orphan one.
+export async function stagedFeature(
+  context: ApiReqContext,
+  feature: FeatureInterface,
+  version: number | "new",
+): Promise<FeatureInterface> {
+  if (version === "new") return feature;
+  const draft = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version,
+  });
+  return draft ? stagedFeatureOf(feature, draft) : feature;
+}
+
 // Resolves an existing revision, or creates a blank draft on `version: "new"`.
 // `created` is true when a draft was just created — pair with
 // `discardIfJustCreated` on downstream failure.
@@ -205,6 +242,8 @@ export function assertValidRuleEnvironments(
 // the step fires, so they get the same checks a rule write gets.
 export type RampPatchTargetingInput = {
   ruleId?: string | null;
+  coverage?: number | null;
+  hashAttribute?: string | null;
   condition?: string | null;
   savedGroups?: FeatureRule["savedGroups"] | null;
   prerequisites?: FeaturePrerequisite[] | null;
@@ -221,6 +260,45 @@ type RampPlanInput = {
   startState?: unknown;
   endPatch?: unknown;
 };
+
+// What a partial update leaves stored: omitted startActions, steps or
+// endActions keep the stored ones (a template's end patch applies only on
+// create); a `startState` replaces any start actions.
+export function mergedRampPlan<P extends RampPlanInput>(
+  update: P,
+  stored: RampPlanInput | null | undefined,
+): P {
+  return {
+    ...update,
+    startActions:
+      update.startState !== undefined
+        ? undefined
+        : (update.startActions ?? stored?.startActions),
+    steps: update.steps ?? stored?.steps,
+    endActions: update.endActions ?? stored?.endActions,
+    endPatch: stored ? undefined : update.endPatch,
+  };
+}
+
+// A plan built from a template gets its steps and end action at publish where
+// the body has none; judge the template's now so a refusal lands on the write.
+export async function withTemplatePlan<
+  P extends RampPlanInput & { templateId?: string | null },
+>(
+  context: ReqContext | ApiReqContext,
+  plan: P | undefined,
+): Promise<P | undefined> {
+  if (!plan?.templateId) return plan;
+  const template = await context.models.rampScheduleTemplates.getById(
+    plan.templateId,
+  );
+  if (!template) return plan;
+  return {
+    ...plan,
+    steps: plan.steps?.length ? plan.steps : template.steps,
+    endPatch: plan.endActions === undefined ? template.endPatch : undefined,
+  };
+}
 
 // Every action in a ramp plan body, stored schedule or revision ramp action
 // that carries a patch, in plan order.
@@ -250,8 +328,14 @@ export function collectRampPlanPatches(
 
 type RuleScope = Pick<
   RampPatchTargetingInput,
-  "allEnvironments" | "environments" | "prerequisites"
-> & { id?: string };
+  "allEnvironments" | "environments" | "prerequisites" | "hashAttribute"
+> &
+  Partial<
+    Pick<
+      FeatureRule,
+      "id" | "condition" | "savedGroups" | "allProjects" | "projects"
+    >
+  > & { type?: FeatureRule["type"] };
 
 // One patch and where it lands: the flag whose rule it targets, and that
 // rule's current environment scope when the caller could resolve it.
@@ -335,6 +419,7 @@ function changedRampPatchTargeting(
     );
   return {
     ruleId: patch.ruleId,
+    ...(echoed("hashAttribute") ? {} : { hashAttribute: patch.hashAttribute }),
     ...(echoed("condition") ? {} : { condition: patch.condition }),
     ...(echoed("savedGroups") ? {} : { savedGroups: patch.savedGroups }),
     ...(echoed("prerequisites") ? {} : { prerequisites: patch.prerequisites }),
@@ -349,6 +434,38 @@ function changedRampPatchTargeting(
 
 const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 
+// A partial-coverage step turns a force rule into a rollout, which needs a hash
+// attribute from the rule or the plan's anchor; none is guessed.
+function assertRampCoverageHashProvided(entries: RampPatchEntry[]): void {
+  // A new rule has no id yet: its entries all share one scope object.
+  const byRule = new Map<string | RuleScope, RampPatchEntry[]>();
+  for (const entry of entries) {
+    if (!entry.rule) continue;
+    const key = entry.rule.id
+      ? `${entry.feature?.id ?? ""}\0${entry.rule.id}`
+      : entry.rule;
+    byRule.set(key, [...(byRule.get(key) ?? []), entry]);
+  }
+  for (const group of byRule.values()) {
+    const rule = group[0].rule as RuleScope;
+    if (rule.type !== "force" || rule.hashAttribute) continue;
+    const ruleId = rule.id ?? "";
+    const plan = {
+      steps: [
+        { actions: group.map((e) => ({ patch: { ...e.patch, ruleId } })) },
+      ],
+    };
+    if (!rampPlanLacksHashAttribute(plan, ruleId)) continue;
+    const feature = group[0].feature;
+    const where = rule.id
+      ? `Rule "${rule.id}"${feature ? ` on "${feature.id}"` : ""}`
+      : "The rule";
+    throw new BadRequestError(
+      `${where} is a force rule with no hash attribute, so this ramp cannot control its coverage. Set hashAttribute on the rule, or in the ramp's start state (startState.hashAttribute / startActions).`,
+    );
+  }
+}
+
 // The rule endpoints' checks (`assertValidRuleEnvironments`,
 // `validateRulesReferences`, `assertValidPrerequisiteParents`) applied to ramp
 // patch targeting. `stored` are the plans this write replaces; as with
@@ -361,16 +478,32 @@ export async function validateRampPlanPatches(
   { stored = [] }: { stored?: unknown[] } = {},
 ): Promise<void> {
   const storedPatches = stored.flatMap((plan) => collectRampPlanPatches(plan));
-  const checked = entries
-    .filter(({ patch }) => hasRampPatchTargeting(patch))
-    .map((entry) => ({
-      ...entry,
-      changed: changedRampPatchTargeting(entry.patch, storedPatches),
-    }))
-    .filter(({ changed }) => hasRampPatchTargeting(changed));
-  if (!checked.length) return;
+  const withChanges = entries.map((entry) => ({
+    ...entry,
+    changed: changedRampPatchTargeting(entry.patch, storedPatches),
+  }));
+  const checked = withChanges.filter(({ changed }) =>
+    hasRampPatchTargeting(changed),
+  );
 
   try {
+    assertRampCoverageHashProvided(entries);
+    // A hash attribute the anchor names gets the rule write's registration
+    // check: a typo would bucket nobody once the rule is a rollout.
+    for (const { changed, feature, rule } of withChanges) {
+      if (!changed.hashAttribute) continue;
+      assertRegisteredAttributes(
+        context,
+        { hashAttribute: changed.hashAttribute },
+        "ramp start state",
+        undefined,
+        (feature &&
+          getRuleAttributeScopeProjectIds(feature, undefined, rule ?? {})) ??
+          undefined,
+      );
+    }
+    if (!checked.length) return;
+
     assertValidRuleEnvironments(
       context,
       checked.map(({ changed }) => ({
@@ -396,6 +529,36 @@ export async function validateRampPlanPatches(
     );
 
     for (const { patch, changed, feature, rule } of checked) {
+      if (feature) {
+        // Only targeting is judged here, so the rule's type does not matter.
+        const target: FeatureRule = {
+          description: "",
+          value: "",
+          ...rule,
+          type: "force",
+          id: rule?.id ?? patch.ruleId ?? "ramp-schedule-patch",
+          allEnvironments: rule?.allEnvironments ?? false,
+          environments: rule?.environments ?? undefined,
+          prerequisites: rule?.prerequisites ?? undefined,
+        };
+        const storedRule = (feature.rules ?? []).find(
+          (r) => r.id === target.id,
+        );
+        const priorPlans = storedPatches.filter(
+          (p) => !p.ruleId || stemRuleId(p.ruleId) === stemRuleId(target.id),
+        );
+        await assertFeatureSavedGroupScope(
+          context,
+          { ...feature, rules: [applyPatchToRule(target, patch)] },
+          [
+            feature,
+            ...priorPlans.map((p) => ({
+              ...feature,
+              rules: [applyPatchToRule(storedRule ?? target, p)],
+            })),
+          ],
+        );
+      }
       // A scope change carries the rule's existing gates into new
       // environments: walk with those, with the target rule removed from the
       // stored graph so they count as new edges.

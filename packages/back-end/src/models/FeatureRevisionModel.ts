@@ -41,7 +41,16 @@ import {
   RevisionReview,
   reviewerKeyForEventUser,
 } from "shared/validators";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import {
+  featureForSavedGroupValidation,
+  Feature as SavedGroupScopeFeature,
+} from "back-end/src/util/savedGroupProjectScope.util";
 import { ConflictError } from "back-end/src/util/errors";
+import {
+  getFeatureRevisionValueUpdatesForPublish,
+  normalizeFeatureJSONValues,
+} from "back-end/src/util/featureValues";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -1127,7 +1136,18 @@ export async function prepareFeatureRevision({
     ...(revertedFrom !== undefined ? { revertedFrom } : {}),
   } as FeatureRevisionInterface;
 
-  return { revision, baseRevision, baseVersion };
+  return {
+    revision: normalizeFeatureJSONValues(
+      // Like the values above, metadata inherits live plus changes; baseRevision is only the merge baseline.
+      { valueType: metadata.valueType ?? feature.valueType },
+      revision,
+      (metadata.valueType ?? feature.valueType) === feature.valueType
+        ? feature
+        : undefined,
+    ),
+    baseRevision,
+    baseVersion,
+  };
 }
 
 export async function createRevision({
@@ -1144,11 +1164,14 @@ export async function createRevision({
   canBypassApprovalChecks,
   revertedFrom,
   preInsertValidation,
+  savedGroupScopeBaseline,
 }: PrepareFeatureRevisionParams & {
   publish?: boolean;
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
   preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>;
+  // Internal ramp restoration of persisted targeting; never request-supplied.
+  savedGroupScopeBaseline?: SavedGroupScopeFeature;
 }) {
   const prepared = await prepareFeatureRevision({
     context,
@@ -1163,6 +1186,12 @@ export async function createRevision({
   });
   const { revision, baseRevision } = prepared;
   baseVersion = prepared.baseVersion;
+
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, revision),
+    savedGroupScopeBaseline ? [feature, savedGroupScopeBaseline] : feature,
+  );
 
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -1381,7 +1410,9 @@ export function computeRevisionUpdate(
 
   // Persistence chokepoint: rules go through `normalizeRulesInputToV2`
   // (also dedups ids and logs collisions). No-op on already-v2 arrays.
-  const normalizedChanges: RevisionChanges =
+  const currentValueType = revision.metadata?.valueType ?? feature.valueType;
+  const valueType = changes.metadata?.valueType ?? currentValueType;
+  const normalizedRules =
     "rules" in changes && changes.rules !== undefined
       ? {
           ...changes,
@@ -1391,6 +1422,16 @@ export function computeRevisionUpdate(
           }),
         }
       : changes;
+  const normalizedChanges: RevisionChanges = normalizeFeatureJSONValues(
+    { valueType },
+    {
+      ...(valueType !== currentValueType
+        ? { defaultValue: revision.defaultValue, rules: revision.rules }
+        : {}),
+      ...normalizedRules,
+    },
+    valueType === currentValueType ? revision : undefined,
+  );
 
   // An approval was given for the draft as it stood. Derived here from the
   // edit itself, so no caller can add a gated change under a standing approval.
@@ -1455,6 +1496,11 @@ export async function prevalidateRevisionUpdate(
     revision,
     changes,
   );
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, proposedRevision),
+    featureForSavedGroupValidation(feature, revision),
+  );
   await runValidateFeatureRevisionHooks({
     context,
     feature,
@@ -1509,6 +1555,12 @@ export async function updateRevision(
     clearRevertedFrom,
     staleReviews,
   } = computeRevisionUpdate(context, feature, revision, changes, { rebase });
+
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, proposedRevision),
+    featureForSavedGroupValidation(feature, revision),
+  );
 
   await runValidateFeatureRevisionHooks({
     context,
@@ -1595,11 +1647,13 @@ export async function updateRevision(
 
 // Pure computation of the changes markRevisionAsPublished() will validate and persist
 export function computeRevisionPublishChanges(
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
 ): Partial<FeatureRevisionInterface> {
   return {
+    ...getFeatureRevisionValueUpdatesForPublish(feature, revision),
     status: "published",
     publishedBy: user,
     datePublished: new Date(),
@@ -1622,7 +1676,12 @@ export async function markRevisionAsPublished(
   // an approved (or otherwise in-flight) draft for the first time is a "publish".
   const action = revision.status === "published" ? "re-publish" : "publish";
 
-  const changes = computeRevisionPublishChanges(revision, user, comment);
+  const changes = computeRevisionPublishChanges(
+    feature,
+    revision,
+    user,
+    comment,
+  );
 
   await runValidateFeatureRevisionHooks({
     context,
@@ -1734,6 +1793,7 @@ function revisionClaimBaseline(revision: FeatureRevisionInterface): {
 // and published-hook dispatch are deferred to
 // emitFeatureRevisionPublishedSideEffects.
 export async function claimFeatureRevisionAsPublished(
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
   expected: { status: string; dateUpdated: Date },
@@ -1741,7 +1801,7 @@ export async function claimFeatureRevisionAsPublished(
 ): Promise<{ claimed: boolean; claimStamp: Date | null }> {
   return applyRevisionPublishClaim(
     revision,
-    computeRevisionPublishChanges(revision, user, comment),
+    computeRevisionPublishChanges(feature, revision, user, comment),
     expected,
   );
 }
@@ -1770,6 +1830,8 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
   };
   const update = (withLockOthers: boolean) => ({
     $set: {
+      defaultValue: original.defaultValue,
+      rules: original.rules,
       status: original.status,
       publishedBy: original.publishedBy ?? null,
       datePublished: original.datePublished ?? null,

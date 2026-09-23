@@ -163,7 +163,7 @@ describe("restoreEntityPreImage", () => {
       { value: "before" },
       // Guarded: the restore is itself a read-decide-write, so an unguarded
       // write could replace a newer landing arriving after the ownership read.
-      { isRevert: true, guarded: true },
+      { isRevert: true, isCompensation: true, guarded: true },
     );
   });
 

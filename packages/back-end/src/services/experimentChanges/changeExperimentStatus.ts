@@ -845,8 +845,9 @@ export async function stopExperiment({
     changes,
   });
 
-  // Only track true stop events; ignore results edits to already-stopped experiments.
   if (isEnding) {
+    // Only track true stop events; ignore results edits to already-stopped
+    // experiments.
     trackEventForContext(context, "Experiment Stopped", {
       source: context.auditUser?.type ?? "agenda-job",
       result: updated.results,

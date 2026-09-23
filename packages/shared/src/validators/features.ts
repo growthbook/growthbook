@@ -25,6 +25,8 @@ import {
   lockdownConfigSchema,
   rampStep,
   rampStepAction,
+  rampStartAction,
+  rampStartPatch,
   rampMonitoringConfig,
   stepHoldConditions,
 } from "./ramp-schedule";
@@ -490,6 +492,9 @@ const revisionApiRampStepAction = z
     patch: featureRulePatch.partial({ ruleId: true }).strict(),
   })
   .strict();
+const revisionApiRampStartAction = revisionApiRampStepAction.extend({
+  patch: rampStartPatch.partial({ ruleId: true }).strict(),
+});
 
 const revisionApiRampStep = z
   .object({
@@ -508,7 +513,7 @@ export const revisionRampCreateAction = z.object({
   // @deprecated — target by ruleId only. Kept for pre-migration DB compat.
   environment: z.string().optional().nullable(),
   templateId: z.string().optional(),
-  startActions: z.array(rampStepAction).optional(),
+  startActions: z.array(rampStartAction).optional(),
   steps: z.array(rampStep),
   endActions: z.array(rampStepAction).optional(),
   startDate: z.string().optional().nullable(),
@@ -527,7 +532,7 @@ export const revisionRampCreateAction = z.object({
 // API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
   steps: z.array(revisionApiRampStep).optional(),
-  startActions: z.array(revisionApiRampStepAction).optional(),
+  startActions: z.array(revisionApiRampStartAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
   startDate: z
     .string()

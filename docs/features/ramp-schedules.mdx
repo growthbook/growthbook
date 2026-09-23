@@ -152,6 +152,17 @@ Once started, a schedule reports its status and progress on the feature's rule.
 
 From the UI or API you can start, pause, resume, manually advance, jump to a specific step, approve a gated step, roll back to the pre-ramp state, or restart a finished schedule. Every transition is recorded in the schedule's event history.
 
+### Editing a rule under a running schedule
+
+A schedule stores the rule's pre-ramp state as its **base state** and re-applies it, plus every step so far, each time it advances. While the schedule is `running`, the rule cannot be edited: the rule editor locks the rollout percentage, targeting, and value, and a publish that changes the rule is refused with the schedule's pause route. Pause the schedule first. A schedule with no steps (enable now, disable on a date) never locks its rule.
+
+While it is `paused` (or `ready`, before it starts), publishing an edit to the rule reconciles it with the plan:
+
+- A field the plan sets in a step or its end state, usually the rollout percentage (`coverage`), is refused with the step named; change it in the plan instead.
+- Any other change to the rule's targeting or value is written into the base state, so it applies immediately, survives the remaining steps once you resume, and is what a rollback restores.
+
+Removing a schedule needs no approval: `eject-target` and `DELETE` leave the rule as it is right now, so a ramp can always be cleaned up.
+
 ## Templates
 
 Use **Save as template** to store a schedule's steps and end state as a **Ramp Schedule Template** and reuse them across features. Apply a template when you create a schedule to inherit its steps, then override any of them as needed.
@@ -181,7 +192,9 @@ curl -X POST https://api.growthbook.io/api/v2/features/checkout-v2/revisions/<ve
 
 To change the plan on a rule that already has a schedule, stage a new one the same way: publishing it replaces the plan of the existing schedule for that rule.
 
-Once a schedule is live, operate it with the lifecycle actions under `/api/v1/ramp-schedules/{id}/actions/…` (`start`, `pause`, `resume`, `advance`, `approve-step`, `rollback`, `complete`, `restart`). These run the reviewed plan and are never review-gated. Look up the schedule id from the rule's `rampScheduleId` field or with `GET /api/v1/ramp-schedules?ruleId=…`.
+A ramp that sets partial coverage on a **force** rule turns it into a rollout when it starts, so it needs an attribute to hash on. If the rule does not already have one, name it in the plan's start state, for example `"startState": { "hashAttribute": "id" }`; the request is refused otherwise. `seed` and `hashVersion` can be set there too and default to the rule id and version 2.
+
+Once a schedule is live, operate it with the lifecycle actions under `/api/v1/ramp-schedules/{id}/actions/…` (`start`, `pause`, `resume`, `advance`, `approve-step`, `rollback`, `complete`, `restart`, `eject-target`) or delete it. These run or end the reviewed plan and are never review-gated. Editing the rule itself follows the [base state rules](#editing-a-rule-under-a-running-schedule): a publish is refused while the schedule is running (pause first) and for a field a step sets, and otherwise updates the schedule's `startActions`. Look up the schedule id from the rule's `rampScheduleId` field or with `GET /api/v1/ramp-schedules?ruleId=…`.
 
 The `/api/v1/ramp-schedules` endpoints can also create a schedule attached to a rule, add a target, or edit an attached schedule's steps and dates directly, without a revision. Because that skips review, those operations are only available to credentials that may bypass approval whenever the organization requires review anywhere; other callers receive a `403` pointing at the revision endpoint above. See the [API reference](/api) for the full set of endpoints.
 
