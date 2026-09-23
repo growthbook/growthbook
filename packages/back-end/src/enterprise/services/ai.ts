@@ -37,6 +37,10 @@ import {
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
+import {
+  prepareToolStep,
+  toolLoopProviderOptions,
+} from "back-end/src/enterprise/services/aiStepPolicy";
 import { ReqContext } from "back-end/types/request";
 import {
   getTokensUsedByOrganization,
@@ -601,24 +605,28 @@ export const streamingChatCompletion = async ({
     ...(tools
       ? {
           tools,
+          ...toolLoopProviderOptions(model),
           stopWhen: stepCountIs(maxSteps),
-          // Same force-a-final-answer guard parsePrompt uses: a model that
-          // keeps calling tools until it exhausts maxSteps otherwise ends ON
-          // a tool call, and the stream closes having emitted no text at all.
-          prepareStep: ({
-            stepNumber,
-            messages: stepMessages,
-          }: {
-            stepNumber: number;
-            messages: ModelMessage[];
-          }) => ({
-            ...(getProviderFromModel(model) === "anthropic"
-              ? { messages: withAnthropicCacheBreakpoint(stepMessages) }
-              : {}),
-            ...(stepNumber >= maxSteps - 1
-              ? { toolChoice: "none" as const }
-              : {}),
-          }),
+          // Same end-the-loop policy parsePrompt uses; without it a model that
+          // exhausts maxSteps ends ON a tool call and the stream closes having
+          // emitted no text at all. Claude's rolling cache breakpoint goes on
+          // whatever the step's last message ends up being.
+          prepareStep: ({ stepNumber, messages: stepMessages }) => {
+            const policy = prepareToolStep({
+              model,
+              stepNumber,
+              remainingSteps: maxSteps,
+              messages: stepMessages,
+            });
+            return getProviderFromModel(model) === "anthropic"
+              ? {
+                  ...policy,
+                  messages: withAnthropicCacheBreakpoint(
+                    policy.messages ?? stepMessages,
+                  ),
+                }
+              : policy;
+          },
         }
       : {}),
     ...(abortSignal ? { abortSignal } : {}),
@@ -840,8 +848,26 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // "truncated" ("length") when no output was produced.
   let stepsUsed = 0;
   let toolsCalled: string[] = [];
+  const outcomeOf = (v: unknown): string => {
+    if (!v || typeof v !== "object") return typeof v;
+    const { ok, count, error, note } = v as Record<string, unknown>;
+    return brief({ ok, count, error, note }, 320);
+  };
+  // What each tool was asked and how it answered, trimmed: when a run burns
+  // its whole budget on lookups, the tool names alone don't say why. Only
+  // the outcome fields of a result are kept — its payload can be another
+  // experiment's hypothesis or variation content, which doesn't belong in a
+  // log line.
+  let toolTrace: Array<{ tool: string; input: string; out: string }> = [];
   let lastFinishReason: string | undefined;
   const remainingSteps = Math.max(1, maxSteps - stepsAlreadyUsed);
+  const brief = (v: unknown, n: number) => {
+    try {
+      return (JSON.stringify(v) ?? "").slice(0, n);
+    } catch {
+      return "";
+    }
+  };
 
   const generateOnce = async (): Promise<{
     output?: unknown;
@@ -850,6 +876,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }> => {
     stepsUsed = 0;
     toolsCalled = [];
+    toolTrace = [];
     lastFinishReason = undefined;
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
@@ -865,19 +892,22 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       ...(tools
         ? {
             tools,
+            ...toolLoopProviderOptions(model),
             stopWhen: stepCountIs(remainingSteps),
             // Force a final answer on the last allowed step. Otherwise a model
             // that keeps calling tools until it exhausts maxSteps ends ON a
             // tool call (finishReason !== "stop"), so no output object is
             // produced and the run fails with NoOutputGeneratedError (observed
-            // with claude-haiku-4-5 on visual-editor moves). Forbidding tools
-            // on the final step makes it commit to the structured output using
-            // whatever it has gathered. Only fires on a runaway loop — a model
-            // that answers within budget never reaches this step.
-            prepareStep: ({ stepNumber }: { stepNumber: number }) =>
-              stepNumber >= remainingSteps - 1
-                ? { toolChoice: "none" as const }
-                : {},
+            // with claude-haiku-4-5 on visual-editor moves). Only fires on a
+            // runaway loop — a model that answers within budget never reaches
+            // this step.
+            prepareStep: ({ stepNumber, messages: stepMessages }) =>
+              prepareToolStep({
+                model,
+                stepNumber,
+                remainingSteps,
+                messages: stepMessages,
+              }),
           }
         : {}),
       onStepFinish: (step) => {
@@ -885,6 +915,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         lastFinishReason = step.finishReason;
         for (const call of step.toolCalls ?? [])
           toolsCalled.push(call.toolName);
+        for (const r of step.toolResults ?? [])
+          toolTrace.push({
+            tool: r.toolName,
+            input: brief(r.input, 160),
+            out: outcomeOf(r.output),
+          });
         onStepFinish?.(step);
       },
     });
@@ -962,6 +998,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       stepsUsed,
       maxSteps,
       toolsCalled,
+      toolTrace,
       errorType: objErr ? "no-object" : "no-output",
       finishReason: objErr?.finishReason ?? lastFinishReason,
       cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),

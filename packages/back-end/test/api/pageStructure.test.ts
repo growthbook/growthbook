@@ -143,7 +143,57 @@ describe("describeContainer", () => {
     });
   });
 
-  it("returns null for a selector that isn't a captured container", () => {
+  it("returns null for a selector nothing is known about", () => {
     expect(describeContainer(nodes, ".nope")).toBeNull();
+  });
+
+  it("lists the ordered children of an uncaptured parent a match pointed at", () => {
+    // Plan cards captured as heading ancestors; their grid wasn't.
+    const cards: PageStructureNode[] = [
+      {
+        selector: "[data-plan='pro']",
+        parentSelector: "#pricing .plans",
+        tag: "div",
+        label: "Pro",
+        docOrder: 2,
+      },
+      {
+        selector: "[data-plan='starter']",
+        parentSelector: "#pricing .plans",
+        tag: "div",
+        label: "Starter",
+        docOrder: 1,
+      },
+      {
+        selector: "[data-plan='enterprise']",
+        parentSelector: "#pricing .plans",
+        tag: "div",
+        label: "Enterprise",
+        docOrder: 3,
+      },
+    ];
+    const described = describeContainer(
+      [...nodes, ...cards],
+      "#pricing .plans",
+    );
+    expect(described?.children.map((c) => c.label)).toEqual([
+      "Starter",
+      "Pro",
+      "Enterprise",
+    ]);
+    expect(described?.tag).toBeUndefined();
+    expect(described?.note).toMatch(/wasn't captured/);
+  });
+
+  it("won't describe an uncaptured parent from children without document order", () => {
+    expect(
+      describeContainer(
+        [
+          { selector: ".a", parentSelector: ".grid", tag: "div" },
+          { selector: ".b", parentSelector: ".grid", tag: "div" },
+        ],
+        ".grid",
+      ),
+    ).toBeNull();
   });
 });
