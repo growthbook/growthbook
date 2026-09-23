@@ -6,6 +6,7 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { validateVirtualColumnProps } from "back-end/src/util/factTable";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { validateLookupWrite } from "back-end/src/services/factTableLookups";
 
 export const postFactTableVirtualColumn = createApiRequestHandler(
   postFactTableVirtualColumnValidator,
@@ -23,8 +24,15 @@ export const postFactTableVirtualColumn = createApiRequestHandler(
   // columns come from column auto-detection.
   validateVirtualColumnProps(req.body);
 
+  // A Fact Table source dictates the lookup column's datatype.
+  const datatype = req.body.lookup
+    ? ((await validateLookupWrite(req.context, factTable, req.body.lookup)) ??
+      req.body.datatype)
+    : req.body.datatype;
+
   const column = await createColumn(factTable, {
     ...req.body,
+    datatype,
     isVirtual: true,
   });
 

@@ -524,6 +524,8 @@ export interface CreateAggregatedFactTableQueryParams {
 
 export interface InsertAggregatedFactTableDataQueryParams {
   factTable: FactTableInterface;
+  // Resolves lookup-column row filters' sources.
+  factTableMap: FactTableMap;
   idType: string;
   metrics: FactMetricInterface[];
   tableFullName: string;

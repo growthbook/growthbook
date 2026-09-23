@@ -111,6 +111,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
           baseIdType,
           idJoinMap,
           factTable: source.factTable,
+          factTableMap: params.factTableMap,
           startDate: scanStartDate,
           endDate: scanEndDate,
           experimentId: params.settings.experimentId,

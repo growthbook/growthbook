@@ -18,6 +18,8 @@ import {
   TestFactFilterProps,
   TestRowFiltersProps,
   TestVirtualColumnProps,
+  TestLookupSourceProps,
+  LookupSourceTestResults,
   FactFilterTestResults,
   ColumnInterface,
   FactTableColumnType,
@@ -39,6 +41,7 @@ import {
   updateFactTable,
   updateFactTableColumns,
   deleteFactTable as deleteFactTableInDb,
+  assertNoLookupDependents,
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
@@ -67,6 +70,7 @@ import {
   validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
+import { validateLookupWrite } from "back-end/src/services/factTableLookups";
 import { columnNamesMatch, getColumnByName } from "back-end/src/util/sql";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
@@ -83,6 +87,7 @@ import {
   testFilterQuery,
   testRowFiltersQuery,
   testVirtualColumnQuery,
+  testLookupSourceQuery,
 } from "back-end/src/services/factTableTestQueries";
 
 export const getFactTables = async (
@@ -476,6 +481,7 @@ export const deleteFactTable = async (
     );
   }
 
+  await assertNoLookupDependents(context, factTable);
   await deleteFactTableInDb(context, factTable);
 
   res.status(200).json({
@@ -880,6 +886,23 @@ export const putColumn = async (
     context.permissions.throwPermissionError();
   }
 
+  if (data.lookup !== undefined && !col.lookup) {
+    throw new Error("Only lookup columns can have a lookup source");
+  }
+  if (col.lookup) {
+    if (data.sql !== undefined) {
+      throw new Error("Lookup columns can't have a SQL expression");
+    }
+    if (data.alwaysInlineFilter || data.isAutoSliceColumn) {
+      throw new Error("Lookup columns can only be used in row filters");
+    }
+    if (data.lookup) {
+      data.datatype =
+        (await validateLookupWrite(context, factTable, data.lookup)) ??
+        data.datatype;
+    }
+  }
+
   // Editing a virtual column's expression must not blank it out.
   if (col.isVirtual && data.sql !== undefined && !data.sql.trim()) {
     throw new Error("Virtual columns require a SQL expression");
@@ -1130,7 +1153,17 @@ export const postVirtualColumn = async (
   // `isVirtual`, so it is forced on here.
   validateVirtualColumnProps(data);
 
-  const column = await createColumn(factTable, { ...data, isVirtual: true });
+  // A Fact Table source dictates the lookup column's datatype.
+  const datatype = data.lookup
+    ? ((await validateLookupWrite(context, factTable, data.lookup)) ??
+      data.datatype)
+    : data.datatype;
+
+  const column = await createColumn(factTable, {
+    ...data,
+    datatype,
+    isVirtual: true,
+  });
 
   res.status(200).json({
     status: 200,
@@ -1213,6 +1246,39 @@ export const postVirtualColumnTest = async (
     data.sql,
     data.columnId,
   );
+
+  res.status(200).json({
+    status: 200,
+    result,
+  });
+};
+
+export const postLookupSourceTest = async (
+  req: AuthRequest<TestLookupSourceProps, { id: string }>,
+  res: Response<{
+    status: 200;
+    result: LookupSourceTestResults;
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  // A lookup's SQL is stored on this Fact Table, so testing it needs the same
+  // gate as writing it.
+  if (!context.permissions.canManageFactTableVirtualColumn(factTable)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  const result = await testLookupSourceQuery(context, datasource, req.body);
 
   res.status(200).json({
     status: 200,

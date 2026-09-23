@@ -212,6 +212,9 @@ export interface SqlDialect {
     where?: string,
   ) => string;
   hasCountDistinctHLL: () => boolean;
+  // Whether `x IN (SELECT ...)` may appear in a SELECT-list CASE, where
+  // experiment and metric queries put row filters. Gates lookup columns.
+  supportsLookupColumns: () => boolean;
   hllAggregate: (column: string) => string;
   hllReaggregate: (column: string) => string;
   hllCardinality: (column: string) => string;

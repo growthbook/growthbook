@@ -48,6 +48,8 @@ import {
   getAggregateFilters,
   getFactTableTimestampColumn,
   isFactFunnelMetric,
+  makeLookupResolver,
+  type LookupResolver,
 } from "../../experiments/experiments";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
@@ -61,13 +63,33 @@ type MinimalFactTable = Pick<
   // still default missing columns to "timestamp" in toMinimalFactTable.
   timestampColumn: string | null;
   quoteTimestampColumn: boolean;
+  // Resolves lookup-column row filters; absent for SQL datasets.
+  resolveLookup?: LookupResolver;
 };
 
-function toMinimalFactTable(factTable: FactTableInterface): MinimalFactTable {
+// The caller pre-compiles each fact table's SQL with its own template
+// variables, and the final query is compiled once more with the date range,
+// which covers `{{startDate}}` / `{{endDate}}` in inline lookup SQL.
+export function getProductAnalyticsLookupResolver(
+  factTable: Pick<FactTableInterface, "datasource">,
+  factTableMap: FactTableMap,
+): LookupResolver {
+  return makeLookupResolver({
+    factTableMap,
+    datasourceId: factTable.datasource,
+    getSql: (rawSql) => rawSql,
+  });
+}
+
+function toMinimalFactTable(
+  factTable: FactTableInterface,
+  factTableMap: FactTableMap,
+): MinimalFactTable {
   return {
     ...factTable,
     timestampColumn: getFactTableTimestampColumn(factTable),
     quoteTimestampColumn: false,
+    resolveLookup: getProductAnalyticsLookupResolver(factTable, factTableMap),
   };
 }
 
@@ -270,7 +292,7 @@ function getFactTableGroups({
         return [
           {
             index: 0,
-            factTable: toMinimalFactTable(factTable),
+            factTable: toMinimalFactTable(factTable, factTableMap),
             ...getMetricsAndUnitsFromValues(config.dataset.values),
           },
         ];
@@ -331,7 +353,7 @@ function getFactTableGroups({
           if (!groups[factTable.id]) {
             groups[factTable.id] = {
               index: Object.keys(groups).length,
-              factTable: toMinimalFactTable(factTable),
+              factTable: toMinimalFactTable(factTable, factTableMap),
               metrics: [],
               units: [],
             };
@@ -358,7 +380,10 @@ function getFactTableGroups({
             if (!groups[denominatorFactTable.id]) {
               groups[denominatorFactTable.id] = {
                 index: Object.keys(groups).length,
-                factTable: toMinimalFactTable(denominatorFactTable),
+                factTable: toMinimalFactTable(
+                  denominatorFactTable,
+                  factTableMap,
+                ),
                 metrics: [],
                 units: [],
               };
@@ -537,6 +562,7 @@ export function generateRowFilterSQL(
         evalBoolean: helpers.evalBoolean,
         castToTimestamp: helpers.castToTimestamp,
         identifierQuote: helpers.identifierQuote,
+        resolveLookup: factTable.resolveLookup,
       });
       return sql;
     })
@@ -1452,7 +1478,7 @@ function groupFunnelStepsByFactTable(
     }
     groups.set(step.factTableId, {
       index: groups.size,
-      factTable: toMinimalFactTable(factTable),
+      factTable: toMinimalFactTable(factTable, factTableMap),
       stepIndexes: [idx + 1],
     });
   });
@@ -1549,7 +1575,7 @@ export function buildFunnelSql(
   }
   const initialFactTableGroup: FactTableGroup = {
     index: 0,
-    factTable: toMinimalFactTable(initialFactTable),
+    factTable: toMinimalFactTable(initialFactTable, factTableMap),
     metrics: [],
     units: [],
   };

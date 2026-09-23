@@ -149,6 +149,7 @@ export interface DataSourceProperties {
   hasEfficientPercentiles?: boolean;
   canGroupPercentileCappedMetrics?: boolean;
   hasCountDistinctHLL?: boolean;
+  supportsLookupColumns?: boolean;
   hasQuantileSketch?: boolean;
   hasIncrementalRefresh?: boolean;
   hasArrayQuantileGrid?: boolean;

@@ -157,6 +157,7 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
     defaultPercentileCapSelectClause(baseDialect, values, metricTable, where),
 
   hasCountDistinctHLL: () => false,
+  supportsLookupColumns: () => true,
 
   hllAggregate: () => {
     throw new Error(

@@ -15,6 +15,7 @@ import {
   getFactTable,
 } from "back-end/src/models/FactTableModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
+import { validateLookupColumnsWrite } from "back-end/src/services/factTableLookups";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
@@ -26,6 +27,7 @@ import {
   validateAggregatedFactTableSettings,
   validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
+  validateLookupShape,
   validateVirtualColumnProps,
   validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
@@ -179,6 +181,11 @@ export const updateFactTable = createApiRequestHandler(
             `Only virtual columns can have a SQL expression: "${col.column}"`,
           );
         }
+        if (col.lookup !== undefined) {
+          throw new Error(
+            `Only virtual columns can have a lookup source: "${col.column}"`,
+          );
+        }
         continue;
       }
 
@@ -196,6 +203,18 @@ export const updateFactTable = createApiRequestHandler(
       if (!existingCol) {
         validateVirtualColumnProps(col);
         continue;
+      }
+
+      // A column's kind (expression vs lookup) is as fixed as its origin.
+      if (
+        existingCol.lookup ? col.sql !== undefined : col.lookup !== undefined
+      ) {
+        throw new Error(
+          `Cannot change whether column "${col.column}" is a lookup column`,
+        );
+      }
+      if (col.lookup) {
+        validateLookupShape(col.lookup);
       }
 
       // Partial update: an omitted `sql` preserves the existing expression, but
@@ -217,6 +236,7 @@ export const updateFactTable = createApiRequestHandler(
     ) {
       req.context.permissions.throwPermissionError();
     }
+    await validateLookupColumnsWrite(req.context, factTable, incomingColumns);
     columnRefreshWillBeNeeded = columnsNeedDetection(
       mergeUpsertColumns(factTable.columns, incomingColumns).columns,
     );

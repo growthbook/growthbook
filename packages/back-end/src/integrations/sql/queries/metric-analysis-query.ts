@@ -113,6 +113,7 @@ export function getMetricAnalysisQuery(
         idJoinMap,
         metricsWithIndices: [{ metric: metric, index: 0 }],
         factTable,
+        factTableMap: params.factTableMap,
         endDate: metricData.metricEnd,
         startDate: metricData.metricStart,
         addFiltersToWhere: settings.populationType == "metric",

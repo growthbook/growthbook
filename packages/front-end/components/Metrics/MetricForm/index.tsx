@@ -592,10 +592,8 @@ const MetricForm: FC<MetricFormProps> = ({
     }
   }, [type, form]);
 
-  const { setTableId, tableOptions, columnOptions } = useSchemaFormOptions(
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceInterfaceWithParams | ... Remove this comment to see the full error message
-    selectedDataSource,
-  );
+  const { setTableId, tableOptions, columnOptions } =
+    useSchemaFormOptions(selectedDataSource);
 
   let ctaEnabled = true;
   let disabledMessage: string | null = null;

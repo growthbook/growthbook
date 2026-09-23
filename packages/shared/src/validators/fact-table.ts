@@ -90,6 +90,40 @@ export const conditionalInlineFiltersValidator = z.record(
   z.string(),
 );
 
+const lookupKeysShape = {
+  localKey: z.string(),
+  remoteKey: z.string(),
+  remoteColumn: z.string(),
+};
+
+// A lookup's non-Fact-Table source: a SQL query, or a table name (shorthand
+// for `SELECT * FROM <table>`).
+const lookupSqlSource = z.object({ type: z.literal("sql"), sql: z.string() });
+const lookupTableSource = z.object({
+  type: z.literal("table"),
+  table: z.string(),
+});
+
+/**
+ * A lookup column resolves through another source and is usable only in row
+ * filters: `A.localKey IN (SELECT remoteKey FROM (<source>) WHERE
+ * <remoteColumn op values>)`. `type` names the source: another Fact Table,
+ * a SQL query, or a table. For a Fact Table source the server sets the lookup
+ * column's `datatype` from the remote column; otherwise it comes from running
+ * the source.
+ */
+export const columnLookupValidator = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("factTable"),
+      factTableId: z.string(),
+      ...lookupKeysShape,
+    })
+    .strict(),
+  lookupSqlSource.extend(lookupKeysShape).strict(),
+  lookupTableSource.extend(lookupKeysShape).strict(),
+]);
+
 export const createColumnPropsValidator = z
   .object({
     column: z.string(),
@@ -109,6 +143,7 @@ export const createColumnPropsValidator = z
     // Virtual (computed) column inputs.
     isVirtual: z.boolean().optional(),
     sql: z.string().optional(),
+    lookup: columnLookupValidator.optional(),
   })
   .strict();
 
@@ -117,8 +152,10 @@ export const createColumnPropsValidator = z
 // (`isAutoSliceColumn`/`autoSlices`/`lockedAutoSlices`) — an enterprise
 // feature that is not premium-gated on this path — as well as fields only
 // meaningful for SQL-detected columns (`deleted`, `alwaysInlineFilter`,
-// `topValues`). `sql` and `datatype` are required; the handler forces
-// `isVirtual: true`, so it is not accepted from the caller.
+// `topValues`). `datatype` is required; the handler forces `isVirtual: true`,
+// so it is not accepted from the caller. Exactly one of
+// `sql` (a computed expression) or `lookup` (a row-filter-only lookup column)
+// is required; the handler enforces that.
 export const createVirtualColumnPropsValidator = z
   .object({
     column: z.string(),
@@ -126,7 +163,8 @@ export const createVirtualColumnPropsValidator = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator,
-    sql: z.string(),
+    sql: z.string().optional(),
+    lookup: columnLookupValidator.optional(),
   })
   .strict();
 
@@ -148,6 +186,7 @@ export const updateColumnPropsValidator = z
     // origin) is intentionally omitted so a SQL-detected column can never be
     // flipped to virtual via the update route.
     sql: z.string().optional(),
+    lookup: columnLookupValidator.optional(),
   })
   .strict();
 
@@ -160,6 +199,12 @@ export const testVirtualColumnPropsValidator = z
     columnId: z.string().optional(),
   })
   .strict();
+
+// Runs a lookup's SQL or table source to discover its columns and types.
+export const testLookupSourcePropsValidator = z.discriminatedUnion("type", [
+  lookupSqlSource.strict(),
+  lookupTableSource.strict(),
+]);
 
 export const aggregatedFactTableSettingsValidator = z
   .object({
@@ -645,6 +690,11 @@ export const apiFactTableColumnValidator = namedSchema(
         .string()
         .describe(
           "For virtual columns, the SQL expression that computes the column value. Only valid on a virtual column; when omitted from an update, the existing expression is preserved.",
+        )
+        .optional(),
+      lookup: columnLookupValidator
+        .describe(
+          "For lookup columns, the source the column resolves through. A lookup column is a virtual column usable only in row filters; it filters rows to those whose `localKey` appears as `remoteKey` in the source (another Fact Table, a SQL query, or a table, per `type`) where `remoteColumn` matches the filter.",
         )
         .optional(),
       topValues: z
@@ -1213,8 +1263,16 @@ const postFactTableVirtualColumnBody = z
     ),
     sql: z
       .string()
-      .describe("The SQL expression that computes the column value")
-      .meta({ example: "price * quantity" }),
+      .describe(
+        "The SQL expression that computes the column value. Exactly one of `sql` or `lookup` is required.",
+      )
+      .meta({ example: "price * quantity" })
+      .optional(),
+    lookup: columnLookupValidator
+      .describe(
+        "Makes this a lookup column, usable only in row filters: it keeps rows whose `localKey` appears as `remoteKey` in the source (another Fact Table, a SQL query, or a table, per `type`) where `remoteColumn` matches the filter. For a Fact Table source, `datatype` is set from the remote column. Exactly one of `sql` or `lookup` is required.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -1228,7 +1286,14 @@ const updateFactTableVirtualColumnBody = z
       .optional(),
     sql: z
       .string()
-      .describe("The SQL expression that computes the column value")
+      .describe(
+        "The SQL expression that computes the column value. Not valid on a lookup column.",
+      )
+      .optional(),
+    lookup: columnLookupValidator
+      .describe(
+        "A lookup column's source and keys. Only valid on a lookup column; a column can't switch between an expression and a lookup.",
+      )
       .optional(),
   })
   .strict();

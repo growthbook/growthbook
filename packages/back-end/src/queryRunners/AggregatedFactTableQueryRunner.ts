@@ -12,6 +12,7 @@ import {
 import { snapToUtcDayStart } from "shared/dates";
 import { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
 import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export const AGGREGATED_FACT_TABLE_PREFIX = "gb_aggregated";
@@ -372,12 +373,16 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         : [{ start: windowStartDate, end: now }];
     const chunked = chunks.length > 1;
 
+    // Lookup-column row filters on these metrics resolve through other tables.
+    const factTableMap = await getFactTableMap(this.context);
+
     let lastInsertQuery: QueryPointer | null = null;
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       const insertQueryString =
         integration.getInsertAggregatedFactTableDataQuery({
           factTable,
+          factTableMap,
           idType,
           metrics,
           tableFullName,

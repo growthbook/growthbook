@@ -10,6 +10,7 @@ import {
   testFactFilterPropsValidator,
   testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
+  testLookupSourcePropsValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -149,6 +150,15 @@ router.post(
     body: testVirtualColumnPropsValidator,
   }),
   factTableController.postVirtualColumnTest,
+);
+
+router.post(
+  "/fact-tables/:id/test-lookup-source",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: testLookupSourcePropsValidator,
+  }),
+  factTableController.postLookupSourceTest,
 );
 
 router.post(

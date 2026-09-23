@@ -84,6 +84,7 @@ import {
   ReplacedByCallout,
   ReplacesMetadata,
 } from "@/components/Metrics/MetricReplacement";
+import { getPreviewLookupResolver } from "@/components/FactTables/rowFilterUtils";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -169,6 +170,7 @@ function RowFilterCodeDisplay({
   rowFilters: RowFilter[];
   factTable?: FactTableDefinition | null;
 }) {
+  const { getFactTableById } = useDefinitions();
   if (!rowFilters.length) return null;
 
   const text = `WHERE ${
@@ -187,6 +189,10 @@ function RowFilterCodeDisplay({
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,
               showSourceComment: true,
+              resolveLookup: getPreviewLookupResolver(
+                factTable,
+                getFactTableById,
+              ),
             }),
           )
           .join("\nAND ")

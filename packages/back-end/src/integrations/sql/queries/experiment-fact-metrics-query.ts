@@ -676,6 +676,7 @@ export function getExperimentFactMetricsQuery(
           baseIdType,
           idJoinMap,
           factTable: f.factTable,
+          factTableMap,
           metricsWithIndices,
           endDate: metricEnd,
           startDate: metricStart,

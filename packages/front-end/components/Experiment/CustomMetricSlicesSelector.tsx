@@ -104,6 +104,7 @@ export default function CustomMetricSlicesSelector({
           (col) =>
             (col.datatype === "string" || col.datatype === "boolean") &&
             !col.deleted &&
+            !col.lookup &&
             !factTable.userIdTypes.includes(col.column),
         );
         return {

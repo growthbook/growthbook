@@ -77,7 +77,10 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
-import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
+import {
+  getAttributeFieldsExposedAsColumns,
+  getPreviewLookupResolver,
+} from "@/components/FactTables/rowFilterUtils";
 import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 
@@ -174,6 +177,7 @@ function getNumericColumns(
     (col) =>
       col.datatype === "number" &&
       !col.deleted &&
+      !col.lookup &&
       col.column !== "timestamp" &&
       !factTable.userIdTypes.includes(col.column),
   );
@@ -237,7 +241,7 @@ function getColumnOptions({
 
   const stringColumnOptions: SingleValue[] = [];
   const stringColumns = factTable?.columns.filter(
-    (col) => col.datatype === "string" && !col.deleted,
+    (col) => col.datatype === "string" && !col.deleted && !col.lookup,
   );
   if (stringColumns) {
     stringColumnOptions.push(
@@ -250,7 +254,7 @@ function getColumnOptions({
 
   const booleanColumnOptions: SingleValue[] = [];
   const booleanColumns = factTable?.columns.filter(
-    (col) => col.datatype === "boolean" && !col.deleted,
+    (col) => col.datatype === "boolean" && !col.deleted && !col.lookup,
   );
   if (booleanColumns) {
     booleanColumnOptions.push(
@@ -708,7 +712,9 @@ function getWHERE({
   windowSettings,
   quantileSettings,
   type,
+  getFactTableById,
 }: {
+  getFactTableById: (id: string) => FactTableDefinition | null;
   factTable: FactTableDefinition | null;
   columnRef: ColumnRef | null;
   windowSettings: MetricWindowSettings;
@@ -729,6 +735,7 @@ function getWHERE({
           jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
           showSourceComment: true,
+          resolveLookup: getPreviewLookupResolver(factTable, getFactTableById),
         })
       : [];
 
@@ -792,7 +799,9 @@ function getPreviewSQL({
   denominator,
   numeratorFactTable,
   denominatorFactTable,
+  getFactTableById,
 }: {
+  getFactTableById: (id: string) => FactTableDefinition | null;
   type: StandardFactMetricInterface["metricType"];
   quantileSettings: MetricQuantileSettings;
   windowSettings: MetricWindowSettings;
@@ -847,6 +856,7 @@ function getPreviewSQL({
     windowSettings,
     quantileSettings,
     type,
+    getFactTableById,
   });
 
   const DENOMINATOR_WHERE = getWHERE({
@@ -855,6 +865,7 @@ function getPreviewSQL({
     windowSettings,
     quantileSettings,
     type,
+    getFactTableById,
   });
 
   const havingParts = getAggregateFilters({
@@ -1014,7 +1025,9 @@ function getFunnelPreviewSQL({
   steps,
   factTable,
   windowSettings,
+  getFactTableById,
 }: {
+  getFactTableById: (id: string) => FactTableDefinition | null;
   steps: FunnelStep[];
   factTable: FactTableDefinition | null;
   windowSettings: MetricWindowSettings;
@@ -1030,6 +1043,7 @@ function getFunnelPreviewSQL({
   // on the CTE rather than being repeated in each step's filter.
   const WHERE = getWHERE({
     factTable,
+    getFactTableById,
     columnRef: null,
     windowSettings,
     quantileSettings: {
@@ -1064,6 +1078,7 @@ function getFunnelPreviewSQL({
       }),
       jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
       evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+      resolveLookup: getPreviewLookupResolver(factTable, getFactTableById),
     });
 
     // Ordering against exposure is already covered by the CTE's WHERE.
@@ -1639,6 +1654,7 @@ function StandardFactMetricModal({
             steps: funnelSettings.steps,
             factTable: getFactTableById(funnelSettings.steps[0].factTableId),
             windowSettings,
+            getFactTableById,
           })
         : null
       : getPreviewSQL({
@@ -1651,6 +1667,7 @@ function StandardFactMetricModal({
           denominatorFactTable: getFactTableById(
             denominator?.factTableId || "",
           ),
+          getFactTableById,
         });
 
   const setDatasource = (datasource: string) => {

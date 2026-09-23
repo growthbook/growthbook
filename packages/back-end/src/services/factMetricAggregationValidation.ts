@@ -33,6 +33,14 @@ export function validateAggregationSpecification({
     column.column !== "$$count" &&
     column.column !== "$$distinctUsers" &&
     column.column !== "$$distinctDates";
+
+  // A lookup column is a semi-join predicate, not a value; it's only valid in
+  // row filters.
+  if (factTable.columns.some((c) => c.column === column.column && c.lookup)) {
+    throw new Error(
+      `${errorPrefix}Lookup column '${column.column}' can only be used in row filters.`,
+    );
+  }
   const typeUnknown = datatype === undefined || datatype === "";
 
   if (isNamedColumnReference && typeUnknown) {
