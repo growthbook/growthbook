@@ -902,7 +902,6 @@ type RampStartActionPatch = {
 export type RampBaseStateUpdate = {
   schedule: RampScheduleInterface;
   patches: RampStartActionPatch[];
-  fields: string[];
 };
 export type RampBaseStateRefusal = {
   kind: "ramp-running" | "ramp-controlled-field";
@@ -950,8 +949,8 @@ export function planRampBaseStateSync({
   for (const schedule of schedules) {
     if (!ANCHORED_RAMP_SCHEDULE_STATUSES.includes(schedule.status)) continue;
     const startActions = schedule.startActions ?? [];
-    const patches: RampStartActionPatch[] = [];
-    const fields = new Set<string>();
+    // Keyed like the engine binds actions; legacy env-split siblings share one.
+    const patches = new Map<string, RampStartActionPatch>();
     for (const target of schedule.targets) {
       if (
         target.status !== "active" ||
@@ -1012,16 +1011,18 @@ export function planRampBaseStateSync({
               stemRuleId(a.patch.ruleId) === stemRuleId(liveRule.id),
           );
         if (!anchor) continue;
-        patches.push({
+        const key = `${anchor.targetId}:${anchor.patch.ruleId}`;
+        const prior = patches.get(key)?.patch ?? {};
+        patches.set(key, {
           targetId: anchor.targetId,
           ruleId: anchor.patch.ruleId,
-          patch: ruleFieldsAsStartPatch(next, changed),
+          patch: { ...prior, ...ruleFieldsAsStartPatch(next, changed) },
         });
-        changed.forEach((f) => fields.add(f));
       }
     }
-    if (patches.length)
-      updates.push({ schedule, patches, fields: [...fields] });
+    if (patches.size) {
+      updates.push({ schedule, patches: [...patches.values()] });
+    }
   }
   return { refusals, updates };
 }
@@ -1068,6 +1069,8 @@ export async function planRampBaseStateSyncForPublish(
   ctx: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   result: MergeResultChanges,
+  // Bulk reads through a scan context; the wording follows the caller.
+  apiRequest = ctx.isApiRequest,
 ): Promise<RampBaseStateSyncPlan> {
   if (!result.rules) return { refusals: [], updates: [] };
   const schedules = await ctx.models.rampSchedules.findAnchoredByTargetFeature(
@@ -1078,7 +1081,7 @@ export async function planRampBaseStateSyncForPublish(
     schedules,
     liveRules: feature.rules ?? [],
     nextRules: result.rules,
-    apiRequest: ctx.isApiRequest,
+    apiRequest,
   });
 }
 
@@ -1109,11 +1112,13 @@ export async function applyRampBaseStateSync(
       const stale =
         (fresh.status === "running" && fresh.steps.length > 0) ||
         anchors.some((a) => !a) ||
+        !isEqual(
+          getEnvsFromRampSchedule(fresh),
+          getEnvsFromRampSchedule(schedule),
+        ) ||
         patches.some((p) => {
           const controlled = rampPlanControlledFields(fresh, p.targetId);
-          return Object.keys(p.patch).some((k) =>
-            controlled.has(RAMP_PATCH_RULE_FIELDS[k] ?? k),
-          );
+          return Object.keys(p.patch).some((k) => controlled.has(ruleField(k)));
         });
       if (stale) {
         throw new ConflictError(

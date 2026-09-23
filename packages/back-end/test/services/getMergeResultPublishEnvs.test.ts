@@ -103,31 +103,60 @@ describe("getMergeResultPublishEnvs", () => {
       expect(envs.sort()).toEqual([...ENVS].sort());
     });
 
-    it("widens to every env a ramp whose base state the publish rewrites can reach", async () => {
-      const envs = await getMergeResultPublishEnvs({
+    it("widens to what a rewritten ramp anchor can reach, not to every env for a coverage-only step", async () => {
+      const devRule = {
+        type: "rollout",
+        id: "r1",
+        value: "a",
+        coverage: 0.5,
+        hashAttribute: "id",
+        environments: ["dev"],
+      } as unknown as FeatureRule;
+      const anchored = (anchorPatch: Record<string, unknown>) => ({
         context: ctxWith(),
         feature: feat(),
-        filledLiveRules: [],
+        filledLiveRules: [devRule],
         result: {
           metadata: { description: "x" },
           environmentsEnabled: { dev: true },
         } as unknown as MergeResultChanges,
         environmentIds: ENVS,
-        anchoredSchedules: [
+        anchoredUpdates: [
           {
-            startActions: [
-              {
-                targetType: "feature-rule",
-                targetId: "t1",
-                patch: { ruleId: "r1", allEnvironments: true },
-              },
-            ],
-            steps: [],
-            endActions: [],
+            schedule: {
+              startActions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "t1",
+                  patch: { ruleId: "r1", ...anchorPatch },
+                },
+              ],
+              steps: [
+                {
+                  interval: 1,
+                  actions: [
+                    {
+                      targetType: "feature-rule" as const,
+                      targetId: "t1",
+                      patch: { ruleId: "r1", coverage: 0.5 },
+                    },
+                  ],
+                },
+              ],
+              endActions: [],
+            },
+            patches: [{ targetId: "t1", ruleId: "r1" }],
           },
         ],
       });
-      expect(envs.sort()).toEqual([...ENVS].sort());
+      expect(
+        await getMergeResultPublishEnvs(anchored({ environments: ["dev"] })),
+      ).toEqual(["dev"]);
+      expect(
+        (
+          await getMergeResultPublishEnvs(anchored({ allEnvironments: true }))
+        ).sort(),
+      ).toEqual([...ENVS].sort());
     });
 
     it("does NOT widen for metadata that never reaches an SDK", async () => {

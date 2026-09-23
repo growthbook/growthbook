@@ -74,7 +74,11 @@ import {
   bulkPublishFields,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
-import { BadRequestError, getErrorMessage } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  getErrorMessage,
+} from "back-end/src/util/errors";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
@@ -105,6 +109,8 @@ type FeatureDesiredState = {
   createdRampScheduleIds?: string[];
   // Ramp anchors the apply rewrote, captured as each write lands.
   rampBaseStatePreImages?: RampBaseStatePreImage[];
+  // Schedules the gate-time plan authorized; the apply refuses any newcomer.
+  anchoredScheduleIds?: string[];
   updatedFeature?: FeatureInterface;
   // Captured at the write, even if a later read or satellite update fails.
   writtenFeatureUpdates?: Partial<FeatureInterface>;
@@ -223,13 +229,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   }) {
     const feature = entity as unknown as FeatureInterface;
     const raw = rawRevision(revision);
-    const { plan } = desiredState as unknown as FeatureDesiredState;
+    const desired = desiredState as unknown as FeatureDesiredState;
+    const { plan } = desired;
     const gates: PublishGate[] = [];
 
     const rampBaseState = await planRampBaseStateSyncForPublish(
       overlayContext,
       feature,
       plan.mergeResult,
+      callerContext.isApiRequest,
+    );
+    desired.anchoredScheduleIds = rampBaseState.updates.map(
+      (u) => u.schedule.id,
     );
     // Use caller context for footprint-aware landing authority.
     const envsToCheck = await getMergeResultPublishEnvs({
@@ -240,7 +251,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       environmentIds: plan.environmentIds,
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
       rampActions: raw.rampActions,
-      anchoredSchedules: rampBaseState.updates.map((u) => u.schedule),
+      anchoredUpdates: rampBaseState.updates,
     });
     const refusal = await featurePublishRefusal({
       context: callerContext,
@@ -467,6 +478,12 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     if (rampBaseState.refusals.length) {
       throw new BadRequestError(
         rampBaseState.refusals.map((r) => r.message).join("\n"),
+      );
+    }
+    const authorized = new Set(desired.anchoredScheduleIds ?? []);
+    if (rampBaseState.updates.some((u) => !authorized.has(u.schedule.id))) {
+      throw new ConflictError(
+        "A ramp schedule was attached to this feature while publishing; retry the publish",
       );
     }
     if (rampBaseState.updates.length) {

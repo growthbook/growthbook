@@ -5556,12 +5556,6 @@ describe("planRampBaseStateSync", () => {
       }),
     );
     expect(refusals).toEqual([]);
-    expect(updates[0].fields.sort()).toEqual([
-      "condition",
-      "environments",
-      "hashAttribute",
-      "value",
-    ]);
     expect(updates[0].patches).toEqual([
       {
         targetId: "t1",
@@ -5613,7 +5607,7 @@ describe("planRampBaseStateSync", () => {
       schedule({ status: "running", steps: [] }),
     );
     expect(stepless.refusals).toEqual([]);
-    expect(stepless.updates[0].fields).toEqual(["condition"]);
+    expect(stepless.updates[0].patches[0].patch).toEqual({ condition: "{}" });
   });
 
   it("leaves unanchored statuses, other features, `enabled`, unchanged and merely re-shaped rules alone", () => {

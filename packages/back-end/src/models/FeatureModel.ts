@@ -4097,7 +4097,7 @@ async function publishRevisionInner({
         ),
         // The draft's ramp actions reach environments no rule diff mentions.
         rampActions: revision.rampActions,
-        anchoredSchedules: rampBaseState.updates.map((u) => u.schedule),
+        anchoredUpdates: rampBaseState.updates,
       }),
       mergeChanges: result,
     });

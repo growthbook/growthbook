@@ -122,7 +122,7 @@ import {
   getRevisionReviewRequirement,
   liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
-  getEnvsFromRampSchedule,
+  getEnvsForRampTarget,
 } from "shared/util";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import { ApiReqContext } from "back-end/types/api";
@@ -163,6 +163,7 @@ import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
+import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -4113,7 +4114,7 @@ export async function getMergeResultPublishEnvs({
   result,
   environmentIds,
   rampActions,
-  anchoredSchedules,
+  anchoredUpdates,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -4122,8 +4123,11 @@ export async function getMergeResultPublishEnvs({
   environmentIds: string[];
   /** The revision's ramp actions, whose reach the publish must answer for. */
   rampActions?: RevisionRampAction[];
-  /** Live schedules whose base state this publish rewrites; their replays reach every env they target. */
-  anchoredSchedules?: Parameters<typeof getEnvsFromRampSchedule>[0][];
+  /** Ramp anchors this publish rewrites; their replays reach every env the target serves or a patch names. */
+  anchoredUpdates?: {
+    schedule: Parameters<typeof getEnvsForRampTarget>[0];
+    patches: { targetId: string; ruleId: string }[];
+  }[];
 }): Promise<string[]> {
   // A project/targeting move makes environments applicable that the pre-move
   // feature excluded, so `environmentIds` (computed against the OLD project)
@@ -4173,13 +4177,21 @@ export async function getMergeResultPublishEnvs({
     liveRules: filledLiveRules,
     environmentIds: effectiveEnvironmentIds,
   });
-  const scheduleEnvs = (anchoredSchedules ?? []).map(getEnvsFromRampSchedule);
-  if (rampEnvs === "all" || scheduleEnvs.includes("all")) {
-    return [...effectiveEnvironmentIds];
+  if (rampEnvs === "all") return [...effectiveEnvironmentIds];
+  const reached = new Set<string>();
+  for (const { schedule, patches } of anchoredUpdates ?? []) {
+    for (const { targetId, ruleId } of patches) {
+      const rules = resolveRampTargets({ ruleId }, filledLiveRules);
+      const current = rules.some((r) => r.allEnvironments)
+        ? "all"
+        : rules.flatMap((r) => r.environments ?? []);
+      const envs = getEnvsForRampTarget(schedule, targetId, current);
+      if (envs === "all") return [...effectiveEnvironmentIds];
+      for (const env of envs) {
+        if (effectiveEnvironmentIds.includes(env)) reached.add(env);
+      }
+    }
   }
-  const reached = scheduleEnvs
-    .flatMap((envs) => (envs === "all" ? [] : envs))
-    .filter((env) => effectiveEnvironmentIds.includes(env));
   return [...new Set([...base, ...rampEnvs, ...reached])];
 }
 
