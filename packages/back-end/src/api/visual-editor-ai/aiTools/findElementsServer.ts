@@ -7,8 +7,7 @@ import {
 
 export type { PageStructureNode };
 
-// One per request, shared by both lookup tools: a model that re-asks the same
-// question is told so, instead of getting the same answer as if it were new.
+// One per request: a repeated question is called out rather than answered as new.
 export type LookupMemo = Map<string, number>;
 
 const repeatNote = (times: number): string =>

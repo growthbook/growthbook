@@ -217,9 +217,7 @@ export function getMaxOutputTokens(
   return modelMax === undefined ? desired : Math.min(desired, modelMax);
 }
 
-// Documented output-token ceilings above the default. Asking for more than
-// the ceiling is a 400, not a silent clamp, so only models with a published
-// figure are listed; the rest keep whatever the caller considers safe.
+// Documented ceilings only: over-asking is a 400, not a clamp.
 const MODEL_MAX_OUTPUT_TOKENS: Partial<Record<AIModel, number>> = {
   "claude-opus-5": 128000,
   "claude-sonnet-5": 128000,
@@ -228,9 +226,7 @@ const MODEL_MAX_OUTPUT_TOKENS: Partial<Record<AIModel, number>> = {
   "claude-haiku-4-5-20251001": 64000,
 };
 
-// `safe` is what every model gets when its ceiling is unknown. `extended`
-// applies only where the ceiling is documented, capped at that ceiling. The
-// result still honours the small-model caps above.
+// `extended` applies only where the ceiling is known, capped at it; otherwise `safe`.
 export function resolveMaxOutputTokens(
   model: AIModel,
   safe: number,

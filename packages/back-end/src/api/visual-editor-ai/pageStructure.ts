@@ -1,9 +1,4 @@
-// The page-structure snapshot the extension captures: significant containers
-// (sections, layout wrappers, heading ancestors), each with a durable
-// selector and a parent pointer. Extensions that send `docOrder` also give
-// document order and the nearest visible siblings, which is what lets the
-// prompt render an outline and the model build a move. Pure functions so the
-// tools and the prompt renderer share one tree.
+// The extension's page-structure snapshot as a tree, shared by the outline and the tools.
 
 export interface PageStructureNode {
   selector: string;
@@ -25,9 +20,7 @@ export interface StructureTreeNode {
   children: StructureTreeNode[];
 }
 
-// Older extensions send nodes in capture-priority order: nesting can be
-// rebuilt from parent pointers but sibling order can't, so the outline is
-// only rendered when every node carries `docOrder`.
+// Without docOrder, nodes arrive in capture-priority order and sibling order is unknown.
 export function hasDocumentOrder(nodes: PageStructureNode[]): boolean {
   return nodes.length > 0 && nodes.every((n) => typeof n.docOrder === "number");
 }
@@ -67,16 +60,12 @@ export function buildStructureTree(
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : `${s.slice(0, n - 1)}…`;
 
-// Layout rides in the tag so a row or grid is visible where the model picks
-// an insert anchor.
 const describeLine = (n: PageStructureNode): string =>
   `\`${n.selector}\` <${n.tag}${n.id ? `#${n.id}` : ""}${
     n.layout ? ` ${n.layout}` : ""
   }>${n.label ? ` "${truncate(n.label, 40)}"` : ""}`;
 
-// Indented outline of the top of the tree. Deeper levels stay reachable via
-// describeContainer, so the budget goes to the containers a request is most
-// likely to name.
+// Indented outline of the top of the tree; deeper levels stay reachable via describeContainer.
 export function renderPageOutline(
   nodes: PageStructureNode[],
   {
@@ -138,9 +127,7 @@ export interface ContainerDescription extends Omit<ContainerSummary, "tag"> {
   note?: string;
 }
 
-// Every selector the snapshot knows anything about: captured nodes, plus the
-// parents they point at. Uncaptured parents take their first child's place in
-// document order.
+// Every selector the snapshot knows: captured nodes plus the parents they point at.
 function knownContainers(
   nodes: PageStructureNode[],
 ): Array<KnownContainer & { docOrder: number }> {
@@ -185,12 +172,7 @@ export function describeContainer(
 ): ContainerDescription | null {
   const node = nodes.find((n) => n.selector === selector);
   if (!node) {
-    // findElements hands out each match's parentSelector, but the parent is
-    // often not a captured node itself (a card grid whose headings sit one
-    // level down). Its captured children are still known, and listing them
-    // in order is exactly what a reorder needs — so only when their order is
-    // known: a snapshot without docOrder arrived in capture-priority order,
-    // which would misplace a move.
+    // An uncaptured parent is described by its captured children, but only when their order is known.
     const children = nodes
       .filter((n) => n.parentSelector === selector)
       .sort((a, b) => (a.docOrder ?? 0) - (b.docOrder ?? 0));
@@ -201,10 +183,7 @@ export function describeContainer(
         note: "This container wasn't captured itself, so its tag, layout and siblings are unknown; `children` are its captured direct children in page order.",
       };
     }
-    // Neither captured nor a captured node's parent — typically a selector
-    // the model built from a class name it saw in a match. What IS known
-    // underneath it is still useful: a model probing for the plans' row can
-    // act on the plan cards themselves instead of asking again.
+    // Unknown selector: still list the known containers under it so the model can act on them.
     const descendants = knownContainers(nodes)
       .filter(
         (k) =>

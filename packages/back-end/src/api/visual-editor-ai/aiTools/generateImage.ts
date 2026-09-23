@@ -29,9 +29,7 @@ export interface GenerateImageToolContext {
   context: ApiReqContext;
   turnCounter: ImageTurnState;
   quarantine: boolean;
-  // Images the user attached to this prompt. They already have hosted URLs,
-  // so the tool description steers the model away from generating a
-  // stand-in for one.
+  // Steers the description away from generating a stand-in for an attachment.
   attachmentCount?: number;
 }
 
