@@ -818,6 +818,10 @@ export class HoldoutModel extends BaseClass {
 
   // Bypasses read scope: the Holdout reference is already committed on the
   // Feature Flag, so linkage must not depend on the publisher seeing its Projects.
+  public async getByExperimentId(experimentId: string) {
+    return this._findOne({ experimentId });
+  }
+
   public async getByIdForLinkage(
     holdoutId: string,
   ): Promise<HoldoutInterface | null> {

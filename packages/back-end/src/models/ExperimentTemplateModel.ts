@@ -4,7 +4,10 @@ import {
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
-import { parseAssignmentQueryInput } from "shared/util";
+import {
+  assertValidAssignmentQuerySelection,
+  parseAssignmentQueryInput,
+} from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
@@ -12,6 +15,7 @@ import {
   experimentTemplateApiSpec,
   bulkImportExperimentTemplatesEndpoint,
 } from "back-end/src/api/specs/experiment-template.spec";
+import { getDataSourceById } from "./DataSourceModel";
 import { MakeModelClass } from "./BaseModel";
 
 const ID_PREFIX = "tmplt__";
@@ -143,6 +147,33 @@ export class ExperimentTemplatesModel extends BaseClass {
 
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("templates");
+  }
+
+  // Runs for internal and REST writes. Only a changed selection is checked, so a
+  // template whose query later drifted can still save unrelated edits.
+  protected override async customValidation(
+    doc: ExperimentTemplateInterface,
+    previousDoc?: ExperimentTemplateInterface,
+  ) {
+    if (
+      previousDoc &&
+      previousDoc.datasource === doc.datasource &&
+      previousDoc.exposureQueryId === doc.exposureQueryId &&
+      (previousDoc.exposureQueryIdentifierType || null) ===
+        (doc.exposureQueryIdentifierType || null) &&
+      (previousDoc.project || "") === (doc.project || "")
+    ) {
+      return;
+    }
+    if (!doc.datasource || !doc.exposureQueryId) return;
+    const datasource = await getDataSourceById(this.context, doc.datasource);
+    if (!datasource) return;
+    assertValidAssignmentQuerySelection({
+      exposureQueries: datasource.settings.queries?.exposure ?? [],
+      exposureQueryId: doc.exposureQueryId,
+      identifierType: doc.exposureQueryIdentifierType,
+      project: doc.project ?? "",
+    });
   }
 
   protected override async processApiCreateBody(rawBody: unknown) {

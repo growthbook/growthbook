@@ -22,6 +22,7 @@ import {
   isRampScheduleServing,
   unanchoredRampTargets,
   parseAssignmentQueryInput,
+  assertValidAssignmentQuerySelection,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
@@ -469,6 +470,41 @@ function assertTargetsAnchored(
 export class RampScheduleModel extends BaseClass {
   protected async beforeCreate(doc: RampScheduleInterface) {
     assertTargetsAnchored(doc, []);
+  }
+  // Every monitoring writer (REST, internal, revision publish) saves through
+  // here. Only a changed selection is checked, so a schedule whose query later
+  // drifted can still save unrelated edits.
+  protected async customValidation(
+    doc: RampScheduleInterface,
+    previousDoc?: RampScheduleInterface,
+  ) {
+    const next = doc.monitoringConfig;
+    if (!next) return;
+    const previous = previousDoc?.monitoringConfig;
+    if (
+      previous &&
+      previous.datasourceId === next.datasourceId &&
+      previous.exposureQueryId === next.exposureQueryId &&
+      (previous.exposureQueryIdentifierType || null) ===
+        (next.exposureQueryIdentifierType || null)
+    ) {
+      return;
+    }
+    // Lazy: DataSourceModel's import graph loops back to this model.
+    const { getDataSourceById } = await import(
+      "back-end/src/models/DataSourceModel"
+    );
+    const datasource = await getDataSourceById(this.context, next.datasourceId);
+    if (!datasource) {
+      throw new Error(`Invalid monitoring data source: ${next.datasourceId}`);
+    }
+    assertValidAssignmentQuerySelection({
+      exposureQueries: datasource.settings.queries?.exposure ?? [],
+      exposureQueryId: next.exposureQueryId,
+      identifierType: next.exposureQueryIdentifierType,
+      // Undefined (no anchoring feature) skips the scope check.
+      project: this.getProject(doc),
+    });
   }
   protected async beforeUpdate(
     existing: RampScheduleInterface,

@@ -11,6 +11,7 @@ import {
   autoMerge,
   reconcileMergeBaselines,
   includeExperimentInPayload,
+  assertValidAssignmentQuerySelection,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -1372,6 +1373,15 @@ export async function postExperiments(
   try {
     validateVariationIds(obj.variations);
 
+    if (datasource && obj.exposureQueryId) {
+      assertValidAssignmentQuerySelection({
+        exposureQueries: datasource.settings.queries?.exposure ?? [],
+        exposureQueryId: obj.exposureQueryId,
+        identifierType: obj.exposureQueryIdentifierType,
+        project: obj.project ?? "",
+      });
+    }
+
     if (data.precomputedUnitDimensionIds !== undefined) {
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
@@ -2010,6 +2020,39 @@ export async function postExperiment(
         exposureQueryId: effectiveExposureQueryId,
         exposureQueryIdentifierType: effectiveExposureQueryIdentifierType,
         dimensionIds: effectivePrecomputedUnitDimensionIds,
+      });
+    }
+  }
+
+  // Only a changed selection is checked, so an experiment whose query later
+  // drifted can still save unrelated edits.
+  if (
+    changes.datasource !== undefined ||
+    changes.exposureQueryId !== undefined ||
+    changes.exposureQueryIdentifierType !== undefined
+  ) {
+    const effectiveDatasourceId =
+      changes.datasource ?? experiment.datasource ?? "";
+    const effectiveExposureQueryId =
+      changes.exposureQueryId ?? experiment.exposureQueryId;
+    const effectiveDatasource = effectiveDatasourceId
+      ? await getDataSourceById(context, effectiveDatasourceId)
+      : null;
+    if (effectiveDatasource && effectiveExposureQueryId) {
+      assertValidAssignmentQuerySelection({
+        exposureQueries: effectiveDatasource.settings.queries?.exposure ?? [],
+        exposureQueryId: effectiveExposureQueryId,
+        identifierType:
+          changes.exposureQueryIdentifierType ??
+          experiment.exposureQueryIdentifierType,
+        ...(experiment.type === "holdout"
+          ? {
+              project: undefined,
+              projects:
+                (await context.models.holdout.getByExperimentId(experiment.id))
+                  ?.projects ?? [],
+            }
+          : { project: changes.project ?? experiment.project ?? "" }),
       });
     }
   }

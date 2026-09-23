@@ -217,9 +217,20 @@ export async function putSafeRollout(
     throw new Error("Could not find safe rollout");
   }
 
+  // Only a changed selection is scope-checked, so a rollout whose query later
+  // fell out of scope can still be edited.
+  const selectionChanged =
+    safeRolloutFields?.datasourceId !== safeRollout.datasourceId ||
+    safeRolloutFields?.exposureQueryId !== safeRollout.exposureQueryId ||
+    (safeRolloutFields?.exposureQueryIdentifierType || null) !==
+      (safeRollout.exposureQueryIdentifierType || null);
+  const feature = selectionChanged
+    ? await getFeature(context, safeRollout.featureId)
+    : null;
   const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
     safeRolloutFields,
     context,
+    selectionChanged ? (feature?.project ?? "") : undefined,
   );
 
   await context.models.safeRollout.update(safeRollout, {

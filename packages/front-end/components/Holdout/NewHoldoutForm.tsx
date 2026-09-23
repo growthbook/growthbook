@@ -329,8 +329,8 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
-    // Holdouts span Projects, so every assignment query stays selectable.
     project: undefined,
+    projects: selectedProjects,
     hashAttribute: form.watch("hashAttribute"),
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { isExposureQueryAvailableForProjects } from "shared/util";
 import {
   getDefaultIdentifierType,
   getExposureQueriesForProject,
@@ -28,6 +29,7 @@ type Selection = {
 export function useAssignmentQuerySelection({
   datasource,
   project,
+  projects,
   hashAttribute,
   exposureQueryId,
   identifierType,
@@ -38,6 +40,9 @@ export function useAssignmentQuerySelection({
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
   project: string | undefined;
+  // Multi-project owners (holdouts): only queries covering all of them. Takes
+  // precedence over `project`.
+  projects?: string[];
   hashAttribute: string | undefined;
   exposureQueryId: string | undefined;
   identifierType: string | undefined;
@@ -50,15 +55,16 @@ export function useAssignmentQuerySelection({
   keepCurrentSelection?: boolean;
 }): Selection {
   const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
-  const exposureQueries = useMemo(
-    () =>
-      getExposureQueriesForProject(
-        datasource?.settings?.queries?.exposure ?? [],
-        project,
-        keptQueryId,
-      ),
-    [datasource?.settings?.queries?.exposure, project, keptQueryId],
-  );
+  const exposureQueries = useMemo(() => {
+    const all = datasource?.settings?.queries?.exposure ?? [];
+    if (!projects)
+      return getExposureQueriesForProject(all, project, keptQueryId);
+    return all.filter(
+      (q) =>
+        q.id === keptQueryId ||
+        isExposureQueryAvailableForProjects(q, projects),
+    );
+  }, [datasource?.settings?.queries?.exposure, project, projects, keptQueryId]);
   const hashAttributeIdentifierTypeMap = useMemo(
     () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
     [datasource?.settings?.userIdTypes],

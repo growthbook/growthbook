@@ -1,7 +1,6 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
-  isProjectListValidForProject,
-  getExposureQueryIdentifierTypes,
+  assertValidAssignmentQuerySelection,
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
@@ -180,38 +179,23 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       throw new Error(`Invalid data source: ${payload.datasourceId}`);
     }
 
-    // check for associated assignment query id
-    const assignmentQuery = datasource?.settings.queries?.exposure?.find(
-      (query) => query.id === payload.assignmentQueryId,
-    );
-    if (datasource && !assignmentQuery) {
-      throw new Error(
-        `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
-      );
-    }
-    const assignmentQueryIdentifierTypes = assignmentQuery
-      ? getExposureQueryIdentifierTypes(assignmentQuery)
-      : [];
-    if (
-      payload.assignmentQueryIdentifierType &&
-      !assignmentQueryIdentifierTypes.includes(
-        payload.assignmentQueryIdentifierType,
-      )
-    ) {
-      // Template callers can't override the identifier, so point them at the template.
-      throw new Error(
-        templateId
-          ? `Template "${templateId}" uses identifier type "${payload.assignmentQueryIdentifierType}", which assignment query "${payload.assignmentQueryId}" no longer declares. Update the template's assignment settings.`
-          : `Identifier type "${payload.assignmentQueryIdentifierType}" is not declared by assignment query "${payload.assignmentQueryId}"`,
-      );
-    }
-    if (
-      assignmentQuery &&
-      !isProjectListValidForProject(assignmentQuery.projects, payload.project)
-    ) {
-      throw new Error(
-        `Assignment query "${payload.assignmentQueryId}" is not available for the experiment's project`,
-      );
+    if (datasource) {
+      try {
+        assertValidAssignmentQuerySelection({
+          exposureQueries: datasource.settings.queries?.exposure ?? [],
+          exposureQueryId: payload.assignmentQueryId,
+          identifierType: payload.assignmentQueryIdentifierType,
+          project: payload.project ?? "",
+        });
+      } catch (e) {
+        // Template callers can't override the assignment query, so point them at the template.
+        if (templateId) {
+          throw new Error(
+            `Template "${templateId}": ${(e as Error).message}. Update the template's assignment settings.`,
+          );
+        }
+        throw e;
+      }
     }
 
     // check if tracking key is unique (skip the lookup entirely if the caller

@@ -1,7 +1,10 @@
 import { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getSnapshotAnalysis } from "shared/util";
+import {
+  assertValidAssignmentQuerySelection,
+  getSnapshotAnalysis,
+} from "shared/util";
 import { pick, omit } from "lodash";
 import { experimentAnalysisSettings } from "shared/validators";
 import {
@@ -12,6 +15,8 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { getAllVariations } from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
 import {
   getExperimentById,
@@ -23,6 +28,7 @@ import {
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createReport,
   deleteReportById,
@@ -417,6 +423,46 @@ export async function refreshReport(
   throw new Error("Invalid report type");
 }
 
+type ReportAssignmentQuerySelection = {
+  datasource: string;
+  exposureQueryId: string;
+  exposureQueryIdentifierType?: string;
+};
+
+// Only a changed selection is checked, so a report whose query later drifted
+// can still save unrelated edits.
+async function assertValidReportAssignmentQuery(
+  context: ReqContext,
+  previous: ReportAssignmentQuerySelection,
+  next: ReportAssignmentQuerySelection,
+  experiment: ExperimentInterface | null,
+) {
+  if (
+    previous.datasource === next.datasource &&
+    previous.exposureQueryId === next.exposureQueryId &&
+    (previous.exposureQueryIdentifierType || null) ===
+      (next.exposureQueryIdentifierType || null)
+  ) {
+    return;
+  }
+  if (!next.datasource || !next.exposureQueryId) return;
+  const datasource = await getDataSourceById(context, next.datasource);
+  if (!datasource) return;
+  assertValidAssignmentQuerySelection({
+    exposureQueries: datasource.settings.queries?.exposure ?? [],
+    exposureQueryId: next.exposureQueryId,
+    identifierType: next.exposureQueryIdentifierType,
+    ...(experiment?.type === "holdout"
+      ? {
+          project: undefined,
+          projects:
+            (await context.models.holdout.getByExperimentId(experiment.id))
+              ?.projects ?? [],
+        }
+      : { project: experiment?.project ?? "" }),
+  });
+}
+
 export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
   res: Response,
@@ -516,6 +562,15 @@ export async function putReport(
       }
     }
 
+    if (updates.experimentAnalysisSettings) {
+      await assertValidReportAssignmentQuery(
+        context,
+        report.experimentAnalysisSettings,
+        updates.experimentAnalysisSettings,
+        experiment,
+      );
+    }
+
     updates.dateUpdated = new Date();
 
     await updateReport(org.id, req.params.id, updates);
@@ -560,6 +615,13 @@ export async function putReport(
         !!updates.args?.regressionAdjustmentEnabled;
       updates.args.settingsForSnapshotMetrics =
         updates.args?.settingsForSnapshotMetrics || [];
+
+      await assertValidReportAssignmentQuery(
+        context,
+        report.args,
+        updates.args,
+        experiment,
+      );
 
       needsRun = true;
     }

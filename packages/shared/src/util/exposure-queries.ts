@@ -1,4 +1,5 @@
 import { ExposureQuery } from "shared/types/datasource";
+import { isProjectListValidForProject } from ".";
 
 type ExposureQueryIdentity = Pick<
   ExposureQuery,
@@ -52,6 +53,71 @@ export function parseAssignmentQueryInput(
     id: assignmentQuery?.id ?? deprecatedId,
     identifierType: assignmentQuery?.identifierType,
   };
+}
+
+/**
+ * For resources spanning several projects (holdouts): the query must be usable
+ * by every one of them. No projects means all projects, so only an unscoped
+ * query qualifies.
+ */
+export function isExposureQueryAvailableForProjects(
+  query: Pick<ExposureQuery, "projects">,
+  projects: string[],
+): boolean {
+  const scope = query.projects ?? [];
+  if (!scope.length) return true;
+  if (!projects.length) return false;
+  return projects.every((project) => scope.includes(project));
+}
+
+/**
+ * Validates an assignment query selection before it is saved: the query exists,
+ * declares `identifierType` (when given), and is in scope. Scope is either a
+ * single `project`, or `projects` that must all be covered (holdouts); pass
+ * `project: undefined` without `projects` to skip the scope check.
+ */
+export function assertValidAssignmentQuerySelection({
+  exposureQueries,
+  exposureQueryId,
+  identifierType,
+  project,
+  projects,
+}: {
+  exposureQueries: ExposureQuery[];
+  exposureQueryId: string;
+  identifierType?: string;
+  project: string | undefined;
+  projects?: string[];
+}): ExposureQuery {
+  const query = exposureQueries.find((q) => q.id === exposureQueryId);
+  if (!query) {
+    throw new Error(`Unrecognized assignment query ID: ${exposureQueryId}`);
+  }
+  if (
+    identifierType &&
+    !getExposureQueryIdentifierTypes(query).includes(identifierType)
+  ) {
+    throw new Error(
+      `Identifier type "${identifierType}" is not declared by assignment query "${exposureQueryId}"`,
+    );
+  }
+  if (projects) {
+    if (!isExposureQueryAvailableForProjects(query, projects)) {
+      throw new Error(
+        projects.length
+          ? `Assignment query "${exposureQueryId}" is not available for every project this holdout covers (${projects.join(", ")})`
+          : `Assignment query "${exposureQueryId}" is scoped to specific projects, so it can't be used by a holdout that covers all projects`,
+      );
+    }
+  } else if (
+    project !== undefined &&
+    !isProjectListValidForProject(query.projects, project)
+  ) {
+    throw new Error(
+      `Assignment query "${exposureQueryId}" is not available for project "${project}"`,
+    );
+  }
+  return query;
 }
 
 /**

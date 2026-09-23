@@ -1,4 +1,4 @@
-import { getExposureQueryIdentifierTypes } from "shared/util";
+import { assertValidAssignmentQuerySelection } from "shared/util";
 import {
   CreateSafeRolloutInterface,
   createSafeRolloutValidator,
@@ -14,6 +14,8 @@ import { ReqContext } from "back-end/types/request";
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,
+  // The feature's project; undefined skips the assignment query scope check.
+  project: string | undefined,
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -48,24 +50,15 @@ export async function validateCreateSafeRolloutFields(
     );
   }
 
-  const exposureQueries = datasource.settings?.queries?.exposure || [];
-  const exposureQuery = exposureQueries.find(
-    (q) => q.id === safeRolloutFields.exposureQueryId,
-  );
-  if (!exposureQuery) {
-    throw new BadRequestError(
-      "Invalid exposure query: " + safeRolloutFields.exposureQueryId,
-    );
-  }
-  if (
-    safeRolloutFields.exposureQueryIdentifierType &&
-    !getExposureQueryIdentifierTypes(exposureQuery).includes(
-      safeRolloutFields.exposureQueryIdentifierType,
-    )
-  ) {
-    throw new BadRequestError(
-      `Identifier type "${safeRolloutFields.exposureQueryIdentifierType}" is not declared by exposure query "${safeRolloutFields.exposureQueryId}"`,
-    );
+  try {
+    assertValidAssignmentQuerySelection({
+      exposureQueries: datasource.settings?.queries?.exposure ?? [],
+      exposureQueryId: safeRolloutFields.exposureQueryId,
+      identifierType: safeRolloutFields.exposureQueryIdentifierType,
+      project,
+    });
+  } catch (e) {
+    throw new BadRequestError((e as Error).message);
   }
 
   if (
