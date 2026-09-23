@@ -53,6 +53,8 @@ export function useLargeSavedGroupSupport(
     const format = resolveSavedGroupFormat({
       capabilities: getConnectionSDKCapabilities(conn),
       savedGroupFormat: savedGroupFormatFromConnection(conn),
+      // The payload build has what inlining needs, so match it here.
+      canInline: true,
     });
     if (format === "inline") {
       unsupportedConnections.push(conn);
