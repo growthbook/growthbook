@@ -161,10 +161,7 @@ const SRMWarning: FC<{
                   </li>
                 </ul>
                 <p>
-                  <DocLink
-                    docSection="troubleshootingExperiments"
-                    useRadix={false}
-                  >
+                  <DocLink docSection="troubleshootingExperiments">
                     Read about troubleshooting experiments in our docs
                   </DocLink>
                 </p>

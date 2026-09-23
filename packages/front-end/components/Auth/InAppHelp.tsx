@@ -7,7 +7,8 @@ import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { DocLink } from "@/components/DocLink";
+import LinkButton from "@/ui/LinkButton";
+import { docUrl } from "@/components/DocLink";
 
 export default function InAppHelp() {
   const router = useRouter();
@@ -88,20 +89,27 @@ export default function InAppHelp() {
               <p className="mb-2">
                 <strong>Have a question?</strong>
               </p>
-              <a
+              <LinkButton
                 href="https://slack.growthbook.io/?ref=app-top-nav"
-                target="blank"
-                className="btn btn-primary font-weight-normal my-2 w-100"
+                external
+                icon={<FaArrowRight />}
+                iconPosition="right"
+                my="2"
+                className="w-100"
               >
-                Join The Slack Community <FaArrowRight className="ml-2" />
-              </a>
-              <DocLink
-                docSection="home"
-                useRadix={false}
-                className="btn btn-outline-primary font-weight-normal my-2 w-100"
+                Join The Slack Community
+              </LinkButton>
+              <LinkButton
+                href={docUrl("home")}
+                variant="outline"
+                external
+                icon={<FaArrowRight />}
+                iconPosition="right"
+                my="2"
+                className="w-100"
               >
-                View Docs <FaArrowRight className="ml-2" />
-              </DocLink>
+                View Docs
+              </LinkButton>
             </div>
             {showUpgradeModal && (
               <div className="bg-white border rounded p-3 m-3 shadow">

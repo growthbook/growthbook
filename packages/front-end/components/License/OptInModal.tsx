@@ -33,10 +33,7 @@ const agreements: Record<
         data analysis.
         <Box mt="2">
           For more information about how your data is used, please see our{" "}
-          <DocLink docSection="aiIntegrations" useRadix={false}>
-            AI docs
-          </DocLink>
-          , review our{" "}
+          <DocLink docSection="aiIntegrations">AI docs</DocLink>, review our{" "}
           <a
             href="https://www.growthbook.io/legal/privacy-policy/06-19-2025"
             target="_blank"

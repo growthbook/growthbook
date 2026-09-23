@@ -201,10 +201,7 @@ export default function HealthTab({
 
         <div>
           For more advice, see the documentation on the Health Tab{" "}
-          <DocLink docSection="healthTabDimensions" useRadix={false}>
-            here
-          </DocLink>
-          .
+          <DocLink docSection="healthTabDimensions">here</DocLink>.
         </div>
       </Callout>
     );

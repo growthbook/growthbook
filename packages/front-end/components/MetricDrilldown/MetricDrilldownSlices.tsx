@@ -22,7 +22,8 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { docUrl, DocLink } from "@/components/DocLink";
+import LinkButton from "@/ui/LinkButton";
+import { docUrl } from "@/components/DocLink";
 import { filterRowsForMetricDrilldown } from "./helpers";
 import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
@@ -154,13 +155,13 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
           description="Metric slices let you see separate breakdowns for each value of a dimension (e.g., revenue by product type). Configure slices in your Fact Table columns to enable granular analysis."
           leftButton={null}
           rightButton={
-            <DocLink
-              docSection="metricSlices"
-              useRadix={false}
-              className="btn btn-outline-primary"
+            <LinkButton
+              href={docUrl("metricSlices")}
+              variant="outline"
+              external
             >
               Learn more
-            </DocLink>
+            </LinkButton>
           }
         />
       </Box>

@@ -99,10 +99,7 @@ export const SlackIntegrationAddEditModal: FC<
     >
       <p>
         Create an app in Slack and add the information here. For help, please{" "}
-        <DocLink docSection="slack" useRadix={false}>
-          see the documentation
-        </DocLink>
-        .
+        <DocLink docSection="slack">see the documentation</DocLink>.
       </p>
       <Field
         size="legacy"

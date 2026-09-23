@@ -368,10 +368,7 @@ export default function FeatureSettings() {
                             keys and scans your codebase to provide a JSON
                             output of code references, which you can supply to
                             our code references{" "}
-                            <DocLink
-                              docSection="apiPostCodeRefs"
-                              useRadix={false}
-                            >
+                            <DocLink docSection="apiPostCodeRefs">
                               REST API endpoint
                             </DocLink>
                             .

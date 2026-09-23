@@ -882,10 +882,7 @@ export function HealthChecks({
                     </li>
                   </ul>
                   <Text as="div" size="sm" mt="2">
-                    <DocLink
-                      docSection="troubleshootingExperiments"
-                      useRadix={false}
-                    >
+                    <DocLink docSection="troubleshootingExperiments">
                       Read about troubleshooting in our docs
                     </DocLink>
                   </Text>
