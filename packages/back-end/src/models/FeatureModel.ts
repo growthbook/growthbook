@@ -17,6 +17,7 @@ import {
   resolveTargetingProjectIds,
   stemRuleId,
   isScheduledRule,
+  rampTargetsDetachedBy,
   toRampAttachments,
 } from "shared/util";
 import {
@@ -3008,25 +3009,18 @@ export async function finalizeRampActionsAfterPublish(
   if (detachActions.length) {
     await applyDetachRampActions(context, detachActions);
   }
-  await cleanupOrphanedRampSchedules(context, featureBefore, featureAfter);
-  await recordRampAttachments(context, featureAfter, revision);
-}
-
-async function recordRampAttachments(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-) {
-  try {
-    const schedules = await context.models.rampSchedules.getAllByFeatureId(
-      feature.id,
-    );
+  const remainingRamps = await cleanupOrphanedRampSchedules(
+    context,
+    featureBefore,
+    featureAfter,
+  );
+  if (remainingRamps) {
     await setRevisionRampAttachments(
       revision,
-      toRampAttachments(feature.id, schedules),
+      toRampAttachments(featureAfter.id, remainingRamps),
+    ).catch((err) =>
+      logger.error(err, "Failed to record revision ramp attachments"),
     );
-  } catch (err) {
-    logger.error(err, "Failed to record revision ramp attachments");
   }
 }
 
@@ -3585,11 +3579,9 @@ async function applyDetachRampActions(
         action.rampScheduleId,
       );
       if (existing) {
-        // Stem-match so a bare `fr_abc` detach action matches a suffixed
-        // `fr_abc__production` target (and vice versa).
-        const actionStem = stemRuleId(action.ruleId);
+        const detached = rampTargetsDetachedBy(existing.targets, action.ruleId);
         const remainingTargets = existing.targets.filter(
-          (t) => stemRuleId(t.ruleId ?? "") !== actionStem,
+          (t) => !detached.includes(t),
         );
         if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
           // Stop the linked SafeRollout before deletion so it doesn't continue
@@ -3619,17 +3611,20 @@ async function applyDetachRampActions(
   }
 }
 
+// Returns the feature's schedules as the cleanup left them, or null when they
+// could not be read.
 async function cleanupOrphanedRampSchedules(
   context: ReqContext | ApiReqContext,
   oldFeature: FeatureInterface,
   newFeature: FeatureInterface,
-) {
+): Promise<RampScheduleInterface[] | null> {
   try {
     // When publishing a change that modifies rules, clean up ramp schedules that
     // become orphaned. This handles several scenarios:
     // 1. Rules that target a ramp are deleted → ramp is cleaned up
-    // 2. Reverting to an older revision that predates a ramp's creation → ramp's
-    //    targets (from newer revisions) are removed, orphaning the ramp → cleanup deletes it
+    // 2. Reverting to a revision without the ramp's rule → the target is orphaned
+    //    → cleanup deletes it (ramps a revert's target predates are detached by
+    //    the revert itself, even when the rule survives)
     // 3. Reverting back to a newer revision with a ramp → the ramp is recreated via
     //    the inline "create" action on the rule (natural behavior)
     //
@@ -3659,11 +3654,15 @@ async function cleanupOrphanedRampSchedules(
       newFeature.id,
     );
 
-    if (!allRamps) return;
+    if (!allRamps) return null;
 
+    const remainingRamps: RampScheduleInterface[] = [];
     for (const ramp of allRamps) {
       const originalTargets = ramp?.targets ?? [];
-      if (originalTargets.length === 0 || !ramp?.id) continue;
+      if (originalTargets.length === 0 || !ramp?.id) {
+        remainingRamps.push(ramp);
+        continue;
+      }
       const remainingTargets = originalTargets.filter(
         (target: RampScheduleInterface["targets"][0]) => {
           if (!target?.ruleId) return false;
@@ -3690,11 +3689,16 @@ async function cleanupOrphanedRampSchedules(
         await context.models?.rampSchedules?.updateById?.(ramp.id, {
           targets: remainingTargets,
         });
+        remainingRamps.push({ ...ramp, targets: remainingTargets });
+      } else {
+        remainingRamps.push(ramp);
       }
     }
+    return remainingRamps;
   } catch (error) {
     // Log but don't throw — cleanup is a nice-to-have, not essential for publish to succeed.
     logger.error("Error cleaning up orphaned ramp schedules", error);
+    return null;
   }
 }
 

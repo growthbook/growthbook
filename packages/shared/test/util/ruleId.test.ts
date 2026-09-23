@@ -6,6 +6,7 @@ import {
   parseRuleId,
   RULE_ID_ENV_SUFFIX_DELIMITER,
   findStoredRuleCounterpart,
+  rampTargetsDetachedBy,
 } from "shared/util";
 
 describe("ruleId helpers", () => {
@@ -216,5 +217,31 @@ describe("findStoredRuleCounterpart", () => {
     expect(
       findStoredRuleCounterpart(stored, { environments: ["production"] }),
     ).toBeUndefined();
+  });
+});
+
+describe("rampTargetsDetachedBy", () => {
+  const ids = (ruleIds: string[]) => ruleIds.map((ruleId) => ({ ruleId }));
+  it.each([
+    [
+      "the literal id, not its migrated sibling",
+      ["fr_1__dev", "fr_1__prod"],
+      "fr_1__dev",
+      ["fr_1__dev"],
+    ],
+    [
+      "a suffixed id to its bare legacy target",
+      ["fr_1", "fr_2"],
+      "fr_1__prod",
+      ["fr_1"],
+    ],
+    [
+      "a bare id to every migrated suffix",
+      ["fr_1__dev", "fr_1__prod"],
+      "fr_1",
+      ["fr_1__dev", "fr_1__prod"],
+    ],
+  ])("matches %s", (_, targets, ruleId, expected) => {
+    expect(rampTargetsDetachedBy(ids(targets), ruleId)).toEqual(ids(expected));
   });
 });

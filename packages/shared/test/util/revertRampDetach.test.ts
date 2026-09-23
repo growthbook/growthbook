@@ -143,6 +143,13 @@ describe("revertRampStopWarning", () => {
     expect(revertRampStopWarning([detach("b", "fr_2")], schedules)).toBe(
       'This revert will remove Rule "fr_2" from its ramp-up.',
     );
+    // A migrated sibling stays on the ramp, as it does in the detach itself.
+    expect(
+      revertRampStopWarning(
+        [detach("c", "fr_4__dev")],
+        [schedule("c", ["fr_4__dev", "fr_4__prod"])],
+      ),
+    ).toBe('This revert will remove Rule "fr_4__dev" from its ramp-up.');
     expect(
       revertRampStopWarning(
         [detach("a", "fr_1"), detach("b", "fr_2")],

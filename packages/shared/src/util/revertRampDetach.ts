@@ -6,6 +6,7 @@ import {
   isTerminalRampScheduleStatus,
   type RampScheduleInterface,
 } from "../validators/ramp-schedule";
+import { rampTargetsDetachedBy } from "./ruleId";
 
 type RampAttachment = NonNullable<
   FeatureRevisionInterface["rampAttachments"]
@@ -94,9 +95,16 @@ export function revertRampStopWarning(
   const affected = schedules.filter((s) =>
     detaches.some((d) => d.rampScheduleId === s.id),
   );
-  const deletesAll = affected.every((s) =>
-    s.targets.every((t) => !!t.ruleId && ruleIds.includes(t.ruleId)),
-  );
+  // Matched the way the detach removes targets, so "delete" is only claimed
+  // when the schedule really ends up empty.
+  const deletesAll = affected.every((s) => {
+    const detached = new Set(
+      detaches
+        .filter((d) => d.rampScheduleId === s.id)
+        .flatMap((d) => rampTargetsDetachedBy(s.targets, d.ruleId)),
+    );
+    return s.targets.every((t) => detached.has(t));
+  });
   const plural = affected.length > 1;
   const rules = `${ruleIds.length === 1 ? "Rule" : "Rules"} ${quote(ruleIds)}`;
   const ramps = apiRequest
