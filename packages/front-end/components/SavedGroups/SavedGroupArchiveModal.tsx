@@ -45,7 +45,7 @@ export default function SavedGroupArchiveModal({
   const totalReferences =
     (references?.features.length ?? 0) +
     (references?.experiments.length ?? 0) +
-    (references?.contextualBandits?.length ?? 0) +
+    (references?.contextualBandits.length ?? 0) +
     (references?.savedGroups.length ?? 0);
 
   const canBypass =

@@ -45,8 +45,8 @@ export type SavedGroupReferences = {
     project?: string;
     projects?: string[];
   }[];
-  savedGroups: { id: string; groupName: string; projects?: string[] }[];
   contextualBandits: { id: string; name: string; project?: string }[];
+  savedGroups: { id: string; groupName: string; projects?: string[] }[];
 };
 
 /**

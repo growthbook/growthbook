@@ -23,7 +23,7 @@ export type ContextualBanditRef = {
 export type SavedGroupReferences = {
   features: SavedGroupRef[];
   experiments: ExperimentRef[];
-  contextualBandits?: ContextualBanditRef[];
+  contextualBandits: ContextualBanditRef[];
   savedGroups: SavedGroupGroupRef[];
 };
 
