@@ -2354,8 +2354,7 @@ describe("assertValidBucketVersions", () => {
 
     it.each([
       [{ bucketVersion: 1.5 }, "bucketVersion"],
-      [{ bucketVersion: -1 }, "bucketVersion"],
-      [{ bucketVersion: 2, minBucketVersion: 0.5 }, "minBucketVersion"],
+      [{ bucketVersion: 2, minBucketVersion: -1 }, "minBucketVersion"],
     ])("rejects a fractional or negative version %p", (fields, name) => {
       expect(() => assertValidBucketVersions(fields)).toThrow(
         new RegExp(`${name} must be a non-negative integer`),

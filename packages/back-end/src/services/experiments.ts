@@ -2505,12 +2505,9 @@ type BucketVersionFields = Pick<
   "bucketVersion" | "minBucketVersion"
 >;
 
-// SDKs key sticky-bucket assignments by `bucketVersion` and exclude any user
-// holding an assignment for a version below `minBucketVersion`, so a minimum
-// above the current version excludes every user as soon as they have been
-// bucketed once. Both are counters the release flow only ever increments.
-// Only a write that introduces a bad value is rejected; stored values that are
-// already inconsistent are left alone on unrelated edits.
+// A minBucketVersion above bucketVersion blocks every sticky-bucketed user after
+// their first exposure. Only a write that introduces a bad pair is rejected; a
+// pre-existing one is left alone.
 export function assertValidBucketVersions(
   updated: Partial<BucketVersionFields>,
   existing?: Partial<BucketVersionFields>,
