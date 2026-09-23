@@ -22,6 +22,8 @@ See the [REST API reference](/api) for the full schema of each resource.
 
 A Contextual Bandit needs a query that defines the assignment SQL and the targeting-attribute columns it splits on. `targetingAttributeColumns` is required and must be non-empty — a bandit with no context to split on is not a contextual bandit. Each column name must be a valid SQL identifier and match a non-archived targeting attribute in your organization (Settings → Attributes), otherwise the request fails with a 400. Each column must also be selected by the query; this is not validated on create, but the snapshot will fail at run time if it is missing. The query should also select the `leaf_id`, `bandit_version`, and `variation_weights` columns logged by your [tracking callback](/bandits/contextual-config#3-update-your-tracking-callback) — without them the SRM health check is skipped.
 
+Create the query with [`POST /v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/createContextualBanditQuery):
+
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
   -H 'Authorization: Bearer YOUR_API_KEY' \
@@ -35,7 +37,12 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
   }'
 ```
 
-The response includes the new query id (`cbq_…`). You can manage queries with the standard CRUD endpoints ([`GET /v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/listContextualBanditQueries), [`GET`](/api/ContextualBanditQueries/operation/getContextualBanditQuery)/[`PUT`](/api/ContextualBanditQueries/operation/updateContextualBanditQuery)/[`DELETE`](/api/ContextualBanditQueries/operation/deleteContextualBanditQuery) `/v1/contextual-bandit-queries/:id`); pass `?datasourceId=ds_abc` on the list endpoint to scope by datasource.
+The response includes the new query id (`cbq_…`). You can manage queries with these endpoints:
+
+- [`GET /v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/listContextualBanditQueries) — list queries. Pass `?datasourceId=ds_abc` to scope by datasource.
+- [`GET /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/getContextualBanditQuery) — get one query.
+- [`PUT /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/updateContextualBanditQuery) — update a query.
+- [`DELETE /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/deleteContextualBanditQuery) — delete a query.
 
 ## 2. Create the Contextual Bandit
 
@@ -231,8 +238,16 @@ Like `start`, this returns the updated CB under `contextualBandit`.
 
 Both resources also expose the default CRUD endpoints:
 
-- `GET /v1/contextual-bandits` (filter with `?projectId=`, `?datasourceId=`, or `?trackingKey=`), `GET /v1/contextual-bandits/:id`, `POST /v1/contextual-bandits`, `PUT /v1/contextual-bandits/:id`, `DELETE /v1/contextual-bandits/:id`.
-- `GET /v1/contextual-bandit-queries` (filter with `?datasourceId=`), `GET /v1/contextual-bandit-queries/:id`, `POST /v1/contextual-bandit-queries`, `PUT /v1/contextual-bandit-queries/:id`, `DELETE /v1/contextual-bandit-queries/:id`.
+- [`GET /v1/contextual-bandits`](/api/ContextualBandits/operation/listContextualBandits) — filter with `?projectId=`, `?datasourceId=`, or `?trackingKey=`.
+- [`GET /v1/contextual-bandits/:id`](/api/ContextualBandits/operation/getContextualBandit)
+- [`POST /v1/contextual-bandits`](/api/ContextualBandits/operation/createContextualBandit)
+- [`PUT /v1/contextual-bandits/:id`](/api/ContextualBandits/operation/updateContextualBandit)
+- `DELETE /v1/contextual-bandits/:id`
+- [`GET /v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/listContextualBanditQueries) — filter with `?datasourceId=`.
+- [`GET /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/getContextualBanditQuery)
+- [`POST /v1/contextual-bandit-queries`](/api/ContextualBanditQueries/operation/createContextualBanditQuery)
+- [`PUT /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/updateContextualBanditQuery)
+- [`DELETE /v1/contextual-bandit-queries/:id`](/api/ContextualBanditQueries/operation/deleteContextualBanditQuery)
 
 ## Permissions cheat sheet
 
