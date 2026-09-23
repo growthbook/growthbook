@@ -729,9 +729,16 @@ export async function validateRulesReferences(
 // differ from the stored rule with the same id are checked, so resending a
 // stored rule unchanged never re-validates references the caller cannot read
 // (saved groups and features are read-filtered).
-export async function validateChangedRuleReferences(
-  inbound: FeatureRule[],
-  stored: FeatureRule[],
+type RuleReferenceFields = Pick<
+  FeatureRule,
+  "id" | "condition" | "savedGroups" | "prerequisites"
+> & { allEnvironments?: boolean; environments?: string[] };
+
+export async function validateChangedRuleReferences<
+  T extends RuleReferenceFields,
+>(
+  inbound: T[],
+  stored: T[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   await validateRulesReferences(

@@ -21922,6 +21922,10 @@ paths:
                       required:
                         - id
                       additionalProperties: false
+                  contextualBandits:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/contextualBandits'
                   savedGroups:
                     type: array
                     items:
@@ -21929,6 +21933,7 @@ paths:
                 required:
                   - features
                   - experiments
+                  - contextualBandits
                   - savedGroups
                 additionalProperties: false
       x-codeSamples:
@@ -23485,17 +23490,7 @@ paths:
                   features:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        name:
-                          type: string
-                        project:
-                          type: string
-                      required:
-                        - id
-                      additionalProperties: false
+                      $ref: '#/components/schemas/contextualBandits'
                   constants:
                     type: array
                     items:
@@ -25452,17 +25447,7 @@ paths:
                   features:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        name:
-                          type: string
-                        project:
-                          type: string
-                      required:
-                        - id
-                      additionalProperties: false
+                      $ref: '#/components/schemas/contextualBandits'
                   constants:
                     type: array
                     items:
@@ -76925,6 +76910,20 @@ components:
             required:
               - id
             additionalProperties: false
+        contextualBandits:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+            additionalProperties: false
         savedGroups:
           type: array
           items:
@@ -76944,6 +76943,7 @@ components:
       required:
         - features
         - experiments
+        - contextualBandits
         - savedGroups
       additionalProperties: false
     ConstantReferences:
@@ -78366,6 +78366,18 @@ components:
         - schema
         - table
         - columnCount
+      additionalProperties: false
+    contextualBandits:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        project:
+          type: string
+      required:
+        - id
       additionalProperties: false
     savedGroups:
       type: object

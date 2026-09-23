@@ -367,6 +367,15 @@ export const apiSavedGroupReferencesValidator = namedSchema(
           })
           .strict(),
       ),
+      contextualBandits: z.array(
+        z
+          .object({
+            id: z.string(),
+            name: z.string().optional(),
+            project: z.string().optional(),
+          })
+          .strict(),
+      ),
       savedGroups: z.array(
         z
           .object({

@@ -881,21 +881,40 @@ export async function getExperimentsDependingOnAsPrerequisite(
     .map((e) => e.id);
 }
 
+// Unarchived contextual bandits that gate on `featureId`; their targeting is
+// served on their linked features' rules.
+export async function getContextualBanditsDependingOnAsPrerequisite(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<string[]> {
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
+  const bandits = await scanContext.models.contextualBandits.getAll();
+  return bandits
+    .filter(
+      (cb) => !cb.archived && cb.prerequisites?.some((p) => p.id === featureId),
+    )
+    .map((cb) => cb.id);
+}
+
 export async function assertFeatureDeletable(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<void> {
-  const [features, experiments] = await Promise.all([
+  const [features, experiments, bandits] = await Promise.all([
     getFeaturesDependingOnAsPrerequisite(context, featureId),
     getExperimentsDependingOnAsPrerequisite(context, featureId),
+    getContextualBanditsDependingOnAsPrerequisite(context, featureId),
   ]);
-  if (!features.length && !experiments.length) return;
+  if (!features.length && !experiments.length && !bandits.length) return;
   // Count only — the dependent scan is org-wide (so a dependent in a project
   // the caller can't read still blocks), so naming ids would disclose
   // cross-project resources. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
   const parts = [
     [features.length, "live Feature Flag(s)"],
     [experiments.length, "Experiment(s)"],
+    [bandits.length, "Contextual Bandit(s)"],
   ]
     .filter(([n]) => n)
     .map(([n, label]) => `${n} ${label}`)

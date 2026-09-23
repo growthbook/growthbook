@@ -895,6 +895,19 @@ export function applyNamespaceToPayload(
   rule.namespace = [namespace.name, start, end];
 }
 
+// Rule-level prerequisites become parentConditions; one that no longer parses is dropped.
+function prerequisiteParentConditions(
+  prerequisites: { id: string; condition: string }[],
+): ParentConditionInterface[] {
+  return prerequisites.flatMap((p) => {
+    try {
+      return [{ id: p.id, condition: JSON.parse(p.condition) }];
+    } catch {
+      return [];
+    }
+  });
+}
+
 export function getFeatureDefinition({
   feature,
   environment,
@@ -1119,6 +1132,9 @@ export function getFeatureDefinition({
         const phase = exp?.phases?.slice(-1)?.[0];
         return !!phase?.prerequisites?.length;
       }
+      if (r.type === "contextual-bandit-ref") {
+        return !!cbMap?.get(r.contextualBanditId)?.prerequisites?.length;
+      }
       return !!(r as { prerequisites?: unknown[] }).prerequisites?.length;
     });
     if (hasTopLevelPrereqs || hasRuleLevelGates) {
@@ -1220,19 +1236,9 @@ export function getFeatureDefinition({
           }
 
           if (phase?.prerequisites?.length) {
-            rule.parentConditions = phase.prerequisites
-              .map((prerequisite) => {
-                try {
-                  return {
-                    id: prerequisite.id,
-                    condition: JSON.parse(prerequisite.condition),
-                  };
-                } catch (e) {
-                  // do nothing
-                }
-                return null;
-              })
-              .filter(Boolean) as ParentConditionInterface[];
+            rule.parentConditions = prerequisiteParentConditions(
+              phase.prerequisites,
+            );
           }
 
           rule.coverage = phase.coverage;
@@ -1356,9 +1362,20 @@ export function getFeatureDefinition({
 
           if (cb.status === "draft") return null;
 
-          const phaseCondition = getParsedCondition(groupMap, cb.condition);
-          if (phaseCondition) {
-            rule.condition = phaseCondition;
+          if (!hasPrerequisites && cb.prerequisites?.length) return null;
+
+          const cbCondition = getParsedCondition(
+            groupMap,
+            cb.condition,
+            cb.savedGroups,
+          );
+          if (cbCondition) {
+            rule.condition = cbCondition;
+          }
+          if (cb.prerequisites?.length) {
+            rule.parentConditions = prerequisiteParentConditions(
+              cb.prerequisites,
+            );
           }
 
           rule.coverage = cb.coverage;

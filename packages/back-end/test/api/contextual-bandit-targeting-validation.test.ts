@@ -151,6 +151,60 @@ describe("PUT /api/v1/contextual-bandits/:id targeting references", () => {
     expect((await stored())?.prerequisites).toEqual([]);
   });
 
+  it("rejects a prerequisite whose parent flag does not exist", async () => {
+    const response = await put({
+      prerequisites: [{ id: "missing_flag", condition: '{"value": true}' }],
+    });
+
+    expect(response.status).toBe(404);
+    expect(response.body.message).toMatch(/missing_flag/);
+    expect((await stored())?.prerequisites).toEqual([]);
+  });
+
+  it("accepts a prerequisite on an existing flag", async () => {
+    await mongoose.connection.collection("features").insertOne({
+      id: "parent_flag",
+      organization: organization.id,
+      valueType: "boolean",
+      defaultValue: "false",
+      archived: false,
+      environmentSettings: { production: { enabled: true, rules: [] } },
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+    const prerequisites = [{ id: "parent_flag", condition: '{"value": true}' }];
+
+    const response = await put({ prerequisites });
+
+    expect(response.status).toBe(200);
+    expect((await stored())?.prerequisites).toEqual(prerequisites);
+  });
+
+  it("rejects unregistered attributes when the org requires registration", async () => {
+    const context = new ReqContextClass({
+      org: {
+        ...organization,
+        settings: {
+          ...organization.settings,
+          requireRegisteredAttributes: true,
+        },
+      },
+      auditUser: { type: "api_key", apiKey: "key_admin" },
+      role: "admin",
+      apiKey: "key_admin",
+    });
+    context.hasPremiumFeature = () => true;
+    setReqContext(context);
+
+    const response = await put({
+      condition: JSON.stringify({ region: "west" }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/Unknown attribute key.*"region"/);
+    expect((await stored())?.condition).toBe("");
+  });
+
   it("accepts a valid condition and existing saved groups", async () => {
     const response = await put({
       condition: JSON.stringify({ country: "US" }),

@@ -17,9 +17,13 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 // silently. Live features and unarchived experiments both block the delete.
 describe("assertFeatureDeletable", () => {
   const org = { id: "org", settings: { environments: [{ id: "production" }] } };
+  const getAllBandits = jest.fn();
   const context = {
     org,
-    scanContextOverride: { org },
+    scanContextOverride: {
+      org,
+      models: { contextualBandits: { getAll: getAllBandits } },
+    },
   } as unknown as ReqContext;
   const PARENT = "parent_flag";
   const gate = { id: PARENT, condition: '{"value": true}' };
@@ -37,14 +41,22 @@ describe("assertFeatureDeletable", () => {
     phases: [{ prerequisites }],
   });
 
+  const bandit = (id: string, prerequisites: (typeof gate)[] = []) => ({
+    id,
+    archived: false,
+    prerequisites,
+  });
+
   const stub = (
     features: FeatureInterface[],
     experiments: ReturnType<typeof experiment>[],
+    bandits: ReturnType<typeof bandit>[] = [],
   ) => {
     jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue(features);
     jest
       .mocked(getAllExperimentsForStaleGraph)
       .mockResolvedValue(experiments as never);
+    getAllBandits.mockResolvedValue(bandits);
   };
 
   it("is blocked by a live feature prerequisite", async () => {
@@ -61,10 +73,21 @@ describe("assertFeatureDeletable", () => {
     );
   });
 
-  it("names both kinds when both depend on it", async () => {
-    stub([feature("child", [gate])], [experiment("exp", [gate])]);
+  it("is blocked by a contextual bandit prerequisite", async () => {
+    stub([], [], [bandit("cb", [gate])]);
     await expect(assertFeatureDeletable(context, PARENT)).rejects.toThrow(
-      /1 live Feature Flag\(s\) and 1 Experiment\(s\)/,
+      /1 Contextual Bandit\(s\)\. Remove/,
+    );
+  });
+
+  it("names every kind that depends on it", async () => {
+    stub(
+      [feature("child", [gate])],
+      [experiment("exp", [gate])],
+      [bandit("cb", [gate])],
+    );
+    await expect(assertFeatureDeletable(context, PARENT)).rejects.toThrow(
+      /1 live Feature Flag\(s\) and 1 Experiment\(s\) and 1 Contextual Bandit\(s\)/,
     );
   });
 
@@ -84,7 +107,7 @@ describe("assertFeatureDeletable", () => {
   });
 
   it("proceeds once nothing depends on it", async () => {
-    stub([feature("unrelated")], [experiment("exp")]);
+    stub([feature("unrelated")], [experiment("exp")], [bandit("cb")]);
     await expect(
       assertFeatureDeletable(context, PARENT),
     ).resolves.toBeUndefined();

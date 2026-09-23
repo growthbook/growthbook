@@ -161,10 +161,12 @@ export default function EditSavedGroupPage() {
   );
   const referencingFeatures = references?.features ?? [];
   const referencingExperiments = references?.experiments ?? [];
+  const referencingBandits = references?.contextualBandits ?? [];
   const referencingSavedGroups = references?.savedGroups ?? [];
   const totalReferences =
     referencingFeatures.length +
     referencingExperiments.length +
+    referencingBandits.length +
     referencingSavedGroups.length;
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -861,6 +863,7 @@ export default function EditSavedGroupPage() {
           <SavedGroupReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
+            contextualBandits={referencingBandits}
             savedGroups={referencingSavedGroups}
           />
         </Modal>

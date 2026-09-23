@@ -1726,17 +1726,17 @@ describe("SDK payload generation (scenario-specific)", () => {
       banditVersion: 3,
     } as unknown as ContextualBanditInterface;
 
-    function cbContext(): ApiReqContext {
+    function cbContext(doc: ContextualBanditInterface = cbDoc): ApiReqContext {
       const ctx = minimalContext();
       ctx.models = {
         contextualBandits: {
-          getById: async (id: string) => (id === "cb1" ? cbDoc : null),
+          getById: async (id: string) => (id === "cb1" ? doc : null),
         },
       } as unknown as ApiReqContext["models"];
       return ctx;
     }
 
-    function cbData(): SDKPayloadRawData {
+    function cbData(overrides?: Partial<SDKPayloadRawData>): SDKPayloadRawData {
       const feature: FeatureInterface = {
         id: "f-cb",
         dateCreated: new Date(),
@@ -1766,7 +1766,7 @@ describe("SDK payload generation (scenario-specific)", () => {
           } as FeatureRule,
         ],
       } as FeatureInterface;
-      return minimalRawData({ features: [feature] });
+      return minimalRawData({ features: [feature], ...overrides });
     }
 
     const connectionForVersion = (
@@ -1816,6 +1816,51 @@ describe("SDK payload generation (scenario-specific)", () => {
       expect(rules[0].hashVersion).toBe(2);
       expect(rules[0].disableStickyBucketing).toBe(true);
       expect(rules[0].variations).toBeUndefined();
+    });
+
+    // The bandit's saved groups and prerequisites are its targeting too, so the
+    // rule carries them the way an experiment-ref rule carries its phase's.
+    const targetedCb = {
+      ...cbDoc,
+      condition: '{"country":"US"}',
+      savedGroups: [{ match: "all", ids: ["sg1"] }],
+      prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+    } as unknown as ContextualBanditInterface;
+    const sg1 = {
+      id: "sg1",
+      organization: "org-1",
+      groupName: "G1",
+      type: "list",
+      attributeKey: "x",
+      useEmptyListGroup: false,
+      values: ["a", "b"],
+    } as SavedGroupInterface;
+    const targetedData = {
+      groupMap: new Map([["sg1", sg1]]) as unknown as GroupMap,
+      savedGroups: [sg1],
+    };
+
+    it("javascript 1.7.0: the rule carries the bandit's saved groups and prerequisites", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: cbContext(targetedCb),
+        connection: connectionForVersion("1.7.0"),
+        data: cbData(targetedData),
+      });
+      const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+      expect(rules[0].parentConditions).toEqual([
+        { id: "parent", condition: { value: true } },
+      ]);
+      expect(JSON.stringify(rules[0].condition)).toMatch(/"country":"US"/);
+      expect(JSON.stringify(rules[0].condition)).toMatch(/"a","b"/);
+    });
+
+    it("javascript 0.33.0 (no prerequisites): a gated bandit's feature is left out", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: cbContext(targetedCb),
+        connection: connectionForVersion("0.33.0"),
+        data: cbData(targetedData),
+      });
+      expect(out.features["f-cb"]).toBeUndefined();
     });
   });
 
