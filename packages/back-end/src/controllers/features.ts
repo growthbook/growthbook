@@ -131,13 +131,9 @@ import {
   getEnvironmentIdsFromOrg,
   getEnvironments,
 } from "back-end/src/services/organizations";
-import {
-  LandingConflictError,
-  runGuardedWrite,
-} from "back-end/src/revisions/landingSequence";
 import { CasConflictError } from "back-end/src/models/BaseModel";
+import { LandingConflictError } from "back-end/src/revisions/landingSequence";
 import {
-  applyRevisionChanges,
   addLinkedExperiment,
   createFeature,
   deleteFeature,
@@ -3951,8 +3947,8 @@ export async function postFeatureSync(
     }
   }
 
-  // The landing is the only write to the document; the plain write it replaces
-  // re-saved a pre-request read over rivals and never carried the rules.
+  // Lands like every other dashboard route: draft, review check, then the
+  // publish engine with its gates. The plain write it replaces never carried the rules.
   let updatedFeature = feature;
   if (needsNewRevision) {
     const revision = await createRevision({
@@ -3960,37 +3956,23 @@ export async function postFeatureSync(
       feature,
       user: res.locals.eventAudit,
       baseVersion: feature.version,
-      publish: true,
+      publish: false,
       changes,
       environments,
       comment: `Sync Feature`,
       org,
     });
-
-    if (revision.status === "published") {
-      try {
-        updatedFeature = await runGuardedWrite("feature", feature.id, () =>
-          applyRevisionChanges(context, feature, revision, changes),
-        );
-      } catch (e) {
-        // Recorded as published before the write; a lost CAS wrote nothing,
-        // so the record must go (see toggleFeature for the full reasoning).
-        if (e instanceof LandingConflictError) {
-          await deleteRevisionForFailedLanding(
-            context,
-            context.org.id,
-            feature.id,
-            revision.version,
-          ).catch((cleanupErr: unknown) => {
-            logger.error(
-              cleanupErr,
-              `Feature sync for ${feature.id} lost its landing race AND failed to remove revision v${revision.version}; that revision is phantom history and needs removing by hand`,
-            );
-          });
-        }
-        throw e;
-      }
-    }
+    await assertCanAutoPublish(context, feature, revision);
+    updatedFeature = await publishRevision({
+      context,
+      feature,
+      revision,
+      result: changes,
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+        feature,
+        "feature",
+      ),
+    });
   }
 
   await req.audit({
