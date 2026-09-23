@@ -4,7 +4,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import {
   FaCheck,
@@ -167,16 +167,13 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
-      // New connections start on the newest format the org can use; existing
-      // ones keep what they have. `savedGroupFormat` is derived from the old
-      // boolean by the model, so it is always set once a connection is saved.
+      // Existing connections keep what they have; `savedGroupFormat` is
+      // derived from the old boolean by the model, so it is always set once a
+      // connection is saved. A new connection's default follows the chosen SDK
+      // in an effect below.
       savedGroupFormat:
         initialValue.savedGroupFormat ??
-        (edit
-          ? savedGroupFormatFromConnection(initialValue)
-          : hasLargeSavedGroupFeature
-            ? "referencesV2"
-            : "inline"),
+        (edit ? savedGroupFormatFromConnection(initialValue) : "inline"),
       includeProjectIdInMetadata:
         initialValue.includeProjectIdInMetadata ??
         (initialValue as { includeProjectId?: boolean }).includeProjectId ??
@@ -273,6 +270,31 @@ export default function SDKConnectionForm({
       form.setValue("savedGroupFormat", "inline");
     }
   }, [showSavedGroupSettings, form]);
+
+  // On a new connection the SDK is usually picked after the form opens, so the
+  // default has to follow it: the most capable format the chosen SDK can read.
+  // Both reference formats need the plan. Stops once someone picks an option
+  // themselves.
+  const savedGroupFormatChosen = useRef(false);
+  useEffect(() => {
+    if (edit || savedGroupFormatChosen.current) return;
+    form.setValue(
+      "savedGroupFormat",
+      !hasLargeSavedGroupFeature
+        ? "inline"
+        : supportsAllSavedGroupTypes
+          ? "referencesV2"
+          : showSavedGroupSettings
+            ? "referencesV1"
+            : "inline",
+    );
+  }, [
+    edit,
+    hasLargeSavedGroupFeature,
+    supportsAllSavedGroupTypes,
+    showSavedGroupSettings,
+    form,
+  ]);
 
   const selectedProjects = form.watch("projects");
   const selectedEnvironment = environments.find(
@@ -1213,24 +1235,25 @@ export default function SDKConnectionForm({
           </Heading>
           <RadioGroup
             value={form.watch("savedGroupFormat") ?? "inline"}
-            setValue={(val) =>
+            setValue={(val) => {
+              savedGroupFormatChosen.current = true;
               form.setValue(
                 "savedGroupFormat",
                 val as NonNullable<SDKConnectionInterface["savedGroupFormat"]>,
-              )
-            }
+              );
+            }}
             options={[
               {
                 value: "inline",
                 label: "Pass Saved Groups inline",
                 description:
-                  "Every rule carries a copy of the groups it uses. Works with any SDK version.",
+                  "Saved Groups are copied inline wherever they are referenced in rules.",
               },
               {
                 value: "referencesV1",
                 label: "Pass ID Lists by reference",
                 description:
-                  "ID Lists are sent once and referenced. Condition Groups are still copied into each rule. (v1 serialization)",
+                  "ID Lists are sent once per payload and referenced wherever they are used in rules.",
                 disabled: !hasLargeSavedGroupFeature,
                 disabledReason:
                   "Available with an Enterprise plan. Upgrade to use it.",
@@ -1239,7 +1262,7 @@ export default function SDKConnectionForm({
                 value: "referencesV2",
                 label: "Pass all Saved Groups by reference",
                 description:
-                  "Every Saved Group is sent once and referenced, Condition Groups included. (v2 serialization)",
+                  "All Saved Groups are sent once per payload and referenced wherever they are used in rules.",
                 // An SDK downgrade on a saved connection keeps this
                 // selectable, so the choice shows a warning rather than being
                 // silently dropped, and re-upgrading the SDK resumes v2. That
