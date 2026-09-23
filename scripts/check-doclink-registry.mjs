@@ -13,6 +13,9 @@
  *   those are includes, not pages.
  * - Anchors come from a page's `#` headings, slugified the way Mintlify does,
  *   with an explicit `{#custom-id}` suffix winning over the heading text.
+ *   Headings in imported `/snippets/*.mdx` files are merged into the including
+ *   page (Mintlify inlines them at render time). Snippet files are still not
+ *   routes.
  * - A registry URL that lands on a redirect `source` is followed one hop
  *   before its anchor is checked.
  * - Every redirect `destination` is asserted to resolve as well, either to a
@@ -90,6 +93,37 @@ export function headingAnchors(lines) {
   return anchors;
 }
 
+/** Mintlify inlines these at render time; they are not published routes. */
+export function snippetImportPaths(source) {
+  const paths = [];
+  const importRe = /from\s+['"](\/snippets\/[^'"]+\.mdx?)['"]/g;
+  for (const match of source.matchAll(importRe)) {
+    paths.push(match[1]);
+  }
+  return paths;
+}
+
+async function anchorsForFile(file, seen = new Set()) {
+  const resolved = path.resolve(file);
+  if (seen.has(resolved)) return new Set();
+  seen.add(resolved);
+
+  const source = await readFile(file, "utf8");
+  const anchors = headingAnchors(source.split(/\r?\n/));
+  for (const snippetPath of snippetImportPaths(source)) {
+    const snippetFile = path.join(DOCS_ROOT, snippetPath.slice(1));
+    try {
+      await stat(snippetFile);
+    } catch {
+      continue;
+    }
+    for (const anchor of await anchorsForFile(snippetFile, seen)) {
+      anchors.add(anchor);
+    }
+  }
+  return anchors;
+}
+
 async function* walkDocs(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     if (entry.name === "node_modules" || entry.name === ".git") continue;
@@ -108,8 +142,7 @@ async function buildPageAnchors() {
   const pages = new Map();
   for await (const file of walkDocs(DOCS_ROOT)) {
     const route = toDocsRoute(path.relative(DOCS_ROOT, file));
-    const source = await readFile(file, "utf8");
-    pages.set(route, headingAnchors(source.split(/\r?\n/)));
+    pages.set(route, await anchorsForFile(file));
   }
   return pages;
 }
@@ -163,6 +196,14 @@ function selfTest() {
     () =>
       headingAnchors(["# One", "```", "# Fenced", "```", "## Two"]).size === 2,
     () => !headingAnchors(["```", "# Fenced", "```"]).has("fenced"),
+    () =>
+      snippetImportPaths(
+        "import List from '/snippets/partials/event-webhook/_event-webhook-list.mdx';",
+      )[0] === "/snippets/partials/event-webhook/_event-webhook-list.mdx",
+    () =>
+      snippetImportPaths(
+        'import { Feature } from "/snippets/CommercialFeature.jsx";',
+      ).length === 0,
   ];
   for (const [index, assertion] of cases.entries()) {
     if (!assertion()) {
