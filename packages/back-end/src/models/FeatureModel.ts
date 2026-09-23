@@ -1796,28 +1796,38 @@ export async function removeProjectFromFeatures(
   };
   const ruleScopedDocs = await FeatureModel.find(ruleScopeQuery);
   for (const doc of ruleScopedDocs || []) {
-    const feature = toInterface(doc, context);
-    const updatedRules = (feature.rules ?? []).map((rule) =>
-      rule && Array.isArray(rule.projects) && rule.projects.includes(project)
-        ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
-        : rule,
-    );
-    // A landing that won in between already scrubbed the project from its
-    // rules (see applyRevisionChanges), so a lost CAS needs no retry.
-    const written = await FeatureModel.updateOne(
-      {
+    let feature = toInterface(doc, context);
+    // A landing may win in between; scrub what it wrote rather than our read.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const updatedRules = (feature.rules ?? []).map((rule) =>
+        rule && Array.isArray(rule.projects) && rule.projects.includes(project)
+          ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
+          : rule,
+      );
+      const written = await FeatureModel.updateOne(
+        {
+          organization: context.org.id,
+          id: feature.id,
+          dateUpdated: feature.dateUpdated,
+        },
+        { $set: { rules: updatedRules } },
+      );
+      if (written.matchedCount > 0) {
+        const updatedFeature = { ...feature, rules: updatedRules };
+        onFeatureUpdate(context, feature, updatedFeature, project).catch(
+          (e) => {
+            logger.error(e, "Error refreshing SDK Payload on feature update");
+          },
+        );
+        break;
+      }
+      const fresh = await FeatureModel.findOne({
         organization: context.org.id,
         id: feature.id,
-        dateUpdated: feature.dateUpdated,
-      },
-      { $set: { rules: updatedRules } },
-    );
-    if (written.matchedCount === 0) continue;
-
-    const updatedFeature = { ...feature, rules: updatedRules };
-    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
-      logger.error(e, "Error refreshing SDK Payload on feature update");
-    });
+      });
+      if (!fresh) break;
+      feature = toInterface(fresh, context);
+    }
   }
 }
 
@@ -4434,11 +4444,30 @@ export async function createAndPublishRevision({
   bypassedApproval: boolean;
 }> {
   // Filter to envs applicable to this feature's project — avoids over-
-  // triggering approval and creating dangling per-env settings.
+  // triggering approval and creating dangling per-env settings. A request
+  // that also moves the feature may toggle an env only its destination serves.
   const orgEnvironments = getEnvironmentIdsFromOrg(org);
   const orgEnvObjects = getEnvironments(org);
-  const applicableEnvIds = getApplicableEnvIds(orgEnvObjects, feature);
-  const applicableEnvSet = new Set(applicableEnvIds);
+  const m = changes?.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  const applicableEnvSet = new Set([
+    ...getApplicableEnvIds(orgEnvObjects, feature),
+    ...(moves
+      ? getApplicableEnvIds(orgEnvObjects, {
+          ...feature,
+          ...(m?.project !== undefined ? { project: m.project } : {}),
+          ...(m?.targetingProjects !== undefined
+            ? { targetingProjects: m.targetingProjects }
+            : {}),
+          ...(m?.targetingAllProjects !== undefined
+            ? { targetingAllProjects: m.targetingAllProjects }
+            : {}),
+        })
+      : []),
+  ]);
   const allEnvironments = orgEnvironments.filter((e) =>
     applicableEnvSet.has(e),
   );

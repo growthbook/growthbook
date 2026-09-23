@@ -1,5 +1,6 @@
+import request from "supertest";
 import mongoose from "mongoose";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { postFeatureSync } from "back-end/src/controllers/features";
 import {
@@ -29,23 +30,40 @@ const org = {
       environments: [],
     },
   ],
-  settings: { environments: [{ id: "production", description: "" }] },
+  settings: {
+    environments: [
+      { id: "production", description: "" },
+      // Served only by project B.
+      { id: "staging", description: "", projects: ["prj_b"] },
+    ],
+  },
 } as unknown as OrganizationInterface;
 
-setupApp();
+const { app, setReqContext } = setupApp();
 
 const features = () => mongoose.connection.collection("features");
 const revisions = () => mongoose.connection.collection("featurerevisions");
+const projects = () => mongoose.connection.collection("projects");
 
-async function seed() {
-  for (const c of [features(), revisions()]) {
+async function seed(project = "") {
+  for (const c of [features(), revisions(), projects()]) {
     await c.deleteMany({ organization: ORG_ID });
+  }
+  for (const id of ["prj_a", "prj_b"]) {
+    await projects().insertOne({
+      id,
+      organization: ORG_ID,
+      name: id,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
   }
   const stamp = new Date(Date.now() - 60_000);
   await features().insertOne({
     id: FLAG,
     organization: ORG_ID,
     owner: "",
+    project,
     description: "before",
     valueType: "string",
     defaultValue: "a",
@@ -147,6 +165,36 @@ describe("postFeatureSync", () => {
     const after = await features().findOne({ organization: ORG_ID, id: FLAG });
     expect(after?.version).toBe(1);
     expect(after?.dateUpdated).toEqual(before?.dateUpdated);
+  });
+});
+
+describe("REST update that moves a feature", () => {
+  beforeEach(async () => {
+    setReqContext(
+      new ReqContextClass({
+        org,
+        auditUser: { type: "api_key", apiKey: "key_admin" },
+        role: "admin",
+        req: { query: {}, headers: {}, body: {} } as unknown as Request,
+      }),
+    );
+    await seed("prj_a");
+  });
+
+  it("keeps a toggle for an environment only the destination project serves", async () => {
+    const res = await request(app)
+      .post(`/api/v1/features/${FLAG}`)
+      .send({
+        project: "prj_b",
+        environments: { staging: { enabled: true, rules: [] } },
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.body.message).toBeUndefined();
+    expect(res.status).toBe(200);
+
+    const doc = await features().findOne({ organization: ORG_ID, id: FLAG });
+    expect(doc?.project).toBe("prj_b");
+    expect(doc?.environmentSettings?.staging?.enabled).toBe(true);
   });
 });
 
