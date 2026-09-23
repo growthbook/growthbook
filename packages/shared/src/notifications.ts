@@ -633,9 +633,9 @@ export const cardNotificationEventNames = publicNotificationEventNames.filter(
 );
 
 export const notificationCategories = {
+  feature: "Feature Flags",
   experiment: "Experiments",
   holdout: "Holdouts",
-  feature: "Feature Flags",
   savedGroup: "Saved Groups",
   constant: "Constants",
   config: "Configs",

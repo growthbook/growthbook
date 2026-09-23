@@ -21204,6 +21204,14 @@ paths:
                       - type
                       - pattern
                     additionalProperties: {}
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 visualChanges:
                   type: array
                   items:
@@ -21298,6 +21306,14 @@ paths:
                   type: string
                 variation:
                   type: string
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 domMutations:
                   type: array
                   items:
@@ -21376,6 +21392,14 @@ paths:
                   type: string
                 variation:
                   type: string
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 domMutations:
                   type: array
                   items:
