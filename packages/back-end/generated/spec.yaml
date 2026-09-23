@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  version: 5.0.1
+  version: 5.1.0
   title: GrowthBook REST API
   description: >
     GrowthBook offers a full REST API for interacting with the application.
@@ -2297,6 +2297,11 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                comment:
+                  description: >-
+                    Comment to record on the feature's initial revision.
+                    Defaults to an empty comment.
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -3857,6 +3862,11 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                comment:
+                  description: >-
+                    Comment to record on the revision this update publishes,
+                    when it publishes one. Defaults to "Created via REST API".
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -3978,6 +3988,12 @@ paths:
               type: object
               properties:
                 reason:
+                  type: string
+                comment:
+                  description: >-
+                    Comment to record on the revision this toggle publishes,
+                    when it changes any environment. Defaults to "Created via
+                    REST API". (`reason` is recorded in the audit log only.)
                   type: string
                 environments:
                   type: object
@@ -5597,6 +5613,33 @@ paths:
                                 anyOf:
                                   - type: boolean
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
+                                  - type: 'null'
                             additionalProperties: false
                         required:
                           - patch
@@ -6244,6 +6287,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -6940,6 +7010,32 @@ paths:
                             anyOf:
                               - type: boolean
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
+                              - type: 'null'
                         additionalProperties: false
                     required:
                       - patch
@@ -7288,6 +7384,13 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV1'
+                  warnings:
+                    description: >-
+                      Non-fatal advisories about how the request was
+                      interpreted.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - revision
                 additionalProperties: false
@@ -8785,6 +8888,11 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                comment:
+                  description: >-
+                    Comment to record on the feature's initial revision.
+                    Defaults to an empty comment.
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -9676,6 +9784,11 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                comment:
+                  description: >-
+                    Comment to record on the revision this update publishes,
+                    when it publishes one. Defaults to "Created via REST API".
+                  type: string
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -9787,6 +9900,12 @@ paths:
               type: object
               properties:
                 reason:
+                  type: string
+                comment:
+                  description: >-
+                    Comment to record on the revision this toggle publishes,
+                    when it changes any environment. Defaults to "Created via
+                    REST API". (`reason` is recorded in the audit log only.)
                   type: string
                 environments:
                   type: object
@@ -11334,6 +11453,33 @@ paths:
                                 anyOf:
                                   - type: boolean
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
+                                  - type: 'null'
                             additionalProperties: false
                         required:
                           - patch
@@ -12006,6 +12152,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -12712,6 +12885,32 @@ paths:
                             anyOf:
                               - type: boolean
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
+                              - type: 'null'
                         additionalProperties: false
                     required:
                       - patch
@@ -13039,11 +13238,13 @@ paths:
                     The rule state to roll back to (the rollback/jump-to-start
                     anchor). Merged onto the rule's current state, so `{
                     "coverage": 0 }` keeps existing targeting but rolls back to
-                    0%. This affects rollbacks only — it is NOT applied when the
-                    ramp starts. On create, omitting it infers the anchor from
-                    the rule's current coverage (and returns a warning if that
-                    isn't 0%); on update of a live schedule, omitting it leaves
-                    the existing anchor unchanged.
+                    0%. Steps accumulate on it, and it is the only place a plan
+                    sets `hashAttribute` (plus optional `seed` and
+                    `hashVersion`), which a partial-coverage step on a force
+                    rule requires unless the rule has one. On create, omitting
+                    it infers the anchor from the rule's current coverage (and
+                    returns a warning if that isn't 0%); on update of a live
+                    schedule, omitting it leaves the existing anchor unchanged.
                   type: object
                   properties:
                     coverage:
@@ -13121,6 +13322,32 @@ paths:
                     enabled:
                       anyOf:
                         - type: boolean
+                        - type: 'null'
+                    hashAttribute:
+                      description: >-
+                        Attribute the rule buckets on. Required (here or on the
+                        rule) when a step sets partial coverage on a force rule,
+                        which becomes a rollout.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    seed:
+                      description: >-
+                        Hash seed for a promoted force rule. Defaults to the
+                        rule id.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    hashVersion:
+                      description: >-
+                        Hash algorithm version for a promoted force rule.
+                        Defaults to 2.
+                      anyOf:
+                        - anyOf:
+                            - type: number
+                              const: 1
+                            - type: number
+                              const: 2
                         - type: 'null'
                   additionalProperties: false
                 revisionTitle:
@@ -20963,6 +21190,14 @@ paths:
                       - type
                       - pattern
                     additionalProperties: {}
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 visualChanges:
                   type: array
                   items:
@@ -21057,6 +21292,14 @@ paths:
                   type: string
                 variation:
                   type: string
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 domMutations:
                   type: array
                   items:
@@ -21135,6 +21378,14 @@ paths:
                   type: string
                 variation:
                   type: string
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 domMutations:
                   type: array
                   items:
@@ -32768,6 +33019,32 @@ paths:
                             anyOf:
                               - type: boolean
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
+                              - type: 'null'
                         additionalProperties: false
                     required:
                       - patch
@@ -33823,7 +34100,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -33838,7 +34117,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -34203,7 +34482,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -34218,7 +34499,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -34645,7 +34926,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -34660,7 +34943,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -35028,7 +35311,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -35043,7 +35328,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -47724,8 +48009,8 @@ paths:
                     type: string
                 updateVariations:
                   description: >-
-                    Metadata edits to existing active arms. Only `name` and
-                    `description` may be changed; key, values, weights,
+                    Metadata edits to existing active arms. `name`,
+                    `description`, and `key` may be changed; values, weights,
                     screenshots, and status are preserved.
                   type: array
                   items:
@@ -47736,6 +48021,14 @@ paths:
                       name:
                         type: string
                       description:
+                        type: string
+                      key:
+                        description: >-
+                          New key for the arm. Must be unique across the
+                          contextual bandit's arms, including removed ones. The
+                          key is what SDKs report in exposure events, so
+                          renaming an arm on a running bandit orphans exposures
+                          already recorded under the old key.
                         type: string
                     required:
                       - id
@@ -55656,6 +55949,9 @@ paths:
                       targetId:
                         type: string
                       patch:
+                        description: >-
+                          The rule's pre-ramp state, and the only place a plan
+                          sets hashAttribute, seed or hashVersion.
                         type: object
                         properties:
                           ruleId:
@@ -55737,6 +56033,32 @@ paths:
                           enabled:
                             anyOf:
                               - type: boolean
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
                               - type: 'null'
                         required:
                           - ruleId
@@ -59228,6 +59550,32 @@ components:
                               anyOf:
                                 - type: boolean
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
+                                - type: 'null'
                           additionalProperties: false
                       required:
                         - patch
@@ -59658,6 +60006,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -60703,6 +61077,32 @@ components:
                               anyOf:
                                 - type: boolean
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
+                                - type: 'null'
                           additionalProperties: false
                       required:
                         - patch
@@ -61133,6 +61533,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -66081,6 +66507,16 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        conditionalInlineFilters:
+          description: >-
+            Value -> additional column to prompt for when a metric filters this
+            column to that value, e.g. {"Page View": "path", "Modal Open":
+            "properties.modalType"}. Requires alwaysInlineFilter.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         deleted:
           default: false
           type: boolean
@@ -66206,6 +66642,16 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        conditionalInlineFilters:
+          description: >-
+            Value -> additional column to prompt for when a metric filters this
+            column to that value, e.g. {"Page View": "path", "Modal Open":
+            "properties.modalType"}. Requires alwaysInlineFilter.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         deleted:
           default: false
           type: boolean
@@ -67815,7 +68261,9 @@ components:
         startActions:
           description: >-
             Actions that restore controlled rules to their pre-ramp state.
-            Applied when rolling back or jumping to start.
+            Applied when rolling back or jumping to start, and the base every
+            step accumulates on; the only place a plan can set hashAttribute,
+            seed or hashVersion.
           type: array
           items:
             type: object
@@ -67905,6 +68353,32 @@ components:
                   enabled:
                     anyOf:
                       - type: boolean
+                      - type: 'null'
+                  hashAttribute:
+                    description: >-
+                      Attribute the rule buckets on. Required (here or on the
+                      rule) when a step sets partial coverage on a force rule,
+                      which becomes a rollout.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  seed:
+                    description: >-
+                      Hash seed for a promoted force rule. Defaults to the rule
+                      id.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  hashVersion:
+                    description: >-
+                      Hash algorithm version for a promoted force rule. Defaults
+                      to 2.
+                    anyOf:
+                      - anyOf:
+                          - type: number
+                            const: 1
+                          - type: number
+                            const: 2
                       - type: 'null'
                 required:
                   - ruleId
@@ -78665,6 +79139,28 @@ components:
               anyOf:
                 - type: boolean
                 - type: 'null'
+            hashAttribute:
+              description: >-
+                Attribute the rule buckets on. Required (here or on the rule)
+                when a step sets partial coverage on a force rule, which becomes
+                a rollout.
+              anyOf:
+                - type: string
+                - type: 'null'
+            seed:
+              description: Hash seed for a promoted force rule. Defaults to the rule id.
+              anyOf:
+                - type: string
+                - type: 'null'
+            hashVersion:
+              description: Hash algorithm version for a promoted force rule. Defaults to 2.
+              anyOf:
+                - anyOf:
+                    - type: number
+                      const: 1
+                    - type: number
+                      const: 2
+                - type: 'null'
           required:
             - ruleId
           additionalProperties: false
@@ -78809,6 +79305,102 @@ components:
       required:
         - interval
         - actions
+      additionalProperties: false
+    endActions:
+      type: object
+      properties:
+        targetType:
+          type: string
+          const: feature-rule
+        targetId:
+          type: string
+        patch:
+          type: object
+          properties:
+            ruleId:
+              type: string
+            coverage:
+              description: >-
+                Traffic fraction (0–1). For monitored steps the rollout rule is
+                promoted to an experiment: treatment = [0, coverage), control =
+                [0.5, 0.5+coverage). Both arms are equal-sized and non-adjacent,
+                so a step-up only adds new users to each arm — no existing user
+                changes group. The REST API enforces coverage ≤ 0.5 on monitored
+                steps so control end never exceeds 1.0. The SDK uses explicit
+                hash ranges on bucketingV2 clients to keep bucketing stable
+                across monitored/unmonitored transitions.
+              anyOf:
+                - type: number
+                  minimum: 0
+                  maximum: 1
+                - type: 'null'
+            condition:
+              anyOf:
+                - type: string
+                - type: 'null'
+            savedGroups:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                - type: 'null'
+            prerequisites:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                - type: 'null'
+            allEnvironments:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+            environments:
+              anyOf:
+                - type: array
+                  items:
+                    type: string
+                - type: 'null'
+            force:
+              description: >-
+                Value to serve, in the string form rule values use ("false",
+                "10", '{"limit": 5}'). A non-string JSON value is accepted and
+                stored as its JSON text. Must be valid for the feature's value
+                type.
+            enabled:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+          required:
+            - ruleId
+          additionalProperties: false
+      required:
+        - targetType
+        - targetId
+        - patch
       additionalProperties: false
     lockdownConfig:
       type: object

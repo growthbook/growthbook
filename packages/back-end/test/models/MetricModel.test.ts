@@ -1,8 +1,11 @@
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import { Permissions, roleToPermissionMap } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
 import { MetricInterface } from "shared/types/metric";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 import {
   getMetricsForDefinitions,
   getMetricsByOrganization,
@@ -92,16 +95,12 @@ const HEAVY_FIELDS = [
 ] as const;
 
 describe("getMetricsForDefinitions", () => {
-  let mongod: MongoMemoryServer;
-
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestMongo();
   }, 60000);
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
+    await disconnectTestMongo();
   });
 
   afterEach(async () => {
@@ -159,16 +158,12 @@ describe("getMetricsForDefinitions", () => {
 });
 
 describe("getMetricsByOrganization includeArchived", () => {
-  let mongod: MongoMemoryServer;
-
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestMongo();
   }, 60000);
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
+    await disconnectTestMongo();
   });
 
   afterEach(async () => {
