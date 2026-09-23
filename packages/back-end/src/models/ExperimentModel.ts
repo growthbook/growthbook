@@ -231,6 +231,7 @@ const experimentSchema = new mongoose.Schema({
     type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
     date: Date,
     failedAttempts: Number,
+    scheduledBy: String,
   },
   results: String,
   analysis: String,

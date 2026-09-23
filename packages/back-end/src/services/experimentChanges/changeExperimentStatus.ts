@@ -493,7 +493,13 @@ export async function executeExperimentStart(
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: { ...changes, nextScheduledStatusUpdate },
+    changes: {
+      ...changes,
+      nextScheduledStatusUpdate: withScheduledBy(
+        nextScheduledStatusUpdate,
+        context.userId || undefined,
+      ),
+    },
   });
 
   trackEventForContext(context, "Experiment Started", {
