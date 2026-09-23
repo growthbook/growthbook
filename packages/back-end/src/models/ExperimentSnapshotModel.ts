@@ -1126,25 +1126,6 @@ export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   return docs.map((doc) => toInterface(doc));
 }
 
-export async function findLatestRunningSnapshotByReportId(
-  context: Context,
-  report: string,
-) {
-  // Scoped to one report + org; do not date-bound — jobs can still be in flight after 24h.
-  const doc = await ExperimentSnapshotModel.findOne(
-    {
-      organization: context.org.id,
-      report,
-      status: "running",
-      queries: { $elemMatch: { status: { $in: ["running", "queued"] } } },
-    },
-    null,
-    { sort: { dateCreated: -1 } },
-  );
-
-  return doc ? toInterface(doc) : null;
-}
-
 export async function getLatestSuccessfulSnapshot({
   context,
   experiment,

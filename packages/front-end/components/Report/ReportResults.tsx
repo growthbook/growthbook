@@ -312,6 +312,10 @@ export default function ReportResults({
                   report.experimentAnalysisSettings.customMetricSlices
                 }
               />
+            ) : queryStatusData.status === "running" ? (
+              <div className="d-flex justify-content-center my-4">
+                <LoadingSpinner />
+              </div>
             ) : (
               <div className="mx-3 mb-3">
                 <Callout status="error">

@@ -19,7 +19,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
-  findLatestRunningSnapshotByReportId,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -45,8 +44,8 @@ import {
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
-import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
+import { BadRequestError } from "back-end/src/util/errors";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -373,6 +372,9 @@ export async function refreshReport(
         factTableMap,
       });
 
+      // Point the report at the run so a page load, poll or cancel sees it.
+      await updateReport(org.id, report.id, { snapshot: newSnapshot.id });
+
       return res.status(200).json({
         status: 200,
         snapshot: newSnapshot,
@@ -626,40 +628,9 @@ export async function cancelReport(
   }
 
   if (report.type === "experiment-snapshot") {
-    const snapshot = await findLatestRunningSnapshotByReportId(
-      context,
-      report.id,
+    throw new BadRequestError(
+      "Experiment-snapshot report updates are cancelled via POST /snapshot/:id/cancel.",
     );
-    if (!snapshot) {
-      return res.status(400).json({
-        status: 400,
-        message: "No running query found",
-      });
-    }
-
-    const datasourceId = snapshot?.settings?.datasourceId;
-    if (!datasourceId) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid datasource: " + datasourceId,
-      });
-      return;
-    }
-
-    const integration = await getIntegrationFromDatasourceId(
-      context,
-      datasourceId,
-      true,
-    );
-
-    const queryRunner = new ExperimentResultsQueryRunner(
-      context,
-      snapshot,
-      integration,
-    );
-    await queryRunner.cancelQueries();
-
-    return res.status(200).json({ status: 200 });
   } else if (report.type === "experiment") {
     const integration = await getIntegrationFromDatasourceId(
       context,
