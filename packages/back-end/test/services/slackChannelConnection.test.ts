@@ -61,6 +61,10 @@ it("connects an invited private channel without pagination or joining", async ()
     channelId: "C1",
     channelName: "private-alerts",
   });
+  expect(vi.mocked(createEventWebHook).mock.calls[0][0]).toMatchObject({
+    excludeBookkeepingUpdates: true,
+    notificationSettings: { type: "image", cardFormat: "light" },
+  });
   expect(listSlackConversations).not.toHaveBeenCalled();
   expect(joinSlackConversation).not.toHaveBeenCalled();
 });

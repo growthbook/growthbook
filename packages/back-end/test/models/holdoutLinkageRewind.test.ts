@@ -91,6 +91,7 @@ describe("reverseHoldoutExperimentLinkage", () => {
       holdoutId: "hld_1",
       toLink: ["exp_E"],
       toUnlink: [],
+      featureId: "feat_1",
       prevExperimentHoldoutIds: { exp_E: "" },
       writtenExperimentIds: new Set(["exp_E"]),
     }).then(() => {
@@ -106,6 +107,7 @@ describe("reverseHoldoutExperimentLinkage", () => {
       holdoutId: "hld_1",
       toLink: ["exp_E"],
       toUnlink: [],
+      featureId: "feat_1",
       prevExperimentHoldoutIds: { exp_E: "" },
       writtenExperimentIds: new Set(["exp_E"]),
     });
@@ -124,6 +126,7 @@ describe("reverseHoldoutExperimentLinkage", () => {
       holdoutId: "hld_1",
       toLink: ["exp_E"],
       toUnlink: [],
+      featureId: "feat_1",
       prevExperimentHoldoutIds: { exp_E: "" },
       writtenExperimentIds: new Set(["exp_E"]),
     });
@@ -138,6 +141,7 @@ describe("reverseHoldoutExperimentLinkage", () => {
       holdoutId: "hld_1",
       toLink: [],
       toUnlink: ["exp_E"],
+      featureId: "feat_1",
       prevExperimentHoldoutIds: { exp_E: "hld_1" },
       writtenExperimentIds: new Set(["exp_E"]),
     });
@@ -155,6 +159,7 @@ describe("reverseHoldoutExperimentLinkage", () => {
       holdoutId: "hld_1",
       toLink: ["exp_E"],
       toUnlink: [],
+      featureId: "feat_1",
       prevExperimentHoldoutIds: { exp_E: "" },
       // The forward pass found it at target and wrote nothing.
       writtenExperimentIds: new Set(),
@@ -173,6 +178,7 @@ describe("reverseHoldoutExperimentLinkage", () => {
       holdoutId: "hld_1",
       toLink: ["exp_WROTE", "exp_NEVER"],
       toUnlink: [],
+      featureId: "feat_1",
       prevExperimentHoldoutIds: { exp_WROTE: "", exp_NEVER: "" },
       writtenExperimentIds: new Set(["exp_WROTE"]),
     });
@@ -187,6 +193,7 @@ describe("reverseHoldoutExperimentLinkage", () => {
       holdoutId: "hld_1",
       toLink: [],
       toUnlink: ["exp_E"],
+      featureId: "feat_1",
       prevExperimentHoldoutIds: { exp_E: "hld_1" },
       writtenExperimentIds: new Set(["exp_E"]),
     });

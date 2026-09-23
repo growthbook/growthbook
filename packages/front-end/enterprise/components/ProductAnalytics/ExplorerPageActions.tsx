@@ -3,7 +3,9 @@ import { Flex, IconButton } from "@radix-ui/themes";
 import { PiLink } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { stripExplorerDraftFields } from "@/enterprise/components/ProductAnalytics/util";
-import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
+import SaveToDashboardModal, {
+  canSaveToDashboard,
+} from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import ShareUrlPopover from "@/ui/ShareUrlPopover";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -74,31 +76,33 @@ export default function ExplorerPageActions() {
         />
       )}
       <Flex align="center" gap="2">
-        <Tooltip
-          body={saveToDashboardDisabledReason || ""}
-          shouldDisplay={!!saveToDashboardDisabledReason}
-        >
-          <Button
-            size="md"
-            disabled={!!saveToDashboardDisabledReason}
-            onClick={() => {
-              if (!hasDashboardsFeature) {
-                setShowUpgradeModal(true);
-              } else {
-                setShowSaveToDashboardModal(true);
-              }
-            }}
+        {canSaveToDashboard(draftExploreState.type) ? (
+          <Tooltip
+            body={saveToDashboardDisabledReason || ""}
+            shouldDisplay={!!saveToDashboardDisabledReason}
           >
-            <Flex align="center" justify="center" gap="2">
-              <PaidFeatureBadge
-                commercialFeature="product-analytics-dashboards"
-                useTip={false}
-                inheritColor
-              />
-              Save to Dashboard
-            </Flex>
-          </Button>
-        </Tooltip>
+            <Button
+              size="md"
+              disabled={!!saveToDashboardDisabledReason}
+              onClick={() => {
+                if (!hasDashboardsFeature) {
+                  setShowUpgradeModal(true);
+                } else {
+                  setShowSaveToDashboardModal(true);
+                }
+              }}
+            >
+              <Flex align="center" justify="center" gap="2">
+                <PaidFeatureBadge
+                  commercialFeature="product-analytics-dashboards"
+                  useTip={false}
+                  inheritColor
+                />
+                Save to Dashboard
+              </Flex>
+            </Button>
+          </Tooltip>
+        ) : null}
         <ShareUrlPopover
           title="Share this exploration"
           description="Anyone in your organization with read access to the Data Source this exploration uses, can open this exploration."

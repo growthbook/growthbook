@@ -24,6 +24,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  getDefaultHashAttribute,
   featureHasEnvironment,
   filterEnvironmentsByFeature,
   generateVariationId,
@@ -44,6 +45,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   HoldoutInterface,
   RevisionRampAction,
+  RampScheduleInterface,
   SafeRolloutRule,
 } from "shared/validators";
 import {
@@ -55,6 +57,10 @@ import {
 } from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
+import {
+  getFeatureHealthSearchTokens,
+  getFeatureStaleSearchTokens,
+} from "@/services/health";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -212,10 +218,9 @@ export function useFeatureSearch({
   localStorageKey = "features",
   environmentStatus,
   draftStates,
-  staleStates,
+  healthStates,
   rampStates,
   dependencyIndex,
-  experimentStates,
   contentSearchPrefixes = [],
 }: {
   allFeatures: FeatureInterface[];
@@ -231,17 +236,19 @@ export function useFeatureSearch({
   localStorageKey?: string;
   environmentStatus?: Record<string, Record<string, boolean>>;
   draftStates?: Record<string, unknown>;
-  staleStates?: Record<
+  healthStates?: Record<
     string,
     {
       stale: boolean;
       neverStale: boolean;
-      envResults?: Record<string, { stale: boolean }>;
+      envResults?: Record<
+        string,
+        { stale: boolean; reason?: string; tempRollout?: string }
+      >;
     }
   >;
   rampStates?: Record<string, unknown>;
   dependencyIndex?: Set<string> | null;
-  experimentStates?: Record<string, { hasTempRollout: boolean }>;
   contentSearchPrefixes?: string[];
 }) {
   const syntaxFilterPassthrough = useCallback(
@@ -283,10 +290,9 @@ export function useFeatureSearch({
     searchTermFilterDeps: [
       environmentStatus,
       draftStates,
-      staleStates,
+      healthStates,
       rampStates,
       dependencyIndex,
-      experimentStates,
       projects,
       getProjectById,
     ],
@@ -299,26 +305,18 @@ export function useFeatureSearch({
         if (item.valueType === "string") is.push("string");
         if (item.valueType === "number") is.push("number");
         if (item.valueType === "boolean") is.push("boolean");
-        // item.neverStale is authoritative — overrides staleStates cache immediately
-        if (item.neverStale) {
-          is.push("stale-disabled");
-        } else {
-          const s = staleStates?.[item.id];
-          if (s?.stale) is.push("stale");
-        }
+        is.push(
+          ...getFeatureStaleSearchTokens(
+            healthStates?.[item.id],
+            item.neverStale,
+          ),
+        );
         return is;
       },
       has: (item) => {
         const has: string[] = [];
         if (item.project) has.push("project");
         if (draftStates?.[item.id]) has.push("draft", "drafts");
-        if (!item.neverStale) {
-          const s = staleStates?.[item.id];
-          const hasSomeStaleEnvs = Object.values(s?.envResults ?? {}).some(
-            (e) => e.stale,
-          );
-          if (hasSomeStaleEnvs) has.push("stale-env");
-        }
         const meta = item as FeatureInterface & {
           hasPrerequisites?: boolean;
           hasSavedGroups?: boolean;
@@ -328,10 +326,9 @@ export function useFeatureSearch({
         if (item.linkedExperiments?.length) has.push("experiments");
         if (rampStates?.[item.id]) has.push("ramp-schedule");
         if (dependencyIndex?.has(item.id)) has.push("dependents");
-        const expState = experimentStates?.[item.id];
-        if (expState?.hasTempRollout) has.push("temp-rollout");
         return has;
       },
+      health: (item) => getFeatureHealthSearchTokens(healthStates?.[item.id]),
       key: (item) => item.id,
       // Match the governance project plus any targeting projects (all
       // projects when targetingAllProjects), by id and resolved name, so
@@ -917,6 +914,7 @@ export function getRevisionPublishEnvs({
   environments,
   holdoutsMap,
   rampActions,
+  rampSchedules,
 }: {
   liveFeature: FeatureInterface;
   changes: MergeResultChanges;
@@ -924,6 +922,8 @@ export function getRevisionPublishEnvs({
   holdoutsMap: Map<string, HoldoutInterface>;
   /** Revision ramp actions, which are not part of the merge result. */
   rampActions?: RevisionRampAction[];
+  /** The feature's ramp schedules, so a detach is sized by what it removes. */
+  rampSchedules?: RampScheduleInterface[];
 }): string[] {
   const environmentIds = environments.map((e) => e.id);
   const holdout = holdoutEnvsForChange({
@@ -947,6 +947,7 @@ export function getRevisionPublishEnvs({
     rampActions,
     liveRules: liveFeature.rules ?? [],
     environmentIds,
+    schedules: rampSchedules,
   });
   return rampEnvs === "all"
     ? [...environmentIds]
@@ -1049,13 +1050,7 @@ export function getDefaultRuleValue({
   /** Safe default hash version for new rules — pass `hasSDKWithNoBucketingV2 ? 1 : 2` at the call site. Defaults to 1 (safest). */
   defaultHashVersion?: 1 | 2;
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
-  const hashAttributes =
-    attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
-    [];
-
-  const hashAttribute = hashAttributes.includes("id")
-    ? "id"
-    : hashAttributes[0] || "id";
+  const hashAttribute = getDefaultHashAttribute(attributeSchema);
   let defaultDataSource = settings?.defaultDataSource;
   if (datasources && !defaultDataSource && datasources.length === 1) {
     defaultDataSource = datasources[0].id;

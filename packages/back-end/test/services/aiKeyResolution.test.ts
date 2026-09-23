@@ -1,15 +1,29 @@
 import { vi } from "vitest";
 import { AICredentialInterface } from "shared/validators";
-import { AIProvider } from "shared/ai";
+import { AI_PROVIDER_META, AI_PROVIDERS, AIProvider } from "shared/ai";
 
 // Environment variables and the per-request cache are captured at module load.
 type AICredentialsModule = typeof import("back-end/src/services/aiCredentials");
 type AIKeyContext = Parameters<AICredentialsModule["getResolvedAIKeys"]>[0];
 
+// Everything util/secrets reads that can change what getResolvedAIKeys returns.
+// Cleared before each load so a test asserts exactly the environment it
+// declares — otherwise a provider key exported in the developer's own shell
+// leaks in as a deployment-level key and outranks the stored credential when
+// self-hosted, failing locally while CI's clean env passes.
+const AI_ENV_VARS = [
+  ...AI_PROVIDERS.flatMap((provider) => [
+    AI_PROVIDER_META[provider].envVar,
+    ...(AI_PROVIDER_META[provider].legacyEnvVars ?? []),
+  ]),
+  "IS_CLOUD",
+];
+
 const loadModule = async (
   env: Record<string, string>,
 ): Promise<AICredentialsModule> => {
   vi.resetModules();
+  for (const name of AI_ENV_VARS) vi.stubEnv(name, undefined);
   for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
   try {
     return await import("back-end/src/services/aiCredentials");

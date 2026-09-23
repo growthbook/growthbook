@@ -3,8 +3,8 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import { vi } from "vitest";
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import merge from "lodash/merge";
+import { testMongoUri, disconnectTestMongo } from "back-end/test/test-helpers";
 import { getAuthConnection } from "back-end/src/services/auth";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import app from "back-end/src/app";
@@ -57,15 +57,34 @@ export const setupApp = () => {
   vi.setConfig({ testTimeout: 20000, hookTimeout: 20000 });
 
   const server = createServer(app);
-  let mongodb;
   let reqContext;
   const auditMock = vi.fn();
   const OLD_ENV = process.env;
+  const installAuthMocks = () => {
+    getAuthConnection().middleware.mockImplementation((req, res, next) => {
+      next();
+    });
+
+    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
+      req.audit = auditMock;
+      req.context = reqContext;
+      req.organization = reqContext?.org;
+      // The /api/v1 router rate-limits per req.apiKey (60 req/min). The real
+      // auth middleware sets this; under this mock we give each request a
+      // unique key so the limiter never crosses test boundaries.
+      req.apiKey = randomUUID();
+      // The real middleware sets this on every path. Without it, writes that
+      // record an audit user fail validation — and because several are
+      // fire-and-forget, the failure is swallowed and the specs cannot see it.
+      req.eventAudit = { type: "api_key", apiKey: req.apiKey, name: "test" };
+      next();
+    });
+  };
+
   const isReady = new Promise((resolve) => {
     beforeAll(async () => {
-      mongodb = await MongoMemoryServer.create();
-      const uri = mongodb.getUri();
-      process.env.MONGO_URL = uri;
+      process.env.MONGO_URL = testMongoUri();
+      installAuthMocks();
 
       await mongoInit();
       await queueInit();
@@ -107,31 +126,12 @@ export const setupApp = () => {
         server.close((error) => (error ? reject(error) : resolve()));
       });
       await getAgendaInstance().stop();
-      await mongoose.connection.close();
-      await mongodb.stop();
+      await disconnectTestMongo();
       process.env = OLD_ENV;
     });
 
-    beforeEach(() => {
-      getAuthConnection().middleware.mockImplementation((req, res, next) => {
-        next();
-      });
-
-      authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-        req.audit = auditMock;
-        req.context = reqContext;
-        req.organization = reqContext?.org;
-        // The /api/v1 router rate-limits per req.apiKey (60 req/min). The real
-        // auth middleware sets this; under this mock we give each request a
-        // unique key so the limiter never crosses test boundaries.
-        req.apiKey = randomUUID();
-        // The real middleware sets this on every path. Without it, writes that
-        // record an audit user fail validation — and because several are
-        // fire-and-forget, the failure is swallowed and the specs cannot see it.
-        req.eventAudit = { type: "api_key", apiKey: req.apiKey, name: "test" };
-        next();
-      });
-    });
+    // Suites also send requests from their own beforeAll, before any beforeEach.
+    beforeEach(installAuthMocks);
 
     afterEach(async () => {
       vi.clearAllMocks();

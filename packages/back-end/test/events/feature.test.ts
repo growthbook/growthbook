@@ -12,6 +12,9 @@ import { setupApp } from "back-end/test/api/api.setup";
 
 vi.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
+    static defineJob() {
+      return undefined;
+    }
     perform() {
       return undefined;
     }

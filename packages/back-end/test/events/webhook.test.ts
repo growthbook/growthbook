@@ -15,7 +15,7 @@ vi.mock("back-end/src/models/EventWebhookModel", async () => ({
 }));
 
 vi.mock("back-end/src/events/notifiers/EventNotifier", () => ({
-  EventNotifier: vi.fn(),
+  EventNotifier: Object.assign(vi.fn(), { defineJob: vi.fn() }),
 }));
 
 describe("webhook test events", () => {

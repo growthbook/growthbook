@@ -20,6 +20,19 @@ function getTimestamp(date: Date | string): number {
 
 export const SAVED_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
 export const SMALL_GROUP_SIZE_LIMIT = 100;
+
+// An empty Saved Group scope is shared everywhere. A consumer targeting all
+// projects (null) can therefore only use an unscoped group.
+export function isSavedGroupAvailableForProjects(
+  group: Pick<SavedGroupInterface, "projects">,
+  projects: readonly string[] | null,
+): boolean {
+  return (
+    !group.projects?.length ||
+    (projects !== null && projects.every((p) => group.projects!.includes(p)))
+  );
+}
+
 export const ID_LIST_DATATYPES: SDKAttributeType[] = [
   "number",
   "string",

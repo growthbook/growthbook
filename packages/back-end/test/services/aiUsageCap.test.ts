@@ -41,6 +41,7 @@ import {
   secondsUntilAICanBeUsedAgainForEmbeddings,
   secondsUntilAICanBeUsedAgainForModel,
   secondsUntilAICanBeUsedAgainForProvider,
+  secondsUntilAICanBeUsedAgainForSTT,
 } from "back-end/src/enterprise/services/ai";
 
 const mockedSettings = getAISettingsForOrg as MockedFunction<
@@ -67,6 +68,7 @@ const setSettings = (settings: {
   keySource: Record<AIProvider, AIKeySource>;
   defaultAIModel?: AIModel;
   embeddingModel?: string;
+  sttModel?: string | null;
 }) => {
   mockedSettings.mockResolvedValue({
     defaultAIModel: "gpt-4o-mini",
@@ -197,5 +199,43 @@ describe("provider-exact AI usage cap", () => {
     await secondsUntilAICanBeUsedAgainForProvider(context, "xai");
 
     expect(mockedTokens).not.toHaveBeenCalled();
+  });
+});
+
+describe("dictation usage cap", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setOverCap();
+  });
+
+  it("caps dictation running on GrowthBook's managed key", async () => {
+    setSettings({
+      keySource: keySources({ openai: "env" }),
+      sttModel: "gpt-transcribe",
+    });
+
+    expect(await secondsUntilAICanBeUsedAgainForSTT(context)).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it("exempts dictation when the org pays for that provider itself", async () => {
+    setSettings({
+      keySource: keySources({ xai: "organization" }),
+      sttModel: "grok-stt-1.0",
+    });
+
+    expect(await secondsUntilAICanBeUsedAgainForSTT(context)).toBe(0);
+  });
+
+  it("caps a managed provider even when a different one is org-owned", async () => {
+    setSettings({
+      keySource: keySources({ openai: "env", xai: "organization" }),
+      sttModel: "gpt-transcribe",
+    });
+
+    expect(await secondsUntilAICanBeUsedAgainForSTT(context)).toBeGreaterThan(
+      0,
+    );
   });
 });

@@ -66,7 +66,9 @@ const makeContext = (settings: Record<string, unknown>): AISettingsContext =>
     org: { id: "org_1", settings: { aiEnabled: true, ...settings } },
   }) as unknown as AISettingsContext;
 
-describe("getAISettingsForOrg model resolution", () => {
+// Each case re-imports the organizations module graph from scratch, which alone
+// takes ~4s cold, so the 5s default fails whenever the machine is busy.
+describe("getAISettingsForOrg model resolution", { timeout: 20000 }, () => {
   it("keeps the Visual Editor on Sonnet when a Cloud org sets its own default", async () => {
     const mod = await loadModule(true, ["anthropic"]);
     const settings = await mod.getAISettingsForOrg(

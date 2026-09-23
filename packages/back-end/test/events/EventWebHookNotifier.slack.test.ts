@@ -1,5 +1,9 @@
 import { vi } from "vitest";
+import { eventWebHookPayloadTypes } from "shared/validators";
+import type { NotificationSettings } from "shared/validators";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
+import { slackEventHandler } from "back-end/src/events/handlers/slack/slackEventHandler";
+import { getSlackIntegrationsForFilters } from "back-end/src/models/SlackIntegrationModel";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
   getEventWebHookById,
@@ -7,11 +11,16 @@ import {
 } from "back-end/src/models/EventWebhookModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { createEventWebHookLog } from "back-end/src/models/EventWebHookLogModel";
-import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  getSlackMessageForNotificationEvent,
+  getSlackMessageForLegacyNotificationEvent,
+} from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
   postSlackMessageResult,
   SLACK_WORKSPACE_PLACEHOLDER_URL,
+  uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
+import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { getEventWebHookSignatureForPayload } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
@@ -19,6 +28,10 @@ import { secretsReplacer } from "back-end/src/util/secrets";
 
 vi.mock("back-end/src/models/EventModel", () => ({
   getEvent: vi.fn(),
+}));
+
+vi.mock("back-end/src/models/SlackIntegrationModel", () => ({
+  getSlackIntegrationsForFilters: vi.fn(),
 }));
 
 vi.mock("back-end/src/models/EventWebhookModel", () => ({
@@ -34,17 +47,31 @@ vi.mock("back-end/src/models/EventWebHookLogModel", () => ({
   createEventWebHookLog: vi.fn(),
 }));
 
-vi.mock("back-end/src/events/handlers/slack/slack-event-handler-utils", () => ({
-  getSlackMessageForLegacyNotificationEvent: vi.fn(),
-  getSlackMessageForNotificationEvent: vi.fn(),
-}));
+vi.mock(
+  "back-end/src/events/handlers/slack/slack-event-handler-utils",
+  async () => ({
+    ...(await vi.importActual<
+      typeof import("back-end/src/events/handlers/slack/slack-event-handler-utils")
+    >("back-end/src/events/handlers/slack/slack-event-handler-utils")),
+    getSlackMessageForLegacyNotificationEvent: vi.fn(),
+    getSlackMessageForNotificationEvent: vi.fn(),
+  }),
+);
 
 vi.mock("back-end/src/services/slack/slackWebApi", async () => ({
   ...(await vi.importActual<
     typeof import("back-end/src/services/slack/slackWebApi")
   >("back-end/src/services/slack/slackWebApi")),
   postSlackMessageResult: vi.fn(),
+  uploadSlackImageFile: vi.fn(),
 }));
+
+vi.mock(
+  "back-end/src/services/notificationCards/renderNotificationCard",
+  () => ({
+    renderNotificationCard: vi.fn(),
+  }),
+);
 
 vi.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgObject: vi.fn(),
@@ -68,18 +95,18 @@ vi.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
 
 const getSlackWorkspaceConnectionByTeamId = vi.fn();
 
-const runAgendaJob = async () => {
-  const job = {
-    attrs: {
-      data: {
-        eventId: "event-1",
-        eventWebHookId: "webhook-1",
-        retryCount: 0,
-      },
+const createJob = () => ({
+  attrs: {
+    data: {
+      eventId: "event-1",
+      eventWebHookId: "webhook-1",
+      retryCount: 0,
     },
-    save: vi.fn(),
-  };
+  },
+  save: vi.fn(),
+});
 
+const runAgendaJob = async (job = createJob()) => {
   await (
     EventWebHookNotifier as unknown as {
       handleAgendaJob: (job: typeof job) => Promise<void>;
@@ -92,20 +119,25 @@ const runAgendaJob = async () => {
 const setWebhook = ({
   url,
   slack,
+  notificationSettings,
+  enabled = true,
 }: {
   url: string;
   slack?: { channelId: string; teamId?: string };
+  notificationSettings?: NotificationSettings;
+  enabled?: boolean;
 }) => {
   vi.mocked(getEventWebHookById).mockResolvedValue({
     id: "webhook-1",
     organizationId: "org-1",
-    enabled: true,
+    enabled,
     payloadType: "slack",
     method: "POST",
     url,
     signingKey: "signing-key",
     headers: {},
     slack,
+    notificationSettings,
   });
 };
 
@@ -126,6 +158,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       text: "Feature updated",
       blocks: [],
     });
+    vi.mocked(renderNotificationCard).mockResolvedValue(null);
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue(null);
     vi.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
       models: {
@@ -145,6 +178,73 @@ describe("Slack EventWebHook delivery compatibility", () => {
       stringBody: "ok",
     });
   });
+
+  it.each(eventWebHookPayloadTypes)(
+    "suppresses bookkeeping updates for %s subscriptions when enabled",
+    async (payloadType) => {
+      setWebhook({ url: "https://relay.example.com/growthbook" });
+      const webhook = await getEventWebHookById("webhook-1", "org-1");
+      vi.mocked(getEventWebHookById).mockResolvedValue({
+        ...webhook,
+        payloadType,
+        excludeBookkeepingUpdates: true,
+      });
+      vi.mocked(getEvent).mockResolvedValue({
+        id: "event-1",
+        organizationId: "org-1",
+        event: "experiment.updated",
+        version: 1,
+        data: {
+          event: "experiment.updated",
+          data: {
+            object: { id: "exp-1", dateUpdated: "today" },
+            previous_attributes: { dateUpdated: "yesterday" },
+            changes: { added: {}, removed: {}, modified: [] },
+          },
+        },
+      });
+
+      const job = await runAgendaJob();
+
+      expect(cancellableFetch).not.toHaveBeenCalled();
+      expect(postSlackMessageResult).not.toHaveBeenCalled();
+      expect(renderNotificationCard).not.toHaveBeenCalled();
+      expect(updateEventWebHookStatus).not.toHaveBeenCalled();
+      expect(createEventWebHookLog).not.toHaveBeenCalled();
+      expect(job.save).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([{}, { excludeBookkeepingUpdates: false }])(
+    "delivers bookkeeping updates without an enabled suppression policy: %j",
+    async (policy) => {
+      setWebhook({ url: "https://relay.example.com/growthbook-slack" });
+      const webhook = await getEventWebHookById("webhook-1", "org-1");
+      vi.mocked(getEventWebHookById).mockResolvedValue({
+        ...webhook,
+        ...policy,
+      });
+      vi.mocked(getEvent).mockResolvedValue({
+        id: "event-1",
+        organizationId: "org-1",
+        event: "experiment.updated",
+        version: 1,
+        data: {
+          event: "experiment.updated",
+          data: {
+            object: { id: "exp-1", dateUpdated: "today" },
+            previous_attributes: { dateUpdated: "yesterday" },
+            changes: { added: {}, removed: {}, modified: [] },
+          },
+        },
+      });
+
+      await runAgendaJob();
+
+      expect(cancellableFetch).toHaveBeenCalledTimes(1);
+      expect(updateEventWebHookStatus).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("preserves legacy incoming-webhook delivery", async () => {
     const url = "https://hooks.slack.com/services/T000/B000/legacy";
@@ -228,5 +328,442 @@ describe("Slack EventWebHook delivery compatibility", () => {
       }),
     );
     expect(job.save).toHaveBeenCalled();
+  });
+
+  it("does not enter card rendering for text-only notifications", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+      notificationSettings: { type: "text" },
+    });
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+      teamId: "T123",
+      encryptedBotAccessToken: "xoxb-token",
+    });
+    vi.mocked(postSlackMessageResult).mockResolvedValue({
+      ok: true,
+      ts: "123.456",
+      error: null,
+    });
+
+    await runAgendaJob();
+
+    expect(renderNotificationCard).not.toHaveBeenCalled();
+    expect(uploadSlackImageFile).not.toHaveBeenCalled();
+    expect(postSlackMessageResult).toHaveBeenCalled();
+  });
+
+  it("does not deliver a subscription disabled after it was queued", async () => {
+    setWebhook({ url: SLACK_WORKSPACE_PLACEHOLDER_URL, enabled: false });
+
+    await runAgendaJob();
+
+    expect(renderNotificationCard).not.toHaveBeenCalled();
+    expect(getSlackMessageForNotificationEvent).not.toHaveBeenCalled();
+    expect(postSlackMessageResult).not.toHaveBeenCalled();
+    expect(cancellableFetch).not.toHaveBeenCalled();
+    expect(updateEventWebHookStatus).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    "keeps ignored events silent with workspace credentials = %s",
+    async (hasCredentials) => {
+      setWebhook({
+        url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+        slack: { channelId: "C123", teamId: "T123" },
+      });
+      if (hasCredentials) {
+        getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+          encryptedBotAccessToken: "xoxb-token",
+        });
+      }
+      vi.mocked(getSlackMessageForNotificationEvent).mockResolvedValue(null);
+
+      const job = await runAgendaJob();
+
+      expect(postSlackMessageResult).not.toHaveBeenCalled();
+      expect(updateEventWebHookStatus).not.toHaveBeenCalled();
+      expect(createEventWebHookLog).not.toHaveBeenCalled();
+      expect(job.save).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps unversioned events on the legacy text path", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+    });
+    vi.mocked(getEvent).mockResolvedValue({
+      id: "event-1",
+      organizationId: "org-1",
+      event: "feature.updated",
+      data: {},
+    });
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+      encryptedBotAccessToken: "xoxb-token",
+    });
+    vi.mocked(getSlackMessageForLegacyNotificationEvent).mockReturnValue({
+      text: "Legacy event",
+      blocks: [],
+    });
+    vi.mocked(postSlackMessageResult).mockResolvedValue({
+      ok: true,
+      ts: "123.456",
+      error: null,
+    });
+
+    await runAgendaJob();
+
+    expect(renderNotificationCard).not.toHaveBeenCalled();
+    expect(postSlackMessageResult).toHaveBeenCalledWith({
+      token: "xoxb-token",
+      channel: "C123",
+      text: "Legacy event",
+      blocks: [],
+    });
+  });
+
+  it("records missing workspace credentials without attempting delivery", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+    });
+
+    const job = await runAgendaJob();
+
+    expect(renderNotificationCard).not.toHaveBeenCalled();
+    expect(postSlackMessageResult).not.toHaveBeenCalled();
+    expect(cancellableFetch).not.toHaveBeenCalled();
+    expect(updateEventWebHookStatus).toHaveBeenCalledWith(
+      "webhook-1",
+      "org-1",
+      {
+        state: "error",
+        error: expect.stringContaining("no bot token or channel"),
+      },
+    );
+    expect(job.save).toHaveBeenCalled();
+  });
+
+  it("delivers an image even when the text builder does not support the event", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+      notificationSettings: { type: "image", cardFormat: "light" },
+    });
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+      teamId: "T123",
+      encryptedBotAccessToken: "xoxb-token",
+    });
+    vi.mocked(renderNotificationCard).mockResolvedValue({
+      png: Buffer.from("png"),
+      altText: "Checkout test - Experiment stopped",
+      objectUrl: "http://app/experiment/exp-1",
+      objectName: "Checkout test",
+      ownerEmail: "owner@example.com",
+    });
+    vi.mocked(uploadSlackImageFile).mockResolvedValue("F123");
+    vi.mocked(getSlackMessageForNotificationEvent).mockReturnValue(null);
+
+    await runAgendaJob();
+
+    expect(renderNotificationCard).toHaveBeenCalledWith(
+      {},
+      "light",
+      expect.any(Object),
+    );
+    expect(getSlackMessageForNotificationEvent).not.toHaveBeenCalled();
+    // The file is shared on upload; its message is the small context footer,
+    // with the plain caption as the fallback if Slack rejects the blocks.
+    const footer =
+      "<http://app/experiment/exp-1|Checkout test> | Owner: owner@example.com";
+    expect(uploadSlackImageFile).toHaveBeenCalledWith({
+      token: "xoxb-token",
+      png: Buffer.from("png"),
+      filename: "notification-card.png",
+      title: "Checkout test - Experiment stopped",
+      channelId: "C123",
+      blocks: [
+        { type: "context", elements: [{ type: "mrkdwn", text: footer }] },
+      ],
+      initialComment: footer,
+    });
+    expect(postSlackMessageResult).not.toHaveBeenCalled();
+    expect(updateEventWebHookStatus).toHaveBeenCalledWith(
+      "webhook-1",
+      "org-1",
+      { state: "success", responseBody: "F123" },
+    );
+    expect(createEventWebHookLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({ text: footer }),
+      }),
+    );
+  });
+
+  it("falls back to text when the workspace cannot upload files", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+    });
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+      teamId: "T123",
+      encryptedBotAccessToken: "xoxb-token",
+    });
+    vi.mocked(renderNotificationCard).mockResolvedValue({
+      png: Buffer.from("png"),
+      altText: "Checkout test - Health issue",
+      objectUrl: "http://app/experiment/exp-1",
+      objectName: "Checkout test",
+    });
+    vi.mocked(uploadSlackImageFile).mockResolvedValue(null);
+    vi.mocked(postSlackMessageResult).mockResolvedValue({
+      ok: true,
+      ts: "123.456",
+      error: null,
+    });
+
+    await runAgendaJob();
+
+    expect(uploadSlackImageFile).toHaveBeenCalled();
+    expect(postSlackMessageResult).toHaveBeenCalledWith({
+      token: "xoxb-token",
+      channel: "C123",
+      text: "Feature updated",
+      blocks: [],
+    });
+    expect(updateEventWebHookStatus).toHaveBeenCalledWith(
+      "webhook-1",
+      "org-1",
+      { state: "success", responseBody: "123.456" },
+    );
+  });
+
+  it("escapes caption text without escaping the link or plain file title", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+    });
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+      encryptedBotAccessToken: "xoxb-token",
+    });
+    vi.mocked(renderNotificationCard).mockResolvedValue({
+      png: Buffer.from("png"),
+      altText: "Checkout <v2> & test - Health issue",
+      objectUrl: "http://app/experiment/exp-1",
+      objectName: "Checkout <v2> & test",
+      ownerEmail: "owner <!channel>@example.com",
+    });
+    vi.mocked(uploadSlackImageFile).mockResolvedValue("F123");
+
+    await runAgendaJob();
+
+    expect(uploadSlackImageFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Checkout <v2> & test - Health issue",
+        initialComment:
+          "<http://app/experiment/exp-1|Checkout &lt;v2&gt; &amp; test> | Owner: owner &lt;!channel&gt;@example.com",
+      }),
+    );
+    expect(postSlackMessageResult).not.toHaveBeenCalled();
+  });
+
+  it.each([1, undefined])(
+    "preserves the separate legacy Slack handler for event version %s",
+    async (version) => {
+      const actualMessages = await vi.importActual<
+        typeof import("back-end/src/events/handlers/slack/slack-event-handler-utils")
+      >("back-end/src/events/handlers/slack/slack-event-handler-utils");
+      const object = {
+        type: "underpowered",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+      };
+      const notification = {
+        id: "event-1",
+        organizationId: "org-1",
+        version,
+        event: "experiment.warning",
+        data: {
+          event: "experiment.warning",
+          data: version ? { object } : object,
+          tags: ["checkout"],
+          projects: ["project-1"],
+          environments: ["production"],
+        },
+      };
+      const integration = {
+        id: "slack-1",
+        name: "Release alerts",
+        slackIncomingWebHook: "https://hooks.slack.com/services/legacy",
+        environments: ["production"],
+      };
+      vi.mocked(getSlackIntegrationsForFilters).mockResolvedValue([
+        integration,
+        { ...integration, id: "slack-2", environments: ["staging"] },
+      ]);
+      const expected =
+        await actualMessages.getSlackDataForNotificationEvent(notification);
+      if (!expected) throw new Error("Expected a legacy Slack notification");
+
+      await slackEventHandler(
+        notification,
+        getContextForAgendaJobByOrgObject({ id: "org-1" }),
+      );
+
+      expect(getSlackIntegrationsForFilters).toHaveBeenCalledWith({
+        organizationId: "org-1",
+        eventName: "experiment.warning",
+        tags: ["checkout"],
+        projects: ["project-1"],
+      });
+      expect(cancellableFetch).toHaveBeenCalledTimes(1);
+      expect(cancellableFetch).toHaveBeenCalledWith(
+        integration.slackIncomingWebHook,
+        expect.objectContaining({
+          body: JSON.stringify({
+            ...expected.slackMessage,
+            blocks: [
+              ...expected.slackMessage.blocks,
+              actualMessages.getSlackIntegrationContextBlock(integration),
+            ],
+          }),
+        }),
+        expect.any(Object),
+      );
+      expect(renderNotificationCard).not.toHaveBeenCalled();
+      expect(postSlackMessageResult).not.toHaveBeenCalled();
+    },
+  );
+
+  describe.each([
+    SLACK_WORKSPACE_PLACEHOLDER_URL,
+    "https://hooks.slack.com/services/T000/B000/legacy",
+  ])("real text builders via %s", (url) => {
+    const experiment = { experimentId: "exp-1", experimentName: "Checkout" };
+    const warnings = [
+      { type: "no-data" },
+      { type: "underpowered" },
+      { type: "auto-update", success: false },
+      { type: "multiple-exposures", usersCount: 42, percent: 0.1 },
+      {
+        type: "scheduled-status-update-failed",
+        scheduledStatusUpdateType: "stop",
+        attempts: 3,
+        maxAttempts: 3,
+        willRetry: false,
+        reason: "No results",
+      },
+    ];
+
+    it.each([
+      { event: "feature.updated", object: { id: "checkout-flag" } },
+      {
+        event: "feature.revision.approved",
+        object: { featureId: "checkout-flag", version: 2 },
+      },
+      { event: "savedGroup.updated", object: { id: "group-1", name: "Beta" } },
+      {
+        event: "constant.updated",
+        object: { key: "timeout", name: "Timeout" },
+      },
+      {
+        event: "config.updated",
+        object: { key: "checkout", name: "Checkout" },
+      },
+      {
+        event: "experiment.created",
+        object: { id: "exp-1", name: "Checkout" },
+      },
+      ...warnings.map((warning) => ({
+        event: "experiment.warning",
+        object: { ...experiment, ...warning },
+      })),
+      ...["ship", "rollback", "review"].map((decision) => ({
+        event: `experiment.decision.${decision}`,
+        object: { ...experiment, source: "analysis" },
+      })),
+      {
+        event: "experiment.info.significance",
+        object: {
+          ...experiment,
+          metricId: "metric-1",
+          metricName: "Conversion",
+          variationId: "variation-1",
+          variationName: "Treatment",
+          statsEngine: "bayesian",
+          criticalValue: 0.98,
+          winning: true,
+        },
+      },
+      {
+        event: "experiment.info.scheduled-status-update",
+        object: { ...experiment, action: "stopped", shipped: false },
+      },
+      {
+        event: "feature.saferollout.ship",
+        object: {
+          featureId: "checkout-flag",
+          safeRolloutId: "rollout-1",
+          environment: "production",
+        },
+      },
+      { event: "webhook.test", object: { webhookId: "webhook-1" } },
+    ])("preserves $event text and blocks", async ({ event, object }) => {
+      const actualMessages = await vi.importActual<
+        typeof import("back-end/src/events/handlers/slack/slack-event-handler-utils")
+      >("back-end/src/events/handlers/slack/slack-event-handler-utils");
+      const actualCards = await vi.importActual<
+        typeof import("back-end/src/services/notificationCards/renderNotificationCard")
+      >("back-end/src/services/notificationCards/renderNotificationCard");
+      vi.mocked(getSlackMessageForNotificationEvent).mockImplementation(
+        actualMessages.getSlackMessageForNotificationEvent,
+      );
+      vi.mocked(renderNotificationCard).mockImplementation(
+        actualCards.renderNotificationCard,
+      );
+      const notification = {
+        id: "event-1",
+        organizationId: "org-1",
+        event,
+        version: 1,
+        data: { event, data: { object }, user: { type: "system" } },
+      };
+      vi.mocked(getEvent).mockResolvedValue(notification);
+      setWebhook({ url, slack: { channelId: "C123", teamId: "T123" } });
+      getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+        encryptedBotAccessToken: "xoxb-token",
+      });
+      vi.mocked(postSlackMessageResult).mockResolvedValue({
+        ok: true,
+        ts: "123.456",
+        error: null,
+      });
+      const expected = await actualMessages.getSlackMessageForNotificationEvent(
+        notification.data,
+        notification.id,
+      );
+      expect(expected?.text).toBeTruthy();
+      expect(expected?.blocks.length).toBeGreaterThan(0);
+
+      await runAgendaJob();
+
+      expect(uploadSlackImageFile).not.toHaveBeenCalled();
+      if (url === SLACK_WORKSPACE_PLACEHOLDER_URL) {
+        expect(postSlackMessageResult).toHaveBeenCalledWith({
+          token: "xoxb-token",
+          channel: "C123",
+          ...expected,
+        });
+        expect(cancellableFetch).not.toHaveBeenCalled();
+      } else {
+        expect(postSlackMessageResult).not.toHaveBeenCalled();
+        expect(cancellableFetch).toHaveBeenCalledWith(
+          url,
+          expect.objectContaining({ body: JSON.stringify(expected) }),
+          expect.any(Object),
+        );
+      }
+    });
   });
 });

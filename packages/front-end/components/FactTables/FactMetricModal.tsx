@@ -30,6 +30,7 @@ import {
   getAggregateFilters,
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
+  reconcileInlineFilterPrompts,
 } from "shared/experiments";
 import { createLikeStringMatchFn } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
@@ -57,6 +58,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
+import Button from "@/ui/Button";
 import Switch from "@/ui/Switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -604,7 +606,11 @@ function ColumnRefSelector({
             setValue={(rowFilters) =>
               setValue({
                 ...value,
-                rowFilters,
+                rowFilters: reconcileInlineFilterPrompts(
+                  factTable,
+                  value.rowFilters || [],
+                  rowFilters,
+                ),
               })
             }
           />
@@ -671,15 +677,14 @@ function ColumnRefSelector({
                 </div>
               ) : (
                 <div className="py-1">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setAddUserFilter(true);
-                    }}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<PiPlus size={14} />}
+                    onClick={() => setAddUserFilter(true)}
                   >
-                    <PiPlus /> Add
-                  </a>
+                    Add filter
+                  </Button>
                 </div>
               )}
             </div>

@@ -1,6 +1,9 @@
 import { vi } from "vitest";
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 import {
   IncrementalRefreshModel,
   COLLECTION_NAME,
@@ -15,7 +18,6 @@ const context = {
 } as unknown as Context;
 
 describe("IncrementalRefreshModel", () => {
-  let mongod: MongoMemoryServer;
   let model: IncrementalRefreshModel;
 
   const collection = () => mongoose.connection.db!.collection(COLLECTION_NAME);
@@ -59,13 +61,11 @@ describe("IncrementalRefreshModel", () => {
   }
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestMongo();
   }, 60000);
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
+    await disconnectTestMongo();
   });
 
   beforeEach(async () => {

@@ -1473,6 +1473,7 @@ export default function EditSavedGroupPage() {
                       value={filter}
                       onChange={(e) => {
                         setFilter(e.target.value);
+                        setCurrentPage(1);
                       }}
                     />
                   </Box>

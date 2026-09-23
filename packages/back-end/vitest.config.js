@@ -22,6 +22,7 @@ export default defineConfig({
     chaiConfig: { truncateThreshold: 0 },
     environment: "node",
     include: ["**/test/**/*.test.{ts,js}"],
+    globalSetup: ["./test/globalSetup.ts"],
     setupFiles: ["./test/setup.ts"],
     ...(process.env.CI ? {} : { maxWorkers: "50%" }),
     sequence: { hooks: "list" },

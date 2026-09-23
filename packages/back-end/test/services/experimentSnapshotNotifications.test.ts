@@ -1,0 +1,116 @@
+import { vi } from "vitest";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { Context } from "back-end/src/models/BaseModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { notifyExperimentUpdateFailed } from "back-end/src/services/experimentNotifications";
+import { notifySnapshotUpdateFailure } from "back-end/src/services/experimentSnapshotNotifications";
+
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentById: vi.fn(),
+}));
+vi.mock("back-end/src/services/experimentNotifications", () => ({
+  notifyExperimentUpdateFailed: vi.fn(),
+}));
+const context = { org: { id: "org" } } as Context;
+const experiment = {
+  id: "exp",
+  status: "running",
+  phases: [{}, {}],
+} as ExperimentInterface;
+const snapshot = {
+  id: "snap",
+  experiment: "exp",
+  phase: 1,
+  type: "standard",
+  status: "error",
+  analyses: [],
+} as unknown as ExperimentSnapshotInterface;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(getExperimentById).mockResolvedValue(experiment);
+});
+
+it.each(["query", "analysis", "no-queries"] as const)(
+  "notifies for persisted %s failures",
+  async (failureCause) => {
+    await notifySnapshotUpdateFailure({ context, snapshot, failureCause });
+    expect(notifyExperimentUpdateFailed).toHaveBeenCalledWith({
+      context,
+      experiment,
+      cause: failureCause,
+    });
+  },
+);
+
+it("treats metric compute failures as analysis failures even when the snapshot succeeded", async () => {
+  await notifySnapshotUpdateFailure({
+    context,
+    snapshot: {
+      ...snapshot,
+      status: "success",
+      analyses: [
+        {
+          results: [
+            { variations: [{ metrics: { revenue: { computeFailed: true } } }] },
+          ],
+        },
+      ],
+    } as unknown as ExperimentSnapshotInterface,
+  });
+  expect(notifyExperimentUpdateFailed).toHaveBeenCalledWith({
+    context,
+    experiment,
+    cause: "analysis",
+  });
+});
+
+it.each([
+  { status: "running" },
+  { status: "success" },
+  { report: "report" },
+  { type: "exploratory" },
+] as Partial<ExperimentSnapshotInterface>[])(
+  "ignores ineligible snapshots %j",
+  async (overrides) => {
+    await notifySnapshotUpdateFailure({
+      context,
+      snapshot: { ...snapshot, ...overrides },
+    });
+    expect(getExperimentById).not.toHaveBeenCalled();
+    expect(notifyExperimentUpdateFailed).not.toHaveBeenCalled();
+  },
+);
+
+it("does not notify cancellations or reset the existing failure period", async () => {
+  await notifySnapshotUpdateFailure({
+    context,
+    snapshot,
+    failureCause: "cancelled",
+  });
+  expect(notifyExperimentUpdateFailed).not.toHaveBeenCalled();
+});
+
+it("ignores failures from snapshots of earlier phases", async () => {
+  await notifySnapshotUpdateFailure({
+    context,
+    snapshot: { ...snapshot, phase: 0 },
+  });
+  expect(notifyExperimentUpdateFailed).not.toHaveBeenCalled();
+});
+
+it("ignores deleted experiments", async () => {
+  vi.mocked(getExperimentById).mockResolvedValue(null);
+  await notifySnapshotUpdateFailure({ context, snapshot });
+  expect(notifyExperimentUpdateFailed).not.toHaveBeenCalled();
+});
+
+it("does not fail snapshot finalization if notification fails", async () => {
+  vi.mocked(notifyExperimentUpdateFailed).mockRejectedValueOnce(
+    new Error("Notification failed"),
+  );
+  await expect(
+    notifySnapshotUpdateFailure({ context, snapshot }),
+  ).resolves.toBeUndefined();
+});

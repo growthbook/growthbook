@@ -44,6 +44,23 @@ const getValidState = () => {
 };
 
 describe("Slack OAuth validation", () => {
+  it("requests notification, assistant, and unfurl bot scopes without user-token scopes", () => {
+    const url = new URL(getSlackOAuthAuthorizeUrl(context));
+    expect(url.searchParams.get("scope")?.split(",").sort()).toEqual([
+      "app_mentions:read",
+      "assistant:write",
+      "channels:join",
+      "channels:read",
+      "chat:write",
+      "files:write",
+      "groups:read",
+      "im:history",
+      "links:read",
+      "links:write",
+    ]);
+    expect(url.searchParams.has("user_scope")).toBe(false);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

@@ -1,5 +1,5 @@
 import type { DataType } from "shared/types/integrations";
-import { createLikeStringMatchFn } from "shared/sql";
+import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import {
   defaultPercentileCapSelectClause,
@@ -108,6 +108,7 @@ const bigQueryEscapeStringLiteral = (value: string) =>
 
 export const bigQueryDialect: SqlDialect = {
   ...baseDialect,
+  concatStrings: (parts: string[]) => parts.join(" || "),
   identifierQuote: "`",
   formatDialect: "bigquery",
   addTime: (
@@ -137,7 +138,7 @@ export const bigQueryDialect: SqlDialect = {
   // DATETIME column is its own wall-clock value, so it round-trips exactly.
   exactTimestampLiteral: (quoted: string) => quoted,
   castToString: (col: string) => `cast(${col} as string)`,
-  stringMatch: createLikeStringMatchFn({
+  ...createLikeMatchFns({
     escapeStringLiteral: bigQueryEscapeStringLiteral,
     emitEscapeClause: false,
   }),
@@ -183,9 +184,12 @@ export const bigQueryDialect: SqlDialect = {
       : `${multiplier} * ${quantile}`;
     return `APPROX_QUANTILES(${value}, ${multiplier} IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))]`;
   },
+  // Needed so products of per-unit INT64 totals (e.g. CUPED cross products)
+  // don't overflow in the statistics CTEs.
+  castToFloat: (col: string) => `CAST(${col} AS FLOAT64)`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
-    return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
+    return isNumeric ? bigQueryDialect.castToFloat(raw) : raw;
   },
   // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
   arrayAggSorted: (col: string) =>

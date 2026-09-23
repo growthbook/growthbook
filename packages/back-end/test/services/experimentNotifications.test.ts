@@ -1,9 +1,9 @@
 import { vi } from "vitest";
 import { memoizeNotification } from "back-end/src/services/experimentNotifications";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
 
 vi.mock("back-end/src/models/ExperimentModel", () => ({
-  updateExperiment: vi.fn(),
+  setExperimentNotificationState: vi.fn(),
 }));
 
 describe("memoizeNotification", () => {
@@ -18,8 +18,9 @@ describe("memoizeNotification", () => {
     });
 
     expect(dispatch).toHaveBeenCalled();
-    expect(updateExperiment).toHaveBeenCalledWith({
-      changes: { pastNotifications: ["foo"] },
+    expect(setExperimentNotificationState).toHaveBeenCalledWith({
+      type: "foo",
+      triggered: true,
       context: "da-context",
       experiment: { id: "da-experiment" },
     });
@@ -36,22 +37,25 @@ describe("memoizeNotification", () => {
     });
 
     expect(dispatch).not.toHaveBeenCalled();
-    expect(updateExperiment).not.toHaveBeenCalledWith();
+    expect(setExperimentNotificationState).not.toHaveBeenCalledWith();
   });
 
-  it("calls the handler when notification is not triggered and it was previously dispatched", async () => {
+  it("clears the marker without dispatching when a sent notification ends", async () => {
     const dispatch = vi.fn();
-    await memoizeNotification({
-      context: "da-context",
-      experiment: { id: "da-experiment", pastNotifications: ["foo", "bla"] },
+    await expect(
+      memoizeNotification({
+        context: "da-context",
+        experiment: { id: "da-experiment", pastNotifications: ["foo", "bla"] },
+        type: "foo",
+        triggered: false,
+        dispatch,
+      }),
+    ).resolves.toBe(false);
+
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(setExperimentNotificationState).toHaveBeenCalledWith({
       type: "foo",
       triggered: false,
-      dispatch,
-    });
-
-    expect(dispatch).toHaveBeenCalled();
-    expect(updateExperiment).toHaveBeenCalledWith({
-      changes: { pastNotifications: ["bla"] },
       context: "da-context",
       experiment: { id: "da-experiment", pastNotifications: ["foo", "bla"] },
     });
@@ -68,6 +72,6 @@ describe("memoizeNotification", () => {
     });
 
     expect(dispatch).not.toHaveBeenCalled();
-    expect(updateExperiment).not.toHaveBeenCalledWith();
+    expect(setExperimentNotificationState).not.toHaveBeenCalledWith();
   });
 });

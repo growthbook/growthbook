@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 
 type Doc = { id: string; value: string };
@@ -46,5 +47,19 @@ describe("overlayDocsById", () => {
       { id: "a", value: "live-a" },
       { id: "b", value: "live-b" },
     ]);
+  });
+  it("projects both replaced and newly added overlay documents", () => {
+    const overlay = new Map([
+      ["a", { id: "a", value: "proposed-a", values: ["large list"] }],
+      ["c", { id: "c", value: "proposed-c", values: ["another list"] }],
+    ]);
+    const project = vi.fn(({ id, value }: Doc) => ({ id, value }));
+    expect(overlayDocsById(docs, overlay, project)).toEqual([
+      { id: "a", value: "proposed-a" },
+      { id: "b", value: "live-b" },
+      { id: "c", value: "proposed-c" },
+    ]);
+    expect(project).toHaveBeenCalledTimes(2);
+    expect(overlay.get("a")?.values).toEqual(["large list"]);
   });
 });

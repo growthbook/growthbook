@@ -426,6 +426,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("A retry has been scheduled."),
       }),
+      "cancelled",
     );
   });
 
@@ -441,6 +442,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("Please try updating results again."),
       }),
+      "query",
     );
   });
 
@@ -476,6 +478,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("queries were never started"),
       }),
+      "query",
     );
     expect(markPendingQueriesAsFailed).toHaveBeenCalledWith(
       context,
@@ -522,6 +525,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("queries were never started"),
       }),
+      "query",
     );
   });
 

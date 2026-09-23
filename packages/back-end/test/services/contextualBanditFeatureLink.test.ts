@@ -1,4 +1,4 @@
-import { MockedFunction, vi } from "vitest";
+import { MockedFunction, Mock, vi } from "vitest";
 import { ContextualBanditInterface } from "shared/validators";
 import {
   ContextualBanditRefRule,
@@ -15,8 +15,10 @@ import {
 import {
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
+  revisionRequiresReview,
 } from "back-end/src/services/features";
 import {
+  getLinkageSyncRevisionSummaries,
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -26,7 +28,7 @@ import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureCo
 vi.mock("back-end/src/services/features", () => ({
   generateRuleId: vi.fn(() => "fr_new"),
   getDraftRevision: vi.fn(),
-  assertCanAutoPublish: vi.fn(),
+  revisionRequiresReview: vi.fn().mockResolvedValue(false),
   getLiveAndBaseRevisionsForFeature: vi.fn(),
   queueSDKPayloadRefresh: vi.fn(),
 }));
@@ -89,6 +91,11 @@ const updateRevisionMock = updateRevision as MockedFunction<
   typeof updateRevision
 >;
 const getRevisionMock = getRevision as MockedFunction<typeof getRevision>;
+const getLinkageSyncRevisionSummariesMock =
+  getLinkageSyncRevisionSummaries as Mock;
+const revisionRequiresReviewMock = revisionRequiresReview as MockedFunction<
+  typeof revisionRequiresReview
+>;
 const publishRevisionMock = publishRevision as MockedFunction<
   typeof publishRevision
 >;
@@ -108,6 +115,7 @@ const cbModel = {
   applyLinkageDelta: vi.fn(),
   setLinkageState: vi.fn(),
   removePendingFeatureDraft: vi.fn(),
+  activatePendingVariationsForFeature: vi.fn(),
 };
 
 /** No linkage write may originate here, whichever method it would have used. */
@@ -132,7 +140,9 @@ function makeContext(): ReqContext {
         throw new Error("Permission denied");
       }),
     },
+    hasPremiumFeature: vi.fn().mockReturnValue(false),
     models: { contextualBandits: cbModel },
+    logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
   } as unknown as ReqContext;
 }
 
@@ -222,6 +232,11 @@ function changesFromUpdateRevision(): Partial<FeatureRevisionInterface> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getLinkageSyncRevisionSummariesMock.mockResolvedValue({
+    openDrafts: [],
+    liveRevision: null,
+  });
+  getRevisionMock.mockResolvedValue(null);
   updateRevisionMock.mockImplementation(
     async (_context, _feature, revision, changes) =>
       ({ ...revision, ...changes }) as FeatureRevisionInterface,
@@ -387,7 +402,12 @@ describe("updateContextualBanditFeatureRule", () => {
     });
     expect(changes.rules?.[1]).toEqual(otherBanditRule);
 
-    expect(result).toEqual({ version: 4, published: false, ruleIds: ["fr_1"] });
+    expect(result).toEqual({
+      version: 4,
+      published: false,
+      pendingApproval: false,
+      ruleIds: ["fr_1"],
+    });
     expectNoDirectLinkageWrites();
   });
 
@@ -491,6 +511,72 @@ describe("unlinkFeatureFromContextualBandit", () => {
       removedRuleIds: ["fr_1"],
       revisionVersion: 4,
       published: false,
+      stagedDraftVersions: [],
+    });
+  });
+
+  it("also strips the rule from every other open draft holding it", async () => {
+    // Linkage is derived from live rules AND open drafts, so a leftover draft
+    // would re-link the feature and the unlink would look like a no-op.
+    const liveRule = cbRefRule("fr_1", "cb_1");
+    getDraftRevisionMock.mockResolvedValue(
+      makeRevision({ version: 4, rules: [liveRule] }),
+    );
+    getLinkageSyncRevisionSummariesMock.mockResolvedValue({
+      openDrafts: [
+        { version: 4, rules: [liveRule] },
+        { version: 5, rules: [cbRefRule("fr_9", "cb_1")] },
+        { version: 6, rules: [cbRefRule("fr_8", "cb_2")] },
+      ],
+      liveRevision: { version: 3, rules: [liveRule] },
+    });
+    getRevisionMock.mockImplementation(async ({ version }) =>
+      version === 5
+        ? makeRevision({ version: 5, rules: [cbRefRule("fr_9", "cb_1")] })
+        : null,
+    );
+
+    const result = await unlinkFeatureFromContextualBandit({
+      context: makeContext(),
+      contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+      featureId: "feat_1",
+      feature: makeFeature({ rules: [liveRule] }),
+      eventAudit: { type: "dashboard" },
+      audit,
+    });
+
+    // Draft 4 is the one just edited, draft 6 belongs to another bandit.
+    expect(result.stagedDraftVersions).toEqual([5]);
+    const sweptChanges = updateRevisionMock.mock.calls[1][3] as {
+      rules: FeatureRule[];
+    };
+    expect(sweptChanges.rules).toEqual([]);
+  });
+
+  it("stages the removal instead of losing it when the publish needs approval", async () => {
+    const liveRule = cbRefRule("fr_1", "cb_1");
+    getDraftRevisionMock.mockResolvedValue(makeRevision({ rules: [liveRule] }));
+    // Review required and the staged draft isn't approved -> stays staged.
+    revisionRequiresReviewMock.mockResolvedValueOnce(true);
+
+    const result = await unlinkFeatureFromContextualBandit({
+      context: makeContext(),
+      contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+      featureId: "feat_1",
+      feature: makeFeature({ rules: [liveRule] }),
+      eventAudit: { type: "dashboard" },
+      audit,
+      autoPublish: true,
+    });
+
+    // The rule is already stripped on the draft, so the draft is kept (not
+    // discarded) and reported back as unpublished.
+    expect(publishRevisionMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      removedRuleIds: ["fr_1"],
+      revisionVersion: 4,
+      published: false,
+      stagedDraftVersions: [],
     });
   });
 
@@ -519,6 +605,7 @@ describe("unlinkFeatureFromContextualBandit", () => {
       removedRuleIds: [],
       revisionVersion: null,
       published: false,
+      stagedDraftVersions: [],
     });
   });
 

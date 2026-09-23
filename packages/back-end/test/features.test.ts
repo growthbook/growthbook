@@ -3547,6 +3547,45 @@ describe("generateRuleId invariant", () => {
 // preventing variation hopping when a rule transitions between states.
 // ---------------------------------------------------------------------------
 
+describe("addIdsToFlatRules — schedule timestamp canonicalization", () => {
+  const withSchedule = (start: string | null, end: string | null) =>
+    [
+      {
+        type: "force" as const,
+        id: "fr_1",
+        description: "",
+        enabled: true,
+        value: "true",
+        allEnvironments: true,
+        scheduleRules: [
+          { timestamp: start, enabled: true },
+          { timestamp: end, enabled: false },
+        ],
+      },
+    ] as Parameters<typeof addIdsToFlatRules>[0];
+
+  it("stores every accepted RFC 3339 spelling as toISOString()", () => {
+    const rules = withSchedule(
+      "2030-01-01T02:00:00+02:00",
+      "2030-06-01T00:00Z",
+    );
+    addIdsToFlatRules(rules, "feat_1");
+    expect(rules[0].scheduleRules).toEqual([
+      { timestamp: "2030-01-01T00:00:00.000Z", enabled: true },
+      { timestamp: "2030-06-01T00:00:00.000Z", enabled: false },
+    ]);
+  });
+
+  it("leaves null and unparseable timestamps untouched", () => {
+    const rules = withSchedule(null, "not a date");
+    addIdsToFlatRules(rules, "feat_1");
+    expect(rules[0].scheduleRules).toEqual([
+      { timestamp: null, enabled: true },
+      { timestamp: "not a date", enabled: false },
+    ]);
+  });
+});
+
 describe("addIdsToFlatRules — rollout seed backfill", () => {
   it("backfills seed = id for a rollout rule with no explicit seed", () => {
     const rules: FeatureInterface["rules"] = [

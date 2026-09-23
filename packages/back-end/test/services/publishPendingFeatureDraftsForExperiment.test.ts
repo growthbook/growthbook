@@ -85,6 +85,7 @@ const approvalSatisfied = {
   uncoveredApprovers: [],
   hasCoveringApproval: false,
   requiredApproverTeams: { satisfied: true, unmet: [] },
+  requiredProjectApprovers: { satisfied: true, unmet: [] },
   satisfied: true,
 };
 const approvalBlocked = {
