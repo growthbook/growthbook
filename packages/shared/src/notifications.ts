@@ -100,6 +100,29 @@ export const notificationEventMetadata = {
     description:
       "Triggered when a held ramp schedule's start is approved by a user",
   },
+  "feature.rampSchedule.actions.errorPaused": {
+    label: "Ramp schedule paused on error",
+    description:
+      "Triggered when a feature ramp schedule pauses because a step could not be applied, for example a plan the engine refuses; `reason` says why",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.stepHeld": {
+    label: "Ramp step held by a health check",
+    description:
+      "Triggered when a monitored ramp step is held by a health check (SRM, multiple exposures, no traffic, a guardrail metric that failed to compute, an unhealthy signal metric). Sent once per check per step; `reason` says why",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.paused": {
+    label: "Ramp schedule paused",
+    description:
+      "Triggered when a feature ramp schedule is paused by a user or by its monitoring policy",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.resumed": {
+    label: "Ramp schedule resumed",
+    description: "Triggered when a paused feature ramp schedule is resumed",
+    preview: true,
+  },
   "feature.revision.created": {
     label: "New draft revision",
     description: "Triggered when a new draft revision is created for a feature",
@@ -206,11 +229,47 @@ export const notificationEventMetadata = {
   "experiment.warning": {
     label: "Warnings",
     description:
-      "Triggered when a warning condition is detected on an experiment",
+      "Triggered when a warning condition is detected on an experiment, such as a sample ratio mismatch, multiple exposures, low power, no data, or a failed results update. The `type` field identifies the condition.",
     subtitle:
       "SRM, multiple exposures, no data, underpowered results, or failed updates.",
     preview: true,
     supportsCard: true,
+  },
+  "experiment.status.started": {
+    label: "Started",
+    description: "Triggered when an experiment starts or resumes running.",
+    subtitle: "Goal metrics and linked changes at launch.",
+    preview: true,
+    supportsCard: true,
+  },
+  "experiment.status.stopped": {
+    label: "Stopped",
+    description:
+      "Triggered when an experiment stops, including its result and any temporary rollout.",
+    subtitle: "The result, temporary rollout, and top goal metric.",
+    preview: true,
+    supportsCard: true,
+  },
+  "experiment.status.endingSoon": {
+    label: "Ending soon",
+    description:
+      "Triggered when a running experiment is within 3 days of its scheduled end date.",
+  },
+  "experiment.status.stale": {
+    label: "Running a long time",
+    description:
+      "Triggered when a running experiment has been active for a long time without a decision.",
+    subtitle: "The experiment has been running for longer than 90 days.",
+  },
+  "experiment.guardrailFailed": {
+    label: "Guardrail failing",
+    description:
+      "Triggered when a running experiment has a failing guardrail metric.",
+  },
+  "experiment.bandit.weightsChanged": {
+    label: "Bandit weights changed",
+    description:
+      "Triggered when a multi-armed bandit materially changes variation weights.",
   },
   "experiment.info.significance": {
     label: "Reached significance",
@@ -243,6 +302,20 @@ export const notificationEventMetadata = {
     description:
       "Triggered when an experiment has reached the desired power point, but the results may be ambiguous.",
     preview: true,
+  },
+  "holdout.created": {
+    label: "Created",
+    description: "Triggered when a holdout is created.",
+  },
+  "holdout.status.changed": {
+    label: "Status changed",
+    description:
+      "Triggered when a holdout moves between its lifecycle stages, such as running or analysis.",
+  },
+  "holdout.config.newLinkage": {
+    label: "New linkage",
+    description:
+      "Triggered when feature flags or experiments are linked to a holdout.",
   },
   "savedGroup.created": {
     label: "Created",
@@ -561,6 +634,7 @@ export const cardNotificationEventNames = publicNotificationEventNames.filter(
 
 export const notificationCategories = {
   experiment: "Experiments",
+  holdout: "Holdouts",
   feature: "Feature Flags",
   savedGroup: "Saved Groups",
   constant: "Constants",
@@ -595,6 +669,15 @@ export const notificationCategoryGroups: Record<
       ],
     },
     {
+      label: "Lifecycle",
+      options: [
+        "experiment.status.started",
+        "experiment.status.stopped",
+        "experiment.status.endingSoon",
+        "experiment.status.stale",
+      ],
+    },
+    {
       label: "Results & decisions",
       options: [
         "experiment.info.significance",
@@ -608,15 +691,26 @@ export const notificationCategoryGroups: Record<
             "experiment.decision.review",
           ],
         },
+        "experiment.bandit.weightsChanged",
       ],
     },
     {
       label: "Health & warnings",
-      options: ["experiment.warning"],
+      options: ["experiment.warning", "experiment.guardrailFailed"],
     },
     {
       label: "Schedules",
       options: ["experiment.info.scheduled-status-update"],
+    },
+  ],
+  holdout: [
+    {
+      label: "Holdout changes",
+      options: [
+        "holdout.created",
+        "holdout.status.changed",
+        "holdout.config.newLinkage",
+      ],
     },
   ],
   feature: [
@@ -682,6 +776,10 @@ export const notificationCategoryGroups: Record<
             "feature.rampSchedule.actions.step.approvalRequired",
             "feature.rampSchedule.actions.awaitingStartApproval",
             "feature.rampSchedule.actions.startApproved",
+            "feature.rampSchedule.actions.errorPaused",
+            "feature.rampSchedule.actions.stepHeld",
+            "feature.rampSchedule.actions.paused",
+            "feature.rampSchedule.actions.resumed",
           ],
         },
       ],
@@ -830,12 +928,20 @@ export const notificationCategoryPresets: Record<
 > = {
   experiment: {
     default: [
+      "experiment.status.started",
+      "experiment.status.stopped",
+      "experiment.status.endingSoon",
+      "experiment.status.stale",
       "experiment.decision.ship",
       "experiment.decision.rollback",
       "experiment.decision.review",
       "experiment.warning",
     ],
     all: eventsInCategory("experiment"),
+  },
+  holdout: {
+    default: ["holdout.status.changed", "holdout.config.newLinkage"],
+    all: eventsInCategory("holdout"),
   },
   feature: {
     default: [

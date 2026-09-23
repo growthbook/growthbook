@@ -135,7 +135,24 @@ jobs:
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
 
+      # Sentry's API drops the occasional connection: one soft attempt, then a
+      # blocking retry. Silently skipping would cost source maps and commits.
       - name: Create Sentry api release
+        id: sentry_api
+        uses: getsentry/action-release@v3
+        continue-on-error: true
+        with:
+          environment: "production"
+          sourcemaps: "./back-end-dist"
+          release: ${{ github.sha }}
+          inject: false
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: growthbook
+          SENTRY_PROJECT: api
+
+      - name: Retry Sentry api release
+        if: steps.sentry_api.outcome == 'failure'
         uses: getsentry/action-release@v3
         with:
           environment: "production"
@@ -148,6 +165,22 @@ jobs:
           SENTRY_PROJECT: api
 
       - name: Create Sentry app release
+        id: sentry_app
+        uses: getsentry/action-release@v3
+        continue-on-error: true
+        with:
+          environment: "production"
+          sourcemaps: "./front-end-dist"
+          release: ${{ github.sha }}
+          inject: false
+          url_prefix: "app:///_next"
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: growthbook
+          SENTRY_PROJECT: app
+
+      - name: Retry Sentry app release
+        if: steps.sentry_app.outcome == 'failure'
         uses: getsentry/action-release@v3
         with:
           environment: "production"

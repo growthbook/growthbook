@@ -56,18 +56,13 @@ const CARD_FORMAT_LABELS: Record<
   NotificationCardFormat,
   { label: string; description: string }
 > = {
-  compact: {
-    label: "Compact card",
-    description: "A short image highlighting the event.",
+  light: {
+    label: "Light",
+    description: "The card on a white background.",
   },
-  "compact-dark": {
-    label: "Compact dark",
-    description:
-      "A short image with a dark background and colored event header.",
-  },
-  detailed: {
-    label: "Detailed card",
-    description: "A larger image with more event details.",
+  dark: {
+    label: "Dark",
+    description: "The same card on a dark background for dark Slack themes.",
   },
 };
 
