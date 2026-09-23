@@ -81,6 +81,7 @@ const ImportExperimentList: FC<{
   );
 
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
+  const [runError, setRunError] = useState<string | null>(null);
 
   // Searching
   const filterResults = useCallback(
@@ -241,32 +242,36 @@ const ImportExperimentList: FC<{
         {datasource &&
           permissionsUtil.canRunPastExperimentQueries(datasource) && (
             <div className="col-auto">
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  await apiCall<{ id: string }>("/experiments/import", {
-                    method: "POST",
-                    body: JSON.stringify({
-                      datasource: data.experiments.datasource,
-                      force: true,
-                    }),
-                  });
-                  await mutate();
-                }}
-              >
-                <RunQueriesButton
-                  cta={
-                    data.experiments.latestData ? "Get New Data" : "Run Query"
+              <RunQueriesButton
+                cta={data.experiments.latestData ? "Get New Data" : "Run Query"}
+                cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
+                mutate={mutate}
+                model={data.experiments}
+                icon="refresh"
+                onSubmit={async () => {
+                  setRunError(null);
+                  try {
+                    await apiCall<{ id: string }>("/experiments/import", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        datasource: data.experiments.datasource,
+                        force: true,
+                      }),
+                    });
+                    await mutate();
+                  } catch (e) {
+                    setRunError(e.message);
                   }
-                  cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
-                  mutate={mutate}
-                  model={data.experiments}
-                  icon="refresh"
-                />
-              </form>
+                }}
+              />
             </div>
           )}
       </div>
+      {runError && (
+        <Callout status="error" my="3">
+          {runError}
+        </Callout>
+      )}
       {hasStarted && status === "failed" && (
         <>
           <Callout status="error" my="3">
