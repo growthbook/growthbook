@@ -6,7 +6,6 @@ import {
   FormProvider,
 } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { HoldoutInterface } from "shared/validators";
 import { PiCaretRightFill } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
 import {
@@ -32,7 +31,6 @@ import {
   getSelectableIdentifierTypes,
 } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import useApi from "@/hooks/useApi";
 import AssignmentQueryFields, {
   AssignmentQueryDriftWarning,
   useAssignmentQuerySelection,
@@ -83,6 +81,8 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
+  // A holdout's assignment query must cover every Project the holdout spans.
+  holdoutProjects?: string[];
 }> = ({
   experiment,
   envs,
@@ -90,6 +90,7 @@ const AnalysisForm: FC<{
   mutate,
   phase,
   source,
+  holdoutProjects,
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
@@ -320,18 +321,6 @@ const AnalysisForm: FC<{
   const exposureQuery = datasource?.settings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId,
   );
-
-  // A holdout's assignment query must cover every project the holdout spans.
-  const { data: holdoutsData } = useApi<{ holdouts: HoldoutInterface[] }>(
-    // Same key as useHoldouts(), so the request is shared.
-    "/holdout?project=&includeArchived=",
-    { shouldRun: () => experiment.type === "holdout" },
-  );
-  const holdoutProjects =
-    experiment.type === "holdout"
-      ? holdoutsData?.holdouts.find((h) => h.experimentId === experiment.id)
-          ?.projects
-      : undefined;
 
   const setExposureQueryId = useCallback(
     (value: string) => form.setValue("exposureQueryId", value),

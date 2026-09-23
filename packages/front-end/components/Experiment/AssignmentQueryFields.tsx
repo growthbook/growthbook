@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getExposureQueryIdentifierTypes } from "shared/util";
+import { PiWarningFill } from "react-icons/pi";
 import {
-  getExposureQueryIdentifierTypes,
-  isExposureQueryAvailableForProjects,
-} from "shared/util";
-import {
+  getAssignmentQueryDrift,
   getDefaultIdentifierType,
-  getExposureQueriesForProject,
+  getExposureQueriesInScope,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getIdentifierTypeForHashAttribute,
@@ -62,36 +61,26 @@ export function useAssignmentQuerySelection({
   keepCurrentSelection?: boolean;
 }): Selection {
   const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
-  const scopedQueries = useMemo(() => {
-    const all = datasource?.settings?.queries?.exposure ?? [];
-    return projects
-      ? all.filter((q) =>
-          isExposureQueryAvailableForProjects(
-            q,
-            projects,
-            datasource?.projects,
-          ),
-        )
-      : getExposureQueriesForProject(all, project);
-  }, [
-    datasource?.settings?.queries?.exposure,
-    datasource?.projects,
-    project,
-    projects,
-  ]);
+  const scopedQueries = useMemo(
+    () =>
+      datasource
+        ? getExposureQueriesInScope(datasource, project, projects)
+        : [],
+    [datasource, project, projects],
+  );
   const keptQuery = keptQueryId
     ? datasource?.settings?.queries?.exposure?.find((q) => q.id === keptQueryId)
     : undefined;
-  const outOfScope = !!keptQuery && !scopedQueries.includes(keptQuery);
+  const { outOfScope, identifierUndeclared } = getAssignmentQueryDrift(
+    keptQuery,
+    identifierType,
+    scopedQueries,
+  );
   const exposureQueries = useMemo(
     () =>
       keptQuery && outOfScope ? [...scopedQueries, keptQuery] : scopedQueries,
     [scopedQueries, keptQuery, outOfScope],
   );
-  const identifierUndeclared =
-    !!keptQuery &&
-    !!identifierType &&
-    !getExposureQueryIdentifierTypes(keptQuery).includes(identifierType);
   const hashAttributeIdentifierTypeMap = useMemo(
     () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
     [datasource?.settings?.userIdTypes],
@@ -218,19 +207,53 @@ export function useAssignmentQuerySelection({
   };
 }
 
-// Shown wherever a saved selection is displayed, including collapsed summaries.
+type DriftState = Pick<
+  Selection,
+  "outOfScope" | "identifierUndeclared" | "identifierType" | "multiProject"
+>;
+
+function getAssignmentQueryDriftMessage({
+  outOfScope,
+  identifierUndeclared,
+  identifierType,
+  multiProject,
+}: DriftState): string | null {
+  if (identifierUndeclared) {
+    return `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`;
+  }
+  if (outOfScope) {
+    return `The selected assignment query is no longer scoped to ${multiProject ? "every selected Project" : "this Project"}. Results still update, but consider switching to a query that is.`;
+  }
+  return null;
+}
+
+// Shown wherever a saved selection is edited, including collapsed summaries.
 export function AssignmentQueryDriftWarning({
-  selection: { outOfScope, identifierUndeclared, identifierType, multiProject },
+  selection,
 }: {
-  selection: Selection;
+  selection: DriftState;
 }) {
-  if (!outOfScope && !identifierUndeclared) return null;
+  const message = getAssignmentQueryDriftMessage(selection);
+  if (!message) return null;
   return (
     <Callout status="warning" mb="3">
-      {identifierUndeclared
-        ? `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`
-        : `The selected assignment query is no longer scoped to ${multiProject ? "every selected Project" : "this Project"}. Results still update, but consider switching to a query that is.`}
+      {message}
     </Callout>
+  );
+}
+
+// Compact form for read-only displays of a saved selection.
+export function AssignmentQueryDriftIcon({
+  selection,
+}: {
+  selection: DriftState;
+}) {
+  const message = getAssignmentQueryDriftMessage(selection);
+  if (!message) return null;
+  return (
+    <Tooltip body={message}>
+      <PiWarningFill style={{ color: "var(--amber-11)" }} />
+    </Tooltip>
   );
 }
 

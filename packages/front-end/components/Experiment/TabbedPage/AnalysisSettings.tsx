@@ -18,6 +18,11 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import {
+  getAssignmentQueryDrift,
+  getExposureQueriesInScope,
+} from "@/services/datasources";
+import { AssignmentQueryDriftIcon } from "@/components/Experiment/AssignmentQueryFields";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -26,6 +31,7 @@ export interface Props {
   canEdit: boolean;
   ssrPolyfills?: SSRPolyfills;
   isPublic?: boolean;
+  holdoutProjects?: string[];
 }
 
 export default function AnalysisSettings({
@@ -35,6 +41,7 @@ export default function AnalysisSettings({
   canEdit,
   ssrPolyfills,
   isPublic,
+  holdoutProjects,
 }: Props) {
   const {
     getDatasourceById,
@@ -62,6 +69,17 @@ export default function AnalysisSettings({
   const identifierType = getAnalysisIdentifierType(
     assignmentQuery,
     experiment.exposureQueryIdentifierType,
+  );
+  const assignmentQueryDrift = getAssignmentQueryDrift(
+    assignmentQuery,
+    identifierType,
+    datasource
+      ? getExposureQueriesInScope(
+          datasource,
+          experiment.project,
+          holdoutProjects,
+        )
+      : [],
   );
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
@@ -155,6 +173,7 @@ export default function AnalysisSettings({
           editMetrics={true}
           source={"analysis-settings"}
           envs={envs}
+          holdoutProjects={holdoutProjects}
         />
       ) : null}
 
@@ -191,7 +210,14 @@ export default function AnalysisSettings({
               <div>
                 <Text color="text-mid">
                   {assignmentQuery ? assignmentQuery.name : "--"}
-                </Text>
+                </Text>{" "}
+                <AssignmentQueryDriftIcon
+                  selection={{
+                    ...assignmentQueryDrift,
+                    identifierType,
+                    multiProject: !!holdoutProjects,
+                  }}
+                />
               </div>
             </div>
 

@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   getDefaultIdentifierType,
   getIdentifierTypeForHashAttribute,
+  getAssignmentQueryDrift,
   getExposureQueriesForProject,
+  getExposureQueriesInScope,
   getDefaultIdentifierTypeForQuery,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
@@ -261,6 +263,80 @@ describe("getExposureQueriesForProject", () => {
         (q) => q.id,
       ),
     ).toEqual(["exq_all"]);
+  });
+});
+
+describe("getExposureQueriesInScope", () => {
+  const scoped = makeExposureQuery({
+    id: "exq_a",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+  const unscoped = makeExposureQuery({
+    id: "exq_all",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: [],
+  });
+  const datasource = (projects: string[]) => ({
+    projects,
+    settings: { queries: { exposure: [scoped, unscoped] } },
+  });
+  const ids = (queries: ExposureQuery[]) => queries.map((q) => q.id);
+
+  it("filters by a single project without holdout projects", () => {
+    expect(ids(getExposureQueriesInScope(datasource([]), "prj_b"))).toEqual([
+      "exq_all",
+    ]);
+  });
+
+  it("requires every holdout project to be covered", () => {
+    expect(
+      ids(getExposureQueriesInScope(datasource([]), "", ["prj_a", "prj_b"])),
+    ).toEqual(["exq_all"]);
+  });
+
+  it("applies the data source's projects to unscoped queries for holdouts", () => {
+    expect(
+      ids(getExposureQueriesInScope(datasource(["prj_a"]), "", ["prj_b"])),
+    ).toEqual([]);
+  });
+});
+
+describe("getAssignmentQueryDrift", () => {
+  const query = makeExposureQuery({
+    id: "exq_a",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+  });
+
+  it("reports no drift for an in-scope query declaring the identifier", () => {
+    expect(getAssignmentQueryDrift(query, "user_id", [query])).toEqual({
+      outOfScope: false,
+      identifierUndeclared: false,
+    });
+  });
+
+  it("flags a query missing from the scoped queries", () => {
+    expect(getAssignmentQueryDrift(query, "user_id", [])).toEqual({
+      outOfScope: true,
+      identifierUndeclared: false,
+    });
+  });
+
+  it("flags an identifier the query no longer declares", () => {
+    expect(getAssignmentQueryDrift(query, "anon_id", [query])).toEqual({
+      outOfScope: false,
+      identifierUndeclared: true,
+    });
+  });
+
+  it("reports no drift without a query", () => {
+    expect(getAssignmentQueryDrift(undefined, "user_id", [])).toEqual({
+      outOfScope: false,
+      identifierUndeclared: false,
+    });
   });
 });
 
