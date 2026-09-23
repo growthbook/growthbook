@@ -1,4 +1,4 @@
-import { ChangeEventHandler, FC, useState } from "react";
+import { ChangeEventHandler, FC, useEffect, useState } from "react";
 import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
@@ -14,9 +14,17 @@ const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
   datasourceId?: string;
+  projects?: string[];
   setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, setParams, existing, datasourceId, onParamChange }) => {
+}> = ({
+  params,
+  setParams,
+  existing,
+  datasourceId,
+  projects,
+  onParamChange,
+}) => {
   const cloud = isCloud();
   const authType = cloud ? "json" : (params.authType ?? "json");
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
@@ -30,34 +38,41 @@ const BigQueryForm: FC<{
   } | null>(null);
   const { apiCall } = useAuth();
 
+  useEffect(() => {
+    setTestConnectionResults(null);
+  }, [params.projectId, params.clientEmail, params.privateKey, datasourceId]);
+
   async function testConnection() {
     try {
       setTestConnectionResults(null);
-      const { datasets } = await apiCall<{ datasets: string[]; error: string }>(
-        "/datasources/fetch-bigquery-datasets",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            projectId: params.projectId,
-            client_email: params.clientEmail,
-            private_key: params.privateKey,
-            datasourceId,
-          }),
-        },
-      );
-      if (!datasets.length) {
+      const { datasets, truncated } = await apiCall<{
+        datasets: string[];
+        truncated: boolean;
+      }>("/datasources/fetch-bigquery-datasets", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId: params.projectId,
+          client_email: params.clientEmail,
+          private_key: params.privateKey,
+          datasourceId,
+          projects,
+        }),
+      });
+      if (!datasets.length && !truncated) {
         setTestConnectionResults({
           status: "warning",
           datasetOptions: [],
           message:
-            "We were able to connect to BigQuery, but we weren't able to retreive any datasets in this project.",
+            "We were able to connect to BigQuery, but we weren't able to retrieve any datasets in this project.",
         });
         return;
       }
       setTestConnectionResults({
-        status: "success",
+        status: truncated ? "warning" : "success",
         datasetOptions: datasets,
-        message: `Connected to ${params.projectId} successfully!`,
+        message: truncated
+          ? `Connected successfully, but the dataset list is incomplete. Select a listed dataset or enter its name manually.`
+          : `Connected to ${params.projectId} successfully!`,
       });
       const analyticsDataset = datasets.find((d) => d.match(/^analytics_/));
       if (analyticsDataset) {

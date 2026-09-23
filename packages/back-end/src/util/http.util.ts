@@ -33,6 +33,13 @@ export function getHttpOptions(
   return {};
 }
 
+// Warehouse traffic connects directly like every other data source driver.
+// Only a mandatory egress proxy (USE_PROXY) applies, matching what the
+// BigQuery SDK transport already does with the same env vars.
+export function getDataSourceHttpOptions() {
+  return USE_PROXY ? { agent: new ProxyAgent() } : {};
+}
+
 // Identity providers we configure ourselves, so SSO keeps working while the proxy restarts.
 const AUTH_PROXY_BYPASS_DOMAINS = [
   "auth0.com",
