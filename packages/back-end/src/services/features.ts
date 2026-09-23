@@ -126,6 +126,12 @@ import {
   getEnvsForRampTarget,
 } from "shared/util";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
+import {
+  FeatureDefinitionSources,
+  getSafeRolloutIdsForFeatureDefinitions,
+  getSavedGroupIdsForFeatureDefinitions,
+  loadSavedGroupsWithNested,
+} from "back-end/src/util/featureDefinitionReferences.util";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -679,6 +685,29 @@ export async function getSavedGroupMap(
   );
 
   return groupMap;
+}
+
+// The Saved Groups and Safe Rollouts that building these features' definitions
+// can look up, instead of every one in the organization (Saved Groups carry
+// their full ID lists).
+export async function getFeatureDefinitionLookups(
+  context: ReqContext | ApiReqContext,
+  sources: FeatureDefinitionSources,
+): Promise<{
+  groupMap: GroupMap;
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
+}> {
+  const savedGroups = await loadSavedGroupsWithNested(
+    getSavedGroupIdsForFeatureDefinitions(sources),
+    (ids) => context.models.savedGroups.getByIds(ids),
+  );
+  const safeRollouts = await context.models.safeRollout.getByIds(
+    getSafeRolloutIdsForFeatureDefinitions(sources),
+  );
+  return {
+    groupMap: await getSavedGroupMap(context, savedGroups),
+    safeRolloutMap: new Map(safeRollouts.map((r) => [r.id, r])),
+  };
 }
 
 // Only produce the id lists which are used by at least one feature or experiment

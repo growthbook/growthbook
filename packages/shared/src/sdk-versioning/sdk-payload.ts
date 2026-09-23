@@ -87,7 +87,7 @@ const savedGroupOperatorReplacements = {
 };
 
 // Maximum depth for recursive saved group resolution
-const MAX_SAVED_GROUP_DEPTH = 10;
+export const MAX_SAVED_GROUP_DEPTH = 10;
 
 export const SAVED_GROUP_ERROR_MAX_DEPTH = "__sgMaxDepth__";
 export const SAVED_GROUP_ERROR_CYCLE = "__sgCycle__";
