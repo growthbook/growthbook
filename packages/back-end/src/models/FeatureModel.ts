@@ -15,13 +15,13 @@ import {
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
+  rampTargetMatchesRule,
   stemRuleId,
   isScheduledRule,
 } from "shared/util";
 import {
   SafeRolloutInterface,
   SafeRolloutRule,
-  simpleSchemaValidator,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RevisionRampAction,
@@ -37,7 +37,6 @@ import {
   FeatureInterface,
   FeatureMetaInfo,
   FeatureRule,
-  JSONSchemaDef,
   LegacyFeatureInterface,
   V1FeatureInterface,
   V1FeatureRule,
@@ -80,8 +79,13 @@ import {
 } from "back-end/src/services/configValidation";
 import {
   appendRampEvent,
+  applyRampBaseStateSync,
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
+  planRampBaseStateSyncForPublish,
+  RampBaseStatePreImage,
+  RampBaseStateRefusal,
+  restoreRampBaseStates,
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
@@ -175,7 +179,6 @@ import {
   updateExperiment,
 } from "./ExperimentModel";
 import {
-  cancelScheduledPublishesForFeature,
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
@@ -1361,13 +1364,10 @@ export async function updateFeature(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>,
-  options?: {
-    // Compare-and-swap: conditions the write on the doc still carrying this
-    // `dateUpdated`, throwing `CasConflictError` otherwise — the feature twin
-    // of `updateIfUnchanged` on BaseModel. Landings pass the pre-image's stamp;
-    // compensation and cascade writes stay unguarded because they re-read first
-    // and mean to write over what they found.
-    casOnDateUpdated?: Date;
+  options: {
+    // Required CAS on `dateUpdated` (CasConflictError on a miss): an unguarded
+    // whole-field write can put a stale read back over a rival's landing.
+    casOnDateUpdated: Date;
     // Remove the holdout pointer in the SAME write: splitting into two writes
     // opens a gap where a rival publish can land and be overwritten.
     unsetHoldout?: boolean;
@@ -1386,7 +1386,7 @@ export async function updateFeature(
     savedGroupScopeRevision?: FeatureRevisionInterface;
   },
 ): Promise<FeatureInterface> {
-  const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
+  const ourStamp = advancedGuardStamp(options.casOnDateUpdated);
   const allUpdates = {
     ...(updates.valueType !== undefined &&
     updates.valueType !== feature.valueType
@@ -1496,16 +1496,14 @@ export async function updateFeature(
     {
       organization: feature.organization,
       id: feature.id,
-      ...(options?.casOnDateUpdated
-        ? { dateUpdated: options.casOnDateUpdated }
-        : {}),
+      dateUpdated: options.casOnDateUpdated,
     },
     {
       $set: normalizedUpdates,
-      ...(options?.unsetHoldout ? { $unset: { holdout: "" } } : {}),
+      ...(options.unsetHoldout ? { $unset: { holdout: "" } } : {}),
     },
   );
-  if (options?.casOnDateUpdated && writeResult.matchedCount === 0) {
+  if (writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }
 
@@ -1544,20 +1542,22 @@ export async function updateFeature(
 
 // Targeted write for the scheduled-features cron; skips onFeatureUpdate so
 // this system-driven change doesn't generate an audit event.
+// Targeted: no stamp bump, and only while the document is still the one the
+// pointer was computed from. A landing in between recomputed it itself.
 export async function updateNextScheduledDate(
   feature: FeatureInterface,
   nextScheduledUpdate: Date | null,
 ): Promise<FeatureInterface> {
-  const dateUpdated = new Date();
-  await FeatureModel.updateOne(
-    { organization: feature.organization, id: feature.id },
-    { $set: { nextScheduledUpdate, dateUpdated } },
+  const result = await FeatureModel.updateOne(
+    {
+      organization: feature.organization,
+      id: feature.id,
+      dateUpdated: feature.dateUpdated,
+    },
+    { $set: { nextScheduledUpdate } },
   );
-  return {
-    ...feature,
-    nextScheduledUpdate: nextScheduledUpdate ?? undefined,
-    dateUpdated,
-  };
+  if (result.matchedCount === 0) return feature;
+  return { ...feature, nextScheduledUpdate: nextScheduledUpdate ?? undefined };
 }
 
 export async function addLinkedExperiment(
@@ -1592,91 +1592,6 @@ export async function getScheduledFeaturesToUpdate() {
     }),
   );
   return features.map((m) => toInterface(m, jobContextsByOrg[m.organization]));
-}
-
-export async function archiveFeature(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  isArchived: boolean,
-) {
-  const updated = await updateFeature(context, feature, {
-    archived: isArchived,
-  });
-  // Cancel pending schedules so an archived feature can't auto-publish a draft.
-  if (isArchived) {
-    await cancelScheduledPublishesForFeature(
-      context,
-      context.org.id,
-      feature.id,
-    );
-  }
-  return updated;
-}
-
-function setEnvironmentSettings(
-  feature: FeatureInterface,
-  environment: string,
-  settings: Partial<FeatureEnvironment>,
-) {
-  const updatedFeature = cloneDeep(feature);
-
-  updatedFeature.environmentSettings = updatedFeature.environmentSettings || {};
-  // Don't seed `rules: []` — v2 envSettings only carry enabled/prerequisites.
-  updatedFeature.environmentSettings[environment] = updatedFeature
-    .environmentSettings[environment] || { enabled: false };
-
-  updatedFeature.environmentSettings[environment] = {
-    ...updatedFeature.environmentSettings[environment],
-    ...settings,
-  };
-
-  return updatedFeature;
-}
-
-export async function toggleMultipleEnvironments(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  toggles: Record<string, boolean>,
-) {
-  const validEnvs = new Set(getEnvironmentIdsFromOrg(context.org));
-
-  let featureCopy = cloneDeep(feature);
-  let hasChanges = false;
-  Object.keys(toggles).forEach((env) => {
-    if (!validEnvs.has(env)) {
-      throw new Error("Invalid environment: " + env);
-    }
-    const state = toggles[env];
-    const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
-    if (currentState !== state) {
-      hasChanges = true;
-      featureCopy = setEnvironmentSettings(featureCopy, env, {
-        enabled: state,
-      });
-    }
-  });
-
-  // If there are changes we need to apply
-  if (hasChanges) {
-    const updatedFeature = await updateFeature(context, feature, {
-      environmentSettings: featureCopy.environmentSettings,
-    });
-
-    return updatedFeature;
-  }
-
-  return featureCopy;
-}
-
-export async function toggleFeatureEnvironment(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  environment: string,
-  state: boolean,
-) {
-  return await toggleMultipleEnvironments(context, feature, {
-    [environment]: state,
-  });
 }
 
 /**
@@ -1883,21 +1798,46 @@ export async function removeProjectFromFeatures(
   };
   const ruleScopedDocs = await FeatureModel.find(ruleScopeQuery);
   for (const doc of ruleScopedDocs || []) {
-    const feature = toInterface(doc, context);
-    const updatedRules = (feature.rules ?? []).map((rule) =>
-      rule && Array.isArray(rule.projects) && rule.projects.includes(project)
-        ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
-        : rule,
-    );
-    await FeatureModel.updateOne(
-      { organization: context.org.id, id: feature.id },
-      { $set: { rules: updatedRules } },
-    );
-
-    const updatedFeature = { ...feature, rules: updatedRules };
-    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
-      logger.error(e, "Error refreshing SDK Payload on feature update");
-    });
+    let feature = toInterface(doc, context);
+    let scrubbed = false;
+    // A landing may win in between; scrub what it wrote rather than our read.
+    for (let attempt = 0; attempt < 3 && !scrubbed; attempt++) {
+      const updatedRules = (feature.rules ?? []).map((rule) =>
+        rule && Array.isArray(rule.projects) && rule.projects.includes(project)
+          ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
+          : rule,
+      );
+      const written = await FeatureModel.updateOne(
+        {
+          organization: context.org.id,
+          id: feature.id,
+          dateUpdated: feature.dateUpdated,
+        },
+        { $set: { rules: updatedRules } },
+      );
+      if (written.matchedCount > 0) {
+        scrubbed = true;
+        const updatedFeature = { ...feature, rules: updatedRules };
+        onFeatureUpdate(context, feature, updatedFeature, project).catch(
+          (e) => {
+            logger.error(e, "Error refreshing SDK Payload on feature update");
+          },
+        );
+        continue;
+      }
+      const fresh = await FeatureModel.findOne({
+        organization: context.org.id,
+        id: feature.id,
+      });
+      if (!fresh) break;
+      feature = toInterface(fresh, context);
+    }
+    if (!scrubbed) {
+      logger.warn(
+        { featureId: feature.id, orgId: context.org.id, project },
+        "Deleted project still referenced by rules after repeated landings",
+      );
+    }
   }
 }
 
@@ -1926,21 +1866,6 @@ export async function setDefaultValue(
     },
     { guardDateUpdated },
   );
-}
-
-export async function setJsonSchema(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  def: Omit<JSONSchemaDef, "date">,
-) {
-  // Validate Simple Schema (sanity check)
-  if (def.schemaType === "simple" && def.simple) {
-    simpleSchemaValidator.parse(def.simple);
-  }
-
-  return await updateFeature(context, feature, {
-    jsonSchema: { ...def, date: new Date() },
-  });
 }
 
 // The status the publish-time sync will write per safe rollout: the revision
@@ -3042,8 +2967,8 @@ async function createRampSchedulesForRevision(
 
     const existingTarget =
       action.mode === "update"
-        ? existingSchedule?.targets.find(
-            (t) => stemRuleId(t.ruleId ?? "") === stemRuleId(action.ruleId),
+        ? existingSchedule?.targets.find((t) =>
+            rampTargetMatchesRule(t, action.ruleId),
           )
         : null;
     if (action.mode === "update" && !existingTarget) {
@@ -3553,11 +3478,8 @@ async function applyDetachRampActions(
         action.rampScheduleId,
       );
       if (existing) {
-        // Stem-match so a bare `fr_abc` detach action matches a suffixed
-        // `fr_abc__production` target (and vice versa).
-        const actionStem = stemRuleId(action.ruleId);
         const remainingTargets = existing.targets.filter(
-          (t) => stemRuleId(t.ruleId ?? "") !== actionStem,
+          (t) => !rampTargetMatchesRule(t, action.ruleId),
         );
         if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
           // Stop the linked SafeRollout before deletion so it doesn't continue
@@ -3890,7 +3812,8 @@ export async function collectPublishRevisionBlockers({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
-  skipValueSchemaNet,
+  rampEnginePublish,
+  rampBaseStateRefusals = [],
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3899,7 +3822,9 @@ export async function collectPublishRevisionBlockers({
   comment?: string;
   bypassLockdown?: boolean;
   skipPrevalidateValidation?: boolean;
-  skipValueSchemaNet?: boolean;
+  rampEnginePublish?: boolean;
+  // From planRampBaseStateSyncForPublish: edits a live ramp does not accept.
+  rampBaseStateRefusals?: RampBaseStateRefusal[];
 }): Promise<Error[]> {
   // Errors, not messages: SoftWarningError (422 + warnings) and BadRequestError
   // (400) reach the caller as themselves rather than a generic 500.
@@ -3930,6 +3855,10 @@ export async function collectPublishRevisionBlockers({
     });
   }
 
+  blockers.push(
+    ...rampBaseStateRefusals.map((r) => new BadRequestError(r.message)),
+  );
+
   await probe(() =>
     prevalidatePublishRevision({
       context,
@@ -3938,7 +3867,7 @@ export async function collectPublishRevisionBlockers({
       result,
       comment,
       skipValidation: skipPrevalidateValidation,
-      skipValueSchemaNet,
+      skipValueSchemaNet: rampEnginePublish,
     }),
   );
 
@@ -4011,7 +3940,7 @@ export async function publishRevision({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
-  skipValueSchemaNet,
+  rampEnginePublish,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -4023,9 +3952,9 @@ export async function publishRevision({
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
   // Set by the ramp engine: a step value is judged by type only and never
-  // refused, so rollbacks can re-apply the rule's own earlier values. The
-  // config-backed net below is unchanged; it has always run on ramp publishes.
-  skipValueSchemaNet?: boolean;
+  // refused, so rollbacks can re-apply the rule's own earlier values, and the
+  // engine's own replays are not reconciled with the ramp's base state.
+  rampEnginePublish?: boolean;
 }) {
   // One deduped SDK refresh per landing (feature applies are multi-step: ramp
   // schedules, the feature document, holdout linkage), flushed on success and
@@ -4039,7 +3968,7 @@ export async function publishRevision({
       comment,
       bypassLockdown,
       skipPrevalidateValidation,
-      skipValueSchemaNet,
+      rampEnginePublish,
     }),
   );
 }
@@ -4052,7 +3981,7 @@ async function publishRevisionInner({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
-  skipValueSchemaNet,
+  rampEnginePublish,
 }: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
@@ -4064,6 +3993,12 @@ async function publishRevisionInner({
   // publish authority; one that is entirely inert metadata is draft-class and
   // skips the gate (the semantic the features matrix pins for drafters
   // editing descriptions).
+  // A direct edit to a rule under a live ramp: refused while it runs or for a
+  // field the plan sets, otherwise carried into the ramp's base state below.
+  const rampBaseState = rampEnginePublish
+    ? { refusals: [], updates: [] }
+    : await planRampBaseStateSyncForPublish(context, feature, result);
+
   if (mergeResultTouchesPayload(result)) {
     await assertCanPublishFeatureRevision({
       context,
@@ -4081,6 +4016,7 @@ async function publishRevisionInner({
         ),
         // The draft's ramp actions reach environments no rule diff mentions.
         rampActions: revision.rampActions,
+        anchoredUpdates: rampBaseState.updates,
       }),
       mergeChanges: result,
     });
@@ -4096,7 +4032,8 @@ async function publishRevisionInner({
     comment,
     bypassLockdown,
     skipPrevalidateValidation,
-    skipValueSchemaNet,
+    rampEnginePublish,
+    rampBaseStateRefusals: rampBaseState.refusals,
   });
   if (blockers.length === 1) {
     throw blockers[0];
@@ -4162,6 +4099,22 @@ async function publishRevisionInner({
         result,
         createActions,
         preCreatedScheduleIds,
+      );
+    }
+
+    // Also before the feature write, so a failed anchor write gates the publish
+    // rather than leaving a live edit the next step would replay away.
+    if (rampBaseState.updates.length) {
+      const rampBaseStatePreImages: RampBaseStatePreImage[] = [];
+      rewinds.push({
+        what: "ramp base states",
+        undo: () => restoreRampBaseStates(context, rampBaseStatePreImages),
+      });
+      await applyRampBaseStateSync(
+        context,
+        rampBaseState.updates,
+        revision.version,
+        rampBaseStatePreImages,
       );
     }
 
@@ -4529,11 +4482,30 @@ export async function createAndPublishRevision({
   bypassedApproval: boolean;
 }> {
   // Filter to envs applicable to this feature's project — avoids over-
-  // triggering approval and creating dangling per-env settings.
+  // triggering approval and creating dangling per-env settings. A request
+  // that also moves the feature may toggle an env only its destination serves.
   const orgEnvironments = getEnvironmentIdsFromOrg(org);
   const orgEnvObjects = getEnvironments(org);
-  const applicableEnvIds = getApplicableEnvIds(orgEnvObjects, feature);
-  const applicableEnvSet = new Set(applicableEnvIds);
+  const m = changes?.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  const applicableEnvSet = new Set([
+    ...getApplicableEnvIds(orgEnvObjects, feature),
+    ...(moves
+      ? getApplicableEnvIds(orgEnvObjects, {
+          ...feature,
+          ...(m?.project !== undefined ? { project: m.project } : {}),
+          ...(m?.targetingProjects !== undefined
+            ? { targetingProjects: m.targetingProjects }
+            : {}),
+          ...(m?.targetingAllProjects !== undefined
+            ? { targetingAllProjects: m.targetingAllProjects }
+            : {}),
+        })
+      : []),
+  ]);
   const allEnvironments = orgEnvironments.filter((e) =>
     applicableEnvSet.has(e),
   );
@@ -4626,14 +4598,6 @@ function getLinkedExperiments(feature: FeatureInterface) {
       ...getReferenceIdsInRules(feature.rules, "experiment-ref"),
     ]),
   ];
-}
-
-export async function toggleNeverStale(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  neverStale: boolean,
-) {
-  return await updateFeature(context, feature, { neverStale });
 }
 
 export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {

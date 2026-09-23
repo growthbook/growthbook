@@ -325,8 +325,8 @@ app.get("/js/:key.js", getExperimentsScript);
 // further down) owns. Never add those two paths to that router.
 app.use("/integrations/slack", slackActionsRouter);
 
-// 2mb default; 10mb for screenshot upload and visual-editor AI image
-// gen (the latter accepts a base64-encoded reference image).
+// 2mb default; 10mb for screenshot upload and the visual-editor AI routes
+// that accept base64-encoded images.
 app.use((req, res, next) => {
   const isScreenshotUpload =
     req.method === "POST" &&
@@ -340,10 +340,14 @@ app.use((req, res, next) => {
   const isVisualEditorFigmaToVariant =
     req.method === "POST" &&
     req.path === "/api/v1/visual-editor/ai/figma-to-variant";
+  // AI edits carry up to two base64 image attachments.
+  const isVisualEditorEdit =
+    req.method === "POST" && req.path === "/api/v1/visual-editor/ai/edit";
   const needsLargeBody =
     isScreenshotUpload ||
     isVisualEditorImageGen ||
-    isVisualEditorFigmaToVariant;
+    isVisualEditorFigmaToVariant ||
+    isVisualEditorEdit;
   bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
