@@ -3837,13 +3837,16 @@ export async function postFeatureSync(
   const metadata: Partial<
     Pick<FeatureInterface, "description" | "owner" | "tags">
   > = {};
-  if (data.description != null && data.description !== feature.description) {
+  if (
+    (data.description ?? null) !== null &&
+    data.description !== feature.description
+  ) {
     metadata.description = data.description;
   }
-  if (data.owner != null && data.owner !== feature.owner) {
+  if ((data.owner ?? null) !== null && data.owner !== feature.owner) {
     metadata.owner = data.owner;
   }
-  if (data.tags != null && !isEqual(data.tags, feature.tags ?? [])) {
+  if ((data.tags ?? null) !== null && !isEqual(data.tags, feature.tags ?? [])) {
     metadata.tags = data.tags;
   }
 
