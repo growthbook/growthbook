@@ -221,7 +221,8 @@ const bodySchema = z
           data: z
             .string()
             .min(1)
-            .max(4 * 1024 * 1024),
+            // Two at this cap, plus the rest of the body, fit the 10mb limit.
+            .max(3 * 1024 * 1024),
           mimeType: z.enum([
             "image/png",
             "image/jpeg",
