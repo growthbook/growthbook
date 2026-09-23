@@ -2,7 +2,7 @@ import { useFeature } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
-import { FaArrowRight } from "react-icons/fa";
+import { PiArrowRight } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import { GBPremiumBadge } from "@/components/Icons";
@@ -92,10 +92,10 @@ export default function InAppHelp() {
               <LinkButton
                 href="https://slack.growthbook.io/?ref=app-top-nav"
                 external
-                icon={<FaArrowRight />}
+                icon={<PiArrowRight />}
                 iconPosition="right"
                 my="2"
-                className="w-100"
+                style={{ width: "100%" }}
               >
                 Join The Slack Community
               </LinkButton>
@@ -103,10 +103,10 @@ export default function InAppHelp() {
                 href={docUrl("home")}
                 variant="outline"
                 external
-                icon={<FaArrowRight />}
+                icon={<PiArrowRight />}
                 iconPosition="right"
                 my="2"
-                className="w-100"
+                style={{ width: "100%" }}
               >
                 View Docs
               </LinkButton>
