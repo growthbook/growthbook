@@ -9,6 +9,31 @@ GrowthBook offers a full REST API for interacting with the application.
 
 [View REST API Docs](/api/introduction)
 
+## Common tasks
+
+These are the endpoints teams reach for most often when automating GrowthBook:
+
+**Experiments**
+
+- [Create an experiment](/api/experiments/operation/postExperiment) (`POST /v1/experiments`) or [list existing experiments](/api/experiments/operation/listExperiments) (`GET /v1/experiments`).
+- [Get results for an experiment](/api/experiments/operation/getExperimentResults) (`GET /v1/experiments/{id}/results`) to pull the latest analysis into your own reporting.
+
+**Feature flags**
+
+- [Get a single feature](/api/features-v2/operation/getFeatureV2) (`GET /v2/features/{id}`), including its rules in every environment.
+- [Toggle a feature on or off](/api/features-v2/operation/toggleFeatureV2) (`POST /v2/features/{id}/toggle`) in one or more environments, for example from a deploy script or an incident runbook.
+
+**Metrics and data**
+
+- [Create a fact metric](/api/fact-metrics/operation/postFactMetric) (`POST /v1/fact-metrics`) or [list fact metrics](/api/fact-metrics/operation/listFactMetrics) (`GET /v1/fact-metrics`).
+- [Get a fact table](/api/fact-tables/operation/getFactTable) (`GET /v1/fact-tables/{id}`) to inspect its SQL, columns, and filters.
+- [List data sources](/api/data-sources/operation/listDataSources) (`GET /v1/data-sources`) to find the ids other endpoints ask for.
+
+**Targeting**
+
+- [Create a saved group](/api/saved-groups/operation/postSavedGroup) (`POST /v1/saved-groups`) to reuse a list of ids or a targeting condition across features and experiments.
+- [Create a segment](/api/segments/operation/postSegment) (`POST /v1/segments`) to analyze experiment results for a subset of users.
+
 ## SDK Connection Endpoints
 
 In addition to the REST API above, there is one additional readonly endpoint - the SDK Connection Endpoint.
