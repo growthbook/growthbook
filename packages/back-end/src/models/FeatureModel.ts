@@ -15,18 +15,23 @@ import {
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
+  rampTargetMatchesRule,
   stemRuleId,
   isScheduledRule,
+  publishRampDetaches,
+  rampTargetsDetachedBy,
+  toRampAttachments,
 } from "shared/util";
 import {
   SafeRolloutInterface,
   SafeRolloutRule,
-  simpleSchemaValidator,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RevisionRampAction,
+  RevisionRampDetachAction,
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
+  RampStartAction,
   RampStepAction,
   resolveStartApproval,
 } from "shared/validators";
@@ -36,7 +41,6 @@ import {
   FeatureInterface,
   FeatureMetaInfo,
   FeatureRule,
-  JSONSchemaDef,
   LegacyFeatureInterface,
   V1FeatureInterface,
   V1FeatureRule,
@@ -47,6 +51,9 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
@@ -76,8 +83,13 @@ import {
 } from "back-end/src/services/configValidation";
 import {
   appendRampEvent,
+  applyRampBaseStateSync,
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
+  planRampBaseStateSyncForPublish,
+  RampBaseStatePreImage,
+  RampBaseStateRefusal,
+  restoreRampBaseStates,
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
@@ -87,6 +99,11 @@ import {
   startReadyScheduleNow,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
+import {
+  assertRevertRampStopsAcknowledged,
+  assertUnattendedRevertRampStopsPredateDraft,
+  resolveRevertRampStopsForRevision,
+} from "back-end/src/revisions/revertRampGuard";
 import {
   applyNonRuleFeatureUpgrades,
   pinLegacyRolloutSeeds,
@@ -143,6 +160,7 @@ import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
+  holdoutLinkageOwner,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
@@ -170,7 +188,6 @@ import {
   updateExperiment,
 } from "./ExperimentModel";
 import {
-  cancelScheduledPublishesForFeature,
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
@@ -183,6 +200,7 @@ import {
   updateRevision,
   createRevision,
   prepareFeatureRevision,
+  setRevisionRampAttachments,
 } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
@@ -935,10 +953,12 @@ export async function createFeature(
 
   const linkedExperiments = getLinkedExperiments(data);
 
-  const featureToCreate = buildFeatureUpdate({
-    ...data,
-    linkedExperiments,
-  });
+  const featureToCreate = normalizeFeatureJSONValues(
+    { valueType: data.valueType },
+    buildFeatureUpdate({ ...data, linkedExperiments }),
+  );
+
+  await assertFeatureSavedGroupScope(context, data);
 
   if (Array.isArray(featureToCreate.rules)) {
     const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
@@ -1354,13 +1374,10 @@ export async function updateFeature(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>,
-  options?: {
-    // Compare-and-swap: conditions the write on the doc still carrying this
-    // `dateUpdated`, throwing `CasConflictError` otherwise — the feature twin
-    // of `updateIfUnchanged` on BaseModel. Landings pass the pre-image's stamp;
-    // compensation and cascade writes stay unguarded because they re-read first
-    // and mean to write over what they found.
-    casOnDateUpdated?: Date;
+  options: {
+    // Required CAS on `dateUpdated` (CasConflictError on a miss): an unguarded
+    // whole-field write can put a stale read back over a rival's landing.
+    casOnDateUpdated: Date;
     // Remove the holdout pointer in the SAME write: splitting into two writes
     // opens a gap where a rival publish can land and be overwritten.
     unsetHoldout?: boolean;
@@ -1369,15 +1386,39 @@ export async function updateFeature(
     // Compensation uses it as the ownership token; the returned doc is a
     // set-then-fetch, so its `dateUpdated` may already be a rival's, and
     // reading ownership from it says "still ours" at the moment it isn't.
-    onStamped?: (stamp: Date) => void;
+    onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void;
+    // Internal recovery only: restore values from an already-persisted snapshot.
+    preserveStoredValues?: boolean;
+    // Internal failed-write recovery only; a user-requested revert must still
+    // satisfy the current Saved Group scope.
+    isCompensation?: boolean;
+    // Preserve references already accepted in the draft being landed.
+    savedGroupScopeRevision?: FeatureRevisionInterface;
   },
 ): Promise<FeatureInterface> {
-  const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
+  const ourStamp = advancedGuardStamp(options.casOnDateUpdated);
   const allUpdates = {
+    ...(updates.valueType !== undefined &&
+    updates.valueType !== feature.valueType
+      ? { defaultValue: feature.defaultValue, rules: feature.rules }
+      : {}),
     ...updates,
     // Strictly after the guarded token, even inside the same millisecond.
     dateUpdated: ourStamp,
   };
+  // Recovery must restore the exact pre-image, including legacy values.
+  if (!options?.preserveStoredValues) {
+    Object.assign(
+      allUpdates,
+      normalizeFeatureJSONValues(
+        { valueType: updates.valueType ?? feature.valueType },
+        allUpdates,
+        (updates.valueType ?? feature.valueType) === feature.valueType
+          ? feature
+          : undefined,
+      ),
+    );
+  }
   // Used only for hooks and linkedExperiment derivation; the post-write value
   // is re-read from Mongo below. The holdout $unset is modeled here so callers
   // pass the TRUE pre-image and hooks still see a holdout-only change.
@@ -1408,6 +1449,21 @@ export async function updateFeature(
   // `bulkPublishApplying` (not the correlation token) so genuine post-commit
   // writes — ramp activation etc., NOT covered by the plan gates — still run.
   if (!context.bulkPublishApplying) {
+    if (!options?.isCompensation) {
+      await assertFeatureSavedGroupScope(
+        context,
+        projected,
+        options?.savedGroupScopeRevision
+          ? [
+              feature,
+              featureForSavedGroupValidation(
+                feature,
+                options.savedGroupScopeRevision,
+              ),
+            ]
+          : feature,
+      );
+    }
     await runValidateFeatureHooks({
       context,
       feature: projected,
@@ -1450,23 +1506,24 @@ export async function updateFeature(
     {
       organization: feature.organization,
       id: feature.id,
-      ...(options?.casOnDateUpdated
-        ? { dateUpdated: options.casOnDateUpdated }
-        : {}),
+      dateUpdated: options.casOnDateUpdated,
     },
     {
       $set: normalizedUpdates,
-      ...(options?.unsetHoldout ? { $unset: { holdout: "" } } : {}),
+      ...(options.unsetHoldout ? { $unset: { holdout: "" } } : {}),
     },
   );
-  if (options?.casOnDateUpdated && writeResult.matchedCount === 0) {
+  if (writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }
 
   // Only once Mongo has CONFIRMED the write: reporting earlier lets a CAS loser
   // claim ownership of a stamp live never carried, and its caller then skips
   // every rewind as "a rival took the feature".
-  options?.onStamped?.(ourStamp);
+  options?.onStamped?.(ourStamp, {
+    ...normalizedUpdates,
+    ...(options?.unsetHoldout ? { holdout: undefined } : {}),
+  });
 
   if (experimentsAdded.size > 0) {
     await Promise.all(
@@ -1495,20 +1552,22 @@ export async function updateFeature(
 
 // Targeted write for the scheduled-features cron; skips onFeatureUpdate so
 // this system-driven change doesn't generate an audit event.
+// Targeted: no stamp bump, and only while the document is still the one the
+// pointer was computed from. A landing in between recomputed it itself.
 export async function updateNextScheduledDate(
   feature: FeatureInterface,
   nextScheduledUpdate: Date | null,
 ): Promise<FeatureInterface> {
-  const dateUpdated = new Date();
-  await FeatureModel.updateOne(
-    { organization: feature.organization, id: feature.id },
-    { $set: { nextScheduledUpdate, dateUpdated } },
+  const result = await FeatureModel.updateOne(
+    {
+      organization: feature.organization,
+      id: feature.id,
+      dateUpdated: feature.dateUpdated,
+    },
+    { $set: { nextScheduledUpdate } },
   );
-  return {
-    ...feature,
-    nextScheduledUpdate: nextScheduledUpdate ?? undefined,
-    dateUpdated,
-  };
+  if (result.matchedCount === 0) return feature;
+  return { ...feature, nextScheduledUpdate: nextScheduledUpdate ?? undefined };
 }
 
 export async function addLinkedExperiment(
@@ -1543,91 +1602,6 @@ export async function getScheduledFeaturesToUpdate() {
     }),
   );
   return features.map((m) => toInterface(m, jobContextsByOrg[m.organization]));
-}
-
-export async function archiveFeature(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  isArchived: boolean,
-) {
-  const updated = await updateFeature(context, feature, {
-    archived: isArchived,
-  });
-  // Cancel pending schedules so an archived feature can't auto-publish a draft.
-  if (isArchived) {
-    await cancelScheduledPublishesForFeature(
-      context,
-      context.org.id,
-      feature.id,
-    );
-  }
-  return updated;
-}
-
-function setEnvironmentSettings(
-  feature: FeatureInterface,
-  environment: string,
-  settings: Partial<FeatureEnvironment>,
-) {
-  const updatedFeature = cloneDeep(feature);
-
-  updatedFeature.environmentSettings = updatedFeature.environmentSettings || {};
-  // Don't seed `rules: []` — v2 envSettings only carry enabled/prerequisites.
-  updatedFeature.environmentSettings[environment] = updatedFeature
-    .environmentSettings[environment] || { enabled: false };
-
-  updatedFeature.environmentSettings[environment] = {
-    ...updatedFeature.environmentSettings[environment],
-    ...settings,
-  };
-
-  return updatedFeature;
-}
-
-export async function toggleMultipleEnvironments(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  toggles: Record<string, boolean>,
-) {
-  const validEnvs = new Set(getEnvironmentIdsFromOrg(context.org));
-
-  let featureCopy = cloneDeep(feature);
-  let hasChanges = false;
-  Object.keys(toggles).forEach((env) => {
-    if (!validEnvs.has(env)) {
-      throw new Error("Invalid environment: " + env);
-    }
-    const state = toggles[env];
-    const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
-    if (currentState !== state) {
-      hasChanges = true;
-      featureCopy = setEnvironmentSettings(featureCopy, env, {
-        enabled: state,
-      });
-    }
-  });
-
-  // If there are changes we need to apply
-  if (hasChanges) {
-    const updatedFeature = await updateFeature(context, feature, {
-      environmentSettings: featureCopy.environmentSettings,
-    });
-
-    return updatedFeature;
-  }
-
-  return featureCopy;
-}
-
-export async function toggleFeatureEnvironment(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  environment: string,
-  state: boolean,
-) {
-  return await toggleMultipleEnvironments(context, feature, {
-    [environment]: state,
-  });
 }
 
 /**
@@ -1834,21 +1808,46 @@ export async function removeProjectFromFeatures(
   };
   const ruleScopedDocs = await FeatureModel.find(ruleScopeQuery);
   for (const doc of ruleScopedDocs || []) {
-    const feature = toInterface(doc, context);
-    const updatedRules = (feature.rules ?? []).map((rule) =>
-      rule && Array.isArray(rule.projects) && rule.projects.includes(project)
-        ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
-        : rule,
-    );
-    await FeatureModel.updateOne(
-      { organization: context.org.id, id: feature.id },
-      { $set: { rules: updatedRules } },
-    );
-
-    const updatedFeature = { ...feature, rules: updatedRules };
-    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
-      logger.error(e, "Error refreshing SDK Payload on feature update");
-    });
+    let feature = toInterface(doc, context);
+    let scrubbed = false;
+    // A landing may win in between; scrub what it wrote rather than our read.
+    for (let attempt = 0; attempt < 3 && !scrubbed; attempt++) {
+      const updatedRules = (feature.rules ?? []).map((rule) =>
+        rule && Array.isArray(rule.projects) && rule.projects.includes(project)
+          ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
+          : rule,
+      );
+      const written = await FeatureModel.updateOne(
+        {
+          organization: context.org.id,
+          id: feature.id,
+          dateUpdated: feature.dateUpdated,
+        },
+        { $set: { rules: updatedRules } },
+      );
+      if (written.matchedCount > 0) {
+        scrubbed = true;
+        const updatedFeature = { ...feature, rules: updatedRules };
+        onFeatureUpdate(context, feature, updatedFeature, project).catch(
+          (e) => {
+            logger.error(e, "Error refreshing SDK Payload on feature update");
+          },
+        );
+        continue;
+      }
+      const fresh = await FeatureModel.findOne({
+        organization: context.org.id,
+        id: feature.id,
+      });
+      if (!fresh) break;
+      feature = toInterface(fresh, context);
+    }
+    if (!scrubbed) {
+      logger.warn(
+        { featureId: feature.id, orgId: context.org.id, project },
+        "Deleted project still referenced by rules after repeated landings",
+      );
+    }
   }
 }
 
@@ -1877,21 +1876,6 @@ export async function setDefaultValue(
     },
     { guardDateUpdated },
   );
-}
-
-export async function setJsonSchema(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  def: Omit<JSONSchemaDef, "date">,
-) {
-  // Validate Simple Schema (sanity check)
-  if (def.schemaType === "simple" && def.simple) {
-    simpleSchemaValidator.parse(def.simple);
-  }
-
-  return await updateFeature(context, feature, {
-    jsonSchema: { ...def, date: new Date() },
-  });
 }
 
 // The status the publish-time sync will write per safe rollout: the revision
@@ -2113,7 +2097,7 @@ export async function applyRevisionChanges(
   // Reports the stamp the landing's guarded write PUT on the document, so the
   // caller's compensation owns the write rather than whatever a set-then-fetch
   // happened to read back.
-  onStamped?: (stamp: Date) => void,
+  onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void,
   // Reports the safe-rollout images this apply WROTE, for the same reason: read
   // back afterwards they are whatever the document holds by then, so a worker's
   // concurrent advance would be mistaken for ours and reversed.
@@ -2152,7 +2136,11 @@ export async function applyRevisionChanges(
   // Every branch below is a landing, so its FIRST write is guarded on the
   // pre-image `feature` — same rule as the generic entities' guarded landings:
   // two publishes computed from the same read must not both apply.
-  const guard = { casOnDateUpdated: feature.dateUpdated, onStamped };
+  const guard = {
+    casOnDateUpdated: feature.dateUpdated,
+    onStamped,
+    savedGroupScopeRevision: revision,
+  };
 
   if (!hasChanges) {
     return await updateFeature(context, feature, changes, guard);
@@ -2446,6 +2434,8 @@ export async function applyHoldoutSideEffects(
 
 export type HoldoutExperimentLinkagePlan = {
   holdoutId: string;
+  // The feature whose publish produced this plan; owns the linkage event.
+  featureId: string;
   toLink: string[];
   toUnlink: string[];
   // "" is the clear sentinel `updateExperiment` expects.
@@ -2562,7 +2552,13 @@ async function planLinkageForHoldout(
     }),
   );
 
-  return { holdoutId, toLink, toUnlink, prevExperimentHoldoutIds };
+  return {
+    holdoutId,
+    featureId: feature.id,
+    toLink,
+    toUnlink,
+    prevExperimentHoldoutIds,
+  };
 }
 
 // `holdoutId` is a scalar last-writer-wins field, so `expectedPrior` turns the
@@ -2652,6 +2648,7 @@ export async function applyHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => applied.has(id)),
+    { eventOwner: holdoutPlanEventOwner(plan) },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
@@ -2725,12 +2722,23 @@ export async function reverseHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toUnlink.filter((id) => reverted.has(id)),
+    { notifyNewLinkage: false },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => reverted.has(id)),
   );
+  // With this plan's linkage put back, the landing must not announce it. An
+  // empty `reverted` means another owner holds the linkage now, and the event
+  // still describes what is live.
+  if (reverted.size) {
+    context.bulkPublishRestoredEntities?.add(holdoutPlanEventOwner(plan));
+  }
 }
+
+// Owner of the deferred linkage event for a plan's writes; see holdoutLinkageOwner.
+const holdoutPlanEventOwner = (plan: HoldoutExperimentLinkagePlan): string =>
+  holdoutLinkageOwner(plan.holdoutId, entityKey("feature", plan.featureId));
 
 // The linkage a holdout transition is about to write, captured before the forward
 // pass so its rewind can restore the pre-publish state instead of re-deriving it
@@ -2794,10 +2802,23 @@ export async function rewindHoldoutLinkage(
     // entry sitting there now. The comparison happens inside the model's own
     // read-modify-write, so it isn't check-then-act; the restore half below
     // declines on the same reasoning.
-    await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
-      featureId: pre.featureId,
-      expectFeatureEntry: pre.addedFeatureEntry,
-    });
+    const removed = await context.models.holdout.removeLinkageFromHoldout(
+      pre.newHoldoutId,
+      {
+        featureId: pre.featureId,
+        expectFeatureEntry: pre.addedFeatureEntry,
+      },
+    );
+    // Only when this rewind took the entry back: a declined removal means the
+    // linkage is live and its event should stand.
+    if (removed) {
+      context.bulkPublishRestoredEntities?.add(
+        holdoutLinkageOwner(
+          pre.newHoldoutId,
+          entityKey("feature", pre.featureId),
+        ),
+      );
+    }
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
@@ -2886,6 +2907,9 @@ export async function finalizeRampActionsAfterPublish(
   featureAfter: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
+  // A revert restores the target revision's ramp attachments too: ramps it
+  // predates are detached exactly as removing them from the rule would.
+  revertRampDetaches: RevisionRampDetachAction[],
 ): Promise<void> {
   const updateActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "update",
@@ -2906,10 +2930,40 @@ export async function finalizeRampActionsAfterPublish(
       );
     }
   }
-  if (revision.rampActions?.length) {
-    await applyDetachRampActions(context, revision.rampActions);
+  const failedDetaches = await applyDetachRampActions(
+    context,
+    publishRampDetaches(revision.rampActions, revertRampDetaches),
+  );
+  const remainingRamps = await cleanupOrphanedRampSchedules(
+    context,
+    featureBefore,
+    featureAfter,
+  );
+  // A detach that failed leaves its ramp attached against this revision's
+  // intent; recording that state would make it look deliberate to a later
+  // revert, so the revision is left unrecorded instead.
+  if (failedDetaches.length) {
+    logger.error(
+      {
+        featureId: featureAfter.id,
+        revision: revision.version,
+        rampScheduleIds: failedDetaches.map((a) => a.rampScheduleId),
+      },
+      "Ramp detaches failed after publish; the ramps are still attached",
+    );
+    return;
   }
-  await cleanupOrphanedRampSchedules(context, featureBefore, featureAfter);
+  // Read after the publish committed, so it is the state this revision went
+  // live with: a ramp attached after the read postdates the revision, and a
+  // revert to it rightly detaches (and first warns about) that ramp.
+  if (remainingRamps) {
+    await setRevisionRampAttachments(
+      revision,
+      toRampAttachments(featureAfter.id, remainingRamps),
+    ).catch((err) =>
+      logger.error(err, "Failed to record revision ramp attachments"),
+    );
+  }
 }
 
 async function createRampSchedulesForRevision(
@@ -2956,8 +3010,8 @@ async function createRampSchedulesForRevision(
 
     const existingTarget =
       action.mode === "update"
-        ? existingSchedule?.targets.find(
-            (t) => stemRuleId(t.ruleId ?? "") === stemRuleId(action.ruleId),
+        ? existingSchedule?.targets.find((t) =>
+            rampTargetMatchesRule(t, action.ruleId),
           )
         : null;
     if (action.mode === "update" && !existingTarget) {
@@ -3095,7 +3149,7 @@ async function createRampSchedulesForRevision(
     const explicitStartActions = Array.isArray(action.startActions)
       ? normalizeRampActionsForceValues(
           action.startActions.map(
-            (a): RampStepAction => ({
+            (a): RampStartAction => ({
               targetType: "feature-rule" as const,
               targetId,
               patch: { ...a.patch, ruleId: action.ruleId },
@@ -3104,7 +3158,7 @@ async function createRampSchedulesForRevision(
         )
       : [];
     const startActionsExplicit = explicitStartActions.length > 0;
-    const startActions: RampStepAction[] = startActionsExplicit
+    const startActions: RampStartAction[] = startActionsExplicit
       ? explicitStartActions
       : getStartActionsFromRules({
           rules: result.rules ?? feature.rules ?? [],
@@ -3453,65 +3507,79 @@ async function createRampSchedulesForRevision(
 }
 
 /**
- * Apply detach/update ramp actions stored on a revision.
+ * Apply the detach ramp actions a publish carries.
  * Best-effort: logs errors but does not throw, since these run after the feature is published.
+ * Returns the detaches that could not be applied.
  */
 async function applyDetachRampActions(
   context: ReqContext | ApiReqContext,
-  actions: RevisionRampAction[],
-) {
+  actions: RevisionRampDetachAction[],
+): Promise<RevisionRampDetachAction[]> {
+  const failed: RevisionRampDetachAction[] = [];
   for (const action of actions) {
-    if (action.mode !== "detach") continue;
     try {
-      const existing = await context.models.rampSchedules.getById(
+      // Under the advance lock against a fresh read: a stale `targets` write
+      // would drop a concurrent add-target, and a step must not fire mid-detach.
+      await runLockedRampScheduleAction(
+        context,
         action.rampScheduleId,
-      );
-      if (existing) {
-        // Stem-match so a bare `fr_abc` detach action matches a suffixed
-        // `fr_abc__production` target (and vice versa).
-        const actionStem = stemRuleId(action.ruleId);
-        const remainingTargets = existing.targets.filter(
-          (t) => stemRuleId(t.ruleId ?? "") !== actionStem,
-        );
-        if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
-          // Stop the linked SafeRollout before deletion so it doesn't continue
-          // taking snapshots against a ramp that no longer exists.
-          if (existing.safeRolloutId) {
-            await syncLinkedSafeRolloutForRampState(
-              context,
-              { ...existing, status: "rolled-back" },
-              "stopped",
+        async (existing) => {
+          const detached = rampTargetsDetachedBy(
+            existing.targets,
+            action.ruleId,
+          );
+          const remainingTargets = existing.targets.filter(
+            (t) => !detached.includes(t),
+          );
+          if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
+            // Stop the linked SafeRollout before deletion so it doesn't continue
+            // taking snapshots against a ramp that no longer exists.
+            if (existing.safeRolloutId) {
+              await syncLinkedSafeRolloutForRampState(
+                context,
+                { ...existing, status: "rolled-back" },
+                "stopped",
+              );
+            }
+            await context.models.rampSchedules.dangerousDeleteByIdBypassPermission(
+              existing.id,
+            );
+          } else {
+            // Authorized by the landing gate (the detach's reach is in the
+            // publish footprint), so a revert-only role can prune it too.
+            await context.models.rampSchedules.dangerousUpdateBypassPermission(
+              existing,
+              { targets: remainingTargets },
             );
           }
-          await context.models.rampSchedules.dangerousDeleteByIdBypassPermission(
-            existing.id,
-          );
-        } else {
-          await context.models.rampSchedules.updateById(existing.id, {
-            targets: remainingTargets,
-          });
-        }
-      }
+        },
+      );
     } catch (err) {
+      if (err instanceof NotFoundError) continue;
+      failed.push(action);
       logger.error(err, {
         msg: "Failed to apply revision ramp detach action",
         action,
       });
     }
   }
+  return failed;
 }
 
+// Returns the feature's schedules as the cleanup left them, or null when they
+// could not be read.
 async function cleanupOrphanedRampSchedules(
   context: ReqContext | ApiReqContext,
   oldFeature: FeatureInterface,
   newFeature: FeatureInterface,
-) {
+): Promise<RampScheduleInterface[] | null> {
   try {
     // When publishing a change that modifies rules, clean up ramp schedules that
     // become orphaned. This handles several scenarios:
     // 1. Rules that target a ramp are deleted → ramp is cleaned up
-    // 2. Reverting to an older revision that predates a ramp's creation → ramp's
-    //    targets (from newer revisions) are removed, orphaning the ramp → cleanup deletes it
+    // 2. Reverting to a revision without the ramp's rule → the target is orphaned
+    //    → cleanup deletes it (ramps a revert's target predates are detached by
+    //    the revert itself, even when the rule survives)
     // 3. Reverting back to a newer revision with a ramp → the ramp is recreated via
     //    the inline "create" action on the rule (natural behavior)
     //
@@ -3541,11 +3609,15 @@ async function cleanupOrphanedRampSchedules(
       newFeature.id,
     );
 
-    if (!allRamps) return;
+    if (!allRamps) return null;
 
+    const remainingRamps: RampScheduleInterface[] = [];
     for (const ramp of allRamps) {
       const originalTargets = ramp?.targets ?? [];
-      if (originalTargets.length === 0 || !ramp?.id) continue;
+      if (originalTargets.length === 0 || !ramp?.id) {
+        remainingRamps.push(ramp);
+        continue;
+      }
       const remainingTargets = originalTargets.filter(
         (target: RampScheduleInterface["targets"][0]) => {
           if (!target?.ruleId) return false;
@@ -3572,11 +3644,16 @@ async function cleanupOrphanedRampSchedules(
         await context.models?.rampSchedules?.updateById?.(ramp.id, {
           targets: remainingTargets,
         });
+        remainingRamps.push({ ...ramp, targets: remainingTargets });
+      } else {
+        remainingRamps.push(ramp);
       }
     }
+    return remainingRamps;
   } catch (error) {
     // Log but don't throw — cleanup is a nice-to-have, not essential for publish to succeed.
     logger.error("Error cleaning up orphaned ramp schedules", error);
+    return null;
   }
 }
 
@@ -3608,7 +3685,13 @@ export function computeProposedFeatureForValidation(
     : feature;
   const proposedFeature: FeatureInterface = {
     ...base,
-    ...changes,
+    ...normalizeFeatureJSONValues(
+      { valueType: changes.valueType ?? base.valueType },
+      changes,
+      (changes.valueType ?? base.valueType) === base.valueType
+        ? base
+        : undefined,
+    ),
     dateUpdated: new Date(),
   };
   proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
@@ -3658,16 +3741,25 @@ export async function prevalidatePublishRevision({
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
+  await assertFeatureSavedGroupScope(context, proposedFeature, [
+    feature,
+    featureForSavedGroupValidation(feature, revision),
+  ]);
   if (skipValidation) return;
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
   if (defaultToCheck !== undefined || rulesToCheck.length) {
     if (!skipValueSchemaNet) {
-      assertFeatureValuesValidForPublish(context, proposedFeature, {
-        defaultValue: defaultToCheck,
-        rules: rulesToCheck,
-      });
+      assertFeatureValuesValidForPublish(
+        context,
+        proposedFeature,
+        {
+          defaultValue: defaultToCheck,
+          rules: rulesToCheck,
+        },
+        feature,
+      );
     }
     await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
       defaultValue: defaultToCheck,
@@ -3684,7 +3776,12 @@ export async function prevalidatePublishRevision({
     feature,
     revision: {
       ...revision,
-      ...computeRevisionPublishChanges(revision, context.auditUser, comment),
+      ...computeRevisionPublishChanges(
+        feature,
+        revision,
+        context.auditUser,
+        comment,
+      ),
     },
     original: revision,
   });
@@ -3722,7 +3819,7 @@ async function restorePublishedFeatureDoc(
   // Reports the stamp THIS restore put on the document: a restore advances
   // `dateUpdated`, and without re-pointing its token the caller reads its own
   // rollback as a concurrent owner and skips every remaining rewind.
-  onStamped?: (stamp: Date) => void,
+  onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void,
 ) {
   const { changes } = computeRevisionMergeChanges(
     context,
@@ -3763,6 +3860,8 @@ async function restorePublishedFeatureDoc(
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
         onStamped,
+        preserveStoredValues: true,
+        isCompensation: true,
       });
       return;
     } catch (e) {
@@ -3782,7 +3881,8 @@ export async function collectPublishRevisionBlockers({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
-  skipValueSchemaNet,
+  rampEnginePublish,
+  rampBaseStateRefusals = [],
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3791,7 +3891,9 @@ export async function collectPublishRevisionBlockers({
   comment?: string;
   bypassLockdown?: boolean;
   skipPrevalidateValidation?: boolean;
-  skipValueSchemaNet?: boolean;
+  rampEnginePublish?: boolean;
+  // From planRampBaseStateSyncForPublish: edits a live ramp does not accept.
+  rampBaseStateRefusals?: RampBaseStateRefusal[];
 }): Promise<Error[]> {
   // Errors, not messages: SoftWarningError (422 + warnings) and BadRequestError
   // (400) reach the caller as themselves rather than a generic 500.
@@ -3822,6 +3924,10 @@ export async function collectPublishRevisionBlockers({
     });
   }
 
+  blockers.push(
+    ...rampBaseStateRefusals.map((r) => new BadRequestError(r.message)),
+  );
+
   await probe(() =>
     prevalidatePublishRevision({
       context,
@@ -3830,7 +3936,7 @@ export async function collectPublishRevisionBlockers({
       result,
       comment,
       skipValidation: skipPrevalidateValidation,
-      skipValueSchemaNet,
+      skipValueSchemaNet: rampEnginePublish,
     }),
   );
 
@@ -3903,7 +4009,7 @@ export async function publishRevision({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
-  skipValueSchemaNet,
+  rampEnginePublish,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3915,9 +4021,9 @@ export async function publishRevision({
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
   // Set by the ramp engine: a step value is judged by type only and never
-  // refused, so rollbacks can re-apply the rule's own earlier values. The
-  // config-backed net below is unchanged; it has always run on ramp publishes.
-  skipValueSchemaNet?: boolean;
+  // refused, so rollbacks can re-apply the rule's own earlier values, and the
+  // engine's own replays are not reconciled with the ramp's base state.
+  rampEnginePublish?: boolean;
 }) {
   // One deduped SDK refresh per landing (feature applies are multi-step: ramp
   // schedules, the feature document, holdout linkage), flushed on success and
@@ -3931,7 +4037,7 @@ export async function publishRevision({
       comment,
       bypassLockdown,
       skipPrevalidateValidation,
-      skipValueSchemaNet,
+      rampEnginePublish,
     }),
   );
 }
@@ -3944,19 +4050,39 @@ async function publishRevisionInner({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
-  skipValueSchemaNet,
+  rampEnginePublish,
 }: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
 
+  // Resolved before the landing gate and any mutation: the ramps a revert
+  // detaches reach environments its rule diff may not, and a failed read must
+  // block the revert rather than leave the ramp running over it.
+  const revertRampStops = await resolveRevertRampStopsForRevision(
+    context,
+    feature,
+    revision,
+  );
+  // A direct edit to a rule under a live ramp: refused while it runs or for a
+  // field the plan sets, otherwise carried into the ramp's base state below.
+  // Targets this publish detaches are left out: that ramp is leaving the rule.
+  const rampBaseState = rampEnginePublish
+    ? { refusals: [], updates: [] }
+    : await planRampBaseStateSyncForPublish(context, feature, result, {
+        detaching: publishRampDetaches(
+          revision.rampActions,
+          revertRampStops.detaches,
+        ),
+      });
+
   // The authoritative landing gate, INSIDE the engine: evidence comes from the
   // merge result itself, so a caller cannot under-describe the change the way
-  // a hand-built field list can. A landing that reaches the payload takes
-  // publish authority; one that is entirely inert metadata is draft-class and
+  // a hand-built field list can. A landing that reaches the payload (or
+  // detaches a revert's ramps) takes publish authority; one that is entirely inert metadata is draft-class and
   // skips the gate (the semantic the features matrix pins for drafters
   // editing descriptions).
-  if (mergeResultTouchesPayload(result)) {
+  if (mergeResultTouchesPayload(result) || revertRampStops.detaches.length) {
     await assertCanPublishFeatureRevision({
       context,
       feature,
@@ -3972,7 +4098,11 @@ async function publishRevisionInner({
           feature,
         ),
         // The draft's ramp actions reach environments no rule diff mentions.
-        rampActions: revision.rampActions,
+        rampActions: [
+          ...(revision.rampActions ?? []),
+          ...revertRampStops.detaches,
+        ],
+        anchoredUpdates: rampBaseState.updates,
       }),
       mergeChanges: result,
     });
@@ -3988,7 +4118,8 @@ async function publishRevisionInner({
     comment,
     bypassLockdown,
     skipPrevalidateValidation,
-    skipValueSchemaNet,
+    rampEnginePublish,
+    rampBaseStateRefusals: rampBaseState.refusals,
   });
   if (blockers.length === 1) {
     throw blockers[0];
@@ -4000,12 +4131,16 @@ async function publishRevisionInner({
         .join("\n")}`,
     );
   }
+  assertRevertRampStopsAcknowledged(context, revertRampStops);
+  await assertUnattendedRevertRampStopsPredateDraft(
+    context,
+    feature,
+    revision,
+    revertRampStops,
+  );
 
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",
-  );
-  const updateActions = (revision.rampActions ?? []).filter(
-    (a) => a.mode === "update",
   );
   // `critical` = decides what is live (the feature document, then the revision
   // status). A satellite that can't be reversed must not abandon those.
@@ -4054,6 +4189,22 @@ async function publishRevisionInner({
         result,
         createActions,
         preCreatedScheduleIds,
+      );
+    }
+
+    // Also before the feature write, so a failed anchor write gates the publish
+    // rather than leaving a live edit the next step would replay away.
+    if (rampBaseState.updates.length) {
+      const rampBaseStatePreImages: RampBaseStatePreImage[] = [];
+      rewinds.push({
+        what: "ramp base states",
+        undo: () => restoreRampBaseStates(context, rampBaseStatePreImages),
+      });
+      await applyRampBaseStateSync(
+        context,
+        rampBaseState.updates,
+        revision.version,
+        rampBaseStatePreImages,
       );
     }
 
@@ -4359,33 +4510,15 @@ async function publishRevisionInner({
     );
   }
 
-  // Apply deferred update actions after publish succeeds.
-  // Best-effort: errors are logged but do not fail the publish response
-  // (feature is already committed; a failed schedule update is recoverable).
-  if (updateActions.length) {
-    try {
-      await createRampSchedulesForRevision(
-        context,
-        updatedFeature,
-        revision,
-        result,
-        updateActions,
-      );
-    } catch (err) {
-      logger.error(
-        err,
-        "Failed to apply deferred ramp update actions after publish",
-      );
-    }
-  }
-
-  // Apply detach actions (best-effort: logged but do not fail publish).
-  if (revision.rampActions?.length) {
-    await applyDetachRampActions(context, revision.rampActions);
-  }
-
-  // Clean up orphaned ramp schedules (best-effort).
-  await cleanupOrphanedRampSchedules(context, feature, updatedFeature);
+  // Best-effort: the feature is already committed.
+  await finalizeRampActionsAfterPublish(
+    context,
+    feature,
+    updatedFeature,
+    revision,
+    result,
+    revertRampStops.detaches,
+  );
 
   return updatedFeature;
 }
@@ -4421,11 +4554,30 @@ export async function createAndPublishRevision({
   bypassedApproval: boolean;
 }> {
   // Filter to envs applicable to this feature's project — avoids over-
-  // triggering approval and creating dangling per-env settings.
+  // triggering approval and creating dangling per-env settings. A request
+  // that also moves the feature may toggle an env only its destination serves.
   const orgEnvironments = getEnvironmentIdsFromOrg(org);
   const orgEnvObjects = getEnvironments(org);
-  const applicableEnvIds = getApplicableEnvIds(orgEnvObjects, feature);
-  const applicableEnvSet = new Set(applicableEnvIds);
+  const m = changes?.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  const applicableEnvSet = new Set([
+    ...getApplicableEnvIds(orgEnvObjects, feature),
+    ...(moves
+      ? getApplicableEnvIds(orgEnvObjects, {
+          ...feature,
+          ...(m?.project !== undefined ? { project: m.project } : {}),
+          ...(m?.targetingProjects !== undefined
+            ? { targetingProjects: m.targetingProjects }
+            : {}),
+          ...(m?.targetingAllProjects !== undefined
+            ? { targetingAllProjects: m.targetingAllProjects }
+            : {}),
+        })
+      : []),
+  ]);
   const allEnvironments = orgEnvironments.filter((e) =>
     applicableEnvSet.has(e),
   );
@@ -4518,14 +4670,6 @@ function getLinkedExperiments(feature: FeatureInterface) {
       ...getReferenceIdsInRules(feature.rules, "experiment-ref"),
     ]),
   ];
-}
-
-export async function toggleNeverStale(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  neverStale: boolean,
-) {
-  return await updateFeature(context, feature, { neverStale });
 }
 
 export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {

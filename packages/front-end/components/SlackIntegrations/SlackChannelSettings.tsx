@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { ago } from "shared/dates";
+import { missingSlackBotScopes } from "shared/slack-integration";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   notificationCardFormats,
@@ -38,36 +39,17 @@ import NotificationSettingsCard from "@/components/Notifications/NotificationSet
 import SlackEventPreview from "./SlackEventPreview";
 import { SlackChannelFormValues } from "./slackChannelForm";
 
-const REQUIRED_SCOPES = [
-  "chat:write",
-  "files:write",
-  "channels:read",
-  "groups:read",
-  "channels:join",
-  "assistant:write",
-  "im:history",
-  "app_mentions:read",
-  "commands",
-  "links:read",
-  "links:write",
-];
-
 const CARD_FORMAT_LABELS: Record<
   NotificationCardFormat,
   { label: string; description: string }
 > = {
-  compact: {
-    label: "Compact card",
-    description: "A short image highlighting the event.",
+  light: {
+    label: "Light",
+    description: "The card on a white background.",
   },
-  "compact-dark": {
-    label: "Compact dark",
-    description:
-      "A short image with a dark background and colored event header.",
-  },
-  detailed: {
-    label: "Detailed card",
-    description: "A larger image with more event details.",
+  dark: {
+    label: "Dark",
+    description: "The same card on a dark background for dark Slack themes.",
   },
 };
 
@@ -144,19 +126,7 @@ export default function SlackChannelSettings({
   const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const grantedScopes = useMemo(
-    () =>
-      new Set(
-        (workspace.scope || "")
-          .split(",")
-          .map((scope) => scope.trim())
-          .filter(Boolean),
-      ),
-    [workspace.scope],
-  );
-  const needsReconnect = REQUIRED_SCOPES.some(
-    (scope) => !grantedScopes.has(scope),
-  );
+  const needsReconnect = missingSlackBotScopes(workspace.scope).length > 0;
 
   const reconnect = async () => {
     setReconnecting(true);

@@ -40,6 +40,7 @@ export type ContextualBanditVariationStatus =
 
 // Only the stored document carries status; the server owns transitions.
 const contextualBanditVariation = variation.extend({
+  key: z.string().regex(/\S/, "Variation key cannot be empty."),
   status: z.enum(contextualBanditVariationStatus).optional(),
 });
 export type ContextualBanditVariation = z.infer<
@@ -357,11 +358,17 @@ export const apiContextualBanditUpdateVariationsValidator = {
           id: z.string(),
           name: z.string().optional(),
           description: z.string().optional(),
+          key: z
+            .string()
+            .optional()
+            .describe(
+              "New key for the arm. Must be unique across the contextual bandit's arms, including removed ones. The key is what SDKs report in exposure events, so renaming an arm on a running bandit orphans exposures already recorded under the old key.",
+            ),
         }),
       )
       .optional()
       .describe(
-        "Metadata edits to existing active arms. Only `name` and `description` may be changed; key, values, weights, screenshots, and status are preserved.",
+        "Metadata edits to existing active arms. `name`, `description`, and `key` may be changed; values, weights, screenshots, and status are preserved.",
       ),
   }),
   querySchema: z.never(),

@@ -4,6 +4,8 @@ on:
     paths:
       - "docs/**"
       - "scripts/check-docs-frontmatter.mjs"
+      - "scripts/check-doclink-registry.mjs"
+      - "packages/front-end/components/docSections.ts"
       - ".github/workflows/docs.yml"
   push:
     branches:
@@ -11,6 +13,8 @@ on:
     paths:
       - "docs/**"
       - "scripts/check-docs-frontmatter.mjs"
+      - "scripts/check-doclink-registry.mjs"
+      - "packages/front-end/components/docSections.ts"
       - ".github/workflows/docs.yml"
 jobs:
   # Mintlify hosts/deploys docs via their GitHub App; this job only validates content.
@@ -31,7 +35,8 @@ jobs:
         run: node scripts/check-docs-frontmatter.mjs
 
       - name: Install Mintlify CLI
-        run: npm install -g mint
+        # Pinned: mint publishes ~daily and a partial publish breaks `latest`.
+        run: npm install -g mint@4.2.910
 
       - name: Validate docs build
         working-directory: docs
@@ -39,4 +44,7 @@ jobs:
 
       - name: Check for broken links
         working-directory: docs
-        run: mint broken-links --check-anchors
+        run: mint broken-links --check-anchors --check-redirects
+
+      - name: Check DocLink registry targets
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-doclink-registry.mjs

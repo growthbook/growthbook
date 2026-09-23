@@ -55,6 +55,13 @@ describe("general agent system prompt", () => {
     expect(prompt).not.toContain("`feature-flags/references/flag-create`");
     expect(prompt).not.toContain("`feature-flags/references/flag-targeting`");
   });
+
+  it("asks for a concise final response", () => {
+    const prompt = _buildGeneralAgentSystemPrompt();
+
+    expect(prompt).toContain("End with ONE short plain-text markdown message");
+    expect(prompt).toContain("reference specific numbers from the API");
+  });
 });
 
 describe("coerceBody (callApi defensive parsing)", () => {
