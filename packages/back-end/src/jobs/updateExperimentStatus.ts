@@ -40,11 +40,17 @@ const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
 // A concurrent request can stage a different update while a job is working.
-// Only the exact update a job processed may be cleared or marked failed.
+// Only the exact update a job processed may be cleared or marked failed; the
+// same action re-staged by someone else runs on their authority, not ours.
+type StagedUpdate = { type: string; date: Date; scheduledBy?: string };
 const sameStagedUpdate = (
-  a: { type: string; date: Date } | null | undefined,
-  b: { type: string; date: Date },
-): boolean => !!a && a.type === b.type && a.date.getTime() === b.date.getTime();
+  a: StagedUpdate | null | undefined,
+  b: StagedUpdate,
+): boolean =>
+  !!a &&
+  a.type === b.type &&
+  a.date.getTime() === b.date.getTime() &&
+  (a.scheduledBy ?? null) === (b.scheduledBy ?? null);
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {
@@ -283,14 +289,12 @@ export const updateSingleExperimentStatus = async (
     }
 
     // A replacement staged meanwhile is not this attempt's outcome: leave it
-    // alone and report nothing for the stale one.
-    const latest = await getExperimentById(context, experiment.id).catch(
-      () => null,
-    );
-    if (
-      !latest ||
-      !sameStagedUpdate(latest.nextScheduledStatusUpdate, scheduled)
-    ) {
+    // alone and report nothing for the stale one. A failed reload keeps the
+    // snapshot so the attempt still counts toward the cap.
+    const latest =
+      (await getExperimentById(context, experiment.id).catch(() => null)) ??
+      experiment;
+    if (!sameStagedUpdate(latest.nextScheduledStatusUpdate, scheduled)) {
       return;
     }
 

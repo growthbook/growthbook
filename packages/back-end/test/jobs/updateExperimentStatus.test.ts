@@ -98,15 +98,15 @@ describe("updateSingleExperimentStatus", () => {
     );
   });
 
-  it("leaves a schedule staged meanwhile alone when the stale attempt fails", async () => {
+  it("leaves a schedule re-staged meanwhile alone, even the same action by someone else", async () => {
     (getScheduledStatusContext as jest.Mock).mockResolvedValue(null);
     (getExperimentById as jest.Mock)
       .mockResolvedValueOnce(draft)
       .mockResolvedValueOnce({
         ...draft,
         nextScheduledStatusUpdate: {
-          type: "start",
-          date: new Date(4102444800000),
+          ...draft.nextScheduledStatusUpdate,
+          scheduledBy: "u_other",
         },
       });
     await updateSingleExperimentStatus(job);
