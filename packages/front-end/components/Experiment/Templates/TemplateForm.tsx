@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useState } from "react";
 import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
@@ -54,8 +54,7 @@ const TemplateForm: FC<Props> = ({
   const router = useRouter();
   const [step, setStep] = useState(0);
 
-  const { getDatasourceById, refreshTags, project, projects } =
-    useDefinitions();
+  const { refreshTags, project, projects } = useDefinitions();
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
@@ -96,6 +95,7 @@ const TemplateForm: FC<Props> = ({
       customFields: initialValue?.customFields || {},
       datasource: initialValue?.datasource || "",
       exposureQueryId: initialValue?.exposureQueryId || "",
+      exposureQueryIdentifierType: initialValue?.exposureQueryIdentifierType,
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialValue?.hashAttribute || hashAttribute,
       disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
@@ -124,10 +124,6 @@ const TemplateForm: FC<Props> = ({
       value: form.watch("customFields"),
       setValue: (value) => form.setValue("customFields", value),
     });
-
-  const datasource = form.watch("datasource")
-    ? getDatasourceById(form.watch("datasource") ?? "")
-    : null;
 
   const { apiCall } = useAuth();
 
@@ -206,17 +202,9 @@ const TemplateForm: FC<Props> = ({
     ? permissionsUtils.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  const exposureQueryId = form.getValues("exposureQueryId");
-
+  // ExperimentRefNewFields owns repairing the assignment query / identifier
+  // selection, since only it knows the project scope and identifier filtering.
   const { currentProjectIsDemo } = useDemoDataSourceProject();
-
-  useEffect(() => {
-    const exposureQueries = datasource?.settings?.queries?.exposure || [];
-
-    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
-    }
-  }, [form, exposureQueryId, datasource?.settings?.queries?.exposure]);
 
   let header = isNewTemplate
     ? "Create Experiment Template"

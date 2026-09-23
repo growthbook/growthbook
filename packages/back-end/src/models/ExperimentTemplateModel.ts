@@ -3,6 +3,10 @@ import {
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
+import {
+  flattenExposureQueryInput,
+  toApiAssignmentQueryRef,
+} from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
@@ -10,9 +14,27 @@ import {
   experimentTemplateApiSpec,
   bulkImportExperimentTemplatesEndpoint,
 } from "back-end/src/api/specs/experiment-template.spec";
+import { assertValidAssignmentQuerySelectionChange } from "back-end/src/services/datasource";
 import { MakeModelClass } from "./BaseModel";
 
 const ID_PREFIX = "tmplt__";
+
+// The API's grouped exposureQuery supersedes the deprecated exposureQueryId; the
+// model stays flat.
+function normalizeTemplateExposureQueryBody(body: unknown): unknown {
+  if (!body || typeof body !== "object") return body;
+  return flattenExposureQueryInput(
+    body as Parameters<typeof flattenExposureQueryInput>[0],
+  );
+}
+
+// Both fields are optional in the API body, so creates must check for one.
+function assertTemplateHasExposureQuery(body: unknown) {
+  const b = body as { exposureQueryId?: string } | null;
+  if ((b?.exposureQueryId ?? null) === null) {
+    throw new Error("exposureQuery is required");
+  }
+}
 
 const BaseClass = MakeModelClass({
   schema: experimentTemplateInterface,
@@ -56,19 +78,25 @@ const BaseClass = MakeModelClass({
               ? id
               : `${ID_PREFIX}${id}`;
             const existing = existingById.get(normalizedId);
+            const normalizedData = normalizeTemplateExposureQueryBody(
+              data,
+            ) as typeof data;
             if (existing) {
               await req.context.models.experimentTemplates.update(
                 existing,
-                data,
+                normalizedData,
               );
               updated++;
             } else {
+              assertTemplateHasExposureQuery(normalizedData);
               const created =
                 await req.context.models.experimentTemplates.create({
-                  ...data,
+                  ...normalizedData,
                   id: normalizedId,
                   owner: "", // Will be inferred in BaseModel if possible
-                });
+                } as Parameters<
+                  typeof req.context.models.experimentTemplates.create
+                >[0]);
               // Keep the map current so duplicate IDs in the same payload update
               // rather than attempting a second create (which would fail on the unique index).
               existingById.set(normalizedId, created);
@@ -106,6 +134,60 @@ export class ExperimentTemplatesModel extends BaseClass {
 
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("templates");
+  }
+
+  // Runs for internal and REST writes. A project change re-checks the
+  // selection, since it changes which queries the template may use.
+  protected override async customValidation(
+    doc: ExperimentTemplateInterface,
+    previousDoc?: ExperimentTemplateInterface,
+  ) {
+    await assertValidAssignmentQuerySelectionChange(
+      this.context,
+      previousDoc && (previousDoc.project || "") === (doc.project || "")
+        ? {
+            datasource: previousDoc.datasource,
+            exposureQueryId: previousDoc.exposureQueryId,
+            identifierType: previousDoc.exposureQueryIdentifierType,
+          }
+        : null,
+      {
+        datasource: doc.datasource,
+        exposureQueryId: doc.exposureQueryId,
+        identifierType: doc.exposureQueryIdentifierType,
+      },
+      () => ({ project: doc.project ?? "" }),
+    );
+  }
+
+  protected override async processApiCreateBody(rawBody: unknown) {
+    const body = normalizeTemplateExposureQueryBody(rawBody);
+    assertTemplateHasExposureQuery(body);
+    return super.processApiCreateBody(body);
+  }
+
+  protected override async processApiUpdateBody(rawBody: unknown) {
+    return super.processApiUpdateBody(
+      normalizeTemplateExposureQueryBody(rawBody),
+    );
+  }
+
+  protected override toApiInterface(
+    doc: ExperimentTemplateInterface,
+  ): ApiExperimentTemplateInterface {
+    const { exposureQueryIdentifierType, ...base } = super.toApiInterface(
+      doc,
+    ) as ExperimentTemplateInterface & ApiExperimentTemplateInterface;
+    return {
+      ...base,
+      exposureQuery: toApiAssignmentQueryRef(
+        doc.exposureQueryId,
+        exposureQueryIdentifierType,
+        // BaseModel caches the template's data source on read and write.
+        this.getForeignRefs(doc, false).datasource?.settings?.queries
+          ?.exposure ?? [],
+      ),
+    };
   }
 
   public override async handleApiList(

@@ -9,7 +9,11 @@ import {
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  assertExposureQueryDeclaresIdentifierType,
+  buildUnitsQuerySettingsFromSnapshot,
+  getAnalysisIdentifierType,
+} from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
@@ -145,6 +149,11 @@ export const startExperimentResultQueries = async (
     integration.datasource,
     snapshotSettings.exposureQueryId || "",
   );
+  // The query may have dropped the stored identifier since it was saved.
+  assertExposureQueryDeclaresIdentifierType(
+    resolvedExposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
 
   const snapshotDimensions: Dimension[] = (
     await Promise.all(
@@ -207,10 +216,13 @@ export const startExperimentResultQueries = async (
         eligibleDimensionsWithSlices: [],
       };
 
-  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
-    snapshotSettings,
-    resolvedExposureQuery,
-  );
+  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(snapshotSettings, {
+    ...resolvedExposureQuery,
+    userIdType: getAnalysisIdentifierType(
+      resolvedExposureQuery,
+      snapshotSettings.exposureQueryIdentifierType,
+    ),
+  });
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,

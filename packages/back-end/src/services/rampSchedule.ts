@@ -40,6 +40,7 @@ import {
   stringifyFeatureValue,
   unanchoredRampTargets,
   validateFeatureValue,
+  hasAssignmentQuerySelectionChanged,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -64,6 +65,7 @@ import {
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   resolveRampTargets,
   ruleFootprint,
@@ -1514,18 +1516,42 @@ function sameStringArray(
   return left.length === right.length && left.every((v, i) => v === right[i]);
 }
 
-function monitoringConfigRequiresSafeRolloutResync(
+function monitoringSelectionChanged(
+  ctx: ReqContext | ApiReqContext,
+  current: RampMonitoringConfig,
+  next: RampMonitoringConfig,
+): Promise<boolean> {
+  return hasAssignmentQuerySelectionChanged(
+    {
+      datasource: current.datasourceId,
+      exposureQueryId: current.exposureQueryId,
+      identifierType: current.exposureQueryIdentifierType,
+    },
+    {
+      datasource: next.datasourceId,
+      exposureQueryId: next.exposureQueryId,
+      identifierType: next.exposureQueryIdentifierType,
+    },
+    async () =>
+      (await getDataSourceById(ctx, next.datasourceId))?.settings?.queries
+        ?.exposure ?? [],
+  );
+}
+
+async function monitoringConfigRequiresSafeRolloutResync(
+  ctx: ReqContext | ApiReqContext,
   current: RampScheduleInterface["monitoringConfig"],
   next: RampScheduleInterface["monitoringConfig"],
-): boolean {
+): Promise<boolean> {
   if (!current || !next) return current !== next;
-  return (
-    current.datasourceId !== next.datasourceId ||
-    current.exposureQueryId !== next.exposureQueryId ||
+  if (
     current.updateScheduleMinutes !== next.updateScheduleMinutes ||
     !sameStringArray(current.guardrailMetricIds, next.guardrailMetricIds) ||
     !sameStringArray(current.signalMetricIds, next.signalMetricIds)
-  );
+  ) {
+    return true;
+  }
+  return monitoringSelectionChanged(ctx, current, next);
 }
 
 export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
@@ -1535,10 +1561,11 @@ export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
 ): Promise<void> {
   if (
     !schedule.safeRolloutId ||
-    !monitoringConfigRequiresSafeRolloutResync(
+    !(await monitoringConfigRequiresSafeRolloutResync(
+      ctx,
       schedule.monitoringConfig,
       nextMonitoringConfig,
-    )
+    ))
   ) {
     return;
   }
@@ -1548,7 +1575,7 @@ export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
   );
   if (safeRollout?.startedAt) {
     throw new Error(
-      "Cannot change SafeRollout-backed monitoring data source, exposure query, metrics, or update cadence after monitoring has started.",
+      "Cannot change SafeRollout-backed monitoring data source, exposure query, identifier type, metrics, or update cadence after monitoring has started.",
     );
   }
 }
@@ -1777,6 +1804,7 @@ export async function ensureSafeRolloutForMonitoredRamp(
     featureId: schedule.entityId,
     datasourceId: mc.datasourceId,
     exposureQueryId: mc.exposureQueryId,
+    exposureQueryIdentifierType: mc.exposureQueryIdentifierType,
     guardrailMetricIds: allMetricIds,
     maxDuration: { amount: 90, unit: "days" },
     autoRollback: false,
@@ -3726,12 +3754,9 @@ export async function updateRampMonitoringConfig(
   // drift between the schedule config and what the SafeRollout actually queries.
   if (schedule.safeRolloutId && schedule.monitoringConfig) {
     const existing = schedule.monitoringConfig;
-    if (
-      newConfig.datasourceId !== existing.datasourceId ||
-      newConfig.exposureQueryId !== existing.exposureQueryId
-    ) {
+    if (await monitoringSelectionChanged(ctx, existing, newConfig)) {
       throw new Error(
-        "Cannot change datasourceId or exposureQueryId while a SafeRollout is active. " +
+        "Cannot change datasourceId, exposureQuery, or its identifier type while a SafeRollout is active. " +
           "Stop the schedule and create a new one to change the data source.",
       );
     }

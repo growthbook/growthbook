@@ -35,6 +35,10 @@ jest.mock("back-end/src/services/audit", () => ({
   auditDetailsUpdate: jest.fn(() => ({})),
 }));
 
+jest.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: jest.fn(),
+}));
+
 jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
 }));

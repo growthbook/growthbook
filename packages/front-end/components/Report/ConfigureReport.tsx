@@ -1,5 +1,9 @@
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
-import React, { RefObject, useState } from "react";
+import {
+  getExposureQueryIdentifierTypes,
+  getAnalysisIdentifierType,
+} from "shared/util";
+import React, { RefObject, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate } from "shared/dates";
@@ -20,7 +24,10 @@ import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
+
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricAnalysisWindowSelector from "@/components/Experiment/MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "@/components/Experiment/MetricsOverridesSelector";
@@ -154,6 +161,36 @@ export default function ConfigureReport({
     "experimentAnalysisSettings.exposureQueryId",
   );
   const exposureQuery = exposureQueries?.find((e) => e.id === exposureQueryId);
+  const storedIdentifierType = form.watch(
+    "experimentAnalysisSettings.exposureQueryIdentifierType",
+  );
+  const setExposureQueryId = useCallback(
+    (value: string) =>
+      form.setValue("experimentAnalysisSettings.exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue(
+        "experimentAnalysisSettings.exposureQueryIdentifierType",
+        value,
+      ),
+    [form],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project: experiment?.project,
+    hashAttribute: experiment?.hashAttribute,
+    exposureQueryId,
+    identifierType: getAnalysisIdentifierType(
+      exposureQuery,
+      storedIdentifierType,
+    ),
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    autoRepair: false,
+    keepCurrentSelection: true,
+  });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
@@ -222,7 +259,11 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
-              userIdType={form.watch("experimentAnalysisSettings.userIdType")}
+              userIdType={
+                form.watch(
+                  "experimentAnalysisSettings.exposureQueryIdentifierType",
+                ) ?? form.watch("experimentAnalysisSettings.userIdType")
+              }
               newUi={false}
               cutoffBounds={{
                 min: getValidDate(
@@ -436,6 +477,9 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
+              exposureQueryIdentifierType={form.watch(
+                "experimentAnalysisSettings.exposureQueryIdentifierType",
+              )}
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
               noQuantileGoalMetrics={experiment?.type === "multi-armed-bandit"}
@@ -568,45 +612,9 @@ export default function ConfigureReport({
 
           <TabsContent value="analysis">
             {exposureQueries ? (
-              <SelectField
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
                 size="legacy"
-                label={
-                  <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                  </>
-                }
-                value={
-                  form.watch("experimentAnalysisSettings.exposureQueryId") ?? ""
-                }
-                onChange={(v) =>
-                  form.setValue("experimentAnalysisSettings.exposureQueryId", v)
-                }
-                required
-                options={exposureQueries?.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries?.find(
-                    (e) => e.id === value,
-                  )?.userIdType;
-                  return (
-                    <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                }}
               />
             ) : null}
             <Field
@@ -619,6 +627,9 @@ export default function ConfigureReport({
               datasource={form.watch("experimentAnalysisSettings.datasource")}
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
+              )}
+              exposureQueryIdentifierType={form.watch(
+                "experimentAnalysisSettings.exposureQueryIdentifierType",
               )}
               project={experiment?.project}
               includeFacts={true}
@@ -833,7 +844,11 @@ export default function ConfigureReport({
                   Available columns:
                   <div className="mb-2 d-flex flex-wrap">
                     {["timestamp", "variation_id"]
-                      .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                      .concat(
+                        exposureQuery
+                          ? getExposureQueryIdentifierTypes(exposureQuery)
+                          : [],
+                      )
                       .concat(exposureQuery?.dimensions || [])
                       .map((d) => {
                         return (

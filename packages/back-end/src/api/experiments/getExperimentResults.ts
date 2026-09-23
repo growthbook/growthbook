@@ -7,6 +7,7 @@ import {
   toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
 
 export const getExperimentResults = createApiRequestHandler(
   getExperimentResultsValidator,
@@ -33,7 +34,15 @@ export const getExperimentResults = createApiRequestHandler(
     toExperimentApiInterface(req.context, experiment),
     getMetricMapForExperiment(req.context, experiment),
   ]);
-  const result = toSnapshotApiInterface(experiment, snapshot, metricsById);
+  const result = toSnapshotApiInterface(
+    experiment,
+    snapshot,
+    metricsById,
+    await getExposureQueriesForDatasource(
+      req.context,
+      experiment.datasource ?? "",
+    ),
+  );
 
   return {
     experiment: apiExperiment,

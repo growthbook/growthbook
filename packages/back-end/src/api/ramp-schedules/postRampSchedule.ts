@@ -11,6 +11,7 @@ import {
   RampStepAction,
   stepHoldConditions,
   isAwaitingStartApproval,
+  apiAssignmentQueryRef,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import {
@@ -31,7 +32,10 @@ import {
   rampPatchEntriesForTargets,
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
-import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import {
+  apiMonitoringConfigToInternal,
+  rampScheduleToApiInterface,
+} from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
@@ -106,7 +110,17 @@ const postRampScheduleValidator = {
       monitoringConfig: z
         .object({
           datasourceId: z.string(),
-          exposureQueryId: z.string(),
+          exposureQuery: apiAssignmentQueryRef
+            .describe(
+              "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
+            )
+            .optional(),
+          /** @deprecated use exposureQuery */
+          exposureQueryId: z
+            .string()
+            .describe("Deprecated: use exposureQuery instead.")
+            .optional()
+            .meta({ deprecated: true }),
           guardrailMetricIds: z.array(z.string()).min(1),
           signalMetricIds: z.array(z.string()).optional(),
           monitoringMode: z.enum(["auto", "manual"]).optional(),
@@ -454,7 +468,9 @@ export const postRampSchedule = createApiRequestHandler(
     startDate,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
     monitoringConfig: normalizeMonitoringConfig(
-      body.monitoringConfig ?? template?.monitoringConfig ?? null,
+      apiMonitoringConfigToInternal(body.monitoringConfig) ??
+        template?.monitoringConfig ??
+        null,
     ),
     lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
     ...(body.experimentHealthAction
@@ -489,5 +505,5 @@ export const postRampSchedule = createApiRequestHandler(
     await dispatchAwaitingStartApproval(req.context, schedule);
   }
 
-  return { rampSchedule: rampScheduleToApiInterface(schedule) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, schedule) };
 });

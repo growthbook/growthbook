@@ -6,6 +6,7 @@ import {
   proportionVarianceFromSums,
   ratioVarianceFromSums,
   returnZeroIfNotFinite,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import {
@@ -59,12 +60,26 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       );
     }
 
+    const populationExposureQueryIdentifierTypes = populationExposureQuery
+      ? getExposureQueryIdentifierTypes(populationExposureQuery)
+      : [];
+    if (
+      populationExposureQuery &&
+      !populationExposureQueryIdentifierTypes.includes(
+        params.settings.userIdType,
+      )
+    ) {
+      throw new Error(
+        `Population exposure query "${populationExposureQuery.id}" does not declare identifier type "${params.settings.userIdType}"`,
+      );
+    }
+
     const paramsWithPopulation: MetricAnalysisParams = {
       ...params,
       populationExposureQuery: populationExposureQuery
         ? {
             query: populationExposureQuery.query,
-            userIdType: populationExposureQuery.userIdType,
+            userIdType: params.settings.userIdType,
           }
         : undefined,
     };

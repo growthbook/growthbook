@@ -9,7 +9,11 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { config, FullModalPowerCalculationParams } from "shared/power";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  getAnalysisIdentifierType,
+  getExposureQueryIdentifierTypes,
+} from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -86,7 +90,19 @@ export const SelectStep = ({
 
           return {
             ...exp,
-            exposureQueryUserIdType: exposureQuery?.userIdType,
+            // Excludes experiments whose identifier the query no longer declares,
+            // since their analysis can't run either.
+            exposureQueryUserIdType:
+              exposureQuery &&
+              (!exp.exposureQueryIdentifierType ||
+                getExposureQueryIdentifierTypes(exposureQuery).includes(
+                  exp.exposureQueryIdentifierType,
+                ))
+                ? getAnalysisIdentifierType(
+                    exposureQuery,
+                    exp.exposureQueryIdentifierType,
+                  )
+                : undefined,
             allMetrics: getAllMetricIdsFromExperiment(exp, false, metricGroups),
           };
         })

@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getAnalysisIdentifierType } from "shared/util";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -42,6 +43,7 @@ export interface Props {
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   newPhase?: (() => void) | null;
+  holdoutProjects?: string[];
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
   envs: string[];
@@ -99,6 +101,7 @@ export default function ResultsTab({
   setSortBy,
   sortDirection,
   setSortDirection,
+  holdoutProjects,
 }: Props) {
   const {
     getDatasourceById,
@@ -164,9 +167,12 @@ export default function ResultsTab({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  const userIdType = getAnalysisIdentifierType(
+    datasourceSettings?.queries?.exposure?.find(
+      (e) => e.id === experiment.exposureQueryId,
+    ),
+    experiment.exposureQueryIdentifierType,
+  );
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
@@ -348,6 +354,7 @@ export default function ResultsTab({
             editMetrics={true}
             editVariationIds={false}
             source={"results-tab"}
+            holdoutProjects={holdoutProjects}
           />
         ) : null}
         <div className="mb-2" style={{ overflowX: "initial" }}>

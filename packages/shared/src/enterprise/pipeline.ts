@@ -27,6 +27,7 @@ export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
   "skipPartialData",
   "datasourceId",
   "exposureQueryId",
+  "exposureQueryIdentifierType",
   "startDate",
   "regressionAdjustmentEnabled",
   "experimentId",

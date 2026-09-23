@@ -11,6 +11,10 @@ import {
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
+  assertValidAssignmentQuerySelection,
+  getExposureQueryIdentifierTypes,
+  isExposureQueryAvailableForProjects,
+  parseAssignmentQueryInput,
 } from "shared/util";
 import {
   ApiUpdateHoldoutBody,
@@ -28,7 +32,7 @@ import {
   ExperimentPhase,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
-import { DataSourceInterface } from "shared/types/datasource";
+import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
   notifyHoldoutCreated,
   notifyHoldoutStatusChanged,
@@ -52,6 +56,7 @@ import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-avai
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
+import { dangerouslyGetDataSourceByIdBypassPermission } from "back-end/src/models/DataSourceModel";
 import { logger } from "back-end/src/util/logger";
 import {
   getChangesToStartExperiment,
@@ -358,14 +363,51 @@ export async function resolveHoldoutExperimentToLink({
 export function assertValidAssignmentQuery(
   datasource: DataSourceInterface | null,
   assignmentQueryId: string | undefined,
-): void {
-  if (!assignmentQueryId) return;
-  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
-    (q) => q.id === assignmentQueryId,
+  identifierType: string | undefined,
+  // The holdout's projects, which the query must all cover; undefined skips.
+  projects: string[] | undefined,
+): ExposureQuery | undefined {
+  if (!assignmentQueryId) return undefined;
+  return assertValidAssignmentQuerySelection({
+    exposureQueries: datasource?.settings?.queries?.exposure ?? [],
+    exposureQueryId: assignmentQueryId,
+    identifierType,
+    project: undefined,
+    projects,
+    datasourceProjects: datasource?.projects,
+  });
+}
+
+// A project change must keep the holdout's current assignment query usable by
+// every project it now covers.
+export async function assertHoldoutAssignmentQueryCoversProjects(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "datasource" | "exposureQueryId">,
+  projects: string[],
+): Promise<void> {
+  if (!experiment.datasource || !experiment.exposureQueryId) return;
+  const datasource = await dangerouslyGetDataSourceByIdBypassPermission(
+    context,
+    experiment.datasource,
   );
-  if (!exposureQuery) {
-    throw new Error("Invalid assignment query: " + assignmentQueryId);
+  const query = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === experiment.exposureQueryId,
+  );
+  // A query that no longer exists is surfaced when analysis runs.
+  if (
+    !query ||
+    isExposureQueryAvailableForProjects(query, projects, datasource?.projects)
+  ) {
+    return;
   }
+  const scopeSource = query.projects?.length
+    ? "the query's"
+    : "its data source's";
+  throw new BadRequestError(
+    projects.length
+      ? `This holdout's assignment query "${query.name || query.id}" isn't available for every selected project because of ${scopeSource} project scope. Widen that scope or choose another query first.`
+      : `This holdout's assignment query "${query.name || query.id}" is limited by ${scopeSource} project scope, so the holdout can't cover all projects. Widen that scope or choose another query first.`,
+  );
 }
 
 export async function createHoldoutWithExperiment(
@@ -385,7 +427,12 @@ export async function createHoldoutWithExperiment(
     secondaryMetrics: data.secondaryMetrics,
   });
 
-  assertValidAssignmentQuery(datasource, data.assignmentQueryId);
+  assertValidAssignmentQuery(
+    datasource,
+    data.assignmentQueryId,
+    data.assignmentQueryIdentifierType,
+    data.projects ?? [],
+  );
 
   const conditionResult = validateCondition(data.targetingCondition);
   if (!conditionResult.success) {
@@ -438,6 +485,9 @@ export async function createHoldoutWithExperiment(
     trackingKey: `holdout-${uuidv4()}`,
     datasource: data.datasourceId || "",
     exposureQueryId: data.assignmentQueryId || "",
+    ...(data.assignmentQueryIdentifierType
+      ? { exposureQueryIdentifierType: data.assignmentQueryIdentifierType }
+      : {}),
     userIdType: "anonymous",
     name: data.name,
     phases: [
@@ -599,6 +649,18 @@ export async function updateHoldoutWithExperiment(
     }
     // Narrowing the project scope must not strand linked entities
     await assertHoldoutScopeCoversLinked(context, holdout, body.projects);
+    // A query changed in the same request is checked against these projects below.
+    const changesAssignmentQuery =
+      body.datasourceId !== undefined ||
+      body.assignmentQuery !== undefined ||
+      body.assignmentQueryId !== undefined;
+    if (!changesAssignmentQuery) {
+      await assertHoldoutAssignmentQueryCoversProjects(
+        context,
+        experiment,
+        body.projects,
+      );
+    }
   }
 
   const experimentChanges: Partial<ExperimentInterface> = {};
@@ -668,9 +730,16 @@ export async function updateHoldoutWithExperiment(
   }
   // Validate against the post-update values, so a metric or exposure query left
   // stale by a datasource-only change is rejected here, not at query time.
+  const assignmentQueryInput = parseAssignmentQueryInput(
+    body.assignmentQuery,
+    body.assignmentQueryId,
+    "assignmentQuery",
+  );
+  const assignmentQueryId = assignmentQueryInput.id;
+  let assignmentQueryIdentifierType = assignmentQueryInput.identifierType;
   if (
     body.datasourceId !== undefined ||
-    body.assignmentQueryId !== undefined ||
+    assignmentQueryId !== undefined ||
     body.goalMetrics !== undefined ||
     body.secondaryMetrics !== undefined
   ) {
@@ -680,16 +749,42 @@ export async function updateHoldoutWithExperiment(
       secondaryMetrics: body.secondaryMetrics ?? experiment.secondaryMetrics,
     });
 
+    const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
+    // Repointing without naming an identifier defaults to the new query's first.
+    if (
+      assignmentQueryIdentifierType === undefined &&
+      assignmentQueryId !== undefined &&
+      assignmentQueryId !== experiment.exposureQueryId
+    ) {
+      const newQuery = datasource?.settings?.queries?.exposure?.find(
+        (q) => q.id === assignmentQueryId,
+      );
+      assignmentQueryIdentifierType = newQuery
+        ? getExposureQueryIdentifierTypes(newQuery)[0]
+        : undefined;
+    }
     assertValidAssignmentQuery(
       datasource,
-      body.assignmentQueryId ?? experiment.exposureQueryId,
+      effectiveQueryId,
+      assignmentQueryIdentifierType ?? experiment.exposureQueryIdentifierType,
+      // Scope is only rechecked when the selection or projects change, so a
+      // metrics-only edit isn't blocked by an already-drifted query.
+      body.datasourceId !== undefined ||
+        assignmentQueryId !== undefined ||
+        body.projects !== undefined
+        ? (body.projects ?? holdout.projects)
+        : undefined,
     );
 
     if (body.datasourceId !== undefined) {
       experimentChanges.datasource = body.datasourceId;
     }
-    if (body.assignmentQueryId !== undefined) {
-      experimentChanges.exposureQueryId = body.assignmentQueryId;
+    if (assignmentQueryId !== undefined) {
+      experimentChanges.exposureQueryId = assignmentQueryId;
+    }
+    if (assignmentQueryIdentifierType !== undefined) {
+      experimentChanges.exposureQueryIdentifierType =
+        assignmentQueryIdentifierType;
     }
   }
   // The name is stored on both documents and must not drift.

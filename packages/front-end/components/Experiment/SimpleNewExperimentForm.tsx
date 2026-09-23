@@ -6,6 +6,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import {
+  getExposureQueryIdentifierTypes,
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
 } from "shared/util";
@@ -25,6 +26,11 @@ import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  getExposureQueriesForProject,
+  getDefaultIdentifierTypeForQuery,
+  getHashAttributeIdentifierTypeMap,
+} from "@/services/datasources";
 import { useUser } from "@/services/UserContext";
 import { useWatching } from "@/services/WatchProvider";
 import { convertTemplateToExperiment } from "@/services/experiments";
@@ -88,14 +94,19 @@ export function getAutoDatasourceId({
 export function getAutoExposureQueryId({
   datasource,
   hashAttribute,
+  project,
   templateExposureQueryId,
 }: {
   datasource?: DataSourceInterfaceWithParams;
   hashAttribute: string;
+  project?: string;
   templateExposureQueryId?: string;
 }): string {
   const dsSettings = datasource?.settings;
-  const exposureQueries = dsSettings?.queries?.exposure || [];
+  const exposureQueries = getExposureQueriesForProject(
+    dsSettings?.queries?.exposure || [],
+    project,
+  );
 
   if (templateExposureQueryId) {
     const templateExposureQueryIsValid = exposureQueries.some(
@@ -110,10 +121,13 @@ export function getAutoExposureQueryId({
   // lookup below can't resolve the assignment query. Map the hash attribute to its
   // exposure query directly instead.
   if (datasource?.type === "growthbook_clickhouse") {
-    return getManagedWarehouseExposureQueryIdForAttribute({
+    const managedQueryId = getManagedWarehouseExposureQueryIdForAttribute({
       settings: datasource.settings,
       attribute: hashAttribute,
     });
+    return exposureQueries.some((q) => q.id === managedQueryId)
+      ? managedQueryId
+      : "";
   }
 
   if (exposureQueries.length > 1) {
@@ -125,11 +139,46 @@ export function getAutoExposureQueryId({
         ?.filter((t) => t.attributes?.includes(hashAttribute))
         .map((t) => t.userIdType) || [];
     const matchingQueries = exposureQueries.filter((q) =>
-      linkedUserIdTypes.includes(q.userIdType),
+      getExposureQueryIdentifierTypes(q).some((identifierType) =>
+        linkedUserIdTypes.includes(identifierType),
+      ),
     );
     if (matchingQueries.length === 1) return matchingQueries[0].id;
   }
   return "";
+}
+
+// The identifier to analyze the auto-selected query on, in order: the
+// template's, one linked to the hash attribute, then the query's first. Each
+// must be declared by the query.
+export function getAutoExposureQueryIdentifierType({
+  datasource,
+  hashAttribute,
+  exposureQueryId,
+  templateIdentifierType,
+}: {
+  datasource?: DataSourceInterfaceWithParams;
+  hashAttribute: string;
+  exposureQueryId: string;
+  templateIdentifierType?: string;
+}): string | undefined {
+  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === exposureQueryId,
+  );
+  if (!exposureQuery) return undefined;
+
+  const declared = getExposureQueryIdentifierTypes(exposureQuery);
+  if (templateIdentifierType && declared.includes(templateIdentifierType)) {
+    return templateIdentifierType;
+  }
+  const linked =
+    getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes).get(
+      hashAttribute,
+    ) ?? [];
+  return (
+    declared.find((identifierType) => linked.includes(identifierType)) ??
+    getDefaultIdentifierTypeForQuery(exposureQuery)
+  );
 }
 
 const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
@@ -284,8 +333,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const autoDatasource = autoDatasourceId
     ? getDatasourceById(autoDatasourceId)
     : null;
-  const autoDsExposureQueries =
-    autoDatasource?.settings?.queries?.exposure || [];
+  const autoDsExposureQueries = getExposureQueriesForProject(
+    autoDatasource?.settings?.queries?.exposure || [],
+    selectedProject,
+  );
   const hashAttributeLinkedToIdentifier = (
     autoDatasource?.settings?.userIdTypes || []
   ).some((t) => t.attributes?.includes(watchedHashAttribute));
@@ -293,6 +344,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     getAutoExposureQueryId({
       datasource: autoDatasource ?? undefined,
       hashAttribute: watchedHashAttribute,
+      project: selectedProject,
       templateExposureQueryId: watchedTemplate?.exposureQueryId,
     }) !== "";
   const showLinkIdentifierCallout =
@@ -376,7 +428,14 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     const exposureQueryId = getAutoExposureQueryId({
       datasource: selectedDatasource ?? undefined,
       hashAttribute: hashAttribute || "",
+      project,
       templateExposureQueryId: data.exposureQueryId || "",
+    });
+    const exposureQueryIdentifierType = getAutoExposureQueryIdentifierType({
+      datasource: selectedDatasource ?? undefined,
+      hashAttribute: hashAttribute || "",
+      exposureQueryId,
+      templateIdentifierType: data.exposureQueryIdentifierType,
     });
 
     data = {
@@ -390,6 +449,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       hashVersion,
       datasource: datasourceId,
       exposureQueryId,
+      exposureQueryIdentifierType,
       templateId: rawValue.templateId || "",
       holdoutId: rawValue.holdoutId || undefined,
       customFields: rawValue.customFields,

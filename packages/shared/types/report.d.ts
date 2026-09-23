@@ -118,6 +118,7 @@ export interface LegacyExperimentReportArgs {
   /** @deprecated */
   userIdType?: "anonymous" | "user";
   exposureQueryId: string;
+  exposureQueryIdentifierType?: string;
   startDate: Date;
   endDate?: Date;
   dimension?: string | null;

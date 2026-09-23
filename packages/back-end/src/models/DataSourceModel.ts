@@ -5,10 +5,13 @@ import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
+  getExposureQueriesOutsideProjectScope,
+  getExposureQueriesWithChangedBaseIdentifier,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -43,6 +46,8 @@ import { deleteClickhouseUser } from "back-end/src/services/licenseServerManaged
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
+import { pinLegacyExposureQueryIdentifierType } from "./ExperimentModel";
+import { pinLegacyReportExposureQueryIdentifierType } from "./ReportModel";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 import {
   definitionsScope,
@@ -197,6 +202,25 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
   return doc ? toInterface(doc) : null;
 }
 
+// WARNING: bypasses project-read permission. Validation-only: checking a
+// selection the caller may already edit must not depend on them seeing every
+// project the data source spans. Never return the result to the user.
+export async function dangerouslyGetDataSourceByIdBypassPermission(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<DataSourceInterface | null> {
+  if (usingFileConfig()) {
+    return (
+      getConfigDatasources(context.org.id).find((d) => d.id === id) ?? null
+    );
+  }
+  const doc: DataSourceDocument | null = await DataSourceModel.findOne({
+    id,
+    organization: context.org.id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -252,6 +276,32 @@ export async function removeProjectFromDatasources(
     { organization, projects: project },
     { $pull: { projects: project }, $set: { dateUpdated: new Date() } },
   );
+
+  // Also drop the project from assignment query scopes; a stale reference left
+  // behind would fail the scope check on the next data source save.
+  const docs: DataSourceDocument[] = await DataSourceModel.find({
+    organization,
+    "settings.queries.exposure.projects": project,
+  });
+  for (const doc of docs) {
+    const datasource = toInterface(doc);
+    const prunedExposure = (datasource.settings.queries?.exposure ?? []).map(
+      (q) =>
+        q.projects?.includes(project)
+          ? { ...q, projects: q.projects.filter((p) => p !== project) }
+          : q,
+    );
+    await DataSourceModel.updateOne(
+      { id: datasource.id, organization },
+      {
+        $set: {
+          "settings.queries.exposure": prunedExposure,
+          dateUpdated: new Date(),
+        },
+      },
+    );
+  }
+
   await touchDefinitionsVersion(organization);
 }
 
@@ -377,6 +427,25 @@ function assertUniqueUserIdTypeNames(
   }
 }
 
+// Enforces EAQ.projects ⊆ datasource.projects. Narrowing a data source's
+// projects to strand an existing query is a hard block, not an auto-fix.
+function assertExposureQueriesWithinProjectScope(
+  settings: DataSourceSettings | undefined,
+  datasourceProjects: string[],
+): void {
+  const violations = getExposureQueriesOutsideProjectScope(
+    settings?.queries?.exposure ?? [],
+    datasourceProjects,
+  );
+  if (!violations.length) return;
+  const detail = violations
+    .map((v) => `"${v.name}" (${v.invalidProjects.join(", ")})`)
+    .join("; ");
+  throw new Error(
+    `These experiment assignment queries are scoped to projects the data source is not: ${detail}. Update the assignment query projects to be within the data source's projects.`,
+  );
+}
+
 // Managed records have no Edit or Delete in the UI; this is what holds the line
 // for direct API calls and stale browser tabs.
 function assertEventForwarderManagedRecordsIntact(
@@ -460,8 +529,10 @@ export async function createDataSource(
     settings,
     "all",
   );
+  datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
+  assertExposureQueriesWithinProjectScope(settings, projects);
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
   const model = (await DataSourceModel.create(
@@ -508,6 +579,19 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
         }
+        if (!exposure.userIdTypes?.length) {
+          exposure.userIdTypes = [exposure.userIdType].filter(Boolean);
+        }
+        // Analysis relies on at least one identifier, with the deprecated scalar
+        // mirroring the first.
+        if (!exposure.userIdTypes.length) {
+          throw new Error(
+            `Experiment assignment query "${
+              exposure.name || exposure.id
+            }" must declare at least one identifier type`,
+          );
+        }
+        exposure.userIdType = exposure.userIdTypes[0];
         // Skip live validation while the warehouse can't serve queries — never
         // provisioned OR mid-migration (tables being recreated). Otherwise a
         // concurrent settings save would test-run against unavailable tables and
@@ -684,8 +768,43 @@ export async function updateDataSource(
     }
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
+
+  // Check the resulting state, since narrowing projects alone can strand a query.
+  if (updates.projects !== undefined || updates.settings?.queries?.exposure) {
+    assertExposureQueriesWithinProjectScope(
+      updates.settings ?? datasource.settings,
+      updates.projects ?? datasource.projects ?? [],
+    );
+  }
+
   if (!hasActualChanges(datasource, updates)) {
     return;
+  }
+
+  // Pin before saving: if the pin failed after the save, legacy experiments,
+  // reports and safe rollouts would silently repoint to the new first identifier.
+  if (updates.settings?.queries?.exposure) {
+    const repointed = getExposureQueriesWithChangedBaseIdentifier(
+      datasource.settings.queries?.exposure ?? [],
+      updates.settings.queries.exposure,
+    );
+    for (const { id, previousIdentifierType } of repointed) {
+      const pin = {
+        organization: context.org.id,
+        datasource: datasource.id,
+        exposureQueryId: id,
+        identifierType: previousIdentifierType,
+      };
+      await Promise.all([
+        pinLegacyExposureQueryIdentifierType(pin),
+        pinLegacyReportExposureQueryIdentifierType(pin),
+        context.models.safeRollout.pinLegacyExposureQueryIdentifierType({
+          datasourceId: datasource.id,
+          exposureQueryId: id,
+          identifierType: previousIdentifierType,
+        }),
+      ]);
+    }
   }
 
   // Several service callers mutate `settings` without stamping dateUpdated;
@@ -737,16 +856,21 @@ export function toDataSourceApiInterface(
       id: identifier.userIdType,
       description: identifier.description || "",
     })),
-    assignmentQueries: (settings?.queries?.exposure || []).map((q) => ({
-      id: q.id,
-      name: q.name,
-      description: q.description || "",
-      identifierType: q.userIdType,
-      sql: q.query,
-      includesNameColumns: !!q.hasNameCol,
-      dimensionColumns: q.dimensions,
-      error: q.error,
-    })),
+    assignmentQueries: (settings?.queries?.exposure || []).map((q) => {
+      const identifierTypes = getExposureQueryIdentifierTypes(q);
+      return {
+        id: q.id,
+        name: q.name,
+        description: q.description || "",
+        identifierTypes,
+        identifierType: identifierTypes[0] ?? q.userIdType,
+        sql: q.query,
+        includesNameColumns: !!q.hasNameCol,
+        dimensionColumns: q.dimensions,
+        error: q.error,
+        projects: q.projects || [],
+      };
+    }),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({
         identifierTypes: q.ids,

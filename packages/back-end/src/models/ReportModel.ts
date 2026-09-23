@@ -196,6 +196,38 @@ export async function updateReport(
   );
 }
 
+/**
+ * Report counterpart of pinLegacyExposureQueryIdentifierType: reports without a
+ * stored identifier type re-run on their query's first identifier.
+ */
+export async function pinLegacyReportExposureQueryIdentifierType({
+  organization,
+  datasource,
+  exposureQueryId,
+  identifierType,
+}: {
+  organization: string;
+  datasource: string;
+  exposureQueryId: string;
+  identifierType: string;
+}): Promise<void> {
+  if (!identifierType) return;
+  // Snapshot reports keep settings in experimentAnalysisSettings, legacy ones in args.
+  await Promise.all(
+    (["experimentAnalysisSettings", "args"] as const).map((path) =>
+      ReportModel.updateMany(
+        {
+          organization,
+          [`${path}.datasource`]: datasource,
+          [`${path}.exposureQueryId`]: exposureQueryId,
+          [`${path}.exposureQueryIdentifierType`]: { $in: [null, ""] },
+        },
+        { $set: { [`${path}.exposureQueryIdentifierType`]: identifierType } },
+      ),
+    ),
+  );
+}
+
 export async function deleteReportById(organization: string, id: string) {
   await ReportModel.deleteOne({
     organization,

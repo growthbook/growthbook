@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ExposureQuery } from "shared/types/datasource";
 import {
   coverageToHoldoutSize,
   getAllowedHoldoutStageSources,
@@ -7,6 +8,8 @@ import {
   HoldoutStage,
   isHoldoutStageTransitionAllowed,
   stringToBoolean,
+  parseAssignmentQueryInput,
+  toApiAssignmentQueryRef,
 } from "shared/util";
 import { getActivePhase } from "shared/experiments";
 import {
@@ -66,6 +69,7 @@ import {
   resolveOwnerEmails,
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
+import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 
@@ -133,7 +137,14 @@ async function handleHoldoutStageTransition(
 
   return {
     holdout: await resolveOwnerEmail(
-      toApiHoldout(updatedHoldout, updatedExperiment),
+      toApiHoldout(
+        updatedHoldout,
+        updatedExperiment,
+        await getExposureQueriesForDatasource(
+          req.context,
+          updatedExperiment.datasource,
+        ),
+      ),
       req.context,
     ),
   };
@@ -208,6 +219,8 @@ const LINKAGE_FIELDS = ["linkedFeatures", "linkedExperiments"] as const;
 export function toApiHoldout(
   holdout: HoldoutInterface,
   experiment: ExperimentInterface,
+  // The experiment's data source queries, to resolve a legacy identifier.
+  exposureQueries: ExposureQuery[],
 ): ApiHoldoutInterface {
   const activePhase = getActivePhase(experiment);
   const lastPhase = experiment.phases[experiment.phases.length - 1];
@@ -235,6 +248,11 @@ export function toApiHoldout(
     savedGroupTargeting: activePhase?.savedGroups,
 
     datasourceId: experiment.datasource,
+    assignmentQuery: toApiAssignmentQueryRef(
+      experiment.exposureQueryId,
+      experiment.exposureQueryIdentifierType,
+      exposureQueries,
+    ),
     assignmentQueryId: experiment.exposureQueryId,
     goalMetrics: experiment.goalMetrics,
     secondaryMetrics: experiment.secondaryMetrics,
@@ -345,7 +363,17 @@ export class HoldoutModel extends BaseClass {
     const holdout = await this.getById(req.params.id);
     if (!holdout) req.context.throwNotFoundError();
     const experiment = await this.getExperimentOrThrow(holdout);
-    return resolveOwnerEmail(toApiHoldout(holdout, experiment), this.context);
+    return resolveOwnerEmail(
+      toApiHoldout(
+        holdout,
+        experiment,
+        await getExposureQueriesForDatasource(
+          this.context,
+          experiment.datasource,
+        ),
+      ),
+      this.context,
+    );
   }
 
   public override async handleApiList(
@@ -383,7 +411,16 @@ export class HoldoutModel extends BaseClass {
       ) {
         continue;
       }
-      results.push(toApiHoldout(holdout, experiment));
+      results.push(
+        toApiHoldout(
+          holdout,
+          experiment,
+          await getExposureQueriesForDatasource(
+            this.context,
+            experiment.datasource,
+          ),
+        ),
+      );
     }
 
     return resolveOwnerEmails(results, this.context);
@@ -393,6 +430,11 @@ export class HoldoutModel extends BaseClass {
     req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
   ): Promise<ApiHoldoutInterface> {
     const body = apiCreateHoldoutBody.parse(req.body);
+    const assignmentQueryInput = parseAssignmentQueryInput(
+      body.assignmentQuery,
+      body.assignmentQueryId,
+      "assignmentQuery",
+    );
 
     // createExperiment enforces no permissions, so gate before it runs or an
     // unauthorized create orphans an experiment.
@@ -434,7 +476,8 @@ export class HoldoutModel extends BaseClass {
         tags: body.tags,
         skipAsDefaultHoldout: body.skipAsDefaultHoldout,
         datasourceId: body.datasourceId,
-        assignmentQueryId: body.assignmentQueryId,
+        assignmentQueryId: assignmentQueryInput.id,
+        assignmentQueryIdentifierType: assignmentQueryInput.identifierType,
         hashAttribute: body.hashAttribute || "id",
         holdoutSize: body.holdoutSize,
         targetingCondition: body.targetingCondition,
@@ -464,12 +507,29 @@ export class HoldoutModel extends BaseClass {
         }),
       );
       return resolveOwnerEmail(
-        toApiHoldout(withSchedule, experiment),
+        toApiHoldout(
+          withSchedule,
+          experiment,
+          await getExposureQueriesForDatasource(
+            this.context,
+            experiment.datasource,
+          ),
+        ),
         this.context,
       );
     }
 
-    return resolveOwnerEmail(toApiHoldout(holdout, experiment), this.context);
+    return resolveOwnerEmail(
+      toApiHoldout(
+        holdout,
+        experiment,
+        await getExposureQueriesForDatasource(
+          this.context,
+          experiment.datasource,
+        ),
+      ),
+      this.context,
+    );
   }
 
   public override async handleApiUpdate(
@@ -511,7 +571,14 @@ export class HoldoutModel extends BaseClass {
       });
 
     return resolveOwnerEmail(
-      toApiHoldout(updated, updatedExperiment),
+      toApiHoldout(
+        updated,
+        updatedExperiment,
+        await getExposureQueriesForDatasource(
+          this.context,
+          updatedExperiment.datasource,
+        ),
+      ),
       this.context,
     );
   }
@@ -803,6 +870,18 @@ export class HoldoutModel extends BaseClass {
 
   // Bypasses read scope: the Holdout reference is already committed on the
   // Feature Flag, so linkage must not depend on the publisher seeing its Projects.
+  // Bypasses read scope: validates a holdout experiment edit against the
+  // holdout's full project scope, even ones the editor can't read.
+  public async getByExperimentId(
+    experimentId: string,
+  ): Promise<HoldoutInterface | null> {
+    const [holdout] = await this._find(
+      { experimentId },
+      { bypassReadPermissionChecks: true },
+    );
+    return holdout ?? null;
+  }
+
   public async getByIdForLinkage(
     holdoutId: string,
   ): Promise<HoldoutInterface | null> {

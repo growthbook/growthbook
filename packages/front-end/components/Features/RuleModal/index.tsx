@@ -1423,6 +1423,7 @@ export default function RuleModal({
           disableStickyBucketing,
           datasource: values.datasource || undefined,
           exposureQueryId: values.exposureQueryId || "",
+          exposureQueryIdentifierType: values.exposureQueryIdentifierType,
           goalMetrics: values.goalMetrics || [],
           secondaryMetrics: values.secondaryMetrics || [],
           guardrailMetrics: values.guardrailMetrics || [],

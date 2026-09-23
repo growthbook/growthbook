@@ -25,7 +25,7 @@ import {
   getFactMetricPrimaryFactTableId,
   parseDimensionId,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
+import { getAnalysisIdentifierType, isDefined } from "shared/util";
 import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
@@ -142,6 +142,9 @@ export function reportArgsFromSnapshot(
     trackingKey: snapshot.settings.experimentId || experiment.trackingKey,
     datasource: snapshot.settings.datasourceId || experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType:
+      snapshot.settings.exposureQueryIdentifierType ??
+      experiment.exposureQueryIdentifierType,
     startDate: snapshot.settings.startDate,
     endDate: snapshot.settings.endDate,
     dimension: snapshot.dimension || undefined,
@@ -256,6 +259,7 @@ export function getSnapshotSettingsFromReportArgs(
     endDate: args.endDate || new Date(),
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
+    exposureQueryIdentifierType: args.exposureQueryIdentifierType,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -675,6 +679,10 @@ export function getReportSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === report.experimentAnalysisSettings.exposureQueryId,
   );
+  const exposureQueryIdentifierType = getAnalysisIdentifierType(
+    exposureQuery,
+    report.experimentAnalysisSettings.exposureQueryIdentifierType,
+  );
 
   // expand metric groups and scrub unjoinable metrics
   const goalMetrics = expandMetricGroups(
@@ -685,7 +693,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -697,7 +705,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -709,7 +717,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -800,6 +808,7 @@ export function getReportSnapshotSettings({
     regressionAdjustmentEnabled: !!analysisSettings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
     variations: report.experimentMetadata.variations.map((v, i) => ({
       id: v.key || i + "",

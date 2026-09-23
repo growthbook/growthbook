@@ -258,11 +258,6 @@
       "count": 8
     }
   },
-  "packages/front-end/components/Experiment/EditDataSourceForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -356,7 +351,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 10
+      "count": 9
     }
   },
   "packages/front-end/components/Experiment/NewPhaseForm.tsx": {
@@ -750,7 +745,7 @@
   },
   "packages/front-end/components/Features/RuleModal/ExperimentRefNewFields.tsx": {
     "no-restricted-syntax": {
-      "count": 10
+      "count": 9
     }
   },
   "packages/front-end/components/Features/RuleModal/RampScheduleSection.tsx": {
@@ -1564,7 +1559,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries.tsx": {

@@ -1,5 +1,9 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
+  assertValidAssignmentQuerySelection,
+  parseAssignmentQueryInput,
+} from "shared/util";
+import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
   postExperimentValidator,
@@ -13,6 +17,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
+  PostExperimentApiPayload,
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
@@ -51,6 +56,7 @@ const TEMPLATE_FIELDS_TO_TRANSLATE = [
   "targeting",
   "datasource",
   "exposureQueryId",
+  "exposureQueryIdentifierType",
   "goalMetrics",
   "segment",
   "skipPartialData",
@@ -68,6 +74,8 @@ function templateToPostExperimentDefaults(
     ...templateWithoutFieldsToTranslate,
     datasourceId: template.datasource || undefined,
     assignmentQueryId: template.exposureQueryId || undefined,
+    assignmentQueryIdentifierType:
+      template.exposureQueryIdentifierType || undefined,
     metrics: template.goalMetrics,
     segmentId: template.segment,
     inProgressConversions:
@@ -95,7 +103,13 @@ function templateToPostExperimentDefaults(
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req) => {
     const { owner: ownerEmail, templateId } = req.body;
-    let payload = req.body;
+    let payload: PostExperimentApiPayload = req.body;
+
+    const assignmentQueryInput = parseAssignmentQueryInput(
+      req.body.assignmentQuery,
+      req.body.assignmentQueryId,
+      "assignmentQuery",
+    );
 
     // Apply template defaults if a templateId is provided
     if (templateId) {
@@ -111,6 +125,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         );
       }
 
+      if (req.body.assignmentQuery !== undefined) {
+        throw new Error(
+          "assignmentQuery cannot be set when templateId is provided",
+        );
+      }
       if (req.body.assignmentQueryId !== undefined) {
         throw new Error(
           "assignmentQueryId cannot be set when templateId is provided",
@@ -120,6 +139,14 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       payload = {
         ...templateToPostExperimentDefaults(template),
         ...req.body,
+      };
+    }
+
+    if (req.body.assignmentQuery) {
+      payload = {
+        ...payload,
+        assignmentQueryId: assignmentQueryInput.id,
+        assignmentQueryIdentifierType: assignmentQueryInput.identifierType,
       };
     }
 
@@ -152,16 +179,23 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       throw new Error(`Invalid data source: ${payload.datasourceId}`);
     }
 
-    // check for associated assignment query id
-    if (
-      datasource &&
-      !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === payload.assignmentQueryId,
-      )
-    ) {
-      throw new Error(
-        `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
-      );
+    if (datasource) {
+      try {
+        assertValidAssignmentQuerySelection({
+          exposureQueries: datasource.settings.queries?.exposure ?? [],
+          exposureQueryId: payload.assignmentQueryId,
+          identifierType: payload.assignmentQueryIdentifierType,
+          project: payload.project ?? "",
+        });
+      } catch (e) {
+        // Template callers can't override the assignment query, so point them at the template.
+        if (templateId) {
+          throw new Error(
+            `Template "${templateId}": ${(e as Error).message}. Update the template's assignment settings.`,
+          );
+        }
+        throw e;
+      }
     }
 
     // check if tracking key is unique (skip the lookup entirely if the caller
@@ -261,6 +295,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         context: req.context,
         datasource,
         exposureQueryId: payload.assignmentQueryId,
+        exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
         dimensionIds: payload.precomputedUnitDimensionIds,
       });
     }

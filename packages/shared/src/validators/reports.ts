@@ -12,7 +12,11 @@ import {
   ownerField,
   optionalOwnerInputField,
 } from "./owner-field";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiAssignmentQueryRef,
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+} from "./shared";
 
 const idParams = z
   .object({
@@ -65,10 +69,19 @@ const reportAnalysisSettingsSchema = z
       .string()
       .describe("Tracking key used to identify experiment exposures")
       .optional(),
+    exposureQuery: apiAssignmentQueryRef
+      .describe(
+        "Datasource exposure query (Assignment Table), grouping its ID with the identifier type analyzed on.",
+      )
+      .optional(),
+    /** @deprecated use exposureQuery.id */
     exposureQueryId: z
       .string()
-      .describe("Datasource exposure query ID (Assignment Table)")
-      .optional(),
+      .describe(
+        "Deprecated: use exposureQuery instead. Datasource exposure query ID (Assignment Table).",
+      )
+      .optional()
+      .meta({ deprecated: true }),
     segment: z.string().describe("Segment ID to filter users by").optional(),
     queryFilter: z
       .string()

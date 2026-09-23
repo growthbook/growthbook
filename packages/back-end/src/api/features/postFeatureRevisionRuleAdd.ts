@@ -16,6 +16,7 @@ import type {
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
+  flattenExposureQueryInput,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
@@ -284,8 +285,9 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
       const validatedFields = await validateCreateSafeRolloutFields(
-        validatableFields,
+        flattenExposureQueryInput(validatableFields),
         req.context,
+        feature.project ?? "",
       );
 
       const defaultRampSteps = [

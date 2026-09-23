@@ -220,6 +220,25 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
     ).resolves.toEqual(["dim_country"]);
   });
 
+  it("matches dimensions against the experiment's selected identifier type", async () => {
+    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+      makeDimension({ id: "dim_user" }),
+      makeDimension({ id: "dim_anonymous", userIdType: "anonymous_id" }),
+    ]);
+
+    await expect(
+      getEligiblePrecomputedUnitDimensionIds({
+        context,
+        experiment: {
+          ...experiment,
+          exposureQueryIdentifierType: "anonymous_id",
+        },
+        datasource: makeDatasource(writableEphemeralPipeline),
+        dimensionIds: ["dim_user", "dim_anonymous"],
+      }),
+    ).resolves.toEqual(["dim_anonymous"]);
+  });
+
   it("returns empty when the exposure query lookup throws", async () => {
     (findDimensionsByIds as jest.Mock).mockResolvedValue([
       makeDimension({ id: "dim_country" }),

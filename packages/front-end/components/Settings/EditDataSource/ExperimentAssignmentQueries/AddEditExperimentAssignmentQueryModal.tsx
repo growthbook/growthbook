@@ -1,4 +1,5 @@
 import React, { FC, useMemo, useState } from "react";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -15,10 +16,13 @@ import StringArrayField from "@/ui/StringArrayField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -31,6 +35,8 @@ type EditExperimentAssignmentQueryProps = {
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
 > = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+  const { projects } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -50,29 +56,42 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     ? userIdTypeOptions[0]?.value
     : "user_id";
 
-  const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
+  // Each selected identifier must come back as a same-named column.
+  const buildDefaultQuery = (userIdTypes: string[]) => {
+    const ids = userIdTypes.length ? userIdTypes : [defaultUserId];
+    const idColumns = ids.map((id) => `  ${id} as ${id},`).join("\n");
+    return `SELECT\n${idColumns}\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
+  };
+  const defaultQuery = buildDefaultQuery(defaultUserId ? [defaultUserId] : []);
 
   const form = useForm<ExposureQuery>({
     defaultValues:
       mode === "edit" && exposureQuery
-        ? cloneDeep<ExposureQuery>(exposureQuery)
+        ? {
+            ...cloneDeep<ExposureQuery>(exposureQuery),
+            userIdTypes: getExposureQueryIdentifierTypes(exposureQuery),
+          }
         : {
             description: "",
             id: uniqId("tbl_"),
             name: "",
             dimensions: [],
             query: defaultQuery,
-            userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
+            userIdType: defaultUserId ?? "",
+            userIdTypes: defaultUserId ? [defaultUserId] : [],
+            projects: [],
           },
   });
 
   // User-entered values
-  const userEnteredUserIdType = form.watch("userIdType");
+  const userEnteredUserIdTypes = form.watch("userIdTypes");
   const userEnteredQuery = form.watch("query");
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
+    // Keep the deprecated scalar in sync with the first declared identifier.
+    value.userIdType = value.userIdTypes[0] ?? value.userIdType;
     await onSave(value);
 
     form.reset({
@@ -83,6 +102,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       description: "",
       hasNameCol: false,
       userIdType: undefined,
+      userIdTypes: [],
+      projects: [],
     });
   });
 
@@ -91,18 +112,40 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       "experiment_id",
       "variation_id",
       "timestamp",
-      userEnteredUserIdType,
+      ...userEnteredUserIdTypes,
       ...(userEnteredDimensions || []),
       ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
-  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
+  }, [userEnteredUserIdTypes, userEnteredDimensions, userEnteredHasNameCol]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],
     [dataSource.settings.userIdTypes],
   );
 
-  const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
+  const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
+
+  const userEnteredProjects = form.watch("projects") ?? [];
+  // Enforces EAQ.projects ⊆ datasource.projects.
+  const filteredProjects = projects.filter(
+    (project) =>
+      !dataSource.projects?.length ||
+      dataSource.projects.includes(project.id) ||
+      userEnteredProjects.includes(project.id),
+  );
+  const projectOptions = useProjectOptions(
+    () => permissionsUtil.canUpdateDataSourceSettings(dataSource),
+    userEnteredProjects,
+    filteredProjects.length ? filteredProjects : undefined,
+  );
+
+  const savedUserIdTypes =
+    mode === "edit" && exposureQuery
+      ? getExposureQueryIdentifierTypes(exposureQuery)
+      : [];
+  const removedIdentifierTypes = savedUserIdTypes.filter(
+    (idType) => !userEnteredUserIdTypes.includes(idType),
+  );
 
   if (!exposureQuery && mode === "edit") {
     console.error(
@@ -260,20 +303,53 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
               />
-              <SelectField
-                size="legacy"
-                label="Identifier Type"
+              <MultiSelectField
+                legacyHeight
+                label="Identifier Types"
+                helpText="Each identifier type must be returned as a same-named column in the query below."
                 options={identityTypes.map((i) => ({
                   value: i.userIdType,
                   label: i.userIdType,
                 }))}
                 required
-                value={form.watch("userIdType")}
-                onChange={(value) => form.setValue("userIdType", value)}
+                sort={false}
+                value={userEnteredUserIdTypes}
+                onChange={(value) => {
+                  // Leave customized SQL as the user wrote it.
+                  if (
+                    form.getValues("query") ===
+                    buildDefaultQuery(userEnteredUserIdTypes)
+                  ) {
+                    form.setValue("query", buildDefaultQuery(value));
+                  }
+                  form.setValue("userIdTypes", value);
+                }}
               />
+              {removedIdentifierTypes.length > 0 && (
+                <Callout status="warning" mb="3">
+                  {`Experiments analyzed on ${removedIdentifierTypes
+                    .map((idType) => `"${idType}"`)
+                    .join(
+                      ", ",
+                    )} won't be able to update results until they're switched to another identifier.`}
+                </Callout>
+              )}
+              {projects.length > 0 && (
+                <MultiSelectField
+                  legacyHeight
+                  label="Projects"
+                  helpText="Only the Data Source's Projects can be selected. Leave empty to make this query available to all of them."
+                  placeholder="All Data Source Projects"
+                  value={userEnteredProjects}
+                  options={projectOptions}
+                  onChange={(value) => form.setValue("projects", value)}
+                  customClassName="label-overflow-ellipsis"
+                />
+              )}
               <div className="form-group">
                 <label className="mr-5">Query</label>
-                {userEnteredQuery === defaultQuery && (
+                {userEnteredQuery ===
+                  buildDefaultQuery(userEnteredUserIdTypes) && (
                   <Callout status="info">
                     The prefilled query below may require editing to fit your
                     data structure.

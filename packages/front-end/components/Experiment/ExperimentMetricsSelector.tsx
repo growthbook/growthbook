@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { getAnalysisIdentifierType } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
 import {
@@ -22,6 +23,7 @@ import MetricsSelector from "./MetricsSelector";
 export interface Props {
   datasource?: string;
   exposureQueryId?: string;
+  exposureQueryIdentifierType?: string;
   project?: string;
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -49,6 +51,7 @@ export interface Props {
 export default function ExperimentMetricsSelector({
   datasource,
   exposureQueryId,
+  exposureQueryIdentifierType,
   project,
   goalMetrics,
   secondaryMetrics,
@@ -213,7 +216,9 @@ export default function ExperimentMetricsSelector({
       datasourceObj?.settings,
       exposureQueryId,
     );
-    const randomizationUnitUserIdType = exposureQuery?.userIdType;
+    const randomizationUnitUserIdType = exposureQuery
+      ? getAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
+      : undefined;
 
     if (!randomizationUnitUserIdType) {
       return false;
@@ -238,6 +243,7 @@ export default function ExperimentMetricsSelector({
     goalMetrics,
     datasource,
     exposureQueryId,
+    exposureQueryIdentifierType,
     getDatasourceById,
     getExperimentMetricById,
     factTables,
@@ -267,6 +273,7 @@ export default function ExperimentMetricsSelector({
             onChange={setGoalMetrics}
             datasource={datasource}
             exposureQueryId={exposureQueryId}
+            exposureQueryIdentifierType={exposureQueryIdentifierType}
             project={project}
             autoFocus={autoFocus}
             includeFacts={true}
@@ -319,6 +326,7 @@ export default function ExperimentMetricsSelector({
                 onChange={setSecondaryMetrics}
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
@@ -360,6 +368,7 @@ export default function ExperimentMetricsSelector({
                 onChange={setGuardrailMetrics}
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}

@@ -25,7 +25,11 @@ import {
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  assertExposureQueryDeclaresIdentifierType,
+  buildUnitsQuerySettingsFromSnapshot,
+  getAnalysisIdentifierType,
+} from "shared/util";
 import {
   ExperimentQueryMetadata,
   Queries,
@@ -415,10 +419,19 @@ const startExperimentIncrementalRefreshQueries = async (
   if (!exposureQuery) {
     throw new Error("Exposure query not found");
   }
+  // The query may have dropped the stored identifier since it was saved.
+  assertExposureQueryDeclaresIdentifierType(
+    exposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
 
+  const exposureUserIdType = getAnalysisIdentifierType(
+    exposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
   const resolvedExposureQuery = {
     query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
+    userIdType: exposureUserIdType,
   };
 
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
@@ -812,7 +825,7 @@ const startExperimentIncrementalRefreshQueries = async (
         context,
         factTable,
         datasourceId: integration.datasource.id,
-        exposureUserIdType: exposureQuery.userIdType,
+        exposureUserIdType,
         regressionAdjustedMetrics,
         settings: snapshotSettings,
         activationMetric,
@@ -935,7 +948,7 @@ const startExperimentIncrementalRefreshQueries = async (
             // so the fallback window always matches the pre-aggregated path.
             alignLegacyScanToDailyGrain: (
               factTable?.aggregatedFactTableSettings?.idTypes ?? []
-            ).includes(exposureQuery.userIdType),
+            ).includes(exposureUserIdType),
           }),
           queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
         });

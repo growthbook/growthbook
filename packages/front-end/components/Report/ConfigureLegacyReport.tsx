@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
   ExperimentReportInterface,
@@ -22,7 +22,11 @@ import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  getAnalysisIdentifierType,
+  isDefined,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -42,7 +46,9 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Switch from "@/ui/Switch";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import DatePicker from "@/components/DatePicker";
 
@@ -181,6 +187,30 @@ export default function ConfigureLegacyReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+  const storedIdentifierType = form.watch("exposureQueryIdentifierType");
+  const setExposureQueryId = useCallback(
+    (value: string) => form.setValue("exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue("exposureQueryIdentifierType", value),
+    [form],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project: experiment?.project,
+    hashAttribute: experiment?.hashAttribute,
+    exposureQueryId,
+    identifierType: getAnalysisIdentifierType(
+      exposureQuery,
+      storedIdentifierType,
+    ),
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    autoRepair: false,
+    keepCurrentSelection: true,
+  });
 
   return (
     <Modal
@@ -280,42 +310,9 @@ export default function ConfigureLegacyReport({
         </small>
       </div>
       {datasource?.properties?.userIds && (
-        <SelectField
+        <AssignmentQueryFields
+          selection={assignmentQuerySelection}
           size="legacy"
-          label={
-            <>
-              Experiment Assignment Table{" "}
-              <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-            </>
-          }
-          labelClassName="font-weight-bold"
-          value={form.watch("exposureQueryId") ?? ""}
-          onChange={(v) => form.setValue("exposureQueryId", v)}
-          required
-          options={exposureQueries?.map((q) => {
-            return {
-              label: q.name,
-              value: q.id,
-            };
-          })}
-          formatOptionLabel={({ label, value }) => {
-            const userIdType = exposureQueries?.find(
-              (e) => e.id === value,
-            )?.userIdType;
-            return (
-              <>
-                {label}
-                {userIdType ? (
-                  <span
-                    className="text-muted small float-right position-relative"
-                    style={{ top: 3 }}
-                  >
-                    Identifier Type: <code>{userIdType}</code>
-                  </span>
-                ) : null}
-              </>
-            );
-          }}
         />
       )}
 
@@ -362,6 +359,7 @@ export default function ConfigureLegacyReport({
         experimentType={experiment?.type}
         datasource={report.args.datasource}
         exposureQueryId={exposureQueryId}
+        exposureQueryIdentifierType={report.args.exposureQueryIdentifierType}
         project={project?.id}
         goalMetrics={form.watch("goalMetrics")}
         secondaryMetrics={form.watch("secondaryMetrics")}
@@ -383,7 +381,9 @@ export default function ConfigureLegacyReport({
         activationMetric={!!form.watch("activationMetric")}
         exposureQueryId={form.watch("exposureQueryId")}
         datasourceId={report.args.datasource}
-        userIdType={report.args.userIdType}
+        userIdType={
+          report.args.exposureQueryIdentifierType ?? report.args.userIdType
+        }
         labelClassName="font-weight-bold"
         showHelp={true}
         newUi={false}
@@ -415,6 +415,7 @@ export default function ConfigureLegacyReport({
       <MetricSelector
         datasource={form.watch("datasource")}
         exposureQueryId={exposureQueryId}
+        exposureQueryIdentifierType={report.args.exposureQueryIdentifierType}
         includeFacts={true}
         label={
           <>
@@ -629,7 +630,11 @@ export default function ConfigureLegacyReport({
             Available columns:
             <div className="mb-2 d-flex flex-wrap">
               {["timestamp", "variation_id"]
-                .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                .concat(
+                  exposureQuery
+                    ? getExposureQueryIdentifierTypes(exposureQuery)
+                    : [],
+                )
                 .concat(exposureQuery?.dimensions || [])
                 .map((d) => {
                   return (

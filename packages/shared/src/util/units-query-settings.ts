@@ -2,6 +2,7 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExperimentUnitsQuerySettings } from "shared/types/integrations";
 import { ContextualBanditSnapshotSettings } from "../validators/contextual-bandit-snapshot";
 
+// `exposureQuery.userIdType` must already be the identifier to analyze on.
 export function buildUnitsQuerySettingsFromSnapshot(
   settings: ExperimentSnapshotSettings,
   exposureQuery: { query: string; userIdType: string },

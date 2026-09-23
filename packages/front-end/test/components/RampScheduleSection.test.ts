@@ -22,6 +22,7 @@ import {
   templateToSectionState,
   defaultRampSectionState,
   buildPatch,
+  buildMonitoringConfig,
   reconstructUIPatch,
   type RampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
@@ -303,6 +304,22 @@ describe("templateToSectionState", () => {
       ...overrides,
     } as RampScheduleTemplateInterface;
   }
+
+  it("carries the monitoring identifier type through to the saved config", () => {
+    const state = templateToSectionState(
+      makeStoredTemplate({
+        monitoringConfig: {
+          datasourceId: "ds_1",
+          exposureQueryId: "eq_1",
+          exposureQueryIdentifierType: "user_id",
+          guardrailMetricIds: ["met_1"],
+        },
+      }),
+    );
+    expect(
+      buildMonitoringConfig(state.monitoring)?.exposureQueryIdentifierType,
+    ).toBe("user_id");
+  });
 
   it("always sets startDate to '' (templates do not carry a startDate)", () => {
     const state = templateToSectionState(makeStoredTemplate());

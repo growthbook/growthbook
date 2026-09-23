@@ -1,3 +1,4 @@
+import { assertValidAssignmentQuerySelection } from "shared/util";
 import {
   CreateSafeRolloutInterface,
   createSafeRolloutValidator,
@@ -13,6 +14,8 @@ import { ReqContext } from "back-end/types/request";
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,
+  // The feature's project; undefined skips the assignment query scope check.
+  project: string | undefined,
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -47,14 +50,15 @@ export async function validateCreateSafeRolloutFields(
     );
   }
 
-  const exposureQueries = datasource.settings?.queries?.exposure || [];
-  const exposureQueryExists = exposureQueries.some(
-    (q) => q.id === safeRolloutFields.exposureQueryId,
-  );
-  if (!exposureQueryExists) {
-    throw new BadRequestError(
-      "Invalid exposure query: " + safeRolloutFields.exposureQueryId,
-    );
+  try {
+    assertValidAssignmentQuerySelection({
+      exposureQueries: datasource.settings?.queries?.exposure ?? [],
+      exposureQueryId: safeRolloutFields.exposureQueryId,
+      identifierType: safeRolloutFields.exposureQueryIdentifierType,
+      project,
+    });
+  } catch (e) {
+    throw new BadRequestError((e as Error).message);
   }
 
   if (

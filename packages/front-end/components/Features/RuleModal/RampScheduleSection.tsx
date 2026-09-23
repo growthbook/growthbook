@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -51,7 +52,7 @@ import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
-import { parsePlainJSONObject } from "shared/util";
+import { getAnalysisIdentifierType, parsePlainJSONObject } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import {
@@ -101,6 +102,10 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
 import { getExposureQuery } from "@/services/datasources";
+import {
+  AssignmentQueryDriftWarning,
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import styles from "./RampScheduleSection.module.scss";
 
 export type IntervalUnit = "minutes" | "hours" | "days";
@@ -158,6 +163,7 @@ export type RampBuilderMode = "simple" | "advanced";
 export interface RampMonitoringState {
   datasourceId: string;
   exposureQueryId: string;
+  exposureQueryIdentifierType?: string;
   guardrailMetricIds: string[];
   signalMetricIds: string[];
   updateScheduleMinutes: number | null;
@@ -487,6 +493,7 @@ export function buildMonitoringConfig(
   | {
       datasourceId: string;
       exposureQueryId: string;
+      exposureQueryIdentifierType?: string;
       guardrailMetricIds: string[];
       signalMetricIds?: string[];
       updateScheduleMinutes?: number | null;
@@ -508,6 +515,8 @@ export function buildMonitoringConfig(
   return {
     datasourceId: monitoring.datasourceId,
     exposureQueryId: monitoring.exposureQueryId,
+    exposureQueryIdentifierType:
+      monitoring.exposureQueryIdentifierType || undefined,
     guardrailMetricIds: monitoring.guardrailMetricIds,
     signalMetricIds:
       monitoring.signalMetricIds.length > 0
@@ -972,10 +981,54 @@ export default function RampScheduleSection({
     [getDatasourceById, state.monitoring.datasourceId],
   );
 
-  const exposureQueries = useMemo(
-    () => selectedDatasource?.settings?.queries?.exposure ?? [],
-    [selectedDatasource],
+  // The assignment selection can fire two updates in one event (identifier,
+  // then query), so merge onto the latest monitoring state, not this render's.
+  const latestMonitoringRef = useRef(state.monitoring);
+  latestMonitoringRef.current = state.monitoring;
+  const patchMonitoringRef = useRef(patchMonitoring);
+  patchMonitoringRef.current = patchMonitoring;
+  const setMonitoringExposureQueryId = useCallback(
+    (exposureQueryId: string) => {
+      if (latestMonitoringRef.current.exposureQueryId === exposureQueryId) {
+        return;
+      }
+      patchMonitoringRef.current({ exposureQueryId });
+    },
+    [],
   );
+  const setMonitoringIdentifierType = useCallback(
+    (exposureQueryIdentifierType: string | undefined) => {
+      if (
+        latestMonitoringRef.current.exposureQueryIdentifierType ===
+        exposureQueryIdentifierType
+      ) {
+        return;
+      }
+      patchMonitoringRef.current({ exposureQueryIdentifierType });
+    },
+    [],
+  );
+  const selectedMonitoringExposureQuery =
+    selectedDatasource?.settings?.queries?.exposure?.find(
+      (q) => q.id === state.monitoring.exposureQueryId,
+    );
+  // Saved monitoring must not be rewritten on load; legacy configs without a
+  // stored identifier analyze on the query's first.
+  const hasSavedMonitoring = !!ruleRampSchedule?.monitoringConfig;
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource: selectedDatasource,
+    project: feature?.project,
+    hashAttribute,
+    exposureQueryId: state.monitoring.exposureQueryId,
+    identifierType: getAnalysisIdentifierType(
+      selectedMonitoringExposureQuery,
+      state.monitoring.exposureQueryIdentifierType,
+    ),
+    setExposureQueryId: setMonitoringExposureQueryId,
+    setIdentifierType: setMonitoringIdentifierType,
+    autoRepair: !hasSavedMonitoring && !readOnly,
+    keepCurrentSelection: hasSavedMonitoring,
+  });
   const {
     data: templatesData,
     error: templatesError,
@@ -2867,7 +2920,8 @@ export default function RampScheduleSection({
     ) : null;
 
   function patchMonitoring(update: Partial<RampMonitoringState>) {
-    const merged = { ...state.monitoring, ...update };
+    const merged = { ...latestMonitoringRef.current, ...update };
+    latestMonitoringRef.current = merged;
     patchState({ monitoring: merged });
   }
 
@@ -2996,8 +3050,18 @@ export default function RampScheduleSection({
     selectedDatasource?.name ??
     (datasources.length === 0 ? "No data sources" : "Select data source");
   const eqName =
-    exposureQueries.find((q) => q.id === state.monitoring.exposureQueryId)
-      ?.name ?? (exposureQueries.length > 0 ? "Select" : "—");
+    assignmentQuerySelection.exposureQueryOptions.find(
+      (o) => o.value === state.monitoring.exposureQueryId,
+    )?.label ??
+    (assignmentQuerySelection.exposureQueryOptions.length > 0 ? "Select" : "—");
+  const identifierTypeName =
+    assignmentQuerySelection.identifierType ??
+    (assignmentQuerySelection.identifierTypes.length > 0 ? "Select" : "—");
+  const identifierTypeDisabled =
+    !state.monitoring.datasourceId ||
+    assignmentQuerySelection.identifierTypes.length === 0;
+  const exposureQueryDisabled =
+    assignmentQuerySelection.exposureQueryOptions.length === 0;
 
   const hasAdvancedOverrides =
     (state.monitoring.updateScheduleMinutes !== null &&
@@ -3029,19 +3093,69 @@ export default function RampScheduleSection({
               {datasources.map((d) => (
                 <DropdownMenuItem
                   key={d.id}
-                  onClick={() => {
-                    const eqs = d.settings?.queries?.exposure ?? [];
+                  onClick={() =>
                     patchMonitoring({
                       datasourceId: d.id,
-                      exposureQueryId: eqs[0]?.id ?? "",
-                    });
-                  }}
+                      exposureQueryId: "",
+                      exposureQueryIdentifierType: undefined,
+                    })
+                  }
                 >
                   {d.name}
                   {d.id === settings?.defaultDataSource ? " (default)" : ""}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
+          </DropdownMenu>
+        </Flex>
+
+        <Flex align="center" gap="1">
+          <Text as="label" weight="medium" mb="0">
+            Identifier type:
+          </Text>
+          <DropdownMenu
+            trigger={
+              <Link
+                type="button"
+                style={{
+                  color: identifierTypeDisabled
+                    ? "var(--color-text-disabled)"
+                    : "var(--color-text-high)",
+                }}
+              >
+                <Text mr="1">{identifierTypeName}</Text>
+                <PiCaretDownFill />
+              </Link>
+            }
+            menuPlacement="start"
+            variant="soft"
+            disabled={identifierTypeDisabled}
+          >
+            {assignmentQuerySelection.groupedIdentifierTypes.map((option) =>
+              "options" in option ? (
+                <DropdownMenuGroup key={option.label} label={option.label}>
+                  {option.options.map((o) => (
+                    <DropdownMenuItem
+                      key={o.value}
+                      onClick={() =>
+                        assignmentQuerySelection.changeIdentifierType(o.value)
+                      }
+                    >
+                      {o.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              ) : (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() =>
+                    assignmentQuerySelection.changeIdentifierType(option.value)
+                  }
+                >
+                  {option.label}
+                </DropdownMenuItem>
+              ),
+            )}
           </DropdownMenu>
         </Flex>
 
@@ -3054,9 +3168,9 @@ export default function RampScheduleSection({
               <Link
                 type="button"
                 style={{
-                  color: state.monitoring.datasourceId
-                    ? "var(--color-text-high)"
-                    : "var(--color-text-disabled)",
+                  color: exposureQueryDisabled
+                    ? "var(--color-text-disabled)"
+                    : "var(--color-text-high)",
                 }}
               >
                 <Text mr="1">{eqName}</Text>
@@ -3065,19 +3179,28 @@ export default function RampScheduleSection({
             }
             menuPlacement="start"
             variant="soft"
+            disabled={exposureQueryDisabled}
           >
             <DropdownMenuGroup>
-              {exposureQueries.map((q) => (
+              {assignmentQuerySelection.exposureQueryOptions.map((o) => (
                 <DropdownMenuItem
-                  key={q.id}
-                  onClick={() => patchMonitoring({ exposureQueryId: q.id })}
+                  key={o.value}
+                  onClick={() => setMonitoringExposureQueryId(o.value)}
                 >
-                  {q.name}
+                  {o.label}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
           </DropdownMenu>
         </Flex>
+        {state.monitoring.datasourceId &&
+        assignmentQuerySelection.identifierTypes.length === 0 ? (
+          <HelperText status="warning" size="sm">
+            No assignment queries are scoped to this Project. Add one in the
+            Data Source settings.
+          </HelperText>
+        ) : null}
+        <AssignmentQueryDriftWarning selection={assignmentQuerySelection} />
 
         <Box mt="4">
           <Text as="label" weight="medium" mb="1">
@@ -3090,6 +3213,9 @@ export default function RampScheduleSection({
           <MetricsSelector
             datasource={state.monitoring.datasourceId}
             exposureQueryId={state.monitoring.exposureQueryId}
+            exposureQueryIdentifierType={
+              assignmentQuerySelection.identifierType
+            }
             project={feature.project ?? ""}
             includeFacts
             includeGroups
@@ -3111,6 +3237,9 @@ export default function RampScheduleSection({
           <MetricsSelector
             datasource={state.monitoring.datasourceId}
             exposureQueryId={state.monitoring.exposureQueryId}
+            exposureQueryIdentifierType={
+              assignmentQuerySelection.identifierType
+            }
             project={feature.project ?? ""}
             includeFacts
             includeGroups
@@ -3393,10 +3522,10 @@ export default function RampScheduleSection({
       datasources.find((d) => d.id === settings?.defaultDataSource) ??
       datasources[0];
     if (!defaultDs) return;
-    const eqs = defaultDs.settings?.queries?.exposure ?? [];
     patchMonitoring({
       datasourceId: defaultDs.id,
-      exposureQueryId: eqs[0]?.id ?? "",
+      exposureQueryId: "",
+      exposureQueryIdentifierType: undefined,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSelectDone, noneMonitored, state.monitoring.datasourceId]);
@@ -3853,7 +3982,10 @@ export default function RampScheduleSection({
               )
             : null;
           const userUnitLabel = formatUserUnitLabel(
-            monitoringExposureQuery?.userIdType,
+            getAnalysisIdentifierType(
+              monitoringExposureQuery ?? undefined,
+              monitoringConfig?.exposureQueryIdentifierType,
+            ),
           );
           const formatMetricNames = (metricIds: string[] = []) => {
             if (!metricIds.length) return "None";
@@ -4330,6 +4462,8 @@ export function rampScheduleToSectionState(
       ? {
           datasourceId: rs.monitoringConfig.datasourceId,
           exposureQueryId: rs.monitoringConfig.exposureQueryId,
+          exposureQueryIdentifierType:
+            rs.monitoringConfig.exposureQueryIdentifierType,
           guardrailMetricIds: [...rs.monitoringConfig.guardrailMetricIds],
           signalMetricIds: [...(rs.monitoringConfig.signalMetricIds ?? [])],
           updateScheduleMinutes:
@@ -4417,6 +4551,8 @@ export function createActionToSectionState(
       ? {
           datasourceId: action.monitoringConfig.datasourceId,
           exposureQueryId: action.monitoringConfig.exposureQueryId,
+          exposureQueryIdentifierType:
+            action.monitoringConfig.exposureQueryIdentifierType,
           guardrailMetricIds: [...action.monitoringConfig.guardrailMetricIds],
           signalMetricIds: [...(action.monitoringConfig.signalMetricIds ?? [])],
           updateScheduleMinutes:
@@ -4520,6 +4656,7 @@ export function templateToSectionState(
       ? {
           datasourceId: mc.datasourceId,
           exposureQueryId: mc.exposureQueryId,
+          exposureQueryIdentifierType: mc.exposureQueryIdentifierType,
           guardrailMetricIds: mc.guardrailMetricIds,
           signalMetricIds: mc.signalMetricIds ?? [],
           updateScheduleMinutes: mc.updateScheduleMinutes ?? null,
