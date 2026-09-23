@@ -303,25 +303,15 @@ code a {
   }
 }
 
-/* The 404 hides the sidebar, but #body-content still keeps the 18rem sidebar
-   padding, so the message sits right of center. */
-@media (min-width: 1024px) {
-  #body-content:has(.not-found-container) {
-    padding-left: 0 !important;
-  }
+/* The 404 hides the sidebar, but #body-content keeps the 18rem sidebar
+   padding (and #content-area the wide-screen offset), so the message sits
+   right of center. */
+#body-content:has(.not-found-container) {
+  padding-left: 0 !important;
 }
 
 #content-area:has(.not-found-container) {
   margin-left: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: center !important;
-  min-height: calc(100vh - 3rem) !important;
-}
-
-.not-found-container {
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
 }
 
 /* Set the reference sections apart from the product docs above them, the way
