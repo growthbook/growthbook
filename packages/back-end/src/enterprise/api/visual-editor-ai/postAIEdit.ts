@@ -29,8 +29,10 @@ import {
 import {
   appendSkipped,
   hasUnguardedDomInsert,
+  isUserNamedSelector,
   mergeGlobalCss,
   movePlacementProblem,
+  selectorsFoundByTool,
 } from "back-end/src/api/visual-editor-ai/editOutput";
 
 // Output-token caps for the edit generation, main and retry alike. A `css`
@@ -738,6 +740,9 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       if (n.parentSelector) trustedSelectors.add(n.parentSelector);
     }
   }
+  // Live findElements matches are added as the tool answers (onStepFinish).
+  const isTrusted = (s: string) =>
+    trustedSelectors.has(s) || isUserNamedSelector(prompt, s);
 
   // visualEditorAIContext is the free-text brand guidelines admins set in
   // Settings → AI Settings. Appended to the system prompt (not the user
@@ -831,7 +836,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     if (domDigest && trustedSelectors.size > 0 && result.mutations.length > 0) {
       const misses = result.mutations
         .flatMap(requiredSelectors)
-        .filter((s) => !trustedSelectors.has(s));
+        .filter((s) => !isTrusted(s));
       if (misses.length > 0) {
         const uniqueMisses = Array.from(new Set(misses));
         hints.push(
@@ -891,9 +896,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         return false;
       }
       if (canJudgeSelectors) {
-        const missing = requiredSelectors(m).filter(
-          (s) => !trustedSelectors.has(s),
-        );
+        const missing = requiredSelectors(m).filter((s) => !isTrusted(s));
         if (missing.length > 0) {
           droppedUnknown.push({ selector: m.selector, missing });
           logger.warn(
@@ -1096,7 +1099,10 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       variationId,
       pickedSelectors: elementContext.map((e) => e.selector),
     },
-    onStepFinish: ({ toolCalls }) => {
+    onStepFinish: ({ toolCalls, toolResults }) => {
+      for (const r of toolResults ?? []) {
+        for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
+      }
       if (toolCalls && toolCalls.length > 0) {
         logger.debug(
           {

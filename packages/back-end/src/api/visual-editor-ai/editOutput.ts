@@ -165,3 +165,29 @@ export function hasUnguardedDomInsert(js: string | null | undefined): boolean {
   if (!js) return false;
   return DOM_INSERT_RE.test(js) && !INSERT_GUARD_RE.test(js);
 }
+
+// Selectors a live findElements call matched on the page: each match's
+// selector and, when anything matched, the query itself.
+export function selectorsFoundByTool(result: {
+  toolName: string;
+  input: unknown;
+  output: unknown;
+}): string[] {
+  if (result.toolName !== "findElements") return [];
+  const out = result.output as { ok?: unknown; matches?: unknown } | null;
+  if (!out || out.ok !== true || !Array.isArray(out.matches)) return [];
+  const found = out.matches.flatMap((m: unknown) => {
+    const s = (m as { selector?: unknown } | null)?.selector;
+    return typeof s === "string" ? [s] : [];
+  });
+  const query = (result.input as { selector?: unknown } | null)?.selector;
+  return found.length > 0 && typeof query === "string"
+    ? [...found, query]
+    : found;
+}
+
+// A class, id or attribute selector the user typed into the request, which
+// the prompt treats as ground truth even when the catalog doesn't list it.
+export function isUserNamedSelector(prompt: string, selector: string): boolean {
+  return /[.#[]/.test(selector) && prompt.includes(selector);
+}

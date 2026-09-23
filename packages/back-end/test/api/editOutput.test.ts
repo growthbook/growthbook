@@ -1,8 +1,10 @@
 import {
   appendSkipped,
   hasUnguardedDomInsert,
+  isUserNamedSelector,
   mergeGlobalCss,
   movePlacementProblem,
+  selectorsFoundByTool,
 } from "back-end/src/api/visual-editor-ai/editOutput";
 
 describe("mergeGlobalCss", () => {
@@ -234,5 +236,65 @@ describe("hasUnguardedDomInsert", () => {
     ).toBe(false);
     expect(hasUnguardedDomInsert(null)).toBe(false);
     expect(hasUnguardedDomInsert("")).toBe(false);
+  });
+});
+
+describe("selectorsFoundByTool", () => {
+  it("returns a live findElements call's matches and its query", () => {
+    expect(
+      selectorsFoundByTool({
+        toolName: "findElements",
+        input: { selector: ".plan-card", limit: 10 },
+        output: {
+          ok: true,
+          matches: [
+            { selector: ".plan-card:nth-child(1)", tag: "div", text: "Pro" },
+            { selector: ".plan-card:nth-child(2)", tag: "div", text: "Team" },
+          ],
+        },
+      }),
+    ).toEqual([
+      ".plan-card:nth-child(1)",
+      ".plan-card:nth-child(2)",
+      ".plan-card",
+    ]);
+  });
+
+  it("trusts nothing from a miss, an error, or another tool", () => {
+    expect(
+      selectorsFoundByTool({
+        toolName: "findElements",
+        input: { selector: ".nope" },
+        output: { ok: true, matches: [] },
+      }),
+    ).toEqual([]);
+    expect(
+      selectorsFoundByTool({
+        toolName: "findElements",
+        input: { selector: "div[" },
+        output: { ok: false, error: "Invalid selector" },
+      }),
+    ).toEqual([]);
+    expect(
+      selectorsFoundByTool({
+        toolName: "getExperimentVariations",
+        input: {},
+        output: { ok: true, matches: [{ selector: ".other-page" }] },
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("isUserNamedSelector", () => {
+  it("accepts a class, id or attribute selector quoted in the request", () => {
+    const prompt = "make .promo-banner, #pricing and [data-card] blue";
+    expect(isUserNamedSelector(prompt, ".promo-banner")).toBe(true);
+    expect(isUserNamedSelector(prompt, "#pricing")).toBe(true);
+    expect(isUserNamedSelector(prompt, "[data-card]")).toBe(true);
+  });
+
+  it("ignores bare tags and selectors the user didn't type", () => {
+    expect(isUserNamedSelector("change a link", "a")).toBe(false);
+    expect(isUserNamedSelector("change the hero", ".hero-cta")).toBe(false);
   });
 });
