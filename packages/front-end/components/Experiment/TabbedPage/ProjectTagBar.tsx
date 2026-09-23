@@ -273,6 +273,7 @@ export default function ProjectTagBar({
         size="sm"
         stacked={vertical}
         label="Project"
+        actionPlacement="value"
         action={fieldAction?.("project")}
         value={renderProjectMetaDataValue()}
       />
@@ -336,6 +337,7 @@ export default function ProjectTagBar({
             size="sm"
             stacked={vertical}
             label="Experiment Key"
+            actionPlacement="value"
             action={fieldAction?.("trackingKey")}
             value={trackingKey || "None"}
           />
@@ -356,6 +358,7 @@ export default function ProjectTagBar({
           size="sm"
           stacked={vertical}
           label="Owner"
+          actionPlacement="value"
           action={fieldAction?.("owner")}
           value={renderOwner()}
         />
@@ -388,6 +391,7 @@ export default function ProjectTagBar({
             size="sm"
             stacked={vertical}
             label="Tags"
+            actionPlacement="value"
             action={fieldAction?.("tags")}
             value={renderTagsValue()}
           />

@@ -10,15 +10,37 @@ type Props = {
   size?: Size<"sm" | "md">;
   /** Label above the value, for a narrow column. Otherwise inline "Label: value". */
   stacked?: boolean;
-  /** Sits at the far end of a stacked label's row, such as its edit button. */
+  /** A stacked row's own control, such as its edit button. */
   action?: React.ReactNode;
+  /**
+   * `label`: at the far end of the label's row, for a value that fills the
+   * width anyway. `value`: straight after the value, for a short one.
+   */
+  actionPlacement?: "label" | "value";
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
-  { label, value, style, size = "md", stacked, action, ...props },
+  {
+    label,
+    value,
+    style,
+    size = "md",
+    stacked,
+    action,
+    actionPlacement = "label",
+    ...props
+  },
   ref,
 ) {
   if (stacked) {
+    const valueNode =
+      typeof value === "string" ? (
+        <Text weight="regular" color="text-high" size={size}>
+          {value}
+        </Text>
+      ) : (
+        value
+      );
     return (
       <Flex
         direction="column"
@@ -30,7 +52,7 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
         {...props}
         ref={ref}
       >
-        {action ? (
+        {action && actionPlacement === "label" ? (
           <Flex align="center" justify="between" gap="2" width="100%">
             <Text weight="regular" color="text-mid" size={size}>
               {label}
@@ -42,12 +64,13 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
             {label}
           </Text>
         )}
-        {typeof value === "string" ? (
-          <Text weight="regular" color="text-high" size={size}>
-            {value}
-          </Text>
+        {action && actionPlacement === "value" ? (
+          <Flex align="center" gap="1">
+            {valueNode}
+            {action}
+          </Flex>
         ) : (
-          value
+          valueNode
         )}
       </Flex>
     );
