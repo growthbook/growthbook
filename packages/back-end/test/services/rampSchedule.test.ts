@@ -5716,33 +5716,39 @@ describe("planRampBaseStateSync", () => {
     ).toEqual(untouched);
   });
 
-  it("leaves out targets the publish detaches, so a revert past a running ramp is not refused", async () => {
-    const running = schedule({ status: "running" });
-    const ctx = {
-      isApiRequest: true,
-      models: {
-        rampSchedules: {
-          findAnchoredByTargetFeature: jest.fn().mockResolvedValue([running]),
-        },
-      },
-    } as never;
-    const feature = { id: "f1", rules: [rule()] } as never;
-    const result = { rules: [rule({ coverage: 1 })] };
-    expect(
-      (await planRampBaseStateSyncForPublish(ctx, feature, result)).refusals,
-    ).toHaveLength(1);
-    expect(
-      await planRampBaseStateSyncForPublish(ctx, feature, result, {
-        detaching: [
-          {
-            mode: "detach",
-            rampScheduleId: "rs_1",
-            ruleId: "r1",
-            deleteScheduleWhenEmpty: true,
+  it("leaves out targets the publish detaches, except under a running stepped schedule", async () => {
+    const plan = (s: RampScheduleInterface, detaching = false) =>
+      planRampBaseStateSyncForPublish(
+        {
+          isApiRequest: true,
+          models: {
+            rampSchedules: {
+              findAnchoredByTargetFeature: jest.fn().mockResolvedValue([s]),
+            },
           },
-        ],
-      }),
-    ).toEqual(untouched);
+        } as never,
+        { id: "f1", rules: [rule()] } as never,
+        // Coverage is set by the plan's step, so it is refused either way.
+        { rules: [rule({ coverage: 1 })] },
+        detaching
+          ? {
+              detaching: [
+                {
+                  mode: "detach",
+                  rampScheduleId: "rs_1",
+                  ruleId: "r1",
+                  deleteScheduleWhenEmpty: true,
+                },
+              ],
+            }
+          : {},
+      );
+    const paused = schedule();
+    expect((await plan(paused)).refusals).toHaveLength(1);
+    expect(await plan(paused, true)).toEqual(untouched);
+    // The detach lands after the save; a firing step could win the lock.
+    const running = await plan(schedule({ status: "running" }), true);
+    expect(running.refusals.map((r) => r.kind)).toEqual(["ramp-running"]);
   });
 });
 

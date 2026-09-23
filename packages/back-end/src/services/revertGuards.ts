@@ -9,7 +9,8 @@ import type { ApiReqContext } from "back-end/types/api";
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
-import { SoftWarningError } from "back-end/src/util/errors";
+import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import { planRampBaseStateSyncForPublish } from "back-end/src/services/rampSchedule";
 import {
   assertRevertRampStopsAcknowledged,
   resolveRevertRampStops,
@@ -79,19 +80,28 @@ export async function assertRevertHasChanges(
 }
 
 // The guards a landing revert runs before its revision exists: a project
-// move, a restore that re-archives the flag, and ramps the target predates.
+// move, a restore that re-archives the flag, a rule a live ramp refuses to let
+// change (running: pause first), and ramps the target predates.
 export async function assertRevertLandingGuards(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  changes: Pick<MergeResultChanges, "metadata" | "archived">,
+  changes: MergeResultChanges,
   targetRevision: FeatureRevisionInterface,
 ): Promise<void> {
   await assertFeatureMoveDependentsGuard(context, feature, changes.metadata);
   if (changes.archived === true && !feature.archived) {
     await assertFeatureArchiveDependentsGuard(context, feature);
   }
-  assertRevertRampStopsAcknowledged(
+  const stops = await resolveRevertRampStops(context, feature, targetRevision);
+  // The publish refuses these too, but only after the revision exists.
+  const { refusals } = await planRampBaseStateSyncForPublish(
     context,
-    await resolveRevertRampStops(context, feature, targetRevision),
+    feature,
+    changes,
+    { detaching: stops.detaches },
   );
+  if (refusals.length) {
+    throw new BadRequestError(refusals.map((r) => r.message).join("\n"));
+  }
+  assertRevertRampStopsAcknowledged(context, stops);
 }

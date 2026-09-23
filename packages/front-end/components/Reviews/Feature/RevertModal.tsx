@@ -181,6 +181,7 @@ export default function RevertModal({
     rampActions: rampDetaches,
     liveRules: feature.rules ?? [],
     environmentIds,
+    schedules: rampSchedules,
   });
   const affectedEnvs =
     rampEnvs === "all"

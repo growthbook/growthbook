@@ -5,6 +5,7 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   assertRevertRampStopsAcknowledged,
+  assertUnattendedRevertRampStopsPredateDraft,
   resolveRevertRampStopsForRevision,
   revertRampStopGate,
 } from "back-end/src/revisions/revertRampGuard";
@@ -30,10 +31,19 @@ const ramp = {
   ],
 };
 
-function contextWith({ isApiRequest = false, ignoreWarnings = false } = {}) {
+function contextWith({
+  isApiRequest = false,
+  ignoreWarnings = false,
+  req = {},
+}: {
+  isApiRequest?: boolean;
+  ignoreWarnings?: boolean;
+  req?: object | null;
+} = {}) {
   return {
     isApiRequest,
     ignoreWarnings,
+    req: req ?? undefined,
     models: {
       rampSchedules: { getAllByFeatureId: jest.fn().mockResolvedValue([ramp]) },
     },
@@ -52,17 +62,20 @@ beforeEach(() => {
 describe("revertRampGuard", () => {
   it("skips non-revert revisions without reading anything", async () => {
     const context = contextWith();
+    // An edited or forked revert draft keeps only the provenance marker.
     await expect(
-      resolveRevertRampStopsForRevision(context, feature, {}),
-    ).resolves.toEqual({ detaches: [], warning: null });
+      resolveRevertRampStopsForRevision(context, feature, {
+        revertedFromVersion: 2,
+      } as never),
+    ).resolves.toEqual({ detaches: [], warning: null, schedules: [] });
     expect(mockGetRevision).not.toHaveBeenCalled();
   });
 
-  it("resolves a revert draft's target by revertedFromVersion", async () => {
+  it("resolves a revert draft's target by revertedFrom", async () => {
     const stops = await resolveRevertRampStopsForRevision(
       contextWith(),
       feature,
-      { revertedFromVersion: 2 },
+      { revertedFrom: 2 },
     );
     expect(mockGetRevision.mock.calls[0][0].version).toBe(2);
     expect(stops.detaches).toEqual([
@@ -135,5 +148,37 @@ describe("revertRampGuard", () => {
         target,
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it("fails an unattended publish that would delete a ramp attached after the draft", async () => {
+    const stops = await resolveRevertRampStopsForRevision(
+      contextWith(),
+      feature,
+      { revertedFrom: 2 },
+    );
+    const background = contextWith({ req: null, ignoreWarnings: true });
+    const draftBefore = { dateCreated: new Date("2026-09-09T00:00:00Z") };
+    const draftAfter = { dateCreated: new Date("2026-09-12T00:00:00Z") };
+    expect(() =>
+      assertUnattendedRevertRampStopsPredateDraft(
+        background,
+        draftBefore,
+        stops,
+      ),
+    ).toThrow(/"Gradual rollout" \(rs_1\), attached after the revert draft/);
+    expect(() =>
+      assertUnattendedRevertRampStopsPredateDraft(
+        background,
+        draftAfter,
+        stops,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertUnattendedRevertRampStopsPredateDraft(
+        contextWith(),
+        draftBefore,
+        stops,
+      ),
+    ).not.toThrow();
   });
 });

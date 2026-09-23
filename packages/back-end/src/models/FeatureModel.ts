@@ -103,6 +103,7 @@ import {
 } from "back-end/src/services/rampSchedule";
 import {
   assertRevertRampStopsAcknowledged,
+  assertUnattendedRevertRampStopsPredateDraft,
   resolveRevertRampStopsForRevision,
 } from "back-end/src/revisions/revertRampGuard";
 import {
@@ -3625,9 +3626,12 @@ async function applyDetachRampActions(
               existing.id,
             );
           } else {
-            await context.models.rampSchedules.updateById(existing.id, {
-              targets: remainingTargets,
-            });
+            // Authorized by the landing gate (the detach's reach is in the
+            // publish footprint), so a revert-only role can prune it too.
+            await context.models.rampSchedules.dangerousUpdateBypassPermission(
+              existing,
+              { targets: remainingTargets },
+            );
           }
         },
       );
@@ -4209,6 +4213,11 @@ async function publishRevisionInner({
     );
   }
   assertRevertRampStopsAcknowledged(context, revertRampStops);
+  assertUnattendedRevertRampStopsPredateDraft(
+    context,
+    revision,
+    revertRampStops,
+  );
 
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",

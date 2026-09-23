@@ -1102,8 +1102,10 @@ export async function planRampBaseStateSyncForPublish(
   {
     // Bulk reads through a scan context; the wording follows the caller.
     apiRequest = ctx.isApiRequest,
-    // Targets this publish detaches (a revert past the ramp's creation): the
-    // ramp is leaving the rule, so its edit is neither refused nor anchored.
+    // Targets this publish detaches: the ramp is leaving the rule, so its edit
+    // is neither refused nor anchored. Not while a stepped schedule runs — the
+    // detach lands after the save and can lose the lock to a firing step, so
+    // "pause first" still applies there.
     detaching = [],
   }: { apiRequest?: boolean; detaching?: RevisionRampDetachAction[] } = {},
 ): Promise<RampBaseStateSyncPlan> {
@@ -1114,6 +1116,9 @@ export async function planRampBaseStateSyncForPublish(
   return planRampBaseStateSync({
     featureId: feature.id,
     schedules: schedules.map((schedule) => {
+      if (schedule.status === "running" && schedule.steps.length > 0) {
+        return schedule;
+      }
       const detached = detachedRampTargets(schedule, detaching);
       return detached.length
         ? {
