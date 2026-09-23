@@ -53,7 +53,10 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  dangerouslyGetDataSourceByIdBypassPermission,
+  getDataSourceById,
+} from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { SQLExecutionError } from "back-end/src/util/errors";
@@ -544,7 +547,10 @@ export async function assertValidAssignmentQuerySelectionChange(
   if (!next.datasource || !next.exposureQueryId) return;
   let datasource: Promise<DataSourceInterface | null> | undefined;
   const loadDatasource = () =>
-    (datasource ??= getDataSourceById(context, next.datasource));
+    (datasource ??= dangerouslyGetDataSourceByIdBypassPermission(
+      context,
+      next.datasource,
+    ));
   const loadExposureQueries = async () =>
     (await loadDatasource())?.settings.queries?.exposure ?? [];
   if (

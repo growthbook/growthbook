@@ -202,6 +202,25 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
   return doc ? toInterface(doc) : null;
 }
 
+// WARNING: bypasses project-read permission. Validation-only: checking a
+// selection the caller may already edit must not depend on them seeing every
+// project the data source spans. Never return the result to the user.
+export async function dangerouslyGetDataSourceByIdBypassPermission(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<DataSourceInterface | null> {
+  if (usingFileConfig()) {
+    return (
+      getConfigDatasources(context.org.id).find((d) => d.id === id) ?? null
+    );
+  }
+  const doc: DataSourceDocument | null = await DataSourceModel.findOne({
+    id,
+    organization: context.org.id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
