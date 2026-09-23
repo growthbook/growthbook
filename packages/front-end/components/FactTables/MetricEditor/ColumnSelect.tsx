@@ -56,9 +56,9 @@ export default function ColumnSelect({
       return null;
     }
     return (
-      <Callout status="info" size="sm">
+      <Callout status="warning" size="sm">
         {shape === "distinct" && !hasCountDistinctHLL
-          ? "Count distinct is not supported by this data source. Choose a different metric type or a fact table from a supported data source."
+          ? "Count distinct is not supported by this Data Source. Choose a different metric type or a fact table from a supported Data Source."
           : shape === "distinct"
             ? "No eligible string columns in this fact table. Count distinct requires a string column. Choose a different fact table or metric type."
             : "No eligible numeric columns in this fact table. This aggregation requires a numeric column. Choose a different fact table or metric type."}
