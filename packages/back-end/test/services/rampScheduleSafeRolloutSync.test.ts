@@ -2,7 +2,9 @@ import type {
   RampScheduleInterface,
   SafeRolloutInterface,
 } from "shared/validators";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   restartSchedule,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
@@ -21,6 +23,10 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 
 jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
@@ -391,5 +397,51 @@ describe("restartSchedule SafeRollout floor reset", () => {
         Object.prototype.hasOwnProperty.call(updates, "analysisStartedAt"),
     );
     expect(floorCall).toBeUndefined();
+  });
+});
+
+describe("assertCanUpdateLinkedSafeRolloutMonitoringConfig identifier type", () => {
+  const startedSafeRollout = {
+    id: "sr_1",
+    startedAt: new Date("2026-01-01T00:00:00Z"),
+  } as SafeRolloutInterface;
+
+  beforeEach(() => {
+    jest.mocked(getDataSourceById).mockResolvedValue({
+      id: "ds_1",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_1",
+              userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id", "user_id"],
+            },
+          ],
+        },
+      },
+    } as Awaited<ReturnType<typeof getDataSourceById>>);
+  });
+
+  it("blocks an identifier change once the SafeRollout has started", async () => {
+    const { ctx } = makeContext(startedSafeRollout);
+    const schedule = makeSchedule();
+    await expect(
+      assertCanUpdateLinkedSafeRolloutMonitoringConfig(ctx as never, schedule, {
+        ...schedule.monitoringConfig!,
+        exposureQueryIdentifierType: "user_id",
+      }),
+    ).rejects.toThrow("identifier type");
+  });
+
+  it("treats a legacy config pinned to its query's first identifier as unchanged", async () => {
+    const { ctx } = makeContext(startedSafeRollout);
+    const schedule = makeSchedule();
+    await expect(
+      assertCanUpdateLinkedSafeRolloutMonitoringConfig(ctx as never, schedule, {
+        ...schedule.monitoringConfig!,
+        exposureQueryIdentifierType: "anonymous_id",
+      }),
+    ).resolves.toBeUndefined();
   });
 });

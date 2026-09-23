@@ -3,7 +3,9 @@ import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
 import {
+  ApiRampMonitoringConfig,
   ApiRampScheduleInterface,
+  RampMonitoringConfig,
   RampScheduleInterface,
   RampStartAction,
   RampStepAction,
@@ -257,7 +259,7 @@ export function apiMonitoringConfigToInternal<
     mc.exposureQueryId,
     "exposureQuery",
   );
-  // The model's schema enforces exposureQueryId presence at write time.
+  if (!id) throw new Error("monitoringConfig.exposureQuery is required");
   return {
     ...omit(mc, "exposureQuery"),
     exposureQueryId: id,
@@ -268,26 +270,32 @@ export function apiMonitoringConfigToInternal<
   };
 }
 
+export function monitoringConfigToApi(
+  mc: RampMonitoringConfig,
+): ApiRampMonitoringConfig {
+  const { exposureQueryIdentifierType, ...rest } = mc;
+  return {
+    ...rest,
+    ...(rest.exposureQueryId && exposureQueryIdentifierType
+      ? {
+          exposureQuery: {
+            id: rest.exposureQueryId,
+            identifierType: exposureQueryIdentifierType,
+          },
+        }
+      : {}),
+  };
+}
+
 export function rampScheduleToApiInterface(
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
-  let monitoringConfig: ApiRampScheduleInterface["monitoringConfig"] =
-    doc.monitoringConfig;
-  if (doc.monitoringConfig) {
-    const { exposureQueryIdentifierType, ...rest } = doc.monitoringConfig;
-    monitoringConfig = {
-      ...rest,
-      signalMetricIds: rest.signalMetricIds ?? [],
-      ...(rest.exposureQueryId && exposureQueryIdentifierType
-        ? {
-            exposureQuery: {
-              id: rest.exposureQueryId,
-              identifierType: exposureQueryIdentifierType,
-            },
-          }
-        : {}),
-    };
-  }
+  const monitoringConfig = doc.monitoringConfig
+    ? {
+        ...monitoringConfigToApi(doc.monitoringConfig),
+        signalMetricIds: doc.monitoringConfig.signalMetricIds ?? [],
+      }
+    : doc.monitoringConfig;
 
   return {
     id: doc.id,
@@ -827,7 +835,9 @@ export class RampScheduleModel extends BaseClass {
       updates.lockdownConfig = body.lockdownConfig;
     }
     if (body.monitoringConfig !== undefined) {
-      const monitoringConfig = body.monitoringConfig;
+      const monitoringConfig = apiMonitoringConfigToInternal(
+        body.monitoringConfig,
+      );
       updates.monitoringConfig =
         monitoringConfig && monitoringConfig.monitoringMode
           ? {

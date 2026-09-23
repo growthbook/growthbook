@@ -380,17 +380,7 @@ export default function ExperimentRefNewFields({
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
                 .map(toAttributeOption)}
               value={hashAttribute}
-              onChange={(v) => {
-                form.setValue("hashAttribute", v);
-                const match = getMatchingExposureQuery(v, datasource);
-                if (match) {
-                  form.setValue("exposureQueryId", match.exposureQueryId);
-                  form.setValue(
-                    "exposureQueryIdentifierType",
-                    match.identifierType,
-                  );
-                }
-              }}
+              onChange={(v) => form.setValue("hashAttribute", v)}
               formatOptionLabel={formatAttributeOptionLabel}
             />
             {!!holdoutHashAttribute &&

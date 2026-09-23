@@ -2,6 +2,7 @@ import { ExposureQuery } from "shared/types/datasource";
 import { describe, expect, it } from "vitest";
 import {
   getDefaultIdentifierType,
+  getIdentifierTypeForHashAttribute,
   getExposureQueriesForProject,
   getExposureQueryIdentifierType,
   getExposureQueryIdentifierTypes,
@@ -434,5 +435,49 @@ describe("getDefaultIdentifierType", () => {
         hashAttribute: "id",
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("getIdentifierTypeForHashAttribute", () => {
+  const identifierTypes = ["anonymous_id", "user_id"];
+  const hashAttributeIdentifierTypeMap = new Map([
+    ["id", ["user_id"]],
+    ["deviceId", ["anonymous_id"]],
+    ["unlinkedToQuery", ["company_id"]],
+  ]);
+
+  it("switches to the identifier linked to the new hash attribute", () => {
+    expect(
+      getIdentifierTypeForHashAttribute({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap,
+        hashAttribute: "id",
+        currentIdentifierType: "anonymous_id",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("keeps an identifier already linked to the new hash attribute", () => {
+    expect(
+      getIdentifierTypeForHashAttribute({
+        identifierTypes,
+        hashAttributeIdentifierTypeMap,
+        hashAttribute: "deviceId",
+        currentIdentifierType: "anonymous_id",
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps the current identifier when nothing selectable is linked", () => {
+    for (const hashAttribute of ["unlinkedToQuery", "notLinked"]) {
+      expect(
+        getIdentifierTypeForHashAttribute({
+          identifierTypes,
+          hashAttributeIdentifierTypeMap,
+          hashAttribute,
+          currentIdentifierType: "anonymous_id",
+        }),
+      ).toBeNull();
+    }
   });
 });

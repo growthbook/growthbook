@@ -1,12 +1,30 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
+  ApiRampMonitoringConfig,
+  ApiRampScheduleTemplateInterface,
   RampScheduleTemplateInterface,
   rampScheduleTemplateValidator,
 } from "shared/validators";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
 import { MakeModelClass } from "./BaseModel";
-import { migrateRampStepTriggers } from "./RampScheduleModel";
+import {
+  apiMonitoringConfigToInternal,
+  migrateRampStepTriggers,
+  monitoringConfigToApi,
+} from "./RampScheduleModel";
+
+// Translates the API's grouped monitoringConfig.exposureQuery to the flat
+// stored shape; `null` (clear) and absent pass through.
+function withInternalMonitoringConfig<
+  T extends { monitoringConfig?: ApiRampMonitoringConfig | null },
+>(body: T) {
+  if (!body.monitoringConfig) return body;
+  return {
+    ...body,
+    monitoringConfig: apiMonitoringConfigToInternal(body.monitoringConfig),
+  };
+}
 
 const BaseClass = MakeModelClass({
   schema: rampScheduleTemplateValidator,
@@ -97,10 +115,39 @@ export class RampScheduleTemplateModel extends BaseClass {
   protected async processApiCreateBody(
     rawBody: unknown,
   ): Promise<CreateProps<RampScheduleTemplateInterface>> {
-    const body = rawBody as CreateProps<RampScheduleTemplateInterface> & {
-      order?: number;
-    };
+    const body = withInternalMonitoringConfig(
+      rawBody as Omit<
+        CreateProps<RampScheduleTemplateInterface>,
+        "monitoringConfig"
+      > & {
+        order?: number;
+        monitoringConfig?: ApiRampMonitoringConfig | null;
+      },
+    ) as CreateProps<RampScheduleTemplateInterface> & { order?: number };
     return { ...body, order: body.order ?? (await this.getNextOrder()) };
+  }
+
+  protected async processApiUpdateBody(
+    rawBody: unknown,
+  ): Promise<UpdateProps<RampScheduleTemplateInterface>> {
+    return withInternalMonitoringConfig(
+      rawBody as Omit<
+        UpdateProps<RampScheduleTemplateInterface>,
+        "monitoringConfig"
+      > & { monitoringConfig?: ApiRampMonitoringConfig | null },
+    ) as UpdateProps<RampScheduleTemplateInterface>;
+  }
+
+  protected toApiInterface(
+    doc: RampScheduleTemplateInterface,
+  ): ApiRampScheduleTemplateInterface {
+    const base = super.toApiInterface(doc);
+    return {
+      ...base,
+      monitoringConfig: doc.monitoringConfig
+        ? monitoringConfigToApi(doc.monitoringConfig)
+        : doc.monitoringConfig,
+    };
   }
 
   // Move `oldId` into the slot held by `newId`, then renumber so `order`

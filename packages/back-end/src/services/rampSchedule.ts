@@ -33,6 +33,7 @@ import {
   stringifyFeatureValue,
   unanchoredRampTargets,
   validateFeatureValue,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -57,6 +58,7 @@ import {
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   resolveRampTargets,
   ruleFootprint,
@@ -1104,18 +1106,43 @@ function sameStringArray(
   return left.length === right.length && left.every((v, i) => v === right[i]);
 }
 
-function monitoringConfigRequiresSafeRolloutResync(
+// Assumes both configs point at the same data source and query. Legacy configs
+// store no identifier and analyze on the query's first, so compare what each
+// side resolves to rather than the raw field.
+async function monitoringIdentifierTypeChanged(
+  ctx: ReqContext | ApiReqContext,
+  current: RampMonitoringConfig,
+  next: RampMonitoringConfig,
+): Promise<boolean> {
+  const currentType = current.exposureQueryIdentifierType || null;
+  const nextType = next.exposureQueryIdentifierType || null;
+  if (currentType === nextType) return false;
+  const datasource = await getDataSourceById(ctx, next.datasourceId);
+  const query = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === next.exposureQueryId,
+  );
+  const firstType = query
+    ? (getExposureQueryIdentifierTypes(query)[0] ?? null)
+    : null;
+  return (currentType ?? firstType) !== (nextType ?? firstType);
+}
+
+async function monitoringConfigRequiresSafeRolloutResync(
+  ctx: ReqContext | ApiReqContext,
   current: RampScheduleInterface["monitoringConfig"],
   next: RampScheduleInterface["monitoringConfig"],
-): boolean {
+): Promise<boolean> {
   if (!current || !next) return current !== next;
-  return (
+  if (
     current.datasourceId !== next.datasourceId ||
     current.exposureQueryId !== next.exposureQueryId ||
     current.updateScheduleMinutes !== next.updateScheduleMinutes ||
     !sameStringArray(current.guardrailMetricIds, next.guardrailMetricIds) ||
     !sameStringArray(current.signalMetricIds, next.signalMetricIds)
-  );
+  ) {
+    return true;
+  }
+  return monitoringIdentifierTypeChanged(ctx, current, next);
 }
 
 export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
@@ -1125,10 +1152,11 @@ export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
 ): Promise<void> {
   if (
     !schedule.safeRolloutId ||
-    !monitoringConfigRequiresSafeRolloutResync(
+    !(await monitoringConfigRequiresSafeRolloutResync(
+      ctx,
       schedule.monitoringConfig,
       nextMonitoringConfig,
-    )
+    ))
   ) {
     return;
   }
@@ -1138,7 +1166,7 @@ export async function assertCanUpdateLinkedSafeRolloutMonitoringConfig(
   );
   if (safeRollout?.startedAt) {
     throw new Error(
-      "Cannot change SafeRollout-backed monitoring data source, exposure query, metrics, or update cadence after monitoring has started.",
+      "Cannot change SafeRollout-backed monitoring data source, exposure query, identifier type, metrics, or update cadence after monitoring has started.",
     );
   }
 }
@@ -3319,10 +3347,11 @@ export async function updateRampMonitoringConfig(
     const existing = schedule.monitoringConfig;
     if (
       newConfig.datasourceId !== existing.datasourceId ||
-      newConfig.exposureQueryId !== existing.exposureQueryId
+      newConfig.exposureQueryId !== existing.exposureQueryId ||
+      (await monitoringIdentifierTypeChanged(ctx, existing, newConfig))
     ) {
       throw new Error(
-        "Cannot change datasourceId or exposureQueryId while a SafeRollout is active. " +
+        "Cannot change datasourceId, exposureQuery, or its identifier type while a SafeRollout is active. " +
           "Stop the schedule and create a new one to change the data source.",
       );
     }

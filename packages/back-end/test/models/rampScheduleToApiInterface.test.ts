@@ -9,6 +9,7 @@ jest.mock("back-end/src/services/rampSchedule", () => ({
 import { RampScheduleInterface } from "shared/validators";
 import {
   apiMonitoringConfigToInternal,
+  monitoringConfigToApi,
   rampScheduleToApiInterface,
 } from "back-end/src/models/RampScheduleModel";
 
@@ -189,5 +190,26 @@ describe("apiMonitoringConfigToInternal", () => {
         guardrailMetricIds: ["met_1"],
       }),
     ).toThrow("Cannot set exposureQuery together with the deprecated");
+  });
+
+  it("requires one of the exposure query fields", () => {
+    expect(() =>
+      apiMonitoringConfigToInternal({
+        datasourceId: "ds_1",
+        guardrailMetricIds: ["met_1"],
+      }),
+    ).toThrow("monitoringConfig.exposureQuery is required");
+  });
+});
+
+describe("monitoringConfigToApi", () => {
+  it("omits exposureQuery for legacy configs without an identifier type", () => {
+    const api = monitoringConfigToApi({
+      datasourceId: "ds_1",
+      exposureQueryId: "eq_1",
+      guardrailMetricIds: ["met_1"],
+    });
+    expect(api).not.toHaveProperty("exposureQuery");
+    expect(api.exposureQueryId).toBe("eq_1");
   });
 });

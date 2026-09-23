@@ -584,7 +584,7 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     steps: z.array(apiTemplateRampStep),
     endPatch: templateEndPatchValidator.optional(),
     official: z.boolean().optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     lockdownConfig: lockdownConfigSchema.nullish(),
     order: z
       .number()
@@ -593,6 +593,9 @@ export const apiRampScheduleTemplateValidator = namedSchema(
       ),
   }),
 );
+export type ApiRampScheduleTemplateInterface = z.infer<
+  typeof apiRampScheduleTemplateValidator
+>;
 
 const apiRampStep = z.object({
   ...apiRampStepCommon,

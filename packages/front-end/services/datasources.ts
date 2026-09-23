@@ -926,6 +926,32 @@ export function getDefaultIdentifierType({
   return identifierTypes[0];
 }
 
+/**
+ * The identifier to switch to after the hash attribute changes, or null to keep
+ * the current one: when it is already linked to the new attribute, or when the
+ * attribute has no selectable linked identifier.
+ */
+export function getIdentifierTypeForHashAttribute({
+  identifierTypes,
+  hashAttributeIdentifierTypeMap,
+  hashAttribute,
+  currentIdentifierType,
+}: {
+  identifierTypes: string[];
+  hashAttributeIdentifierTypeMap: Map<string, string[]>;
+  hashAttribute: string | undefined;
+  currentIdentifierType: string | undefined;
+}): string | null {
+  const linked = (
+    hashAttributeIdentifierTypeMap.get(hashAttribute ?? "") ?? []
+  ).filter((identifierType) => identifierTypes.includes(identifierType));
+  if (!linked.length) return null;
+  if (currentIdentifierType && linked.includes(currentIdentifierType)) {
+    return null;
+  }
+  return linked[0];
+}
+
 export function getInitialMetricQuery(
   datasource: DataSourceInterfaceWithParams,
   type: MetricType,

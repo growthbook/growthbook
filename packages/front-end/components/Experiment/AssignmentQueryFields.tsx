@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   getDefaultIdentifierType,
@@ -6,6 +6,7 @@ import {
   getExposureQueryIdentifierTypes,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
+  getIdentifierTypeForHashAttribute,
   getSelectableIdentifierTypes,
 } from "@/services/datasources";
 import SelectField, {
@@ -116,6 +117,29 @@ export function useAssignmentQuerySelection({
       setExposureQueryId,
     ],
   );
+
+  // A hash attribute switch means the units changed, so follow it to a linked
+  // identifier. The first value is the loaded one, not a switch, so saved
+  // selections are left alone.
+  const previousHashAttributeRef = useRef(hashAttribute);
+  useEffect(() => {
+    const previous = previousHashAttributeRef.current;
+    previousHashAttributeRef.current = hashAttribute;
+    if (!previous || previous === hashAttribute) return;
+    const next = getIdentifierTypeForHashAttribute({
+      identifierTypes,
+      hashAttributeIdentifierTypeMap,
+      hashAttribute,
+      currentIdentifierType: identifierType,
+    });
+    if (next) changeIdentifierType(next);
+  }, [
+    hashAttribute,
+    identifierTypes,
+    hashAttributeIdentifierTypeMap,
+    identifierType,
+    changeIdentifierType,
+  ]);
 
   // Repair the identifier before the query; selectable queries depend on it.
   useEffect(() => {
