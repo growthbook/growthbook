@@ -39,6 +39,13 @@ const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 // instead of retrying.
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
+// A concurrent request can stage a different update while a job is working.
+// Only the exact update a job processed may be cleared or marked failed.
+const sameStagedUpdate = (
+  a: { type: string; date: Date } | null | undefined,
+  b: { type: string; date: Date },
+): boolean => !!a && a.type === b.type && a.date.getTime() === b.date.getTime();
+
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {
     const experiments = await getExperimentsWithScheduledStatusUpdate();
@@ -203,16 +210,7 @@ export const updateSingleExperimentStatus = async (
         // the notification below needs fresh state either way.
         const latest =
           (await getExperimentById(context, experiment.id)) ?? experiment;
-        // A concurrent request can stage a new stop (different date) while the
-        // stop work above was awaiting. Only clear the staged update if it's
-        // still the exact one this job processed; otherwise we'd silently drop
-        // the freshly-staged one.
-        const staged = latest.nextScheduledStatusUpdate;
-        if (
-          staged &&
-          staged.type === scheduled.type &&
-          staged.date.getTime() === scheduled.date.getTime()
-        ) {
+        if (sameStagedUpdate(latest.nextScheduledStatusUpdate, scheduled)) {
           await updateExperiment({
             context,
             experiment: latest,
@@ -284,13 +282,25 @@ export const updateSingleExperimentStatus = async (
       );
     }
 
+    // A replacement staged meanwhile is not this attempt's outcome: leave it
+    // alone and report nothing for the stale one.
+    const latest = await getExperimentById(context, experiment.id).catch(
+      () => null,
+    );
+    if (
+      !latest ||
+      !sameStagedUpdate(latest.nextScheduledStatusUpdate, scheduled)
+    ) {
+      return;
+    }
+
     // Wrapped: executeExperimentStart may have already written to the
     // experiment, so this can hit a stale-revision error that must not mask
     // the original failure being logged above.
     try {
       await updateExperiment({
         context,
-        experiment,
+        experiment: latest,
         changes: {
           nextScheduledStatusUpdate: willRetry
             ? { ...scheduled, failedAttempts: attempts }

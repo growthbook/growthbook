@@ -98,6 +98,22 @@ describe("updateSingleExperimentStatus", () => {
     );
   });
 
+  it("leaves a schedule staged meanwhile alone when the stale attempt fails", async () => {
+    (getScheduledStatusContext as jest.Mock).mockResolvedValue(null);
+    (getExperimentById as jest.Mock)
+      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce({
+        ...draft,
+        nextScheduledStatusUpdate: {
+          type: "start",
+          date: new Date(4102444800000),
+        },
+      });
+    await updateSingleExperimentStatus(job);
+    expect(updateExperiment).not.toHaveBeenCalled();
+    expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
+  });
+
   it("retries when the scheduling user cannot be resolved yet", async () => {
     (getScheduledStatusContext as jest.Mock).mockResolvedValue(null);
     await updateSingleExperimentStatus(job);
