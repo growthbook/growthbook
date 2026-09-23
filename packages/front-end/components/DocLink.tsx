@@ -1,5 +1,10 @@
 import { ReactNode } from "react";
-import { DocSection, docSections, docsOrigin } from "@/components/docSections";
+import {
+  apiReferenceSections,
+  DocSection,
+  docSections,
+  docsOrigin,
+} from "@/components/docSections";
 import Link from "@/ui/Link";
 
 export type { DocSection };
@@ -144,19 +149,24 @@ export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
   return docsOrigin + docsPath;
 };
 
-/** Stable rows for indexing documentation in the command palette. */
+/**
+ * Stable rows for indexing documentation in the command palette. REST API
+ * reference entries are skipped: `apiReferencePalette.ts` lists them.
+ */
 export function getDocSectionsForCommandPalette(): {
   section: DocSection;
   title: string;
   url: string;
   tags: string;
 }[] {
-  return (Object.keys(docSections) as DocSection[]).map((section) => ({
-    section,
-    title: docTitleForSection(section),
-    url: docUrl(section),
-    tags: `${section} documentation`,
-  }));
+  return (Object.keys(docSections) as DocSection[])
+    .filter((section) => !(section in apiReferenceSections))
+    .map((section) => ({
+      section,
+      title: docTitleForSection(section),
+      url: docUrl(section),
+      tags: `${section} documentation`,
+    }));
 }
 
 export function DocLink({
