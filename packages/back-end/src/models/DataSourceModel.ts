@@ -47,6 +47,7 @@ import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
 import { pinLegacyExposureQueryIdentifierType } from "./ExperimentModel";
+import { pinLegacyReportExposureQueryIdentifierType } from "./ReportModel";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 import {
   definitionsScope,
@@ -761,20 +762,29 @@ export async function updateDataSource(
     return;
   }
 
-  // Pin before saving: if the pin failed after the save, legacy experiments
-  // would silently repoint to the new first identifier.
+  // Pin before saving: if the pin failed after the save, legacy experiments,
+  // reports and safe rollouts would silently repoint to the new first identifier.
   if (updates.settings?.queries?.exposure) {
     const repointed = getExposureQueriesWithChangedBaseIdentifier(
       datasource.settings.queries?.exposure ?? [],
       updates.settings.queries.exposure,
     );
     for (const { id, previousIdentifierType } of repointed) {
-      await pinLegacyExposureQueryIdentifierType({
+      const pin = {
         organization: context.org.id,
         datasource: datasource.id,
         exposureQueryId: id,
         identifierType: previousIdentifierType,
-      });
+      };
+      await Promise.all([
+        pinLegacyExposureQueryIdentifierType(pin),
+        pinLegacyReportExposureQueryIdentifierType(pin),
+        context.models.safeRollout.pinLegacyExposureQueryIdentifierType({
+          datasourceId: datasource.id,
+          exposureQueryId: id,
+          identifierType: previousIdentifierType,
+        }),
+      ]);
     }
   }
 

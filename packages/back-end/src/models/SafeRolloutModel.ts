@@ -66,6 +66,29 @@ export class SafeRolloutModel extends BaseClass {
     return await this._find({ featureId });
   }
 
+  // Safe rollouts without a stored identifier type analyze on their query's
+  // first identifier, so pin them before that first identifier changes.
+  public async pinLegacyExposureQueryIdentifierType({
+    datasourceId,
+    exposureQueryId,
+    identifierType,
+  }: {
+    datasourceId: string;
+    exposureQueryId: string;
+    identifierType: string;
+  }): Promise<void> {
+    if (!identifierType) return;
+    await this._dangerousGetCollection().updateMany(
+      {
+        organization: this.context.org.id,
+        datasourceId,
+        exposureQueryId,
+        exposureQueryIdentifierType: { $in: [null, ""] },
+      },
+      { $set: { exposureQueryIdentifierType: identifierType } },
+    );
+  }
+
   /**
    * Compensation for a failed bulk publish: put a safe rollout the apply's
    * status sync advanced back to its pre-apply state. Restores ONLY the
