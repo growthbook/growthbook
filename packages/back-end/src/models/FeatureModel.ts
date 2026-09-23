@@ -18,6 +18,7 @@ import {
   rampTargetMatchesRule,
   stemRuleId,
   isScheduledRule,
+  publishRampDetaches,
   rampTargetsDetachedBy,
   toRampAttachments,
 } from "shared/util";
@@ -28,6 +29,7 @@ import {
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RevisionRampAction,
+  RevisionRampDetachAction,
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
   RampStartAction,
@@ -2987,7 +2989,7 @@ export async function finalizeRampActionsAfterPublish(
   result: MergeResultChanges,
   // A revert restores the target revision's ramp attachments too: ramps it
   // predates are detached exactly as removing them from the rule would.
-  revertRampDetaches: RevisionRampAction[],
+  revertRampDetaches: RevisionRampDetachAction[],
 ): Promise<void> {
   const updateActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "update",
@@ -3008,18 +3010,29 @@ export async function finalizeRampActionsAfterPublish(
       );
     }
   }
-  const detachActions = [
-    ...(revision.rampActions ?? []),
-    ...revertRampDetaches,
-  ];
-  if (detachActions.length) {
-    await applyDetachRampActions(context, detachActions);
-  }
+  const failedDetaches = await applyDetachRampActions(
+    context,
+    publishRampDetaches(revision.rampActions, revertRampDetaches),
+  );
   const remainingRamps = await cleanupOrphanedRampSchedules(
     context,
     featureBefore,
     featureAfter,
   );
+  // A detach that failed leaves its ramp attached against this revision's
+  // intent; recording that state would make it look deliberate to a later
+  // revert, so the revision is left unrecorded instead.
+  if (failedDetaches.length) {
+    logger.error(
+      {
+        featureId: featureAfter.id,
+        revision: revision.version,
+        rampScheduleIds: failedDetaches.map((a) => a.rampScheduleId),
+      },
+      "Ramp detaches failed after publish; the ramps are still attached",
+    );
+    return;
+  }
   // Read after the publish committed, so it is the state this revision went
   // live with: a ramp attached after the read postdates the revision, and a
   // revert to it rightly detaches (and first warns about) that ramp.
@@ -3574,15 +3587,16 @@ async function createRampSchedulesForRevision(
 }
 
 /**
- * Apply detach/update ramp actions stored on a revision.
+ * Apply the detach ramp actions a publish carries.
  * Best-effort: logs errors but does not throw, since these run after the feature is published.
+ * Returns the detaches that could not be applied.
  */
 async function applyDetachRampActions(
   context: ReqContext | ApiReqContext,
-  actions: RevisionRampAction[],
-) {
+  actions: RevisionRampDetachAction[],
+): Promise<RevisionRampDetachAction[]> {
+  const failed: RevisionRampDetachAction[] = [];
   for (const action of actions) {
-    if (action.mode !== "detach") continue;
     try {
       // Under the advance lock against a fresh read: a stale `targets` write
       // would drop a concurrent add-target, and a step must not fire mid-detach.
@@ -3619,12 +3633,14 @@ async function applyDetachRampActions(
       );
     } catch (err) {
       if (err instanceof NotFoundError) continue;
+      failed.push(action);
       logger.error(err, {
         msg: "Failed to apply revision ramp detach action",
         action,
       });
     }
   }
+  return failed;
 }
 
 // Returns the feature's schedules as the cleanup left them, or null when they
@@ -4127,11 +4143,14 @@ async function publishRevisionInner({
   );
   // A direct edit to a rule under a live ramp: refused while it runs or for a
   // field the plan sets, otherwise carried into the ramp's base state below.
-  // Targets the revert detaches are left out: that ramp is leaving the rule.
+  // Targets this publish detaches are left out: that ramp is leaving the rule.
   const rampBaseState = rampEnginePublish
     ? { refusals: [], updates: [] }
     : await planRampBaseStateSyncForPublish(context, feature, result, {
-        detaching: revertRampStops.detaches,
+        detaching: publishRampDetaches(
+          revision.rampActions,
+          revertRampStops.detaches,
+        ),
       });
 
   // The authoritative landing gate, INSIDE the engine: evidence comes from the

@@ -24,15 +24,18 @@ import type { FeatureRule } from "shared/types/feature";
 export const RULE_ID_ENV_SUFFIX_DELIMITER = "__";
 
 // The targets a ramp detach for `ruleId` removes: the literal id when a target
-// has it, else by stem, so a bare legacy id and its migrated suffix still pair
-// up without sweeping in the rule's migrated siblings.
+// has it, else a bare legacy id paired with its migrated suffix (either way
+// round) — never a migrated sibling, even once the literal target is gone.
 export function rampTargetsDetachedBy<T extends { ruleId?: string | null }>(
   targets: T[],
   ruleId: string,
 ): T[] {
   const exact = targets.filter((t) => t.ruleId === ruleId);
   if (exact.length) return exact;
-  return targets.filter((t) => rampTargetMatchesRule(t, ruleId));
+  const stem = stemRuleId(ruleId);
+  return targets.filter(
+    (t) => !!t.ruleId && (t.ruleId === stem || stemRuleId(t.ruleId) === ruleId),
+  );
 }
 
 // stemRuleId("fr_abc")             → "fr_abc"

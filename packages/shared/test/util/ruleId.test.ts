@@ -241,6 +241,12 @@ describe("rampTargetsDetachedBy", () => {
       "fr_1",
       ["fr_1__dev", "fr_1__prod"],
     ],
+    [
+      "no migrated sibling once the literal target is gone",
+      ["fr_1__prod"],
+      "fr_1__dev",
+      [],
+    ],
   ])("matches %s", (_, targets, ruleId, expected) => {
     expect(rampTargetsDetachedBy(ids(targets), ruleId)).toEqual(ids(expected));
   });

@@ -1,6 +1,7 @@
 import { RampScheduleInterface } from "shared/validators";
 import {
   getRevertRampDetachActions,
+  publishRampDetaches,
   revertRampStopWarning,
   toRampAttachments,
 } from "shared/util";
@@ -159,5 +160,20 @@ describe("revertRampStopWarning", () => {
     ).toBe(
       'This revert will remove Rules "fr_1", "fr_2" from the ramp schedules "Ramp a" (a), "Ramp b" (b).',
     );
+  });
+});
+
+describe("publishRampDetaches", () => {
+  it("joins the revision's own detaches to the revert's, dropping other actions", () => {
+    expect(
+      publishRampDetaches(
+        [
+          detach("a", "fr_1"),
+          { mode: "create", ruleId: "fr_9", steps: [] } as never,
+        ],
+        [detach("b", "fr_2")],
+      ),
+    ).toEqual([detach("a", "fr_1"), detach("b", "fr_2")]);
+    expect(publishRampDetaches(undefined, [])).toEqual([]);
   });
 });

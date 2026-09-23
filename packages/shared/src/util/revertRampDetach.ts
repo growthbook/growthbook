@@ -1,5 +1,6 @@
 import type {
   FeatureRevisionInterface,
+  RevisionRampAction,
   RevisionRampDetachAction,
 } from "../validators/features";
 import {
@@ -73,6 +74,20 @@ export function getRevertRampDetachActions(
         deleteScheduleWhenEmpty: true,
       })),
   );
+}
+
+// Every detach a publish applies: the revision's own plus a revert's. The ramp
+// base-state planner leaves these targets out, since those ramps are leaving.
+export function publishRampDetaches(
+  rampActions: RevisionRampAction[] | undefined,
+  revertDetaches: RevisionRampDetachAction[],
+): RevisionRampDetachAction[] {
+  return [
+    ...(rampActions ?? []).filter(
+      (a): a is RevisionRampDetachAction => a.mode === "detach",
+    ),
+    ...revertDetaches,
+  ];
 }
 
 // The targets of `schedule` that `detaches` remove, matched as the detach does.
