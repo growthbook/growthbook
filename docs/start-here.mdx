@@ -1,3 +1,44 @@
 ---
 title: "Start here"
+description: "Give your coding agent a complete GrowthBook implementation guide for feature flags, experiments, migrations, LLM changes, or Kubernetes self-hosting."
+sidebarTitle: "Start here"
 ---
+
+These guides are written for AI coding agents and the engineers working with them. Choose the task you want to complete, then give your agent the guide's URL and the copyable prompt near the top of the page.
+
+Each guide includes repository inspection, a reference implementation, configuration, tests, failure handling, rollback, and the evidence needed to finish the task. The agent should adapt the examples to your application and explain any assumptions or missing inputs.
+
+## Choose your task
+
+| Task | Guide |
+| --- | --- |
+| Add feature flags to a Next.js App Router application | [Production feature flags for Next.js](/guides-for-agents/nextjs-app-router-production-feature-flags) |
+| Run a code-based A/B test with a free GrowthBook plan | [A/B testing in JavaScript](/guides-for-agents/free-ab-test-javascript) |
+| Replace environment-variable, file, or database flags | [Migrate DIY feature flags](/guides-for-agents/migrate-diy-feature-flags) |
+| Compare a new LLM prompt or model with the current behavior | [Test an LLM prompt or model change](/guides-for-agents/test-llm-prompt-model-change) |
+| Operate GrowthBook on your own Kubernetes infrastructure | [Self-host GrowthBook on Kubernetes](/guides-for-agents/self-host-growthbook-kubernetes) |
+
+## Hand a guide to your agent
+
+1. Open the guide that matches your task. Read its TL;DR and guide map to confirm the scope.
+2. Copy the prompt under **Give this guide to your coding agent**. Replace the repository and guide-URL placeholders.
+3. Give the agent access to your repository in a branch, worktree, or disposable clone. Start with a non-production environment.
+4. Review the changed files, test results, assumptions, and remaining steps. The prompt identifies which production actions need your authorization.
+
+Use **Copy page** to supply the content if your agent cannot open the URL. You can also append `.md` to a guide URL to retrieve its Markdown version. Give the agent the complete guide so it has the implementation, failure, and rollback details.
+
+## Understand the guide map
+
+The guides follow a **0 → 1 → 100** sequence:
+
+- **0:** Inspect the repository, define the contract, preserve existing behavior, and build the foundation.
+- **1:** Prove one controlled path with tests, observable outcomes, and rollback evidence.
+- **100:** Complete the rollout or decision, establish ownership, and remove temporary code where appropriate.
+
+For an experiment, “100” means reaching a documented decision and completing cleanup. It does not mean assigning every user to the treatment.
+
+## Use the reference implementation in context
+
+Your repository's instructions, current dependencies, identity model, analytics, and deployment conventions matter. The guides include version pins and source references; ask the agent to check those against your environment before applying an example.
+
+The correct result can also be a decision to use a smaller implementation, gather missing measurement data, or postpone a production rollout. The guide should help the agent explain that decision and identify the next useful step.
