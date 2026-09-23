@@ -21,6 +21,7 @@ import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionFiel
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
+import AnalysisSummary from "./AnalysisSummary";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -29,6 +30,8 @@ export interface Props {
   mutate: () => void;
   editTags?: (() => void) | null;
   disableEditing?: boolean;
+  /** Opens the analysis plan's settings modal, which stages into the page. */
+  editAnalysis?: () => void;
 }
 
 /** The experiment's metadata and discussion, beside the page rather than above it. */
@@ -39,6 +42,7 @@ export default function ExperimentDetailsPanel({
   mutate,
   editTags,
   disableEditing,
+  editAnalysis,
 }: Props) {
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   // Another editing surface cannot open over the page's own unsaved edits, so
@@ -165,6 +169,27 @@ export default function ExperimentDetailsPanel({
                 isManaged={isManaged}
               />
             </PanelSection>
+            {/* Bandits and holdouts show their analysis on the page itself. */}
+            {!isHoldout && experiment.type !== "multi-armed-bandit" ? (
+              <>
+                <Separator size="4" />
+                <PanelSection
+                  title="Analysis"
+                  action={
+                    canEdit && editAnalysis ? (
+                      // Stages into the page's draft, so pending edits don't
+                      // block it the way they block the modals that write.
+                      <QuickEditButton
+                        label="Edit analysis settings"
+                        onClick={editAnalysis}
+                      />
+                    ) : null
+                  }
+                >
+                  <AnalysisSummary experiment={experiment} />
+                </PanelSection>
+              </>
+            ) : null}
             {hasCustomFields ? (
               <>
                 <Separator size="4" />

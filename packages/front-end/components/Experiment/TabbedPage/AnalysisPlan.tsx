@@ -44,6 +44,12 @@ export interface Props {
   canEdit: boolean;
   /** Passed through to the advanced settings modal. */
   envs: string[];
+  /**
+   * The settings modal's open state, when something else on the page opens it
+   * too. Owned here otherwise.
+   */
+  settingsOpen?: boolean;
+  setSettingsOpen?: (open: boolean) => void;
 }
 
 /**
@@ -56,6 +62,8 @@ export default function AnalysisPlan({
   mutate,
   canEdit,
   envs,
+  settingsOpen,
+  setSettingsOpen,
 }: Props) {
   const {
     datasources,
@@ -70,7 +78,9 @@ export default function AnalysisPlan({
   // Settled plans are read-only until someone asks to change them.
   const started = experiment.status !== "draft";
   const [unlocked, setUnlocked] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [ownAdvancedOpen, setOwnAdvancedOpen] = useState(false);
+  const advancedOpen = settingsOpen ?? ownAdvancedOpen;
+  const setAdvancedOpen = setSettingsOpen ?? setOwnAdvancedOpen;
   // What the settings modal handed over, waiting on the page's save bar with
   // everything else. The fields this section shows are held in their own state
   // so the page keeps reading as one draft.

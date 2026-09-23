@@ -17,6 +17,18 @@ import HelperText from "@/ui/HelperText";
 import { GBInfo } from "@/components/Icons";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
+/** How each metric window mode reads, wherever an experiment's is shown. */
+export const ATTRIBUTION_MODEL_LABELS: Record<AttributionModel, string> = {
+  firstExposure: "Respect Metric Settings",
+  experimentDuration: "Ignore Conversion Windows",
+  lookbackOverride: "Use Custom Lookback Window",
+};
+const ATTRIBUTION_MODELS: AttributionModel[] = [
+  "firstExposure",
+  "experimentDuration",
+  "lookbackOverride",
+];
+
 export type MetricAnalysisWindowSelectorProps = {
   attributionModel: AttributionModel;
   lookbackOverride: LookbackOverride | undefined;
@@ -82,17 +94,10 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
             labelClassName="font-weight-bold"
             value={attributionModel}
             onChange={handleModeChange}
-            options={[
-              { label: "Respect Metric Settings", value: "firstExposure" },
-              {
-                label: "Ignore Conversion Windows",
-                value: "experimentDuration",
-              },
-              {
-                label: "Use Custom Lookback Window",
-                value: "lookbackOverride",
-              },
-            ]}
+            options={ATTRIBUTION_MODELS.map((value) => ({
+              value,
+              label: ATTRIBUTION_MODEL_LABELS[value],
+            }))}
             sort={false}
             disabled={disabled}
             helpText="Apply custom metric window behavior in this experiment."

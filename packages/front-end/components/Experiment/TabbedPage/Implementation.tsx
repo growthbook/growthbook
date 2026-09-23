@@ -49,6 +49,8 @@ export interface Props {
   mutate: () => void;
   editTargeting?: (() => void) | null;
   targetingDraft?: TargetingDraft;
+  analysisSettingsOpen?: boolean;
+  setAnalysisSettingsOpen?: (open: boolean) => void;
   editTraffic?: ((variationId?: string) => void) | null;
   addVariation?: (() => void) | null;
   addVariationValues?: (() => void) | null;
@@ -73,6 +75,8 @@ export default function Implementation({
   mutate,
   editTargeting,
   targetingDraft,
+  analysisSettingsOpen,
+  setAnalysisSettingsOpen,
   editTraffic,
   addVariation,
   addVariationValues,
@@ -382,6 +386,8 @@ export default function Implementation({
             mutate={mutate}
             canEdit={canEditExperiment}
             envs={envs}
+            settingsOpen={analysisSettingsOpen}
+            setSettingsOpen={setAnalysisSettingsOpen}
           />
         ) : (
           <AnalysisSettings

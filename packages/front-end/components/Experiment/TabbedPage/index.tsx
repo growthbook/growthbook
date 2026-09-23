@@ -178,6 +178,8 @@ function TabbedPageContents({
     PANEL_WIDTH_PX,
   );
   const [managedApprovalOpen, setManagedApprovalOpen] = useState(false);
+  // The analysis plan's settings modal, which the details rail opens too.
+  const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
@@ -665,6 +667,7 @@ function TabbedPageContents({
                 mutate={mutate}
                 editTags={editTags}
                 disableEditing={viewingOldPhase}
+                editAnalysis={() => setAnalysisSettingsOpen(true)}
                 isManaged={linkedFeatures.some((f) =>
                   isManagedByExperiment(f.feature, experiment.id),
                 )}
@@ -800,6 +803,8 @@ function TabbedPageContents({
                 urlRedirects={urlRedirects}
                 editTargeting={editTargeting}
                 targetingDraft={targetingDraft}
+                analysisSettingsOpen={analysisSettingsOpen}
+                setAnalysisSettingsOpen={setAnalysisSettingsOpen}
                 editTraffic={editTraffic}
                 addVariation={addVariation}
                 addVariationValues={addVariationValues}
