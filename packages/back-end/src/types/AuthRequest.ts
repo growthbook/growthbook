@@ -32,7 +32,13 @@ export type AuthRequest<
 > = Request<Params, unknown, Body, QueryParams> & {
   currentUser: Pick<
     UserInterface,
-    "email" | "id" | "name" | "verified" | "superAdmin"
+    | "email"
+    | "id"
+    | "name"
+    | "verified"
+    | "superAdmin"
+    | "npsSurveyAt"
+    | "dateCreated"
   >;
   email: string;
   verified?: boolean;
@@ -44,6 +50,8 @@ export type AuthRequest<
   superAdmin?: boolean;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
+  // Ids of restrictAccess projects, loaded with the org for permission resolution
+  restrictedProjects?: string[];
   audit: (
     data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,
   ) => Promise<void>;

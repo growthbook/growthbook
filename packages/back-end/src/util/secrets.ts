@@ -216,6 +216,13 @@ export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
+export const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID || "";
+export const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET || "";
+
+// Internal-only: incoming webhook URL for forwarding NPS survey responses to
+// GrowthBook's own Slack. Only set on GrowthBook Cloud — self-hosted and Cloud
+// users never see this, and nothing is sent unless it's configured.
+export const NPS_SLACK_WEBHOOK = process.env.NPS_SLACK_WEBHOOK || "";
 
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
@@ -225,6 +232,14 @@ export const JOB_TIMEOUT_MS = parseEnvInt(
   2 * 60 * 60 * 1000,
   { min: 1, name: "JOB_TIMEOUT_MS" },
 ); // Defaults to 2 hours
+
+// Must exceed the idle timeout of any load balancer in front of us, or the LB
+// reuses connections we already closed and returns spurious 502s to clients.
+export const KEEP_ALIVE_TIMEOUT_MS = parseEnvInt(
+  process.env.KEEP_ALIVE_TIMEOUT_MS,
+  60 * 60 * 1000 + 5000,
+  { min: 1, name: "KEEP_ALIVE_TIMEOUT_MS" },
+);
 
 export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
 export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";

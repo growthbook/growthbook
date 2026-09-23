@@ -2,6 +2,7 @@
  * Persisted AI chat messages: content parts shaped like the AI SDK’s model messages,
  * plus id/ts for storage and UI. Convert to ModelMessage[] via toModelMessages (back-end).
  */
+import type { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Roles & content parts (mirror @ai-sdk/provider-utils names where possible)
@@ -106,6 +107,17 @@ export function tryParseToolResultJson(resultJson: string): unknown {
   }
 }
 
+/** Tool results arrive as a JSON string or already parsed. Null on a mismatch. */
+export function parseToolResult<T>(
+  result: unknown,
+  schema: z.ZodType<T>,
+): T | null {
+  const value =
+    typeof result === "string" ? tryParseToolResultJson(result) : result;
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 /** Snapshot id inside a JSON tool result (e.g. product analytics), if any. */
 export function toolResultSnapshotId(resultJson: string): string | undefined {
   const value = tryParseToolResultJson(resultJson);
@@ -162,11 +174,35 @@ export type AIChatSystemMessage = {
   content: string;
 };
 
+export type AIChatMentionType = "metric" | "factMetric" | "metricGroup";
+
+/** An @-mentioned metric. The text keeps "@Revenue"; this carries the id. */
+export type AIChatMention = {
+  type: AIChatMentionType;
+  id: string;
+  name: string;
+  /** Set by the server when the metric isn't in this turn's Data Source. */
+  stale?: boolean;
+};
+
+export type SkillKind = "domain" | "leaf";
+
+/** Skill index entry for the `/` menu. Omits the prompt body — the agent loads that. */
+export interface SkillSummary {
+  name: string;
+  description: string;
+  kind: SkillKind;
+  /** Parent domain for leaf skills; same as `name` for domain routers. */
+  group?: string;
+}
+
 export type AIChatUserMessage = {
   role: "user";
   id: string;
   ts: number;
   content: string | AIChatUserContentPart[];
+  mentions?: AIChatMention[];
+  skills?: string[];
   /**
    * URL path (+ search) the user was on when they sent this message.
    * Captured at send time and persisted on the message so per-turn page

@@ -12,12 +12,8 @@ export type SlackIntegrationEditParams = {
   slackIncomingWebHook: string;
 };
 
-export type SlackIntegrationModalMode =
-  | {
-      mode: "create";
-    }
-  | {
-      mode: "edit";
-      id: string;
-      data: SlackIntegrationEditParams;
-    };
+export type SlackIntegrationModalMode = {
+  mode: "edit";
+  id: string;
+  data: SlackIntegrationEditParams;
+};

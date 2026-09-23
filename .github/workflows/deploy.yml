@@ -31,6 +31,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Checkout agent skills
+        uses: ./.github/actions/checkout-agent-skills
+
       - name: Login to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -69,8 +72,12 @@ jobs:
           printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
           echo "docker_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
+      # Registry round trips drop often enough to redden Deploy: one soft
+      # attempt, then a blocking retry.
       - name: Build, tag, and push image to Docker Hub and ECR
+        id: build
         uses: depot/build-push-action@v1
+        continue-on-error: true
         with:
           push: true
           context: .
@@ -81,6 +88,23 @@ jobs:
             DD_VERSION=${{ github.sha }}
           # No ECR :latest — the ECR repo is immutable, so we push only the
           # unique git-<sha> tag. Docker Hub :latest stays for self-host.
+          tags: |
+            growthbook/growthbook:latest
+            growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
+            ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Retry build, tag, and push image to Docker Hub and ECR
+        if: steps.build.outcome == 'failure'
+        uses: depot/build-push-action@v1
+        with:
+          push: true
+          context: .
+          project: vmp2ssvj9r
+          build-args: |
+            DD_GIT_COMMIT_SHA=${{ github.sha }}
+            DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
+            DD_VERSION=${{ github.sha }}
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
@@ -132,7 +156,24 @@ jobs:
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
 
+      # Sentry's API drops the occasional connection: one soft attempt, then a
+      # blocking retry. Silently skipping would cost source maps and commits.
       - name: Create Sentry api release
+        id: sentry_api
+        uses: getsentry/action-release@v3
+        continue-on-error: true
+        with:
+          environment: "production"
+          sourcemaps: "./back-end-dist"
+          release: ${{ github.sha }}
+          inject: false
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: growthbook
+          SENTRY_PROJECT: api
+
+      - name: Retry Sentry api release
+        if: steps.sentry_api.outcome == 'failure'
         uses: getsentry/action-release@v3
         with:
           environment: "production"
@@ -145,6 +186,22 @@ jobs:
           SENTRY_PROJECT: api
 
       - name: Create Sentry app release
+        id: sentry_app
+        uses: getsentry/action-release@v3
+        continue-on-error: true
+        with:
+          environment: "production"
+          sourcemaps: "./front-end-dist"
+          release: ${{ github.sha }}
+          inject: false
+          url_prefix: "app:///_next"
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: growthbook
+          SENTRY_PROJECT: app
+
+      - name: Retry Sentry app release
+        if: steps.sentry_app.outcome == 'failure'
         uses: getsentry/action-release@v3
         with:
           environment: "production"

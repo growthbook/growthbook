@@ -534,6 +534,75 @@ describe("experimentQueries", () => {
         windowSettings,
       });
 
+    const funnelMetricOnFactTables = (
+      factTableIds: string[],
+    ): FunnelFactMetricInterface => ({
+      ...factMetricFactory.build({ id: `fact__${factTableIds.join("_")}` }),
+      metricType: "funnel",
+      numerator: null,
+      denominator: null,
+      funnelSettings: {
+        steps: factTableIds.map((factTableId, i) => ({
+          name: `Step ${i + 1}`,
+          factTableId,
+          rowFilters: [],
+          optional: false,
+          conversionWindow: null,
+        })),
+      },
+    });
+
+    describe("when a metric spans several fact tables", () => {
+      it("groups a funnel with the metrics needing that exact set of tables", () => {
+        const funnel = funnelMetricOnFactTables(["ft_1", "ft_2"]);
+        const crossTableRatio = factMetricFactory.build({
+          metricType: "ratio",
+          numerator: { factTableId: "ft_2" },
+          denominator: { factTableId: "ft_1" },
+        });
+
+        // Same set of tables, so one query can serve both.
+        expect(getFactMetricGroup(funnel, { skipPartialData: false })).toBe(
+          getFactMetricGroup(crossTableRatio, { skipPartialData: false }),
+        );
+      });
+
+      it("separates metrics whose fact tables only overlap", () => {
+        const funnel = funnelMetricOnFactTables(["ft_1", "ft_2"]);
+        const otherFunnel = funnelMetricOnFactTables(["ft_1", "ft_3"]);
+        const mean = meanMetric("ft_1", conversionWindow(3, "days"));
+
+        const group = getFactMetricGroup(funnel, { skipPartialData: false });
+        expect(group).not.toBe(
+          getFactMetricGroup(otherFunnel, { skipPartialData: false }),
+        );
+        expect(group).not.toBe(
+          getFactMetricGroup(mean, { skipPartialData: false }),
+        );
+      });
+
+      it("keys on the set of fact tables, not the step order", () => {
+        expect(
+          getFactMetricGroup(funnelMetricOnFactTables(["ft_2", "ft_1"]), {
+            skipPartialData: false,
+          }),
+        ).toBe(
+          getFactMetricGroup(funnelMetricOnFactTables(["ft_1", "ft_2"]), {
+            skipPartialData: false,
+          }),
+        );
+      });
+
+      it("groups a funnel whose steps share one fact table with that table's metrics", () => {
+        const funnel = funnelMetricOnFactTables(["ft_1", "ft_1"]);
+        const mean = meanMetric("ft_1", conversionWindow(3, "days"));
+
+        expect(getFactMetricGroup(funnel, { skipPartialData: false })).toBe(
+          getFactMetricGroup(mean, { skipPartialData: false }),
+        );
+      });
+    });
+
     describe("when skipPartialData is false", () => {
       it("keys on the fact table only, ignoring the conversion window", () => {
         const a = meanMetric("ft_1", conversionWindow(3, "days"));
@@ -665,7 +734,7 @@ describe("experimentQueries", () => {
         );
         // The base cross-table grouping is preserved.
         expect(getFactMetricGroup(a, { skipPartialData: true })).toContain(
-          "(cross-table ratio metrics)",
+          "(cross-table metrics)",
         );
       });
 

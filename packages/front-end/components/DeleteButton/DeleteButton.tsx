@@ -108,6 +108,7 @@ const DeleteButton: FC<{
           variant="ghost"
           color="red"
           title={title}
+          disabled={disabled}
           stopPropagation={stopPropagation}
         >
           {text}

@@ -358,6 +358,7 @@ describe("publish-revisions scenario matrix", () => {
     const armedDoc = await mongoose.connection.collection("revisions").findOne({
       organization: ORG_ID,
       "target.type": "config",
+      "target.snapshot.key": "checkout-eu",
       version: armedV,
     });
     expect(armedDoc?.scheduledPublishAt).toBeTruthy();

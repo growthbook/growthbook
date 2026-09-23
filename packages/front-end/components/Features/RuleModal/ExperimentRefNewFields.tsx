@@ -33,6 +33,7 @@ import {
   getFeatureDefaultValue,
   NewExperimentRefRule,
   useAttributeSchema,
+  resolveAttributeFilter,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
@@ -42,7 +43,7 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Checkbox from "@/ui/Checkbox";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -65,8 +66,8 @@ import RuleProjectScopeField, {
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
 export default function ExperimentRefNewFields({
@@ -74,6 +75,9 @@ export default function ExperimentRefNewFields({
   source,
   feature,
   project,
+  attributeProjects,
+  savedGroupProjects,
+  attributeSelectIndicator,
   environments,
   defaultValues,
   prerequisiteValue,
@@ -112,6 +116,9 @@ export default function ExperimentRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
+  attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
   prerequisiteValue: FeaturePrerequisite[];
@@ -180,7 +187,10 @@ export default function ExperimentRefNewFields({
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
 
-  const attributeSchema = useAttributeSchema(false, project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -400,16 +410,10 @@ export default function ExperimentRefNewFields({
               size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
+              extraIndicator={attributeSelectIndicator}
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({
-                  label: s.property,
-                  value: s.property,
-                  description: s.description,
-                  tags: s.tags,
-                  datatype: s.datatype,
-                  hashAttribute: s.hashAttribute,
-                }))}
+                .map(toAttributeOption)}
               value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
@@ -418,16 +422,7 @@ export default function ExperimentRefNewFields({
                   form.setValue("exposureQueryId", exposureQueryId);
                 }
               }}
-              formatOptionLabel={(o, meta) => {
-                return (
-                  <AttributeOptionWithTooltip
-                    option={o as AttributeOptionForTooltip}
-                    context={meta.context}
-                  >
-                    {o.label}
-                  </AttributeOptionWithTooltip>
-                );
-              }}
+              formatOptionLabel={formatAttributeOptionLabel}
             />
             {!!holdoutHashAttribute &&
               form.watch("hashAttribute") !== holdoutHashAttribute && (
@@ -436,11 +431,6 @@ export default function ExperimentRefNewFields({
                   attribute of the holdout this experiment will belong to.
                 </HelperText>
               )}
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-            />
-
             {hasSDKWithNoBucketingV2 && !isTemplate && (
               <HashVersionSelector
                 value={(form.watch("hashVersion") || 1) as 1 | 2}
@@ -450,17 +440,23 @@ export default function ExperimentRefNewFields({
             )}
 
             {orgStickyBucketing && !isTemplate ? (
-              <Checkbox
+              <StickyBucketingToggle
                 mt="4"
-                size="lg"
-                label="Disable Sticky Bucketing"
-                description="Do not persist variation assignments for this experiment (overrides your organization settings)"
-                value={!!form.watch("disableStickyBucketing")}
-                setValue={(v) => {
-                  form.setValue("disableStickyBucketing", v);
-                }}
+                disableStickyBucketing={!!form.watch("disableStickyBucketing")}
+                setDisableStickyBucketing={(v) =>
+                  form.setValue("disableStickyBucketing", v)
+                }
+                description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
               />
             ) : null}
+
+            {!form.watch("disableStickyBucketing") && (
+              <FallbackAttributeSelector
+                form={form}
+                attributeSchema={attributeSchema}
+                extraIndicator={attributeSelectIndicator}
+              />
+            )}
           </div>
 
           {feature &&
@@ -524,6 +520,9 @@ export default function ExperimentRefNewFields({
         <>
           <TargetingFieldsGroup
             project={project || ""}
+            attributeProjects={attributeProjects}
+            savedGroupProjects={savedGroupProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}
             savedGroups={savedGroupValue}

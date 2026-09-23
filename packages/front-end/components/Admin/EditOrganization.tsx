@@ -28,6 +28,7 @@ type EventForwarderRow = {
 const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
   bigquery: "BigQuery",
   snowflake: "Snowflake",
+  databricks: "Databricks",
 };
 
 const EditOrganization: FC<{
@@ -190,7 +191,6 @@ const EditOrganization: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}

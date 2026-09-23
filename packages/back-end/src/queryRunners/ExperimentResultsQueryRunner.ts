@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { analyzeExperimentPower } from "shared/enterprise";
 import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
@@ -41,6 +42,7 @@ import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -575,6 +577,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       result.health = {
         traffic: trafficHealth,
       };
+      result.multipleExposures =
+        trafficHealth.multipleExposures ?? result.multipleExposures;
 
       const relativeAnalysis = this.model.analyses.find(
         (a) => a.settings.differenceType === "relative",
@@ -633,18 +637,41 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     return obj;
   }
 
+  /** True once another finalizer (reaper, cancel) has concluded this snapshot. */
+  protected override isModelTerminal(
+    model: ExperimentSnapshotInterface,
+  ): boolean {
+    return model.status !== "running";
+  }
+
+  /** Persist error only while the snapshot is still running. */
+  protected override async writeErrorIfStillActive(
+    error: string,
+  ): Promise<void> {
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
+    await errorSnapshotIfStillRunning(
+      this.context,
+      this.model.id,
+      { queries: this.model.queries, error },
+      "unknown",
+    );
+  }
+
   async updateModel({
     status,
     queries,
     runStarted,
     result,
     error,
+    failureCause = "query",
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -662,6 +689,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

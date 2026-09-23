@@ -1,3 +1,4 @@
+import { getApplicableEnvIds } from "shared/util";
 import omit from "lodash/omit";
 import {
   FeatureInterface,
@@ -9,10 +10,7 @@ import {
 } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import {
-  getApplicableEnvIds,
-  ruleFootprint,
-} from "back-end/src/util/flattenRules";
+import { ruleFootprint } from "./flattenRules";
 
 // v2 -> v1 down-conversion for the /api/v1 REST surface. Rule ids round-trip
 // verbatim (including `__<env>` migration suffixes); the reverse flows

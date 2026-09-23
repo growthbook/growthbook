@@ -54,6 +54,11 @@ export const AI_PROVIDER_META: Record<
 
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
+    // GPT-5.6 series. `gpt-5.6` is an alias for sol; we list the explicit
+    // ids so a stored setting can't shift under an org when the alias moves.
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
     // GPT-5 series
     "gpt-5.4-mini",
     "gpt-5.4-nano",
@@ -80,10 +85,16 @@ export const AI_PROVIDER_MODEL_MAP = {
     "o1",
   ],
   anthropic: [
+    // Current generation. These ids are complete as published — Anthropic
+    // stopped issuing dated snapshots for them, so there is nothing to pin.
+    "claude-opus-5-5",
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
     // Intentional rolling alias — Anthropic hasn't published a dated snapshot
     // for Sonnet 4.6 yet, so this tracks the latest build. Pin to a dated id
     // (claude-sonnet-4-6-YYYYMMDD) here once one exists if you need stable
-    // behaviour. The other Claude entries are dated for exactly that reason.
+    // behaviour. The older Claude entries are dated for exactly that reason.
     "claude-sonnet-4-6",
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
@@ -94,26 +105,32 @@ export const AI_PROVIDER_MODEL_MAP = {
     "claude-3-5-haiku-20241022",
     "claude-3-haiku-20240307",
   ],
-  xai: [
-    "grok-code-fast-1",
-    "grok-4-fast-non-reasoning",
-    "grok-4-fast-reasoning",
-    "grok-4",
-    "grok-3",
-    "grok-3-mini",
-    "grok-3-fast",
-    "grok-3-mini-fast",
-    "grok-2",
+  // The grok-4-fast / grok-4-0709 / grok-3 / grok-2 families were retired on
+  // 2026-05-15 — xAI redirects them to grok-4.3 and bills at 4.3 rates, so
+  // keeping them listed only misrepresents what an org is selecting.
+  xai: ["grok-4.6", "grok-4.5", "grok-4.3"],
+  // Rolling aliases rather than dated snapshots. Mistral supports both, but
+  // its dated ids (mistral-medium-2508) turn over far faster than we update
+  // this list, and the previous pinned entries had all reached end of life —
+  // pixtral-12b in Dec 2025, Medium 3/3.1 on 2026-08-31. The tradeoff is that
+  // a model's behaviour can shift under an org when Mistral moves an alias.
+  mistral: [
+    "mistral-large-latest",
+    "mistral-medium-latest",
+    "mistral-small-latest",
+    "pixtral-large-latest",
   ],
-  mistral: ["mistral-small", "mistral-medium", "pixtral-12b"],
+  // gemini-3-pro-preview was shut down on 2026-03-09 (superseded by
+  // gemini-3.1-pro-preview), and the gemini-2.0 pair is likewise retired.
   google: [
-    "gemini-3-pro-preview",
+    "gemini-3.1-pro-preview",
+    "gemini-3.7-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3-flash-preview",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
     "gemini-2.5-pro",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
     "gemini-flash-latest",
     "gemini-flash-lite-latest",
     "gemini-pro-latest",
@@ -122,19 +139,41 @@ export const AI_PROVIDER_MODEL_MAP = {
 
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
-export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-haiku-4-5-20251001";
-export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel =
-  "claude-sonnet-4-5-20250929";
-export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image-preview";
+export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5";
+// The visual editor is the most schema-sensitive workload we run: multi-step
+// tool loops that must end in a large, exact JSON object, plus vision. It
+// gets the Opus tier while the general default stays on Sonnet.
+export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel = "claude-opus-5-5";
+// Self-hosted has no managed key, so the default has to follow whichever
+// provider the admin actually configured. A fixed OpenAI default told an
+// admin who set only ANTHROPIC_API_KEY that no OpenAI key was configured.
+// OpenAI is first so existing installs keep the model they run today.
+export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
+  [AIProvider, AIModel]
+> = [
+  ["openai", "gpt-5.4-mini"],
+  ["anthropic", "claude-sonnet-5"],
+  ["google", "gemini-3.5-flash"],
+  ["xai", "grok-4.3"],
+  ["mistral", "mistral-medium-latest"],
+];
+
+export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image";
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
-export function getProviderFromModel(model: AIModel): AIProvider {
-  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
+function providerOf(
+  map: Readonly<Record<string, readonly string[]>>,
+  model: string,
+  label: string,
+): AIProvider {
+  for (const [provider, models] of Object.entries(map)) {
+    if (models.includes(model)) return provider as AIProvider;
   }
-  throw new Error(`Model ${model} is not supported.`);
+  throw new Error(`${label} ${model} is not supported.`);
+}
+
+export function getProviderFromModel(model: AIModel): AIProvider {
+  return providerOf(AI_PROVIDER_MODEL_MAP, model, "Model");
 }
 
 // OpenAI reasoning models (the o-series and the entire GPT-5 family) are
@@ -144,6 +183,92 @@ export function getProviderFromModel(model: AIModel): AIProvider {
 // (gpt-4*, gpt-4o*) and every other provider still accept it.
 export function isReasoningModel(model: AIModel): boolean {
   return /^(o[0-9]|gpt-5)/.test(model);
+}
+
+// Claude models that removed the sampling parameters: sending `temperature`
+// returns a 400 rather than being ignored. Claude 4.6 and older still accept
+// it, so this can't be a version-range check — add new ids here as they ship.
+const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
+  "claude-opus-5-5",
+  "claude-opus-5",
+  "claude-sonnet-5",
+  "claude-opus-4-8",
+]);
+
+// Whether `temperature` can be sent for this model at all. Callers should
+// omit it entirely when false — passing it is a hard error on the newer
+// Claude models and a silently-dropped no-op on OpenAI reasoning models.
+export function supportsTemperature(model: AIModel): boolean {
+  if (isReasoningModel(model)) return false;
+  return !CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(model);
+}
+
+// Claude models without native structured output. For these the only way to
+// get schema-shaped JSON is the AI SDK's json-tool fallback: a forced call to
+// a synthetic tool. The newest models (Opus 5.5) reject forced tool use
+// outright, so the fallback is a 400 there — the mode has to follow the
+// model. Only Opus 5.5 and Sonnet 5 are spike-verified against the real API;
+// the other entries below Sonnet 5 mirror @ai-sdk/anthropic's own
+// getModelCapabilities() table (supportsStructuredOutput), since it's the
+// only signal we have for models we haven't individually tested.
+const CLAUDE_MODELS_WITHOUT_STRUCTURED_OUTPUT: ReadonlySet<string> = new Set([
+  "claude-opus-4-8",
+  "claude-sonnet-4-6",
+  "claude-haiku-4-5-20251001",
+  "claude-opus-4-20250514",
+  "claude-sonnet-4-20250514",
+  "claude-3-7-sonnet-20250219",
+  "claude-3-5-haiku-20241022",
+  "claude-3-haiku-20240307",
+]);
+
+// How the AI SDK's Anthropic provider should produce schema-shaped output for
+// this model, or null when the model isn't Claude. Native mode also lifts the
+// json-tool fallback's ban on parallel tool calls.
+export function anthropicStructuredOutputMode(
+  model: AIModel,
+): "outputFormat" | "jsonTool" | null {
+  if (getProviderFromModel(model) !== "anthropic") return null;
+  return CLAUDE_MODELS_WITHOUT_STRUCTURED_OUTPUT.has(model)
+    ? "jsonTool"
+    : "outputFormat";
+}
+
+export const DEFAULT_MAX_OUTPUT_TOKENS = 8000;
+
+// Anthropic 400s when max_tokens exceeds the model's cap (other providers
+// clamp), so hand-maintain an entry for every model capped below the default.
+const MAX_OUTPUT_TOKENS_BY_MODEL: Readonly<Record<string, number>> = {
+  "claude-3-haiku-20240307": 4096,
+};
+
+export function getMaxOutputTokens(
+  model: AIModel,
+  desired: number = DEFAULT_MAX_OUTPUT_TOKENS,
+): number {
+  const modelMax = MAX_OUTPUT_TOKENS_BY_MODEL[model];
+  return modelMax === undefined ? desired : Math.min(desired, modelMax);
+}
+
+// Documented ceilings only: over-asking is a 400, not a clamp.
+const MODEL_MAX_OUTPUT_TOKENS: Partial<Record<AIModel, number>> = {
+  "claude-opus-5": 128000,
+  "claude-sonnet-5": 128000,
+  "claude-opus-4-8": 128000,
+  "claude-sonnet-4-6": 128000,
+  "claude-haiku-4-5-20251001": 64000,
+};
+
+// `extended` applies only where the ceiling is known, capped at it; otherwise `safe`.
+export function resolveMaxOutputTokens(
+  model: AIModel,
+  safe: number,
+  extended?: number,
+): number {
+  const ceiling = MODEL_MAX_OUTPUT_TOKENS[model];
+  const wanted =
+    ceiling === undefined ? safe : Math.min(ceiling, extended ?? safe);
+  return getMaxOutputTokens(model, wanted);
 }
 
 // Whether a text model can accept image input (vision). The model
@@ -161,8 +286,10 @@ export function isVisionCapableModel(model: AIModel): boolean {
   if (/^gpt-4o/.test(model)) return true;
   if (/^gpt-4\.1/.test(model)) return true;
   if (/^gpt-5/.test(model)) return true;
-  // Mistral: only the Pixtral vision model.
-  if (model === "pixtral-12b") return true;
+  // Mistral: only the Pixtral vision line. The generalist models have gained
+  // vision in recent releases, but an alias can move off it, and routing an
+  // image at a text-only model fails opaquely — so stay conservative.
+  if (/^pixtral-/.test(model)) return true;
   // xAI: the grok-4 family is multimodal; grok-3/grok-2 are not.
   if (/^grok-4/.test(model)) return true;
   return false;
@@ -253,10 +380,10 @@ export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
     honorsAspectRatio: false,
   },
   {
-    id: "gemini-3-pro-image-preview",
+    id: "gemini-3-pro-image",
     provider: "google",
     kind: "multimodal-text",
-    label: "Gemini 3 Pro Image (preview)",
+    label: "Gemini 3 Pro Image",
     supportsReferenceImage: true,
     supportedAspectRatios: GEMINI_ASPECT_RATIOS,
     honorsAspectRatio: true,
@@ -336,6 +463,8 @@ export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
 // keep working without a migration.
 const IMAGE_MODEL_ALIASES: Record<string, string> = {
   "gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
+  // Retired 2026-06-25; the GA id took over.
+  "gemini-3-pro-image-preview": "gemini-3-pro-image",
 };
 
 export function resolveImageModelIdForSdk(model: string): string {
@@ -481,23 +610,58 @@ export const AI_PROVIDER_EMBEDDING_MODEL_MAP = {
 export type EmbeddingModel =
   (typeof AI_PROVIDER_EMBEDDING_MODEL_MAP)[keyof typeof AI_PROVIDER_EMBEDDING_MODEL_MAP][number];
 
-// Helper to determine which provider an embedding model belongs to
 export function getProviderFromEmbeddingModel(
   model: EmbeddingModel,
 ): AIProvider {
-  for (const [provider, models] of Object.entries(
-    AI_PROVIDER_EMBEDDING_MODEL_MAP,
-  )) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
-  }
-  throw new Error(`Embedding model ${model} is not supported.`);
+  return providerOf(AI_PROVIDER_EMBEDDING_MODEL_MAP, model, "Embedding model");
 }
 
-// Text, embedding and image models each have their own registry, so callers
-// holding an org setting must say which one it came from.
-export type AIModelKind = "text" | "embedding" | "image";
+// Batch (file-POST) transcription models. Anthropic and Google are absent: no audio input, or upload-only.
+export const AI_PROVIDER_STT_MODEL_MAP = {
+  openai: [
+    "gpt-transcribe",
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+    "whisper-1",
+  ],
+  xai: ["grok-stt-1.0"],
+  mistral: ["voxtral-mini-latest"],
+} as const;
+
+export type STTModel =
+  (typeof AI_PROVIDER_STT_MODEL_MAP)[keyof typeof AI_PROVIDER_STT_MODEL_MAP][number];
+
+export type STTProvider = keyof typeof AI_PROVIDER_STT_MODEL_MAP;
+
+export function getProviderFromSTTModel(model: STTModel): STTProvider {
+  return providerOf(
+    AI_PROVIDER_STT_MODEL_MAP,
+    model,
+    "Transcription model",
+  ) as STTProvider;
+}
+
+// Each provider's first model, in registry order: a missing key degrades to the next provider.
+export const DEFAULT_STT_MODELS = Object.entries(AI_PROVIDER_STT_MODEL_MAP).map(
+  ([provider, models]) => [provider, models[0]] as [STTProvider, STTModel],
+);
+
+export const DEFAULT_STT_MODEL: STTModel = DEFAULT_STT_MODELS[0][1];
+
+/** Which model "use default" resolves to, given the providers that have a key. */
+export function resolveDefaultSTTModel(
+  providersWithKeys: readonly AIProvider[],
+): STTModel | null {
+  return (
+    DEFAULT_STT_MODELS.find(([provider]) =>
+      providersWithKeys.includes(provider),
+    )?.[1] ?? null
+  );
+}
+
+// Text, embedding, image and transcription models each have their own
+// registry, so callers holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image" | "stt";
 
 // Provider that serves `model`, or null when the id isn't in that registry.
 // Null rather than a throw: a stale org setting should read as "not selectable",
@@ -510,6 +674,7 @@ export function getProviderForAIModel(
     if (kind === "text") return getProviderFromModel(model as AIModel);
     if (kind === "embedding")
       return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    if (kind === "stt") return getProviderFromSTTModel(model as STTModel);
     return getImageModelMeta(model)?.provider ?? null;
   } catch {
     return null;
@@ -550,6 +715,12 @@ export const AI_MODEL_SETTINGS = [
     kind: "embedding",
     label: "Embedding model",
     fallback: DEFAULT_EMBEDDING_MODEL,
+  },
+  {
+    key: "sttModel",
+    kind: "stt",
+    label: "Dictation model",
+    fallback: DEFAULT_STT_MODEL,
   },
 ] as const;
 

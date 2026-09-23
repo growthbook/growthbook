@@ -18,8 +18,10 @@ import {
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
@@ -79,6 +81,45 @@ export default class BigQuery extends SqlIntegration {
       { externalId, location, statusAtCancel: apiResult.job?.status },
       "BigQuery cancel request accepted",
     );
+  }
+
+  async getExternalQueryStatus(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<ExternalQueryStatus> {
+    const client = this.getClient();
+
+    const location = metadata?.location;
+    const job = location
+      ? client.job(externalId, { location })
+      : client.job(externalId);
+
+    try {
+      const [md] = await job.getMetadata();
+      const status = md.status;
+      if (!status) return { state: "unknown", reason: "unrecognized" };
+      switch (status.state) {
+        case "PENDING":
+        case "RUNNING":
+          return { state: "running" };
+        case "DONE":
+          if (status.errorResult) {
+            return {
+              state: "failed",
+              error: status.errorResult.message || "BigQuery job failed",
+            };
+          }
+          return { state: "succeeded" };
+        default:
+          return { state: "unknown", reason: "unrecognized" };
+      }
+    } catch (e) {
+      const code = (e as { code?: unknown })?.code;
+      if (code === 404 || /not found/i.test(getErrorMessage(e))) {
+        return { state: "unknown", reason: "expired" };
+      }
+      return { state: "unknown", reason: "unreachable" };
+    }
   }
 
   async runQuery(
@@ -170,9 +211,6 @@ export default class BigQuery extends SqlIntegration {
   hasQuantileSketch(): boolean {
     return true;
   }
-  supportsLimitZeroColumnValidation(): boolean {
-    return true;
-  }
   getDefaultDatabase() {
     return this.params.projectId || "";
   }
@@ -245,6 +283,24 @@ export default class BigQuery extends SqlIntegration {
     return formatInformationSchema(results as RawInformationSchema[]);
   }
 
+  async estimateQueryCost(
+    sql: string,
+  ): Promise<{ bytesProcessed: number; costEstimateUsd?: number }> {
+    const client = this.getClient();
+    const [job] = await client.createQueryJob({
+      query: sql,
+      useLegacySql: false,
+      dryRun: true,
+    });
+    const metadata = job.metadata;
+    const bytes = Number(metadata?.statistics?.totalBytesProcessed ?? 0);
+    const TIB = 1024 ** 4;
+    return {
+      bytesProcessed: bytes,
+      costEstimateUsd: (bytes / TIB) * 6.25,
+    };
+  }
+
   getQueryResultResponseColumns(
     bqQueryResultsResponse: QueryResultsResponse,
   ): QueryResponseColumnData[] | undefined {
@@ -261,7 +317,7 @@ export default class BigQuery extends SqlIntegration {
         : undefined;
 
       return {
-        name: field.name!.toLowerCase(),
+        name: field.name!,
         ...(dataType && { dataType }),
         ...(childFields && { fields: childFields }),
       };
@@ -286,6 +342,7 @@ export default class BigQuery extends SqlIntegration {
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
         FROM ${params.metricSourceTableFullName}
         ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.getSqlDialect().toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,
@@ -300,6 +357,7 @@ export default class BigQuery extends SqlIntegration {
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
         FROM ${params.unitsTableFullName}
         ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.getSqlDialect().toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,

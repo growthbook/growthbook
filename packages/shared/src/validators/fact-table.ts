@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -37,9 +38,28 @@ export const numberFormatValidator = z.enum([
   "",
   "currency",
   "time:seconds",
+  "time:milliseconds",
   "memory:bytes",
   "memory:kilobytes",
 ]);
+
+export const factTableTypeValidator = z
+  .enum(["event", "model", "rollup", "other"])
+  .describe(
+    'The shape of the underlying table. "event" is a stream of many event types told apart by a type column, "model" models one specific object type (orders, signups, etc.), "rollup" is pre-aggregated with one row per user per day.',
+  );
+
+export const timestampColumnField = z
+  .string()
+  .describe(
+    'The column holding the event timestamp. Must be a date column on this fact table. Defaults to "timestamp" when unset.',
+  );
+
+export const userIdColumnsField = z
+  .record(z.string(), z.string())
+  .describe(
+    'Maps an identifier type to the column holding it, for SQL that does not alias its columns to the identifier type names, e.g. `{"user_id": "userId"}`. May also be a single-level field path into a JSON column (`properties.userId`). Unmapped types use the identifier type name as the column name.',
+  );
 
 /** Persisted JSON fields: every field has a datatype (`""` until detected). */
 export const jsonColumnFieldsValidator = z.record(
@@ -60,6 +80,16 @@ export const jsonColumnFieldsInputValidator = z.record(
   }),
 );
 
+/**
+ * For an `alwaysInlineFilter` column: value -> extra column to also prompt for
+ * when a metric filters this column to that value. The extra column may be a
+ * JSON field path, e.g. { "Page View": "path", "Modal Open": "properties.modalType" }.
+ */
+export const conditionalInlineFiltersValidator = z.record(
+  z.string(),
+  z.string(),
+);
+
 export const createColumnPropsValidator = z
   .object({
     column: z.string(),
@@ -71,6 +101,7 @@ export const createColumnPropsValidator = z
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    conditionalInlineFilters: conditionalInlineFiltersValidator.optional(),
     topValues: z.array(z.string()).optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
@@ -107,6 +138,7 @@ export const updateColumnPropsValidator = z
     datatype: factTableColumnTypeValidator.optional(),
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    conditionalInlineFilters: conditionalInlineFiltersValidator.optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
     isAutoSliceColumn: z.boolean().optional(),
@@ -160,8 +192,11 @@ export const createFactTablePropsValidator = z
     tags: z.array(z.string()),
     datasource: z.string(),
     userIdTypes: z.array(z.string()),
+    userIdColumns: userIdColumnsField.optional(),
     sql: z.string(),
+    timestampColumn: timestampColumnField.optional(),
     eventName: z.string(),
+    tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
@@ -179,11 +214,13 @@ export const updateFactTablePropsValidator = z
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
     userIdTypes: z.array(z.string()).optional(),
+    userIdColumns: userIdColumnsField.optional(),
     sql: z.string().optional(),
+    timestampColumn: timestampColumnField.optional(),
     eventName: z.string().optional(),
+    tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
-    columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
@@ -220,6 +257,8 @@ export const rowFilterOperators = [
   "not_in",
   "contains",
   "not_contains",
+  "matches_pattern",
+  "not_matches_pattern",
   "starts_with",
   "ends_with",
   "is_null",
@@ -364,12 +403,10 @@ export const funnelOrderingValidator = z.enum([
 ]);
 export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
 
-export const MAX_FACT_METRIC_FUNNEL_STEPS = 20;
-
 // Funnel-as-experiment-metric settings. Mirrors the quantileSettings pattern:
 // a nullable sub-object on the fact metric. Statistically a proportion.
 export const funnelSettingsValidator = z.object({
-  steps: z.array(funnelStepValidator).min(2).max(MAX_FACT_METRIC_FUNNEL_STEPS),
+  steps: z.array(funnelStepValidator).min(2).max(MAX_FUNNEL_STEPS),
   ordering: funnelOrderingValidator.optional(),
   // Out-of-order tolerance between adjacent steps (seconds). Optional; only
   // meaningful for ordered modes (ignored for "unordered").
@@ -405,6 +442,9 @@ const factMetricObjectValidator = z
     projects: z.array(z.string()),
     inverse: z.boolean(),
     archived: z.boolean().optional(),
+
+    // Older metrics this one supersedes. API-only; existence is not enforced.
+    replaces: z.array(z.string()).optional(),
 
     metricType: metricTypeValidator,
     // Null only for funnel metrics, which describe their events through
@@ -504,6 +544,12 @@ export const testFactFilterPropsValidator = z
   })
   .strict();
 
+export const testRowFiltersPropsValidator = z
+  .object({
+    rowFilters: z.array(rowFilterValidator),
+  })
+  .strict();
+
 // ---- API Validators (migrated from openapi.ts) ----
 
 // Corresponds to schemas/FactTableColumn.yaml
@@ -526,6 +572,7 @@ export const apiFactTableColumnValidator = namedSchema(
           "",
           "currency",
           "time:seconds",
+          "time:milliseconds",
           "memory:bytes",
           "memory:kilobytes",
         ])
@@ -564,6 +611,11 @@ export const apiFactTableColumnValidator = namedSchema(
         )
         .optional()
         .meta({ default: false }),
+      conditionalInlineFilters: conditionalInlineFiltersValidator
+        .describe(
+          'Value -> additional column to prompt for when a metric filters this column to that value, e.g. {"Page View": "path", "Modal Open": "properties.modalType"}. Requires alwaysInlineFilter.',
+        )
+        .optional(),
       deleted: z.boolean().optional().meta({ default: false }),
       isAutoSliceColumn: z
         .boolean()
@@ -595,6 +647,19 @@ export const apiFactTableColumnValidator = namedSchema(
           "For virtual columns, the SQL expression that computes the column value. Only valid on a virtual column; when omitted from an update, the existing expression is preserved.",
         )
         .optional(),
+      topValues: z
+        .array(z.string())
+        .describe(
+          "The most common values for this column, sampled from the warehouse to populate filter pickers and auto slices. Read-only.",
+        )
+        .readonly()
+        .optional(),
+      topValuesDate: z
+        .string()
+        .meta({ format: "date-time" })
+        .describe("When topValues was last refreshed for this column.")
+        .readonly()
+        .optional(),
       dateCreated: z
         .string()
         .meta({ format: "date-time" })
@@ -616,6 +681,8 @@ export const apiFactTableColumnInputValidator = componentSchema(
       dataTypeFromWarehouse: true,
       dateCreated: true,
       dateUpdated: true,
+      topValues: true,
+      topValuesDate: true,
     })
     .extend({
       datatype: apiFactTableColumnValidator.shape.datatype
@@ -641,12 +708,14 @@ export const apiFactTableValidator = namedSchema(
       tags: z.array(z.string()),
       datasource: z.string(),
       userIdTypes: z.array(z.string()),
+      userIdColumns: userIdColumnsField.optional(),
       aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
         .describe(
           "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
         )
         .optional(),
       sql: z.string(),
+      timestampColumn: timestampColumnField.optional(),
       eventName: z
         .string()
         .describe("The event name used in SQL template variables")
@@ -659,8 +728,21 @@ export const apiFactTableValidator = namedSchema(
         .string()
         .nullable()
         .describe("Error message if there was an issue parsing the SQL schema")
+        .readonly()
+        .optional(),
+      columnRefreshPending: z
+        .boolean()
+        .describe(
+          "True while the fact table's column schema is being detected in the background. While true, `columns` may be empty or incomplete and metrics referencing not-yet-detected columns cannot be created.",
+        )
         .optional(),
       archived: z.boolean().optional(),
+      autoSliceUpdatesEnabled: z
+        .boolean()
+        .describe(
+          "Whether Auto Slice values for this fact table's columns are refreshed automatically in the background.",
+        )
+        .optional(),
       managedBy: z
         .enum(["", "api", "admin"])
         .describe(
@@ -761,7 +843,7 @@ export type ApiAggregatedFactTable = z.infer<
 >;
 
 // Corresponds to payload-schemas/PostFactTablePayload.yaml
-const postFactTableBody = z
+export const postFactTableBody = z
   .object({
     name: z.string(),
     description: z
@@ -781,12 +863,14 @@ const postFactTableBody = z
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       ),
+    userIdColumns: userIdColumnsField.optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
       .describe(
         "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
       )
       .optional(),
     sql: z.string().describe("The SQL query for this fact table"),
+    timestampColumn: timestampColumnField.optional(),
     eventName: z
       .string()
       .describe("The event name used in SQL template variables")
@@ -825,12 +909,14 @@ const updateFactTableBody = z
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       )
       .optional(),
+    userIdColumns: userIdColumnsField.optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
       .describe(
         "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
       )
       .optional(),
     sql: z.string().describe("The SQL query for this fact table").optional(),
+    timestampColumn: timestampColumnField.optional(),
     eventName: z
       .string()
       .describe("The event name used in SQL template variables")
@@ -841,11 +927,6 @@ const updateFactTableBody = z
         'Optional array of columns to upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Slice-related properties require an enterprise license.',
       )
       .optional(),
-    columnsError: z
-      .string()
-      .nullable()
-      .describe("Error message if there was an issue parsing the SQL schema")
-      .optional(),
     managedBy: z
       .enum(["", "api", "admin"])
       .describe('Set this to "api" to disable editing in the GrowthBook UI')
@@ -855,48 +936,30 @@ const updateFactTableBody = z
   .strict();
 
 // Corresponds to payload-schemas/PostFactTableFilterPayload.yaml
-const postFactTableFilterBody = z
-  .object({
-    name: z.string(),
-    description: z
-      .string()
-      .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table filter")
-      .optional(),
-    value: z
-      .string()
-      .describe("The SQL expression for this filter.")
-      .meta({ example: "country = 'US'" }),
-    managedBy: z
-      .enum(["", "api"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"',
-      )
-      .optional(),
-  })
-  .strict();
+export const postFactTableFilterBodyFields = z.object({
+  name: z.string(),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe("Description of the fact table filter")
+    .optional(),
+  value: z
+    .string()
+    .describe("The SQL expression for this filter.")
+    .meta({ example: "country = 'US'" }),
+  managedBy: z
+    .enum(["", "api"])
+    .describe(
+      'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"',
+    )
+    .optional(),
+});
+
+export const postFactTableFilterBody = postFactTableFilterBodyFields.strict();
 
 // Corresponds to payload-schemas/UpdateFactTableFilterPayload.yaml
-const updateFactTableFilterBody = z
-  .object({
-    name: z.string().optional(),
-    description: z
-      .string()
-      .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table filter")
-      .optional(),
-    value: z
-      .string()
-      .describe("The SQL expression for this filter.")
-      .meta({ example: "country = 'US'" })
-      .optional(),
-    managedBy: z
-      .enum(["", "api"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"',
-      )
-      .optional(),
-  })
+const updateFactTableFilterBody = postFactTableFilterBodyFields
+  .partial()
   .strict();
 
 const idParams = z

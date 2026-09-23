@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { reconcileInlineFilterPrompts } from "shared/experiments";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import {
   PiCaretDown,
@@ -30,7 +31,7 @@ import {
   getFunnelStepPreview,
   getInitialInlineFilters,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { factTableToColumnSource } from "./ExplorerFilterRow";
+import { factTableToColumnSource } from "@/components/FactTables/rowFilterUtils";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
 
@@ -123,7 +124,12 @@ export default function FunnelStepCard({
 
   const handleFiltersChange = (filters: RowFilter[]) => {
     setDraftExploreState((prev) =>
-      updateStep(prev, index, (s) => ({ ...s, rowFilters: filters })),
+      updateStep(prev, index, (s) => ({
+        ...s,
+        rowFilters: factTable
+          ? reconcileInlineFilterPrompts(factTable, s.rowFilters, filters)
+          : filters,
+      })),
     );
   };
 
@@ -377,37 +383,18 @@ export default function FunnelStepCard({
                 columnSource={columnSource}
                 value={step.rowFilters}
                 setValue={handleFiltersChange}
-              />
-              <Flex
-                justify={showFunnelUnitOnFilterRow ? "between" : "start"}
-                align="center"
-                mt="2"
               >
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    handleFiltersChange([
-                      ...step.rowFilters,
-                      { column: "", operator: "=", values: [] },
-                    ]);
-                  }}
-                >
-                  <Flex align="center" gap="2">
-                    <PiPlus size={14} />
-                    Add Filter
-                  </Flex>
-                </Button>
                 {showFunnelUnitOnFilterRow && (
                   <DropdownMenu
                     open={unitDropdownOpen}
                     onOpenChange={setUnitDropdownOpen}
                     trigger={
-                      <Button size="sm" variant="ghost">
-                        <Flex align="center" gap="2">
-                          <PiUserFill size={14} />
-                          {funnelUnit ?? funnelUnitOptions[0]}
-                        </Flex>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<PiUserFill size={14} />}
+                      >
+                        {funnelUnit ?? funnelUnitOptions[0]}
                       </Button>
                     }
                   >
@@ -430,7 +417,7 @@ export default function FunnelStepCard({
                     ))}
                   </DropdownMenu>
                 )}
-              </Flex>
+              </ExplorerRowFilterInput>
             </Box>
           )}
 

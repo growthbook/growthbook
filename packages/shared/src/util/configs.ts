@@ -12,7 +12,7 @@ import {
   validateConfigValue,
   valueHasReferenceToken,
 } from "./config-schema";
-import { deepMergePatch } from "./deep-merge";
+import { deepMergePatch, isUnsafeMergeKey } from "./deep-merge";
 
 // Inheritance is modeled by a `parent` key (the primary lineage spine) plus an
 // optional ordered `extends[]` of mixin config keys, neither stored in the
@@ -1185,4 +1185,29 @@ export function undeclaredRuleFieldWarnings(
       `${u.keys.map((k) => `"${k}"`).join(", ")} — undeclared fields ` +
       `evaluate as null when the rule runs.`,
   }));
+}
+
+// Single-property writes against a config's own value. Callers hold the value
+// as a JSON string, so these take and return one.
+export function setOwnValueProperty(
+  value: string | undefined,
+  property: string,
+  next: unknown,
+): string {
+  if (isUnsafeMergeKey(property)) {
+    throw new Error(`Invalid property name: ${property}`);
+  }
+  const own = parsePlainJSONObject(value ?? "") ?? {};
+  return JSON.stringify({ ...own, [property]: next });
+}
+
+export function removeOwnValueProperty(
+  value: string | undefined,
+  property: string,
+): { value: string; existed: boolean } {
+  const own = parsePlainJSONObject(value ?? "") ?? {};
+  const existed = property in own;
+  const rest = { ...own };
+  delete rest[property];
+  return { value: JSON.stringify(rest), existed };
 }

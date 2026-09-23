@@ -8,6 +8,7 @@ import {
   getDraftAffectedEnvironments,
   PermissionError,
 } from "shared/util";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   deleteRevisionForFailedLanding,
   createRevision,
@@ -47,6 +48,7 @@ export async function toggleFeatureCore(
   body: {
     environments: Record<string, boolean | string | number>;
     reason?: string;
+    comment?: string;
   },
   audit: (input: AuditInterfaceInput) => Promise<void>,
   canUseRestApiBypass: boolean,
@@ -136,7 +138,7 @@ export async function toggleFeatureCore(
     feature,
     baseRevision: liveRevision,
     revision: fakeRevision,
-    allEnvironments: environmentIds,
+    orgEnvironments: getEnvironments(organization),
     settings: organization.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
@@ -174,7 +176,7 @@ export async function toggleFeatureCore(
     feature,
     user: eventAudit,
     baseVersion: feature.version,
-    comment: "Created via REST API",
+    comment: body.comment ?? "Created via REST API",
     environments: environmentIds,
     publish: true,
     changes: { environmentsEnabled: changedToggles },

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { managedByValidator } from "./managed-by";
-import { projectMemberRole } from "./organization";
+import { projectMemberRole, roleRule } from "./organization";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -12,6 +12,7 @@ export const teamSchema = baseSchema.safeExtend({
   role: z.string(),
   limitAccessByEnvironment: z.boolean(),
   environments: z.array(z.string()),
+  additionalRoles: z.array(roleRule).optional(),
   projectRoles: z.array(projectMemberRole).optional(),
   members: z.array(z.string()).optional(),
   managedByIdp: z.boolean(),

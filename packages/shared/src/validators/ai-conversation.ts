@@ -50,6 +50,21 @@ export const aiChatToolResultPartValidator = z
   })
   .passthrough();
 
+export const aiChatMentionValidator = z
+  .object({
+    type: z.enum(["metric", "factMetric", "metricGroup"]),
+    id: z.string().min(1).max(64),
+    name: z.string().min(1).max(200),
+  })
+  .strict();
+
+/** Stored form. `stale` is server-set — the client cannot assert it. */
+export const aiChatStoredMentionValidator = aiChatMentionValidator.extend({
+  stale: z.boolean().optional(),
+});
+
+export const aiChatSkillsValidator = z.array(z.string().min(1).max(64));
+
 // ---------------------------------------------------------------------------
 // Message validators (discriminated on role)
 // ---------------------------------------------------------------------------
@@ -78,12 +93,10 @@ const aiChatUserMessageValidator = z
         ]),
       ),
     ]),
-    // Optional URL the user was on when sending this message — see
-    // AIChatUserMessage in shared/ai-chat.ts. Cap matches the agent router.
     currentPage: z.string().max(2048).optional(),
-    // Optional soft datasource hint — see AIChatUserMessage in
-    // shared/ai-chat.ts. Cap matches the agent router's datasourceId.
     datasourceHint: z.string().max(256).optional(),
+    mentions: aiChatStoredMentionValidator.array().optional(),
+    skills: aiChatSkillsValidator.optional(),
   })
   .passthrough();
 
@@ -141,6 +154,8 @@ export const aiAgentPendingActionValidator = z.object({
   path: z.string(),
   query: z.record(z.string(), z.string()).optional(),
   body: z.unknown().optional(),
+  /** Verb-first label for the change, e.g. "Launch experiment checkout-redesign". */
+  title: z.string().optional(),
   /** Short human-readable description shown in the confirmation prompt. */
   summary: z.string(),
   createdAt: z.number(),

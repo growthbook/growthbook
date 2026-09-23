@@ -1,16 +1,22 @@
-import React, { useCallback } from "react";
+import { useCallback } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiClockCounterClockwise } from "react-icons/pi";
-import { formatShortAgo } from "shared/dates";
+import { PiChatCircleDots, PiClockCounterClockwise } from "react-icons/pi";
+import { datetime, formatShortAgo } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
 import {
   DropdownMenu,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
+import { AGENT_PANEL_PORTAL_Z_INDEX } from "./AgentPanelContext";
+import { groupConversationsByRecency } from "./chatHistoryUtils";
+
+const MENU_WIDTH = 300;
+// ScrollArea's viewport is max-content sized, so a nowrap title needs a hard cap.
+const ITEM_CONTENT_WIDTH = MENU_WIDTH - 48;
 
 interface AgentChatHistoryProps {
   activeConversationId: string;
@@ -32,6 +38,7 @@ export default function AgentChatHistory({
     "/agent/chat",
   );
   const conversations = data?.conversations ?? [];
+  const groups = groupConversationsByRecency(conversations);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
@@ -44,7 +51,10 @@ export default function AgentChatHistory({
     <DropdownMenu
       onOpenChange={handleOpenChange}
       menuPlacement="end"
-      menuWidth={300}
+      menuWidth={MENU_WIDTH}
+      menuMaxHeight={420}
+      menuZIndex={AGENT_PANEL_PORTAL_Z_INDEX}
+      variant="soft"
       trigger={
         <IconButton
           variant="ghost"
@@ -52,84 +62,125 @@ export default function AgentChatHistory({
           title="Chat history"
           aria-label="Chat history"
         >
-          <PiClockCounterClockwise size={16} />
+          <PiClockCounterClockwise size={18} />
         </IconButton>
       }
     >
-      <DropdownMenuLabel>Chat history</DropdownMenuLabel>
-      <DropdownMenuSeparator />
-      {conversations.length === 0 ? (
-        <Box px="3" py="2">
-          <Text size="sm" color="text-low">
-            No previous chats yet.
-          </Text>
-        </Box>
-      ) : (
-        <Box
-          style={{
-            maxHeight: 360,
-            overflowY: "auto",
-            overflowX: "hidden",
-            padding: "2px 4px",
-          }}
+      {groups.length === 0 ? (
+        <Flex
+          direction="column"
+          align="center"
+          gap="2"
+          px="4"
+          py="6"
+          style={{ color: "var(--color-text-low)" }}
         >
-          {conversations.map((conv, idx) => {
-            const isActive = conv.conversationId === activeConversationId;
-            const isLast = idx === conversations.length - 1;
-            return (
-              <DropdownMenuItem
+          <PiChatCircleDots size={22} />
+          <Text size="sm" weight="medium" color="text-mid" align="center">
+            No previous chats
+          </Text>
+          <Text size="sm" color="text-low" align="center">
+            Your conversations will show up here.
+          </Text>
+        </Flex>
+      ) : (
+        groups.map((group, groupIdx) => (
+          <DropdownMenuGroup key={group.label}>
+            <DropdownMenuLabel
+              textSize="sm"
+              style={{
+                height: "auto",
+                padding: "6px 10px 2px",
+                marginTop: groupIdx === 0 ? 0 : 6,
+              }}
+              textStyle={{
+                fontSize: 11,
+                fontWeight: 500,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}
+            >
+              {group.label}
+            </DropdownMenuLabel>
+            {group.conversations.map((conv, idx) => (
+              <ConversationItem
                 key={conv.conversationId}
-                onClick={() => onSelect(conv.conversationId)}
-                style={{
-                  height: "auto",
-                  minWidth: 0,
-                  maxWidth: "100%",
-                  overflow: "hidden",
-                  padding: "5px 10px",
-                  borderRadius: 0,
-                  borderBottom: isLast ? undefined : "1px solid var(--gray-a3)",
-                }}
-              >
-                <Flex
-                  direction="column"
-                  gap="0"
-                  style={{ minWidth: 0, width: "100%", overflow: "hidden" }}
-                >
-                  <span
-                    style={{
-                      display: "block",
-                      // Hard cap (menu is 300px wide) so the longest title can't
-                      // grow the Radix content to its max-content width, which
-                      // is what was forcing horizontal scroll. Percent widths
-                      // don't constrain a max-content-sized ancestor.
-                      maxWidth: 248,
-                      fontSize: 13,
-                      lineHeight: 1.4,
-                      fontWeight: isActive ? 600 : 500,
-                      color: "var(--color-text-high)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {conv.title || "Untitled"}
-                  </span>
-                  <span
-                    style={{
-                      marginTop: 2,
-                      fontSize: 11,
-                      lineHeight: 1.2,
-                      color: "var(--gray-a10)",
-                    }}
-                  >
-                    {formatShortAgo(conv.createdAt)}
-                  </span>
-                </Flex>
-              </DropdownMenuItem>
-            );
-          })}
-        </Box>
+                conversation={conv}
+                isActive={conv.conversationId === activeConversationId}
+                isLastInGroup={idx === group.conversations.length - 1}
+                onSelect={onSelect}
+              />
+            ))}
+          </DropdownMenuGroup>
+        ))
       )}
     </DropdownMenu>
+  );
+}
+
+function ConversationItem({
+  conversation: conv,
+  isActive,
+  isLastInGroup,
+  onSelect,
+}: {
+  conversation: ConversationSummary;
+  isActive: boolean;
+  isLastInGroup: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const title = conv.title || "Untitled";
+  const created = new Date(conv.createdAt);
+
+  return (
+    <DropdownMenuItem
+      onClick={() => onSelect(conv.conversationId)}
+      style={{
+        height: "auto",
+        minWidth: 0,
+        padding: "8px 8px 8px 10px",
+        borderRadius: 0,
+        borderBottom: isLastInGroup ? undefined : "1px solid var(--gray-a3)",
+        // Inset so the current-chat marker doesn't add width.
+        boxShadow: isActive ? "inset 2px 0 0 var(--violet-9)" : undefined,
+      }}
+    >
+      <Flex
+        direction="column"
+        gap="1"
+        style={{ width: ITEM_CONTENT_WIDTH, minWidth: 0 }}
+      >
+        <Text
+          as="div"
+          size="md"
+          weight={isActive ? "semibold" : "medium"}
+          color="text-high"
+          truncate
+          title={title}
+        >
+          {title}
+        </Text>
+        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+          {conv.preview ? (
+            <Box style={{ flex: 1, minWidth: 0 }}>
+              <Text as="div" size="sm" color="text-low" truncate>
+                {conv.preview}
+              </Text>
+            </Box>
+          ) : (
+            <Box style={{ flex: 1 }} />
+          )}
+          <Text
+            as="div"
+            size="sm"
+            color="text-low"
+            whiteSpace="nowrap"
+            title={datetime(created)}
+          >
+            {formatShortAgo(created)}
+          </Text>
+        </Flex>
+      </Flex>
+    </DropdownMenuItem>
   );
 }

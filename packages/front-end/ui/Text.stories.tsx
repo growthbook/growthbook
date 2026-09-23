@@ -38,6 +38,10 @@ export default function TextStories() {
             body/large/semibold
           </Text>
         </Grid>
+        <span>Identifiers and keys</span>
+        <Text size="sm" mono color={textColor}>
+          prj_2Cf42XEmZnptqRtsD5CzeP
+        </Text>
       </Flex>
 
       <Flex flexGrow="1" direction="column" gap="0">

@@ -2,13 +2,15 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "5.0.1",
+  "version": "5.1.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx,mjs}' --max-warnings 0 --cache --cache-strategy content >/dev/null 2>&1 || eslint './**/*.{ts,tsx,js,jsx,mjs}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx,mjs}' --max-warnings 0",
     "pretty": "prettier --write './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
     "pretty:check": "prettier --check './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
     "type-check": "pnpm -r run type-check",
+    "check-licenses": "node scripts/check-licenses.mjs",
+    "check-doclink-registry": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-doclink-registry.mjs",
     "clean": "pnpm -r run clean && rimraf node_modules",
     "doc-gen": "cd docs && pnpm install && pnpm gen",
     "unused-export-check": "pnpm -r --workspace-concurrency=1 run unused-export-check",
@@ -16,12 +18,13 @@
     "dev:apps": "pnpm --filter back-end --filter front-end --filter shared --filter stats-ts --filter @growthbook/growthbook -r --parallel run dev",
     "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && pnpm dev:apps",
     "dev:back-end": ". $(cd packages/stats && poetry env info --path)/bin/activate && pnpm --filter back-end run dev",
+    "build:sdks": "pnpm --filter @growthbook/growthbook run build && pnpm --filter @growthbook/growthbook-react run build",
     "build:deps": "pnpm --filter @growthbook/growthbook run build && pnpm --filter @growthbook/growthbook-react --filter shared --filter stats-ts run build",
     "build:app": "pnpm --filter back-end --filter front-end run build",
     "build": "pnpm build:deps && pnpm build:app",
-    "start": "pm2-runtime start ecosystem.config.js",
-    "start:with-tracing": "TRACING_PROVIDER=opentelemetry pm2-runtime start ecosystem.config.js",
-    "start:with-datadog": "TRACING_PROVIDER=datadog pm2-runtime start ecosystem.config.js",
+    "start": "node scripts/run-apps.js start ecosystem.config.js",
+    "start:with-tracing": "TRACING_PROVIDER=opentelemetry node scripts/run-apps.js start ecosystem.config.js",
+    "start:with-datadog": "TRACING_PROVIDER=datadog node scripts/run-apps.js start ecosystem.config.js",
     "update-stats-deps": ". $(cd packages/stats && poetry env info --path)/bin/activate && (cd packages/stats && poetry install)",
     "setup": "pnpm build:deps & pnpm --filter stats run setup & (cd docs && pnpm install) & wait",
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true",
@@ -37,8 +40,7 @@
   "dependencies": {
     "@datadog/native-metrics": "^3.1.2",
     "@datadog/pprof": "^5.13.2",
-    "dd-trace": "^5.100.0",
-    "pm2": "^6.0.14"
+    "dd-trace": "^5.100.0"
   },
   "devDependencies": {
     "@eslint/compat": "^1.3.1",
@@ -67,6 +69,9 @@
     "./**/*.{json,css,scss,md,mdx}": [
       "prettier --write"
     ],
+    "./docs/**/*.{md,mdx}": [
+      "node scripts/check-docs-frontmatter.mjs"
+    ],
     "./**/*.{js,jsx,mjs,ts,tsx}": [
       "pnpm eslint --fix --max-warnings 0 --no-warn-ignored --cache --cache-strategy content --prune-suppressions",
       "prettier --write"
@@ -86,15 +91,16 @@
       "@octokit/plugin-paginate-rest@9": "^9.2.2",
       "@octokit/request@8": "^8.4.1",
       "@octokit/request-error@5": "^5.1.1",
-      "baseline-browser-mapping": "^2.9.19",
+      "baseline-browser-mapping": "^2.11.0",
       "brace-expansion@1": "^1.1.12",
+      "browserslist@4": "^4.28.7",
       "axios@1": "^1.18.0",
       "basic-ftp@5": "^5.3.1",
       "bn.js@4": "^4.12.3",
       "bn.js@5": "^5.2.3",
       "diff@4": "^4.0.4",
       "execa": "^5.0.0",
-      "fast-uri@3": "^3.1.5",
+      "fast-uri@3": "^3.1.6",
       "fast-xml-builder@1": "^1.1.7",
       "form-data@2": "^2.5.5",
       "form-data@3": "^3.0.4",
@@ -103,6 +109,10 @@
       "brace-expansion@5": "^5.0.9",
       "fast-xml-parser@5": "^5.7.0",
       "follow-redirects@1": "^1.16.0",
+      "fflate@0.4": "^0.4.9",
+      "fflate@0.8": "^0.8.3",
+      "toml@3": "^4.2.0",
+      "@ai-sdk/provider-utils@4": "^4.0.33",
       "js-cookie@3": "^3.0.7",
       "jws@4": "^4.0.1",
       "lodash@4": "^4.18.0",
@@ -114,9 +124,10 @@
       "picomatch@4": "^4.0.4",
       "postcss@8": "^8.5.23",
       "prismjs@1": "^1.30.0",
+      "prosemirror-model@1": "^1.25.12",
       "@protobufjs/utf8@1": "^1.1.1",
       "protobufjs@7": "^7.6.5",
-      "qs@6": "^6.15.2",
+      "qs@6": "^6.16.0",
       "socks@2": "^2.8.9",
       "uuid@8": "^11.1.1",
       "uuid@9": "^11.1.1",
@@ -129,7 +140,7 @@
       "@opentelemetry/propagator-jaeger@2": "^2.9.0",
       "ip-address@10": "^10.3.1",
       "nanoid@3": "^3.3.18",
-      "js-yaml@4": "^4.3.1",
+      "js-yaml@4": "^4.3.2",
       "yaml@1": "^1.10.3"
     },
     "peerDependencyRules": {
@@ -141,7 +152,8 @@
       "@types/presto-client@1.0.2": "patches/@types__presto-client@1.0.2.patch",
       "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",
       "agenda@5.0.0": "patches/agenda@5.0.0.patch",
-      "@ephys/zod-to-ts@2.3.2": "patches/@ephys__zod-to-ts@2.3.2.patch"
+      "@ephys/zod-to-ts@2.3.2": "patches/@ephys__zod-to-ts@2.3.2.patch",
+      "snowflake-sdk@2.4.3": "patches/snowflake-sdk@2.4.3.patch"
     },
     "onlyBuiltDependencies": [
       "@datadog/native-appsec",

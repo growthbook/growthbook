@@ -34,10 +34,19 @@ export interface Props {
   collapseFilter?: (log: RevisionLog) => boolean;
   // Whether the viewer can retract their active verdict.
   canRetractVerdict?: boolean;
+  // Approver id -> why their verdict cannot sanction this draft.
+  uncoveredApproverReasons?: Map<string, string>;
 }
 
 const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
-  { feature, revision, onRevisionMutate, collapseFilter, canRetractVerdict },
+  {
+    feature,
+    revision,
+    onRevisionMutate,
+    collapseFilter,
+    canRetractVerdict,
+    uncoveredApproverReasons,
+  },
   ref,
 ) => {
   const { data, error, mutate } = useApi<{ log: RevisionLog[] }>(
@@ -60,6 +69,7 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
   return (
     <SharedRevisionTimeline
       logs={data.log}
+      uncoveredApproverReasons={uncoveredApproverReasons}
       collapseFilter={collapseFilter}
       onEditComment={async (logId, comment) => {
         await apiCall(

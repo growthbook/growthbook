@@ -69,6 +69,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   datasource: DataSourceInterface;
   params: MixpanelConnectionParams;
   decryptionError: boolean;
+  columnNamesAreCaseSensitive = false;
   constructor(context: ReqContext, datasource: DataSourceInterface) {
     this.context = context;
     this.datasource = datasource;

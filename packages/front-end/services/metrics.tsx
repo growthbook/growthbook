@@ -9,7 +9,7 @@ import {
 } from "shared/types/fact-table";
 import { CreateProps } from "shared/types/base-model";
 import {
-  canInlineFilterColumn,
+  getInlineFilterPromptColumns,
   ExperimentMetricDefinition,
 } from "shared/experiments";
 import {
@@ -39,19 +39,15 @@ export function getInitialInlineFilters(
   existingRowFilters?: RowFilter[],
 ): RowFilter[] {
   const rowFilters = [...(existingRowFilters || [])];
-  factTable.columns
-    .filter(
-      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
-    )
-    .forEach((c) => {
-      if (!rowFilters.some((rf) => rf.column === c.column)) {
-        rowFilters.push({
-          column: c.column,
-          operator: "=",
-          values: [""],
-        });
-      }
-    });
+  getInlineFilterPromptColumns(factTable, rowFilters).forEach((column) => {
+    if (!rowFilters.some((rf) => rf.column === column)) {
+      rowFilters.push({
+        column,
+        operator: "=",
+        values: [""],
+      });
+    }
+  });
   return rowFilters;
 }
 
@@ -216,6 +212,9 @@ export function formatCurrency(
   return currencyFormatter.format(value);
 }
 export function formatDurationSeconds(value: number) {
+  if (value < 0) {
+    return "-" + formatDurationSeconds(-value);
+  }
   // < 1 second
   if (value < 1) {
     return Math.round(value * 1000) + "ms";
@@ -258,6 +257,11 @@ export function formatDurationSeconds(value: number) {
   }
 
   return f;
+}
+
+export function formatDurationMilliseconds(value: number) {
+  // Convert milliseconds to seconds and delegate to formatDurationSeconds
+  return formatDurationSeconds(value / 1000);
 }
 
 export function formatNumber(
@@ -317,6 +321,8 @@ export function getColumnFormatter(
       return formatCurrency;
     case "time:seconds":
       return formatDurationSeconds;
+    case "time:milliseconds":
+      return formatDurationMilliseconds;
     case "memory:bytes":
       return formatBytes;
     case "memory:kilobytes":

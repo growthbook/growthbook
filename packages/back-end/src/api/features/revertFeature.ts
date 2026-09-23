@@ -1,6 +1,8 @@
 import {
   metadataTouchesPayload,
   holdsMoveDestination,
+  assertTargetingDestination,
+  withStagedTargeting,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -11,12 +13,18 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
+  getRevertTargetArchived,
   getRevertTargetHoldout,
-  getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
+import {
+  assertCanRevertArchived,
+  assertRevertHasChanges,
+  assertRevertLandingGuards,
+  assertRevertValuesReadable,
+} from "back-end/src/services/revertGuards";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
@@ -37,10 +45,9 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironments } from "back-end/src/services/organizations";
-import { NotFoundError, SoftWarningError } from "back-end/src/util/errors";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -61,7 +68,6 @@ export async function revertFeatureCore(
   const allEnvironments = getEnvironments(context.org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
-  const allEnvironmentIds = getEnvironmentIdsFromOrg(organization);
 
   // Prevent metadata-only reverts from bypassing the project-scoped check.
   if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
@@ -150,6 +156,17 @@ export async function revertFeatureCore(
     changes.prerequisites = revision.prerequisites;
   }
 
+  // Archived state. Like `holdout`, a revision that predates archived snapshots
+  // restores an active flag rather than leaving a later archive in place.
+  const targetArchived = getRevertTargetArchived(revision);
+  if (targetArchived !== (feature.archived ?? false)) {
+    const enabledEnvs = Array.from(
+      getEnabledEnvironments(feature, environmentIds),
+    );
+    assertCanRevertArchived(context, feature, targetArchived, enabledEnvs);
+    changes.archived = targetArchived;
+  }
+
   if (revision.metadata) {
     const metadataChanges: typeof changes.metadata = {};
     let hasMetaChange = false;
@@ -206,6 +223,13 @@ export async function revertFeatureCore(
       metadataChanges.targetingProjects = m.targetingProjects;
       hasMetaChange = true;
     }
+    // Restoring a wider targeting set delivers into those projects again.
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, metadataChanges),
+      optedOut: await context.getTargetingOptOutProjectIds(),
+    });
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags)) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;
@@ -280,23 +304,10 @@ export async function revertFeatureCore(
     changes.holdout = targetHoldout;
   }
 
-  // No diff against live — refuse before creating an empty "Locked" revision.
-  if (Object.keys(changes).length === 0) {
-    throw new Error(
-      `Nothing to revert: the live feature already matches revision #${version}.`,
-    );
-  }
+  // Before createRevision, so an empty revert leaves no "Locked" revision.
+  await assertRevertHasChanges(context, feature, changes, revision);
 
-  // Flag restored values the current schema/value-type can no longer read as a
-  // bypassable soft warning (?ignoreWarnings=true) instead of publishing blind.
-  const valueWarnings = getRevertValueValidationWarnings(feature, changes);
-  if (valueWarnings.length && !context.ignoreWarnings) {
-    throw new SoftWarningError(
-      "Reverting to this revision restores values that no longer pass validation:\n" +
-        valueWarnings.join("\n"),
-      valueWarnings,
-    );
-  }
+  assertRevertValuesReadable(context, feature, changes);
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
   // calls should behave like dashboard actions), FlagsBypassApprovals, or the
@@ -326,7 +337,7 @@ export async function revertFeatureCore(
     feature,
     baseRevision: liveRevision,
     revision: { ...liveRevision, ...changes } as typeof liveRevision,
-    allEnvironments: allEnvironmentIds,
+    orgEnvironments: getEnvironments(organization),
     settings: organization.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
@@ -353,6 +364,7 @@ export async function revertFeatureCore(
         ]
       : [];
 
+  await assertRevertLandingGuards(context, feature, changes, revision);
   const { revision: newRevision, updatedFeature } =
     await createAndPublishRevision({
       context,

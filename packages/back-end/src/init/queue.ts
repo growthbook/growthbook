@@ -1,3 +1,4 @@
+import addExperimentLifecycleRemindersJob from "back-end/src/jobs/experimentLifecycleReminders";
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
 import addContextualBanditResultsJob from "back-end/src/jobs/updateContextualBanditResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
@@ -29,11 +30,15 @@ import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
+import addSlackAssistantJobs from "back-end/src/jobs/slackAssistantJobs";
+import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
+import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
 
   addExperimentResultsJob(agenda);
+  addExperimentLifecycleRemindersJob(agenda);
   addContextualBanditResultsJob(agenda);
   updateScheduledFeatures(agenda);
   addMetricUpdateJob(agenda);
@@ -56,6 +61,7 @@ export async function queueInit() {
   updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
   addScheduledPublishJob(agenda);
+  addSlackAssistantJobs(agenda);
   await addSyncManagedWarehouseJsonErgonomicsJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
@@ -65,6 +71,12 @@ export async function queueInit() {
       logger.error("Error creating index needed for deleteOldAgendaJobs: " + e);
     });
   deleteOldAgendaJobs(agenda);
+
+  // Agenda only runs jobs this process has defined. Define the event
+  // notification jobs up front so a freshly started process picks up queued
+  // events right away instead of waiting until it creates an event of its own.
+  EventNotifier.defineJob(agenda);
+  EventWebHookNotifier.defineJob(agenda);
 
   if (CRON_ENABLED) {
     await agenda.start();

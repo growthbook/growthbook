@@ -5,11 +5,11 @@ import {
   canPublishRevisionEntity,
   canReviewRevisionEntity,
   canStageArchiveDraft,
+  getRolePermissions,
   holdsRevisionDestination,
   Permissions,
   RevisionModel,
 } from "shared/permissions";
-import { getRolePermissions } from "back-end/src/util/organization.util";
 import {
   buildOrg,
   OPERATION_ORACLE,

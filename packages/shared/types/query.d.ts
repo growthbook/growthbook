@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   queryPointerValidator,
+  queryRunnerFailureCause,
   queryStatusValidator,
   sqlResultChunkValidator,
 } from "shared/validators";
@@ -9,6 +10,8 @@ import { QueryLanguage } from "./datasource";
 import { SnapshotTriggeredBy, SnapshotType } from "./experiment-snapshot";
 
 export type SqlResultChunkInterface = z.infer<typeof sqlResultChunkValidator>;
+
+export type QueryRunnerFailureCause = z.infer<typeof queryRunnerFailureCause>;
 
 export type QueryStatus = z.infer<typeof queryStatusValidator>;
 
@@ -120,6 +123,8 @@ export type QueryType =
   // Session replay metadata queries
   | "sessionReplayList"
   | "sessionReplayDetail"
+  // AI agent SQL queries (Ask Your Data)
+  | "askDataAgentQuery"
 
   // ---
   // Legacy, should be deprecated

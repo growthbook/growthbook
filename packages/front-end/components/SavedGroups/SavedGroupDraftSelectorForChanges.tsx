@@ -28,6 +28,8 @@ export default function SavedGroupDraftSelectorForChanges({
   triggerPrefix?: string;
   metadataOnly?: boolean;
   hideExisting?: boolean;
+  alert?: React.ReactNode;
+  alertActive?: boolean;
 }) {
   return <RevisionDraftSelectorForChanges entityId={savedGroup.id} {...rest} />;
 }

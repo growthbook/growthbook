@@ -337,7 +337,6 @@ const EditDOMMutationsModal: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open
       close={close}

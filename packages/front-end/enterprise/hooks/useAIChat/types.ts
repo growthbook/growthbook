@@ -2,10 +2,10 @@
 // Public types for useAIChat
 // ---------------------------------------------------------------------------
 
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 
-export type { AIChatMessage };
+export type { AIChatMention, AIChatMessage };
 
 export type ActiveTurnItem =
   | { kind: "text"; id: string; content: string }
@@ -23,7 +23,7 @@ export type ActiveTurnItem =
       /** Serialized tool return value from tool-call-end SSE. */
       toolOutput?: unknown;
       errorMessage?: string;
-      /** Chart payload derived from runExploration tool output on tool-call-end. */
+      /** Chart payload derived from an exploration tool output. */
       toolResultData?: Record<string, unknown>;
     }
   | { kind: "thinking"; id: string };
@@ -43,6 +43,12 @@ export interface UseAIChatOptions {
 
   /** Maps backend tool names to user-facing labels for the status pill */
   toolStatusLabels?: Record<string, string>;
+
+  /** Labels shown while the model is still streaming a tool's arguments. */
+  toolPreparingLabels?: Record<string, string>;
+
+  /** Reveal complete Markdown links atomically instead of exposing raw URLs. */
+  pauseIncompleteMarkdownLinks?: boolean;
 
   /**
    * Called for every parsed SSE event. Use this to react to domain-specific
@@ -138,16 +144,20 @@ export interface UseAIChatReturn {
   displayedTextMap: Map<string, string>;
   sendMessage: (
     messageOverride?: string,
-    options?: { suppressUserMessage?: boolean },
+    options?: {
+      suppressUserMessage?: boolean;
+      mentions?: AIChatMention[];
+      skills?: string[];
+    },
   ) => void;
-  /** Cancels the active live stream. No-op unless `isLocalStream` is true. */
+  /** Cancels the request started by this tab. No-op unless `isLocalStream` is true. */
   cancelGeneration: () => void;
   newChat: () => void;
   loadConversation: (id: string) => Promise<void>;
   loading: boolean;
   /** True only while fetching historical messages for a conversation (not AI generation). */
   isLoadingConversation: boolean;
-  /** True only while this tab is actively reading an SSE stream from sendMessage. */
+  /** True while this tab owns the request started by sendMessage. */
   isLocalStream: boolean;
   waitingForNextStep: boolean;
   /** True when following a stream via polling (navigated away and back) rather

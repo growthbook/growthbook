@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
-import { projectMemberRole } from "./organization";
+import { projectMemberRole, roleRule } from "./organization";
 
 export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   key: z.string(),
@@ -38,6 +38,12 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .array(z.string())
     .describe(
       "Org API keys only. Allowed environments when limitAccessByEnvironment is true",
+    ),
+  additionalRoles: z
+    .array(roleRule)
+    .optional()
+    .describe(
+      "Org API keys only. Extra roles granted alongside the base role, same shape as member additionalRoles",
     ),
   projectRoles: z
     .array(projectMemberRole)

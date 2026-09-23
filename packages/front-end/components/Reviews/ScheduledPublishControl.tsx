@@ -65,7 +65,7 @@ export default function ScheduledPublishControl({
   canBypassApproval,
   requiresApproval,
   autopublishOnApproval,
-  isReviewRequester,
+  approvalsCoverChange,
   dateNote,
   onStagedScheduleChange,
   mutate,
@@ -103,9 +103,8 @@ export default function ScheduledPublishControl({
   requiresApproval: boolean;
   // The org has auto-publish-on-approval enabled (gates the "when approved" mode).
   autopublishOnApproval: boolean;
-  // The viewer is the draft author / requested this review (gates arming the
-  // "when approved" mode — mirrors the feature `isArmingOwner` rule).
-  isReviewRequester: boolean;
+  // Approved-but-uncovered still waits on a qualifying approval. Defaults true.
+  approvalsCoverChange?: boolean;
   // Optional extra note rendered under the date controls (e.g. the feature
   // flow's "linked experiments won't start" warning).
   dateNote?: ReactNode;
@@ -136,28 +135,18 @@ export default function ScheduledPublishControl({
     pending && !!revision.scheduledPublishBypassApproval;
 
   // ── Parity with the feature derivations ──
-  const isArmingOwner = canEdit && (status === "draft" || isReviewRequester);
-  // "when approved" only makes sense before approval — once approved it would
-  // just publish now. The endpoint behind it additionally requires DRAFT
-  // authority (arming rides the draft's review flow), so publish authority
-  // alone must not surface the option.
+  // Arming on a draft rides request-review, so it needs draft authority too.
+  const canArmSchedule =
+    canEdit && canArm && (status !== "draft" || (canDraft ?? true));
+  // Only while an approval is still needed; once it can publish, Publish does that.
+  const awaitingQualifyingApproval =
+    status !== "approved" || approvalsCoverChange === false;
   const canArmWhenApproved =
-    autopublishOnApproval &&
-    isArmingOwner &&
-    canArm &&
-    (canDraft ?? true) &&
-    status !== "approved";
-  // Arming a dated schedule needs only publish authority (premium gates the
-  // picker render below, not the option itself). `canArm` is separate from
-  // authority: a locked Config refuses NEW schedules while still allowing an
-  // armed one to be cancelled — suppressing the whole control would strand the
-  // pending schedule.
-  const canArmOnDate = canEdit && canArm;
+    autopublishOnApproval && canArmSchedule && awaitingQualifyingApproval;
+  const canArmOnDate = canArmSchedule;
   // Disarming an already-armed no-date schedule survives the gates on ARMING
-  // (org setting off, `canArm` false on a locked Config, draft ownership) —
-  // the endpoint asks for publish authority alone on the way out, and hiding
-  // the checkbox would strand the armed revision. Same term as the feature
-  // sibling.
+  // (org setting off, locked Config) — the endpoint asks only for publish
+  // authority on the way out, and hiding this would strand the armed revision.
   const canDisarmWhenApproved = persistedArmed && canEdit;
   const canManageAutoPublish =
     canArmWhenApproved || canArmOnDate || canDisarmWhenApproved;
@@ -590,8 +579,7 @@ export default function ScheduledPublishControl({
             onChange={(v) => onModeChange(v as Mode)}
           />
         ) : (
-          // Approved revisions can only defer to a date — "when approved" would
-          // just publish now, so show it as text.
+          // "When approved" would just publish now, so show it as text.
           <Text size="md">on a specific date</Text>
         )}
       </Flex>

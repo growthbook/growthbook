@@ -26,7 +26,11 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { RampScheduleInterface, HoldoutInterface } from "shared/validators";
+import {
+  RampScheduleInterface,
+  HoldoutInterface,
+  RevisionRampDetachAction,
+} from "shared/validators";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
@@ -566,6 +570,30 @@ function DiffCommentCell({
   );
 }
 
+export function CompactInlineDiff({
+  a,
+  b,
+  leftTitle,
+  rightTitle,
+}: {
+  a: string;
+  b: string;
+  leftTitle?: string;
+  rightTitle?: string;
+}) {
+  if (a === b) return null;
+  return (
+    <ReactDiffViewer
+      oldValue={a}
+      newValue={b}
+      compareMethod={DiffMethod.LINES}
+      leftTitle={leftTitle}
+      rightTitle={rightTitle}
+      styles={COMPACT_DIFF_STYLES}
+    />
+  );
+}
+
 export function ExpandableDiff({
   title,
   a,
@@ -931,11 +959,14 @@ export function buildRampDiffs({
   revision,
   rampSchedules,
   holdoutsMap,
+  revertDetaches = [],
 }: {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   rampSchedules?: RampScheduleInterface[];
   holdoutsMap: Map<string, HoldoutInterface>;
+  // Ramps a revert draft removes because its target predates them.
+  revertDetaches?: RevisionRampDetachAction[];
 }): FeatureRevisionDiff[] {
   // Ramps that this revision's publication will move into the start lifecycle.
   const activatingRamps = (rampSchedules ?? []).filter(
@@ -1001,7 +1032,7 @@ export function buildRampDiffs({
         ],
       } as FeatureRevisionDiff;
     }),
-    ...(revision.rampActions ?? [])
+    ...[...(revision.rampActions ?? []), ...revertDetaches]
       .filter((action) => {
         const ruleId = (action as { ruleId?: string }).ruleId;
         if (!ruleId) return true;

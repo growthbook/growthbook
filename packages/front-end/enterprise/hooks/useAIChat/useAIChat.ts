@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import type {
   ActiveTurnItem,
   ConversationLoadResponse,
+  AIChatMention,
   AIChatMessage,
   UseAIChatOptions,
   UseAIChatReturn,
@@ -25,6 +26,8 @@ export function useAIChat({
   endpoint,
   buildRequestBody,
   toolStatusLabels = {},
+  toolPreparingLabels = {},
+  pauseIncompleteMarkdownLinks = false,
   onSSEEvent,
   conversationStorageKey,
   getConversationEndpoint,
@@ -58,7 +61,7 @@ export function useAIChat({
   const [loading, setLoading] = useState(false);
   /** True only while fetching historical messages for a conversation (not AI generation). */
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
-  /** True only while this tab is actively reading an SSE stream from `sendMessage`. */
+  /** True while this tab owns the request started by `sendMessage`. */
   const [isLocalStream, setIsLocalStream] = useState(false);
   const [waitingForNextStep, setWaitingForNextStep] = useState(false);
   const [isRemoteStream, setIsRemoteStream] = useState(false);
@@ -69,6 +72,8 @@ export function useAIChat({
   /** True while sendMessage is executing — used to prevent the conversation-load
    *  effect from overwriting state during an active send. */
   const isSendingRef = useRef(false);
+  /** Flips true once the local stream ends so the typewriter drains its buffer. */
+  const streamCompleteRef = useRef(false);
   const remotePollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
@@ -82,6 +87,8 @@ export function useAIChat({
   onConversationLoadedRef.current = onConversationLoaded;
   const toolStatusLabelsRef = useRef(toolStatusLabels);
   toolStatusLabelsRef.current = toolStatusLabels;
+  const toolPreparingLabelsRef = useRef(toolPreparingLabels);
+  toolPreparingLabelsRef.current = toolPreparingLabels;
   const onSSEEventRef = useRef(onSSEEvent);
   onSSEEventRef.current = onSSEEvent;
   const onStreamAcceptedRef = useRef(onStreamAccepted);
@@ -107,8 +114,11 @@ export function useAIChat({
   // Active items state helper
   // ---------------------------------------------------------------------------
 
-  const { displayedTextMap, clearDisplayedText } =
-    useTypewriter(activeTurnItemsRef);
+  const { displayedTextMap, clearDisplayedText } = useTypewriter(
+    activeTurnItemsRef,
+    pauseIncompleteMarkdownLinks,
+    streamCompleteRef,
+  );
 
   const setActive = useCallback(
     (items: ActiveTurnItem[]) => {
@@ -323,7 +333,11 @@ export function useAIChat({
   const sendMessage = useCallback(
     async (
       messageOverride?: string,
-      options?: { suppressUserMessage?: boolean },
+      options?: {
+        suppressUserMessage?: boolean;
+        mentions?: AIChatMention[];
+        skills?: string[];
+      },
     ) => {
       const trimmed = (messageOverride ?? input).trim();
       if (!trimmed || loading) return;
@@ -336,6 +350,8 @@ export function useAIChat({
           id: `msg_${messageCounterRef.current++}`,
           content: trimmed,
           ts: Date.now(),
+          ...(options?.mentions?.length ? { mentions: options.mentions } : {}),
+          ...(options?.skills?.length ? { skills: options.skills } : {}),
         };
         setMessages((prev) => [...prev, userMessage]);
       }
@@ -347,6 +363,7 @@ export function useAIChat({
       setActive([]);
       setWaitingForNextStep(false);
       isSendingRef.current = true;
+      streamCompleteRef.current = false;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -387,8 +404,8 @@ export function useAIChat({
           return;
         }
 
-        onStreamAcceptedRef.current?.();
         setIsLocalStream(true);
+        onStreamAcceptedRef.current?.();
 
         const reader = response.body?.getReader();
         if (!reader) {
@@ -416,6 +433,7 @@ export function useAIChat({
               activeTurnItemsRef.current,
               toolStatusLabelsRef.current,
               nextId,
+              toolPreparingLabelsRef.current,
             );
             if (result.activeTurnItems) setActive(result.activeTurnItems);
             if (result.waitingForNextStep !== undefined)
@@ -435,6 +453,7 @@ export function useAIChat({
           });
         }
       } finally {
+        streamCompleteRef.current = true;
         const wasCancelled = userCancelledRef.current;
         const durationMs = Date.now() - sendStartMs;
         userCancelledRef.current = false;
