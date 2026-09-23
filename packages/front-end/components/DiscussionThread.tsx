@@ -95,81 +95,85 @@ const DiscussionThread: FC<{
               return (
                 <Flex key={i} align="start">
                   <Box flexGrow="1">
-                    {edit === i ? (
-                      <CommentForm
-                        cta="Save"
-                        onSave={() => {
-                          mutate();
-                          setEdit(null);
-                        }}
-                        index={i}
-                        id={id}
-                        type={type}
-                        initialValue={comment.content}
-                        autofocus={true}
-                        onCancel={() => setEdit(null)}
-                      />
-                    ) : (
-                      <CommentCard
-                        compact={compact}
-                        user={eventUser}
-                        metadata={`commented on ${datetime(comment.date)}`}
-                        metadataExtra={
-                          comment.edited && (
-                            <Text color="text-low" size="sm" fontStyle="italic">
-                              &bull; edited
-                            </Text>
-                          )
-                        }
-                        actions={
-                          comment.userId === userId && (
-                            <DropdownMenu
-                              trigger={
-                                <IconButton
-                                  variant="ghost"
-                                  color="gray"
-                                  radius="full"
-                                  size="1"
-                                  highContrast
-                                  // Ghost buttons carry a negative margin, which
-                                  // pulls this one out of the card's corner.
-                                  style={{ margin: 0 }}
-                                >
-                                  <BsThreeDotsVertical size={14} />
-                                </IconButton>
-                              }
-                              variant="soft"
-                              menuPlacement="end"
-                            >
-                              <DropdownMenuItem onClick={() => setEdit(i)}>
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                color="red"
-                                confirmation={{
-                                  confirmationTitle: "Delete Comment",
-                                  cta: "Delete",
-                                  submit: async () => {
-                                    await apiCall(
-                                      `/discussion/${type}/${id}/${i}`,
-                                      { method: "DELETE" },
-                                    );
-                                    mutate();
-                                  },
-                                }}
+                    <CommentCard
+                      compact={compact}
+                      user={eventUser}
+                      metadata={`commented on ${datetime(comment.date)}`}
+                      metadataExtra={
+                        comment.edited && (
+                          <Text color="text-low" size="sm" fontStyle="italic">
+                            &bull; edited
+                          </Text>
+                        )
+                      }
+                      actions={
+                        edit === i
+                          ? null
+                          : comment.userId === userId && (
+                              <DropdownMenu
+                                trigger={
+                                  <IconButton
+                                    variant="ghost"
+                                    color="gray"
+                                    radius="full"
+                                    size="1"
+                                    highContrast
+                                    // Ghost buttons carry a negative margin, which
+                                    // pulls this one out of the card's corner.
+                                    style={{ margin: 0 }}
+                                  >
+                                    <BsThreeDotsVertical size={14} />
+                                  </IconButton>
+                                }
+                                variant="soft"
+                                menuPlacement="end"
                               >
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenu>
-                          )
-                        }
-                        body={
+                                <DropdownMenuItem onClick={() => setEdit(i)}>
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  color="red"
+                                  confirmation={{
+                                    confirmationTitle: "Delete Comment",
+                                    cta: "Delete",
+                                    submit: async () => {
+                                      await apiCall(
+                                        `/discussion/${type}/${id}/${i}`,
+                                        { method: "DELETE" },
+                                      );
+                                      mutate();
+                                    },
+                                  }}
+                                >
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenu>
+                            )
+                      }
+                      body={
+                        // Editing swaps only the comment's text: who wrote it, and when,
+                        // stay where they were.
+                        edit === i ? (
+                          <CommentForm
+                            cta="Save"
+                            onSave={() => {
+                              mutate();
+                              setEdit(null);
+                            }}
+                            index={i}
+                            id={id}
+                            type={type}
+                            initialValue={comment.content}
+                            autofocus={true}
+                            onCancel={() => setEdit(null)}
+                          />
+                        ) : (
                           <Markdown className="speech-bubble">
                             {comment.content || ""}
                           </Markdown>
-                        }
-                      />
-                    )}
+                        )
+                      }
+                    />
                   </Box>
                 </Flex>
               );
