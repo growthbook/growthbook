@@ -122,17 +122,12 @@ does not interrupt assistant conversations.
 The assistant uses the organization connected to the Slack workspace. Users must
 link their account in that organization and retain access to it.
 
-A thread keeps its organization in `slackassistantthreads`. Disconnecting and
-reconnecting the workspace to a different organization never redirects an existing
-thread. Each Slack participant has a separate conversation bound to their Slack
-identity, GrowthBook account, organization, and current link identifier. Membership,
-configuration, and permissions are checked again when acting.
-
-Notifications GrowthBook posts also bind their thread to the sending organization,
-so replies still belong to that organization if the workspace is later reconnected
-to a different one. These notification bindings expire after 90 days through a TTL
-index, and they never overwrite a binding the thread already has. A binding stops
-expiring once someone converses in the thread.
+Each Slack participant has a separate conversation bound to their Slack identity,
+GrowthBook account, organization, and current link identifier. If the workspace is
+reconnected to a different organization, a reply in an old thread starts a new
+conversation there, and approvals from the old organization are refused because
+their conversation no longer matches. Membership, configuration, and permissions
+are checked again when acting.
 
 ## Queue recovery
 
@@ -154,8 +149,8 @@ check. The permanent action claim is acquired only after these checks pass,
 immediately before resolving the approved action; preflight failures leave the
 original approval controls available.
 
-The handler checks the workspace connection, thread binding, and user access before
-claiming the thread. Unlinked users receive account-link prompts without a claim.
+The handler checks the workspace connection and user access before claiming the
+thread. Unlinked users receive account-link prompts without a claim.
 
 Turns in one Slack thread run one at a time. The worker holds a `thread:` lease
 in `slacktaskclaims` that expires after two minutes, renews it every 30 seconds

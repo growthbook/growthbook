@@ -10,7 +10,6 @@ import {
   handleSlackAssistantMention,
 } from "back-end/src/services/slack/slackAssistant";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
-import { SlackAssistantThreadModel } from "back-end/src/models/SlackAssistantThreadModel";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
 import {
@@ -36,20 +35,7 @@ jest.mock("back-end/src/services/slack/slackWebApi", () => ({
 jest.mock("back-end/src/services/slack/slackAgent", () => ({
   slackAgentConfig: {},
 }));
-jest.mock("back-end/src/models/SlackAssistantThreadModel", () => ({
-  SlackAssistantThreadModel: { dangerousGetForThread: jest.fn() },
-}));
-const getThread = jest.mocked(SlackAssistantThreadModel.dangerousGetForThread);
-const thread = {
-  id: "thread1",
-  teamId: "T1",
-  channelId: "C1",
-  rootTs: "123.456",
-  dateCreated: new Date(),
-  dateUpdated: new Date(),
-  organization: "org1",
-};
-const bindConversationThread = jest.fn(async () => thread);
+const thread = { teamId: "T1", channelId: "C1", rootTs: "123.456" };
 const conversationId = slackConversationId({
   ...thread,
   organizationId: "org1",
@@ -70,8 +56,6 @@ beforeEach(() => {
   claim.mockResolvedValue(true);
   renewThreadLease.mockResolvedValue(true);
   jest.mocked(postSlackEphemeralMessage).mockResolvedValue(true);
-  getThread.mockResolvedValue(thread);
-  bindConversationThread.mockResolvedValue(thread);
   // Only the fields consumed by this service are needed in the mocked context.
   jest.mocked(resolveSlackAssistantTarget).mockImplementation(
     async () =>
@@ -86,7 +70,6 @@ beforeEach(() => {
               renewThreadLease,
               releaseThreadLease,
             },
-            slackAssistantThreads: { bindConversationThread },
           },
           getPermissionsFingerprint: () => "permissions",
         },
@@ -418,44 +401,40 @@ it.each(["link", "permissions"])(
     expect(claim).not.toHaveBeenCalled();
   },
 );
-it.each([thread, null])(
-  "sends an unlinked user a private signed URL and asks them to resend: %p",
-  async (existingThread) => {
-    getThread.mockResolvedValueOnce(existingThread);
-    jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
-      ok: false,
-      reason: "not_linked",
-      organizationId: "org1",
-      botToken: "token",
-      message: "Link your account.",
-    });
-    const mention = {
-      teamId: "T1",
-      channelId: "C1",
-      slackUserId: "U1",
-      text: "What experiments are running?",
-      messageTs: "123.456",
-    };
-    await handleSlackAssistantMention(mention);
-    expect(postSlackEphemeralMessage).toHaveBeenCalledWith({
-      token: "token",
-      channel: "C1",
-      user: "U1",
-      threadTs: undefined,
-      text: expect.stringContaining("After linking, send your question again."),
-    });
-    const prompt = jest.mocked(postSlackEphemeralMessage).mock.calls[0][0].text;
-    const url = prompt.match(/<([^|]+)\|Link my account>/)?.[1];
-    expect(url).toBeDefined();
-    const state = new URL(url || "").searchParams.get("state") || "";
-    expect(verifySlackLinkState(state)).toMatchObject({
-      slackTeamId: "T1",
-      slackUserId: "U1",
-    });
-    expect(postSlackMessage).not.toHaveBeenCalled();
-    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
-  },
-);
+it("sends an unlinked user a private signed URL and asks them to resend", async () => {
+  jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
+    ok: false,
+    reason: "not_linked",
+    organizationId: "org1",
+    botToken: "token",
+    message: "Link your account.",
+  });
+  const mention = {
+    teamId: "T1",
+    channelId: "C1",
+    slackUserId: "U1",
+    text: "What experiments are running?",
+    messageTs: "123.456",
+  };
+  await handleSlackAssistantMention(mention);
+  expect(postSlackEphemeralMessage).toHaveBeenCalledWith({
+    token: "token",
+    channel: "C1",
+    user: "U1",
+    threadTs: undefined,
+    text: expect.stringContaining("After linking, send your question again."),
+  });
+  const prompt = jest.mocked(postSlackEphemeralMessage).mock.calls[0][0].text;
+  const url = prompt.match(/<([^|]+)\|Link my account>/)?.[1];
+  expect(url).toBeDefined();
+  const state = new URL(url || "").searchParams.get("state") || "";
+  expect(verifySlackLinkState(state)).toMatchObject({
+    slackTeamId: "T1",
+    slackUserId: "U1",
+  });
+  expect(postSlackMessage).not.toHaveBeenCalled();
+  expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
+});
 
 it("refreshes signed link consent on request even for already-linked users", async () => {
   await handleSlackAssistantMention({
@@ -479,7 +458,6 @@ it("refreshes signed link consent on request even for already-linked users", asy
 it.each(["C1", "G1", "D1"])(
   "answers in %s using the workspace organization without a channel binding",
   async (channelId) => {
-    getThread.mockResolvedValue(null);
     jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
       ok: true,
       conversationId,
@@ -498,7 +476,6 @@ it.each(["C1", "G1", "D1"])(
       teamId: "T1",
       slackUserId: "U1",
       requireAssistantEnabled: true,
-      organizationId: undefined,
     });
     expect(runAgentTurnToCompletion).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import type { SlackThreadIdentity } from "shared/validators";
+
+/** A Slack thread is its workspace, channel, and root message `ts`. */
+export type SlackThreadIdentity = {
+  teamId: string;
+  channelId: string;
+  rootTs: string;
+};
 
 export function slackTaskKey(parts: string[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");

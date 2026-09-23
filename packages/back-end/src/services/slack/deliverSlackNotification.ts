@@ -22,9 +22,8 @@ import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 import {
   isSlackWorkspacePlaceholderUrl,
   postSlackMessageResult,
-  postSlackImageMessage,
+  uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
-import { logger } from "back-end/src/util/logger";
 
 export async function deliverSlackNotification({
   context,
@@ -38,7 +37,6 @@ export async function deliverSlackNotification({
   result: EventWebHookResult;
   payload: Record<string, unknown>;
   deliveredAs: "card" | "text";
-  messageTs: string | null;
 } | null> {
   const getTextPayload = () =>
     !event.version
@@ -79,7 +77,6 @@ export async function deliverSlackMessage({
   result: EventWebHookResult;
   payload: Record<string, unknown>;
   deliveredAs: "card" | "text";
-  messageTs: string | null;
 } | null> {
   if (!isSlackWorkspacePlaceholderUrl(eventWebHook.url)) {
     const payload = await getTextPayload();
@@ -94,7 +91,7 @@ export async function deliverSlackMessage({
       method: eventWebHook.method || "POST",
       applySecrets,
     });
-    return { result, payload, deliveredAs: "text", messageTs: null };
+    return { result, payload, deliveredAs: "text" };
   }
   const teamId = eventWebHook.slack?.teamId;
   const connection = teamId
@@ -105,7 +102,7 @@ export async function deliverSlackMessage({
     : null;
   const channelId = eventWebHook.slack?.channelId;
 
-  if (!botToken || !channelId || !teamId) {
+  if (!botToken || !channelId) {
     const payload = await getTextPayload();
     if (!payload) return null;
     return {
@@ -117,27 +114,13 @@ export async function deliverSlackMessage({
       },
       payload,
       deliveredAs: "text",
-      messageTs: null,
     };
   }
 
-  const bindThread = async (messageTs: string | null) => {
-    if (!messageTs) return;
-    try {
-      await context.models.slackAssistantThreads.bindNotificationThread({
-        teamId,
-        channelId,
-        rootTs: messageTs,
-      });
-    } catch (error) {
-      logger.error(error, "Could not bind the Slack notification thread");
-    }
-  };
-
   const card = await getCard();
   if (card) {
-    // The image carries the event, units, and days itself; the caption is the
-    // same small footer text messages get, minus the counts.
+    // The image carries the event, units, and days itself; the share message
+    // is the same small footer text messages get, minus the counts.
     const footer = {
       name: card.objectName,
       url: card.objectUrl,
@@ -161,26 +144,20 @@ export async function deliverSlackMessage({
         : []),
       alertFooterBlock(footer),
     ];
-    const posted = await postSlackImageMessage({
+    const fileId = await uploadSlackImageFile({
       token: botToken,
       png: card.png,
       filename: "notification-card.png",
       title: card.altText,
       channelId,
-      caption: text,
-      captionBlocks: blocks,
+      blocks,
+      initialComment: text,
     });
-    if (posted) {
-      await bindThread(posted.messageTs);
+    if (fileId) {
       return {
-        result: {
-          result: "success",
-          statusCode: 200,
-          responseBody: posted.fileId,
-        },
+        result: { result: "success", statusCode: 200, responseBody: fileId },
         payload: { text, blocks },
         deliveredAs: "card",
-        messageTs: posted.messageTs,
       };
     }
   }
@@ -194,7 +171,6 @@ export async function deliverSlackMessage({
     text: payload.text,
     blocks: payload.blocks,
   });
-  await bindThread(result.ts);
 
   return {
     result: result.ok
@@ -210,6 +186,5 @@ export async function deliverSlackMessage({
         },
     payload,
     deliveredAs: "text",
-    messageTs: result.ts,
   };
 }

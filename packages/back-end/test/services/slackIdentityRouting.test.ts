@@ -112,17 +112,6 @@ it("uses only the workspace organization's account even if old links remain", as
     linkId: "link_org1_user2",
   });
 });
-it("never moves a pinned thread to the workspace's new organization", async () => {
-  expect(
-    await resolveSlackAssistantTarget({ ...request, organizationId: "org2" }),
-  ).toMatchObject({ ok: false, reason: "organization_unavailable" });
-  expect(getContextForUserIdInOrg).not.toHaveBeenCalled();
-});
-it("keeps the pinned organization available without notification channels", async () => {
-  expect(
-    await resolveSlackAssistantTarget({ ...request, organizationId: "org1" }),
-  ).toMatchObject({ ok: true, organizationId: "org1" });
-});
 it("rechecks revoked membership", async () => {
   jest.mocked(getContextForUserIdInOrg).mockResolvedValue(null);
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
@@ -149,39 +138,31 @@ it("tells the user when the organization license can't be loaded", async () => {
     botToken: "token_org1",
   });
 });
-it.each([{}, { organizationId: "org1" }])(
-  "respects an explicit assistant opt-out, including for a pinned thread: %p",
-  async (pinned) => {
-    jest
-      .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
-      .mockResolvedValue({ ...connection, assistantEnabled: false });
-    expect(
-      await resolveSlackAssistantTarget({
-        ...request,
-        ...pinned,
-        requireAssistantEnabled: true,
-      }),
-    ).toMatchObject({ ok: false, reason: "assistant_disabled" });
-    expect(await resolveSlackAssistantTarget(request)).toMatchObject({
-      ok: true,
-    });
-  },
-);
-it.each([{}, { organizationId: "org1" }])(
-  "inherits organization AI access when the workspace setting is unset: %p",
-  async (pinned) => {
-    jest
-      .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
-      .mockResolvedValue({ ...connection, assistantEnabled: undefined });
-    expect(
-      await resolveSlackAssistantTarget({
-        ...request,
-        ...pinned,
-        requireAssistantEnabled: true,
-      }),
-    ).toMatchObject({ ok: true, organizationId: "org1" });
-  },
-);
+it("respects an explicit assistant opt-out", async () => {
+  jest
+    .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
+    .mockResolvedValue({ ...connection, assistantEnabled: false });
+  expect(
+    await resolveSlackAssistantTarget({
+      ...request,
+      requireAssistantEnabled: true,
+    }),
+  ).toMatchObject({ ok: false, reason: "assistant_disabled" });
+  expect(await resolveSlackAssistantTarget(request)).toMatchObject({
+    ok: true,
+  });
+});
+it("inherits organization AI access when the workspace setting is unset", async () => {
+  jest
+    .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
+    .mockResolvedValue({ ...connection, assistantEnabled: undefined });
+  expect(
+    await resolveSlackAssistantTarget({
+      ...request,
+      requireAssistantEnabled: true,
+    }),
+  ).toMatchObject({ ok: true, organizationId: "org1" });
+});
 it("requires a connected workspace", async () => {
   jest
     .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)

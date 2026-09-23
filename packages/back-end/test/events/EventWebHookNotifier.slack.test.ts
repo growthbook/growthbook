@@ -17,7 +17,7 @@ import {
 import {
   postSlackMessageResult,
   SLACK_WORKSPACE_PLACEHOLDER_URL,
-  postSlackImageMessage,
+  uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
 import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
@@ -60,10 +60,8 @@ jest.mock(
 jest.mock("back-end/src/services/slack/slackWebApi", () => ({
   ...jest.requireActual("back-end/src/services/slack/slackWebApi"),
   postSlackMessageResult: jest.fn(),
-  postSlackImageMessage: jest.fn(),
+  uploadSlackImageFile: jest.fn(),
 }));
-
-const bindNotificationThread = jest.fn();
 
 jest.mock(
   "back-end/src/services/notificationCards/renderNotificationCard",
@@ -160,12 +158,10 @@ describe("Slack EventWebHook delivery compatibility", () => {
     jest.mocked(renderNotificationCard).mockResolvedValue(null);
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue(null);
     jest.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
-      org: { id: "org-1", name: "Acme" },
       models: {
         slackWorkspaceConnections: {
           getByTeamId: getSlackWorkspaceConnectionByTeamId,
         },
-        slackAssistantThreads: { bindNotificationThread },
         webhookSecrets: {
           getBackEndSecretsReplacer: jest
             .fn()
@@ -352,7 +348,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
     await runAgendaJob();
 
     expect(renderNotificationCard).not.toHaveBeenCalled();
-    expect(postSlackImageMessage).not.toHaveBeenCalled();
+    expect(uploadSlackImageFile).not.toHaveBeenCalled();
     expect(postSlackMessageResult).toHaveBeenCalled();
   });
 
@@ -465,9 +461,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       objectName: "Checkout test",
       ownerEmail: "owner@example.com",
     });
-    jest
-      .mocked(postSlackImageMessage)
-      .mockResolvedValue({ fileId: "F123", messageTs: "1700.001" });
+    jest.mocked(uploadSlackImageFile).mockResolvedValue("F123");
     jest.mocked(getSlackMessageForNotificationEvent).mockReturnValue(null);
 
     await runAgendaJob();
@@ -478,18 +472,20 @@ describe("Slack EventWebHook delivery compatibility", () => {
       expect.any(Object),
     );
     expect(getSlackMessageForNotificationEvent).not.toHaveBeenCalled();
+    // The file is shared on upload; its message is the small context footer,
+    // with the plain caption as the fallback if Slack rejects the blocks.
     const footer =
       "<http://app/experiment/exp-1|Checkout test> | Owner: owner@example.com";
-    expect(postSlackImageMessage).toHaveBeenCalledWith({
+    expect(uploadSlackImageFile).toHaveBeenCalledWith({
       token: "xoxb-token",
       png: Buffer.from("png"),
       filename: "notification-card.png",
       title: "Checkout test - Experiment stopped",
       channelId: "C123",
-      captionBlocks: [
+      blocks: [
         { type: "context", elements: [{ type: "mrkdwn", text: footer }] },
       ],
-      caption: footer,
+      initialComment: footer,
     });
     expect(postSlackMessageResult).not.toHaveBeenCalled();
     expect(updateEventWebHookStatus).toHaveBeenCalledWith(
@@ -519,7 +515,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       objectUrl: "http://app/experiment/exp-1",
       objectName: "Checkout test",
     });
-    jest.mocked(postSlackImageMessage).mockResolvedValue(null);
+    jest.mocked(uploadSlackImageFile).mockResolvedValue(null);
     jest.mocked(postSlackMessageResult).mockResolvedValue({
       ok: true,
       ts: "123.456",
@@ -528,7 +524,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
 
     await runAgendaJob();
 
-    expect(postSlackImageMessage).toHaveBeenCalled();
+    expect(uploadSlackImageFile).toHaveBeenCalled();
     expect(postSlackMessageResult).toHaveBeenCalledWith({
       token: "xoxb-token",
       channel: "C123",
@@ -557,119 +553,18 @@ describe("Slack EventWebHook delivery compatibility", () => {
       objectName: "Checkout <v2> & test",
       ownerEmail: "owner <!channel>@example.com",
     });
-    jest
-      .mocked(postSlackImageMessage)
-      .mockResolvedValue({ fileId: "F123", messageTs: "1700.001" });
+    jest.mocked(uploadSlackImageFile).mockResolvedValue("F123");
 
     await runAgendaJob();
 
-    expect(postSlackImageMessage).toHaveBeenCalledWith(
+    expect(uploadSlackImageFile).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "Checkout <v2> & test - Health issue",
-        caption:
+        initialComment:
           "<http://app/experiment/exp-1|Checkout &lt;v2&gt; &amp; test> | Owner: owner &lt;!channel&gt;@example.com",
       }),
     );
     expect(postSlackMessageResult).not.toHaveBeenCalled();
-  });
-
-  describe("notification thread pinning", () => {
-    const textBlock = {
-      type: "section",
-      text: { type: "mrkdwn", text: "Feature updated" },
-    };
-
-    const connectBot = () => {
-      setWebhook({
-        url: SLACK_WORKSPACE_PLACEHOLDER_URL,
-        slack: { channelId: "C123", teamId: "T123" },
-      });
-      getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
-        teamId: "T123",
-        encryptedBotAccessToken: "xoxb-token",
-      });
-    };
-    const sendText = (ts: string | null) => {
-      jest.mocked(getSlackMessageForNotificationEvent).mockReturnValue({
-        text: "Feature updated",
-        blocks: [textBlock],
-      });
-      jest.mocked(postSlackMessageResult).mockResolvedValue({
-        ok: ts !== null,
-        ts,
-        error: ts === null ? "token_revoked" : null,
-      });
-    };
-    const sendCard = (messageTs: string | null) => {
-      jest.mocked(renderNotificationCard).mockResolvedValue({
-        png: Buffer.from("png"),
-        altText: "Checkout test - Experiment stopped",
-        objectUrl: "http://app/experiment/exp-1",
-        objectName: "Checkout test",
-        ownerEmail: "owner@example.com",
-      });
-      jest
-        .mocked(postSlackImageMessage)
-        .mockResolvedValue({ fileId: "F123", messageTs });
-    };
-
-    it("leaves the message untouched when one organization owns the workspace", async () => {
-      connectBot();
-      sendText("123.456");
-
-      await runAgendaJob();
-
-      expect(postSlackMessageResult).toHaveBeenCalledWith({
-        token: "xoxb-token",
-        channel: "C123",
-        text: "Feature updated",
-        blocks: [textBlock],
-      });
-    });
-
-    it("binds the thread of a delivered text notification", async () => {
-      connectBot();
-      sendText("123.456");
-
-      await runAgendaJob();
-
-      expect(bindNotificationThread).toHaveBeenCalledWith({
-        teamId: "T123",
-        channelId: "C123",
-        rootTs: "123.456",
-      });
-    });
-
-    it("binds the thread of a delivered card to the card's message", async () => {
-      connectBot();
-      sendCard("1700.001");
-
-      await runAgendaJob();
-
-      expect(bindNotificationThread).toHaveBeenCalledWith({
-        teamId: "T123",
-        channelId: "C123",
-        rootTs: "1700.001",
-      });
-    });
-
-    it("binds nothing when the card share has no message timestamp", async () => {
-      connectBot();
-      sendCard(null);
-
-      await runAgendaJob();
-
-      expect(bindNotificationThread).not.toHaveBeenCalled();
-    });
-
-    it("binds nothing when the text post fails", async () => {
-      connectBot();
-      sendText(null);
-
-      await runAgendaJob();
-
-      expect(bindNotificationThread).not.toHaveBeenCalled();
-    });
   });
 
   it.each([1, undefined])(
@@ -854,7 +749,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
 
       await runAgendaJob();
 
-      expect(postSlackImageMessage).not.toHaveBeenCalled();
+      expect(uploadSlackImageFile).not.toHaveBeenCalled();
       if (url === SLACK_WORKSPACE_PLACEHOLDER_URL) {
         expect(postSlackMessageResult).toHaveBeenCalledWith({
           token: "xoxb-token",

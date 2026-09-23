@@ -41,7 +41,6 @@ export type SlackAssistantTarget =
         | "no_connection"
         | "no_bot_token"
         | "not_a_member"
-        | "organization_unavailable"
         | "assistant_disabled"
         | "license_unavailable";
       message: string;
@@ -125,16 +124,13 @@ export async function getSlackAccountLinks(
   );
 }
 
-/** A thread's bound org is an exact constraint, never a preference or fallback. */
 export async function resolveSlackAssistantTarget({
   teamId,
   slackUserId,
-  organizationId,
   requireAssistantEnabled = false,
 }: {
   teamId: string;
   slackUserId: string;
-  organizationId?: string;
   requireAssistantEnabled?: boolean;
 }): Promise<SlackAssistantTarget> {
   const connection =
@@ -152,14 +148,6 @@ export async function resolveSlackAssistantTarget({
       reason: "no_bot_token",
       message:
         "This Slack workspace isn't fully connected to GrowthBook. Ask an admin to reinstall the GrowthBook app.",
-    };
-  if (organizationId && organizationId !== connection.organization)
-    return {
-      ok: false,
-      reason: "organization_unavailable",
-      botToken,
-      message:
-        "This thread's GrowthBook organization is no longer connected to this Slack workspace. Start a new thread.",
     };
   const links = await SlackUserLinkModel.dangerousFindAllBySlackIdentity({
     slackTeamId: connection.teamId,

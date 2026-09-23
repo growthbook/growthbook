@@ -1,17 +1,14 @@
 import { z } from "zod";
 import { stringToBoolean } from "shared/util";
-import type {
-  AIAgentPendingAction,
-  SlackThreadIdentity,
-} from "shared/validators";
+import type { AIAgentPendingAction } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   SlackThreadBusyError,
+  SlackThreadIdentity,
   slackTaskKey,
   isCurrentSlackApproval,
   slackConversationId,
 } from "back-end/src/services/slack/slackTaskSafety";
-import { SlackAssistantThreadModel } from "back-end/src/models/SlackAssistantThreadModel";
 import { THREAD_LEASE_RENEW_MS } from "back-end/src/models/SlackTaskClaimModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
@@ -183,13 +180,10 @@ export async function handleSlackAssistantMention(
     return;
   }
   const threadIdentity = { teamId, channelId, rootTs };
-  const thread =
-    await SlackAssistantThreadModel.dangerousGetForThread(threadIdentity);
   const target = await resolveSlackAssistantTarget({
     requireAssistantEnabled: true,
     teamId,
     slackUserId,
-    organizationId: thread?.organization,
   });
   if (!target.ok) {
     if (target.botToken) {
@@ -256,15 +250,6 @@ export async function handleSlackAssistantMention(
     return;
   }
 
-  const bound =
-    await target.context.models.slackAssistantThreads.bindConversationThread(
-      threadIdentity,
-    );
-  if (bound.organization !== target.organizationId) {
-    throw new Error(
-      "The Slack thread organization changed. Please send your question again.",
-    );
-  }
   const conversationId = slackConversationId({
     ...threadIdentity,
     organizationId: target.organizationId,
@@ -454,30 +439,22 @@ export async function handleSlackAssistantConfirmation({
   threadTs,
   buttonsMessageTs,
 }: SlackAssistantConfirmation): Promise<void> {
-  const thread = threadTs
-    ? await SlackAssistantThreadModel.dangerousGetForThread({
-        teamId,
-        channelId,
-        rootTs: threadTs,
-      })
-    : null;
-  if (!thread) {
+  if (!threadTs) {
     const token = await getSlackWorkspaceBotToken(teamId);
     if (token)
       await postSlackEphemeralMessage({
         token,
         channel: channelId,
         user: slackUserId,
-        threadTs,
         text: "This approval is no longer available. Ask me for a new proposal.",
       });
     return;
   }
+  const thread = { teamId, channelId, rootTs: threadTs };
   const target = await resolveSlackAssistantTarget({
     requireAssistantEnabled: true,
     teamId,
     slackUserId,
-    organizationId: thread.organization,
   });
   if (!target.ok) {
     if (target.botToken) {
@@ -495,17 +472,14 @@ export async function handleSlackAssistantConfirmation({
 
   // Bind approval to its original channel, thread, organization, and owner.
   if (
-    !threadTs ||
     conversationId !==
-      slackConversationId({
-        teamId,
-        channelId,
-        rootTs: threadTs,
-        organizationId: target.organizationId,
-        slackUserId,
-        userId: target.userId,
-        linkId: target.linkId,
-      })
+    slackConversationId({
+      ...thread,
+      organizationId: target.organizationId,
+      slackUserId,
+      userId: target.userId,
+      linkId: target.linkId,
+    })
   ) {
     await postSlackEphemeralMessage({
       token,
@@ -564,7 +538,6 @@ export async function handleSlackAssistantConfirmation({
               requireAssistantEnabled: true,
               teamId,
               slackUserId,
-              organizationId: thread.organization,
             });
             if (
               !current.ok ||
