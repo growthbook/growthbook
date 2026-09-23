@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { reconcileInlineFilterPrompts } from "shared/experiments";
 import { Flex, Box, TextField } from "@radix-ui/themes";
 import {
   PiX,
@@ -117,10 +118,12 @@ export default function ValueCard({
     }
   };
 
-  const handleFiltersChange = (filters: RowFilter[]) => {
+  const handleFiltersChange = (newFilters: RowFilter[]) => {
     updateValueInDataset(index, {
       ...value,
-      rowFilters: filters,
+      rowFilters: factTable
+        ? reconcileInlineFilterPrompts(factTable, filters, newFilters)
+        : newFilters,
     });
   };
 

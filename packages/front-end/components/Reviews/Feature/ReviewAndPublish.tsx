@@ -37,6 +37,7 @@ import {
   isPureFeatureArchive,
   isPureFeatureRevert,
   MergeStrategy,
+  getRevertRampDetachActions,
 } from "shared/util";
 import {
   isScheduledPublishPending,
@@ -80,6 +81,7 @@ import Revisionlog, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
+import { useFeatureRevisionByVersion } from "@/hooks/useFeatureRevisionByVersion";
 import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
@@ -761,6 +763,31 @@ export default function ReviewAndPublish({
     governingRules,
   });
 
+  // An open revert draft also removes the ramps its target predates; they show
+  // and count as changes like the draft's own ramp removals.
+  const revertDraftTargetVersion =
+    revision &&
+    revision.status !== "published" &&
+    revision.status !== "discarded"
+      ? revision.revertedFrom
+      : undefined;
+  const revertDraftTarget = useFeatureRevisionByVersion(
+    feature.id,
+    revertDraftTargetVersion,
+    revisions,
+  );
+  const revertDraftDetaches = useMemo(
+    () =>
+      revertDraftTarget
+        ? getRevertRampDetachActions(
+            feature.id,
+            revertDraftTarget,
+            rampSchedules ?? [],
+          )
+        : [],
+    [feature.id, revertDraftTarget, rampSchedules],
+  );
+
   // Fall back to all applicable environments until the merge footprint is known.
   const affectedRevisionEnvs = useMemo(() => {
     if (!mergeResult?.success) return envIds;
@@ -777,9 +804,12 @@ export default function ReviewAndPublish({
       holdoutsMap,
       // Ramp actions ride the revision, not the merge result, so pass them
       // explicitly — the endpoint counts their reach either way.
-      rampActions: revision?.rampActions,
+      rampActions: [...(revision?.rampActions ?? []), ...revertDraftDetaches],
+      rampSchedules,
     });
   }, [
+    revertDraftDetaches,
+    rampSchedules,
     mergeResult,
     envIds,
     feature,
@@ -1198,9 +1228,15 @@ export default function ReviewAndPublish({
   const rampDiffs = useMemo(
     () =>
       revision
-        ? buildRampDiffs({ feature, revision, rampSchedules, holdoutsMap })
+        ? buildRampDiffs({
+            feature,
+            revision,
+            rampSchedules,
+            holdoutsMap,
+            revertDetaches: revertDraftDetaches,
+          })
         : [],
-    [feature, revision, rampSchedules, holdoutsMap],
+    [feature, revision, rampSchedules, holdoutsMap, revertDraftDetaches],
   );
 
   const onUpdateFromLive = async () => {
@@ -1672,6 +1708,7 @@ export default function ReviewAndPublish({
             revision={revertTarget}
             revisionList={revisionList}
             allRevisions={revisions}
+            rampSchedules={rampSchedules ?? []}
             close={() => setRevertOpen(false)}
             mutate={mutate}
             setVersion={setVersion}
