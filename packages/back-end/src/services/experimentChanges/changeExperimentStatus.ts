@@ -655,6 +655,7 @@ export async function approveScheduledExperimentStart({
     nextScheduledStatusUpdate: {
       type: "start",
       date: startAt,
+      ...(context.userId ? { scheduledBy: context.userId } : {}),
     },
   };
   await validateExperimentChange({ context, experiment, changes });

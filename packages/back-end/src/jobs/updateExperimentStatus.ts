@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { PermissionError } from "shared/util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -7,7 +8,15 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
+import {
+  applyScheduledExperimentStop,
+  getScheduledStatusContext,
+} from "back-end/src/services/experimentScheduling";
+import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
+import {
+  isTerminalPublishError,
+  TerminalPublishError,
+} from "back-end/src/util/errors";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   notifyScheduledEndDecision,
@@ -68,7 +77,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleExperimentStatus = async (
+export const updateSingleExperimentStatus = async (
   job: UpdateSingleExperimentStatusJob,
 ) => {
   const experimentId = job.attrs.data?.experimentId;
@@ -112,6 +121,24 @@ const updateSingleExperimentStatus = async (
   try {
     logger.info("Start updating status for experiment " + experiment.id);
 
+    // Like a scheduled feature publish, the change runs on the authority of
+    // whoever staged it, re-checked now: a user who lost run permission since,
+    // or never had it, does not get it from the scheduler.
+    const scheduler = await getScheduledStatusContext(context, experiment);
+    if (!scheduler) {
+      throw new Error("scheduling user could not be resolved");
+    }
+    try {
+      await assertCanRunExperimentInAffectedEnvironments(scheduler, experiment);
+    } catch (e) {
+      if (e instanceof PermissionError) {
+        throw new TerminalPublishError(
+          `The user who scheduled this ${scheduled.type} may not run the experiment in its environments`,
+        );
+      }
+      throw e;
+    }
+
     switch (scheduled.type) {
       case "start": {
         if (experiment.status !== "draft") {
@@ -127,10 +154,8 @@ const updateSingleExperimentStatus = async (
         }
 
         const experimentBefore = experiment;
-        const { updated } = await executeExperimentStart(context, experiment);
-        // The agenda context has no logged-in user, so this is recorded
-        // as a `system` audit event.
-        await context.auditLog({
+        const { updated } = await executeExperimentStart(scheduler, experiment);
+        await scheduler.auditLog({
           event: "experiment.status",
           entity: {
             object: "experiment",
@@ -162,7 +187,7 @@ const updateSingleExperimentStatus = async (
 
         // A stop refreshes the SDK payload as a side effect.
         const outcome = await applyScheduledExperimentStop({
-          context,
+          context: scheduler,
           experiment,
           metricGroups,
         });
@@ -204,11 +229,9 @@ const updateSingleExperimentStatus = async (
           });
         } else {
           // The scheduled stop actually changed the experiment (status flipped
-          // to stopped, plus winner/results/releasedVariationId). Record it as
-          // a system `experiment.status` audit entry so the Compare Events
-          // timeline shows the diff, mirroring the scheduled-start path above.
-          // Kept-running makes no change, so it emits no audit entry.
-          await context.auditLog({
+          // to stopped, plus winner/results/releasedVariationId). Record it on
+          // the scheduler like the start above; kept-running changes nothing.
+          await scheduler.auditLog({
             event: "experiment.status",
             entity: {
               object: "experiment",
@@ -243,7 +266,11 @@ const updateSingleExperimentStatus = async (
     logger.info("Successfully updated status for experiment " + experiment.id);
   } catch (e) {
     const attempts = (scheduled.failedAttempts ?? 0) + 1;
-    const willRetry = attempts < SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS;
+    // Same classification as a scheduled publish: a marked-terminal failure
+    // (no authority) gives up at once, anything else retries to the cap.
+    const willRetry =
+      !isTerminalPublishError(e) &&
+      attempts < SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS;
     const reason = e instanceof Error ? e.message : String(e);
 
     logger.error(

@@ -18,6 +18,9 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
+import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
@@ -592,9 +595,36 @@ export async function setExperimentSchedule({
     statusUpdateSchedule: schedule,
     // Running experiments stage the stop now; drafts stage nothing here. Either
     // way any previously-staged action is reset to match the new schedule.
-    nextScheduledStatusUpdate: stagedStop,
+    nextScheduledStatusUpdate:
+      stagedStop && context.userId
+        ? { ...stagedStop, scheduledBy: context.userId }
+        : stagedStop,
   };
 
   const updated = await updateExperiment({ context, experiment, changes });
   return { experiment: updated, warnings };
+}
+
+// Who a staged status change runs as: the user who staged it, else the
+// experiment's owner — the same fallback a scheduled publish makes to the
+// draft's author. Org API keys have no user and resolve to the owner.
+export function resolveScheduledStatusUserId(
+  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate" | "owner">,
+): string | null {
+  return (
+    experiment.nextScheduledStatusUpdate?.scheduledBy ||
+    experiment.owner ||
+    null
+  );
+}
+
+export async function getScheduledStatusContext(
+  context: Context,
+  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate" | "owner">,
+): Promise<ReqContext | ApiReqContext | null> {
+  const userId = resolveScheduledStatusUserId(experiment);
+  if (!userId) return null;
+  return getContextForUserIdInOrg(context.org, userId, {
+    applyProjectRestrictions: false,
+  });
 }
