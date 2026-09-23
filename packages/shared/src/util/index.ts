@@ -47,6 +47,7 @@ export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./ruleId";
+export * from "./revertRampDetach";
 export * from "./numbers";
 export * from "./types";
 export * from "./errors";
@@ -65,10 +66,16 @@ export function getAffectedEnvsForExperiment({
   experiment,
   orgEnvironments,
   linkedFeatures,
+  pendingDrafts,
 }: {
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
   orgEnvironments: Environment[];
   linkedFeatures?: FeatureInterface[];
+  // Drafts the experiment publishes when it starts; their rules reach too.
+  pendingDrafts?: {
+    feature: FeatureInterface;
+    revision: FeatureRevisionInterface;
+  }[];
 }): string[] {
   if (!orgEnvironments.length) {
     return [];
@@ -82,41 +89,54 @@ export function getAffectedEnvsForExperiment({
   )
     return ["__ALL__"];
 
-  if (linkedFeatures?.length) {
-    const envs = new Set<string>();
-    const orgEnvIds = orgEnvironments.map((e) => e.id);
-    linkedFeatures.forEach((linkedFeature) => {
-      const matches = getMatchingRules(
-        linkedFeature,
-        (rule) =>
-          (rule.type === "experiment-ref" &&
-            rule.enabled &&
-            rule.experimentId === experiment.id) ||
-          false,
-        orgEnvIds,
-        undefined,
-        // the boolean below skips environments if they are disabled on the feature
-        true,
-      );
-
-      // if we find any matching rules get the environments that are affected
-      if (matches.length) {
-        matches.forEach((match) => {
-          const env = orgEnvironments.find(
-            (env) => env.id === match.environmentId,
-          );
-
-          if (env) {
-            if (featureHasEnvironment(linkedFeature, env)) {
-              envs.add(match.environmentId);
-            }
-          }
-        });
+  const envs = new Set<string>();
+  const orgEnvIds = orgEnvironments.map((e) => e.id);
+  const collect = (
+    linkedFeature: FeatureInterface,
+    revision?: FeatureRevisionInterface,
+  ) => {
+    // A draft can also switch environments on; judge it as it will land.
+    const feature = revision?.environmentsEnabled
+      ? {
+          ...linkedFeature,
+          environmentSettings: Object.fromEntries(
+            orgEnvIds.map((env) => [
+              env,
+              {
+                ...linkedFeature.environmentSettings?.[env],
+                enabled:
+                  revision.environmentsEnabled?.[env] ??
+                  linkedFeature.environmentSettings?.[env]?.enabled ??
+                  false,
+              },
+            ]),
+          ),
+        }
+      : linkedFeature;
+    const matches = getMatchingRules(
+      feature,
+      (rule) =>
+        (rule.type === "experiment-ref" &&
+          rule.enabled &&
+          rule.experimentId === experiment.id) ||
+        false,
+      orgEnvIds,
+      revision,
+      // the boolean below skips environments if they are disabled on the feature
+      true,
+    );
+    for (const match of matches) {
+      const env = orgEnvironments.find((e) => e.id === match.environmentId);
+      if (env && featureHasEnvironment(feature, env)) {
+        envs.add(match.environmentId);
       }
-    });
-    return Array.from(envs);
-  }
-  return [];
+    }
+  };
+  (linkedFeatures ?? []).forEach((feature) => collect(feature));
+  (pendingDrafts ?? []).forEach(({ feature, revision }) =>
+    collect(feature, revision),
+  );
+  return Array.from(envs);
 }
 
 export function getSnapshotAnalysis(

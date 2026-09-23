@@ -21,6 +21,7 @@ import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
 import {
   assertCanRevertArchived,
+  assertRevertHasChanges,
   assertRevertLandingGuards,
   assertRevertValuesReadable,
 } from "back-end/src/services/revertGuards";
@@ -303,12 +304,8 @@ export async function revertFeatureCore(
     changes.holdout = targetHoldout;
   }
 
-  // No diff against live — refuse before creating an empty "Locked" revision.
-  if (Object.keys(changes).length === 0) {
-    throw new Error(
-      `Nothing to revert: the live feature already matches revision #${version}.`,
-    );
-  }
+  // Before createRevision, so an empty revert leaves no "Locked" revision.
+  await assertRevertHasChanges(context, feature, changes, revision);
 
   assertRevertValuesReadable(context, feature, changes);
 
@@ -367,7 +364,7 @@ export async function revertFeatureCore(
         ]
       : [];
 
-  await assertRevertLandingGuards(context, feature, changes);
+  await assertRevertLandingGuards(context, feature, changes, revision);
   const { revision: newRevision, updatedFeature } =
     await createAndPublishRevision({
       context,
