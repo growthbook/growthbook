@@ -12,6 +12,7 @@ import { daysBetween } from "shared/dates";
 import {
   assertExposureQueryDeclaresIdentifierType,
   buildUnitsQuerySettingsFromSnapshot,
+  getAnalysisIdentifierType,
 } from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -148,7 +149,7 @@ export const startExperimentResultQueries = async (
     integration.datasource,
     snapshotSettings.exposureQueryId || "",
   );
-  // Reports and safe rollouts store their own identifier without validating it.
+  // The query may have dropped the stored identifier since it was saved.
   assertExposureQueryDeclaresIdentifierType(
     resolvedExposureQuery,
     snapshotSettings.exposureQueryIdentifierType,
@@ -215,10 +216,13 @@ export const startExperimentResultQueries = async (
         eligibleDimensionsWithSlices: [],
       };
 
-  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
-    snapshotSettings,
-    resolvedExposureQuery,
-  );
+  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(snapshotSettings, {
+    ...resolvedExposureQuery,
+    userIdType: getAnalysisIdentifierType(
+      resolvedExposureQuery,
+      snapshotSettings.exposureQueryIdentifierType,
+    ),
+  });
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,

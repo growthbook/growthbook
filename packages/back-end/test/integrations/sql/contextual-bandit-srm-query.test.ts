@@ -193,11 +193,11 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain("variation='a''b'");
   });
 
-  it("uses the base identifier selected on the snapshot", () => {
+  it("uses the resolved identifier on the exposure query", () => {
+    // Query runners resolve the snapshot's identifier before building units.
     const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
       {
         experimentId: "exp_1",
-        exposureQueryIdentifierType: "anonymous_id",
         startDate: new Date("2025-01-01T00:00:00.000Z"),
         endDate: new Date("2025-02-01T00:00:00.000Z"),
         variations: [],
@@ -206,7 +206,7 @@ describe("getContextualBanditSrmQuery", () => {
       {
         query:
           "SELECT user_id, anonymous_id, timestamp, experiment_id, variation_id FROM assignments",
-        userIdType: "user_id",
+        userIdType: "anonymous_id",
       },
     );
 

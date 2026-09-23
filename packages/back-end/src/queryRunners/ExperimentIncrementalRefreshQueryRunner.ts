@@ -25,7 +25,10 @@ import {
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  buildUnitsQuerySettingsFromSnapshot,
+  getAnalysisIdentifierType,
+} from "shared/util";
 import {
   ExperimentQueryMetadata,
   Queries,
@@ -416,8 +419,10 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
-  const exposureUserIdType =
-    snapshotSettings.exposureQueryIdentifierType ?? exposureQuery.userIdType;
+  const exposureUserIdType = getAnalysisIdentifierType(
+    exposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
   const resolvedExposureQuery = {
     query: exposureQuery.query,
     userIdType: exposureUserIdType,

@@ -100,14 +100,10 @@ export const startPopulationDataQueries = async (
     }
   }
 
-  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
-    settings,
-    {
-      query: "",
-      userIdType: params.populationSettings.userIdType,
-    },
-    params.populationSettings.userIdType,
-  );
+  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(settings, {
+    query: "",
+    userIdType: params.populationSettings.userIdType,
+  });
 
   for (const m of legacyMetricSingles) {
     if (

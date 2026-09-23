@@ -21,13 +21,21 @@ export function getExposureQueryIdentifierTypes(
  * For defaulting a new record, prefer an identifier the query declares.
  */
 export function getAnalysisIdentifierType(
+  query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
+  storedIdentifierType: string | undefined,
+): string;
+export function getAnalysisIdentifierType(
+  query: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
+  storedIdentifierType: string | undefined,
+): string | undefined;
+export function getAnalysisIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
   storedIdentifierType: string | undefined,
 ): string | undefined {
-  return (
-    storedIdentifierType ||
-    (query ? getExposureQueryIdentifierTypes(query)[0] : undefined)
-  );
+  if (storedIdentifierType) return storedIdentifierType;
+  return query
+    ? (getExposureQueryIdentifierTypes(query)[0] ?? query.userIdType)
+    : undefined;
 }
 
 function firstIdentifierType(query: ExposureQueryIdentity): string {

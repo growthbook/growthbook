@@ -1,58 +1,27 @@
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 
-const baseSettings = {
-  experimentId: "experiment",
-  startDate: new Date("2026-01-01"),
-  endDate: new Date("2026-01-02"),
-  skipPartialData: false,
-  attributionModel: "firstExposure",
-  queryFilter: "",
-  variations: [],
-  metricSettings: [],
-} as ExperimentSnapshotSettings;
-
 describe("buildUnitsQuerySettingsFromSnapshot", () => {
-  const exposureQuery = {
-    query: "SELECT user_id, anonymous_id FROM experiment_viewed",
-    userIdType: "user_id",
-  };
-
-  it("keeps the exposure query base identifier when no choice is stored", () => {
+  it("uses the exposure query exactly as given, ignoring the snapshot's stored identifier", () => {
+    const exposureQuery = {
+      query: "SELECT user_id, anonymous_id FROM experiment_viewed",
+      userIdType: "user_id",
+    };
     expect(
-      buildUnitsQuerySettingsFromSnapshot(baseSettings, exposureQuery)
-        .exposureQuery,
+      buildUnitsQuerySettingsFromSnapshot(
+        {
+          experimentId: "experiment",
+          startDate: new Date("2026-01-01"),
+          endDate: new Date("2026-01-02"),
+          skipPartialData: false,
+          attributionModel: "firstExposure",
+          queryFilter: "",
+          variations: [],
+          metricSettings: [],
+          exposureQueryIdentifierType: "anonymous_id",
+        } as ExperimentSnapshotSettings,
+        exposureQuery,
+      ).exposureQuery,
     ).toEqual(exposureQuery);
-  });
-
-  it("uses the identifier type stored on the snapshot", () => {
-    expect(
-      buildUnitsQuerySettingsFromSnapshot(
-        {
-          ...baseSettings,
-          exposureQueryIdentifierType: "anonymous_id",
-        },
-        exposureQuery,
-      ).exposureQuery,
-    ).toEqual({
-      query: exposureQuery.query,
-      userIdType: "anonymous_id",
-    });
-  });
-
-  it("honors an explicit base identifier for non-exposure units", () => {
-    expect(
-      buildUnitsQuerySettingsFromSnapshot(
-        {
-          ...baseSettings,
-          exposureQueryIdentifierType: "anonymous_id",
-        },
-        exposureQuery,
-        "device_id",
-      ).exposureQuery,
-    ).toEqual({
-      query: exposureQuery.query,
-      userIdType: "device_id",
-    });
   });
 });

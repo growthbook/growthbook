@@ -1,3 +1,4 @@
+import { getAnalysisIdentifierType } from "shared/util";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
@@ -96,8 +97,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   const resolvedExposureQuery = {
     query: exposureQuery.query,
-    userIdType:
-      snapshotSettings.exposureQueryIdentifierType ?? exposureQuery.userIdType,
+    userIdType: getAnalysisIdentifierType(
+      exposureQuery,
+      snapshotSettings.exposureQueryIdentifierType,
+    ),
   };
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
