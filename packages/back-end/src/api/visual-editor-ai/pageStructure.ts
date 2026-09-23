@@ -1,9 +1,4 @@
-// The page-structure snapshot the extension captures: significant containers
-// (sections, layout wrappers, heading ancestors), each with a durable
-// selector and a parent pointer. Extensions that send `docOrder` also give
-// document order and the nearest visible siblings, which is what lets the
-// prompt render an outline and the model build a move. Pure functions so the
-// tools and the prompt renderer share one tree.
+// The extension's page-structure snapshot as a tree, shared by the outline and the tools.
 
 export interface PageStructureNode {
   selector: string;
@@ -25,9 +20,7 @@ export interface StructureTreeNode {
   children: StructureTreeNode[];
 }
 
-// Older extensions send nodes in capture-priority order: nesting can be
-// rebuilt from parent pointers but sibling order can't, so the outline is
-// only rendered when every node carries `docOrder`.
+// Without docOrder, nodes arrive in capture-priority order and sibling order is unknown.
 export function hasDocumentOrder(nodes: PageStructureNode[]): boolean {
   return nodes.length > 0 && nodes.every((n) => typeof n.docOrder === "number");
 }
@@ -67,16 +60,12 @@ export function buildStructureTree(
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : `${s.slice(0, n - 1)}…`;
 
-// Layout rides in the tag so a row or grid is visible where the model picks
-// an insert anchor.
 const describeLine = (n: PageStructureNode): string =>
   `\`${n.selector}\` <${n.tag}${n.id ? `#${n.id}` : ""}${
     n.layout ? ` ${n.layout}` : ""
   }>${n.label ? ` "${truncate(n.label, 40)}"` : ""}`;
 
-// Indented outline of the top of the tree. Deeper levels stay reachable via
-// describeContainer, so the budget goes to the containers a request is most
-// likely to name.
+// Indented outline of the top of the tree; deeper levels stay reachable via describeContainer.
 export function renderPageOutline(
   nodes: PageStructureNode[],
   {
@@ -118,13 +107,53 @@ export interface ContainerSummary {
   layout?: PageStructureNode["layout"];
 }
 
+export interface KnownContainer {
+  selector: string;
+  // False for a parent the snapshot only knows by selector.
+  captured: boolean;
+  tag?: string;
+  label?: string;
+}
+
 export interface ContainerDescription extends Omit<ContainerSummary, "tag"> {
   tag?: string;
   parentSelector?: string;
   prevSiblingSelector?: string;
   nextSiblingSelector?: string;
   children: ContainerSummary[];
+  // Known containers somewhere under an uncaptured selector, nearest first.
+  // Their exact nesting is unknown, so they are not `children`.
+  descendants?: KnownContainer[];
   note?: string;
+}
+
+// Every selector the snapshot knows: captured nodes plus the parents they point at.
+function knownContainers(
+  nodes: PageStructureNode[],
+): Array<KnownContainer & { docOrder: number }> {
+  const out = new Map<string, KnownContainer & { docOrder: number }>();
+  const sorted = [...nodes].sort(
+    (a, b) => (a.docOrder ?? 0) - (b.docOrder ?? 0),
+  );
+  for (const n of sorted) {
+    if (n.parentSelector && !out.has(n.parentSelector)) {
+      out.set(n.parentSelector, {
+        selector: n.parentSelector,
+        captured: false,
+        docOrder: n.docOrder ?? 0,
+      });
+    }
+  }
+  for (const n of sorted) {
+    out.set(n.selector, {
+      selector: n.selector,
+      captured: true,
+      tag: n.tag,
+      ...(n.label ? { label: n.label } : {}),
+      docOrder: n.docOrder ?? 0,
+    });
+  }
+  return [...out.values()];
 }
 
 const summarize = (n: PageStructureNode): ContainerSummary => ({
@@ -143,20 +172,38 @@ export function describeContainer(
 ): ContainerDescription | null {
   const node = nodes.find((n) => n.selector === selector);
   if (!node) {
-    // findElements hands out each match's parentSelector, but the parent is
-    // often not a captured node itself (a card grid whose headings sit one
-    // level down). Its captured children are still known, and listing them
-    // in order is exactly what a reorder needs — so only when their order is
-    // known: a snapshot without docOrder arrived in capture-priority order,
-    // which would misplace a move.
+    // An uncaptured parent is described by its captured children, but only when their order is known.
     const children = nodes
       .filter((n) => n.parentSelector === selector)
       .sort((a, b) => (a.docOrder ?? 0) - (b.docOrder ?? 0));
-    if (children.length === 0 || !hasDocumentOrder(children)) return null;
+    if (children.length > 0 && hasDocumentOrder(children)) {
+      return {
+        selector,
+        children: children.map(summarize),
+        note: "This container wasn't captured itself, so its tag, layout and siblings are unknown; `children` are its captured direct children in page order.",
+      };
+    }
+    // Unknown selector: still list the known containers under it so the model can act on them.
+    const descendants = knownContainers(nodes)
+      .filter(
+        (k) =>
+          k.selector.startsWith(`${selector} `) ||
+          k.selector.startsWith(`${selector}>`),
+      )
+      .sort(
+        (a, b) =>
+          a.selector.slice(selector.length).split(/\s+|>/).length -
+            b.selector.slice(selector.length).split(/\s+|>/).length ||
+          a.docOrder - b.docOrder,
+      )
+      .slice(0, 12)
+      .map(({ docOrder: _order, ...k }) => k);
+    if (descendants.length === 0) return null;
     return {
       selector,
-      children: children.map(summarize),
-      note: "This container wasn't captured itself, so its tag, layout and siblings are unknown; `children` are its captured direct children in page order.",
+      children: [],
+      descendants,
+      note: "This selector isn't a captured container and nothing is known about its layout or direct children. `descendants` are the known containers inside it, nearest first — act on those. For a reorder, prefer one CSS `order` rule per item over a position move into this selector, whose direct children can't be verified. The items are the nearest descendants with `captured: false` (the cards); `order` only moves flex/grid items, so a rule on a captured wrapper inside a card does nothing.",
     };
   }
   const find = (list: StructureTreeNode[]): StructureTreeNode | null => {

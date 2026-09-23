@@ -196,4 +196,31 @@ describe("describeContainer", () => {
       ),
     ).toBeNull();
   });
+
+  it("lists the known containers under a selector nobody captured, nearest first", () => {
+    // Plan names aren't headings, so only each card's inner wrapper was
+    // captured; the cards are known as parents and the row not at all.
+    const wraps: PageStructureNode[] = [1, 2, 3].map((i) => ({
+      selector: `.tab .card:nth-child(${i}) .info-wrap`,
+      parentSelector: `.tab .card:nth-child(${i})`,
+      tag: "div",
+      label: ["Starter", "Pro", "Enterprise"][i - 1],
+      docOrder: i,
+    }));
+    const described = describeContainer(wraps, ".tab");
+    expect(described?.children).toEqual([]);
+    expect(
+      described?.descendants?.map((d) => [d.selector, d.captured]),
+    ).toEqual([
+      [".tab .card:nth-child(1)", false],
+      [".tab .card:nth-child(2)", false],
+      [".tab .card:nth-child(3)", false],
+      [".tab .card:nth-child(1) .info-wrap", true],
+      [".tab .card:nth-child(2) .info-wrap", true],
+      [".tab .card:nth-child(3) .info-wrap", true],
+    ]);
+    expect(described?.note).toMatch(/order/);
+    // A selector that merely shares a prefix string is not an ancestor.
+    expect(describeContainer(wraps, ".ta")).toBeNull();
+  });
 });

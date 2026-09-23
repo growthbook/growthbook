@@ -38,6 +38,7 @@ import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import {
+  lookupTerms,
   prepareToolStep,
   toolLoopProviderOptions,
 } from "back-end/src/enterprise/services/aiStepPolicy";
@@ -607,10 +608,7 @@ export const streamingChatCompletion = async ({
           tools,
           ...toolLoopProviderOptions(model),
           stopWhen: stepCountIs(maxSteps),
-          // Same end-the-loop policy parsePrompt uses; without it a model that
-          // exhausts maxSteps ends ON a tool call and the stream closes having
-          // emitted no text at all. Claude's rolling cache breakpoint goes on
-          // whatever the step's last message ends up being.
+          // Same end-the-loop policy as parsePrompt; the cache breakpoint goes on the last message.
           prepareStep: ({ stepNumber, messages: stepMessages }) => {
             const policy = prepareToolStep({
               model,
@@ -682,10 +680,7 @@ export const streamingChatCompletion = async ({
 
 export { aiTool };
 
-// Stateless tool loop: the run ended on tool calls the server can't execute
-// (declared without execute()). Carries what the caller needs to hand the
-// extension: this call's response messages, the calls still owed, and the
-// steps spent.
+// Stateless tool loop: the run stopped on tool calls the server can't execute.
 export interface DeferredToolCalls {
   transcript: ModelMessage[];
   pending: Array<{ toolCallId: string; toolName: string; input: unknown }>;
@@ -746,18 +741,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // valid response"). 8000 stays under every current provider's ceiling;
   // callers that emit large artifacts (Figma → Variant) can raise it.
   maxOutputTokens?: number;
-  // Higher cap used only on models with a documented ceiling (clamped to
-  // it); models without one keep `maxOutputTokens`, since over-asking is a
-  // 400.
+  // Used only on models with a documented ceiling, since over-asking is a 400.
   extendedMaxOutputTokens?: number;
-  // Stateless tool loop: earlier rounds' assistant/tool messages, appended
-  // after the user message, and how many steps they already consumed of
-  // `maxSteps`.
+  // Stateless tool loop: earlier rounds' messages and the steps they spent.
   priorMessages?: ModelMessage[];
   stepsAlreadyUsed?: number;
-  // A tool declared without execute() stops the run with its call pending.
-  // With this set, that ends the call with DeferredToolCallsError carrying
-  // the transcript instead of surfacing as a no-output failure.
+  // Throw DeferredToolCallsError when the run stops on a tool without execute().
   deferToolCalls?: boolean;
   // Extra fields merged into the NoObjectGeneratedError diagnostic logs so
   // callers can attach request-specific context (e.g. the visual editor's
@@ -817,8 +806,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         anthropic: { cacheControl: { type: "ephemeral" } },
       };
     }
-    // Every round of a stateless loop re-sends the user message (digest,
-    // outline, attachments) byte for byte; a breakpoint there makes it a hit.
+    // Every stateless round re-sends the user message byte for byte.
     if (priorMessages && priorMessages.length > 0) {
       const user = messages.find((m) => m.role === "user");
       if (user) {
@@ -843,9 +831,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
 
   // Per-attempt step telemetry. Without it a no-output failure is
   // indistinguishable from a model that answered in prose on step one —
-  // only the first is helped by a bigger maxSteps. The last step's
-  // finishReason is what separates "ran out of steps" ("tool-calls") from
-  // "truncated" ("length") when no output was produced.
+  // only the first is helped by a bigger maxSteps.
   let stepsUsed = 0;
   let toolsCalled: string[] = [];
   const outcomeOf = (v: unknown): string => {
@@ -853,11 +839,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     const { ok, count, error, note } = v as Record<string, unknown>;
     return brief({ ok, count, error, note }, 320);
   };
-  // What each tool was asked and how it answered, trimmed: when a run burns
-  // its whole budget on lookups, the tool names alone don't say why. Only
-  // the outcome fields of a result are kept — its payload can be another
-  // experiment's hypothesis or variation content, which doesn't belong in a
-  // log line.
+  // Outcome fields only: a result's payload can be another experiment's content.
   let toolTrace: Array<{ tool: string; input: string; out: string }> = [];
   let lastFinishReason: string | undefined;
   const remainingSteps = Math.max(1, maxSteps - stepsAlreadyUsed);
@@ -894,13 +876,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
             tools,
             ...toolLoopProviderOptions(model),
             stopWhen: stepCountIs(remainingSteps),
-            // Force a final answer on the last allowed step. Otherwise a model
-            // that keeps calling tools until it exhausts maxSteps ends ON a
-            // tool call (finishReason !== "stop"), so no output object is
-            // produced and the run fails with NoOutputGeneratedError (observed
-            // with claude-haiku-4-5 on visual-editor moves). Only fires on a
-            // runaway loop — a model that answers within budget never reaches
-            // this step.
+            // Force a final answer on the last allowed step, or the run ends on a tool call with no output.
             prepareStep: ({ stepNumber, messages: stepMessages }) =>
               prepareToolStep({
                 model,
@@ -924,8 +900,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         onStepFinish?.(step);
       },
     });
-    // Ended on tool calls the server couldn't execute: hand them back rather
-    // than reading `output`, which would throw NoOutputGeneratedError.
+    // Hand deferred calls back rather than reading `output`, which would throw.
     if (deferToolCalls && result.finishReason === "tool-calls") {
       const last = result.steps[result.steps.length - 1];
       const answered = new Set(
@@ -983,10 +958,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     NoOutputGeneratedError.isInstance(e);
 
   // Pull whatever diagnostics the error carries so prod logs show WHY it
-  // failed. NoObjectGeneratedError carries its own finishReason and text
-  // sample. NoOutputGeneratedError carries only a cause — the SDK skips
-  // output parsing whenever the last step didn't finish on "stop", so its
-  // finishReason comes from the last step instead.
+  // failed. NoOutputGeneratedError has no finishReason, so it comes from the last step.
   const noOutputDiag = (e: NoObjectGeneratedError | NoOutputGeneratedError) => {
     const objErr = NoObjectGeneratedError.isInstance(e) ? e : undefined;
     return {
@@ -1062,18 +1034,20 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         "parsePrompt: model returned no usable output after retry; giving up",
       );
       await recordFailedAttempts();
-      // "length" on either attempt: the JSON was cut off at the output-token
-      // ceiling, so a generic "try again" won't help — narrow the request.
+      // Cut off at the output-token ceiling: only a narrower request helps.
       const truncated =
         firstDiag.finishReason === "length" ||
         retryDiag.finishReason === "length";
-      // Ended on a tool call: spent the step budget gathering context.
+      // Out of steps; what it was hunting for is the element the user should click.
       const ranOutOfSteps = retryDiag.finishReason === "tool-calls";
+      const lookedFor = lookupTerms(retryDiag.toolTrace);
       throw new Error(
         truncated
           ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
           : ranOutOfSteps
-            ? "The AI didn't finish this request — it spent its time gathering page details instead of returning a change. Try pointing it at a specific element, or splitting this into smaller changes."
+            ? `The AI ran out of lookups before it could make a change.${
+                lookedFor ? ` It was searching the page for ${lookedFor}.` : ""
+              } Click the element you want changed so its selector is captured, then ask again — or ask for one part at a time.`
             : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
       );
     }
@@ -1113,8 +1087,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     }
   }
 
-  // After the accounting above: this round's tokens are real spend even
-  // though the caller gets a transcript rather than an object.
+  // After the accounting: a deferred round's tokens are real spend.
   if (response.deferred) {
     throw new DeferredToolCallsError(response.deferred);
   }

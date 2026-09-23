@@ -1,9 +1,4 @@
-// Merge the model's global-CSS output onto the saved stylesheet. `replace`
-// is a full rewrite (to modify or remove an existing rule); `append` is new
-// rules only. Both may be present — the rewrite is then the base. Returns
-// undefined when nothing changes. Empty strings count as "no change":
-// clearing CSS through the AI is deliberately unsupported (that's the manual
-// editor's job), so a blank can never wipe the variation.
+// Merge the model's `css` rewrite and/or `cssAppend` onto the saved CSS; undefined means no change, and a blank never wipes it.
 export function mergeGlobalCss({
   existing,
   replace,
@@ -15,8 +10,7 @@ export function mergeGlobalCss({
 }): string | undefined {
   const current = existing ?? "";
   const base = replace && replace.trim() ? replace : current;
-  // Stronger models sometimes re-emit rules they already added. Judge each
-  // appended rule on its own: drop the ones still in effect, keep the rest.
+  // Models sometimes re-emit rules they already added; drop only those still in effect.
   const fresh = splitRules(append?.trim() ?? "").filter(
     (rule) => !isRuleInEffect(base, rule),
   );
@@ -27,10 +21,7 @@ export function mergeGlobalCss({
   return merged && merged !== current ? merged : undefined;
 }
 
-// Top-level rules of a stylesheet: a `selector { … }` block (a nested block
-// such as @media stays whole) or a `@import …;` statement. Comments and
-// strings are skipped for nesting, and a leading comment travels with the
-// rule that follows it.
+// Top-level rules of a stylesheet; a leading comment travels with the rule after it.
 function splitRules(css: string): string[] {
   const rules: string[] = [];
   let depth = 0;
@@ -70,16 +61,13 @@ function splitRules(css: string): string[] {
 const stripLeadingComments = (rule: string): string =>
   rule.replace(/^(\s*\/\*[\s\S]*?\*\/)*\s*/, "");
 
-// A rule (or bare selector) only counts where it starts the stylesheet or
-// follows the end of a previous rule or comment: `.nav button {…}` must not
-// match `button {…}`.
+// Only at a rule boundary, so `.nav button {…}` doesn't match `button {…}`.
 const atRuleBoundary = (css: string, at: number): boolean => {
   const before = css.slice(0, at).trimEnd();
   return before === "" || before.endsWith("}") || before.endsWith("*/");
 };
 
-// Index of the last whole-rule occurrence of `text` — a full rule, or with
-// `asSelector` a selector that opens a block — or -1.
+// Index of the last whole-rule occurrence of `text` (or, with `asSelector`, a selector opening a block), or -1.
 function findRule(css: string, text: string, asSelector = false): number {
   let found = -1;
   let at = css.indexOf(text);
@@ -92,10 +80,7 @@ function findRule(css: string, text: string, asSelector = false): number {
   return found;
 }
 
-// An appended rule is redundant only while it is still in effect: present
-// whole, with no later rule re-targeting its selector. A rule that a later
-// rule overrides is not "already there" — appending it again is exactly how
-// the cascade gets it back.
+// Redundant only while still in effect: a rule a later rule overrides needs appending again.
 function isRuleInEffect(css: string, rule: string): boolean {
   const body = stripLeadingComments(rule);
   // A comment on its own adds nothing worth appending.
@@ -113,8 +98,7 @@ export interface SkippedItem {
   reason: string;
 }
 
-// Surface the parts the model didn't do below its explanation, one bullet
-// each, so a partial result reads as one rather than a silent omission.
+// One bullet per part the model didn't do, below its explanation.
 export function appendSkipped(
   explanation: string,
   skipped: SkippedItem[] | null | undefined,
@@ -127,10 +111,7 @@ export function appendSkipped(
   return [explanation.trim(), lines.join("\n")].filter(Boolean).join("\n\n");
 }
 
-// Why a position move can't be applied, or null when it's well-formed. Read
-// once before the self-correct retry, so the model gets to fix it, and again
-// when sanitizing, so a bad one is dropped and reported rather than silently
-// no-op'd. Worded for both audiences.
+// Why a position move can't be applied, or null; worded for both the model and the user.
 export function movePlacementProblem(m: {
   attribute: string;
   selector: string;
@@ -150,12 +131,7 @@ export function movePlacementProblem(m: {
   return null;
 }
 
-// Model-written JS that adds nodes without first checking whether they
-// already exist. The SDK re-runs variation JS on every re-apply (SPA
-// navigation, re-evaluation) and its undo only removes the <script>, so
-// unguarded inserts duplicate. Heuristic: an insert call with no existence
-// check in a conditional and no marker attribute. Only the model's `js` is
-// linted — our compiled insert snippets carry their own guard.
+// The SDK re-runs variation JS on every re-apply, so an unguarded insert duplicates. Advisory heuristic.
 const DOM_INSERT_RE =
   /\.(?:insertAdjacentHTML|insertAdjacentElement|appendChild|insertBefore|replaceChildren|append|prepend|after|before)\s*\(|\.innerHTML\s*\+=/;
 const INSERT_GUARD_RE =
@@ -166,8 +142,7 @@ export function hasUnguardedDomInsert(js: string | null | undefined): boolean {
   return DOM_INSERT_RE.test(js) && !INSERT_GUARD_RE.test(js);
 }
 
-// Selectors a live findElements call matched on the page: each match's
-// selector and, when anything matched, the query itself.
+// Selectors a live findElements call matched, plus the query when anything matched.
 export function selectorsFoundByTool(result: {
   toolName: string;
   input: unknown;
@@ -186,8 +161,7 @@ export function selectorsFoundByTool(result: {
     : found;
 }
 
-// A class, id or attribute selector the user typed into the request, which
-// the prompt treats as ground truth even when the catalog doesn't list it.
+// A selector the user typed, which the prompt treats as ground truth.
 export function isUserNamedSelector(prompt: string, selector: string): boolean {
   return /[.#[]/.test(selector) && prompt.includes(selector);
 }

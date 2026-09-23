@@ -2,14 +2,7 @@ import { tool as aiTool } from "ai";
 import { z } from "zod";
 import type { ClientJob } from "./clientJob";
 
-// DOM-side tools, answered by the extension's content script (computedStyles,
-// find, innerHTML) — keep names + arg shapes in sync with
-// background/handlers.ts runAIClientTool. Two flavours share each definition:
-//   - job-based: execute() blocks until /edit/resume delivers the result
-//     (self-hosted only — the job lives in one process's memory);
-//   - deferred: no execute(), so the SDK stops the run with the call pending
-//     and the handler hands it to the extension with a signed transcript.
-//     Any instance can serve the next round, so this is what Cloud uses.
+// DOM-side tools answered by the extension (keep in sync with runAIClientTool): job-based on self-hosted, deferred on Cloud.
 
 const COMPUTED_STYLES_PROPS = [
   "font-family",
@@ -116,8 +109,7 @@ export function deferredDomTools() {
   };
 }
 
-// The job flavour adds the property list inside execute(); the deferred
-// flavour has to add it to the args handed to the extension.
+// The deferred flavour has no execute(), so the property list goes in the args.
 export function clientToolArgs(toolName: string, input: unknown): unknown {
   if (
     toolName === "getComputedStyles" &&

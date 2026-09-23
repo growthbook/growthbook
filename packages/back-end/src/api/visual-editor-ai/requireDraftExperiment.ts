@@ -6,13 +6,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironments } from "back-end/src/util/organization.util";
 
-// The visual editor edits DRAFT experiments. Once an experiment is running
-// or stopped (or archived), its variations, traffic split, and analysis are
-// live or finalized — structural edits (add / rename / delete variant, etc.)
-// must go through the full GrowthBook app instead. Reject anything else with
-// a 400 so a stale side panel can't clobber a live test. `allowRunning` is
-// the one deliberate exception, for callers that confirmed with the user;
-// stopped and archived never pass.
+// Drafts only, so a stale panel can't clobber a live test; `allowRunning` admits running.
 export function requireDraftExperiment(
   context: ApiReqContext,
   experiment: { status: string; archived: boolean },
@@ -30,12 +24,7 @@ export function requireDraftExperiment(
   }
 }
 
-// Gate for writing visual changes. Editing a running experiment is the
-// GrowthBook app's own policy — anyone with runExperiments on the affected
-// environments can do it there — so mirror that bar rather than the weaker
-// canUpdateVisualChange. Returns the audit step for the caller to run once
-// its write has succeeded: the record says a live edit happened, so it must
-// not precede a write that fails. A no-op for draft experiments.
+// Mirror the app's bar for live edits (runExperiments). Returns the audit step, to run once the write succeeds.
 export function requireVisualChangeWrite(
   req: {
     context: ApiReqContext;
@@ -50,16 +39,10 @@ export function requireVisualChangeWrite(
   requireDraftExperiment(req.context, experiment, { allowRunning });
   if (experiment.status !== "running") return async () => {};
 
-  // A visual change is served in every environment the experiment runs in,
-  // however its linked features are scoped. Deriving the environments from
-  // those features would shrink the check whenever the stored
-  // hasVisualChangesets flag is stale: unreadable features are filtered out
-  // and an empty list passes vacuously. Ask for all of them instead, as the
-  // app does for any experiment with visual changes.
+  // Every environment, not the linked features' ones: a stale hasVisualChangesets flag would shrink the check.
   const envs = getAffectedEnvsForExperiment({
     experiment: { ...experiment, hasVisualChangesets: true },
-    // The SDK's default environments when none are configured; an empty list
-    // would pass the check vacuously.
+    // getEnvironments falls back to the SDK defaults; an empty list would pass vacuously.
     orgEnvironments: getEnvironments(req.context.org),
   });
   if (!req.context.permissions.canRunExperiment(experiment, envs)) {

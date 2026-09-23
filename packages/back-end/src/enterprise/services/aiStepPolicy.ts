@@ -1,16 +1,7 @@
 import type { ModelMessage } from "ai";
 import { type AIModel, getProviderFromModel } from "shared/ai";
 
-// Provider options for a multi-step tool loop that must end in structured
-// output. The AI SDK's Anthropic provider turns `toolChoice: "none"` into
-// "send no tools at all", and in its json-tool mode — which it uses for every
-// Claude model it doesn't recognise, i.e. all the current ones — it ignores
-// the caller's toolChoice entirely, so the final-step guard below never
-// reached the model (observed: 14/14 steps ending on a lookup tool). Pinning
-// that mode makes the answer a forced call to the provider's own `json` tool,
-// which `activeTools: []` on the final step leaves as the only tool to call.
-// That mode forces a tool call on every step, which the API rejects alongside
-// extended thinking — don't enable Anthropic `thinking` for these loops.
+// Anthropic json-tool mode ignores toolChoice, so the final step empties activeTools instead. No `thinking`.
 export function toolLoopProviderOptions(model: AIModel) {
   if (getProviderFromModel(model) !== "anthropic") return {};
   return {
@@ -18,6 +9,44 @@ export function toolLoopProviderOptions(model: AIModel) {
       anthropic: { structuredOutputMode: "jsonTool" as const },
     },
   };
+}
+
+// Page-lookup tools: only their arguments name an element the user could click.
+const PAGE_LOOKUP_TOOLS: ReadonlySet<string> = new Set([
+  "findElements",
+  "describeContainer",
+  "getInnerHTML",
+  "getComputedStyles",
+]);
+
+// What the page lookups were asked for, so the error names the element to click.
+export function lookupTerms(
+  trace: ReadonlyArray<{ tool: string; input: string }>,
+  max = 3,
+): string {
+  const terms: string[] = [];
+  for (const { tool, input } of trace) {
+    if (!PAGE_LOOKUP_TOOLS.has(tool)) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(input);
+    } catch {
+      continue;
+    }
+    if (!parsed || typeof parsed !== "object") continue;
+    const { query, selector } = parsed as {
+      query?: unknown;
+      selector?: unknown;
+    };
+    const term = [query, selector].find(
+      (v): v is string => typeof v === "string" && v.trim().length > 0,
+    );
+    if (term && !terms.includes(term.trim())) terms.push(term.trim());
+  }
+  const shown = terms.slice(0, max).map((t) => `“${t}”`);
+  if (shown.length === 0) return "";
+  if (shown.length === 1) return shown[0];
+  return `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
 }
 
 export const FINAL_TOOL_CALL_NOTICE =
@@ -30,10 +59,7 @@ export interface PrepareToolStepInput {
   messages: ModelMessage[];
 }
 
-// prepareStep policy for a loop capped at `remainingSteps`: warn one step
-// before the cap so the model spends its last lookup well, then take the
-// tools away on the final step so the run ends in the structured output
-// instead of on a dangling tool call (NoOutputGeneratedError).
+// Warn one step before the cap, then take the tools away so the run ends in the structured output.
 export function prepareToolStep({
   model,
   stepNumber,

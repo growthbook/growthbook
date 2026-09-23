@@ -50,14 +50,9 @@ import {
 } from "back-end/src/api/visual-editor-ai/editOutput";
 import { renderPageOutline } from "back-end/src/api/visual-editor-ai/pageStructure";
 
-// Output-token caps for the edit generation, main and retry alike. A `css`
-// rewrite re-emits the whole stylesheet and a multi-part request stacks
-// mutations on top, so the 8000 parsePrompt default truncates mid-JSON.
-// 16000 is safe on every current model (only very old self-hosted ones cap
-// lower); models with a documented ceiling get the extended cap instead.
-// 32000 rather than the ceiling: this call isn't streamed, and an output
-// that size already takes minutes.
+// A `css` rewrite plus a multi-part edit truncates at parsePrompt's 8000 default.
 const EDIT_MAX_OUTPUT_TOKENS = 16000;
+// Only for models with a documented ceiling; not higher, since the call isn't streamed.
 const EDIT_EXTENDED_MAX_OUTPUT_TOKENS = 32000;
 
 const elementContextSchema = z.object({
@@ -74,15 +69,11 @@ const elementContextSchema = z.object({
 
 // One container in the page's structural snapshot (sections, layout
 // wrappers, ancestors of catalog headings), captured client-side with a
-// durable selector precomputed per node. Rendered into the prompt as a
-// compact outline when the extension sent document order (see
-// renderPageOutline); the full set backs the server-side `findElements` and
-// `describeContainer` tools, which run over this in-request data and so work
-// on Cloud with no client round-trip.
+// durable selector precomputed per node. Backs the page outline and the
+// server-side `findElements` / `describeContainer` tools.
 const structureNodeSchema = z.object({
   selector: z.string(),
-  // Durable selector of the nearest significant ancestor — lets the model
-  // build a sibling move (parentSelector + insertBefore) from one lookup.
+  // The direct parent element — the destination of a sibling move.
   parentSelector: z.string().optional(),
   tag: z.string(),
   id: z.string().optional(),
@@ -90,13 +81,10 @@ const structureNodeSchema = z.object({
   role: z.string().optional(),
   // Short trimmed text label for matching by visible content.
   label: z.string().optional(),
-  // Newer extensions: document order, and the nearest visible siblings read
-  // from the live DOM — the insert-before targets a move needs.
+  // Newer extensions only; the siblings are the nearest visible ones.
   docOrder: z.number().int().nonnegative().optional(),
   prevSiblingSelector: z.string().optional(),
   nextSiblingSelector: z.string().optional(),
-  // Computed layout, so the model knows a sibling inserted inside lands on
-  // the same row.
   layout: z.enum(["flex-row", "flex-column", "grid"]).optional(),
 });
 
@@ -118,8 +106,7 @@ const domDigestSchema = z.object({
       }),
     )
     .default([]),
-  // `sectionSelector` (newer extensions) is the enclosing snapshot container,
-  // so "the button in the hero" resolves without a tool call.
+  // `sectionSelector` (newer extensions): the enclosing snapshot container.
   headings: z
     .array(
       z.object({
@@ -130,9 +117,7 @@ const domDigestSchema = z.object({
       }),
     )
     .default([]),
-  // `parentSelector` / `parentLayout` (newer extensions): the direct parent
-  // and whether it lays its children out in a row, so an insert meant to go
-  // below a button row anchors to the row, not the button.
+  // `parentLayout` (newer extensions) lets an insert below a row anchor to the row.
   buttons: z
     .array(
       z.object({
@@ -182,8 +167,7 @@ const domDigestSchema = z.object({
       }),
     )
     .default([]),
-  // On-demand container map for the `findElements` tool — not rendered into
-  // the prompt (formatDigest ignores it).
+  // Rendered as the page outline when it carries document order.
   pageStructure: z.array(structureNodeSchema).max(400).optional(),
   // Flat alternative to the typed arrays above; both may be populated.
   elements: z
@@ -237,11 +221,7 @@ const bodySchema = z
     streamingMode: z.boolean().optional(),
     // Save the result rather than returning it for the caller to persist.
     persist: z.boolean().optional(),
-    // Images attached to the prompt. Bytes rather than a URL so the back-end
-    // never fetches on the caller's behalf; the extension downscales to
-    // ≤1024px first. `url` is the same image on the asset bucket, for when
-    // the request is to place it on the page. The model infers which use
-    // the prompt intends.
+    // Bytes so the back-end never fetches; `url` is the hosted copy for placing it.
     attachments: z
       .array(
         z.object({
@@ -262,10 +242,7 @@ const bodySchema = z
       )
       .max(2)
       .optional(),
-    // Stateless tool loop, round 2+. The extension re-sends the original
-    // request with the envelope it was handed (signed transcript + steps
-    // spent) and the results of the DOM-tool calls that were pending. Only
-    // honoured with the `x-gb-tool-loop: stateless` header.
+    // Stateless tool loop, round 2+: the signed envelope plus the pending DOM-tool results.
     resume: z
       .object({
         envelope: toolLoopEnvelopeSchema,
@@ -454,7 +431,7 @@ Position-move rules (critical):
 - Reordering nav / menu / list items — do NOT use a position move on the inner link or text. These items are almost always wrapped (\`<li><a href="…">…</a></li>\`), and the catalog lists the INNER element (e.g. \`[href="#deals"]\`), which is NOT a direct child of the list container — moving it, or naming it as insertBeforeSelector, rips the link out of its \`<li>\` and breaks the nav (this is a common failure). Instead, reorder with a CSS \`order\` rule in \`cssAppend\`: global CSS is NOT restricted to catalog selectors, so you can target the wrapper with \`:has()\`, and \`order\` works on flex/grid containers (navs usually are one) without restructuring the DOM. Example — put "Flight Deals" before "Destinations":
     cssAppend: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
 - Real position moves are well-suited to relocating a block-level element into a different container (e.g. moving a <section> to before another <section> under <main>) and to reordering siblings that are themselves direct children of the parent. They're a poor fit for reordering items wrapped in <li>/<div> (nav menus, lists) — prefer the CSS \`order\` approach above for those.
-- Reordering a SET of sibling items — pricing plans, feature cards, columns, steps: one \`findElements\` on an item's title gives its \`selector\` and \`parentSelector\`; one \`describeContainer\` on that parentSelector lists every sibling in page order. That is all the lookup this needs — the shared parent is parentSelector for every move, and each sibling's selector is a valid insertBeforeSelector. Emit the new order as position moves that each insert an item before the one that should follow it (Starter, Pro, Enterprise → Enterprise, Pro, Starter: move Enterprise before Starter, then move Pro before Starter), or, when the parent is flex-row / grid, as one \`order\` rule per item in \`cssAppend\`. Don't re-describe each item or verify what a tool already told you.
+- Reordering a SET of sibling items — pricing plans, feature cards, columns, steps: one \`findElements\` on an item's title gives its \`selector\` and \`parentSelector\`; one \`describeContainer\` on that parentSelector lists every sibling in page order. That is all the lookup this needs — the shared parent is parentSelector for every move, and each sibling's selector is a valid insertBeforeSelector. Emit the new order as position moves that each insert an item before the one that should follow it (Starter, Pro, Enterprise → Enterprise, Pro, Starter: move Enterprise before Starter, then move Pro before Starter), or, when the parent is flex-row / grid, as one \`order\` rule per item in \`cssAppend\`. Don't re-describe each item or verify what a tool already told you. If the shared parent is NOT a captured container (findElements says \`parentCaptured: false\`, or describeContainer only knows it by selector), don't hunt for it and never guess a selector from a class name: emit one \`order\` rule per ITEM in \`cssAppend\` — card rows are almost always flex or grid — or list the reorder in \`skipped\` and ask the user to click one of the items. \`order\` only moves the flex/grid items themselves, the direct children of the shared row, so target the item and not something inside it: a findElements match with \`parentCaptured: false\` is usually an inner wrapper and the item is its \`parentSelector\`; in describeContainer's \`descendants\`, the items are the nearest entries with \`captured: false\`. A rule on a wrapper inside the item does nothing.
 - The source selector and parentSelector must NOT match the same element — that's a no-op or, worse, a self-cycle.
 - The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT element, a sibling. To move an element UP, insertBeforeSelector is the sibling currently ABOVE it; to move it above section Y, insertBeforeSelector is Y's selector. Get them from \`describeContainer\` (its prevSiblingSelector / nextSiblingSelector) or \`findElements\`. If you can't identify the destination sibling, don't guess — leave the move out and list it in \`skipped\`, asking the user to click the element it should go before.
 - For every move you propose, set value to null. Do not put position data in value.
@@ -577,8 +554,7 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
     for (const it of items) lines.push(`- ${it}`);
   };
   const inSection = (s?: string) => (s ? ` (in \`${s}\`)` : "");
-  // Section plus the direct parent and its layout, for entries an insert
-  // might anchor to.
+  // Section plus the direct parent and its layout.
   const where = (e: {
     sectionSelector?: string;
     parentSelector?: string;
@@ -600,8 +576,6 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
       (s) => `\`${s.selector}\` <${s.tag}>${s.note ? ` — ${s.note}` : ""}`,
     ),
   );
-  // Only newer extensions send document order; without it the outline
-  // would show siblings in capture order and mislead a move.
   const outline = digest.pageStructure
     ? renderPageOutline(digest.pageStructure)
     : "";
@@ -733,9 +707,7 @@ const buildPrompt = ({
   attachments?: Array<{ url?: string; mimeType: string; name?: string }>;
   retryHint?: string;
 }): string => {
-  // The image bytes are content parts on this same message (see
-  // constructMessages); this block names them and tells the model how to
-  // decide between looking at an image and placing it.
+  // The bytes ride as image parts on this message; this block names them.
   const attachmentsBlock =
     attachments && attachments.length > 0
       ? `\nAttached images (${attachments.length}, included above in this message):\n${attachments
@@ -810,8 +782,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     resume,
   } = req.body;
 
-  // Carried inside domDigest; rendered as an outline in the prompt and backs
-  // the server-side findElements / describeContainer tools.
   const pageStructure = domDigest?.pageStructure;
 
   const context = req.context;
@@ -907,12 +877,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   const aiSettings = await getAISettingsForOrg(context, true);
   const { visualEditorAIModel, visualEditorAIContext } = aiSettings;
 
-  // Attached images go to the model as vision input, which needs a model
-  // that accepts them; fall back per the org's keys when the configured one
-  // doesn't, and stop with a clear error when none of the org's keys can
-  // (a Mistral-only install) rather than send image parts to a model that
-  // rejects or ignores them. The hosted URLs ride in the prompt text for
-  // placement.
+  // Attachments need a vision model; fail clearly when the org's keys offer none.
   const images = attachments?.map((a) => ({
     data: a.data,
     mimeType: a.mimeType,
@@ -1015,8 +980,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     explanation: string;
   }> => {
     let result = raw;
-    // One self-correct retry covers both uncatalogued selectors and
-    // malformed moves; the hints are concatenated so a single call fixes both.
+    // One self-correct retry covers both uncatalogued selectors and bad moves.
     const hints: string[] = [];
     if (domDigest && trustedSelectors.size > 0 && result.mutations.length > 0) {
       const misses = result.mutations
@@ -1053,9 +1017,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     let droppedUnsafeHtml = false;
     const droppedMoves: Array<{ selector: string; problem: string }> = [];
     const droppedUnknown: Array<{ selector: string; missing: string[] }> = [];
-    // The retry's output is the last word, so its selectors get the same
-    // check the first attempt did: an uncatalogued one applies to nothing on
-    // the page while the explanation reads as done.
+    // The retry's selectors get the same check: an uncatalogued one silently no-ops.
     const canJudgeSelectors = !!domDigest && trustedSelectors.size > 0;
     const sanitizedMutations = result.mutations.filter((m) => {
       const attr = m.attribute === "text" ? "html" : m.attribute;
@@ -1162,8 +1124,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       explanation +=
         " (This change adds elements with custom JavaScript that doesn't check whether they already exist, so they may duplicate when the page re-renders. If you see duplicates, ask me to make it idempotent.)";
     }
-    // A move dropped here would otherwise vanish while the explanation still
-    // claims it happened.
     explanation = appendSkipped(explanation, [
       ...(result.skipped ?? []),
       ...droppedMoves.map((d) => ({
@@ -1213,10 +1173,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
             : {}),
         };
       }),
-      // Merged server-side (see mergeGlobalCss); undefined means no change,
-      // which also covers the model re-emitting the unchanged stylesheet.
-      // `finalJs` keeps the same truthiness guard: clearing JS via the AI is
-      // unsupported, so ""/null is a no-op rather than a wipe.
+      // Clearing CSS or JS through the AI is unsupported, so empty means no change.
       ...(css !== undefined ? { css } : {}),
       ...(finalJs ? { js: finalJs } : {}),
       ...(insertDescriptors.length > 0 ? { insert: insertDescriptors } : {}),
@@ -1224,16 +1181,8 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     };
   };
 
-  // ---- Run the LLM. Three shapes:
-  //   stateless (`x-gb-tool-loop: stateless`): DOM-side tools are declared
-  //     without execute(), so a call to one ends the run; the pending calls
-  //     go back to the extension with a signed transcript and the next POST
-  //     carries the same request plus `resume`. No instance holds anything,
-  //     so this works on Cloud.
-  //   streaming (self-hosted): the in-memory job race, resumed via
-  //     /edit/resume — which only works when the resume hits the SAME
-  //     process, hence never on Cloud.
-  //   plain: single shot, server-side tools only.
+  // Three shapes: stateless (signed transcript, works on Cloud), streaming
+  // (in-memory job, self-hosted only), and plain (server-side tools only).
   const streamingMode = !!req.body.streamingMode;
   const stateless = req.headers["x-gb-tool-loop"] === "stateless";
   if (resume && !stateless) {
@@ -1324,12 +1273,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     },
   };
 
-  // Save (when asked) and shape the response — the tail every path shares.
+  // The tail every path shares.
   const completeTurn = async (raw: z.infer<typeof outputSchema>) => {
     const finalized = await finalizeOutput(raw);
     if (persist) {
-      // Non-null: the handler fails fast above on a variationId not in the changeset.
-      const change = currentChange as NonNullable<typeof currentChange>;
+      const change = currentChange;
       await updateVisualChange({
         context,
         changesetId: visualChangesetId,
@@ -1374,7 +1322,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
           "The AI edit transcript failed verification. Start the prompt again.",
         );
       }
-      // Verified above, so the shape is whatever the SDK gave us last round.
+      // Signed by us last round, so it is the SDK's own shape.
       const transcript = resume.envelope.transcript as ModelMessage[];
       const answered = toolResultsMessage(
         pendingToolCalls(transcript),
@@ -1386,9 +1334,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
       }
       stepsAlreadyUsed = resume.envelope.stepsUsed;
-      // The per-turn image budget and the images already made live in the
-      // transcript, not in this process — carry them over so a resume can't
-      // buy three more.
+      // Re-seed the image budget from the transcript so a resume can't buy three more.
       const priorImages = generatedImagesIn(transcript);
       imageState.count = priorImages.length;
       imageState.generated.push(...priorImages);
