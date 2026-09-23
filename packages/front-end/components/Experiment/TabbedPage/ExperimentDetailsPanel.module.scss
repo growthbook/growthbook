@@ -1,0 +1,18 @@
+// A section's edit button stays out of the way until the section is pointed
+// at, or reached by keyboard.
+.edit {
+  opacity: 0;
+  transition: opacity 250ms ease;
+}
+
+.revealsEdit:hover .edit,
+.revealsEdit:focus-within .edit {
+  opacity: 1;
+}
+
+// Nothing to hover on a touch screen, so the button simply shows.
+@media (hover: none) {
+  .edit {
+    opacity: 1;
+  }
+}

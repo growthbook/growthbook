@@ -22,6 +22,7 @@ import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionFiel
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import Tooltip from "@/ui/Tooltip";
+import styles from "./ExperimentDetailsPanel.module.scss";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -65,20 +66,22 @@ export default function ExperimentDetailsPanel({
 
   const pencil = (label: string, onClick: () => void) =>
     canEdit ? (
-      <Tooltip content={editsBlocked ?? label}>
-        <IconButton
-          size="1"
-          variant="ghost"
-          color="violet"
-          radius="medium"
-          disabled={!!editsBlocked}
-          aria-label={label}
-          style={{ margin: 0 }}
-          onClick={onClick}
-        >
-          <PiPencilSimple size={14} />
-        </IconButton>
-      </Tooltip>
+      <span className={styles.edit}>
+        <Tooltip content={editsBlocked ?? label}>
+          <IconButton
+            size="1"
+            variant="ghost"
+            color="violet"
+            radius="medium"
+            disabled={!!editsBlocked}
+            aria-label={label}
+            style={{ margin: 0 }}
+            onClick={onClick}
+          >
+            <PiPencilSimple size={14} />
+          </IconButton>
+        </Tooltip>
+      </span>
     ) : null;
   const isHoldout = experiment.type === "holdout";
   const { canEdit } = useExperimentEditing(experiment, disableEditing);
@@ -137,15 +140,17 @@ export default function ExperimentDetailsPanel({
               }
             />
             {!isHoldout && (
-              <DescriptionField
-                stacked
-                experiment={experiment}
-                mutate={mutate}
-                editable={false}
-                labelAction={pencil("Edit description", () =>
-                  editSection("description"),
-                )}
-              />
+              <Box className={styles.revealsEdit}>
+                <DescriptionField
+                  stacked
+                  experiment={experiment}
+                  mutate={mutate}
+                  editable={false}
+                  labelAction={pencil("Edit description", () =>
+                    editSection("description"),
+                  )}
+                />
+              </Box>
             )}
             <Separator size="4" />
             <PanelSection
@@ -231,7 +236,7 @@ function PanelSection({
   children: ReactNode;
 }) {
   return (
-    <Flex direction="column" gap="4">
+    <Flex direction="column" gap="4" className={styles.revealsEdit}>
       <Flex align="center" justify="between" gap="2">
         <Text
           size="sm"

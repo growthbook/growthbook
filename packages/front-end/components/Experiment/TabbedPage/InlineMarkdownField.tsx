@@ -16,7 +16,7 @@ export interface Props {
   label: string;
   /** The saved value. */
   value: string;
-  placeholder: string;
+  placeholder?: string;
   /** Show the editor rather than the rendered markdown. */
   editable: boolean;
   onSave: (next: string) => Promise<void>;

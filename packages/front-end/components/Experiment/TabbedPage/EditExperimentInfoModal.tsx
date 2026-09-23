@@ -19,7 +19,6 @@ import {
   filterCustomFieldsForSectionAndProject,
   reconcileCustomFieldValues,
 } from "@/services/customFields";
-import { getExperimentDescriptionPlaceholder } from "@/components/Experiment/TabbedPage/DescriptionField";
 
 export type FocusSelector = "project" | "tags" | "name" | "projects";
 
@@ -168,9 +167,6 @@ export default function EditExperimentInfoModal({
             onChange={(description) =>
               form.setValue("description", description)
             }
-            placeholder={getExperimentDescriptionPlaceholder(
-              experiment.type ?? "standard",
-            )}
             height="md"
             autoGrow
           />
