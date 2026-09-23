@@ -161,10 +161,18 @@ export default class ClickHouse extends SqlIntegration {
       // the only place Managed Warehouse failure rate/detail is visible in prod logs.
       if (isManagedWarehouse(this.datasource)) {
         const code = e instanceof ClickHouseError ? e.code : "unknown";
-        logger.error(e, `Managed Warehouse query failed (code ${code})`);
-        metrics
-          .getCounter("clickhouse.managed_warehouse_errors")
-          .increment({ code });
+        try {
+          logger.error(e, `Managed Warehouse query failed (code ${code})`);
+          metrics
+            .getCounter("clickhouse.managed_warehouse_errors")
+            .increment({ code });
+        } catch (telemetryError) {
+          // Don't let a metrics/logging failure replace the query error below.
+          logger.warn(
+            telemetryError,
+            "Failed to record Managed Warehouse query failure telemetry",
+          );
+        }
 
         if (code === CLICKHOUSE_MEMORY_LIMIT_EXCEEDED_CODE) {
           throw new ManagedWarehouseOutOfMemoryError();
