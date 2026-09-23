@@ -15,6 +15,7 @@ import {
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
+  rampTargetMatchesRule,
   stemRuleId,
   isScheduledRule,
 } from "shared/util";
@@ -80,8 +81,13 @@ import {
 } from "back-end/src/services/configValidation";
 import {
   appendRampEvent,
+  applyRampBaseStateSync,
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
+  planRampBaseStateSyncForPublish,
+  RampBaseStatePreImage,
+  RampBaseStateRefusal,
+  restoreRampBaseStates,
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
@@ -3042,8 +3048,8 @@ async function createRampSchedulesForRevision(
 
     const existingTarget =
       action.mode === "update"
-        ? existingSchedule?.targets.find(
-            (t) => stemRuleId(t.ruleId ?? "") === stemRuleId(action.ruleId),
+        ? existingSchedule?.targets.find((t) =>
+            rampTargetMatchesRule(t, action.ruleId),
           )
         : null;
     if (action.mode === "update" && !existingTarget) {
@@ -3553,11 +3559,8 @@ async function applyDetachRampActions(
         action.rampScheduleId,
       );
       if (existing) {
-        // Stem-match so a bare `fr_abc` detach action matches a suffixed
-        // `fr_abc__production` target (and vice versa).
-        const actionStem = stemRuleId(action.ruleId);
         const remainingTargets = existing.targets.filter(
-          (t) => stemRuleId(t.ruleId ?? "") !== actionStem,
+          (t) => !rampTargetMatchesRule(t, action.ruleId),
         );
         if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
           // Stop the linked SafeRollout before deletion so it doesn't continue
@@ -3890,7 +3893,8 @@ export async function collectPublishRevisionBlockers({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
-  skipValueSchemaNet,
+  rampEnginePublish,
+  rampBaseStateRefusals = [],
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3899,7 +3903,9 @@ export async function collectPublishRevisionBlockers({
   comment?: string;
   bypassLockdown?: boolean;
   skipPrevalidateValidation?: boolean;
-  skipValueSchemaNet?: boolean;
+  rampEnginePublish?: boolean;
+  // From planRampBaseStateSyncForPublish: edits a live ramp does not accept.
+  rampBaseStateRefusals?: RampBaseStateRefusal[];
 }): Promise<Error[]> {
   // Errors, not messages: SoftWarningError (422 + warnings) and BadRequestError
   // (400) reach the caller as themselves rather than a generic 500.
@@ -3930,6 +3936,10 @@ export async function collectPublishRevisionBlockers({
     });
   }
 
+  blockers.push(
+    ...rampBaseStateRefusals.map((r) => new BadRequestError(r.message)),
+  );
+
   await probe(() =>
     prevalidatePublishRevision({
       context,
@@ -3938,7 +3948,7 @@ export async function collectPublishRevisionBlockers({
       result,
       comment,
       skipValidation: skipPrevalidateValidation,
-      skipValueSchemaNet,
+      skipValueSchemaNet: rampEnginePublish,
     }),
   );
 
@@ -4011,7 +4021,7 @@ export async function publishRevision({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
-  skipValueSchemaNet,
+  rampEnginePublish,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -4023,9 +4033,9 @@ export async function publishRevision({
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
   // Set by the ramp engine: a step value is judged by type only and never
-  // refused, so rollbacks can re-apply the rule's own earlier values. The
-  // config-backed net below is unchanged; it has always run on ramp publishes.
-  skipValueSchemaNet?: boolean;
+  // refused, so rollbacks can re-apply the rule's own earlier values, and the
+  // engine's own replays are not reconciled with the ramp's base state.
+  rampEnginePublish?: boolean;
 }) {
   // One deduped SDK refresh per landing (feature applies are multi-step: ramp
   // schedules, the feature document, holdout linkage), flushed on success and
@@ -4039,7 +4049,7 @@ export async function publishRevision({
       comment,
       bypassLockdown,
       skipPrevalidateValidation,
-      skipValueSchemaNet,
+      rampEnginePublish,
     }),
   );
 }
@@ -4052,7 +4062,7 @@ async function publishRevisionInner({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
-  skipValueSchemaNet,
+  rampEnginePublish,
 }: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
@@ -4064,6 +4074,12 @@ async function publishRevisionInner({
   // publish authority; one that is entirely inert metadata is draft-class and
   // skips the gate (the semantic the features matrix pins for drafters
   // editing descriptions).
+  // A direct edit to a rule under a live ramp: refused while it runs or for a
+  // field the plan sets, otherwise carried into the ramp's base state below.
+  const rampBaseState = rampEnginePublish
+    ? { refusals: [], updates: [] }
+    : await planRampBaseStateSyncForPublish(context, feature, result);
+
   if (mergeResultTouchesPayload(result)) {
     await assertCanPublishFeatureRevision({
       context,
@@ -4081,6 +4097,7 @@ async function publishRevisionInner({
         ),
         // The draft's ramp actions reach environments no rule diff mentions.
         rampActions: revision.rampActions,
+        anchoredUpdates: rampBaseState.updates,
       }),
       mergeChanges: result,
     });
@@ -4096,7 +4113,8 @@ async function publishRevisionInner({
     comment,
     bypassLockdown,
     skipPrevalidateValidation,
-    skipValueSchemaNet,
+    rampEnginePublish,
+    rampBaseStateRefusals: rampBaseState.refusals,
   });
   if (blockers.length === 1) {
     throw blockers[0];
@@ -4162,6 +4180,22 @@ async function publishRevisionInner({
         result,
         createActions,
         preCreatedScheduleIds,
+      );
+    }
+
+    // Also before the feature write, so a failed anchor write gates the publish
+    // rather than leaving a live edit the next step would replay away.
+    if (rampBaseState.updates.length) {
+      const rampBaseStatePreImages: RampBaseStatePreImage[] = [];
+      rewinds.push({
+        what: "ramp base states",
+        undo: () => restoreRampBaseStates(context, rampBaseStatePreImages),
+      });
+      await applyRampBaseStateSync(
+        context,
+        rampBaseState.updates,
+        revision.version,
+        rampBaseStatePreImages,
       );
     }
 
