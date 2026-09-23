@@ -39,7 +39,6 @@ const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 // instead of retrying.
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
-// A concurrent request can stage a different update while a job is working.
 // Only the exact update a job processed may be cleared or marked failed; the
 // same action re-staged by someone else runs on their authority, not ours.
 type StagedUpdate = { type: string; date: Date; scheduledBy?: string };
@@ -134,9 +133,8 @@ export const updateSingleExperimentStatus = async (
   try {
     logger.info("Start updating status for experiment " + experiment.id);
 
-    // Like a scheduled feature publish, the change runs on the authority of
-    // whoever staged it, re-checked now: a user who lost run permission since,
-    // or never had it, does not get it from the scheduler.
+    // As with a scheduled publish, the change runs as whoever staged it, checked
+    // now: no run permission means the job does not lend it.
     const scheduler = await getScheduledStatusContext(context, experiment);
     if (!scheduler) {
       throw new Error("scheduling user could not be resolved");
@@ -288,9 +286,8 @@ export const updateSingleExperimentStatus = async (
       );
     }
 
-    // A replacement staged meanwhile is not this attempt's outcome: leave it
-    // alone and report nothing for the stale one. A failed reload keeps the
-    // snapshot so the attempt still counts toward the cap.
+    // A replacement staged meanwhile is not this attempt's outcome; a failed
+    // reload keeps the snapshot so the attempt still counts toward the cap.
     const latest =
       (await getExperimentById(context, experiment.id).catch(() => null)) ??
       experiment;
