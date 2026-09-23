@@ -5,8 +5,12 @@
   transition: opacity 250ms ease;
 }
 
+// A block edited as a whole reveals its button anywhere inside it; a field's
+// button answers only its own row.
 .revealsEdit:hover .edit,
-.revealsEdit:focus-within .edit {
+.revealsEdit:focus-within .edit,
+:global([data-reveals-action]):hover .edit,
+:global([data-reveals-action]):focus-within .edit {
   opacity: 1;
 }
 

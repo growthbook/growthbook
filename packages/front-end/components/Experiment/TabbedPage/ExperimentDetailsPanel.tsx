@@ -134,17 +134,15 @@ export default function ExperimentDetailsPanel({
               }
             />
             {!isHoldout && (
-              <Box className={revealsQuickEdit}>
-                <DescriptionField
-                  stacked
-                  experiment={experiment}
-                  mutate={mutate}
-                  editable={false}
-                  labelAction={pencil("Edit description", () =>
-                    editSection("description"),
-                  )}
-                />
-              </Box>
+              <DescriptionField
+                stacked
+                experiment={experiment}
+                mutate={mutate}
+                editable={false}
+                labelAction={pencil("Edit description", () =>
+                  editSection("description"),
+                )}
+              />
             )}
             <Separator size="4" />
             <PanelSection
@@ -242,7 +240,11 @@ function PanelSection({
   children: ReactNode;
 }) {
   return (
-    <Flex direction="column" gap="4" className={revealsQuickEdit}>
+    <Flex
+      direction="column"
+      gap="4"
+      className={action ? revealsQuickEdit : undefined}
+    >
       <Flex align="center" justify="between" gap="2">
         <Text
           size="sm"

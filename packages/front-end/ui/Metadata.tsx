@@ -25,6 +25,8 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
         gap="1"
         align="start"
         style={style}
+        // Where a row's action lives, hovering the row is what reveals it.
+        data-reveals-action={action ? "" : undefined}
         {...props}
         ref={ref}
       >
