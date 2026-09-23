@@ -1,33 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiArrowClockwise } from "react-icons/pi";
 import { FactMetricInterface } from "shared/types/fact-table";
-import {
-  ExplorationConfig,
-  draftExplorationMetricValidator,
-} from "shared/validators";
+import { ExplorationConfig } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
-import { isFactFunnelMetric } from "shared/experiments";
 import { ago, datetime } from "shared/dates";
-import {
-  deriveFunnelUnit,
-  funnelSettingsToFunnelDataset,
-} from "shared/funnels";
 import {
   DefinitionsContext,
   useDefinitions,
 } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Text from "@/ui/Text";
-import { draftMetricNeedsPopulation } from "@/components/FactTables/MetricEditor/draftMetricPreview";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import { Select, SelectItem } from "@/ui/Select";
+import {
+  getMetricPreviewConfig,
+  getMetricPreviewDateRange,
+  getMetricPreviewUnits,
+} from "@/components/FactTables/MetricEditor/metricPreview";
 import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 
-// Match the default dashboard stale interval.
-const PREVIEW_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+const EMPTY_CONFIG: ExplorationConfig = {
+  ...DEFAULT_EXPLORE_STATE,
+  type: "metric",
+  dataset: { type: "metric", values: [] },
+};
 
-function PerformanceChart() {
+function PerformanceChart({ config }: { config: ExplorationConfig | null }) {
   const {
     exploration,
     submittedExploreState,
@@ -37,123 +37,75 @@ function PerformanceChart() {
     isSubmittable,
     managedWarehouseUnavailable,
     handleSubmit,
+    setDraftExploreState,
+    isStale,
+    needsFetch,
   } = useExplorerContext();
-  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (config) setDraftExploreState(config);
+  }, [config, setDraftExploreState]);
   const lastQueried =
     exploration?.status === "success"
       ? (exploration.runStarted ?? exploration.dateCreated)
       : null;
-  useEffect(() => {
-    if (!lastQueried) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(timer);
-  }, [lastQueried]);
-  const isStale =
-    lastQueried !== null &&
-    now - new Date(lastQueried).getTime() >= PREVIEW_STALE_AFTER_MS;
-
-  if (managedWarehouseUnavailable) {
+  const outdated = !!exploration && (!config || isStale || needsFetch);
+  if (managedWarehouseUnavailable)
     return (
       <Text color="text-mid">
         Metric performance will be available when the warehouse is ready.
       </Text>
     );
-  }
-  if (!loading && !isSubmittable) {
-    return (
-      <Text color="text-mid">
-        Open this metric in Explorer to complete its required query settings.
-      </Text>
-    );
-  }
-  const timeSeries =
-    draftExploreState.chartType === "bar" &&
-    draftExploreState.dimensions.some(
-      (dimension) => dimension.dimensionType === "date",
-    );
   return (
-    <Flex direction="column" gap="2" minHeight="0">
-      {lastQueried && (
-        <Flex
-          align="center"
-          gap="2"
-          pb="3"
-          mb="2"
-          style={{ borderBottom: "1px solid var(--gray-a6)" }}
-        >
-          <Text size="sm" color={isStale ? undefined : "text-low"}>
-            <span
-              title={datetime(lastQueried)}
-              style={isStale ? { color: "var(--amber-9)" } : undefined}
-            >
-              {isStale
-                ? `Last queried: ${datetime(lastQueried)}`
-                : `Updated ${ago(lastQueried)}`}
-            </span>
-          </Text>
-          {!isStale && (
-            <Button
-              size="sm"
-              variant="ghost"
-              color="gray"
-              aria-label="Refresh preview"
-              title="Refresh preview"
-              disabled={loading || !isSubmittable}
-              onClick={() => handleSubmit({ force: true })}
-            >
-              <PiArrowClockwise size={14} />
-            </Button>
-          )}
-        </Flex>
-      )}
+    <Flex direction="column" gap="3" minHeight="0">
       <Text size="sm" color="text-mid">
-        Last 7 days
+        Last 7 complete days (UTC)
       </Text>
-      <ExplorerChart
-        compact
-        exploration={exploration}
-        submittedExploreState={submittedExploreState ?? draftExploreState}
-        loading={loading}
-        error={error}
-      />
-      {timeSeries && (
-        <Text size="sm" color="text-mid">
-          Daily metric values (UTC). Today is partial.
+      {outdated && (
+        <Callout status="warning" size="sm">
+          Your latest changes are not applied to this graph.{" "}
+          {config
+            ? "Run query to update it."
+            : "Complete the metric definition and filters, then run the query."}
+        </Callout>
+      )}
+      {lastQueried && (
+        <Text size="sm" color="text-low">
+          <span title={datetime(lastQueried)}>Updated {ago(lastQueried)}</span>
         </Text>
       )}
-      {(isStale || !lastQueried || error) && (
-        <Flex
-          direction="column"
-          gap="2"
-          mt="2"
-          pt="3"
-          style={{ borderTop: "1px solid var(--gray-a6)" }}
-        >
-          {isStale && (
-            <Text size="sm" color="text-mid">
-              Newer data may be available. Refresh to update.
-            </Text>
-          )}
-          <Button
-            size="sm"
-            disabled={loading || !isSubmittable}
-            onClick={() => handleSubmit({ force: true })}
-            icon={<PiArrowClockwise />}
-          >
-            {error || exploration?.status === "error" ? "Retry" : "Refresh"}
-          </Button>
-        </Flex>
+      {exploration || loading ? (
+        <ExplorerChart
+          compact
+          exploration={exploration}
+          submittedExploreState={submittedExploreState ?? draftExploreState}
+          loading={loading}
+          error={error}
+        />
+      ) : (
+        <Text color="text-mid">
+          {config
+            ? "Run the query to preview this metric."
+            : "Complete the metric definition and all filters to preview it."}
+        </Text>
       )}
+      {error && !exploration && <Callout status="error">{error}</Callout>}
+      <Button
+        disabled={!config || loading || !isSubmittable}
+        onClick={() => handleSubmit()}
+      >
+        Run query
+      </Button>
     </Flex>
   );
 }
 
 export default function MetricPerformance({
   metric,
+  datasourceId,
   draft = false,
 }: {
-  metric: FactMetricInterface;
+  metric: FactMetricInterface | null;
+  datasourceId: string;
   draft?: boolean;
 }) {
   const definitions = useDefinitions();
@@ -162,86 +114,92 @@ export default function MetricPerformance({
     () => ({
       ...definitions,
       getFactMetricById: (id: string) =>
-        draft && id === metric.id ? metric : definitions.getFactMetricById(id),
+        draft && metric && id === metric.id
+          ? metric
+          : definitions.getFactMetricById(id),
     }),
     [definitions, draft, metric],
   );
+  const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
+  const [selectedDenominatorUnit, setSelectedDenominatorUnit] = useState<
+    string | null
+  >(null);
+  const units = getMetricPreviewUnits(metric, getFactTableById);
+  const unit =
+    selectedUnit && units.numerator.includes(selectedUnit)
+      ? selectedUnit
+      : (units.numerator[0] ?? null);
+  const denominatorUnit =
+    selectedDenominatorUnit &&
+    units.denominator.includes(selectedDenominatorUnit)
+      ? selectedDenominatorUnit
+      : (units.denominator[0] ?? null);
+  const dateRange = useMemo(() => getMetricPreviewDateRange(), []);
+  const config = useMemo(
+    () =>
+      metric
+        ? getMetricPreviewConfig(metric, {
+            draft,
+            unit,
+            denominatorUnit,
+            dateRange,
+          })
+        : null,
+    [metric, draft, unit, denominatorUnit, dateRange],
+  );
   const permissions = usePermissionsUtil();
-  const datasource = getDatasourceById(metric.datasource);
-  if (!datasource || !permissions.canRunMetricQueries(datasource)) {
+  const datasource = getDatasourceById(datasourceId);
+  if (!datasource)
+    return (
+      <Text color="text-mid">Select a fact table to preview this metric.</Text>
+    );
+  if (!permissions.canRunMetricQueries(datasource))
     return (
       <Text color="text-mid">
         You don’t have permission to load this metric’s performance.
       </Text>
     );
-  }
-  if (draft && draftMetricNeedsPopulation(metric.metricType)) {
-    return (
-      <Text color="text-mid">
-        Calculating this rate requires an eligible user population. A source
-        activity count would not represent this metric.
-      </Text>
-    );
-  }
-  const funnel = isFactFunnelMetric(metric);
-  const config: ExplorationConfig = funnel
-    ? {
-        ...DEFAULT_EXPLORE_STATE,
-        dateRange: {
-          ...DEFAULT_EXPLORE_STATE.dateRange,
-          predefined: "last7Days",
-          lookbackValue: 7,
-        },
-        type: "funnel",
-        datasource: metric.datasource,
-        dimensions: [],
-        chartType: "bar",
-        dataset: funnelSettingsToFunnelDataset(
-          metric.funnelSettings,
-          deriveFunnelUnit({
-            steps: metric.funnelSettings.steps,
-            getFactTable: (id) => getFactTableById(id) ?? undefined,
-          }),
-        ),
-      }
-    : {
-        ...DEFAULT_EXPLORE_STATE,
-        dateRange: {
-          ...DEFAULT_EXPLORE_STATE.dateRange,
-          predefined: "last7Days",
-          lookbackValue: 7,
-        },
-        type: "metric",
-        datasource: metric.datasource,
-        dimensions: DEFAULT_EXPLORE_STATE.dimensions,
-        chartType: "bar",
-        showAs: "per_unit",
-        dataset: {
-          type: "metric",
-          values: [
-            {
-              type: "metric",
-              metricId: metric.id,
-              ...(draft
-                ? {
-                    draftMetric: draftExplorationMetricValidator
-                      .strip()
-                      .parse(metric),
-                  }
-                : {}),
-              name: metric.name,
-              rowFilters: [],
-              unit: null,
-              denominatorUnit: null,
-            },
-          ],
-        },
-      };
   return (
     <DefinitionsContext.Provider value={previewDefinitions}>
-      <ExplorerProvider initialConfig={config} trackingSource="metric-preview">
-        <PerformanceChart />
-      </ExplorerProvider>
+      <Flex direction="column" gap="3">
+        {units.numerator.length > 1 && (
+          <Select
+            label={
+              metric?.metricType === "ratio"
+                ? "Numerator identifier"
+                : "Identifier"
+            }
+            value={unit ?? ""}
+            setValue={setSelectedUnit}
+          >
+            {units.numerator.map((id) => (
+              <SelectItem key={id} value={id}>
+                {id}
+              </SelectItem>
+            ))}
+          </Select>
+        )}
+        {units.denominator.length > 1 && (
+          <Select
+            label="Denominator identifier"
+            value={denominatorUnit ?? ""}
+            setValue={setSelectedDenominatorUnit}
+          >
+            {units.denominator.map((id) => (
+              <SelectItem key={id} value={id}>
+                {id}
+              </SelectItem>
+            ))}
+          </Select>
+        )}
+        <ExplorerProvider
+          initialConfig={config ?? EMPTY_CONFIG}
+          queryEnabled={config !== null}
+          trackingSource="metric-preview"
+        >
+          <PerformanceChart config={config} />
+        </ExplorerProvider>
+      </Flex>
     </DefinitionsContext.Provider>
   );
 }
