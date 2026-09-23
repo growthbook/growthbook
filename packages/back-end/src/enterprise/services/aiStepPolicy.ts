@@ -9,6 +9,8 @@ import { type AIModel, getProviderFromModel } from "shared/ai";
 // reached the model (observed: 14/14 steps ending on a lookup tool). Pinning
 // that mode makes the answer a forced call to the provider's own `json` tool,
 // which `activeTools: []` on the final step leaves as the only tool to call.
+// That mode forces a tool call on every step, which the API rejects alongside
+// extended thinking — don't enable Anthropic `thinking` for these loops.
 export function toolLoopProviderOptions(model: AIModel) {
   if (getProviderFromModel(model) !== "anthropic") return {};
   return {
