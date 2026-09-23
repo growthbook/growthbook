@@ -186,6 +186,7 @@ import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDepe
 import { assertPendingScheduleAcknowledged } from "back-end/src/revisions/pendingScheduleGuard";
 import {
   assertCanRevertArchived,
+  assertRevertHasChanges,
   assertRevertLandingGuards,
   assertRevertValuesReadable,
 } from "back-end/src/services/revertGuards";
@@ -3041,12 +3042,8 @@ export async function postFeatureRevert(
     mergeChanges.holdout = targetHoldout;
   }
 
-  // No diff against live — refuse before creating an empty "Locked" revision.
-  if (Object.keys(mergeChanges).length === 0) {
-    throw new Error(
-      `Nothing to revert: the live feature already matches revision #${revision.version}.`,
-    );
-  }
+  // Before createRevision, so an empty revert leaves no "Locked" revision.
+  await assertRevertHasChanges(context, feature, mergeChanges, revision);
 
   // Before createRevision, so a blocked attempt leaves no orphaned draft.
   assertRevertValuesReadable(context, feature, mergeChanges);
@@ -3080,7 +3077,7 @@ export async function postFeatureRevert(
     context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
     !!org.settings?.revertsBypassApproval;
 
-  await assertRevertLandingGuards(context, feature, mergeChanges);
+  await assertRevertLandingGuards(context, feature, mergeChanges, revision);
   const newRevision = await createRevision({
     context,
     feature,

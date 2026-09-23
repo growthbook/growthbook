@@ -18,6 +18,7 @@ import {
   RampScheduleTemplateInterface,
   RampStep,
   RampStepAction,
+  RevisionRampDetachAction,
   SafeRolloutInterface,
   isAwaitingStartApproval,
   startApprovalPending,
@@ -33,6 +34,7 @@ import {
   RAMP_PATCH_RULE_FIELDS,
   rampPlanControlledFields,
   rampTargetFootprint,
+  detachedRampTargets,
   rampTargetRuleIds,
   stemRuleId,
   stringifyFeatureValue,
@@ -904,7 +906,7 @@ export type RampBaseStateUpdate = {
   patches: RampStartActionPatch[];
 };
 export type RampBaseStateRefusal = {
-  kind: "ramp-running" | "ramp-controlled-field";
+  kind: "ramp-running" | "ramp-controlled-field" | "ramp-shared-base-state";
   scheduleId: string;
   message: string;
 };
@@ -967,6 +969,14 @@ export function planRampBaseStateSync({
         { ruleId: target.ruleId, environment: target.environment ?? null },
         liveRules,
       );
+      const forTarget = (a: RampStartAction) => a.targetId === target.id;
+      const anchorFor = (ruleId: string) =>
+        startActions.find((a) => forTarget(a) && a.patch.ruleId === ruleId) ??
+        startActions.find(
+          (a) =>
+            forTarget(a) && stemRuleId(a.patch.ruleId) === stemRuleId(ruleId),
+        );
+      const refusedAnchors = new Set<RampStartAction>();
       for (const liveRule of live) {
         const next = nextRules.find((r) => r.id === liveRule.id);
         if (!next) continue;
@@ -1000,23 +1010,43 @@ export function planRampBaseStateSync({
           });
           continue;
         }
-        const forTarget = (a: RampStartAction) => a.targetId === target.id;
-        const anchor =
-          startActions.find(
-            (a) => forTarget(a) && a.patch.ruleId === liveRule.id,
-          ) ??
-          startActions.find(
-            (a) =>
-              forTarget(a) &&
-              stemRuleId(a.patch.ruleId) === stemRuleId(liveRule.id),
-          );
-        if (!anchor) continue;
+        const anchor = anchorFor(liveRule.id);
+        if (!anchor || refusedAnchors.has(anchor)) continue;
+        // A legacy all-environment target replays one anchor onto every
+        // migrated sibling, so it can only carry a value they all end up with.
+        const edit = ruleFieldsAsStartPatch(next, changed);
+        const diverging = live.filter(
+          (r) =>
+            r.id !== liveRule.id &&
+            anchorFor(r.id) === anchor &&
+            !isEqual(
+              ruleFieldsAsStartPatch(
+                nextRules.find((n) => n.id === r.id) ?? r,
+                changed,
+              ),
+              edit,
+            ),
+        );
+        if (diverging.length) {
+          refusedAnchors.add(anchor);
+          const others = diverging.map((r) => `"${r.id}"`).join(", ");
+          const rules = `${diverging.length === 1 ? "Rule" : "Rules"} ${others}`;
+          refusals.push({
+            kind: "ramp-shared-base-state",
+            scheduleId: schedule.id,
+            message: apiRequest
+              ? `Rule "${liveRule.id}" shares one base state with ${rules} in the legacy ramp schedule "${schedule.name}" (${schedule.id}), so this change would also apply there. ` +
+                `Remove the ramp from the rule (DELETE /api/v2/features/${featureId}/revisions/{version}/rules/${liveRule.id}/ramp-schedule), publish the change, then attach a new ramp schedule.`
+              : `Rule "${liveRule.id}" shares its ramp-up with ${rules}, so this change would also apply there. Remove the ramp-up, publish the change, then add a new ramp-up.`,
+          });
+          continue;
+        }
         const key = `${anchor.targetId}:${anchor.patch.ruleId}`;
         const prior = patches.get(key)?.patch ?? {};
         patches.set(key, {
           targetId: anchor.targetId,
           ruleId: anchor.patch.ruleId,
-          patch: { ...prior, ...ruleFieldsAsStartPatch(next, changed) },
+          patch: { ...prior, ...edit },
         });
       }
     }
@@ -1069,8 +1099,15 @@ export async function planRampBaseStateSyncForPublish(
   ctx: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   result: MergeResultChanges,
-  // Bulk reads through a scan context; the wording follows the caller.
-  apiRequest = ctx.isApiRequest,
+  {
+    // Bulk reads through a scan context; the wording follows the caller.
+    apiRequest = ctx.isApiRequest,
+    // Targets this publish detaches: the ramp is leaving the rule, so its edit
+    // is neither refused nor anchored. Not while a stepped schedule runs — the
+    // detach lands after the save and can lose the lock to a firing step, so
+    // "pause first" still applies there.
+    detaching = [],
+  }: { apiRequest?: boolean; detaching?: RevisionRampDetachAction[] } = {},
 ): Promise<RampBaseStateSyncPlan> {
   if (!result.rules) return { refusals: [], updates: [] };
   const schedules = await ctx.models.rampSchedules.findAnchoredByTargetFeature(
@@ -1078,7 +1115,18 @@ export async function planRampBaseStateSyncForPublish(
   );
   return planRampBaseStateSync({
     featureId: feature.id,
-    schedules,
+    schedules: schedules.map((schedule) => {
+      if (schedule.status === "running" && schedule.steps.length > 0) {
+        return schedule;
+      }
+      const detached = detachedRampTargets(schedule, detaching);
+      return detached.length
+        ? {
+            ...schedule,
+            targets: schedule.targets.filter((t) => !detached.includes(t)),
+          }
+        : schedule;
+    }),
     liveRules: feature.rules ?? [],
     nextRules: result.rules,
     apiRequest,

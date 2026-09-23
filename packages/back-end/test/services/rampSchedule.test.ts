@@ -59,6 +59,7 @@ import {
   normalizeRampActionsForceValues,
   normalizeRampPlanForceValues,
   planRampBaseStateSync,
+  planRampBaseStateSyncForPublish,
   applyRampBaseStateSync,
   restoreRampBaseStates,
   rampStartValuesOf,
@@ -5585,6 +5586,87 @@ describe("planRampBaseStateSync", () => {
     );
   });
 
+  describe("a legacy all-environment target over migrated siblings", () => {
+    const sibling = (env: string, over: Record<string, unknown> = {}) =>
+      rule({
+        id: `r1__${env}`,
+        allEnvironments: false,
+        environments: [env],
+        ...over,
+      });
+    const live = [sibling("dev"), sibling("production")];
+    const legacy = schedule({
+      targets: [
+        {
+          id: "t1",
+          entityType: "feature",
+          entityId: "f1",
+          ruleId: "r1",
+          environment: null,
+          status: "active",
+        },
+      ],
+    });
+    const planSiblings = (next: FeatureRule[], apiRequest = true) =>
+      planRampBaseStateSync({
+        featureId: "f1",
+        schedules: [legacy],
+        liveRules: live,
+        nextRules: next,
+        apiRequest,
+      });
+
+    it.each([
+      [
+        "edited differently",
+        [
+          sibling("dev", { condition: '{"a":1}' }),
+          sibling("production", { condition: '{"b":2}' }),
+        ],
+      ],
+      [
+        "edited in one environment only",
+        [sibling("dev", { condition: '{"a":1}' }), sibling("production")],
+      ],
+    ])(
+      "refuses siblings %s, since their one anchor replays onto both",
+      (_, next) => {
+        const { refusals, updates } = planSiblings(next);
+        expect(updates).toEqual([]);
+        expect(refusals).toHaveLength(1);
+        expect(refusals[0]).toMatchObject({
+          kind: "ramp-shared-base-state",
+          scheduleId: "rs_1",
+        });
+        expect(refusals[0].message).toMatch(
+          /DELETE \/api\/v2\/features\/f1\/revisions\/\{version\}\/rules\/r1__dev\/ramp-schedule/,
+        );
+        expect(planSiblings(next, false).refusals[0].message).toBe(
+          'Rule "r1__dev" shares its ramp-up with Rule "r1__production", so this change would also apply there. Remove the ramp-up, publish the change, then add a new ramp-up.',
+        );
+      },
+    );
+
+    it("syncs an edit every sibling agrees on into their shared anchor", () => {
+      expect(
+        planSiblings([
+          sibling("dev", { condition: '{"a":1}' }),
+          sibling("production", { condition: '{"a":1}' }),
+        ]),
+      ).toEqual({
+        refusals: [],
+        updates: [
+          {
+            schedule: legacy,
+            patches: [
+              { targetId: "t1", ruleId: "r1", patch: { condition: '{"a":1}' } },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
   it("refuses any change while a stepped schedule runs; a step-less one just syncs", () => {
     const running = schedule({ status: "running" });
     const { refusals, updates } = plan(
@@ -5632,6 +5714,41 @@ describe("planRampBaseStateSync", () => {
         rule({ hashVersion: 1, savedGroups: [], condition: "" }),
       ),
     ).toEqual(untouched);
+  });
+
+  it("leaves out targets the publish detaches, except under a running stepped schedule", async () => {
+    const plan = (s: RampScheduleInterface, detaching = false) =>
+      planRampBaseStateSyncForPublish(
+        {
+          isApiRequest: true,
+          models: {
+            rampSchedules: {
+              findAnchoredByTargetFeature: jest.fn().mockResolvedValue([s]),
+            },
+          },
+        } as never,
+        { id: "f1", rules: [rule()] } as never,
+        // Coverage is set by the plan's step, so it is refused either way.
+        { rules: [rule({ coverage: 1 })] },
+        detaching
+          ? {
+              detaching: [
+                {
+                  mode: "detach",
+                  rampScheduleId: "rs_1",
+                  ruleId: "r1",
+                  deleteScheduleWhenEmpty: true,
+                },
+              ],
+            }
+          : {},
+      );
+    const paused = schedule();
+    expect((await plan(paused)).refusals).toHaveLength(1);
+    expect(await plan(paused, true)).toEqual(untouched);
+    // The detach lands after the save; a firing step could win the lock.
+    const running = await plan(schedule({ status: "running" }), true);
+    expect(running.refusals.map((r) => r.kind)).toEqual(["ramp-running"]);
   });
 });
 
