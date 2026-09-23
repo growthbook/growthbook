@@ -170,7 +170,7 @@ describe("assertExposureQueryDeclaresIdentifierType", () => {
     expect(() =>
       assertExposureQueryDeclaresIdentifierType(multi, "device_id"),
     ).toThrow(
-      'Identifier type "device_id" is no longer declared by assignment query "Multi"',
+      'Assignment query "Multi" no longer declares the "device_id" identifier type. Choose an assignment query that declares it',
     );
   });
 

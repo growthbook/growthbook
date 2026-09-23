@@ -223,7 +223,7 @@ export function assertExposureQueryDeclaresIdentifierType(
   if (!identifierType) return;
   if (!getExposureQueryIdentifierTypes(query).includes(identifierType)) {
     throw new Error(
-      `Identifier type "${identifierType}" is no longer declared by assignment query "${query.name || query.id}". Choose a supported identifier before running analysis.`,
+      `Assignment query "${query.name || query.id}" no longer declares the "${identifierType}" identifier type. Choose an assignment query that declares it, or a different identifier type, before running analysis.`,
     );
   }
 }
