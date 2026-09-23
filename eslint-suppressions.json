@@ -2140,5 +2140,10 @@
     "no-loss-of-precision": {
       "count": 1
     }
+  },
+  "scripts/restore-lowertailcapping-dates.js": {
+    "no-undef": {
+      "count": 6
+    }
   }
 }
