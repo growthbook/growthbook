@@ -3,7 +3,7 @@ import {
   toFactMetricFormValues,
 } from "@/services/metrics";
 import {
-  draftMetricNeedsPopulation,
+  getMetricPreviewUnavailableReason,
   getDraftMetricPreview,
 } from "./draftMetricPreview";
 
@@ -77,12 +77,94 @@ describe("getDraftMetricPreview", () => {
   });
 });
 
-it("requires a population for rates but permits standalone value and funnel previews", () => {
-  expect(draftMetricNeedsPopulation("proportion")).toBe(true);
-  expect(draftMetricNeedsPopulation("retention")).toBe(true);
-  expect(draftMetricNeedsPopulation("dailyParticipation")).toBe(true);
-  expect(draftMetricNeedsPopulation("mean")).toBe(false);
-  expect(draftMetricNeedsPopulation("ratio")).toBe(false);
-  expect(draftMetricNeedsPopulation("quantile")).toBe(false);
-  expect(draftMetricNeedsPopulation("funnel")).toBe(false);
+it("allows unit-count previews but disables Active Days and population-dependent rates", () => {
+  expect(
+    getMetricPreviewUnavailableReason({
+      metricType: "proportion",
+      numerator: null,
+    }),
+  ).toBeNull();
+  expect(
+    getMetricPreviewUnavailableReason({
+      metricType: "retention",
+      numerator: null,
+    }),
+  ).not.toBeNull();
+  expect(
+    getMetricPreviewUnavailableReason({
+      metricType: "dailyParticipation",
+      numerator: null,
+    }),
+  ).not.toBeNull();
+  expect(
+    getMetricPreviewUnavailableReason({
+      metricType: "mean",
+      numerator: { factTableId: "ft_1", column: "$$distinctDates" },
+    }),
+  ).toContain("Active Days");
+  expect(
+    getMetricPreviewUnavailableReason({
+      metricType: "mean",
+      numerator: { factTableId: "ft_1", column: "$$count" },
+    }),
+  ).toBeNull();
+});
+
+it.each([
+  { column: "", operator: "=" as const, values: ["US"] },
+  { column: "country", operator: "=" as const, values: [] },
+  { column: "country", operator: "=" as const, values: [""] },
+])(
+  "blocks incomplete numerator, denominator, and funnel filters: %j",
+  (filter) => {
+    const values = draft();
+    const numerator = { ...values.numerator, rowFilters: [filter] };
+    expect(
+      getDraftMetricPreview({ ...values, metricType: "mean", numerator }),
+    ).toBeNull();
+    expect(
+      getDraftMetricPreview({
+        ...values,
+        metricType: "ratio",
+        denominator: numerator,
+      }),
+    ).toBeNull();
+    const step = {
+      name: "Step",
+      factTableId: "ft_1",
+      rowFilters: [filter],
+      optional: false,
+      conversionWindow: null,
+    };
+    expect(
+      getDraftMetricPreview({
+        ...values,
+        metricType: "funnel",
+        funnelSettings: { steps: [step, step] },
+      }),
+    ).toBeNull();
+  },
+);
+
+it("allows valueless operators and blocks an unfinished aggregate threshold", () => {
+  const values = draft();
+  expect(
+    getDraftMetricPreview({
+      ...values,
+      numerator: {
+        ...values.numerator,
+        rowFilters: [{ column: "country", operator: "not_null", values: [] }],
+      },
+    }),
+  ).not.toBeNull();
+  expect(
+    getDraftMetricPreview({
+      ...values,
+      numerator: {
+        ...values.numerator,
+        aggregateFilterColumn: "$$count",
+        aggregateFilter: "",
+      },
+    }),
+  ).toBeNull();
 });
