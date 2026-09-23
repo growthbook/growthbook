@@ -7,6 +7,8 @@
 .sqlPreview {
   pre {
     padding-left: var(--space-5) !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   pre,
@@ -85,4 +87,9 @@
   min-width: 0;
   overflow: auto;
   scrollbar-gutter: stable;
+}
+
+.sqlPanel {
+  height: calc(100dvh - var(--metric-preview-top, 72px) - 16px);
+  max-height: calc(100dvh - var(--metric-preview-top, 72px) - 16px);
 }

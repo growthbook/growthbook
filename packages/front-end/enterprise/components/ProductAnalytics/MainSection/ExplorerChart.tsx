@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import * as echarts from "echarts/core";
+import { factMetricValidator } from "shared/validators";
 import type {
   ComparisonMode,
   ExplorationConfig,
@@ -57,6 +58,7 @@ import {
   getChartThemeColors,
   cssColorToHex,
 } from "@/enterprise/components/ProductAnalytics/chart-theme";
+import { getMetricPreviewSummary } from "@/components/FactTables/MetricEditor/metricPreview";
 import FunnelChart from "./FunnelChart";
 
 const CHART_ID = "explorer-chart";
@@ -155,7 +157,28 @@ export default function ExplorerChart({
   const { textColor, tooltipBackgroundColor, gridLineColor } =
     getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
-  const { getFactMetricById } = useDefinitions();
+  const definitions = useDefinitions();
+  // Keep stale results tied to the submitted definition, not the current draft.
+  const getFactMetricById = useCallback(
+    (id: string) => {
+      const value =
+        submittedExploreState.dataset.type === "metric"
+          ? submittedExploreState.dataset.values.find(
+              (value) => value.metricId === id,
+            )
+          : null;
+      return value?.draftMetric
+        ? factMetricValidator.parse({
+            ...value.draftMetric,
+            id,
+            organization: "",
+            dateCreated: new Date(0),
+            dateUpdated: new Date(0),
+          })
+        : definitions.getFactMetricById(id);
+    },
+    [submittedExploreState.dataset, definitions],
+  );
 
   // ECharts only auto-resizes on window resize, not when its parent container
   // changes (e.g. a dashboard block being resized via react-grid-layout or the
@@ -253,16 +276,10 @@ export default function ExplorerChart({
     serverBigNumberTrends,
   ]);
 
-  const todayCell = exploration?.result?.rows.find(
-    (row) =>
-      row.dimensions[0]?.slice(0, 10) === new Date().toISOString().slice(0, 10),
-  )?.values?.[0];
-  const todayValue = todayCell
-    ? getEffectiveMetricValue(todayCell, {
-        showAs: renderOpts.showAs,
-        isRatio: renderOpts.isRatioByIndex[0] ?? false,
-      })
-    : null;
+  const previewSummary =
+    previewMetric && exploration
+      ? getMetricPreviewSummary(exploration.result.rows, previewMetric)
+      : null;
 
   const bigNumberCards = useMemo(() => {
     if (
@@ -1089,21 +1106,38 @@ export default function ExplorerChart({
             <Box pb="4">
               {previewMetric?.metricType === "proportion" && (
                 <Text as="div" size="sm" weight="medium">
-                  Active users
+                  Daily unit counts
                 </Text>
               )}
               <div
                 style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}
               >
-                {todayValue === null ? "—" : formatNumber(todayValue)}
+                {previewSummary?.value === null || !previewSummary
+                  ? "—"
+                  : formatNumber(previewSummary.value)}
               </div>
               <Text as="div" size="sm" color="text-mid">
-                Today (UTC)
-                {defaultValueAxisName ? ` · ${defaultValueAxisName}` : ""}
+                {previewSummary?.label}
               </Text>
+              {previewSummary?.denominator !== null &&
+                previewSummary?.denominator !== undefined &&
+                previewMetric?.metricType !== "proportion" && (
+                  <Text as="div" size="sm" color="text-mid">
+                    {previewMetric?.metricType === "ratio"
+                      ? "Numerator / denominator"
+                      : "Total / unit-days"}
+                    : {formatNumber(previewSummary.numerator)} /{" "}
+                    {formatNumber(previewSummary.denominator)} ={" "}
+                    {previewSummary.quotient === null
+                      ? "—"
+                      : formatNumber(previewSummary.quotient)}
+                  </Text>
+                )}
               {previewMetric?.metricType === "proportion" && (
                 <Text as="div" size="sm" color="text-mid">
-                  Users matching the metric’s conditions.
+                  Units matching the metric’s conditions each day, not an
+                  experiment conversion rate. A unit may appear on multiple
+                  days.
                 </Text>
               )}
             </Box>
