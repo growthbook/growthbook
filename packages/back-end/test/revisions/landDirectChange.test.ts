@@ -1,34 +1,35 @@
-jest.mock("back-end/src/revisions/landingSequence", () => ({
-  assertLandingBaseline: jest.fn(),
+import { Mock, vi } from "vitest";
+vi.mock("back-end/src/revisions/landingSequence", () => ({
+  assertLandingBaseline: vi.fn(),
   // The POST-write half of the order. Distinct from the pre-check above: this one
   // catches a newer revision that claimed the merge after that check, whose claim
   // never touches the entity and so slips past the entity guard.
-  assertLandingStillOwned: jest.fn(),
+  assertLandingStillOwned: vi.fn(),
   // The shared restore primitive landDirectChange delegates to; its own
   // root-first ordering + partial-state flag are pinned in
   // compensateFailedLanding.test.ts. Here we assert landDirectChange builds the
   // right root and removes history only when it returns true.
-  restoreLandingWrites: jest.fn(),
+  restoreLandingWrites: vi.fn(),
   // The post-failure ownership baseline; a null would make compensation refuse
   // to guess, so tests that exercise the restore path get a persisted-doc
   // stand-in by default.
-  capturePostFailureSnapshot: jest.fn(async () => ({ id: "ent_1" })),
+  capturePostFailureSnapshot: vi.fn(async () => ({ id: "ent_1" })),
   // Passthrough: these tests assert the landing's ordering, not the refresh
   // batching — that behavior is covered where the buffer is implemented.
-  withBufferedPayloadRefreshes: jest.fn((_ctx, _event, fn) => fn()),
+  withBufferedPayloadRefreshes: vi.fn((_ctx, _event, fn) => fn()),
   // A stand-in class: landDirectChange discriminates CAS losses with
   // instanceof against the class it imports from THIS module, so any class
   // exported here is the identity that check sees.
   LandingConflictError: class LandingConflictError extends Error {},
 }));
-jest.mock("back-end/src/revisions/revisionActions", () => ({
+vi.mock("back-end/src/revisions/revisionActions", () => ({
   // The self-gate landDirectChange runs before recording anything; these tests
   // pin the landing's ORDERING, and authority has its own suites (the matrix +
   // engine-gate pins).
-  assertCanPublishRevision: jest.fn(),
+  assertCanPublishRevision: vi.fn(),
 }));
-jest.mock("back-end/src/revisions", () => ({
-  getAdapter: () => ({ applyChanges: jest.fn() }),
+vi.mock("back-end/src/revisions", () => ({
+  getAdapter: () => ({ applyChanges: vi.fn() }),
 }));
 
 import {
@@ -42,11 +43,11 @@ import { assertCanPublishRevision as assertCanPublishRevisionImpl } from "back-e
 import { Context } from "back-end/src/models/BaseModel";
 import { ConflictError } from "back-end/src/util/errors";
 
-const assertCanPublishRevision = assertCanPublishRevisionImpl as jest.Mock;
+const assertCanPublishRevision = assertCanPublishRevisionImpl as Mock;
 
-const assertLandingBaseline = assertLandingBaselineImpl as jest.Mock;
-const restoreLandingWrites = restoreLandingWritesImpl as jest.Mock;
-const assertLandingStillOwned = assertLandingStillOwnedImpl as jest.Mock;
+const assertLandingBaseline = assertLandingBaselineImpl as Mock;
+const restoreLandingWrites = restoreLandingWritesImpl as Mock;
+const assertLandingStillOwned = assertLandingStillOwnedImpl as Mock;
 
 /**
  * The order a direct landing writes in, which is the whole of its safety:
@@ -68,9 +69,9 @@ const entity = {
 };
 
 function makeContext() {
-  const createMerged = jest.fn().mockResolvedValue({ id: "rev_mine" });
-  const dangerousDeleteByIdBypassPermission = jest.fn().mockResolvedValue({});
-  const deleteById = jest.fn().mockResolvedValue({});
+  const createMerged = vi.fn().mockResolvedValue({ id: "rev_mine" });
+  const dangerousDeleteByIdBypassPermission = vi.fn().mockResolvedValue({});
+  const deleteById = vi.fn().mockResolvedValue({});
   return {
     calls: [] as string[],
     context: {
@@ -179,7 +180,7 @@ describe("landDirectChange", () => {
 
   it("records nothing when the baseline check refuses up front", async () => {
     const h = makeContext();
-    const write = jest.fn();
+    const write = vi.fn();
     assertLandingBaseline.mockRejectedValueOnce(
       new ConflictError("entity moved"),
     );
@@ -201,7 +202,7 @@ describe("landDirectChange", () => {
 
   it("removes its history when superseded between recording and writing", async () => {
     const h = makeContext();
-    const write = jest.fn();
+    const write = vi.fn();
     assertLandingBaseline
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new ConflictError("superseded"));
@@ -548,7 +549,7 @@ describe("landDirectChange", () => {
         patchOps: [],
         bypass: true,
         changes: { value: "after" },
-        write: jest.fn(),
+        write: vi.fn(),
       }),
     ).rejects.toBeInstanceOf(ConflictError);
 

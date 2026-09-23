@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { HoldoutInterface } from "shared/validators";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { ReqContext } from "back-end/types/request";
@@ -18,25 +19,25 @@ import {
   notifyHoldoutStatusChanged,
 } from "back-end/src/services/holdoutNotifications";
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  createExperiment: jest.fn(),
-  updateExperiment: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  createExperiment: vi.fn(),
+  updateExperiment: vi.fn(),
 }));
-jest.mock("back-end/src/services/experiments", () => ({
-  getChangesToStartExperiment: jest.fn(),
-  validateExperimentData: jest.fn(),
-  validateVariationIds: jest.fn(),
+vi.mock("back-end/src/services/experiments", () => ({
+  getChangesToStartExperiment: vi.fn(),
+  validateExperimentData: vi.fn(),
+  validateVariationIds: vi.fn(),
 }));
-jest.mock("back-end/src/services/holdoutNotifications", () => ({
-  notifyHoldoutCreated: jest.fn(),
-  notifyHoldoutStatusChanged: jest.fn(),
+vi.mock("back-end/src/services/holdoutNotifications", () => ({
+  notifyHoldoutCreated: vi.fn(),
+  notifyHoldoutStatusChanged: vi.fn(),
 }));
-jest.mock("back-end/src/services/features", () => ({
-  queueSDKPayloadRefresh: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: vi.fn(),
 }));
 
-const createHoldout = jest.fn();
-const updateHoldout = jest.fn();
+const createHoldout = vi.fn();
+const updateHoldout = vi.fn();
 const context = {
   org: { id: "org", settings: {} },
   models: { holdout: { create: createHoldout, update: updateHoldout } },
@@ -52,20 +53,20 @@ const experiment = {
   phases: [{ dateStarted: new Date() }],
 } as unknown as ExperimentInterface;
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest
-    .mocked(updateExperiment)
-    .mockImplementation(async ({ experiment, changes }) => ({
+  vi.clearAllMocks();
+  vi.mocked(updateExperiment).mockImplementation(
+    async ({ experiment, changes }) => ({
       ...experiment,
       ...changes,
-    }));
+    }),
+  );
   updateHoldout.mockImplementation(async (holdout, changes) => ({
     ...holdout,
     ...changes,
   }));
-  jest
-    .mocked(getChangesToStartExperiment)
-    .mockResolvedValue({ status: "running" });
+  vi.mocked(getChangesToStartExperiment).mockResolvedValue({
+    status: "running",
+  });
 });
 
 it.each([
@@ -95,7 +96,7 @@ it.each([
       expect.objectContaining({ previousStatus, currentStatus }),
     );
     expect(
-      jest.mocked(notifyHoldoutStatusChanged).mock.invocationCallOrder[0],
+      vi.mocked(notifyHoldoutStatusChanged).mock.invocationCallOrder[0],
     ).toBeGreaterThan(updateHoldout.mock.invocationCallOrder[0]);
   },
 );
@@ -119,9 +120,9 @@ it("does not announce a failed experiment write or a repeated stage", async () =
     experiment: { ...experiment, status: "running" },
     stage: "running",
   });
-  jest
-    .mocked(updateExperiment)
-    .mockRejectedValueOnce(new Error("Experiment write failed"));
+  vi.mocked(updateExperiment).mockRejectedValueOnce(
+    new Error("Experiment write failed"),
+  );
   await expect(
     setHoldoutStage(context, {
       holdout,
@@ -134,12 +135,14 @@ it("does not announce a failed experiment write or a repeated stage", async () =
 
 describe("holdout creation notifications", () => {
   beforeEach(() => {
-    jest
-      .mocked(validateExperimentData)
-      .mockResolvedValue({ metricIds: [], datasource: null });
-    jest
-      .mocked(createExperiment)
-      .mockResolvedValue({ ...experiment, name: "New holdout" });
+    vi.mocked(validateExperimentData).mockResolvedValue({
+      metricIds: [],
+      datasource: null,
+    });
+    vi.mocked(createExperiment).mockResolvedValue({
+      ...experiment,
+      name: "New holdout",
+    });
     createHoldout.mockResolvedValue({ ...holdout, name: "New holdout" });
   });
 
@@ -152,10 +155,10 @@ describe("holdout creation notifications", () => {
       holdout: result.holdout,
     });
     expect(createHoldout.mock.invocationCallOrder[0]).toBeGreaterThan(
-      jest.mocked(createExperiment).mock.invocationCallOrder[0],
+      vi.mocked(createExperiment).mock.invocationCallOrder[0],
     );
     expect(
-      jest.mocked(notifyHoldoutCreated).mock.invocationCallOrder[0],
+      vi.mocked(notifyHoldoutCreated).mock.invocationCallOrder[0],
     ).toBeGreaterThan(createHoldout.mock.invocationCallOrder[0]);
   });
 
@@ -168,9 +171,9 @@ describe("holdout creation notifications", () => {
   });
 
   it("does not announce creation if saving the experiment fails", async () => {
-    jest
-      .mocked(createExperiment)
-      .mockRejectedValueOnce(new Error("Experiment save failed"));
+    vi.mocked(createExperiment).mockRejectedValueOnce(
+      new Error("Experiment save failed"),
+    );
     await expect(
       createHoldoutWithExperiment(context, { name: "New holdout" }),
     ).rejects.toThrow("Experiment save failed");

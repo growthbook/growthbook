@@ -1,23 +1,24 @@
+import { vi } from "vitest";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getStoppedGoalMetricResults } from "back-end/src/services/experimentChanges/experimentStoppedResults";
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  getLatestSuccessfulSnapshot: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  getLatestSuccessfulSnapshot: vi.fn(),
 }));
-jest.mock("back-end/src/services/experiments", () => ({
-  getExperimentMetricsByIds: jest.fn().mockResolvedValue([]),
+vi.mock("back-end/src/services/experiments", () => ({
+  getExperimentMetricsByIds: vi.fn().mockResolvedValue([]),
 }));
-jest.mock("back-end/src/services/organizations", () => ({
-  getSignificanceSettingsForProject: jest.fn().mockResolvedValue({
+vi.mock("back-end/src/services/organizations", () => ({
+  getSignificanceSettingsForProject: vi.fn().mockResolvedValue({
     ciUpper: 0.95,
     ciLower: 0.05,
     pValueThreshold: 0.05,
     pValueCorrection: null,
   }),
-  getMetricDefaultsForOrg: jest.fn(),
+  getMetricDefaultsForOrg: vi.fn(),
 }));
 
 const context = { org: { id: "org" } } as Context;
@@ -37,7 +38,7 @@ const metric = (expected: number, ci: [number, number]) => ({
 });
 
 beforeEach(() => {
-  jest.mocked(getLatestSuccessfulSnapshot).mockResolvedValue({
+  vi.mocked(getLatestSuccessfulSnapshot).mockResolvedValue({
     id: "snp",
     settings: { variations: [{ id: "0" }, { id: "b" }, { id: "a" }] },
     analyses: [

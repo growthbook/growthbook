@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import request from "supertest";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
@@ -15,34 +16,34 @@ import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/DimensionModel", () => ({
-  findDimensionById: jest.fn(),
+vi.mock("back-end/src/models/DimensionModel", () => ({
+  findDimensionById: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentById: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  findSnapshotById: jest.fn(),
-  getLatestSuccessfulSnapshot: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  findSnapshotById: vi.fn(),
+  getLatestSuccessfulSnapshot: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/experiments", () => ({
-  createExperimentSnapshot: jest.fn(),
-  createExperimentSnapshotFromPlan: jest.fn(),
-  planExperimentSnapshot: jest.fn(),
+vi.mock("back-end/src/services/experiments", () => ({
+  createExperimentSnapshot: vi.fn(),
+  createExperimentSnapshotFromPlan: vi.fn(),
+  planExperimentSnapshot: vi.fn(),
 }));
 
 describe("snapshots API", () => {
   const { app, setReqContext } = setupApp();
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const org = { id: "org" };

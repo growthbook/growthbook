@@ -1,3 +1,4 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import { ContextualBanditInterface } from "shared/validators";
 import {
   ContextualBanditRefRule,
@@ -24,97 +25,97 @@ import {
 import { publishRevision } from "back-end/src/models/FeatureModel";
 import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
 
-jest.mock("back-end/src/services/features", () => ({
-  generateRuleId: jest.fn(() => "fr_new"),
-  getDraftRevision: jest.fn(),
-  revisionRequiresReview: jest.fn().mockResolvedValue(false),
-  getLiveAndBaseRevisionsForFeature: jest.fn(),
-  queueSDKPayloadRefresh: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  generateRuleId: vi.fn(() => "fr_new"),
+  getDraftRevision: vi.fn(),
+  revisionRequiresReview: vi.fn().mockResolvedValue(false),
+  getLiveAndBaseRevisionsForFeature: vi.fn(),
+  queueSDKPayloadRefresh: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevision: jest.fn(),
-  updateRevision: jest.fn(),
-  getLinkageSyncRevisionSummaries: jest
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: vi.fn(),
+  updateRevision: vi.fn(),
+  getLinkageSyncRevisionSummaries: vi
     .fn()
     .mockResolvedValue({ openDrafts: [], liveRevision: null }),
 }));
 
-jest.mock("back-end/src/util/featureContextualBanditSync", () => ({
-  syncFeatureContextualBanditLinkages: jest.fn(),
+vi.mock("back-end/src/util/featureContextualBanditSync", () => ({
+  syncFeatureContextualBanditLinkages: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  publishRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  publishRevision: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/featureRevisionEvents", () => ({
-  recordRevisionUpdate: jest.fn(),
+vi.mock("back-end/src/services/featureRevisionEvents", () => ({
+  recordRevisionUpdate: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/configValidation", () => ({
-  assertConfigBackedFeatureValuesValid: jest.fn(),
+vi.mock("back-end/src/services/configValidation", () => ({
+  assertConfigBackedFeatureValuesValid: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/experiments", () => ({
-  getRefLinkedFeatureInfo: jest.fn(),
+vi.mock("back-end/src/services/experiments", () => ({
+  getRefLinkedFeatureInfo: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/contextualBanditChanges", () => ({
-  refreshLinkedFeaturePayloads: jest.fn(),
+vi.mock("back-end/src/services/contextualBanditChanges", () => ({
+  refreshLinkedFeaturePayloads: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/contextualBanditSchedule", () => ({
-  computeContextualBanditStageAndSchedule: jest.fn(),
+vi.mock("back-end/src/services/contextualBanditSchedule", () => ({
+  computeContextualBanditStageAndSchedule: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/datasource", () => ({
-  getSourceIntegrationObject: jest.fn(),
+vi.mock("back-end/src/services/datasource", () => ({
+  getSourceIntegrationObject: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner",
   () => ({
-    ContextualBanditResultsQueryRunner: jest.fn(),
+    ContextualBanditResultsQueryRunner: vi.fn(),
   }),
 );
 
-const getDraftRevisionMock = getDraftRevision as jest.MockedFunction<
+const getDraftRevisionMock = getDraftRevision as MockedFunction<
   typeof getDraftRevision
 >;
-const updateRevisionMock = updateRevision as jest.MockedFunction<
+const updateRevisionMock = updateRevision as MockedFunction<
   typeof updateRevision
 >;
-const getRevisionMock = getRevision as jest.MockedFunction<typeof getRevision>;
+const getRevisionMock = getRevision as MockedFunction<typeof getRevision>;
 const getLinkageSyncRevisionSummariesMock =
-  getLinkageSyncRevisionSummaries as jest.Mock;
-const revisionRequiresReviewMock =
-  revisionRequiresReview as jest.MockedFunction<typeof revisionRequiresReview>;
-const publishRevisionMock = publishRevision as jest.MockedFunction<
+  getLinkageSyncRevisionSummaries as Mock;
+const revisionRequiresReviewMock = revisionRequiresReview as MockedFunction<
+  typeof revisionRequiresReview
+>;
+const publishRevisionMock = publishRevision as MockedFunction<
   typeof publishRevision
 >;
 const getLiveAndBaseRevisionsMock =
-  getLiveAndBaseRevisionsForFeature as jest.MockedFunction<
+  getLiveAndBaseRevisionsForFeature as MockedFunction<
     typeof getLiveAndBaseRevisionsForFeature
   >;
 
-const syncLinkagesMock =
-  syncFeatureContextualBanditLinkages as jest.MockedFunction<
-    typeof syncFeatureContextualBanditLinkages
-  >;
+const syncLinkagesMock = syncFeatureContextualBanditLinkages as MockedFunction<
+  typeof syncFeatureContextualBanditLinkages
+>;
 
 // Linkage is derived from the rules by the revision write and the publish, so
 // these services should never reach for the model themselves — a bare mock
 // makes any attempt to do so a failure rather than a silent no-op.
 const cbModel = {
-  applyLinkageDelta: jest.fn(),
-  setLinkageState: jest.fn(),
-  removePendingFeatureDraft: jest.fn(),
-  activatePendingVariationsForFeature: jest.fn(),
+  applyLinkageDelta: vi.fn(),
+  setLinkageState: vi.fn(),
+  removePendingFeatureDraft: vi.fn(),
+  activatePendingVariationsForFeature: vi.fn(),
 };
 
 /** No linkage write may originate here, whichever method it would have used. */
@@ -124,7 +125,7 @@ function expectNoDirectLinkageWrites() {
   expect(cbModel.removePendingFeatureDraft).not.toHaveBeenCalled();
 }
 
-const audit = jest.fn();
+const audit = vi.fn();
 
 function makeContext(): ReqContext {
   return {
@@ -132,16 +133,16 @@ function makeContext(): ReqContext {
     environments: ["production", "staging"],
     auditUser: { type: "dashboard" },
     permissions: {
-      canEditFeatureDrafts: jest.fn().mockReturnValue(true),
-      canPublishFeature: jest.fn().mockReturnValue(true),
-      canBypassFlagApprovalChecks: jest.fn().mockReturnValue(false),
-      throwPermissionError: jest.fn(() => {
+      canEditFeatureDrafts: vi.fn().mockReturnValue(true),
+      canPublishFeature: vi.fn().mockReturnValue(true),
+      canBypassFlagApprovalChecks: vi.fn().mockReturnValue(false),
+      throwPermissionError: vi.fn(() => {
         throw new Error("Permission denied");
       }),
     },
-    hasPremiumFeature: jest.fn().mockReturnValue(false),
+    hasPremiumFeature: vi.fn().mockReturnValue(false),
     models: { contextualBandits: cbModel },
-    logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+    logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
   } as unknown as ReqContext;
 }
 
@@ -230,7 +231,7 @@ function changesFromUpdateRevision(): Partial<FeatureRevisionInterface> {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   getLinkageSyncRevisionSummariesMock.mockResolvedValue({
     openDrafts: [],
     liveRevision: null,

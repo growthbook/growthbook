@@ -1,19 +1,20 @@
+import { vi } from "vitest";
 // Destination authority follows the operation: publishing a draft uses publish;
 // landing a direct revert uses revert.
 
-jest.mock("back-end/src/revisions", () => ({
+vi.mock("back-end/src/revisions", () => ({
   getAdapter: () => ({
     publishFootprint: undefined,
   }),
 }));
-jest.mock("back-end/src/revisions/revisionPublishEnvironments", () => ({
+vi.mock("back-end/src/revisions/revisionPublishEnvironments", () => ({
   resolvePublishFootprint: () => [] as string[],
 }));
-jest.mock("back-end/src/revisions/landAuthority", () => ({
-  assertCanLandRevision: jest.fn(async () => undefined),
+vi.mock("back-end/src/revisions/landAuthority", () => ({
+  assertCanLandRevision: vi.fn(async () => undefined),
 }));
-jest.mock("back-end/src/revisions/revertPurity", () => ({
-  isPureRevertRevision: jest.fn(async () => true),
+vi.mock("back-end/src/revisions/revertPurity", () => ({
+  isPureRevertRevision: vi.fn(async () => true),
 }));
 
 import type { Revision } from "shared/enterprise";
@@ -46,7 +47,7 @@ function contextGranting(grants: string[]): Context {
           grants.includes(action)
         );
       },
-      throwPermissionError: jest.fn(() => {
+      throwPermissionError: vi.fn(() => {
         throw new Error("permission denied");
       }),
     },

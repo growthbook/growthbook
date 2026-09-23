@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import mongoose from "mongoose";
 import { Permissions, roleToPermissionMap } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
@@ -6,14 +7,14 @@ import * as lifecycle from "back-end/src/services/eventForwarder/datasourceLifec
 import * as configInit from "back-end/src/init/config";
 import { ReqContext } from "back-end/types/request";
 
-jest.mock("back-end/src/init/config");
-jest.mock("back-end/src/services/eventForwarder/datasourceLifecycle");
+vi.mock("back-end/src/init/config");
+vi.mock("back-end/src/services/eventForwarder/datasourceLifecycle");
 
-const mockedUsingFileConfig = configInit.usingFileConfig as jest.MockedFunction<
+const mockedUsingFileConfig = configInit.usingFileConfig as MockedFunction<
   typeof configInit.usingFileConfig
 >;
 const syncMock =
-  lifecycle.syncEventForwarderAfterDatasourceDeleted as jest.MockedFunction<
+  lifecycle.syncEventForwarderAfterDatasourceDeleted as MockedFunction<
     typeof lifecycle.syncEventForwarderAfterDatasourceDeleted
   >;
 
@@ -59,7 +60,7 @@ describe("deleteAllDataSourcesForAProject (event forwarder)", () => {
   } as unknown as ReqContext;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedUsingFileConfig.mockReturnValue(false);
     syncMock.mockResolvedValue(undefined);
   });
@@ -68,10 +69,10 @@ describe("deleteAllDataSourcesForAProject (event forwarder)", () => {
     const Model = mongoose.models.DataSource;
     expect(Model).toBeDefined();
 
-    const findSpy = jest
+    const findSpy = vi
       .spyOn(Model, "find")
       .mockResolvedValue([fakeDsDoc("ds_a"), fakeDsDoc("ds_b")] as never);
-    const deleteManySpy = jest
+    const deleteManySpy = vi
       .spyOn(Model, "deleteMany")
       .mockResolvedValue({ deletedCount: 2 } as never);
 

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { omit } from "lodash";
 import { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
@@ -12,19 +13,19 @@ import {
   disconnectTestMongo,
 } from "back-end/test/test-helpers";
 
-jest.mock("back-end/src/services/features", () => ({
-  queueSDKPayloadRefresh: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/audit", () => ({
+vi.mock("back-end/src/services/audit", () => ({
   createModelAuditLogger: () => ({
-    logCreate: jest.fn(),
-    logUpdate: jest.fn(),
-    logDelete: jest.fn(),
+    logCreate: vi.fn(),
+    logUpdate: vi.fn(),
+    logDelete: vi.fn(),
   }),
 }));
 
-const mockedRefresh = jest.mocked(queueSDKPayloadRefresh);
+const mockedRefresh = vi.mocked(queueSDKPayloadRefresh);
 
 const org: OrganizationInterface = {
   id: "org_1",

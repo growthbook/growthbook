@@ -1,8 +1,11 @@
-const experiments = new Map<string, { id: string; holdoutId?: string }>();
+import { vi } from "vitest";
+const experiments = vi.hoisted(
+  () => new Map<string, { id: string; holdoutId?: string }>(),
+);
 const added: { holdoutId: string; ids: string[] }[] = [];
 const removed: { holdoutId: string; ids: string[] }[] = [];
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
+vi.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: async (_ctx: unknown, id: string) =>
     experiments.get(id) ?? null,
   updateExperiment: async ({

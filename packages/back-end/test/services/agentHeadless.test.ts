@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { dispatchInternal } from "back-end/src/agent/dispatcher";
 import {
   assertAIEnabled,
@@ -15,32 +16,32 @@ import {
 } from "back-end/src/enterprise/services/conversation-buffer";
 import { streamingChatCompletion } from "back-end/src/enterprise/services/ai";
 
-jest.mock("back-end/src/agent/dispatcher", () => ({
-  dispatchInternal: jest.fn(),
+vi.mock("back-end/src/agent/dispatcher", () => ({
+  dispatchInternal: vi.fn(),
 }));
-jest.mock("back-end/src/services/organizations", () => ({
-  getAISettingsForOrg: jest
-    .fn()
-    .mockResolvedValue({ defaultAIModel: "gpt-4o" }),
-  getAllowedAIModel: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getAISettingsForOrg: vi.fn().mockResolvedValue({ defaultAIModel: "gpt-4o" }),
+  getAllowedAIModel: vi.fn(),
 }));
-jest.mock("back-end/src/enterprise/services/ai", () => ({
-  streamingChatCompletion: jest.fn(),
+vi.mock("back-end/src/enterprise/services/ai", () => ({
+  streamingChatCompletion: vi.fn(),
 }));
-jest.mock("back-end/src/enterprise/services/ai-access", () => ({
-  assertAIEnabled: jest.fn(),
-  assertAIAccess: jest.fn(),
-  buildSystemPromptForRequest: jest.fn().mockResolvedValue({ system: "test" }),
+vi.mock("back-end/src/enterprise/services/ai-access", () => ({
+  assertAIEnabled: vi.fn(),
+  assertAIAccess: vi.fn(),
+  buildSystemPromptForRequest: vi.fn().mockResolvedValue({ system: "test" }),
 }));
-jest.mock("back-end/src/enterprise/services/conversation-buffer", () => ({
-  ...jest.requireActual("back-end/src/enterprise/services/conversation-buffer"),
-  loadOrInitConversation: jest.fn(),
-  persistConversation: jest.fn().mockResolvedValue(undefined),
+vi.mock("back-end/src/enterprise/services/conversation-buffer", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/enterprise/services/conversation-buffer")
+  >("back-end/src/enterprise/services/conversation-buffer")),
+  loadOrInitConversation: vi.fn(),
+  persistConversation: vi.fn().mockResolvedValue(undefined),
 }));
 
 const context = {
   userId: "user1",
-  models: { aiConversations: { getById: jest.fn().mockResolvedValue(null) } },
+  models: { aiConversations: { getById: vi.fn().mockResolvedValue(null) } },
 } as unknown as ReqContext;
 const config = {
   agentType: "slack",
@@ -51,8 +52,8 @@ const config = {
 } as AgentConfig<Record<string, never>>;
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.mocked(loadOrInitConversation).mockResolvedValue(
+  vi.clearAllMocks();
+  vi.mocked(loadOrInitConversation).mockResolvedValue(
     new LocalConversationBuffer("conv_test", {
       messages: [
         {
@@ -73,7 +74,7 @@ beforeEach(() => {
 it.each([false, true])(
   "does not report a stream error as success (throw=%s)",
   async (throws) => {
-    jest.mocked(streamingChatCompletion).mockResolvedValue({
+    vi.mocked(streamingChatCompletion).mockResolvedValue({
       result: {
         fullStream: (async function* () {
           if (throws) throw new Error("Provider failed");
@@ -98,7 +99,7 @@ it.each([false, true])(
 );
 
 it("does not recycle an earlier answer when the new turn has no text", async () => {
-  jest.mocked(streamingChatCompletion).mockResolvedValue({
+  vi.mocked(streamingChatCompletion).mockResolvedValue({
     result: { fullStream: [], response: Promise.resolve({}) },
     completeAccounting: async () => undefined,
   } as unknown as Awaited<ReturnType<typeof streamingChatCompletion>>);
@@ -127,14 +128,14 @@ it.each([assertAIEnabled, assertAIAccess])(
       summary: "Create feature",
       createdAt: Date.now(),
     });
-    const beforeResolvePendingAction = jest.fn().mockResolvedValue(undefined);
+    const beforeResolvePendingAction = vi.fn().mockResolvedValue(undefined);
     const input = {
       message: "",
       conversationId: "conv_test",
       confirmActionId: "action",
       confirmDecision: "confirm" as const,
     };
-    jest.mocked(gate).mockRejectedValueOnce(new Error("Limit reached"));
+    vi.mocked(gate).mockRejectedValueOnce(new Error("Limit reached"));
     expect(
       await runAgentTurnToCompletion({
         context,
@@ -145,7 +146,7 @@ it.each([assertAIEnabled, assertAIAccess])(
     ).toEqual({ ok: false, message: "Limit reached" });
     expect(beforeResolvePendingAction).not.toHaveBeenCalled();
     expect(buffer.getPendingAction()?.id).toBe("action");
-    jest.mocked(dispatchInternal).mockResolvedValue({ status: 200, body: {} });
+    vi.mocked(dispatchInternal).mockResolvedValue({ status: 200, body: {} });
     await runAgentTurnToCompletion({
       context,
       config,
@@ -183,7 +184,7 @@ it.each([
       createdAt: Date.now(),
     });
     let seen: unknown;
-    jest.mocked(dispatchInternal).mockImplementationOnce(async (ctx) => {
+    vi.mocked(dispatchInternal).mockImplementationOnce(async (ctx) => {
       seen = ctx.dispatchedRequest;
       return dispatch();
     });
@@ -216,7 +217,7 @@ it("leaves pending approval unmodified when the replay guard refuses dispatch", 
     summary: "Create feature",
     createdAt: Date.now(),
   });
-  const beforeResolvePendingAction = jest
+  const beforeResolvePendingAction = vi
     .fn()
     .mockRejectedValue(new Error("Already claimed"));
   await expect(
@@ -239,16 +240,16 @@ it("leaves pending approval unmodified when the replay guard refuses dispatch", 
 
 it("treats an aborted deadline like a cancelled stream and skips the final save", async () => {
   const deadline = new AbortController();
-  jest
-    .mocked(streamingChatCompletion)
-    .mockImplementationOnce(async ({ abortSignal }) => {
+  vi.mocked(streamingChatCompletion).mockImplementationOnce(
+    async ({ abortSignal }) => {
       deadline.abort();
       expect(abortSignal?.aborted).toBe(true);
       return {
         result: { fullStream: [], response: Promise.resolve({}) },
         completeAccounting: async () => undefined,
       } as unknown as Awaited<ReturnType<typeof streamingChatCompletion>>;
-    });
+    },
+  );
   expect(
     await runAgentTurnToCompletion({
       context,

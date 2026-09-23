@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -138,7 +139,7 @@ describe("holdout linkage removal is ownership-checked", () => {
     const model = Object.getPrototypeOf(holdoutModel);
     const realCas = model.updateWithCas;
     let raced = false;
-    jest.spyOn(model, "updateWithCas").mockImplementation(async function (
+    vi.spyOn(model, "updateWithCas").mockImplementation(async function (
       this: unknown,
       id: string,
       fields: string[],
@@ -176,7 +177,7 @@ describe("holdout linkage removal is ownership-checked", () => {
         expectFeatureEntry: { dateAdded: ours },
       });
     } finally {
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     }
 
     expect(raced).toBe(true);

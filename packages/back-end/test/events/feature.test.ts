@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   logFeatureCreatedEvent,
@@ -9,7 +10,7 @@ import { featureSnapshot } from "back-end/test/snapshots/feature.snapshot";
 import { EventModel } from "back-end/src/models/EventModel";
 import { setupApp } from "back-end/test/api/api.setup";
 
-jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
+vi.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
     static defineJob() {
       return undefined;
@@ -58,16 +59,16 @@ describe("features events", () => {
       org,
       models: {
         safeRollout: {
-          getAllPayloadSafeRollouts: jest
+          getAllPayloadSafeRollouts: vi
             .fn()
             .mockResolvedValue(new Map([["sr_123", safeRollout]])),
         },
         savedGroups: {
-          getAll: jest.fn().mockResolvedValue([]),
+          getAll: vi.fn().mockResolvedValue([]),
         },
       },
-      getProjects: jest.fn().mockResolvedValue([]),
-      getAllProjectIds: jest.fn().mockResolvedValue([]),
+      getProjects: vi.fn().mockResolvedValue([]),
+      getAllProjectIds: vi.fn().mockResolvedValue([]),
       userId: "aabb",
       email: "user@mail.com",
       userName: "User Name",
@@ -81,20 +82,20 @@ describe("features events", () => {
   });
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("dispatches feature.created event on feature create", async () => {
     let rawPayload;
 
-    jest
-      .spyOn(EventModel, "create")
-      .mockImplementation((doc: unknown, callback?: unknown) => {
+    vi.spyOn(EventModel, "create").mockImplementation(
+      (doc: unknown, callback?: unknown) => {
         rawPayload = doc.data;
         const result = { toJSON: () => "" };
         if (callback) callback(null, result);
         return result;
-      });
+      },
+    );
 
     await logFeatureCreatedEvent(context, featureSnapshot);
 
@@ -194,14 +195,14 @@ describe("features events", () => {
   it("dispatches feature.updated event on feature update", async () => {
     let rawPayload;
 
-    jest
-      .spyOn(EventModel, "create")
-      .mockImplementation((doc: unknown, callback?: unknown) => {
+    vi.spyOn(EventModel, "create").mockImplementation(
+      (doc: unknown, callback?: unknown) => {
         rawPayload = doc.data;
         const result = { toJSON: () => "" };
         if (callback) callback(null, result);
         return result;
-      });
+      },
+    );
 
     await logFeatureUpdatedEvent(context, featureSnapshot, {
       ...featureSnapshot,
@@ -330,14 +331,14 @@ describe("features events", () => {
   it("dispatches feature.deleted event on feature delete", async () => {
     let rawPayload;
 
-    jest
-      .spyOn(EventModel, "create")
-      .mockImplementation((doc: unknown, callback?: unknown) => {
+    vi.spyOn(EventModel, "create").mockImplementation(
+      (doc: unknown, callback?: unknown) => {
         rawPayload = doc.data;
         const result = { toJSON: () => "" };
         if (callback) callback(null, result);
         return result;
-      });
+      },
+    );
 
     await logFeatureDeletedEvent(context, featureSnapshot);
 
@@ -437,14 +438,14 @@ describe("features events", () => {
   it("includes all environments in feature.deleted event even when feature is disabled", async () => {
     let rawPayload;
 
-    jest
-      .spyOn(EventModel, "create")
-      .mockImplementation((doc: unknown, callback?: unknown) => {
+    vi.spyOn(EventModel, "create").mockImplementation(
+      (doc: unknown, callback?: unknown) => {
         rawPayload = doc.data;
         const result = { toJSON: () => "" };
         if (callback) callback(null, result);
         return result;
-      });
+      },
+    );
 
     const disabledFeature = {
       ...featureSnapshot,
@@ -465,14 +466,14 @@ describe("features events", () => {
   it("includes all environments when archiving a feature (global event)", async () => {
     let rawPayload;
 
-    jest
-      .spyOn(EventModel, "create")
-      .mockImplementation((doc: unknown, callback?: unknown) => {
+    vi.spyOn(EventModel, "create").mockImplementation(
+      (doc: unknown, callback?: unknown) => {
         rawPayload = doc.data;
         const result = { toJSON: () => "" };
         if (callback) callback(null, result);
         return result;
-      });
+      },
+    );
 
     const unarchivedFeature = { ...featureSnapshot, archived: false };
     const archivedFeature = { ...featureSnapshot, archived: true };

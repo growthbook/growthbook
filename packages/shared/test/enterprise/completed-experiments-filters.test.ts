@@ -1,14 +1,4 @@
-/// <reference types="jest" />
-
 import { resolveCompletedExperimentsFilters } from "../../src/enterprise/validators/dashboard-block";
-
-declare const describe: (name: string, fn: () => void) => void;
-declare const it: (name: string, fn: () => void) => void;
-declare const expect: (value: unknown) => {
-  toEqual: (expected: unknown) => void;
-  toBe: (expected: unknown) => void;
-  toBeCloseTo: (expected: number, precision?: number) => void;
-};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

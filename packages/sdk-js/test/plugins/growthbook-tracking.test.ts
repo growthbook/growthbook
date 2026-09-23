@@ -1,3 +1,4 @@
+import { MockInstance, Mock, vi } from "vitest";
 import { growthbookTrackingPlugin } from "../../src/plugins/growthbook-tracking";
 import {
   EVENT_EXPERIMENT_VIEWED,
@@ -10,12 +11,12 @@ import {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe("growthbookTrackingPlugin", () => {
-  let fetchMock: jest.SpyInstance;
+  let fetchMock: MockInstance;
   beforeEach(() => {
-    fetchMock = global.fetch = jest.fn();
+    fetchMock = global.fetch = vi.fn();
   });
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     // eslint-disable-next-line
     delete (global as any).fetch;
   });
@@ -136,7 +137,7 @@ describe("growthbookTrackingPlugin", () => {
     });
 
     // Mock console.log
-    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
 
     gb.logEvent("test", { bar: "baz" });
 
@@ -162,7 +163,7 @@ describe("growthbookTrackingPlugin", () => {
   });
 
   it("can disable feature usage events independently", async () => {
-    const eventFilter = jest.fn(() => true);
+    const eventFilter = vi.fn(() => true);
     const gb = new GrowthBookClient({
       clientKey: "test",
       plugins: [
@@ -421,8 +422,8 @@ describe("growthbookTrackingPlugin", () => {
   });
 
   it("removes unload listeners on destroy", () => {
-    const removeWin = jest.spyOn(window, "removeEventListener");
-    const removeDoc = jest.spyOn(document, "removeEventListener");
+    const removeWin = vi.spyOn(window, "removeEventListener");
+    const removeDoc = vi.spyOn(document, "removeEventListener");
     const gb = new GrowthBook({
       clientKey: "test",
       plugins: [growthbookTrackingPlugin()],
@@ -436,9 +437,9 @@ describe("growthbookTrackingPlugin", () => {
   });
 
   describe("transport", () => {
-    let sendBeaconMock: jest.Mock;
+    let sendBeaconMock: Mock;
     const installBeacon = (returnValue: boolean) => {
-      sendBeaconMock = jest.fn(() => returnValue);
+      sendBeaconMock = vi.fn(() => returnValue);
       Object.defineProperty(global.navigator, "sendBeacon", {
         value: sendBeaconMock,
         configurable: true,
@@ -492,7 +493,7 @@ describe("growthbookTrackingPlugin", () => {
       });
 
       gb.logEvent("test");
-      const visibilityState = jest
+      const visibilityState = vi
         .spyOn(document, "visibilityState", "get")
         .mockReturnValue("hidden");
       document.dispatchEvent(new Event("visibilitychange"));

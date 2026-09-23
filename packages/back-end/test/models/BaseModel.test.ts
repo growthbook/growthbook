@@ -1,3 +1,5 @@
+import { PermissionError } from "shared/util";
+import { Mock, vi } from "vitest";
 import { z } from "zod";
 import { AnyBulkWriteOperation, Collection } from "mongodb";
 import { Context, MakeModelClass } from "../../src/models/BaseModel";
@@ -35,36 +37,36 @@ const BaseModel = MakeModelClass({
 });
 
 // This one is called in the constructor and therefore needs to be instantiated before that call.
-const updateIndexesMock = jest.fn();
+const updateIndexesMock = vi.fn();
 
 class TestModel extends BaseModel<WriteOptions> {
-  public canReadMock: jest.Mock;
-  public canCreateMock: jest.Mock;
-  public canUpdateMock: jest.Mock;
-  public canDeleteMock: jest.Mock;
-  public dangerousGetCollectionMock: jest.Mock;
-  public migrateMock: jest.Mock;
-  public populateForeignRefsMock: jest.Mock;
-  public beforeCreateMock: jest.Mock;
-  public beforeUpdateMock: jest.Mock;
-  public afterCreateMock: jest.Mock;
-  public afterCreateOrUpdateMock: jest.Mock;
-  public afterUpdateMock: jest.Mock;
+  public canReadMock: Mock;
+  public canCreateMock: Mock;
+  public canUpdateMock: Mock;
+  public canDeleteMock: Mock;
+  public dangerousGetCollectionMock: Mock;
+  public migrateMock: Mock;
+  public populateForeignRefsMock: Mock;
+  public beforeCreateMock: Mock;
+  public beforeUpdateMock: Mock;
+  public afterCreateMock: Mock;
+  public afterCreateOrUpdateMock: Mock;
+  public afterUpdateMock: Mock;
 
   public constructor(context: Context) {
     super(context);
-    this.canReadMock = jest.fn(() => true);
-    this.canCreateMock = jest.fn(() => true);
-    this.canUpdateMock = jest.fn(() => true);
-    this.canDeleteMock = jest.fn(() => true);
-    this.dangerousGetCollectionMock = jest.fn();
-    this.migrateMock = jest.fn((doc) => doc);
-    this.populateForeignRefsMock = jest.fn();
-    this.beforeCreateMock = jest.fn();
-    this.beforeUpdateMock = jest.fn();
-    this.afterCreateMock = jest.fn();
-    this.afterCreateOrUpdateMock = jest.fn();
-    this.afterUpdateMock = jest.fn();
+    this.canReadMock = vi.fn(() => true);
+    this.canCreateMock = vi.fn(() => true);
+    this.canUpdateMock = vi.fn(() => true);
+    this.canDeleteMock = vi.fn(() => true);
+    this.dangerousGetCollectionMock = vi.fn();
+    this.migrateMock = vi.fn((doc) => doc);
+    this.populateForeignRefsMock = vi.fn();
+    this.beforeCreateMock = vi.fn();
+    this.beforeUpdateMock = vi.fn();
+    this.afterCreateMock = vi.fn();
+    this.afterCreateOrUpdateMock = vi.fn();
+    this.afterUpdateMock = vi.fn();
   }
 
   public find(...args) {
@@ -164,23 +166,23 @@ const CompositeBaseModel = MakeModelClass({
 });
 
 class CompositeTestModel extends CompositeBaseModel {
-  public canReadMock: jest.Mock;
-  public canCreateMock: jest.Mock;
-  public canUpdateMock: jest.Mock;
-  public canDeleteMock: jest.Mock;
-  public dangerousGetCollectionMock: jest.Mock;
-  public migrateMock: jest.Mock;
-  public populateForeignRefsMock: jest.Mock;
+  public canReadMock: Mock;
+  public canCreateMock: Mock;
+  public canUpdateMock: Mock;
+  public canDeleteMock: Mock;
+  public dangerousGetCollectionMock: Mock;
+  public migrateMock: Mock;
+  public populateForeignRefsMock: Mock;
 
   public constructor(context: Context) {
     super(context);
-    this.canReadMock = jest.fn(() => true);
-    this.canCreateMock = jest.fn(() => true);
-    this.canUpdateMock = jest.fn(() => true);
-    this.canDeleteMock = jest.fn(() => true);
-    this.dangerousGetCollectionMock = jest.fn();
-    this.migrateMock = jest.fn((doc) => doc);
-    this.populateForeignRefsMock = jest.fn();
+    this.canReadMock = vi.fn(() => true);
+    this.canCreateMock = vi.fn(() => true);
+    this.canUpdateMock = vi.fn(() => true);
+    this.canDeleteMock = vi.fn(() => true);
+    this.dangerousGetCollectionMock = vi.fn();
+    this.migrateMock = vi.fn((doc) => doc);
+    this.populateForeignRefsMock = vi.fn();
   }
 
   public exposeGetEntityId(doc: Record<string, unknown>): string {
@@ -236,23 +238,23 @@ const NullableOnlyBaseModel = MakeModelClass({
 });
 
 class NullableOnlyTestModel extends NullableOnlyBaseModel {
-  public canReadMock: jest.Mock;
-  public canCreateMock: jest.Mock;
-  public canUpdateMock: jest.Mock;
-  public canDeleteMock: jest.Mock;
-  public dangerousGetCollectionMock: jest.Mock;
-  public migrateMock: jest.Mock;
-  public populateForeignRefsMock: jest.Mock;
+  public canReadMock: Mock;
+  public canCreateMock: Mock;
+  public canUpdateMock: Mock;
+  public canDeleteMock: Mock;
+  public dangerousGetCollectionMock: Mock;
+  public migrateMock: Mock;
+  public populateForeignRefsMock: Mock;
 
   public constructor(context: Context) {
     super(context);
-    this.canReadMock = jest.fn(() => true);
-    this.canCreateMock = jest.fn(() => true);
-    this.canUpdateMock = jest.fn(() => true);
-    this.canDeleteMock = jest.fn(() => true);
-    this.dangerousGetCollectionMock = jest.fn();
-    this.migrateMock = jest.fn((doc) => doc);
-    this.populateForeignRefsMock = jest.fn();
+    this.canReadMock = vi.fn(() => true);
+    this.canCreateMock = vi.fn(() => true);
+    this.canUpdateMock = vi.fn(() => true);
+    this.canDeleteMock = vi.fn(() => true);
+    this.dangerousGetCollectionMock = vi.fn();
+    this.migrateMock = vi.fn((doc) => doc);
+    this.populateForeignRefsMock = vi.fn();
   }
 
   public exposeBulkWrite(ops: AnyBulkWriteOperation[]) {
@@ -292,7 +294,7 @@ class NullableOnlyTestModel extends NullableOnlyBaseModel {
   }
 }
 
-const auditLogMock = jest.fn();
+const auditLogMock = vi.fn();
 
 const defaultContext = {
   org: { id: "a" },
@@ -308,7 +310,7 @@ describe("BaseModel", () => {
   it("can find by id", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       _id: "removed",
       __v: "removed",
@@ -335,7 +337,7 @@ describe("BaseModel", () => {
   it("filters find by id when read permission is denied", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       _id: "removed",
       __v: "removed",
@@ -356,7 +358,7 @@ describe("BaseModel", () => {
   it("can getAll", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       toArray: () => [
         {
@@ -401,8 +403,8 @@ describe("BaseModel", () => {
   it("tells migrate which fields a projection omitted", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockProject = jest.fn();
-    const mockFind = jest.fn().mockReturnValueOnce({
+    const mockProject = vi.fn();
+    const mockFind = vi.fn().mockReturnValueOnce({
       project: mockProject,
       toArray: () => [{ _id: "removed", __v: "removed", id: "aabb" }],
     });
@@ -422,7 +424,7 @@ describe("BaseModel", () => {
   it("can filter getAll result by read permission", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       toArray: () => [
         {
@@ -453,7 +455,7 @@ describe("BaseModel", () => {
   it("can bypass read permission in _find results", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       toArray: () => [
         {
@@ -523,7 +525,7 @@ describe("BaseModel", () => {
   it("can paginate _find results", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       toArray: () => [
         {
@@ -578,18 +580,18 @@ describe("BaseModel", () => {
     ]);
   });
 
-  it("raises an error when attempting to create without create access", () => {
+  it("raises an error when attempting to create without create access", async () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(false);
-    expect(model.create({ name: "foo", id: "aabb" })).rejects.toEqual(
-      new Error("You do not have access to create this resource"),
+    await expect(model.create({ name: "foo", id: "aabb" })).rejects.toEqual(
+      new PermissionError("You do not have access to create this resource"),
     );
   });
 
-  it("raises an error when attempting to create an invalid document", () => {
+  it("raises an error when attempting to create an invalid document", async () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(true);
-    expect(model.create({ id: "aabb" })).rejects.toMatchObject({
+    await expect(model.create({ id: "aabb" })).rejects.toMatchObject({
       issues: [
         {
           expected: "string",
@@ -605,7 +607,7 @@ describe("BaseModel", () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(true);
 
-    const insertOneMock = jest.fn();
+    const insertOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       insertOne: insertOneMock,
     });
@@ -769,10 +771,10 @@ describe("BaseModel", () => {
     });
   });
 
-  it("raises an error when attempting to update a document without update access", () => {
+  it("raises an error when attempting to update a document without update access", async () => {
     const model = new TestModel(defaultContext);
     model.canUpdateMock.mockReturnValue(false);
-    expect(
+    await expect(
       model.update(
         {
           name: "foo",
@@ -784,14 +786,14 @@ describe("BaseModel", () => {
         { name: "gni" },
       ),
     ).rejects.toEqual(
-      new Error("You do not have access to update this resource"),
+      new PermissionError("You do not have access to update this resource"),
     );
   });
 
   it("checks update access even when the update is a no-op", async () => {
     const model = new TestModel(defaultContext);
     model.canUpdateMock.mockReturnValue(false);
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -804,7 +806,7 @@ describe("BaseModel", () => {
     };
 
     await expect(model.update(existing, { name: "foo" })).rejects.toEqual(
-      new Error("You do not have access to update this resource"),
+      new PermissionError("You do not have access to update this resource"),
     );
     expect(updateOneMock).not.toHaveBeenCalled();
   });
@@ -816,7 +818,7 @@ describe("BaseModel", () => {
       (_existing, updates) =>
         Object.keys(updates).length === 1 && "name" in updates,
     );
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -839,10 +841,10 @@ describe("BaseModel", () => {
     expect(updateOneMock).not.toHaveBeenCalled();
   });
 
-  it("raises an error when attempting to update a read-only field", () => {
+  it("raises an error when attempting to update a read-only field", async () => {
     const model = new TestModel(defaultContext);
     model.canUpdateMock.mockReturnValue(true);
-    expect(
+    await expect(
       model.update(
         {
           name: "foo",
@@ -862,7 +864,7 @@ describe("BaseModel", () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(true);
 
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -909,7 +911,7 @@ describe("BaseModel", () => {
   it("translates explicitly-undefined update fields to $unset", async () => {
     const model = new TestModel(defaultContext);
 
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -942,8 +944,8 @@ describe("BaseModel", () => {
   it("update() return value matches a subsequent read after clearing an optional field", async () => {
     const model = new TestModel(defaultContext);
 
-    const updateOneMock = jest.fn();
-    const findOneMock = jest.fn();
+    const updateOneMock = vi.fn();
+    const findOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
       findOne: findOneMock,
@@ -991,7 +993,7 @@ describe("BaseModel", () => {
   it("omits $set entirely when an update only unsets fields", async () => {
     const model = new TestModel(defaultContext);
 
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -1018,7 +1020,7 @@ describe("BaseModel", () => {
   it("treats an explicitly-undefined update of an absent field as a no-op", async () => {
     const model = new TestModel(defaultContext);
 
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -1042,7 +1044,7 @@ describe("BaseModel", () => {
   it("ignores an explicitly-undefined value for a field that can't be undefined", async () => {
     const model = new TestModel(defaultContext);
 
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -1066,7 +1068,7 @@ describe("BaseModel", () => {
   it("ignores an explicitly-undefined value for a .nullable() field without .optional()", async () => {
     const model = new NullableOnlyTestModel(defaultContext);
 
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -1089,7 +1091,7 @@ describe("BaseModel", () => {
   it("writes an explicit null to a nullable field instead of unsetting it", async () => {
     const model = new TestModel(defaultContext);
 
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -1118,7 +1120,7 @@ describe("BaseModel", () => {
   it("throws when updating a doc with an undefined primary key value", async () => {
     const model = new TestModel(defaultContext);
 
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });
@@ -1142,7 +1144,7 @@ describe("BaseModel", () => {
     // Return a copy so the recorded call args aren't mutated by the strip
     model.migrateMock.mockImplementation((doc) => ({ ...doc }));
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       _id: "removed",
       id: "aabb",
@@ -1168,7 +1170,7 @@ describe("BaseModel", () => {
   it("preserves nulls on fields whose schema allows null", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       _id: "removed",
       id: "aabb",
@@ -1187,7 +1189,7 @@ describe("BaseModel", () => {
   it("strips legacy nulls in _find results", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       toArray: () => [
         { _id: "removed", id: "aabb", name: "foo", testDefaultField: null },
@@ -1210,7 +1212,7 @@ describe("BaseModel", () => {
   it("passes ignoreUndefined through bulkWrite", async () => {
     const model = new TestModel(defaultContext);
 
-    const bulkWriteMock = jest.fn();
+    const bulkWriteMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       bulkWrite: bulkWriteMock,
     });
@@ -1234,7 +1236,7 @@ describe("BaseModel", () => {
   it("translates undefined $set fields to $unset in bulkWrite", async () => {
     const model = new TestModel(defaultContext);
 
-    const bulkWriteMock = jest.fn();
+    const bulkWriteMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       bulkWrite: bulkWriteMock,
     });
@@ -1264,7 +1266,7 @@ describe("BaseModel", () => {
   it("ignores undefined $set values for .nullable() fields without .optional() in bulkWrite", async () => {
     const model = new NullableOnlyTestModel(defaultContext);
 
-    const bulkWriteMock = jest.fn();
+    const bulkWriteMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       bulkWrite: bulkWriteMock,
     });
@@ -1294,7 +1296,7 @@ describe("BaseModel", () => {
   it("rejects bulkWrite updateOne filters containing undefined values", async () => {
     const model = new TestModel(defaultContext);
 
-    const bulkWriteMock = jest.fn();
+    const bulkWriteMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       bulkWrite: bulkWriteMock,
     });
@@ -1314,10 +1316,10 @@ describe("BaseModel", () => {
     expect(bulkWriteMock).not.toHaveBeenCalled();
   });
 
-  it("raises an error when attempting to delete a document without delete access", () => {
+  it("raises an error when attempting to delete a document without delete access", async () => {
     const model = new TestModel(defaultContext);
     model.canDeleteMock.mockReturnValue(false);
-    expect(
+    await expect(
       model.delete({
         name: "foo",
         id: "aabb",
@@ -1326,13 +1328,13 @@ describe("BaseModel", () => {
         dateUpdated: new Date(),
       }),
     ).rejects.toEqual(
-      new Error("You do not have access to delete this resource"),
+      new PermissionError("You do not have access to delete this resource"),
     );
   });
 
-  it("raises an error when attempting to update uid", () => {
+  it("raises an error when attempting to update uid", async () => {
     const model = new TestModel(defaultContext);
-    expect(
+    await expect(
       model.update(
         {
           name: "foo",
@@ -1369,7 +1371,7 @@ describe("BaseModel", () => {
 
     it("uses the composite key in the update filter", async () => {
       const model = new CompositeTestModel(defaultContext);
-      const updateOneMock = jest.fn();
+      const updateOneMock = vi.fn();
       model.dangerousGetCollectionMock.mockReturnValue({
         updateOne: updateOneMock,
       });
@@ -1393,7 +1395,7 @@ describe("BaseModel", () => {
 
     it("uses the composite key in the delete filter", async () => {
       const model = new CompositeTestModel(defaultContext);
-      const deleteOneMock = jest.fn();
+      const deleteOneMock = vi.fn();
       model.dangerousGetCollectionMock.mockReturnValue({
         deleteOne: deleteOneMock,
       });
@@ -1416,7 +1418,7 @@ describe("BaseModel", () => {
 
     it("does not auto-generate an id when the schema has no id field", async () => {
       const model = new CompositeTestModel(defaultContext);
-      const insertOneMock = jest.fn();
+      const insertOneMock = vi.fn();
       model.dangerousGetCollectionMock.mockReturnValue({
         insertOne: insertOneMock,
       });
@@ -1488,19 +1490,19 @@ describe("BaseModel", () => {
     });
 
     class TestSkipAuditLogModel extends ModelWithSkipAuditLog {
-      public canReadMock: jest.Mock;
-      public canCreateMock: jest.Mock;
-      public canUpdateMock: jest.Mock;
-      public dangerousGetCollectionMock: jest.Mock;
-      public populateForeignRefsMock: jest.Mock;
+      public canReadMock: Mock;
+      public canCreateMock: Mock;
+      public canUpdateMock: Mock;
+      public dangerousGetCollectionMock: Mock;
+      public populateForeignRefsMock: Mock;
 
       public constructor(context: Context) {
         super(context);
-        this.canReadMock = jest.fn(() => true);
-        this.canCreateMock = jest.fn(() => true);
-        this.canUpdateMock = jest.fn(() => true);
-        this.dangerousGetCollectionMock = jest.fn();
-        this.populateForeignRefsMock = jest.fn();
+        this.canReadMock = vi.fn(() => true);
+        this.canCreateMock = vi.fn(() => true);
+        this.canUpdateMock = vi.fn(() => true);
+        this.dangerousGetCollectionMock = vi.fn();
+        this.populateForeignRefsMock = vi.fn();
       }
 
       protected canRead(...args): boolean {
@@ -1538,7 +1540,7 @@ describe("BaseModel", () => {
 
     it("skips audit log when only skipAuditLogFields are updated", async () => {
       const model = new TestSkipAuditLogModel(defaultContext);
-      const updateOneMock = jest.fn();
+      const updateOneMock = vi.fn();
       model.dangerousGetCollectionMock.mockReturnValue({
         updateOne: updateOneMock,
       });
@@ -1560,7 +1562,7 @@ describe("BaseModel", () => {
 
     it("creates audit log when regular fields are updated", async () => {
       const model = new TestSkipAuditLogModel(defaultContext);
-      const updateOneMock = jest.fn();
+      const updateOneMock = vi.fn();
       model.dangerousGetCollectionMock.mockReturnValue({
         updateOne: updateOneMock,
       });
@@ -1582,7 +1584,7 @@ describe("BaseModel", () => {
 
     it("creates audit log when both skipAuditLogFields and regular fields are updated", async () => {
       const model = new TestSkipAuditLogModel(defaultContext);
-      const updateOneMock = jest.fn();
+      const updateOneMock = vi.fn();
       model.dangerousGetCollectionMock.mockReturnValue({
         updateOne: updateOneMock,
       });

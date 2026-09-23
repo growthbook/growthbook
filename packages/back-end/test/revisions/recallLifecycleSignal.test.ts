@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import type { Response } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -17,9 +18,11 @@ import { setupApp } from "../api/api.setup";
  * a call the type checker is happy with either way.
  */
 
-const dispatch = jest.fn();
-jest.mock("back-end/src/events/revisionWebhookAdapters", () => ({
-  ...jest.requireActual("back-end/src/events/revisionWebhookAdapters"),
+const dispatch = vi.hoisted(() => vi.fn());
+vi.mock("back-end/src/events/revisionWebhookAdapters", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/events/revisionWebhookAdapters")
+  >("back-end/src/events/revisionWebhookAdapters")),
   getRevisionWebhookAdapter: () => ({ dispatch }),
 }));
 
@@ -119,7 +122,9 @@ describe("recall is a distinct lifecycle signal from reopen", () => {
     );
   };
 
-  beforeEach(() => dispatch.mockClear());
+  beforeEach(() => {
+    dispatch.mockClear();
+  });
 
   it("recall emits `recalled`, not `reopened`", async () => {
     await seed("pending-review");

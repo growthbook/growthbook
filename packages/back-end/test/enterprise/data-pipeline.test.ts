@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
@@ -15,11 +16,11 @@ import {
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
-jest.mock("back-end/src/enterprise", () => ({
-  orgHasPremiumFeature: jest.fn(),
+vi.mock("back-end/src/enterprise", () => ({
+  orgHasPremiumFeature: vi.fn(),
 }));
 
-const orgHasPremiumFeatureMock = orgHasPremiumFeature as jest.MockedFunction<
+const orgHasPremiumFeatureMock = orgHasPremiumFeature as MockedFunction<
   typeof orgHasPremiumFeature
 >;
 

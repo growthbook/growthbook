@@ -1,21 +1,22 @@
+import { Mock, vi } from "vitest";
 import { getUserByEmail } from "back-end/src/models/UserModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 
-jest.mock("back-end/src/util/mongo.util", () => ({
-  getCollection: jest.fn(),
-  removeMongooseFields: jest.fn((doc) => doc),
+vi.mock("back-end/src/util/mongo.util", () => ({
+  getCollection: vi.fn(),
+  removeMongooseFields: vi.fn((doc) => doc),
 }));
 
-function mockFindOne(results: unknown[]): jest.Mock {
-  const findOne = jest.fn();
+function mockFindOne(results: unknown[]): Mock {
+  const findOne = vi.fn();
   results.forEach((r) => findOne.mockResolvedValueOnce(r));
-  (getCollection as jest.Mock).mockReturnValue({ findOne });
+  (getCollection as Mock).mockReturnValue({ findOne });
   return findOne;
 }
 
 describe("getUserByEmail", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("returns the exact-case match without falling back", async () => {

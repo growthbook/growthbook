@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import request from "supertest";
 import {
   findOrganizationById,
@@ -7,26 +8,28 @@ import { countSDKConnectionsByEnvironment } from "back-end/src/models/SdkConnect
 import { removeEnvironmentFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  findOrganizationById: jest.fn(),
-  updateOrganization: jest.fn(),
+vi.mock("back-end/src/models/OrganizationModel", () => ({
+  findOrganizationById: vi.fn(),
+  updateOrganization: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/SdkConnectionModel", () => ({
-  countSDKConnectionsByEnvironment: jest.fn().mockResolvedValue(0),
-  findSDKConnectionsByOrganization: jest.fn().mockResolvedValue([]),
+vi.mock("back-end/src/models/SdkConnectionModel", () => ({
+  countSDKConnectionsByEnvironment: vi.fn().mockResolvedValue(0),
+  findSDKConnectionsByOrganization: vi.fn().mockResolvedValue([]),
 }));
 
-jest.mock("back-end/src/models/SlackIntegrationModel", () => ({
-  ...jest.requireActual("back-end/src/models/SlackIntegrationModel"),
-  removeEnvironmentFromSlackIntegration: jest.fn(),
+vi.mock("back-end/src/models/SlackIntegrationModel", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/models/SlackIntegrationModel")
+  >("back-end/src/models/SlackIntegrationModel")),
+  removeEnvironmentFromSlackIntegration: vi.fn(),
 }));
 
 describe("environements API", () => {
   const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("can list all environments", async () => {
@@ -176,7 +179,7 @@ describe("environements API", () => {
         canDeleteEnvironment: () => true,
       },
     });
-    jest.mocked(countSDKConnectionsByEnvironment).mockResolvedValueOnce(2);
+    vi.mocked(countSDKConnectionsByEnvironment).mockResolvedValueOnce(2);
 
     const response = await request(app)
       .delete("/api/v1/environments/env1")
@@ -244,7 +247,7 @@ describe("environements API", () => {
       },
     };
     // The payload refresh re-reads the org by id after the write
-    jest.mocked(findOrganizationById).mockResolvedValue(org as never);
+    vi.mocked(findOrganizationById).mockResolvedValue(org as never);
     setReqContext({
       models: {
         projects: {

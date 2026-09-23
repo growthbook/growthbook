@@ -1,7 +1,8 @@
+import { Mock, vi } from "vitest";
 // `isArmedWithAuthorizedPublisher` resolves the armer's request context, which
 // reaches the database. Only that is stubbed; every rule under test stays real.
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForUserIdInOrg: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForUserIdInOrg: vi.fn(),
 }));
 
 import {
@@ -10,7 +11,7 @@ import {
 } from "back-end/src/revisions/approveAndPublish";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 
-const resolveArmerContext = getContextForUserIdInOrg as jest.Mock;
+const resolveArmerContext = getContextForUserIdInOrg as Mock;
 
 describe("planApproveAndPublish", () => {
   it("denies anyone without review authority", () => {
@@ -116,7 +117,7 @@ describe("isArmedWithAuthorizedPublisher", () => {
 
   it("is not armed when the armer's identity no longer resolves at all", async () => {
     resolveArmerContext.mockResolvedValue(null);
-    const check = jest.fn().mockReturnValue(true);
+    const check = vi.fn().mockReturnValue(true);
     expect(await isArmedWithAuthorizedPublisher(context, armed, check)).toBe(
       false,
     );
@@ -124,7 +125,7 @@ describe("isArmedWithAuthorizedPublisher", () => {
   });
 
   it("never resolves anything for a revision that is not armed", async () => {
-    const check = jest.fn().mockReturnValue(true);
+    const check = vi.fn().mockReturnValue(true);
     expect(
       await isArmedWithAuthorizedPublisher(
         context,

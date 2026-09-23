@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import type { MergeResultChanges } from "shared/util";
@@ -15,8 +16,8 @@ import {
 // draftIsPureRevert reads the target revision; the narrow-atom cases here are
 // about the ARCHIVE arm and about authorship, so the revert lookup is stubbed to
 // "no such revision" and never decides an assertion.
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevision: jest.fn(async () => null),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: vi.fn(async () => null),
 }));
 
 /**

@@ -1,3 +1,4 @@
+import { MockedFunction, MockInstance, vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import type { Request } from "express";
@@ -13,13 +14,13 @@ import { setupApp } from "../api.setup";
 
 // Regression tests: a custom-hook rejection on the rule-add endpoint must not orphan a SafeRollout doc
 
-jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
-  runInSandbox: jest.fn(),
+vi.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
+  runInSandbox: vi.fn(),
 }));
 
 // Field validation needs a real datasource + metrics; return a canned valid shape instead
-jest.mock("back-end/src/validators/safe-rollout", () => ({
-  validateCreateSafeRolloutFields: jest.fn(async () => ({
+vi.mock("back-end/src/validators/safe-rollout", () => ({
+  validateCreateSafeRolloutFields: vi.fn(async () => ({
     datasourceId: "ds_1",
     exposureQueryId: "q_1",
     guardrailMetricIds: ["met_1"],
@@ -28,9 +29,7 @@ jest.mock("back-end/src/validators/safe-rollout", () => ({
   })),
 }));
 
-const mockRunInSandbox = runInSandbox as jest.MockedFunction<
-  typeof runInSandbox
->;
+const mockRunInSandbox = runInSandbox as MockedFunction<typeof runInSandbox>;
 
 const ORG = {
   id: "org_hooks_test",
@@ -135,10 +134,10 @@ const SAFE_ROLLOUT_RULE_BODY = {
 describe("rule-add custom hook prevalidation", () => {
   const { app, setReqContext } = setupApp();
 
-  let premiumSpy: jest.SpyInstance;
+  let premiumSpy: MockInstance;
 
   beforeEach(() => {
-    premiumSpy = jest
+    premiumSpy = vi
       .spyOn(ReqContextClass.prototype, "hasPremiumFeature")
       .mockReturnValue(true);
     mockRunInSandbox.mockResolvedValue({ ok: true, warnings: [] });

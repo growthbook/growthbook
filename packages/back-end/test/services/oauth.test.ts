@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { Mock, vi } from "vitest";
 import {
   hashToken,
   verifyPkceS256,
@@ -19,79 +20,79 @@ import {
   getContextForUserIdInOrg,
 } from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/models/ApiKeyModel", () => ({
+vi.mock("back-end/src/models/ApiKeyModel", () => ({
   ApiKeyModel: {
-    dangerousFindByKeyHash: jest.fn(),
-    dangerousDisableByKeyHash: jest.fn(),
-    dangerousDisableOAuthGrant: jest.fn(),
+    dangerousFindByKeyHash: vi.fn(),
+    dangerousDisableByKeyHash: vi.fn(),
+    dangerousDisableOAuthGrant: vi.fn(),
   },
 }));
 
-jest.mock("back-end/src/models/OAuthAuthCodeModel", () => ({
+vi.mock("back-end/src/models/OAuthAuthCodeModel", () => ({
   OAuthAuthCodeModel: {
-    dangerousConsumeByHash: jest.fn(),
+    dangerousConsumeByHash: vi.fn(),
   },
 }));
 
-jest.mock("back-end/src/models/OAuthRefreshTokenModel", () => ({
+vi.mock("back-end/src/models/OAuthRefreshTokenModel", () => ({
   OAuthRefreshTokenModel: class {
-    static dangerousFindByHash = jest.fn();
+    static dangerousFindByHash = vi.fn();
   },
 }));
 
-jest.mock("back-end/src/models/OAuthClientModel", () => ({
-  createOAuthClient: jest.fn(),
-  getOAuthClientById: jest.fn(),
-  touchOAuthClient: jest.fn(),
+vi.mock("back-end/src/models/OAuthClientModel", () => ({
+  createOAuthClient: vi.fn(),
+  getOAuthClientById: vi.fn(),
+  touchOAuthClient: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  findOrganizationById: jest.fn(),
+vi.mock("back-end/src/models/OrganizationModel", () => ({
+  findOrganizationById: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgObject: jest.fn(),
-  getContextForUserIdInOrg: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgObject: vi.fn(),
+  getContextForUserIdInOrg: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/secrets", () => ({
+vi.mock("back-end/src/util/secrets", () => ({
   APP_ORIGIN: "http://localhost:3000",
   OAUTH_ACCESS_TOKEN_TTL_SECONDS: 3600,
   OAUTH_REFRESH_TOKEN_TTL_SECONDS: 86400,
   OAUTH_ISSUER: "",
 }));
 
-const mockGetOAuthClientById = jest.mocked(getOAuthClientById);
-const mockDangerousFindByHash = jest.mocked(
+const mockGetOAuthClientById = vi.mocked(getOAuthClientById);
+const mockDangerousFindByHash = vi.mocked(
   OAuthRefreshTokenModel.dangerousFindByHash,
 );
-const mockFindOrganizationById = jest.mocked(findOrganizationById);
-const mockGetContextForUserIdInOrg = jest.mocked(getContextForUserIdInOrg);
-const mockGetContextForAgendaJobByOrgObject = jest.mocked(
+const mockFindOrganizationById = vi.mocked(findOrganizationById);
+const mockGetContextForUserIdInOrg = vi.mocked(getContextForUserIdInOrg);
+const mockGetContextForAgendaJobByOrgObject = vi.mocked(
   getContextForAgendaJobByOrgObject,
 );
-const mockDangerousFindByKeyHash = jest.mocked(
+const mockDangerousFindByKeyHash = vi.mocked(
   ApiKeyModel.dangerousFindByKeyHash,
 );
-const mockDangerousDisableOAuthGrant = jest.mocked(
+const mockDangerousDisableOAuthGrant = vi.mocked(
   ApiKeyModel.dangerousDisableOAuthGrant,
 );
-const mockDangerousDisableByKeyHash = jest.mocked(
+const mockDangerousDisableByKeyHash = vi.mocked(
   ApiKeyModel.dangerousDisableByKeyHash,
 );
 
 function mockOrgContext(
   overrides: {
     userId?: string;
-    deleteForGrant?: jest.Mock;
-    consumeByTokenHash?: jest.Mock;
-    createRefresh?: jest.Mock;
-    createApiKey?: jest.Mock;
-    getGrant?: jest.Mock;
-    ensureGrant?: jest.Mock;
-    startGrant?: jest.Mock;
-    markRevoked?: jest.Mock;
-    getActiveForUser?: jest.Mock;
+    deleteForGrant?: Mock;
+    consumeByTokenHash?: Mock;
+    createRefresh?: Mock;
+    createApiKey?: Mock;
+    getGrant?: Mock;
+    ensureGrant?: Mock;
+    startGrant?: Mock;
+    markRevoked?: Mock;
+    getActiveForUser?: Mock;
   } = {},
 ) {
   const activeGrant = {
@@ -100,24 +101,22 @@ function mockOrgContext(
     revoked: false,
   };
   const deleteForGrant =
-    overrides.deleteForGrant ?? jest.fn().mockResolvedValue(undefined);
+    overrides.deleteForGrant ?? vi.fn().mockResolvedValue(undefined);
   const consumeByTokenHash =
     overrides.consumeByTokenHash ??
-    jest.fn().mockResolvedValue({ tokenHash: "old" });
+    vi.fn().mockResolvedValue({ tokenHash: "old" });
   const createRefresh =
-    overrides.createRefresh ?? jest.fn().mockResolvedValue({});
-  const createApiKey =
-    overrides.createApiKey ?? jest.fn().mockResolvedValue({});
-  const getGrant =
-    overrides.getGrant ?? jest.fn().mockResolvedValue(activeGrant);
+    overrides.createRefresh ?? vi.fn().mockResolvedValue({});
+  const createApiKey = overrides.createApiKey ?? vi.fn().mockResolvedValue({});
+  const getGrant = overrides.getGrant ?? vi.fn().mockResolvedValue(activeGrant);
   const ensureGrant =
-    overrides.ensureGrant ?? jest.fn().mockResolvedValue(activeGrant);
+    overrides.ensureGrant ?? vi.fn().mockResolvedValue(activeGrant);
   const startGrant =
-    overrides.startGrant ?? jest.fn().mockResolvedValue(activeGrant);
+    overrides.startGrant ?? vi.fn().mockResolvedValue(activeGrant);
   const markRevoked =
-    overrides.markRevoked ?? jest.fn().mockResolvedValue(undefined);
+    overrides.markRevoked ?? vi.fn().mockResolvedValue(undefined);
   const getActiveForUser =
-    overrides.getActiveForUser ?? jest.fn().mockResolvedValue([]);
+    overrides.getActiveForUser ?? vi.fn().mockResolvedValue([]);
 
   const context = {
     org: { id: "org-1" },
@@ -136,7 +135,7 @@ function mockOrgContext(
         getActiveForUser,
       },
       oauthAuthCodes: {
-        create: jest.fn(),
+        create: vi.fn(),
       },
       apiKeys: {
         create: createApiKey,
@@ -163,7 +162,7 @@ function mockOrgContext(
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe("oauth PKCE + token hashing", () => {
@@ -475,7 +474,7 @@ describe("exchangeRefreshToken reuse detection + revoke race", () => {
     mockValidClientAndToken();
     const { deleteForGrant, markRevoked, createRefresh, createApiKey } =
       mockOrgContext({
-        consumeByTokenHash: jest.fn().mockResolvedValue(null),
+        consumeByTokenHash: vi.fn().mockResolvedValue(null),
       });
 
     await expect(refresh()).rejects.toMatchObject({
@@ -497,7 +496,7 @@ describe("exchangeRefreshToken reuse detection + revoke race", () => {
   it("refuses to refresh a revoked grant", async () => {
     mockValidClientAndToken();
     const { consumeByTokenHash, createApiKey } = mockOrgContext({
-      ensureGrant: jest
+      ensureGrant: vi
         .fn()
         .mockResolvedValue({ clientId: "client-a", revoked: true }),
     });
@@ -516,10 +515,10 @@ describe("exchangeRefreshToken reuse detection + revoke race", () => {
     // Active at start; concurrent revoke flips it before the post-write re-read.
     const { deleteForGrant, markRevoked, createRefresh, createApiKey } =
       mockOrgContext({
-        ensureGrant: jest
+        ensureGrant: vi
           .fn()
           .mockResolvedValue({ clientId: "client-a", revoked: false }),
-        getGrant: jest
+        getGrant: vi
           .fn()
           .mockResolvedValue({ clientId: "client-a", revoked: true }),
       });

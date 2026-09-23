@@ -1,3 +1,4 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -25,88 +26,87 @@ import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  updateExperiment: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  updateExperiment: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  createExperimentSnapshotModel: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  createExperimentSnapshotModel: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/datasource", () => ({
-  getIntegrationFromDatasourceId: jest.fn(),
-  getSourceIntegrationObject: jest.fn(),
+vi.mock("back-end/src/services/datasource", () => ({
+  getIntegrationFromDatasourceId: vi.fn(),
+  getSourceIntegrationObject: vi.fn(),
 }));
 
-jest.mock("back-end/src/enterprise/services/dashboards", () => ({
-  updateExperimentDashboards: jest.fn(),
+vi.mock("back-end/src/enterprise/services/dashboards", () => ({
+  updateExperimentDashboards: vi.fn(),
 }));
 
-jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
-  ExperimentResultsQueryRunner: jest
+vi.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
+  ExperimentResultsQueryRunner: vi
     .fn()
     .mockImplementation((_context, snapshot) => ({
       model: snapshot,
-      startAnalysis: jest.fn(),
-      setExperimentUpdateExecutionLogger: jest.fn(),
+      startAnalysis: vi.fn(),
+      setExperimentUpdateExecutionLogger: vi.fn(),
     })),
 }));
 
-jest.mock(
+vi.mock(
   "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner",
   () => ({
-    ExperimentIncrementalRefreshQueryRunner: jest
+    ExperimentIncrementalRefreshQueryRunner: vi
       .fn()
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
-        startAnalysis: jest.fn(),
-        setExperimentUpdateExecutionLogger: jest.fn(),
+        startAnalysis: vi.fn(),
+        setExperimentUpdateExecutionLogger: vi.fn(),
       })),
   }),
 );
 
-jest.mock(
+vi.mock(
   "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner",
   () => ({
-    ExperimentIncrementalRefreshExploratoryQueryRunner: jest
+    ExperimentIncrementalRefreshExploratoryQueryRunner: vi
       .fn()
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
-        startAnalysis: jest.fn(),
-        setExperimentUpdateExecutionLogger: jest.fn(),
+        startAnalysis: vi.fn(),
+        setExperimentUpdateExecutionLogger: vi.fn(),
       })),
   }),
 );
 
-const updateExperimentMock = updateExperiment as jest.MockedFunction<
+const updateExperimentMock = updateExperiment as MockedFunction<
   typeof updateExperiment
 >;
 const createExperimentSnapshotModelMock =
-  createExperimentSnapshotModel as jest.MockedFunction<
+  createExperimentSnapshotModel as MockedFunction<
     typeof createExperimentSnapshotModel
   >;
-const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
+const getDataSourceByIdMock = getDataSourceById as MockedFunction<
   typeof getDataSourceById
 >;
 const getSourceIntegrationObjectMock =
-  getSourceIntegrationObject as jest.MockedFunction<
+  getSourceIntegrationObject as MockedFunction<
     typeof getSourceIntegrationObject
   >;
 const updateExperimentDashboardsMock =
-  updateExperimentDashboards as jest.MockedFunction<
+  updateExperimentDashboards as MockedFunction<
     typeof updateExperimentDashboards
   >;
 
-const resultsQueryRunnerMock =
-  ExperimentResultsQueryRunner as unknown as jest.Mock;
+const resultsQueryRunnerMock = ExperimentResultsQueryRunner as unknown as Mock;
 const incrementalQueryRunnerMock =
-  ExperimentIncrementalRefreshQueryRunner as unknown as jest.Mock;
+  ExperimentIncrementalRefreshQueryRunner as unknown as Mock;
 const exploratoryQueryRunnerMock =
-  ExperimentIncrementalRefreshExploratoryQueryRunner as unknown as jest.Mock;
+  ExperimentIncrementalRefreshExploratoryQueryRunner as unknown as Mock;
 
 function makeContext(): ApiReqContext {
   return {
@@ -115,18 +115,18 @@ function makeContext(): ApiReqContext {
       settings: {},
     },
     logger: {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
     },
     models: {
       metricGroups: {
-        getAll: jest.fn().mockResolvedValue([]),
+        getAll: vi.fn().mockResolvedValue([]),
       },
       incrementalRefresh: {
-        acquireLock: jest.fn().mockResolvedValue(true),
-        releaseLock: jest.fn().mockResolvedValue(undefined),
+        acquireLock: vi.fn().mockResolvedValue(true),
+        releaseLock: vi.fn().mockResolvedValue(undefined),
       },
     },
   } as unknown as ApiReqContext;
@@ -239,7 +239,7 @@ function makePlan({
 
 describe("snapshot lifecycle", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
     createExperimentSnapshotModelMock.mockImplementation(
@@ -464,9 +464,9 @@ describe("snapshot lifecycle", () => {
 
     it("throws ConcurrentIncrementalRefreshError when lock cannot be acquired", async () => {
       const context = makeContext();
-      (
-        context.models.incrementalRefresh.acquireLock as jest.Mock
-      ).mockResolvedValue(false);
+      (context.models.incrementalRefresh.acquireLock as Mock).mockResolvedValue(
+        false,
+      );
       const experiment = makeExperiment();
       const plan = makePlan({ runnerKind: "incremental-update" });
 

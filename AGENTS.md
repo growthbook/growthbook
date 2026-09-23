@@ -39,8 +39,8 @@ pnpm --filter back-end generate-openapi  # Regenerate spec from Zod validators
 # Testing
 pnpm test             # All packages
 pnpm --filter front-end test    # Front-end only (Vitest)
-pnpm --filter back-end test     # Back-end only (Jest)
-pnpm --filter shared test       # Shared only (Jest)
+pnpm --filter back-end test     # Back-end only (Vitest)
+pnpm --filter shared test       # Shared only (Vitest)
 
 # Run a single test file
 pnpm --filter back-end test path/to/test.ts
@@ -53,7 +53,7 @@ pnpm --filter back-end test path/to/test.ts
 ### Monorepo Structure (pnpm workspaces)
 
 - **`packages/front-end`** — Next.js 14 app (pages router), Vitest for tests, port 3000
-- **`packages/back-end`** — Express API server, Jest for tests, MongoDB via Mongoose, port 3100
+- **`packages/back-end`** — Express API server, Vitest for tests, MongoDB via Mongoose, port 3100
 - **`packages/shared`** — Types, Zod validators, utilities shared between front-end and back-end
 - **`packages/sdk-js`** — Published as `@growthbook/growthbook`, zero-dependency JS SDK
 - **`packages/sdk-react`** — Published as `@growthbook/growthbook-react`, zero-dependency React SDK

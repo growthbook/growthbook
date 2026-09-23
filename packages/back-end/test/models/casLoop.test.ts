@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { buildCasGuard, runCasLoop } from "back-end/src/models/casLoop";
 
 /**
@@ -33,7 +34,7 @@ describe("buildCasGuard", () => {
 
 describe("runCasLoop", () => {
   it("reports a missing document as not-found, distinctly from an abort", async () => {
-    const compute = jest.fn();
+    const compute = vi.fn();
     await expect(
       runCasLoop({
         alsoGuard: ["status"],
@@ -46,7 +47,7 @@ describe("runCasLoop", () => {
   });
 
   it("reports a refusing compute as aborted, and writes nothing", async () => {
-    const write = jest.fn();
+    const write = vi.fn();
     await expect(
       runCasLoop({
         alsoGuard: ["status"],
@@ -59,7 +60,7 @@ describe("runCasLoop", () => {
   });
 
   it("reports exhaustion when the guard never converges", async () => {
-    const write = jest.fn().mockResolvedValue({ applied: false });
+    const write = vi.fn().mockResolvedValue({ applied: false });
     await expect(
       runCasLoop({
         alsoGuard: ["status"],

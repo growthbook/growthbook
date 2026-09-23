@@ -1,13 +1,14 @@
+import { vi } from "vitest";
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 
 describe("ExperimentUpdateExecutionLogger", () => {
   beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(0);
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   const plan = {
@@ -30,7 +31,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
   it("accumulates phase timings via withTiming and boundary marks", async () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
     await logger.withTiming("generateSql", async () => {
-      jest.advanceTimersByTime(10);
+      vi.advanceTimersByTime(10);
     });
     logger.startPhase("runQueries");
     logger.endPhase("runQueries");
@@ -53,7 +54,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
   it("records phase timings via startPhase and endPhase", async () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
     logger.startPhase("generateSql");
-    jest.advanceTimersByTime(10);
+    vi.advanceTimersByTime(10);
     logger.endPhase("generateSql");
     logger.startPhase("runQueries");
     logger.endPhase("runQueries");
@@ -89,23 +90,23 @@ describe("ExperimentUpdateExecutionLogger", () => {
   it("freezes total when propagateSnapshot ends", async () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
     await logger.withTiming("generateSql", async () => {
-      jest.advanceTimersByTime(10);
+      vi.advanceTimersByTime(10);
     });
     logger.endPhase("propagateSnapshot");
 
     const timingsAfterFreeze = logger.getTimings();
     expect(timingsAfterFreeze.total).toBe(10);
-    jest.advanceTimersByTime(10);
+    vi.advanceTimersByTime(10);
     expect(logger.getTimings().total).toBe(timingsAfterFreeze.total);
   });
 
   it("freezes total when logUpdateCompleted runs without propagateSnapshot", async () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
     await logger.withTiming("persistSnapshot", async () => {
-      jest.advanceTimersByTime(10);
+      vi.advanceTimersByTime(10);
     });
 
-    const info = jest.fn();
+    const info = vi.fn();
     logger.logUpdateCompleted({ logger: { info } } as never, {
       snapshotStatus: "error",
       error: "query failed",
@@ -113,13 +114,13 @@ describe("ExperimentUpdateExecutionLogger", () => {
 
     const totalAfterLog = logger.getTimings().total;
     expect(totalAfterLog).toBe(10);
-    jest.advanceTimersByTime(10);
+    vi.advanceTimersByTime(10);
     expect(logger.getTimings().total).toBe(totalAfterLog);
   });
 
   it("logs only once on terminal snapshot status", () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
-    const info = jest.fn();
+    const info = vi.fn();
     const context = { logger: { info } } as const;
 
     logger.logUpdateCompleted(context, { snapshotStatus: "running" });
@@ -153,7 +154,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
       },
     );
     logger.execution.incrementalRefreshMode = "incremental";
-    const info = jest.fn();
+    const info = vi.fn();
 
     logger.logUpdateCompleted({ logger: { info } } as never, {
       snapshotStatus: "error",
@@ -183,7 +184,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
 
   it("emits null covariateSources when none are recorded", () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
-    const info = jest.fn();
+    const info = vi.fn();
 
     logger.logUpdateCompleted({ logger: { info } } as never, {
       snapshotStatus: "success",
@@ -210,7 +211,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
       aggregatedTableFullName: null,
       reason: "window-not-covered",
     });
-    const info = jest.fn();
+    const info = vi.fn();
 
     logger.logUpdateCompleted({ logger: { info } } as never, {
       snapshotStatus: "success",

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   getSlackConversation,
   isSlackWorkspacePlaceholderUrl,
@@ -10,9 +11,9 @@ import {
 } from "back-end/src/services/slack/slackWebApi";
 import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 
-jest.mock("back-end/src/util/http.util", () => ({
-  cancellableFetch: jest.fn(),
-  fetch: jest.fn(),
+vi.mock("back-end/src/util/http.util", () => ({
+  cancellableFetch: vi.fn(),
+  fetch: vi.fn(),
 }));
 
 const slackResponse = (body: Record<string, unknown>) => ({
@@ -30,7 +31,7 @@ const rateLimitedResponse = (retryAfter: string | null) => ({
 });
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe("isSlackWorkspacePlaceholderUrl", () => {
@@ -294,13 +295,13 @@ describe("Slack conversation details", () => {
 
 describe("Slack rate limits", () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     cancellableFetch.mockReset();
   });
 
   afterEach(() => {
     cancellableFetch.mockReset();
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("waits for Retry-After before retrying the same message", async () => {
@@ -313,9 +314,9 @@ describe("Slack rate limits", () => {
       channel: "C123",
       text: "Answer",
     });
-    await jest.advanceTimersByTimeAsync(1999);
+    await vi.advanceTimersByTimeAsync(1999);
     expect(cancellableFetch).toHaveBeenCalledTimes(1);
-    await jest.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(cancellableFetch).toHaveBeenCalledTimes(2);
     expect(cancellableFetch.mock.calls[1]).toEqual(
       cancellableFetch.mock.calls[0],
@@ -337,7 +338,7 @@ describe("Slack rate limits", () => {
       ts: "123.456",
       text: "Answer",
     });
-    await jest.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
     await expect(result).resolves.toBe(true);
     expect(cancellableFetch).toHaveBeenCalledTimes(2);
     expect(cancellableFetch.mock.calls[1]).toEqual(
@@ -353,9 +354,9 @@ describe("Slack rate limits", () => {
       .mockResolvedValueOnce(rateLimitedResponse("2"))
       .mockResolvedValueOnce(slackResponse({ ok: true, channels: [] }));
     const result = listSlackConversations({ token: "xoxb-token" });
-    await jest.advanceTimersByTimeAsync(1999);
+    await vi.advanceTimersByTimeAsync(1999);
     expect(cancellableFetch).toHaveBeenCalledTimes(1);
-    await jest.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(1);
     await expect(result).resolves.toEqual({ channels: [], nextCursor: null });
     expect(cancellableFetch).toHaveBeenCalledTimes(2);
     expect(cancellableFetch.mock.calls[1]).toEqual(
@@ -368,10 +369,10 @@ describe("Slack rate limits", () => {
     const result = expect(
       postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
     ).rejects.toThrow(SlackRateLimitError);
-    await jest.runAllTimersAsync();
+    await vi.runAllTimersAsync();
     await result;
     expect(cancellableFetch).toHaveBeenCalledTimes(4);
-    expect(jest.getTimerCount()).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("caps total waiting without shortening the next cooldown", async () => {
@@ -380,7 +381,7 @@ describe("Slack rate limits", () => {
     const result = expect(
       postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
     ).rejects.toThrow(SlackRateLimitError);
-    await jest.runAllTimersAsync();
+    await vi.runAllTimersAsync();
     await result;
     expect(cancellableFetch).toHaveBeenCalledTimes(2);
     expect(Date.now() - startedAt).toBe(40_000);
@@ -392,7 +393,7 @@ describe("Slack rate limits", () => {
       postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
     ).rejects.toThrow(SlackRateLimitError);
     expect(cancellableFetch).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("allows a successful retry at the total wait limit", async () => {
@@ -405,7 +406,7 @@ describe("Slack rate limits", () => {
       channel: "C1",
       text: "Answer",
     });
-    await jest.advanceTimersByTimeAsync(60_000);
+    await vi.advanceTimersByTimeAsync(60_000);
     await expect(result).resolves.toMatchObject({ ok: true, ts: "123.456" });
     expect(cancellableFetch).toHaveBeenCalledTimes(3);
   });
@@ -421,9 +422,9 @@ describe("Slack rate limits", () => {
         channel: "C1",
         text: "Answer",
       });
-      await jest.advanceTimersByTimeAsync(999);
+      await vi.advanceTimersByTimeAsync(999);
       expect(cancellableFetch).toHaveBeenCalledTimes(1);
-      await jest.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(1);
       await expect(result).resolves.toMatchObject({ ok: true });
       expect(cancellableFetch).toHaveBeenCalledTimes(2);
     },
@@ -435,7 +436,7 @@ describe("Slack rate limits", () => {
       postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
     ).resolves.toMatchObject({ ok: false });
     expect(cancellableFetch).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("does not retry other HTTP errors", async () => {
@@ -447,6 +448,6 @@ describe("Slack rate limits", () => {
       postSlackMessageResult({ token: "token", channel: "C1", text: "Answer" }),
     ).resolves.toMatchObject({ ok: false });
     expect(cancellableFetch).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

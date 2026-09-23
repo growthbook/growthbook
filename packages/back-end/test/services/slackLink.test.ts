@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   buildSlackLinkUrl,
   verifySlackLinkState,
@@ -37,20 +38,20 @@ describe("slackLink signed state", () => {
 });
 
 it("rejects appended data and expired consent, including future timestamps", () => {
-  jest.useFakeTimers();
+  vi.useFakeTimers();
   try {
-    jest.setSystemTime(new Date("2026-09-17T00:00:00Z"));
+    vi.setSystemTime(new Date("2026-09-17T00:00:00Z"));
     const state = stateFromUrl(
       buildSlackLinkUrl({ slackTeamId: "T1", slackUserId: "U1" }),
     );
     expect(verifySlackLinkState(`${state}.extra`)).toBeNull();
-    jest.advanceTimersByTime(15 * 60 * 1000);
+    vi.advanceTimersByTime(15 * 60 * 1000);
     expect(verifySlackLinkState(state)).not.toBeNull();
-    jest.advanceTimersByTime(1);
+    vi.advanceTimersByTime(1);
     expect(verifySlackLinkState(state)).toBeNull();
-    jest.setSystemTime(new Date("2026-09-16T23:59:59Z"));
+    vi.setSystemTime(new Date("2026-09-16T23:59:59Z"));
     expect(verifySlackLinkState(state)).toBeNull();
   } finally {
-    jest.useRealTimers();
+    vi.useRealTimers();
   }
 });

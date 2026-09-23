@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { FeatureInterface } from "shared/types/feature";
 import type { ReqContext } from "back-end/types/request";
@@ -7,8 +8,8 @@ import {
   getLivePayloadChanges,
 } from "back-end/src/services/experimentLivePayload";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeaturesByIds: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeaturesByIds: vi.fn(),
 }));
 
 // Which experiment edits would change what a running experiment serves.
@@ -103,8 +104,8 @@ describe("assertLivePayloadChangeAllowed", () => {
     }) as unknown as FeatureInterface;
 
   beforeEach(() => {
-    jest.mocked(getFeaturesByIds).mockReset();
-    jest.mocked(getFeaturesByIds).mockResolvedValue([feature(true)]);
+    vi.mocked(getFeaturesByIds).mockReset();
+    vi.mocked(getFeaturesByIds).mockResolvedValue([feature(true)]);
   });
 
   it("refuses a live change only for a running experiment served by a live rule", async () => {
@@ -116,7 +117,7 @@ describe("assertLivePayloadChangeAllowed", () => {
       "Cannot change: [coverage] while the experiment is running",
     );
 
-    jest.mocked(getFeaturesByIds).mockResolvedValue([feature(false)]);
+    vi.mocked(getFeaturesByIds).mockResolvedValue([feature(false)]);
     await expect(
       assertLivePayloadChangeAllowed(context, experiment("running"), {
         coverage: 0.5,

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { ReqContext } from "back-end/types/organization";
 import {
   getConfidenceLevelsForProject,
@@ -22,10 +23,8 @@ function makeContext({
   } | null;
 }): MockContext {
   const projectDoc = project ? ({ id: "proj_1", ...project } as const) : null;
-  const getProjects = jest
-    .fn()
-    .mockResolvedValue(projectDoc ? [projectDoc] : []);
-  const getById = jest.fn().mockResolvedValue(project ?? null);
+  const getProjects = vi.fn().mockResolvedValue(projectDoc ? [projectDoc] : []);
+  const getById = vi.fn().mockResolvedValue(project ?? null);
   return {
     org: {
       id: "org_1",

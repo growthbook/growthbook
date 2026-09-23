@@ -1,21 +1,22 @@
+import { vi } from "vitest";
 import { PermissionError } from "shared/util";
 import type { RampScheduleInterface } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getEnvironmentIdsFromOrg: jest.fn(() => ["dev", "production"]),
-  getContextForAgendaJobByOrgObject: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getEnvironmentIdsFromOrg: vi.fn(() => ["dev", "production"]),
+  getContextForAgendaJobByOrgObject: vi.fn(),
 }));
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  getFeatureProjectsByIds: jest.fn(async () => new Map([["feat_1", "prj_1"]])),
-  getFeatureRuleEnvironmentsByIds: jest.fn(async () => new Map()),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
+  getFeatureProjectsByIds: vi.fn(async () => new Map([["feat_1", "prj_1"]])),
+  getFeatureRuleEnvironmentsByIds: vi.fn(async () => new Map()),
 }));
-jest.mock("back-end/src/services/safeRolloutSnapshots", () => ({
-  createSafeRolloutSnapshot: jest.fn(),
+vi.mock("back-end/src/services/safeRolloutSnapshots", () => ({
+  createSafeRolloutSnapshot: vi.fn(),
 }));
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
 import { assertCanEditRampScheduleConfig } from "back-end/src/services/rampSchedule";
@@ -50,7 +51,7 @@ const schedule = (nextProcessAt: Date | null) =>
   }) as unknown as RampScheduleInterface;
 
 function makeContext(canPublish: boolean) {
-  const canPublishFeature = jest.fn(() => canPublish);
+  const canPublishFeature = vi.fn(() => canPublish);
   const context = {
     org: { id: "org_1" },
     permissions: {
@@ -60,14 +61,14 @@ function makeContext(canPublish: boolean) {
       },
     },
     models: {
-      rampSchedules: { publishEnvironments: jest.fn(() => ["production"]) },
+      rampSchedules: { publishEnvironments: vi.fn(() => ["production"]) },
     },
   } as unknown as ApiReqContext;
   return { context, canPublishFeature };
 }
 
 describe("assertCanEditRampScheduleConfig", () => {
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => vi.clearAllMocks());
 
   it("does not ask for publish authority on a name-only edit of an armed schedule", async () => {
     const { context, canPublishFeature } = makeContext(false);

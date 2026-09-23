@@ -1,5 +1,6 @@
-jest.mock("back-end/src/services/features", () => ({
-  queueSDKPayloadRefresh: jest.fn(),
+import { Mock, vi } from "vitest";
+vi.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: vi.fn(),
 }));
 
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -23,7 +24,7 @@ import { advancedGuardStamp } from "back-end/src/models/BaseModel";
  * time always broadcasts the truth.
  */
 
-const queueRefresh = queueSDKPayloadRefresh as jest.Mock;
+const queueRefresh = queueSDKPayloadRefresh as Mock;
 
 function makeContext(): Context {
   return { sdkPayloadRefreshBuffer: null } as unknown as Context;
@@ -34,7 +35,9 @@ function produceRefresh(context: Context, environment: string, project = "") {
   context.sdkPayloadRefreshBuffer?.keys.push({ environment, project });
 }
 
-beforeEach(() => queueRefresh.mockClear());
+beforeEach(() => {
+  queueRefresh.mockClear();
+});
 
 describe("withBufferedPayloadRefreshes", () => {
   it("flushes once, deduped, after a multi-step landing", async () => {
@@ -157,7 +160,7 @@ describe("withBufferedPayloadRefreshes — entity events", () => {
 
   it("drops deferred entity events when the landing throws", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
 
     await expect(
       withBufferedPayloadRefreshes(context, "test", async () => {
@@ -208,7 +211,7 @@ describe("deferred event dispositions", () => {
     return {
       sdkPayloadRefreshBuffer: null,
       bulkPublishDeferredEvents: null,
-      logger: { warn: jest.fn(), error: jest.fn() },
+      logger: { warn: vi.fn(), error: vi.fn() },
     } as unknown as Context;
   }
 
@@ -218,7 +221,7 @@ describe("deferred event dispositions", () => {
   // about that one.
   it("drops a straggler whose document was restored", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
     let captured: DeferredEventBuffer | null = null;
 
     await expect(
@@ -244,7 +247,7 @@ describe("deferred event dispositions", () => {
   // rolling back one would suppress the other's event.
   it("does not let one entity type's restore suppress another's event", async () => {
     const context = ctx();
-    const featureEmit = jest.fn();
+    const featureEmit = vi.fn();
 
     await expect(
       withBufferedPayloadRefreshes(context, "test", async () => {
@@ -289,7 +292,7 @@ describe("deferred event dispositions", () => {
   // ordinary update to an entity some earlier release happened to roll back.
   it("does not adopt a finished landing when capturing after it", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
 
     await expect(
       withBufferedPayloadRefreshes(context, "test", async () => {
@@ -311,7 +314,7 @@ describe("deferred event dispositions", () => {
   // failed rollback, whose straggler is the only announcement consumers would get.
   it("emits a straggler whose document was NOT restored", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
 
     await expect(
       withBufferedPayloadRefreshes(context, "test", async () => {
@@ -334,8 +337,8 @@ describe("deferred event dispositions", () => {
   // published value over live pre-image state.
   it("on partial state, emits only for documents that were not restored", async () => {
     const context = ctx();
-    const stuck = jest.fn();
-    const rolledBack = jest.fn();
+    const stuck = vi.fn();
+    const rolledBack = vi.fn();
 
     await expect(
       withBufferedPayloadRefreshes(context, "test", async () => {
@@ -362,7 +365,7 @@ describe("deferred event dispositions", () => {
 
   it("lets a straggler emit live when the landing stood", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
 
     await withBufferedPayloadRefreshes(context, "test", async () => undefined);
 
@@ -381,7 +384,7 @@ describe("deferred event dispositions", () => {
   // later landing rolled back, or emitted because an unrelated later landing stood.
   it("judges a straggler by the landing it belongs to, not the one now open", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
     let captured: Context["bulkPublishDeferredEvents"] = null;
 
     // Landing #1 stands, and its producer suspends before emitting.
@@ -407,7 +410,7 @@ describe("deferred event dispositions", () => {
   // silent rather than inherit #2's success.
   it("does not let a later landing's success revive a rolled-back event", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
     let captured: Context["bulkPublishDeferredEvents"] = null;
 
     await expect(
@@ -427,7 +430,7 @@ describe("deferred event dispositions", () => {
   // A straggler that resumes WHILE the next landing is open must not join its buffer.
   it("does not push into a later landing's open buffer", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
     let captured: Context["bulkPublishDeferredEvents"] = null;
 
     await withBufferedPayloadRefreshes(context, "test", async () => {
@@ -450,7 +453,7 @@ describe("deferred event dispositions", () => {
   // the same misattribution, from the other side.
   it("emits a write that belonged to no landing at all", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
 
     // Captured with nothing open.
     const captured = captureEventBuffer(context);
@@ -472,7 +475,7 @@ describe("deferred event dispositions", () => {
   // same context — reachable from any loop that publishes several entities in turn.
   it("does not let one landing's verdict govern the next", async () => {
     const context = ctx();
-    const emit = jest.fn();
+    const emit = vi.fn();
 
     await expect(
       withBufferedPayloadRefreshes(context, "test", async () => {

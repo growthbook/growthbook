@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { ZodType } from "zod";
 import { z } from "zod";
 import type { ReqContext } from "back-end/types/request";
@@ -8,7 +9,7 @@ import { MergeConflictError } from "back-end/src/util/errors";
 // api.router, which pulls in the entire app (mongoose, integrations, etc.)
 // and is unsuitable for a unit test. The test relies on _setRoutesForTests
 // to inject routes anyway.
-jest.mock("back-end/src/api/api.router", () => ({
+vi.mock("back-end/src/api/api.router", () => ({
   allRoutes: [],
 }));
 

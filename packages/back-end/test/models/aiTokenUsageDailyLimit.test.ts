@@ -1,17 +1,20 @@
+import { MockedFunction, vi } from "vitest";
 import { OrganizationInterface } from "shared/types/organization";
 
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   IS_CLOUD: true,
 }));
-jest.mock("back-end/src/enterprise/licenseUtil", () => ({
-  getEffectiveAccountPlan: jest.fn(),
+vi.mock("back-end/src/enterprise/licenseUtil", () => ({
+  getEffectiveAccountPlan: vi.fn(),
 }));
 
 import { getEffectiveAccountPlan } from "back-end/src/enterprise/licenseUtil";
 import { getDailyTokenLimit } from "back-end/src/models/AITokenUsageModel";
 
-const mockedPlan = getEffectiveAccountPlan as jest.MockedFunction<
+const mockedPlan = getEffectiveAccountPlan as MockedFunction<
   typeof getEffectiveAccountPlan
 >;
 

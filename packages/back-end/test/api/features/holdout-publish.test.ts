@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import type { Request } from "express";
@@ -229,12 +230,13 @@ describe("holdout publish", () => {
 
   it("adds an experiment rule to a holdout-bound feature without holdout access", async () => {
     const context = makeContext("experimenter");
-    jest.spyOn(context.permissions, "canUpdateHoldout").mockReturnValue(false);
-    jest
-      .spyOn(context.permissions, "canReadMultiProjectResource")
-      .mockImplementation(
-        (projects) => !projects.includes("project_without_access"),
-      );
+    vi.spyOn(context.permissions, "canUpdateHoldout").mockReturnValue(false);
+    vi.spyOn(
+      context.permissions,
+      "canReadMultiProjectResource",
+    ).mockImplementation(
+      (projects) => !projects.includes("project_without_access"),
+    );
     setReqContext(context);
 
     await insertHoldout("hld_existing", [

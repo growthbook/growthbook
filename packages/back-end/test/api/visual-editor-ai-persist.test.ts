@@ -1,42 +1,26 @@
+import { vi } from "vitest";
 import request from "supertest";
 import { VisualChangesetModel } from "back-end/src/models/VisualChangesetModel";
 import { setupApp } from "./api.setup";
 
 // The LLM is mocked; the changeset round-trips through the real model.
 
-// Import cycles: a lazy Proxy defers requireActual to first property access.
-const mockParsePrompt = jest.fn();
-const mockGetExperimentById = jest.fn();
+const mockParsePrompt = vi.hoisted(() => vi.fn());
+const mockGetExperimentById = vi.hoisted(() => vi.fn());
 
-jest.mock("back-end/src/enterprise/services/ai", () => {
-  const overrides: Record<string, unknown> = {
-    parsePrompt: (...args: unknown[]) => mockParsePrompt(...args),
-  };
-  return new Proxy(
-    {},
-    {
-      get: (_t, prop: string) =>
-        prop in overrides
-          ? overrides[prop]
-          : jest.requireActual("back-end/src/enterprise/services/ai")[prop],
-    },
-  );
-});
+vi.mock("back-end/src/enterprise/services/ai", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("back-end/src/enterprise/services/ai")
+  >()),
+  parsePrompt: (...args: unknown[]) => mockParsePrompt(...args),
+}));
 
-jest.mock("back-end/src/models/ExperimentModel", () => {
-  const overrides: Record<string, unknown> = {
-    getExperimentById: (...args: unknown[]) => mockGetExperimentById(...args),
-  };
-  return new Proxy(
-    {},
-    {
-      get: (_t, prop: string) =>
-        prop in overrides
-          ? overrides[prop]
-          : jest.requireActual("back-end/src/models/ExperimentModel")[prop],
-    },
-  );
-});
+vi.mock("back-end/src/models/ExperimentModel", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("back-end/src/models/ExperimentModel")
+  >()),
+  getExperimentById: (...args: unknown[]) => mockGetExperimentById(...args),
+}));
 
 describe("visual editor AI edit — persist", () => {
   const { app, setReqContext } = setupApp();

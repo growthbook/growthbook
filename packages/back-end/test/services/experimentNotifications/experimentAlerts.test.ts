@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { NotificationEvent } from "shared/types/events/notification-events";
@@ -23,20 +24,20 @@ import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { countVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 
-jest.mock("back-end/src/services/experiments", () => ({
-  getExperimentMetricById: jest.fn(),
-  getExperimentMetricsByIds: jest.fn().mockResolvedValue([]),
+vi.mock("back-end/src/services/experiments", () => ({
+  getExperimentMetricById: vi.fn(),
+  getExperimentMetricsByIds: vi.fn().mockResolvedValue([]),
 }));
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  getLatestSuccessfulSnapshot: jest.fn().mockResolvedValue(null),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  getLatestSuccessfulSnapshot: vi.fn().mockResolvedValue(null),
 }));
-jest.mock("back-end/src/models/VisualChangesetModel", () => ({
-  countVisualChangesetsByExperiment: jest.fn(),
+vi.mock("back-end/src/models/VisualChangesetModel", () => ({
+  countVisualChangesetsByExperiment: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/EventModel", () => ({ createEvent: jest.fn() }));
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  setExperimentNotificationState: jest.fn(),
+vi.mock("back-end/src/models/EventModel", () => ({ createEvent: vi.fn() }));
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  setExperimentNotificationState: vi.fn(),
 }));
 
 const context = { org: { id: "org_test" } } as Context;
@@ -60,10 +61,10 @@ const snapshot = {
 
 describe("experiment alert producers", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.useFakeTimers().setSystemTime(now);
+    vi.clearAllMocks();
+    vi.useFakeTimers().setSystemTime(now);
   });
-  afterEach(() => jest.useRealTimers());
+  afterEach(() => vi.useRealTimers());
 
   it.each([
     ["draft", "running", "status.started"],
@@ -125,8 +126,8 @@ describe("experiment alert producers", () => {
   });
 
   it("captures linked implementation counts at start", async () => {
-    jest.mocked(countVisualChangesetsByExperiment).mockResolvedValue(1);
-    const countByExperiment = jest.fn().mockResolvedValue(2);
+    vi.mocked(countVisualChangesetsByExperiment).mockResolvedValue(1);
+    const countByExperiment = vi.fn().mockResolvedValue(2);
     await notifyExperimentStarted({
       context: {
         ...context,
@@ -293,7 +294,7 @@ describe("experiment alert producers", () => {
       }),
     );
     expect(
-      jest.mocked(setExperimentNotificationState).mock.calls.map(([args]) => ({
+      vi.mocked(setExperimentNotificationState).mock.calls.map(([args]) => ({
         type: args.type,
         triggered: args.triggered,
       })),
@@ -366,10 +367,10 @@ describe("experiment alert producers", () => {
       experiment,
       cause: "query",
     });
-    expect(JSON.stringify(jest.mocked(createEvent).mock.calls)).not.toContain(
+    expect(JSON.stringify(vi.mocked(createEvent).mock.calls)).not.toContain(
       "secret-database-password",
     );
-    jest.mocked(createEvent).mockClear();
+    vi.mocked(createEvent).mockClear();
     const failed = {
       ...experiment,
       pastNotifications: ["query-failed", "srm"],
@@ -409,7 +410,7 @@ describe("experiment alert producers", () => {
     });
     await notifyMultipleExposures({ context, experiment, currentStatus });
     expect(
-      jest.mocked(createEvent).mock.calls.map(([args]) => args.event),
+      vi.mocked(createEvent).mock.calls.map(([args]) => args.event),
     ).toEqual(["warning", "warning"]);
     const notified = {
       ...experiment,
@@ -443,7 +444,7 @@ describe("experiment alert producers", () => {
     });
     expect(createEvent).toHaveBeenCalledTimes(2);
     expect(
-      jest
+      vi
         .mocked(setExperimentNotificationState)
         .mock.calls.slice(-2)
         .map(([args]) => ({ type: args.type, triggered: args.triggered })),
@@ -454,7 +455,7 @@ describe("experiment alert producers", () => {
   });
 
   it("sends all failed guardrails in one event that Slack can render", async () => {
-    jest.mocked(getExperimentMetricById).mockResolvedValue(null);
+    vi.mocked(getExperimentMetricById).mockResolvedValue(null);
     const variations = [
       { id: "a", name: "A", key: "0", screenshots: [], description: "" },
       { id: "b", name: "B", key: "1", screenshots: [], description: "" },
@@ -495,7 +496,7 @@ describe("experiment alert producers", () => {
       },
     });
     expect(createEvent).toHaveBeenCalledTimes(1);
-    const args = jest.mocked(createEvent).mock.calls[0][0];
+    const args = vi.mocked(createEvent).mock.calls[0][0];
     expect(args.event).toBe("guardrailFailed");
     expect(args.data).toMatchObject({
       object: {
@@ -541,7 +542,7 @@ describe("experiment alert producers", () => {
         },
       }),
     );
-    jest.mocked(createEvent).mockClear();
+    vi.mocked(createEvent).mockClear();
     await notifyExperimentBanditWeightsTransition({
       context,
       previous: updated,

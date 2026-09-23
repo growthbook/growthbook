@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   Experiment,
   FeatureApiResponse,
@@ -6,7 +7,6 @@ import {
   UserContext,
 } from "../src";
 import { GrowthBookClient } from "../src/GrowthBookClient";
-require("jest-localstorage-mock");
 
 describe("GrowthBookClient", () => {
   it("Supports basic feature evaluation", async () => {
@@ -47,7 +47,7 @@ describe("GrowthBookClient", () => {
   });
 
   it("Fires tracking callback with user", async () => {
-    const track = jest.fn();
+    const track = vi.fn();
     const gb = new GrowthBookClient({
       trackingCallback: track,
     });
@@ -75,7 +75,7 @@ describe("GrowthBookClient", () => {
   });
 
   it("Fires feature usage callback with user", async () => {
-    const track = jest.fn();
+    const track = vi.fn();
     const gb = new GrowthBookClient({
       onFeatureUsage: track,
     });
@@ -341,10 +341,10 @@ describe("GrowthBookClient", () => {
     });
 
     it("Merges trackingCallback", () => {
-      const track = jest.fn();
-      const track2 = jest.fn();
-      const track3 = jest.fn();
-      const track4 = jest.fn();
+      const track = vi.fn();
+      const track2 = vi.fn();
+      const track3 = vi.fn();
+      const track4 = vi.fn();
 
       // Only user trackingCallback
       const gb = new GrowthBookClient().initSync({ payload: {} });
@@ -378,10 +378,10 @@ describe("GrowthBookClient", () => {
     });
 
     it("Merges onFeatureUsage", () => {
-      const track = jest.fn();
-      const track2 = jest.fn();
-      const track3 = jest.fn();
-      const track4 = jest.fn();
+      const track = vi.fn();
+      const track2 = vi.fn();
+      const track3 = vi.fn();
+      const track4 = vi.fn();
 
       const payload: FeatureApiResponse = {
         features: {
@@ -599,7 +599,7 @@ describe("UserScopedGrowthBook", () => {
   });
 
   it("De-dupes tracking callbacks", () => {
-    const globalTrack = jest.fn();
+    const globalTrack = vi.fn();
     const gb = new GrowthBookClient({
       trackingCallback: globalTrack,
     });
@@ -620,7 +620,7 @@ describe("UserScopedGrowthBook", () => {
       hashVersion: 2,
     };
 
-    const localTrack = jest.fn();
+    const localTrack = vi.fn();
     const user: UserContext = {
       attributes: {
         id: "1",
@@ -659,7 +659,7 @@ describe("UserScopedGrowthBook", () => {
   });
 
   it("de-dupes feature usage callbacks", () => {
-    const globalTrack = jest.fn();
+    const globalTrack = vi.fn();
     const gb = new GrowthBookClient({
       onFeatureUsage: globalTrack,
     });
@@ -674,7 +674,7 @@ describe("UserScopedGrowthBook", () => {
       },
     });
 
-    const localTrack = jest.fn();
+    const localTrack = vi.fn();
     const scoped = gb.createScopedInstance({
       attributes: {},
       onFeatureUsage: localTrack,
@@ -712,7 +712,7 @@ describe("UserScopedGrowthBook", () => {
       },
     });
 
-    const usage = jest.fn();
+    const usage = vi.fn();
     const scoped = gb.createScopedInstance({
       attributes: {
         id: "1",

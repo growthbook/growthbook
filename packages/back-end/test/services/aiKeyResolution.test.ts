@@ -1,9 +1,8 @@
+import { vi } from "vitest";
 import { AICredentialInterface } from "shared/validators";
 import { AI_PROVIDER_META, AI_PROVIDERS, AIProvider } from "shared/ai";
 
-// Env vars are captured at module load in util/secrets, so they have to be set
-// before the module graph is required. Each test builds its own module instance
-// via jest.isolateModules to get a clean env AND a clean per-request cache.
+// Environment variables and the per-request cache are captured at module load.
 type AICredentialsModule = typeof import("back-end/src/services/aiCredentials");
 type AIKeyContext = Parameters<AICredentialsModule["getResolvedAIKeys"]>[0];
 
@@ -20,24 +19,17 @@ const AI_ENV_VARS = [
   "IS_CLOUD",
 ];
 
-const loadModule = (env: Record<string, string>): AICredentialsModule => {
-  let mod: AICredentialsModule | undefined;
-  jest.isolateModules(() => {
-    const previous = { ...process.env };
-    AI_ENV_VARS.forEach((name) => delete process.env[name]);
-    Object.assign(process.env, env);
-    try {
-      mod = jest.requireActual<AICredentialsModule>(
-        "back-end/src/services/aiCredentials",
-      );
-    } finally {
-      // Restore even if the module throws on load, so one failure doesn't
-      // leave the rest of the worker running without the cleared vars.
-      process.env = previous;
-    }
-  });
-  if (!mod) throw new Error("Could not load aiCredentials module");
-  return mod;
+const loadModule = async (
+  env: Record<string, string>,
+): Promise<AICredentialsModule> => {
+  vi.resetModules();
+  for (const name of AI_ENV_VARS) vi.stubEnv(name, undefined);
+  for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+  try {
+    return await import("back-end/src/services/aiCredentials");
+  } finally {
+    vi.unstubAllEnvs();
+  }
 };
 
 const credential = (
@@ -62,8 +54,8 @@ const makeContext = (
   credentials: AICredentialInterface[],
   { canUseOwnKeys = true }: { canUseOwnKeys?: boolean } = {},
 ) => {
-  const getAll = jest.fn().mockResolvedValue(credentials);
-  const hasPremiumFeature = jest.fn().mockReturnValue(canUseOwnKeys);
+  const getAll = vi.fn().mockResolvedValue(credentials);
+  const hasPremiumFeature = vi.fn().mockReturnValue(canUseOwnKeys);
   return {
     context: {
       models: { aiCredentials: { getAll } },
@@ -81,7 +73,7 @@ describe("getResolvedAIKeys", () => {
   it("prefers an org-stored key over the environment variable on Cloud", async () => {
     // Cloud's managed keys are env vars, so BYOK only means anything if a
     // stored key outranks them.
-    const mod = loadModule({
+    const mod = await loadModule({
       ANTHROPIC_API_KEY: "env-anthropic",
       IS_CLOUD: "true",
     });
@@ -101,7 +93,7 @@ describe("getResolvedAIKeys", () => {
     // Self-hosted, the env var is the deployment's own configuration and the
     // settings UI won't offer to override it, so a stored key for the same
     // provider is a leftover and must not take effect.
-    const mod = loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
+    const mod = await loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
     const { context } = makeContext([
       credential("anthropic", mod.encryptAIKey("org-anthropic"), "opic"),
     ]);
@@ -112,7 +104,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("uses a stored key self-hosted when no env var is set", async () => {
-    const mod = loadModule({});
+    const mod = await loadModule({});
     const { context } = makeContext([
       credential("anthropic", mod.encryptAIKey("org-anthropic"), "opic"),
     ]);
@@ -126,7 +118,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("falls back to the environment variable when nothing is stored", async () => {
-    const mod = loadModule({ OPENAI_API_KEY: "env-openai" });
+    const mod = await loadModule({ OPENAI_API_KEY: "env-openai" });
     const { context } = makeContext([]);
 
     const keys = await resolve(mod, context);
@@ -135,7 +127,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("reports no key when neither source has one", async () => {
-    const mod = loadModule({});
+    const mod = await loadModule({});
     const { context } = makeContext([]);
 
     const keys = await resolve(mod, context);
@@ -144,7 +136,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("resolves each provider independently", async () => {
-    const mod = loadModule({ OPENAI_API_KEY: "env-openai" });
+    const mod = await loadModule({ OPENAI_API_KEY: "env-openai" });
     const { context } = makeContext([
       credential("google", mod.encryptAIKey("org-google"), "ogle"),
     ]);
@@ -160,7 +152,7 @@ describe("getResolvedAIKeys", () => {
     // ENCRYPTION_KEY changed without running the migration script, so the
     // stored ciphertext decrypts to "". Handing an empty key to the provider
     // would surface as an opaque 401, so the env key must survive instead.
-    const mod = loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
+    const mod = await loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
     const { context } = makeContext([
       credential("anthropic", "garbage-not-decryptable", "1234"),
     ]);
@@ -171,7 +163,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("rejects decrypted text that does not match the stored fingerprint", async () => {
-    const mod = loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
+    const mod = await loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
     const { context } = makeContext([
       credential("anthropic", mod.encryptAIKey("wrong-plaintext"), "real"),
     ]);
@@ -183,8 +175,8 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("falls back to env keys when the credential query fails", async () => {
-    const mod = loadModule({ OPENAI_API_KEY: "env-openai" });
-    const getAll = jest.fn().mockRejectedValue(new Error("mongo is down"));
+    const mod = await loadModule({ OPENAI_API_KEY: "env-openai" });
+    const getAll = vi.fn().mockRejectedValue(new Error("mongo is down"));
     const context = {
       models: { aiCredentials: { getAll } },
       hasPremiumFeature: () => true,
@@ -196,7 +188,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("queries once per request no matter how many callers ask", async () => {
-    const mod = loadModule({});
+    const mod = await loadModule({});
     const { context, getAll } = makeContext([]);
 
     await Promise.all([
@@ -210,7 +202,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("does not share cached keys between two contexts", async () => {
-    const mod = loadModule({});
+    const mod = await loadModule({});
     const first = makeContext([
       credential("openai", mod.encryptAIKey("first-org-key"), "-key"),
     ]);
@@ -227,7 +219,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("re-reads after the cache is cleared", async () => {
-    const mod = loadModule({});
+    const mod = await loadModule({});
     const { context, getAll } = makeContext([]);
 
     await resolve(mod, context);
@@ -238,7 +230,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("treats GOOGLE_AI_API_KEY as preferred over the legacy GEMINI_API_KEY", async () => {
-    const mod = loadModule({
+    const mod = await loadModule({
       GOOGLE_AI_API_KEY: "preferred",
       GEMINI_API_KEY: "legacy",
     });
@@ -248,7 +240,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("still accepts the legacy GEMINI_API_KEY on its own", async () => {
-    const mod = loadModule({ GEMINI_API_KEY: "legacy" });
+    const mod = await loadModule({ GEMINI_API_KEY: "legacy" });
     const { context } = makeContext([]);
 
     expect((await resolve(mod, context)).google).toEqual({
@@ -258,7 +250,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("ignores a stored key when the plan does not include BYOK", async () => {
-    const mod = loadModule({ IS_CLOUD: "true" });
+    const mod = await loadModule({ IS_CLOUD: "true" });
     const { context, hasPremiumFeature } = makeContext(
       [credential("anthropic", mod.encryptAIKey("org-anthropic"), "opic")],
       { canUseOwnKeys: false },
@@ -273,7 +265,7 @@ describe("getResolvedAIKeys", () => {
   it("falls back to the managed key when the plan does not include BYOK", async () => {
     // Downgrade on Cloud: still works on the managed key, and because the
     // source is no longer "organization" it is metered and capped again.
-    const mod = loadModule({
+    const mod = await loadModule({
       ANTHROPIC_API_KEY: "env-anthropic",
       IS_CLOUD: "true",
     });
@@ -289,7 +281,7 @@ describe("getResolvedAIKeys", () => {
   });
 
   it("does not query for credentials at all when the plan does not include BYOK", async () => {
-    const mod = loadModule({});
+    const mod = await loadModule({});
     const { context, getAll } = makeContext([], { canUseOwnKeys: false });
 
     await resolve(mod, context);

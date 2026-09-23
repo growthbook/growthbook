@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import type { Request, Response } from "express";
@@ -124,7 +125,7 @@ describe("postFeatureSync", () => {
         name: "A",
         query: {},
         headers: {},
-        audit: jest.fn(),
+        audit: vi.fn(),
       } as unknown as Parameters<typeof postFeatureSync>[0],
       res,
     );

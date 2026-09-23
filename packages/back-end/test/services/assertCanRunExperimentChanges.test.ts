@@ -1,36 +1,26 @@
+import { vi } from "vitest";
 import { ExperimentInterface } from "shared/validators";
 import { ReqContext } from "back-end/types/organization";
 import { assertCanRunExperimentChanges } from "back-end/src/services/experiments";
 
-// Import cycles: a lazy Proxy defers requireActual to first property access.
-const getFeaturesByIdsMock = jest.fn();
-const getFeatureProjectsByIdsMock = jest.fn();
-const getRevisionMock = jest.fn();
+const getFeaturesByIdsMock = vi.fn();
+const getFeatureProjectsByIdsMock = vi.fn();
+const getRevisionMock = vi.fn();
 
-// A function declaration: hoisted, so the hoisted jest.mock factories can call it.
-function lazyMock(modulePath: string, overrides: Record<string, unknown>) {
-  return new Proxy(
-    {},
-    {
-      get: (_t, prop: string) =>
-        prop in overrides
-          ? overrides[prop]
-          : jest.requireActual(modulePath)[prop],
-    },
-  );
-}
-jest.mock("back-end/src/models/FeatureModel", () =>
-  lazyMock("back-end/src/models/FeatureModel", {
-    getFeaturesByIds: (...args: unknown[]) => getFeaturesByIdsMock(...args),
-    getFeatureProjectsByIds: (...args: unknown[]) =>
-      getFeatureProjectsByIdsMock(...args),
-  }),
-);
-jest.mock("back-end/src/models/FeatureRevisionModel", () =>
-  lazyMock("back-end/src/models/FeatureRevisionModel", {
-    getRevision: (...args: unknown[]) => getRevisionMock(...args),
-  }),
-);
+vi.mock("back-end/src/models/FeatureModel", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("back-end/src/models/FeatureModel")
+  >()),
+  getFeaturesByIds: (...args: unknown[]) => getFeaturesByIdsMock(...args),
+  getFeatureProjectsByIds: (...args: unknown[]) =>
+    getFeatureProjectsByIdsMock(...args),
+}));
+vi.mock("back-end/src/models/FeatureRevisionModel", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("back-end/src/models/FeatureRevisionModel")
+  >()),
+  getRevision: (...args: unknown[]) => getRevisionMock(...args),
+}));
 
 const experiment = (over: Partial<ExperimentInterface> = {}) =>
   ({
@@ -42,8 +32,8 @@ const experiment = (over: Partial<ExperimentInterface> = {}) =>
     ...over,
   }) as ExperimentInterface;
 
-const canRunExperiment = jest.fn();
-const throwPermissionError = jest.fn(() => {
+const canRunExperiment = vi.fn();
+const throwPermissionError = vi.fn(() => {
   throw new Error("permission denied");
 });
 
@@ -54,7 +44,7 @@ const context = {
 
 describe("assertCanRunExperimentChanges", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getFeaturesByIdsMock.mockResolvedValue([]);
     getFeatureProjectsByIdsMock.mockResolvedValue(new Map());
     canRunExperiment.mockReturnValue(false);
@@ -272,7 +262,7 @@ describe("starting an experiment whose rule is still in a draft", () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     canRunExperiment.mockReturnValue(false);
     getFeaturesByIdsMock.mockResolvedValue([feature]);
     getFeatureProjectsByIdsMock.mockResolvedValue(new Map());

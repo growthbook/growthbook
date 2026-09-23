@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import { SessionReplayInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
@@ -10,44 +11,46 @@ import { getSessionReplayEventsByStoragePrefix } from "back-end/src/services/ses
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { logger } from "back-end/src/util/logger";
 
-jest.mock("back-end/src/services/clickhouse", () => ({
-  listSessionReplays: jest.fn(),
-  getSessionReplayChunksBySessionId: jest.fn(),
+vi.mock("back-end/src/services/clickhouse", () => ({
+  listSessionReplays: vi.fn(),
+  getSessionReplayChunksBySessionId: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/session-replay", () => ({
-  getSessionReplayEventsByStoragePrefix: jest.fn(),
-  filterClientKeysByProject: jest.requireActual<
-    typeof import("back-end/src/services/session-replay")
-  >("back-end/src/services/session-replay").filterClientKeysByProject,
+vi.mock("back-end/src/services/session-replay", async () => ({
+  getSessionReplayEventsByStoragePrefix: vi.fn(),
+  filterClientKeysByProject: (
+    await vi.importActual<
+      typeof import("back-end/src/services/session-replay")
+    >("back-end/src/services/session-replay")
+  ).filterClientKeysByProject,
 }));
 
-jest.mock("back-end/src/models/SdkConnectionModel", () => ({
-  findSDKConnectionsByOrganization: jest
+vi.mock("back-end/src/models/SdkConnectionModel", () => ({
+  findSDKConnectionsByOrganization: vi
     .fn()
     .mockResolvedValue([{ key: "ck_test", projects: [] }]),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getGrowthbookDatasource: jest.fn().mockResolvedValue(null),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getGrowthbookDatasource: vi.fn().mockResolvedValue(null),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    warn: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 
-const mockListSessionReplays = jest.mocked(listSessionReplays);
-const mockGetSessionReplayChunksBySessionId = jest.mocked(
+const mockListSessionReplays = vi.mocked(listSessionReplays);
+const mockGetSessionReplayChunksBySessionId = vi.mocked(
   getSessionReplayChunksBySessionId,
 );
-const mockGetEvents = jest.mocked(getSessionReplayEventsByStoragePrefix);
-const mockGetGrowthbookDatasource = jest.mocked(getGrowthbookDatasource);
-const mockLoggerWarn = jest.mocked(logger.warn);
+const mockGetEvents = vi.mocked(getSessionReplayEventsByStoragePrefix);
+const mockGetGrowthbookDatasource = vi.mocked(getGrowthbookDatasource);
+const mockLoggerWarn = vi.mocked(logger.warn);
 
 // ---------------------------------------------------------------------------
 // Test subclass — exposes protected permission methods for direct testing
@@ -190,7 +193,7 @@ describe("SessionReplayModel — permissions", () => {
 
 describe("SessionReplayModel — parseClickHouseDate (via list)", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("parses a space-separated ClickHouse DateTime string as UTC", async () => {
@@ -245,7 +248,7 @@ describe("SessionReplayModel — parseClickHouseDate (via list)", () => {
 
 describe("SessionReplayModel — list()", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("returns an empty array when ClickHouse returns no rows", async () => {
@@ -272,10 +275,10 @@ describe("SessionReplayModel — list()", () => {
   });
 
   it("returns empty when no SDK connections are permitted", async () => {
-    const { findSDKConnectionsByOrganization } = jest.requireMock<
+    const { findSDKConnectionsByOrganization } = await vi.importMock<
       typeof import("back-end/src/models/SdkConnectionModel")
     >("back-end/src/models/SdkConnectionModel");
-    (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValueOnce([]);
+    (findSDKConnectionsByOrganization as Mock).mockResolvedValueOnce([]);
 
     const model = new SessionReplayModel(
       makeContext("org_1", { canView: true }),
@@ -389,7 +392,7 @@ describe("SessionReplayModel — list()", () => {
 
 describe("SessionReplayModel — getBySessionId()", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("returns null when ClickHouse finds no rows", async () => {
@@ -501,7 +504,7 @@ describe("SessionReplayModel — getBySessionId()", () => {
 
 describe("SessionReplayModel — getEventsForS3Key()", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetGrowthbookDatasource.mockResolvedValue(null);
   });
 

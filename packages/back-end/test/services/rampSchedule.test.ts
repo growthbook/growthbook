@@ -1,3 +1,4 @@
+import { MockedFunction, Mock, vi } from "vitest";
 /**
  * Tests for rampSchedule.ts
  *
@@ -28,8 +29,8 @@ import {
   isAwaitingStartApproval,
   startApprovalPending,
   resolveStartApproval,
-} from "shared/src/validators/ramp-schedule";
-import { getJSONValue } from "shared/src/sdk-versioning/sdk-payload";
+} from "shared/validators/ramp-schedule";
+import { getJSONValue } from "shared/sdk-versioning/sdk-payload";
 import {
   computeNextStepAt,
   computeAutoAdvanceTarget,
@@ -71,41 +72,41 @@ import {
 // Module mocks (must be declared before imports that use them)
 // ---------------------------------------------------------------------------
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  publishRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
+  publishRevision: vi.fn(),
 }));
 
 // The fire-time targeting check imports the whole validations module graph;
 // this suite asserts only that it is asked, and when.
-jest.mock("back-end/src/api/features/validations", () => ({
-  validateRampPlanPatches: jest.fn(),
+vi.mock("back-end/src/api/features/validations", () => ({
+  validateRampPlanPatches: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  createRevision: jest.fn(),
-  getRevision: jest.fn(),
-  discardRevision: jest.fn(),
-  registerRevisionPublishedHook: jest.fn(),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  createRevision: vi.fn(),
+  getRevision: vi.fn(),
+  discardRevision: vi.fn(),
+  registerRevisionPublishedHook: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/EventModel", () => ({
-  createEvent: jest.fn(),
+vi.mock("back-end/src/models/EventModel", () => ({
+  createEvent: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getEnvironments: jest.fn().mockReturnValue([]),
+vi.mock("back-end/src/services/organizations", () => ({
+  getEnvironments: vi.fn().mockReturnValue([]),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
-jest.mock("back-end/src/util/secrets", () => ({
+vi.mock("back-end/src/util/secrets", () => ({
   IS_CLOUD: false,
 }));
 
@@ -123,15 +124,15 @@ import {
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
 
-const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
-const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
-const mockPublishRevision = publishRevision as jest.MockedFunction<
+const mockGetFeature = getFeature as MockedFunction<typeof getFeature>;
+const mockGetRevision = getRevision as MockedFunction<typeof getRevision>;
+const mockPublishRevision = publishRevision as MockedFunction<
   typeof publishRevision
 >;
-const mockCreateRevision = createRevision as jest.MockedFunction<
+const mockCreateRevision = createRevision as MockedFunction<
   typeof createRevision
 >;
-const mockCreateEvent = createEvent as jest.MockedFunction<typeof createEvent>;
+const mockCreateEvent = createEvent as MockedFunction<typeof createEvent>;
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -247,7 +248,7 @@ function makeSchedule(
 
 function makeContext(scheduleUpdates: Partial<RampScheduleInterface> = {}) {
   const schedule = makeSchedule(scheduleUpdates);
-  const updateById = jest
+  const updateById = vi
     .fn()
     .mockImplementation(
       (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -261,16 +262,16 @@ function makeContext(scheduleUpdates: Partial<RampScheduleInterface> = {}) {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn(),
-          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
-          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          getById: vi.fn(),
+          acquireAdvanceLock: vi.fn().mockResolvedValue(true),
+          releaseAdvanceLock: vi.fn().mockResolvedValue(undefined),
         },
       },
     },
@@ -1562,7 +1563,7 @@ describe("computeAutoAdvanceTarget", () => {
 
 describe("advanceStep past-end with a lapsed cutoff", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(undefined);
@@ -1591,18 +1592,18 @@ describe("advanceStep past-end with a lapsed cutoff", () => {
 
 describe("advanceStep target clamp", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("refuses a non-forward target from a stale caller instead of rewinding coverage", async () => {
     const schedule = makeSchedule({ currentStepIndex: 2, status: "running" });
-    const updateById = jest.fn();
+    const updateById = vi.fn();
     const ctx = {
       org: { id: ORG_ID, settings: {} },
       auditUser: { type: "system" },
       environments: [],
       permissions: {},
-      models: { rampSchedules: { updateById, getById: jest.fn() } },
+      models: { rampSchedules: { updateById, getById: vi.fn() } },
     };
 
     const result = await advanceStep(ctx as never, schedule, 1);
@@ -1615,10 +1616,10 @@ describe("advanceStep target clamp", () => {
 
 describe("withRampScheduleAdvanceLock", () => {
   const makeLockCtx = (acquired: boolean) => {
-    const acquireAdvanceLock = jest.fn().mockResolvedValue(acquired);
-    const releaseAdvanceLock = jest.fn().mockResolvedValue(undefined);
+    const acquireAdvanceLock = vi.fn().mockResolvedValue(acquired);
+    const releaseAdvanceLock = vi.fn().mockResolvedValue(undefined);
     // The doc exists — a failed acquire is diagnosed as contention, not 404.
-    const getById = jest.fn().mockResolvedValue({ id: "rs_1" });
+    const getById = vi.fn().mockResolvedValue({ id: "rs_1" });
     const ctx = {
       models: {
         rampSchedules: { acquireAdvanceLock, releaseAdvanceLock, getById },
@@ -1629,7 +1630,7 @@ describe("withRampScheduleAdvanceLock", () => {
 
   it("runs fn and releases the lock when acquired", async () => {
     const { ctx, releaseAdvanceLock } = makeLockCtx(true);
-    const fn = jest.fn().mockResolvedValue("done");
+    const fn = vi.fn().mockResolvedValue("done");
 
     const result = await withRampScheduleAdvanceLock(ctx as never, "rs_1", fn);
 
@@ -1640,7 +1641,7 @@ describe("withRampScheduleAdvanceLock", () => {
 
   it("throws and does not run fn when the lock is held by another advance", async () => {
     const { ctx, releaseAdvanceLock } = makeLockCtx(false);
-    const fn = jest.fn();
+    const fn = vi.fn();
 
     await expect(
       withRampScheduleAdvanceLock(ctx as never, "rs_1", fn),
@@ -1651,7 +1652,7 @@ describe("withRampScheduleAdvanceLock", () => {
 
   it("releases the lock even if fn throws", async () => {
     const { ctx, releaseAdvanceLock } = makeLockCtx(true);
-    const fn = jest.fn().mockRejectedValue(new Error("boom"));
+    const fn = vi.fn().mockRejectedValue(new Error("boom"));
 
     await expect(
       withRampScheduleAdvanceLock(ctx as never, "rs_1", fn),
@@ -1662,14 +1663,14 @@ describe("withRampScheduleAdvanceLock", () => {
   it("throws RampAdvanceLockBusyError (not a generic error) on contention", async () => {
     const { ctx } = makeLockCtx(false);
     await expect(
-      withRampScheduleAdvanceLock(ctx as never, "rs_1", jest.fn()),
+      withRampScheduleAdvanceLock(ctx as never, "rs_1", vi.fn()),
     ).rejects.toBeInstanceOf(RampAdvanceLockBusyError);
   });
 
   it("does not let a failing release mask the error fn threw", async () => {
     const { ctx, releaseAdvanceLock } = makeLockCtx(true);
     releaseAdvanceLock.mockRejectedValue(new Error("mongo down"));
-    const fn = jest.fn().mockRejectedValue(new Error("real failure"));
+    const fn = vi.fn().mockRejectedValue(new Error("real failure"));
 
     await expect(
       withRampScheduleAdvanceLock(ctx as never, "rs_1", fn),
@@ -1679,18 +1680,18 @@ describe("withRampScheduleAdvanceLock", () => {
 
 describe("withRampScheduleAdvanceLockRetry", () => {
   it("retries contention and succeeds once the lock frees up (fn runs once)", async () => {
-    const acquireAdvanceLock = jest
+    const acquireAdvanceLock = vi
       .fn()
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(true);
-    const releaseAdvanceLock = jest.fn().mockResolvedValue(undefined);
-    const getById = jest.fn().mockResolvedValue({ id: "rs_1" });
+    const releaseAdvanceLock = vi.fn().mockResolvedValue(undefined);
+    const getById = vi.fn().mockResolvedValue({ id: "rs_1" });
     const ctx = {
       models: {
         rampSchedules: { acquireAdvanceLock, releaseAdvanceLock, getById },
       },
     };
-    const fn = jest.fn().mockResolvedValue("done");
+    const fn = vi.fn().mockResolvedValue("done");
 
     const result = await withRampScheduleAdvanceLockRetry(
       ctx as never,
@@ -1703,53 +1704,53 @@ describe("withRampScheduleAdvanceLockRetry", () => {
   });
 
   it("surfaces the busy error after exhausting attempts", async () => {
-    const acquireAdvanceLock = jest.fn().mockResolvedValue(false);
+    const acquireAdvanceLock = vi.fn().mockResolvedValue(false);
     const ctx = {
       models: {
         rampSchedules: {
           acquireAdvanceLock,
-          releaseAdvanceLock: jest.fn(),
-          getById: jest.fn().mockResolvedValue({ id: "rs_1" }),
+          releaseAdvanceLock: vi.fn(),
+          getById: vi.fn().mockResolvedValue({ id: "rs_1" }),
         },
       },
     };
 
     await expect(
-      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", jest.fn(), 2),
+      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", vi.fn(), 2),
     ).rejects.toBeInstanceOf(RampAdvanceLockBusyError);
     expect(acquireAdvanceLock).toHaveBeenCalledTimes(2);
   }, 15_000);
 
   it("fails fast with 404 semantics when the schedule was deleted", async () => {
-    const acquireAdvanceLock = jest.fn().mockResolvedValue(false);
+    const acquireAdvanceLock = vi.fn().mockResolvedValue(false);
     const ctx = {
       models: {
         rampSchedules: {
           acquireAdvanceLock,
-          releaseAdvanceLock: jest.fn(),
-          getById: jest.fn().mockResolvedValue(null),
+          releaseAdvanceLock: vi.fn(),
+          getById: vi.fn().mockResolvedValue(null),
         },
       },
     };
 
     await expect(
-      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", jest.fn()),
+      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", vi.fn()),
     ).rejects.toThrow("no longer exists");
     // No retry ladder for a missing doc.
     expect(acquireAdvanceLock).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry non-contention errors from fn", async () => {
-    const acquireAdvanceLock = jest.fn().mockResolvedValue(true);
+    const acquireAdvanceLock = vi.fn().mockResolvedValue(true);
     const ctx = {
       models: {
         rampSchedules: {
           acquireAdvanceLock,
-          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          releaseAdvanceLock: vi.fn().mockResolvedValue(undefined),
         },
       },
     };
-    const fn = jest.fn().mockRejectedValue(new Error("boom"));
+    const fn = vi.fn().mockRejectedValue(new Error("boom"));
 
     await expect(
       withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", fn),
@@ -1764,13 +1765,13 @@ describe("runLockedRampScheduleAction", () => {
     const ctx = {
       models: {
         rampSchedules: {
-          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
-          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
-          getById: jest.fn().mockResolvedValue(freshDoc),
+          acquireAdvanceLock: vi.fn().mockResolvedValue(true),
+          releaseAdvanceLock: vi.fn().mockResolvedValue(undefined),
+          getById: vi.fn().mockResolvedValue(freshDoc),
         },
       },
     };
-    const fn = jest.fn().mockResolvedValue("ok");
+    const fn = vi.fn().mockResolvedValue("ok");
 
     await runLockedRampScheduleAction(ctx as never, "rs_1", fn);
     expect(fn).toHaveBeenCalledWith(freshDoc, expect.any(Function));
@@ -1780,15 +1781,15 @@ describe("runLockedRampScheduleAction", () => {
     const ctx = {
       models: {
         rampSchedules: {
-          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
-          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
-          getById: jest.fn().mockResolvedValue(null),
+          acquireAdvanceLock: vi.fn().mockResolvedValue(true),
+          releaseAdvanceLock: vi.fn().mockResolvedValue(undefined),
+          getById: vi.fn().mockResolvedValue(null),
         },
       },
     };
 
     await expect(
-      runLockedRampScheduleAction(ctx as never, "rs_1", jest.fn()),
+      runLockedRampScheduleAction(ctx as never, "rs_1", vi.fn()),
     ).rejects.toThrow("no longer exists");
   });
 });
@@ -1866,7 +1867,7 @@ describe("computePhaseStartAfterApproval", () => {
 
 describe("featureEntityHandler.applyActions", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -1889,7 +1890,7 @@ describe("featureEntityHandler.applyActions", () => {
         scanContextOverride: {
           models: {
             savedGroups: {
-              getAllWithoutValues: jest
+              getAllWithoutValues: vi
                 .fn()
                 .mockResolvedValue([
                   { id: "old-group", type: "list", projects: ["a"] },
@@ -2209,7 +2210,7 @@ describe("featureEntityHandler.applyActions", () => {
 
 describe("advanceStep — interval step", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -2347,7 +2348,7 @@ describe("advanceStep — interval step", () => {
 
 describe("applyRampStartActions", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -2407,7 +2408,7 @@ describe("applyRampStartActions", () => {
 
 describe("advanceStep — approval step", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -2447,7 +2448,7 @@ describe("advanceStep — approval step", () => {
 
 describe("advanceStep — last step / completion", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -2494,7 +2495,7 @@ describe("advanceScheduleManually", () => {
     safeRollout?: Partial<SafeRolloutInterface>,
   ) {
     let current = schedule;
-    const rampUpdateById = jest
+    const rampUpdateById = vi
       .fn()
       .mockImplementation(
         async (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -2514,29 +2515,29 @@ describe("advanceScheduleManually", () => {
       ...safeRollout,
     } as SafeRolloutInterface;
 
-    const safeRolloutGetById = jest
+    const safeRolloutGetById = vi
       .fn()
       .mockImplementation(async (id: string) =>
         id === createdSafeRollout.id ? createdSafeRollout : null,
       );
-    const safeRolloutCreate = jest
+    const safeRolloutCreate = vi
       .fn()
       .mockResolvedValue(createdSafeRollout as SafeRolloutInterface);
-    const safeRolloutUpdate = jest.fn().mockResolvedValue(createdSafeRollout);
+    const safeRolloutUpdate = vi.fn().mockResolvedValue(createdSafeRollout);
 
     const ctx = {
       org: { id: ORG_ID, settings: {} },
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById: rampUpdateById,
-          getById: jest.fn().mockImplementation(async () => current),
+          getById: vi.fn().mockImplementation(async () => current),
         },
         safeRollout: {
           getById: safeRolloutGetById,
@@ -2646,7 +2647,7 @@ describe("advanceScheduleManually", () => {
 
 describe("jumpAheadToStep", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -2733,7 +2734,7 @@ describe("jumpAheadToStep", () => {
 
 describe("rollbackToStep", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -2948,7 +2949,7 @@ describe("rollbackToStep", () => {
 
 describe("resumeSchedule", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -2966,8 +2967,8 @@ describe("resumeSchedule", () => {
       pausedAt: new Date(Date.now() - 5_000),
     });
 
-    const getById = jest.fn().mockResolvedValue(null);
-    const updateById = jest
+    const getById = vi.fn().mockResolvedValue(null);
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -2981,16 +2982,16 @@ describe("resumeSchedule", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById,
           getById,
-          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
-          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          acquireAdvanceLock: vi.fn().mockResolvedValue(true),
+          releaseAdvanceLock: vi.fn().mockResolvedValue(undefined),
         },
       },
     };
@@ -3022,7 +3023,7 @@ describe("resumeSchedule", () => {
 
 describe("restartSchedule", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -3032,12 +3033,12 @@ describe("restartSchedule", () => {
     // restartSchedule should reset the SafeRollout's analysis window so the
     // new run is not gated by pre-restart snapshots, and reset pastNotifications
     // so the same issue types can re-fire for the fresh run.
-    const safeRolloutUpdate = jest.fn().mockResolvedValue(undefined);
-    const safeRolloutGetById = jest
+    const safeRolloutUpdate = vi.fn().mockResolvedValue(undefined);
+    const safeRolloutGetById = vi
       .fn()
       .mockResolvedValue({ id: "sr_1", pastNotifications: ["srm"] });
-    const getById = jest.fn().mockResolvedValue(null);
-    const updateById = jest
+    const getById = vi.fn().mockResolvedValue(null);
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -3055,9 +3056,9 @@ describe("restartSchedule", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: { updateById, getById },
@@ -3094,7 +3095,7 @@ describe("restartSchedule", () => {
 
 describe("applyRampStartActions", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -3147,7 +3148,7 @@ describe("applyRampStartActions", () => {
 
 describe("advanceUntilBlocked", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -3178,7 +3179,7 @@ describe("advanceUntilBlocked", () => {
 
     // After advancing step 0, the returned schedule should have nextStepAt in the future.
     let callCount = 0;
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -3199,7 +3200,7 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn() },
+        rampSchedules: { updateById, getById: vi.fn() },
       },
     };
 
@@ -3243,7 +3244,7 @@ describe("advanceUntilBlocked", () => {
     });
 
     let callCount = 0;
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -3264,7 +3265,7 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn() },
+        rampSchedules: { updateById, getById: vi.fn() },
       },
     };
 
@@ -3312,13 +3313,13 @@ describe("advanceUntilBlocked", () => {
       ],
     });
 
-    const updateById = jest.fn();
+    const updateById = vi.fn();
     const ctx = {
       org: { id: ORG_ID, settings: {} },
       auditUser: { type: "system" },
       environments: [],
       permissions: {},
-      models: { rampSchedules: { updateById, getById: jest.fn() } },
+      models: { rampSchedules: { updateById, getById: vi.fn() } },
     };
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
@@ -3374,7 +3375,7 @@ describe("advanceUntilBlocked", () => {
     });
 
     let callCount = 0;
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -3397,7 +3398,7 @@ describe("advanceUntilBlocked", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {},
-      models: { rampSchedules: { updateById, getById: jest.fn() } },
+      models: { rampSchedules: { updateById, getById: vi.fn() } },
     };
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
@@ -3444,7 +3445,7 @@ describe("advanceUntilBlocked", () => {
     });
 
     let callCount = 0;
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -3466,7 +3467,7 @@ describe("advanceUntilBlocked", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {},
-      models: { rampSchedules: { updateById, getById: jest.fn() } },
+      models: { rampSchedules: { updateById, getById: vi.fn() } },
     };
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
@@ -3525,7 +3526,7 @@ describe("advanceUntilBlocked", () => {
     });
 
     let callCount = 0;
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -3548,7 +3549,7 @@ describe("advanceUntilBlocked", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {},
-      models: { rampSchedules: { updateById, getById: jest.fn() } },
+      models: { rampSchedules: { updateById, getById: vi.fn() } },
     };
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
@@ -3570,8 +3571,8 @@ describe("advanceUntilBlocked", () => {
       status: "running",
       steps: [],
     });
-    const deleteById = jest.fn().mockResolvedValue(undefined);
-    const updateById = jest
+    const deleteById = vi.fn().mockResolvedValue(undefined);
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -3587,10 +3588,10 @@ describe("advanceUntilBlocked", () => {
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn(),
+          getById: vi.fn(),
           dangerousDeleteByIdBypassPermission: deleteById,
         },
-        safeRollout: { getById: jest.fn().mockResolvedValue(null) },
+        safeRollout: { getById: vi.fn().mockResolvedValue(null) },
       },
     };
 
@@ -3612,8 +3613,8 @@ describe("advanceUntilBlocked", () => {
       steps: [],
       cutoffDate: future,
     });
-    const deleteById = jest.fn().mockResolvedValue(undefined);
-    const updateById = jest.fn();
+    const deleteById = vi.fn().mockResolvedValue(undefined);
+    const updateById = vi.fn();
     const ctx = {
       org: { id: ORG_ID, settings: {} },
       auditUser: { type: "system" },
@@ -3622,10 +3623,10 @@ describe("advanceUntilBlocked", () => {
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn(),
+          getById: vi.fn(),
           dangerousDeleteByIdBypassPermission: deleteById,
         },
-        safeRollout: { getById: jest.fn().mockResolvedValue(null) },
+        safeRollout: { getById: vi.fn().mockResolvedValue(null) },
       },
     };
 
@@ -3644,8 +3645,8 @@ describe("advanceUntilBlocked", () => {
       steps: [],
       cutoffDate: past,
     });
-    const deleteById = jest.fn().mockResolvedValue(undefined);
-    const updateById = jest
+    const deleteById = vi.fn().mockResolvedValue(undefined);
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -3661,10 +3662,10 @@ describe("advanceUntilBlocked", () => {
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn(),
+          getById: vi.fn(),
           dangerousDeleteByIdBypassPermission: deleteById,
         },
-        safeRollout: { getById: jest.fn().mockResolvedValue(null) },
+        safeRollout: { getById: vi.fn().mockResolvedValue(null) },
       },
     };
 
@@ -3690,7 +3691,7 @@ describe("advanceUntilBlocked", () => {
       steps: [],
       cutoffDate: past,
     });
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -3706,10 +3707,10 @@ describe("advanceUntilBlocked", () => {
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn(),
-          deleteById: jest.fn(),
+          getById: vi.fn(),
+          deleteById: vi.fn(),
         },
-        safeRollout: { getById: jest.fn().mockResolvedValue(null) },
+        safeRollout: { getById: vi.fn().mockResolvedValue(null) },
       },
     };
 
@@ -3796,7 +3797,7 @@ describe("advanceUntilBlocked", () => {
 
 describe("completeRollout", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(undefined);
@@ -4088,7 +4089,7 @@ describe("startReadyScheduleNow", () => {
 
     let current: RampScheduleInterface = base;
 
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         async (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -4097,35 +4098,35 @@ describe("startReadyScheduleNow", () => {
         },
       );
 
-    const getById = jest.fn().mockImplementation(async () => current);
-    const deleteById = jest.fn().mockResolvedValue(undefined);
+    const getById = vi.fn().mockImplementation(async () => current);
+    const deleteById = vi.fn().mockResolvedValue(undefined);
 
-    const safeRolloutGetById = jest.fn().mockResolvedValue(null);
-    const safeRolloutCreate = jest.fn().mockResolvedValue({
+    const safeRolloutGetById = vi.fn().mockResolvedValue(null);
+    const safeRolloutCreate = vi.fn().mockResolvedValue({
       id: "sr_test",
       status: "running",
       autoSnapshots: false,
       nextSnapshotAttempt: null,
     });
-    const safeRolloutUpdate = jest.fn().mockResolvedValue(undefined);
+    const safeRolloutUpdate = vi.fn().mockResolvedValue(undefined);
 
     const ctx = {
       org: { id: ORG_ID, settings: {} },
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById,
           getById,
           dangerousDeleteByIdBypassPermission: deleteById,
-          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
-          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
-          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
+          acquireAdvanceLock: vi.fn().mockResolvedValue(true),
+          releaseAdvanceLock: vi.fn().mockResolvedValue(undefined),
+          touchAdvanceLockHeartbeat: vi.fn().mockResolvedValue(true),
         },
         safeRollout: {
           getById: safeRolloutGetById,
@@ -4146,7 +4147,7 @@ describe("startReadyScheduleNow", () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -4373,7 +4374,7 @@ describe("startReadyScheduleNow", () => {
 
     // updateById returns a far-future nextStepAt so the loop inside
     // advanceUntilBlocked sees nextStepAt > now and stops before advancing step 0.
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         async (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -4391,16 +4392,16 @@ describe("startReadyScheduleNow", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById,
           // First read is the lock wrapper's freshness check (must be ready);
           // later reads reflect the post-start running state.
-          getById: jest
+          getById: vi
             .fn()
             .mockImplementationOnce(async () => base)
             .mockImplementation(async () => ({
@@ -4408,15 +4409,15 @@ describe("startReadyScheduleNow", () => {
               status: "running",
               nextStepAt: new Date(Date.now() + 3_600_000),
             })),
-          deleteById: jest.fn().mockResolvedValue(undefined),
-          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
-          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
-          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
+          deleteById: vi.fn().mockResolvedValue(undefined),
+          acquireAdvanceLock: vi.fn().mockResolvedValue(true),
+          releaseAdvanceLock: vi.fn().mockResolvedValue(undefined),
+          touchAdvanceLockHeartbeat: vi.fn().mockResolvedValue(true),
         },
         safeRollout: {
-          getById: jest.fn().mockResolvedValue(null),
-          create: jest.fn(),
-          update: jest.fn(),
+          getById: vi.fn().mockResolvedValue(null),
+          create: vi.fn(),
+          update: vi.fn(),
         },
       },
     };
@@ -4535,7 +4536,7 @@ describe("startReadyScheduleNow", () => {
         },
       ],
     });
-    (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
+    (validateRampPlanPatches as Mock).mockRejectedValueOnce(
       new Error("step refused"),
     );
 
@@ -4594,7 +4595,7 @@ describe("approveAndPublishStep", () => {
     scheduleOverrides: Partial<RampScheduleInterface> = {},
   ) {
     const schedule = makeApprovalSchedule(scheduleOverrides);
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -4609,12 +4610,12 @@ describe("approveAndPublishStep", () => {
         auditUser: { type: "session" as const, userAgent: "", ip: "" },
         environments: [],
         permissions: {
-          canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-          canPublishFeature: jest.fn().mockReturnValue(true),
-          canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+          canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+          canPublishFeature: vi.fn().mockReturnValue(true),
+          canEditFeatureDrafts: vi.fn().mockReturnValue(true),
         },
         models: {
-          rampSchedules: { updateById, getById: jest.fn() },
+          rampSchedules: { updateById, getById: vi.fn() },
         },
       },
       schedule,
@@ -4623,7 +4624,7 @@ describe("approveAndPublishStep", () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -4717,7 +4718,7 @@ describe("approveAndPublishStep", () => {
         },
       ],
     });
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -4731,14 +4732,14 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn().mockImplementation(() => current),
+          getById: vi.fn().mockImplementation(() => current),
         },
       },
     };
@@ -4790,7 +4791,7 @@ describe("approveAndPublishStep", () => {
         },
       ],
     });
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -4804,14 +4805,14 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn().mockImplementation(() => current),
+          getById: vi.fn().mockImplementation(() => current),
         },
       },
     };
@@ -4858,7 +4859,7 @@ describe("approveAndPublishStep", () => {
         },
       ],
     });
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -4872,14 +4873,14 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn().mockImplementation(() => current),
+          getById: vi.fn().mockImplementation(() => current),
         },
       },
     };
@@ -4930,7 +4931,7 @@ describe("approveAndPublishStep", () => {
         },
       ],
     });
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => {
@@ -4944,14 +4945,14 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
-        canPublishFeature: jest.fn().mockReturnValue(true),
-        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: vi.fn().mockReturnValue(true),
+        canPublishFeature: vi.fn().mockReturnValue(true),
+        canEditFeatureDrafts: vi.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn().mockImplementation(() => current),
+          getById: vi.fn().mockImplementation(() => current),
         },
       },
     };
@@ -5340,7 +5341,7 @@ describe("computeNextProcessAt", () => {
 
 describe("advanceStep — future cutoffDate keeps schedule running", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
@@ -5402,7 +5403,7 @@ describe("advanceStep — future cutoffDate keeps schedule running", () => {
 
 describe("pauseSchedule", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("sets nextProcessAt to cutoffDate when a cutoff exists", async () => {
@@ -5413,7 +5414,7 @@ describe("pauseSchedule", () => {
       cutoffDate: futureCutoff,
     });
 
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -5428,7 +5429,7 @@ describe("pauseSchedule", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn() },
+        rampSchedules: { updateById, getById: vi.fn() },
       },
     };
 
@@ -5452,7 +5453,7 @@ describe("pauseSchedule", () => {
       currentStepIndex: 1,
     });
 
-    const updateById = jest
+    const updateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -5467,7 +5468,7 @@ describe("pauseSchedule", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn() },
+        rampSchedules: { updateById, getById: vi.fn() },
       },
     };
 
@@ -5723,7 +5724,7 @@ describe("planRampBaseStateSync", () => {
           isApiRequest: true,
           models: {
             rampSchedules: {
-              findAnchoredByTargetFeature: jest.fn().mockResolvedValue([s]),
+              findAnchoredByTargetFeature: vi.fn().mockResolvedValue([s]),
             },
           },
         } as never,
@@ -5770,15 +5771,15 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
       ...over,
     }) as unknown as RampScheduleInterface;
   const makeCtx = (doc: RampScheduleInterface) => {
-    const updateById = jest.fn().mockResolvedValue(doc);
+    const updateById = vi.fn().mockResolvedValue(doc);
     const ctx = {
       userId: "u1",
       models: {
         rampSchedules: {
-          getById: jest.fn().mockResolvedValue(doc),
+          getById: vi.fn().mockResolvedValue(doc),
           updateById,
-          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
-          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          acquireAdvanceLock: vi.fn().mockResolvedValue(true),
+          releaseAdvanceLock: vi.fn().mockResolvedValue(undefined),
         },
       },
     } as unknown as Parameters<typeof applyRampBaseStateSync>[0];

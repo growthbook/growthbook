@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { slackUserLinkSchema } from "shared/validators";
 import { MongoClient, ObjectId } from "mongodb";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -16,18 +17,18 @@ const matches = (
 const collection = new MongoClient("mongodb://localhost:27017")
   .db("test")
   .collection("slackuserlinks");
-jest.spyOn(collection, "createIndex").mockResolvedValue("slack_identity");
-jest.spyOn(collection, "findOne").mockImplementation(async (query) => {
+vi.spyOn(collection, "createIndex").mockResolvedValue("slack_identity");
+vi.spyOn(collection, "findOne").mockImplementation(async (query) => {
   const doc = links.find((doc) => matches(doc, query));
   return doc ? { ...doc, _id: new ObjectId() } : null;
 });
-const insertOne = jest
+const insertOne = vi
   .spyOn(collection, "insertOne")
   .mockImplementation(async (doc) => {
     links.push({ ...doc });
     return { acknowledged: true, insertedId: new ObjectId() };
   });
-const updateOne = jest
+const updateOne = vi
   .spyOn(collection, "updateOne")
   .mockImplementation(async (query, update) => {
     if (Array.isArray(update)) throw new Error("Unexpected update pipeline");
@@ -41,7 +42,7 @@ const updateOne = jest
       upsertedId: null,
     };
   });
-jest.spyOn(collection, "deleteOne").mockImplementation(async (query = {}) => {
+vi.spyOn(collection, "deleteOne").mockImplementation(async (query = {}) => {
   const i = links.findIndex((doc) => matches(doc, query));
   if (i < 0) return { acknowledged: true, deletedCount: 0 };
   links.splice(i, 1);
@@ -52,12 +53,10 @@ class TestSlackUserLinkModel extends SlackUserLinkModel {
     return collection;
   }
 }
-jest.mock("back-end/src/models/SlackWorkspaceConnectionModel", () => ({
-  SlackWorkspaceConnectionModel: { dangerousGetForTeam: jest.fn() },
+vi.mock("back-end/src/models/SlackWorkspaceConnectionModel", () => ({
+  SlackWorkspaceConnectionModel: { dangerousGetForTeam: vi.fn() },
 }));
-const workspace = jest.mocked(
-  SlackWorkspaceConnectionModel.dangerousGetForTeam,
-);
+const workspace = vi.mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam);
 const connectedWorkspace = (organization: string) => ({
   teamId: "T1",
   organization,
@@ -76,7 +75,7 @@ const context = (organization: string, userId = "user1") =>
         },
       },
     },
-    populateForeignRefs: jest.fn().mockResolvedValue(undefined),
+    populateForeignRefs: vi.fn().mockResolvedValue(undefined),
     org: { id: organization, members: [{ id: userId }] },
   }) as Context;
 const model = (organization: string, userId = "user1") =>
@@ -87,7 +86,7 @@ const proof = () =>
   ).searchParams.get("state") || "";
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   links.length = 0;
   claims.clear();
   workspace.mockResolvedValue(connectedWorkspace("org1"));

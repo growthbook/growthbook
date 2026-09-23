@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -5,11 +6,11 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { notifyExperimentUpdateFailed } from "back-end/src/services/experimentNotifications";
 import { notifySnapshotUpdateFailure } from "back-end/src/services/experimentSnapshotNotifications";
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentById: vi.fn(),
 }));
-jest.mock("back-end/src/services/experimentNotifications", () => ({
-  notifyExperimentUpdateFailed: jest.fn(),
+vi.mock("back-end/src/services/experimentNotifications", () => ({
+  notifyExperimentUpdateFailed: vi.fn(),
 }));
 const context = { org: { id: "org" } } as Context;
 const experiment = {
@@ -27,8 +28,8 @@ const snapshot = {
 } as unknown as ExperimentSnapshotInterface;
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.mocked(getExperimentById).mockResolvedValue(experiment);
+  vi.clearAllMocks();
+  vi.mocked(getExperimentById).mockResolvedValue(experiment);
 });
 
 it.each(["query", "analysis", "no-queries"] as const)(
@@ -100,15 +101,15 @@ it("ignores failures from snapshots of earlier phases", async () => {
 });
 
 it("ignores deleted experiments", async () => {
-  jest.mocked(getExperimentById).mockResolvedValue(null);
+  vi.mocked(getExperimentById).mockResolvedValue(null);
   await notifySnapshotUpdateFailure({ context, snapshot });
   expect(notifyExperimentUpdateFailed).not.toHaveBeenCalled();
 });
 
 it("does not fail snapshot finalization if notification fails", async () => {
-  jest
-    .mocked(notifyExperimentUpdateFailed)
-    .mockRejectedValueOnce(new Error("Notification failed"));
+  vi.mocked(notifyExperimentUpdateFailed).mockRejectedValueOnce(
+    new Error("Notification failed"),
+  );
   await expect(
     notifySnapshotUpdateFailure({ context, snapshot }),
   ).resolves.toBeUndefined();

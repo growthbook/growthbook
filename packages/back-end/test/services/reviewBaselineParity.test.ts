@@ -1,16 +1,17 @@
+import { MockedFunction, vi } from "vitest";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/validators";
 import type { RequireReview } from "shared/types/organization";
 import type { ReqContext } from "back-end/types/request";
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: vi.fn(),
 }));
 
 import { revisionRequiresReview } from "back-end/src/services/features";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
-const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
+const mockGetRevision = getRevision as MockedFunction<typeof getRevision>;
 
 /**
  * Whether a draft needs review is decided by diffing it against a baseline. The
@@ -141,7 +142,9 @@ const SPARSE_SHAPES: { name: string; base: FeatureRevisionInterface }[] = [
 ];
 
 describe("revisionRequiresReview — baseline parity", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   describe.each(SPARSE_SHAPES)(
     "$name",

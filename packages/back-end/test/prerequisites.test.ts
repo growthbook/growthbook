@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import cloneDeep from "lodash/cloneDeep";
 import { evaluatePrerequisiteState } from "shared/util";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
@@ -250,7 +251,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
   });
 
   it("Warns once per cyclic prerequisite per payload build across features and rules", () => {
-    const warn = jest.spyOn(logger, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
     const features: FeatureInterface[] = [
       {
         ...cloneDeep(childFeature),

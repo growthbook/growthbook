@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import {
   ContextualBanditRefRule,
   FeatureInterface,
@@ -10,26 +11,25 @@ import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 
-jest.mock("kerberos", () => ({}));
+vi.mock("kerberos", () => ({}));
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeaturesByIds: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeaturesByIds: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getFeatureRevisionsByFeatureIds: jest.fn(),
-  getActiveDraftMetadataByFeatureIds: jest.fn().mockResolvedValue({}),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getFeatureRevisionsByFeatureIds: vi.fn(),
+  getActiveDraftMetadataByFeatureIds: vi.fn().mockResolvedValue({}),
 }));
 
-jest.mock("back-end/src/services/features", () => ({
-  getLiveAndBaseRevisionsForFeature: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  getLiveAndBaseRevisionsForFeature: vi.fn(),
 }));
 
-const getFeaturesByIdsMock = getFeaturesByIds as jest.Mock;
+const getFeaturesByIdsMock = getFeaturesByIds as Mock;
 const getFeatureRevisionsByFeatureIdsMock =
-  getFeatureRevisionsByFeatureIds as jest.Mock;
-const getLiveAndBaseRevisionsMock =
-  getLiveAndBaseRevisionsForFeature as jest.Mock;
+  getFeatureRevisionsByFeatureIds as Mock;
+const getLiveAndBaseRevisionsMock = getLiveAndBaseRevisionsForFeature as Mock;
 
 const matchRule = (rule: FeatureRule) =>
   rule.type === "contextual-bandit-ref" &&
@@ -96,7 +96,7 @@ const context = {
 
 describe("getRefLinkedFeatureInfo staged drafts", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getFeaturesByIdsMock.mockResolvedValue([makeFeature()]);
     const live = makeRevision(3, [cbRule(liveVariations)], "published");
     getLiveAndBaseRevisionsMock.mockResolvedValue({ live, base: live });

@@ -1,15 +1,16 @@
+import { vi } from "vitest";
 import type { FeatureInterface } from "shared/types/feature";
 import { assertFeatureDeletable } from "back-end/src/services/features";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeaturesWithoutEditorFields: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getAllFeaturesWithoutEditorFields: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getAllExperimentsForStaleGraph: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getAllExperimentsForStaleGraph: vi.fn(),
 }));
 
 // Deleting a flag that something still gates on as a prerequisite would leave
@@ -41,10 +42,10 @@ describe("assertFeatureDeletable", () => {
     features: FeatureInterface[],
     experiments: ReturnType<typeof experiment>[],
   ) => {
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue(features);
-    jest
-      .mocked(getAllExperimentsForStaleGraph)
-      .mockResolvedValue(experiments as never);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue(features);
+    vi.mocked(getAllExperimentsForStaleGraph).mockResolvedValue(
+      experiments as never,
+    );
   };
 
   it("is blocked by a live feature prerequisite", async () => {

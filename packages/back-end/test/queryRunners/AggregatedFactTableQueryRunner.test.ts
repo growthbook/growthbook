@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import {
   QueryInterface,
   QueryPointer,
@@ -19,7 +20,7 @@ import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
-jest.mock("back-end/src/models/QueryModel");
+vi.mock("back-end/src/models/QueryModel");
 
 describe("getRestateChunkBounds", () => {
   it("slices a 14-day window into 7 sequential 2-day chunks", () => {
@@ -107,13 +108,13 @@ const createMockQuery = (
 });
 
 const buildContext = () => {
-  const updateByKeyIfCurrentExecution = jest.fn().mockResolvedValue(true);
-  const updateRunFields = jest.fn().mockResolvedValue(undefined);
-  const releaseLock = jest.fn().mockResolvedValue(undefined);
+  const updateByKeyIfCurrentExecution = vi.fn().mockResolvedValue(true);
+  const updateRunFields = vi.fn().mockResolvedValue(undefined);
+  const releaseLock = vi.fn().mockResolvedValue(undefined);
   const context = {
     org: { id: "test-org" },
     permissions: { canRunExperimentQueries: () => true },
-    logger: { warn: jest.fn(), debug: jest.fn(), error: jest.fn() },
+    logger: { warn: vi.fn(), debug: vi.fn(), error: vi.fn() },
     models: {
       aggregatedFactTableRuns: { updateRunFields },
       aggregatedFactTables: { updateByKeyIfCurrentExecution, releaseLock },
@@ -141,7 +142,9 @@ class TestableRunner extends AggregatedFactTableQueryRunner {
 }
 
 describe("AggregatedFactTableQueryRunner error surfacing", () => {
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   // The reported bug: an invalid-SQL INSERT failure left the registry
   // `lastError` null, so the UI/API showed no error. The insert fails first,
@@ -187,7 +190,7 @@ describe("AggregatedFactTableQueryRunner error surfacing", () => {
       "Syntax error: unexpected keyword INSERT at [1:1]",
     );
 
-    (getQueriesByIds as jest.Mock).mockResolvedValue([
+    (getQueriesByIds as Mock).mockResolvedValue([
       insertFailed,
       createMockQuery("qry_coverage", "queued"),
     ]);
@@ -197,7 +200,7 @@ describe("AggregatedFactTableQueryRunner error surfacing", () => {
     // registry write happens until the cascade marks it failed.
     expect(updateByKeyIfCurrentExecution).not.toHaveBeenCalled();
 
-    (getQueriesByIds as jest.Mock).mockResolvedValue([
+    (getQueriesByIds as Mock).mockResolvedValue([
       insertFailed,
       createMockQuery(
         "qry_coverage",
@@ -273,7 +276,7 @@ describe("AggregatedFactTableQueryRunner error surfacing", () => {
     );
     runner.primeParams("aftexec_1");
 
-    (getQueriesByIds as jest.Mock).mockResolvedValue([
+    (getQueriesByIds as Mock).mockResolvedValue([
       createMockQuery("qry_drop", "succeeded"),
       createMockQuery("qry_create", "succeeded"),
       createMockQuery("qry_insert", "succeeded"),
@@ -304,11 +307,11 @@ describe("AggregatedFactTableQueryRunner scan window", () => {
   const NOW = new Date("2024-01-15T06:00:00Z");
 
   beforeEach(() => {
-    jest.useFakeTimers({ now: NOW });
+    vi.useFakeTimers({ now: NOW });
   });
   afterEach(() => {
-    jest.useRealTimers();
-    jest.clearAllMocks();
+    vi.useRealTimers();
+    vi.clearAllMocks();
   });
 
   // Captures the queries the runner would start instead of persisting them.
@@ -329,7 +332,7 @@ describe("AggregatedFactTableQueryRunner scan window", () => {
     factTable: ReturnType<typeof factTableFactory.build>,
   ) => {
     const { context } = buildContext();
-    const getInsertAggregatedFactTableDataQuery = jest
+    const getInsertAggregatedFactTableDataQuery = vi
       .fn()
       .mockReturnValue("INSERT");
     const integration = {
@@ -340,7 +343,7 @@ describe("AggregatedFactTableQueryRunner scan window", () => {
       getCreateAggregatedFactTableQuery: () => "CREATE",
       getInsertAggregatedFactTableDataQuery,
       getAggregatedFactTableMaxTimestampQuery: () => "SELECT MAX",
-      runIncrementalWithNoOutputQuery: jest.fn(),
+      runIncrementalWithNoOutputQuery: vi.fn(),
     } as unknown as SourceIntegrationInterface;
     const model = {
       id: "aftr_1",

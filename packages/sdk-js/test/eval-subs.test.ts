@@ -1,9 +1,10 @@
+import { vi } from "vitest";
 import { GrowthBook } from "../src";
 
 describe("eval subscriptions", () => {
   describe("_subscribeFeatureUsage", () => {
     it("fires on feature evaluation with correct args", () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: true } },
       });
@@ -21,7 +22,7 @@ describe("eval subscriptions", () => {
     });
 
     it("does not fire for duplicate evaluations", () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: "a" } },
       });
@@ -36,7 +37,7 @@ describe("eval subscriptions", () => {
     });
 
     it("fires again when the evaluated value changes", () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: "a" } },
       });
@@ -55,7 +56,7 @@ describe("eval subscriptions", () => {
     });
 
     it("does not fire when value is the same but metadata differs", () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
         features: {
           flag: {
@@ -78,7 +79,7 @@ describe("eval subscriptions", () => {
     });
 
     it("does not fire for overridden features", () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: "original" } },
       });
@@ -92,7 +93,7 @@ describe("eval subscriptions", () => {
     });
 
     it("unsubscribe stops callbacks", () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: 1 } },
       });
@@ -110,17 +111,17 @@ describe("eval subscriptions", () => {
     });
 
     it("a throwing callback does not break other subscribers", () => {
-      const bad = jest.fn(() => {
+      const bad = vi.fn(() => {
         throw new Error("boom");
       });
-      const good = jest.fn();
+      const good = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: true } },
       });
       gb._subscribeFeatureUsage(bad);
       gb._subscribeFeatureUsage(good);
 
-      const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
       gb.evalFeature("flag");
       spy.mockRestore();
 
@@ -133,9 +134,9 @@ describe("eval subscriptions", () => {
 
   describe("_subscribeCustomEvents", () => {
     it("fires on logEvent with correct args", async () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
-        eventLogger: jest.fn(),
+        eventLogger: vi.fn(),
       });
       gb._subscribeCustomEvents(cb);
 
@@ -148,9 +149,9 @@ describe("eval subscriptions", () => {
     });
 
     it("normalizes missing properties to empty object", async () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
-        eventLogger: jest.fn(),
+        eventLogger: vi.fn(),
       });
       gb._subscribeCustomEvents(cb);
 
@@ -162,9 +163,9 @@ describe("eval subscriptions", () => {
     });
 
     it("unsubscribe stops callbacks", async () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
-        eventLogger: jest.fn(),
+        eventLogger: vi.fn(),
       });
       const unsub = gb._subscribeCustomEvents(cb);
 
@@ -179,17 +180,17 @@ describe("eval subscriptions", () => {
     });
 
     it("a throwing callback does not break other subscribers", async () => {
-      const bad = jest.fn(() => {
+      const bad = vi.fn(() => {
         throw new Error("boom");
       });
-      const good = jest.fn();
+      const good = vi.fn();
       const gb = new GrowthBook({
-        eventLogger: jest.fn(),
+        eventLogger: vi.fn(),
       });
       gb._subscribeCustomEvents(bad);
       gb._subscribeCustomEvents(good);
 
-      const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
       await gb.logEvent("evt");
       spy.mockRestore();
 
@@ -202,8 +203,8 @@ describe("eval subscriptions", () => {
 
   describe("coexistence with existing callbacks", () => {
     it("feature usage sub and onFeatureUsage both fire", () => {
-      const sub = jest.fn();
-      const onUsage = jest.fn();
+      const sub = vi.fn();
+      const onUsage = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: true } },
         onFeatureUsage: onUsage,
@@ -219,8 +220,8 @@ describe("eval subscriptions", () => {
     });
 
     it("custom event sub and eventLogger both fire", async () => {
-      const sub = jest.fn();
-      const logger = jest.fn();
+      const sub = vi.fn();
+      const logger = vi.fn();
       const gb = new GrowthBook({
         eventLogger: logger,
       });
@@ -235,17 +236,17 @@ describe("eval subscriptions", () => {
     });
 
     it("throwing feature sub does not prevent onFeatureUsage", () => {
-      const bad = jest.fn(() => {
+      const bad = vi.fn(() => {
         throw new Error("boom");
       });
-      const onUsage = jest.fn();
+      const onUsage = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: true } },
         onFeatureUsage: onUsage,
       });
       gb._subscribeFeatureUsage(bad);
 
-      const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
       gb.evalFeature("flag");
       spy.mockRestore();
 
@@ -256,16 +257,16 @@ describe("eval subscriptions", () => {
     });
 
     it("throwing event sub does not prevent eventLogger", async () => {
-      const bad = jest.fn(() => {
+      const bad = vi.fn(() => {
         throw new Error("boom");
       });
-      const logger = jest.fn();
+      const logger = vi.fn();
       const gb = new GrowthBook({
         eventLogger: logger,
       });
       gb._subscribeCustomEvents(bad);
 
-      const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
       await gb.logEvent("evt");
       spy.mockRestore();
 
@@ -276,8 +277,8 @@ describe("eval subscriptions", () => {
     });
 
     it("unsubscribing does not affect existing callbacks", () => {
-      const sub = jest.fn();
-      const onUsage = jest.fn();
+      const sub = vi.fn();
+      const onUsage = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: "a" } },
         onFeatureUsage: onUsage,
@@ -300,7 +301,7 @@ describe("eval subscriptions", () => {
 
   describe("destroy cleanup", () => {
     it("feature usage callbacks do not fire after destroy", () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
         features: { flag: { defaultValue: true } },
       });
@@ -312,14 +313,14 @@ describe("eval subscriptions", () => {
     });
 
     it("custom event callbacks do not fire after destroy", async () => {
-      const cb = jest.fn();
+      const cb = vi.fn();
       const gb = new GrowthBook({
-        eventLogger: jest.fn(),
+        eventLogger: vi.fn(),
       });
       gb._subscribeCustomEvents(cb);
       gb.destroy();
 
-      const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
       await gb.logEvent("evt");
       spy.mockRestore();
       expect(cb).not.toHaveBeenCalled();

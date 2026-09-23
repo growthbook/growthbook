@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   autoMerge,
   featureMetadataEnvelope,
@@ -37,16 +38,16 @@ import {
 } from "back-end/src/services/featurePublishGates";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgObject: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgObject: vi.fn(),
 }));
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeaturesWithoutEditorFields: jest.fn(),
-  collectHoldoutChangeGates: jest.fn(),
-  computeProposedFeatureForValidation: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getAllFeaturesWithoutEditorFields: vi.fn(),
+  collectHoldoutChangeGates: vi.fn(),
+  computeProposedFeatureForValidation: vi.fn(),
 }));
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevisionsByStatus: jest.fn(),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevisionsByStatus: vi.fn(),
 }));
 
 const group = (
@@ -171,7 +172,7 @@ describe("Saved Group project scope", () => {
 });
 
 describe("feature writes and publish validation", () => {
-  const getAllWithoutValues = jest.fn();
+  const getAllWithoutValues = vi.fn();
   const scan = {
     models: { savedGroups: { getAllWithoutValues } },
   } as unknown as Context;
@@ -180,7 +181,7 @@ describe("feature writes and publish validation", () => {
     scanContextOverride: scan,
   } as unknown as Context;
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAllWithoutValues.mockResolvedValue([group("group", ["a"])]);
   });
 
@@ -638,7 +639,7 @@ describe("feature writes and publish validation", () => {
 });
 
 describe("Saved Group re-scoping", () => {
-  const getGroups = jest.fn();
+  const getGroups = vi.fn();
   const scan = {
     models: {
       savedGroups: { getAllWithoutValues: getGroups },
@@ -648,15 +649,13 @@ describe("Saved Group re-scoping", () => {
     org: { id: "org", settings: { enforceSavedGroupProjectScope: true } },
   } as unknown as Context;
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest
-      .mocked(getContextForAgendaJobByOrgObject)
-      .mockReturnValue(
-        scan as ReturnType<typeof getContextForAgendaJobByOrgObject>,
-      );
+    vi.clearAllMocks();
+    vi.mocked(getContextForAgendaJobByOrgObject).mockReturnValue(
+      scan as ReturnType<typeof getContextForAgendaJobByOrgObject>,
+    );
     getGroups.mockResolvedValue([group("group", ["a", "b"])]);
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([]);
-    jest.mocked(getRevisionsByStatus).mockResolvedValue([]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([]);
+    vi.mocked(getRevisionsByStatus).mockResolvedValue([]);
   });
   const narrow = () =>
     assertSavedGroupProjectScope(
@@ -700,10 +699,8 @@ describe("Saved Group re-scoping", () => {
     const malformed = feature({
       rules: [{ ...feature().rules[0], savedGroups: [], condition: "{" }],
     });
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([malformed]);
-    jest.mocked(getRevisionsByStatus).mockResolvedValue([
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([malformed]);
+    vi.mocked(getRevisionsByStatus).mockResolvedValue([
       {
         featureId: malformed.id,
         version: 2,
@@ -717,9 +714,7 @@ describe("Saved Group re-scoping", () => {
   it("still checks explicit group references next to a malformed condition", async () => {
     const malformed = feature();
     malformed.rules[0].condition = "{";
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([malformed]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([malformed]);
     await expect(narrow()).rejects.toThrow("existing Feature Flag references");
   });
 
@@ -732,9 +727,7 @@ describe("Saved Group re-scoping", () => {
     consumer.rules[0].savedGroups = [
       { match: "all", ids: ["broken", "group"] },
     ];
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([consumer]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([consumer]);
     await expect(narrow()).rejects.toThrow("existing Feature Flag references");
   });
 
@@ -744,9 +737,7 @@ describe("Saved Group re-scoping", () => {
       group("middle", [], '{"$savedGroups":"leaf"}'),
       group("leaf", ["b"]),
     ]);
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([feature()]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([feature()]);
     await expect(
       assertSavedGroupProjectScope(
         context,
@@ -763,7 +754,7 @@ describe("Saved Group re-scoping", () => {
     ]);
     const f = feature({ targetingProjects: ["b"] });
     f.rules[0] = { ...f.rules[0], allProjects: false, projects: ["b"] };
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([f]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([f]);
     await expect(
       assertSavedGroupProjectScope(
         context,
@@ -775,9 +766,7 @@ describe("Saved Group re-scoping", () => {
 
   it("allows repairing a graph with existing scope violations", async () => {
     getGroups.mockResolvedValue([group("leaf", ["b"])]);
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([feature()]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([feature()]);
     await expect(
       assertSavedGroupProjectScope(
         context,
@@ -788,16 +777,16 @@ describe("Saved Group re-scoping", () => {
   });
 
   it("detects newly denied Projects even if another Project already violates scope", async () => {
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([feature({ targetingProjects: ["c"] })]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+      feature({ targetingProjects: ["c"] }),
+    ]);
     await expect(narrow()).rejects.toThrow("existing Feature Flag references");
   });
 
   it("blocks narrowing a grandfathered group for an All Projects consumer", async () => {
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([feature({ targetingAllProjects: true })]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+      feature({ targetingAllProjects: true }),
+    ]);
     await expect(narrow()).rejects.toThrow("existing Feature Flag references");
   });
 
@@ -808,14 +797,14 @@ describe("Saved Group re-scoping", () => {
     ]);
     const f = feature({ targetingAllProjects: true });
     f.rules[0].savedGroups = [{ match: "all", ids: ["root"] }];
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([f]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([f]);
     await expect(narrow()).rejects.toThrow("existing Feature Flag references");
   });
 
   it("preserves an All Projects violation when only the group's condition changes", async () => {
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([feature({ targetingAllProjects: true })]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+      feature({ targetingAllProjects: true }),
+    ]);
     getGroups.mockResolvedValue([group("leaf", [])]);
     await expect(
       assertSavedGroupProjectScope(
@@ -827,9 +816,9 @@ describe("Saved Group re-scoping", () => {
   });
 
   it("blocks re-scoping used by an unreadable, disabled or archived feature", async () => {
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([feature({ id: "secret-name", archived: true })]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+      feature({ id: "secret-name", archived: true }),
+    ]);
     await expect(narrow()).rejects.toThrow("existing Feature Flag references");
     await expect(narrow()).rejects.not.toThrow("secret-name");
     expect(getAllFeaturesWithoutEditorFields).toHaveBeenCalledWith(scan, {
@@ -838,10 +827,10 @@ describe("Saved Group re-scoping", () => {
   });
 
   it("blocks re-scoping when only an active feature draft references the group", async () => {
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([feature({ rules: [] })]);
-    jest.mocked(getRevisionsByStatus).mockResolvedValue([
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+      feature({ rules: [] }),
+    ]);
+    vi.mocked(getRevisionsByStatus).mockResolvedValue([
       {
         featureId: "flag",
         version: 2,
@@ -864,7 +853,7 @@ describe("Saved Group re-scoping", () => {
       group("group", ["a", "b"]),
       group("parent", [], '{"$savedGroups":"group"}'),
     ]);
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
       feature({
         rules: [
           {
@@ -879,7 +868,7 @@ describe("Saved Group re-scoping", () => {
 
   it("does not block narrowing for an unrelated legacy reference", async () => {
     getGroups.mockResolvedValue([group("other", ["b"])]);
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
       feature({
         rules: [
           {
@@ -895,9 +884,9 @@ describe("Saved Group re-scoping", () => {
   });
 
   it("allows narrowing with no invalidated references", async () => {
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([feature({ project: "b" })]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+      feature({ project: "b" }),
+    ]);
     await expect(narrow()).resolves.toBeUndefined();
   });
 
@@ -923,9 +912,9 @@ describe("Saved Group re-scoping", () => {
   });
 
   it("honors a bulk release's proposed feature state", async () => {
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockResolvedValue([feature({ project: "b" })]);
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+      feature({ project: "b" }),
+    ]);
     await expect(
       assertSavedGroupProjectScope(
         { ...context, scanContextOverride: scan } as Context,
@@ -985,15 +974,15 @@ describe("Saved Group project scope publish gates", () => {
       scanContextOverride: {
         models: {
           savedGroups: {
-            getAllWithoutValues: jest
+            getAllWithoutValues: vi
               .fn()
               .mockResolvedValue([group("group", ["a"])]),
           },
         },
       },
     } as unknown as Parameters<typeof collectFeaturePublishGates>[0]["context"];
-    jest.mocked(collectHoldoutChangeGates).mockResolvedValue([]);
-    jest.mocked(computeProposedFeatureForValidation).mockReturnValue({
+    vi.mocked(collectHoldoutChangeGates).mockResolvedValue([]);
+    vi.mocked(computeProposedFeatureForValidation).mockReturnValue({
       proposedFeature: feature({ targetingProjects: ["b"] }),
       defaultToCheck: undefined,
       rulesToCheck: [],

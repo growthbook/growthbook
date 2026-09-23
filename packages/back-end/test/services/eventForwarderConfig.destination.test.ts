@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { EventForwarderConfigInterface } from "shared/validators";
 import { AES } from "crypto-js";
 import {
@@ -7,7 +8,7 @@ import {
 
 const ENCRYPTION_KEY = "test-encryption-key-for-event-forwarder!!";
 
-jest.mock("back-end/src/util/secrets", () => ({
+vi.mock("back-end/src/util/secrets", () => ({
   ENCRYPTION_KEY: "test-encryption-key-for-event-forwarder!!",
 }));
 

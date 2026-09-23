@@ -1,27 +1,28 @@
+import { vi } from "vitest";
 import { FREE_ORG_LIMITS } from "shared/enterprise";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { initializeGrowthBookClient } from "back-end/src/services/growthbook";
 
-const mockEvalFeature = jest.fn();
+const mockEvalFeature = vi.fn();
 
-jest.mock("back-end/src/util/secrets", () => ({
+vi.mock("back-end/src/util/secrets", () => ({
   IS_CLOUD: false,
 }));
 
-jest.mock("back-end/src/enterprise", () => ({
-  getEffectiveAccountPlan: jest.fn(),
-  getOrgLimits: jest.fn(),
+vi.mock("back-end/src/enterprise", () => ({
+  getEffectiveAccountPlan: vi.fn(),
+  getOrgLimits: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/growthbook", () => ({
+vi.mock("back-end/src/services/growthbook", () => ({
   getGrowthBookClient: () => ({ evalFeature: mockEvalFeature }),
-  initializeGrowthBookClient: jest.fn().mockResolvedValue(undefined),
-  getTrustedOrgAttributes: jest.fn(),
+  initializeGrowthBookClient: vi.fn().mockResolvedValue(undefined),
+  getTrustedOrgAttributes: vi.fn(),
 }));
 
 describe("getStampedOrgLimits", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it.each([

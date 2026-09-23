@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import type { Request } from "express";
@@ -12,12 +13,14 @@ import { setupApp } from "../api.setup";
 
 // Only the dispatch is stubbed: it runs right after the landing, so a request
 // can be held there while another one lands.
-jest.mock("back-end/src/services/featureRevisionEvents", () => ({
-  ...jest.requireActual("back-end/src/services/featureRevisionEvents"),
-  dispatchFeatureRevisionEvent: jest.fn(),
+vi.mock("back-end/src/services/featureRevisionEvents", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/services/featureRevisionEvents")
+  >("back-end/src/services/featureRevisionEvents")),
+  dispatchFeatureRevisionEvent: vi.fn(),
 }));
 
-const mockDispatch = dispatchFeatureRevisionEvent as jest.MockedFunction<
+const mockDispatch = dispatchFeatureRevisionEvent as MockedFunction<
   typeof dispatchFeatureRevisionEvent
 >;
 
@@ -111,7 +114,7 @@ describe("overlapping REST feature updates", () => {
 
   afterEach(() => {
     mockDispatch.mockReset();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it.each([
@@ -155,9 +158,9 @@ describe("overlapping REST feature updates", () => {
 
   it("v1: a scheduled rule sets nextScheduledUpdate from the new rules", async () => {
     // Scheduled rules are a paid feature.
-    jest
-      .spyOn(ReqContextClass.prototype, "hasPremiumFeature")
-      .mockReturnValue(true);
+    vi.spyOn(ReqContextClass.prototype, "hasPremiumFeature").mockReturnValue(
+      true,
+    );
     const startsAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     startsAt.setMilliseconds(0);
     const response = await send(`/api/v1/features/${FLAG}`, {

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { ReqContextClass } from "back-end/src/services/context";
@@ -12,11 +13,13 @@ import {
   getSlackOAuthAuthorizeUrl,
 } from "back-end/src/services/slackIntegration";
 
-jest.mock("back-end/src/util/http.util", () => ({
-  cancellableFetch: jest.fn(),
+vi.mock("back-end/src/util/http.util", () => ({
+  cancellableFetch: vi.fn(),
 }));
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   SLACK_CLIENT_ID: "client-id",
   SLACK_CLIENT_SECRET: "client-secret",
 }));
@@ -51,9 +54,9 @@ afterAll(async () => {
   await mongo?.stop();
 });
 beforeEach(async () => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   await collection().deleteMany({});
-  jest.mocked(cancellableFetch).mockImplementation(async (url, options) => {
+  vi.mocked(cancellableFetch).mockImplementation(async (url, options) => {
     expect(url).toBe("https://slack.com/api/oauth.v2.access");
     const teamId = new URLSearchParams(String(options?.body)).get("code");
     return {

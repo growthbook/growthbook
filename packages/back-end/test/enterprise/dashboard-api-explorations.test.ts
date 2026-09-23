@@ -1,6 +1,7 @@
-const mockRunExploration = jest.fn();
+import { vi } from "vitest";
+const mockRunExploration = vi.hoisted(() => vi.fn());
 
-jest.mock("back-end/src/enterprise/services/product-analytics", () => ({
+vi.mock("back-end/src/enterprise/services/product-analytics", () => ({
   runProductAnalyticsExploration: (...args: unknown[]) =>
     mockRunExploration(...args),
 }));

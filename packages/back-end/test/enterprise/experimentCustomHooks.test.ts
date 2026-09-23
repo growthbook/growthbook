@@ -1,3 +1,4 @@
+import { MockedFunction, MockInstance, vi } from "vitest";
 import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -12,13 +13,11 @@ import {
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { setupApp } from "../api/api.setup";
 
-jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
-  runInSandbox: jest.fn(),
+vi.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
+  runInSandbox: vi.fn(),
 }));
 
-const mockRunInSandbox = runInSandbox as jest.MockedFunction<
-  typeof runInSandbox
->;
+const mockRunInSandbox = runInSandbox as MockedFunction<typeof runInSandbox>;
 
 const ORG = {
   id: "org_exp_hooks_test",
@@ -155,10 +154,10 @@ function findExperiment(id: string) {
 describe("experiment custom hooks", () => {
   setupApp();
 
-  let premiumSpy: jest.SpyInstance;
+  let premiumSpy: MockInstance;
 
   beforeEach(() => {
-    premiumSpy = jest
+    premiumSpy = vi
       .spyOn(ReqContextClass.prototype, "hasPremiumFeature")
       .mockReturnValue(true);
     mockRunInSandbox.mockResolvedValue({ ok: true, warnings: [] });

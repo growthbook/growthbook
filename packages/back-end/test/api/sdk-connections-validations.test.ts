@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { getSDKCapabilities, getSDKVersions } from "shared/sdk-versioning";
 import {
   validateEnvironment,
@@ -11,13 +12,13 @@ import {
 } from "back-end/src/api/sdk-connections/validations";
 import { getEnvironments } from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getEnvironments: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getEnvironments: vi.fn(),
 }));
 
-jest.mock("shared/sdk-versioning", () => ({
-  getSDKCapabilities: jest.fn(),
-  getSDKVersions: jest.fn(),
+vi.mock("shared/sdk-versioning", () => ({
+  getSDKCapabilities: vi.fn(),
+  getSDKVersions: vi.fn(),
 }));
 
 describe("sdk-connections validations", () => {
@@ -49,7 +50,7 @@ describe("sdk-connections validations", () => {
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it("Fails nonexistent environments", () => {
@@ -179,7 +180,7 @@ describe("sdk-connections validations", () => {
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it("Prompts upgrades when needed for a capability", () => {
@@ -265,7 +266,7 @@ describe("sdk-connections validations", () => {
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it("Fails nonexistent versions", () => {

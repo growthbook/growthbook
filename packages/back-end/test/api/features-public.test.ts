@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import { Request, Response } from "express";
 import * as featuresController from "back-end/src/controllers/features";
 const { getFeaturesPublic } = featuresController;
@@ -5,15 +6,16 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 
-jest.mock("back-end/src/services/python", () => ({
-  createPool: jest.fn(() => ({
-    acquire: jest.fn(),
-    release: jest.fn(),
-    drain: jest.fn(),
+vi.mock("back-end/src/services/python", () => ({
+  createPool: vi.fn(() => ({
+    acquire: vi.fn(),
+    release: vi.fn(),
+    drain: vi.fn(),
   })),
 }));
 
-jest.mock("back-end/src/util/secrets", () => ({
+vi.mock("back-end/src/util/secrets", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("back-end/src/util/secrets")>()),
   CACHE_CONTROL_MAX_AGE: 30,
   CACHE_CONTROL_STALE_WHILE_REVALIDATE: 3600,
   CACHE_CONTROL_STALE_IF_ERROR: 36000,
@@ -21,24 +23,26 @@ jest.mock("back-end/src/util/secrets", () => ({
   JWT_SECRET: "test-secret",
 }));
 
-jest.mock("back-end/src/services/auth", () => ({
+vi.mock("back-end/src/services/auth", () => ({
   getAuthConnection: () => ({
-    middleware: jest.fn(),
+    middleware: vi.fn(),
   }),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    error: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 
-jest.mock("back-end/src/controllers/features", () => {
-  const actual = jest.requireActual("back-end/src/controllers/features");
-  const mockGetPayloadParamsFromApiKey = jest.fn();
+vi.mock("back-end/src/controllers/features", async () => {
+  const actual = await vi.importActual<
+    typeof import("back-end/src/controllers/features")
+  >("back-end/src/controllers/features");
+  const mockGetPayloadParamsFromApiKey = vi.fn();
 
   return {
     ...actual,
@@ -46,32 +50,33 @@ jest.mock("back-end/src/controllers/features", () => {
   };
 });
 
-jest.mock("shared/util", () => ({
-  ...jest.requireActual("shared/util"),
-  filterProjectsByEnvironmentWithNull: jest.fn(),
+vi.mock("shared/util", async () => ({
+  ...(await vi.importActual<typeof import("shared/util")>("shared/util")),
+  filterProjectsByEnvironmentWithNull: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/features", () => ({
-  getFeatureDefinitions: jest.fn(),
-  getSavedGroupMap: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  getFeatureDefinitions: vi.fn(),
+  getSavedGroupMap: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgId: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgId: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"),
-  SdkConnectionCacheModel: jest.fn(),
+vi.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
+  getSDKPayloadCacheLocation: vi.fn().mockReturnValue("none"),
+  SdkConnectionCacheModel: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/SdkConnectionModel", () => ({
-  findSDKConnectionByKey: jest.fn(),
-  markSDKConnectionUsed: jest.fn(),
+vi.mock("back-end/src/models/SdkConnectionModel", () => ({
+  findSDKConnectionByKey: vi.fn(),
+  markSDKConnectionUsed: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ApiKeyModel", () => ({
-  dangerousLookupOrganizationByApiKey: jest.fn(),
+vi.mock("back-end/src/models/ApiKeyModel", () => ({
+  ApiKeyModel: vi.fn(),
+  dangerousLookupOrganizationByApiKey: vi.fn(),
 }));
 
 describe("getFeaturesPublic test holdout", () => {
@@ -92,14 +97,14 @@ describe("getFeaturesPublic test holdout", () => {
   };
   let mockRequest: Partial<Request>;
   let mockResponse: Partial<Response>;
-  let mockJson: jest.Mock;
-  let mockStatus: jest.Mock;
-  let mockSet: jest.Mock;
+  let mockJson: Mock;
+  let mockStatus: Mock;
+  let mockSet: Mock;
 
   beforeEach(() => {
-    mockJson = jest.fn();
-    mockStatus = jest.fn().mockReturnValue({ json: mockJson });
-    mockSet = jest.fn();
+    mockJson = vi.fn();
+    mockStatus = vi.fn().mockReturnValue({ json: mockJson });
+    mockSet = vi.fn();
 
     mockRequest = {
       params: { key: "sdk-test-key" },
@@ -112,7 +117,7 @@ describe("getFeaturesPublic test holdout", () => {
       set: mockSet,
     };
 
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("test getFeaturesPublic with holdout", async () => {
@@ -129,10 +134,10 @@ describe("getFeaturesPublic test holdout", () => {
       },
     };
 
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
+    (getContextForAgendaJobByOrgId as Mock).mockResolvedValue(mockContext);
 
     // Mock the SDK connection lookup so getPayloadParamsFromApiKey works
-    (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
+    (findSDKConnectionByKey as Mock).mockResolvedValue({
       key: "sdk-test-key",
       organization: "test-org-id",
       environment: "production",
@@ -153,7 +158,7 @@ describe("getFeaturesPublic test holdout", () => {
     });
 
     // Mock getFeatureDefinitions (from services/features) to return test data with holdouts
-    (getFeatureDefinitions as jest.Mock).mockResolvedValue({
+    (getFeatureDefinitions as Mock).mockResolvedValue({
       features: {
         "feature-with-holdout": {
           defaultValue: "default_value",
@@ -199,10 +204,10 @@ describe("getFeaturesPublic test holdout", () => {
       },
     };
 
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
+    (getContextForAgendaJobByOrgId as Mock).mockResolvedValue(mockContext);
 
     // Mock the SDK connection lookup so getPayloadParamsFromApiKey works
-    (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
+    (findSDKConnectionByKey as Mock).mockResolvedValue({
       key: "sdk-test-key",
       organization: "test-org-id",
       environment: "production",
@@ -223,7 +228,7 @@ describe("getFeaturesPublic test holdout", () => {
     });
 
     // Mock getFeatureDefinitions to return test data where holdout is not included
-    (getFeatureDefinitions as jest.Mock).mockResolvedValue({
+    (getFeatureDefinitions as Mock).mockResolvedValue({
       features: {
         "feature-with-holdout": {
           defaultValue: "default_value",

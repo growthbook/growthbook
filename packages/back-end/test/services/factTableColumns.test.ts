@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import { ColumnInterface } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { TestQueryResult } from "shared/types/integrations";
@@ -11,15 +12,15 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { ReqContext } from "back-end/types/request";
 
-jest.mock("back-end/src/services/datasource", () => ({
-  getSourceIntegrationObject: jest.fn(),
+vi.mock("back-end/src/services/datasource", () => ({
+  getSourceIntegrationObject: vi.fn(),
 }));
-jest.mock("back-end/src/util/logger", () => ({
-  logger: { error: jest.fn(), info: jest.fn() },
+vi.mock("back-end/src/util/logger", () => ({
+  logger: { error: vi.fn(), info: vi.fn() },
 }));
 
 const getSourceIntegrationObjectMock =
-  getSourceIntegrationObject as jest.MockedFunction<
+  getSourceIntegrationObject as MockedFunction<
     typeof getSourceIntegrationObject
   >;
 
@@ -49,8 +50,8 @@ async function refreshColumns({
 }): Promise<ColumnInterface[]> {
   // @ts-expect-error - this test only needs the query methods
   const integration: SourceIntegrationInterface = {
-    getTestQuery: jest.fn().mockReturnValue("SELECT * FROM fact_table"),
-    runTestQuery: jest.fn().mockResolvedValue(result),
+    getTestQuery: vi.fn().mockReturnValue("SELECT * FROM fact_table"),
+    runTestQuery: vi.fn().mockResolvedValue(result),
   };
   getSourceIntegrationObjectMock.mockReturnValue(integration);
 
@@ -204,7 +205,7 @@ describe("selectColumnsForTopValues", () => {
 
 describe("refreshColumnTopValues", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("reports only columns from successful chunks", async () => {
@@ -213,7 +214,7 @@ describe("refreshColumnTopValues", () => {
         topValues: [`stale_${index}`],
       }),
     );
-    const runColumnsTopValuesQuery = jest
+    const runColumnsTopValuesQuery = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [{ column: "col_0", value: "fresh" }],
@@ -221,7 +222,7 @@ describe("refreshColumnTopValues", () => {
       .mockRejectedValueOnce(new Error("query failed"));
     // @ts-expect-error - this test only needs the top-values query methods
     const integration: SourceIntegrationInterface = {
-      getColumnsTopValuesQuery: jest.fn().mockReturnValue("SELECT top_values"),
+      getColumnsTopValuesQuery: vi.fn().mockReturnValue("SELECT top_values"),
       runColumnsTopValuesQuery,
     };
     getSourceIntegrationObjectMock.mockReturnValue(integration);
@@ -407,7 +408,7 @@ describe("mergeRefreshedTopValues", () => {
 
 describe("runColumnDetectionQuery", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("keeps case-distinct keys in JSON stored as a string", async () => {

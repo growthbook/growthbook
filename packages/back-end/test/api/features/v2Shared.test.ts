@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { ReqContext } from "back-end/types/organization";
 import type { ApiReqContext } from "back-end/types/api";
@@ -35,8 +36,8 @@ import { BadRequestError } from "back-end/src/util/errors";
 //      New safe-rollouts must go through the per-rule add endpoint.
 // ---------------------------------------------------------------------------
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentsByIds: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentsByIds: vi.fn(),
 }));
 
 describe("resolveScopeFromInput", () => {
@@ -468,7 +469,7 @@ describe("validateRulesScheduleRules", () => {
     ({ type: "force", value: "true", scheduleRules }) as FeatureRule;
   const ctx = (premium: boolean) =>
     ({
-      hasPremiumFeature: jest.fn(() => premium),
+      hasPremiumFeature: vi.fn(() => premium),
       throwPlanDoesNotAllowError: (message: string) => {
         throw new Error(message);
       },
@@ -783,16 +784,14 @@ describe("assertValidRuleExperimentIds", () => {
     }) as FeatureRule;
 
   beforeEach(() => {
-    jest.mocked(getExperimentsByIds).mockReset();
-    jest
-      .mocked(getExperimentsByIds)
-      .mockImplementation(async (_ctx, ids) =>
-        ids
-          .filter((i) => i === "exp_known")
-          .map(
-            (id) => ({ id, variations: [{ id: "v0" }], phases: [{}] }) as never,
-          ),
-      );
+    vi.mocked(getExperimentsByIds).mockReset();
+    vi.mocked(getExperimentsByIds).mockImplementation(async (_ctx, ids) =>
+      ids
+        .filter((i) => i === "exp_known")
+        .map(
+          (id) => ({ id, variations: [{ id: "v0" }], phases: [{}] }) as never,
+        ),
+    );
   });
 
   it("looks up each referenced experiment once and reports the first missing one", async () => {

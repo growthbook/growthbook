@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { FactTableInterface } from "shared/types/fact-table";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
@@ -110,8 +111,8 @@ describe("factMetricRowFilterValidation", () => {
   describe("validateFactMetricRowFilterSql", () => {
     it("skips validation when there are no risky operators", async () => {
       const integration = {
-        getTestValidityQuery: jest.fn(),
-        runTestQuery: jest.fn(),
+        getTestValidityQuery: vi.fn(),
+        runTestQuery: vi.fn(),
       } as unknown as SourceIntegrationInterface;
 
       await validateFactMetricRowFilterSql({
@@ -137,10 +138,10 @@ describe("factMetricRowFilterValidation", () => {
     });
 
     it("runs a validity query for sql_expr filters only", async () => {
-      const getTestValidityQuery = jest
+      const getTestValidityQuery = vi
         .fn()
         .mockReturnValue("SELECT * FROM __table LIMIT 0");
-      const runTestQuery = jest.fn().mockResolvedValue({ results: [] });
+      const runTestQuery = vi.fn().mockResolvedValue({ results: [] });
       const integration = {
         getTestValidityQuery,
         runTestQuery,
@@ -172,8 +173,8 @@ describe("factMetricRowFilterValidation", () => {
 
     it("throws a prefixed error when validation query fails", async () => {
       const integration = {
-        getTestValidityQuery: jest.fn().mockReturnValue("SELECT 1"),
-        runTestQuery: jest
+        getTestValidityQuery: vi.fn().mockReturnValue("SELECT 1"),
+        runTestQuery: vi
           .fn()
           .mockRejectedValue(new Error("Syntax error near ')'")),
       } as unknown as SourceIntegrationInterface;

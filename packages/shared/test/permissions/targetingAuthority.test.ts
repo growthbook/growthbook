@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   addedTargetingProjects,
   assertTargetingDestination,
@@ -72,7 +73,7 @@ describe("addedTargetingProjects", () => {
 
 describe("holdsTargetingDestination", () => {
   const permissions = (granted: string[] | "all") => ({
-    canTargetFeatureProjects: jest.fn((projects: string[] | "all") =>
+    canTargetFeatureProjects: vi.fn((projects: string[] | "all") =>
       granted === "all"
         ? true
         : projects !== "all" && projects.every((p) => granted.includes(p)),

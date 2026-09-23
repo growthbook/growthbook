@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type {
   ExplorationConfig,
   ExplorationDateRange,
@@ -89,12 +90,12 @@ const utcWeekday = (yyyyMmDd: string) =>
 
 describe("buildComparisonDateRange", () => {
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("shifts last7Days to the contiguous prior window", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
 
     const out = buildComparisonDateRange({
       predefined: "last7Days",
@@ -111,8 +112,8 @@ describe("buildComparisonDateRange", () => {
   });
 
   it("shifts last30Days to the contiguous prior window", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
 
     const out = buildComparisonDateRange({
       predefined: "last30Days",
@@ -129,8 +130,8 @@ describe("buildComparisonDateRange", () => {
   });
 
   it("shifts custom lookback by one span", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
 
     const out = buildComparisonDateRange({
       predefined: "customLookback",
@@ -149,8 +150,8 @@ describe("buildComparisonDateRange", () => {
   });
 
   it("maps today to previous UTC calendar day", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
 
     const out = buildComparisonDateRange({
       predefined: "today",
@@ -217,7 +218,7 @@ describe("buildComparisonDateRange", () => {
 
 describe("resolveComparisonPreviousTimeFrame", () => {
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   const predefined: ExplorationDateRange = {
@@ -229,22 +230,22 @@ describe("resolveComparisonPreviousTimeFrame", () => {
   };
 
   it("derives (and rolls) the previous window for predefined ranges", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
     const out = resolveComparisonPreviousTimeFrame(predefined, {});
     expect(out.startDate).toBe("2024-06-02");
     expect(out.endDate).toBe("2024-06-08");
 
     // A day later the derived window has rolled forward.
-    jest.setSystemTime(new Date("2024-06-16T12:00:00.000Z"));
+    vi.setSystemTime(new Date("2024-06-16T12:00:00.000Z"));
     const next = resolveComparisonPreviousTimeFrame(predefined, {});
     expect(next.startDate).toBe("2024-06-03");
     expect(next.endDate).toBe("2024-06-09");
   });
 
   it("uses an explicit previousTimeFrame as-is (fixed window)", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
     const fixed: ExplorationDateRange = {
       predefined: "customDateRange",
       lookbackValue: null,
@@ -259,8 +260,8 @@ describe("resolveComparisonPreviousTimeFrame", () => {
   });
 
   it("re-derives for a named mode even when a stale window is persisted", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
     const out = resolveComparisonPreviousTimeFrame(predefined, {
       mode: "previousPeriod",
       previousTimeFrame: customRange("2020-01-01", "2020-01-31"),
@@ -270,8 +271,8 @@ describe("resolveComparisonPreviousTimeFrame", () => {
   });
 
   it("derives (and rolls) a previousYear window", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
     const out = resolveComparisonPreviousTimeFrame(predefined, {
       mode: "previousYear",
     });
@@ -294,12 +295,12 @@ describe("calculateProductAnalyticsDateRange presets", () => {
   const utc = (d: Date) => d.toISOString();
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   beforeEach(() => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
   });
 
   it("bounds yesterday to a complete UTC day", () => {
@@ -388,7 +389,7 @@ describe("calculateProductAnalyticsDateRange presets", () => {
     const before = calculateProductAnalyticsDateRange(
       preset("lastCalendarYear"),
     );
-    jest.setSystemTime(new Date("2024-11-30T09:00:00.000Z"));
+    vi.setSystemTime(new Date("2024-11-30T09:00:00.000Z"));
     const after = calculateProductAnalyticsDateRange(
       preset("lastCalendarYear"),
     );
@@ -396,7 +397,7 @@ describe("calculateProductAnalyticsDateRange presets", () => {
   });
 
   it("rolls lastCalendarYear when the year turns over", () => {
-    jest.setSystemTime(new Date("2025-01-02T00:00:00.000Z"));
+    vi.setSystemTime(new Date("2025-01-02T00:00:00.000Z"));
     const out = calculateProductAnalyticsDateRange(preset("lastCalendarYear"));
     expect(utc(out.startDate)).toBe("2024-01-01T00:00:00.000Z");
     expect(utc(out.endDate)).toBe("2024-12-31T23:59:59.999Z");
@@ -572,7 +573,7 @@ describe("getComparisonShiftDays", () => {
 
 describe("buildComparisonDateRangeForMode", () => {
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("keeps a whole-week primary contiguous and weekday-aligned", () => {
@@ -606,8 +607,8 @@ describe("buildComparisonDateRangeForMode", () => {
   });
 
   it("weekday-aligns a rolling preset with no gap", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
     const out = buildComparisonDateRangeForMode(
       {
         predefined: "last7Days",
@@ -717,8 +718,8 @@ describe("buildComparisonDateRangeForMode", () => {
   });
 
   it("emits a fully-bounded customDateRange and preserves lookback for every derived mode", () => {
-    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
-    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
     const primary: ExplorationDateRange = {
       predefined: "customLookback",
       lookbackValue: 45,

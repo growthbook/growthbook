@@ -1,3 +1,4 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import { ContextualBanditInterface, Variation } from "shared/validators";
 import {
   ContextualBanditRefRule,
@@ -57,91 +58,92 @@ function toAddRemove(
   return { addVariations, removeVariationIds };
 }
 
-jest.mock("back-end/src/services/features", () => ({
-  queueSDKPayloadRefresh: jest.fn(),
-  generateRuleId: jest.fn(() => "fr_new"),
-  getDraftRevision: jest.fn(),
-  revisionRequiresReview: jest.fn().mockResolvedValue(false),
-  getLiveAndBaseRevisionsForFeature: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: vi.fn(),
+  generateRuleId: vi.fn(() => "fr_new"),
+  getDraftRevision: vi.fn(),
+  revisionRequiresReview: vi.fn().mockResolvedValue(false),
+  getLiveAndBaseRevisionsForFeature: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevision: jest.fn(),
-  updateRevision: jest.fn(),
-  discardRevision: jest.fn(),
-  getLinkageSyncRevisionSummaries: jest
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: vi.fn(),
+  updateRevision: vi.fn(),
+  discardRevision: vi.fn(),
+  getLinkageSyncRevisionSummaries: vi
     .fn()
     .mockResolvedValue({ openDrafts: [], liveRevision: null }),
 }));
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  publishRevision: jest.fn(),
-  getFeature: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  publishRevision: vi.fn(),
+  getFeature: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/experiment-feature", () => ({
-  publishPendingFeatureDraftsForContextualBandit: jest
+vi.mock("back-end/src/services/experiment-feature", () => ({
+  publishPendingFeatureDraftsForContextualBandit: vi
     .fn()
     .mockResolvedValue({ published: [], failed: [] }),
 }));
 
-jest.mock("back-end/src/util/featureContextualBanditSync", () => ({
-  syncFeatureContextualBanditLinkages: jest.fn(),
+vi.mock("back-end/src/util/featureContextualBanditSync", () => ({
+  syncFeatureContextualBanditLinkages: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/featureRevisionEvents", () => ({
-  recordRevisionUpdate: jest.fn(),
+vi.mock("back-end/src/services/featureRevisionEvents", () => ({
+  recordRevisionUpdate: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/configValidation", () => ({
-  assertConfigBackedFeatureValuesValid: jest.fn(),
+vi.mock("back-end/src/services/configValidation", () => ({
+  assertConfigBackedFeatureValuesValid: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/contextualBanditChanges", () => ({
-  refreshLinkedFeaturePayloads: jest.fn().mockResolvedValue(undefined),
+vi.mock("back-end/src/services/contextualBanditChanges", () => ({
+  refreshLinkedFeaturePayloads: vi.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock("back-end/src/services/experiments", () => ({
-  getRefLinkedFeatureInfo: jest.fn().mockResolvedValue([]),
+vi.mock("back-end/src/services/experiments", () => ({
+  getRefLinkedFeatureInfo: vi.fn().mockResolvedValue([]),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/datasource", () => ({
-  getSourceIntegrationObject: jest.fn(),
+vi.mock("back-end/src/services/datasource", () => ({
+  getSourceIntegrationObject: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner",
   () => ({
-    ContextualBanditResultsQueryRunner: jest.fn(),
+    ContextualBanditResultsQueryRunner: vi.fn(),
   }),
 );
 
 const refreshLinkedFeaturePayloadsMock =
-  refreshLinkedFeaturePayloads as jest.MockedFunction<
+  refreshLinkedFeaturePayloads as MockedFunction<
     typeof refreshLinkedFeaturePayloads
   >;
-const getRefLinkedFeatureInfoMock = getRefLinkedFeatureInfo as jest.Mock;
-const getDraftRevisionMock = getDraftRevision as jest.MockedFunction<
+const getRefLinkedFeatureInfoMock = getRefLinkedFeatureInfo as Mock;
+const getDraftRevisionMock = getDraftRevision as MockedFunction<
   typeof getDraftRevision
 >;
-const getRevisionMock = getRevision as jest.MockedFunction<typeof getRevision>;
-const updateRevisionMock = updateRevision as jest.MockedFunction<
+const getRevisionMock = getRevision as MockedFunction<typeof getRevision>;
+const updateRevisionMock = updateRevision as MockedFunction<
   typeof updateRevision
 >;
-const publishRevisionMock = publishRevision as jest.MockedFunction<
+const publishRevisionMock = publishRevision as MockedFunction<
   typeof publishRevision
 >;
-const getFeatureMock = getFeature as jest.Mock;
-const revisionRequiresReviewMock =
-  revisionRequiresReview as jest.MockedFunction<typeof revisionRequiresReview>;
+const getFeatureMock = getFeature as Mock;
+const revisionRequiresReviewMock = revisionRequiresReview as MockedFunction<
+  typeof revisionRequiresReview
+>;
 const publishPendingDraftsMock =
-  publishPendingFeatureDraftsForContextualBandit as jest.Mock;
+  publishPendingFeatureDraftsForContextualBandit as Mock;
 const getLiveAndBaseRevisionsMock =
-  getLiveAndBaseRevisionsForFeature as jest.MockedFunction<
+  getLiveAndBaseRevisionsForFeature as MockedFunction<
     typeof getLiveAndBaseRevisionsForFeature
   >;
 
@@ -251,11 +253,11 @@ function makeCb(
 function makeContext(cb: ContextualBanditInterface) {
   // Mirrors the real model: update() persists, setLeafWeights() re-fetches.
   let currentDoc: ContextualBanditInterface = cb;
-  const updateMock = jest.fn().mockImplementation((existing, changes) => {
+  const updateMock = vi.fn().mockImplementation((existing, changes) => {
     currentDoc = { ...existing, ...changes };
     return currentDoc;
   });
-  const applyWeightEpochUpdateMock = jest
+  const applyWeightEpochUpdateMock = vi
     .fn()
     .mockImplementation((_cbId: string, changes) => {
       currentDoc = {
@@ -275,29 +277,29 @@ function makeContext(cb: ContextualBanditInterface) {
       };
       return currentDoc;
     });
-  const getByIdMock = jest.fn().mockImplementation(async () => currentDoc);
-  const dangerousUpdateBypassPermissionMock = jest
+  const getByIdMock = vi.fn().mockImplementation(async () => currentDoc);
+  const dangerousUpdateBypassPermissionMock = vi
     .fn()
     .mockImplementation((existing, changes) => {
       currentDoc = { ...existing, ...changes };
       return currentDoc;
     });
-  const canPublishFeature = jest.fn().mockReturnValue(true);
-  const throwPermissionError = jest.fn(() => {
+  const canPublishFeature = vi.fn().mockReturnValue(true);
+  const throwPermissionError = vi.fn(() => {
     throw new Error("permission error");
   });
   const context = {
     org: { id: "org_1", settings: {} },
     environments: ["production"],
-    logger: { warn: jest.fn() },
+    logger: { warn: vi.fn() },
     auditUser: { type: "dashboard" },
-    auditLog: jest.fn(),
-    hasPremiumFeature: jest.fn().mockReturnValue(false),
+    auditLog: vi.fn(),
+    hasPremiumFeature: vi.fn().mockReturnValue(false),
     permissions: {
       canPublishFeature,
-      canUpdateFeature: jest.fn().mockReturnValue(true),
-      canEditFeatureDrafts: jest.fn().mockReturnValue(true),
-      canBypassFlagApprovalChecks: jest.fn().mockReturnValue(false),
+      canUpdateFeature: vi.fn().mockReturnValue(true),
+      canEditFeatureDrafts: vi.fn().mockReturnValue(true),
+      canBypassFlagApprovalChecks: vi.fn().mockReturnValue(false),
       throwPermissionError,
     },
     models: {
@@ -306,7 +308,7 @@ function makeContext(cb: ContextualBanditInterface) {
         applyWeightEpochUpdate: applyWeightEpochUpdateMock,
         getById: getByIdMock,
         dangerousUpdateBypassPermission: dangerousUpdateBypassPermissionMock,
-        activatePendingVariationsForFeature: jest.fn(),
+        activatePendingVariationsForFeature: vi.fn(),
       },
     },
   } as unknown as ApiReqContext;
@@ -336,7 +338,7 @@ const sum = (pairs: { weight: number }[]) =>
 
 describe("executeContextualBanditVariationChange", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     refreshLinkedFeaturePayloadsMock.mockResolvedValue(undefined);
     getRefLinkedFeatureInfoMock.mockResolvedValue([]);
     getDraftRevisionMock.mockResolvedValue(makeRevision());

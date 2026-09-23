@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 
 type Doc = { id: string; value: string };
@@ -52,7 +53,7 @@ describe("overlayDocsById", () => {
       ["a", { id: "a", value: "proposed-a", values: ["large list"] }],
       ["c", { id: "c", value: "proposed-c", values: ["another list"] }],
     ]);
-    const project = jest.fn(({ id, value }: Doc) => ({ id, value }));
+    const project = vi.fn(({ id, value }: Doc) => ({ id, value }));
     expect(overlayDocsById(docs, overlay, project)).toEqual([
       { id: "a", value: "proposed-a" },
       { id: "b", value: "live-b" },

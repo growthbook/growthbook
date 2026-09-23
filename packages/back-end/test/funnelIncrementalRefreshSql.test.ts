@@ -111,7 +111,7 @@ function buildFunnelMetric({
 let integration: BigQuery;
 beforeEach(() => {
   // @ts-expect-error -- context not needed; exposure list satisfies
-  // getExposureQuery(settings.exposureQueryId) without jest.spyOn.
+  // getExposureQuery(settings.exposureQueryId) without vi.spyOn.
   integration = new BigQuery("", {
     type: "bigquery",
     settings: { queries: { exposure: [exposureQuery] } },

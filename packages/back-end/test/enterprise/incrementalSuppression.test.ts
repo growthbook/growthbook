@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
 import {
   applyIncrementalSuppression,
@@ -6,13 +7,11 @@ import {
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import type { SandboxEvalResult } from "back-end/src/enterprise/sandbox/sandbox-core";
 
-jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
-  runInSandbox: jest.fn(),
+vi.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
+  runInSandbox: vi.fn(),
 }));
 
-const mockRunInSandbox = runInSandbox as jest.MockedFunction<
-  typeof runInSandbox
->;
+const mockRunInSandbox = runInSandbox as MockedFunction<typeof runInSandbox>;
 
 function ok(warnings: string[] = [], extras: Partial<SandboxEvalResult> = {}) {
   return { ok: true, warnings, log: "", ...extras };

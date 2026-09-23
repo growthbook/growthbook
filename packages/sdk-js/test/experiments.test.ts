@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { GrowthBook } from "../src";
 import {
   AutoExperiment,
@@ -17,7 +18,7 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 const mockCallback = (options: Options) => {
-  const onExperimentViewed = jest.fn((a) => {
+  const onExperimentViewed = vi.fn((a) => {
     return a;
   });
   options.trackingCallback = onExperimentViewed;
@@ -25,7 +26,7 @@ const mockCallback = (options: Options) => {
 };
 
 const mockAsyncCallback = (options: Options) => {
-  const onExperimentViewed = jest.fn();
+  const onExperimentViewed = vi.fn();
   options.trackingCallback = async (experiment, result, user) => {
     await sleep(500);
     onExperimentViewed(experiment, result, user);
@@ -126,7 +127,7 @@ describe("experiments", () => {
   it("handles weird experiment values", () => {
     const options: Options = { user: { id: "1" } };
     const growthbook = new GrowthBook(options);
-    const spy = jest.spyOn(console, "error").mockImplementation();
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     expect(
       growthbook.run({
@@ -159,7 +160,7 @@ describe("experiments", () => {
   });
 
   it("logs debug message", () => {
-    const spy = jest.spyOn(console, "log").mockImplementation();
+    const spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     const options: Options = { user: { id: "1" } };
     const growthbook = new GrowthBook(options);
@@ -451,7 +452,7 @@ describe("experiments", () => {
       },
       url: "http://example.com",
     });
-    const spy = jest.spyOn(console, "error").mockImplementation();
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     expect(
       growthbook.run({
@@ -820,7 +821,7 @@ describe("experiments", () => {
   // TODO: test setEncryptedExperiments
 
   it("handles deferred tracking calls", () => {
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     const gb = new GrowthBook({
       attributes: { id: "1" },
     });
@@ -854,7 +855,7 @@ describe("experiments", () => {
     gb.destroy();
 
     // Can set deferred tracking calls on an existing GrowthBook instance
-    const trackingCallback2 = jest.fn();
+    const trackingCallback2 = vi.fn();
     const gb2 = new GrowthBook({ trackingCallback: trackingCallback2 });
     gb2.setDeferredTrackingCalls([
       {
@@ -888,7 +889,7 @@ describe("experiments", () => {
     gb.destroy();
 
     // Can set deferred tracking calls on an existing GrowthBook instance
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     const gb2 = new GrowthBook();
     gb2.setDeferredTrackingCalls([
       {

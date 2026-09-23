@@ -1,20 +1,21 @@
+import { vi } from "vitest";
 import request from "supertest";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { countActiveExperimentsUsingNamespace } from "back-end/src/models/ExperimentModel";
 import { countFeaturesWithExperimentRuleInNamespace } from "back-end/src/models/FeatureModel";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  findOrganizationById: jest.fn(),
-  updateOrganization: jest.fn(),
+vi.mock("back-end/src/models/OrganizationModel", () => ({
+  findOrganizationById: vi.fn(),
+  updateOrganization: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  countActiveExperimentsUsingNamespace: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  countActiveExperimentsUsingNamespace: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  countFeaturesWithExperimentRuleInNamespace: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  countFeaturesWithExperimentRuleInNamespace: vi.fn(),
 }));
 
 describe("namespaces API in-use guards", () => {
@@ -45,14 +46,12 @@ describe("namespaces API in-use guards", () => {
     });
     // One experiment currently allocates traffic in the namespace; no legacy
     // inline feature experiment rules do.
-    jest.mocked(countActiveExperimentsUsingNamespace).mockResolvedValue(1);
-    jest
-      .mocked(countFeaturesWithExperimentRuleInNamespace)
-      .mockResolvedValue(0);
+    vi.mocked(countActiveExperimentsUsingNamespace).mockResolvedValue(1);
+    vi.mocked(countFeaturesWithExperimentRuleInNamespace).mockResolvedValue(0);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("refuses to change the hash attribute of a namespace in use", async () => {
@@ -67,10 +66,8 @@ describe("namespaces API in-use guards", () => {
   });
 
   it("refuses when only a feature's inline experiment rule uses the namespace", async () => {
-    jest.mocked(countActiveExperimentsUsingNamespace).mockResolvedValue(0);
-    jest
-      .mocked(countFeaturesWithExperimentRuleInNamespace)
-      .mockResolvedValue(2);
+    vi.mocked(countActiveExperimentsUsingNamespace).mockResolvedValue(0);
+    vi.mocked(countFeaturesWithExperimentRuleInNamespace).mockResolvedValue(2);
 
     const response = await request(app)
       .put("/api/v1/namespaces/ns_checkout")
@@ -82,7 +79,7 @@ describe("namespaces API in-use guards", () => {
   });
 
   it("allows a hash attribute change when nothing uses the namespace", async () => {
-    jest.mocked(countActiveExperimentsUsingNamespace).mockResolvedValue(0);
+    vi.mocked(countActiveExperimentsUsingNamespace).mockResolvedValue(0);
 
     const response = await request(app)
       .put("/api/v1/namespaces/ns_checkout")

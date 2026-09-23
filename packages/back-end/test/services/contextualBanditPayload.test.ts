@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ContextualBanditInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureDefinition } from "shared/types/sdk";
@@ -9,7 +10,7 @@ import { measureContextualBanditPayload } from "back-end/src/services/contextual
 // services/features.ts transitively imports datasource integrations, which
 // load native modules (kerberos, lz4) that aren't available in all
 // environments. Nothing in these tests touches datasources.
-jest.mock("back-end/src/services/datasource", () => ({}));
+vi.mock("back-end/src/services/datasource", () => ({}));
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();

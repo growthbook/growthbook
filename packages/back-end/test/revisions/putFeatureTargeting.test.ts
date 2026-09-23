@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import mongoose from "mongoose";
 import type { Response } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -8,9 +9,11 @@ import { setupApp } from "../api/api.setup";
 
 // A lazy proxy, not a spread: the module's exports are getters that trip the
 // temporal dead zone while its import cycle is still resolving.
-jest.mock("back-end/src/models/FeatureModel", () => {
-  const actual = jest.requireActual("back-end/src/models/FeatureModel");
-  const publishRevisionMock = jest.fn();
+vi.mock("back-end/src/models/FeatureModel", async () => {
+  const actual = await vi.importActual<
+    typeof import("back-end/src/models/FeatureModel")
+  >("back-end/src/models/FeatureModel");
+  const publishRevisionMock = vi.fn();
   return new Proxy(actual, {
     get: (target, key) =>
       key === "publishRevision"
@@ -19,7 +22,7 @@ jest.mock("back-end/src/models/FeatureModel", () => {
   });
 });
 
-const mockPublishRevision = publishRevision as jest.MockedFunction<
+const mockPublishRevision = publishRevision as MockedFunction<
   typeof publishRevision
 >;
 
@@ -72,7 +75,7 @@ describe("putFeature targeting", () => {
       name: userId,
       query: {},
       headers: {},
-      audit: jest.fn(),
+      audit: vi.fn(),
     }) as unknown as Parameters<typeof putFeature>[0];
 
   const resSpy = () => {
@@ -329,7 +332,7 @@ describe("putOrganization targetingReviewMode", () => {
       name: "A",
       query: {},
       headers: {},
-      audit: jest.fn(),
+      audit: vi.fn(),
     } as unknown as Parameters<typeof putOrganization>[0];
     const captured: { status?: number; body?: unknown } = {};
     const res = {

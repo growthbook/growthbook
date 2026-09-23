@@ -1,12 +1,15 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import type { Response } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { postSubmit } from "back-end/src/routers/revision/revision.controller";
 import { setupApp } from "../api/api.setup";
 
-const dispatch = jest.fn();
-jest.mock("back-end/src/events/revisionWebhookAdapters", () => ({
-  ...jest.requireActual("back-end/src/events/revisionWebhookAdapters"),
+const dispatch = vi.hoisted(() => vi.fn());
+vi.mock("back-end/src/events/revisionWebhookAdapters", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/events/revisionWebhookAdapters")
+  >("back-end/src/events/revisionWebhookAdapters")),
   getRevisionWebhookAdapter: () => ({ dispatch }),
 }));
 
@@ -116,7 +119,9 @@ describe("submitting unarmed cancels a schedule and signals it", () => {
     };
   };
 
-  beforeEach(() => dispatch.mockClear());
+  beforeEach(() => {
+    dispatch.mockClear();
+  });
 
   it("an armed revision submitted unarmed clears the schedule and emits publishScheduleChanged", async () => {
     await seed(true);

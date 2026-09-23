@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   logExperimentCreated,
@@ -15,7 +16,7 @@ import {
 } from "back-end/src/services/experimentNotifications";
 import { EventModel } from "back-end/src/models/EventModel";
 
-jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
+vi.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
     static defineJob() {
       return undefined;
@@ -30,13 +31,13 @@ describe("experiments events", () => {
   const org = { id: "org", environments: [{ id: "production" }] };
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("dispatches experiment.created event on experiment create", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -273,7 +274,7 @@ describe("experiments events", () => {
   it("dispatches experiment.updated event on experiment update", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -598,7 +599,7 @@ describe("experiments events", () => {
   it("dispatches experiment.deleted event on experiment delete", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -835,14 +836,12 @@ describe("experiments events", () => {
   it("dispatches experiment.warnings event on multiple exposures", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.warning") rawPayload = data;
       return { toJSON: () => "" };
     });
 
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
+    vi.spyOn(ExperimentModel, "updateOne").mockImplementation(() => undefined);
 
     await notifyMultipleExposures({
       context: {
@@ -923,14 +922,12 @@ describe("experiments events", () => {
   it("dispatches experiment.warnings event on srm", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.warning") rawPayload = data;
       return { toJSON: () => "" };
     });
 
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
+    vi.spyOn(ExperimentModel, "updateOne").mockImplementation(() => undefined);
 
     await notifySrm({
       context: {
@@ -1013,14 +1010,12 @@ describe("experiments events", () => {
   it("dispatches experiment.warning event when a snapshot returns no data", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.warning") rawPayload = data;
       return { toJSON: () => "" };
     });
 
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
+    vi.spyOn(ExperimentModel, "updateOne").mockImplementation(() => undefined);
 
     const noDataSnapshot = {
       status: "success",
@@ -1074,14 +1069,12 @@ describe("experiments events", () => {
   it("does not dispatch experiment.warning no-data event when the snapshot has data", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.warning") rawPayload = data;
       return { toJSON: () => "" };
     });
 
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
+    vi.spyOn(ExperimentModel, "updateOne").mockImplementation(() => undefined);
 
     const hasDataSnapshot = {
       status: "success",
@@ -1111,14 +1104,12 @@ describe("experiments events", () => {
   it("dispatches decision update when decision to ship", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.decision.ship") rawPayload = data;
       return { toJSON: () => "" };
     });
 
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
+    vi.spyOn(ExperimentModel, "updateOne").mockImplementation(() => undefined);
 
     const tooltip =
       "All goal metrics are statistically significant in the desired direction for a test variation and experiment has reached the target statistical power.";
@@ -1171,14 +1162,12 @@ describe("experiments events", () => {
   it("dispatches decision update when decision to rollback", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.decision.rollback") rawPayload = data;
       return { toJSON: () => "" };
     });
 
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
+    vi.spyOn(ExperimentModel, "updateOne").mockImplementation(() => undefined);
 
     const tooltip =
       "All goal metrics are statistically significant in the undesired direction and experiment has reached the target statistical power.";
@@ -1231,14 +1220,12 @@ describe("experiments events", () => {
   it("dispatches decision update when decision ready to review", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.decision.review") rawPayload = data;
       return { toJSON: () => "" };
     });
 
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
+    vi.spyOn(ExperimentModel, "updateOne").mockImplementation(() => undefined);
 
     const tooltip =
       "All goal metrics are statistically significant in the desired direction for a test variation and experiment has reached the target statistical power. However, one or more guardrails are failing";
@@ -1291,14 +1278,12 @@ describe("experiments events", () => {
   it("only dispatch decision update when status changes", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.decision.review") rawPayload = data;
       return { toJSON: () => "" };
     });
 
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
+    vi.spyOn(ExperimentModel, "updateOne").mockImplementation(() => undefined);
 
     // no change
     await notifyDecision({

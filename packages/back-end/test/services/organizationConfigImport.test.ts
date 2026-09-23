@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { cloneDeep } from "lodash";
 import { OrganizationInterface } from "shared/types/organization";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
@@ -13,37 +14,40 @@ import {
   importConfig,
 } from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  findOrganizationById: jest.fn(),
-  updateOrganization: jest.fn(),
+vi.mock("back-end/src/models/OrganizationModel", () => ({
+  findOrganizationById: vi.fn(),
+  updateOrganization: vi.fn(),
 }));
-jest.mock("back-end/src/models/SdkConnectionModel", () => ({
-  findSDKConnectionsByOrganization: jest.fn(),
+vi.mock("back-end/src/models/SdkConnectionModel", () => ({
+  findSDKConnectionsByOrganization: vi.fn(),
 }));
-jest.mock("back-end/src/services/features", () => ({
-  queueSDKPayloadRefresh: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: vi.fn(),
 }));
-jest.mock("back-end/src/services/context", () => ({
-  ReqContextClass: class {
-    org: OrganizationInterface;
-    environments: string[];
-    models = { segments: { getById: jest.fn() } };
+vi.mock("back-end/src/services/context", async () => {
+  const { getEnvironmentIdsFromOrg } = await vi.importActual<
+    typeof import("back-end/src/util/organization.util")
+  >("back-end/src/util/organization.util");
+  return {
+    ReqContextClass: class {
+      org: OrganizationInterface;
+      environments: string[];
+      models = { segments: { getById: vi.fn() } };
 
-    constructor({ org }: { org: OrganizationInterface }) {
-      this.org = org;
-      this.environments = jest
-        .requireActual("back-end/src/util/organization.util")
-        .getEnvironmentIdsFromOrg(org);
-    }
-  },
-}));
+      constructor({ org }: { org: OrganizationInterface }) {
+        this.org = org;
+        this.environments = getEnvironmentIdsFromOrg(org);
+      }
+    },
+  };
+});
 
 describe("organization config import payload refresh", () => {
   let organization: OrganizationInterface;
   let storedOrganization: OrganizationInterface;
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
     organization = {
       id: "org-import",
       name: "Import test",
@@ -61,14 +65,14 @@ describe("organization config import payload refresh", () => {
       },
     };
     storedOrganization = cloneDeep(organization);
-    jest.mocked(updateOrganization).mockImplementation(async (id, updates) => {
+    vi.mocked(updateOrganization).mockImplementation(async (id, updates) => {
       expect(id).toBe(organization.id);
       storedOrganization = { ...storedOrganization, ...cloneDeep(updates) };
     });
-    jest
-      .mocked(findOrganizationById)
-      .mockImplementation(async () => cloneDeep(storedOrganization));
-    jest.mocked(findSDKConnectionsByOrganization).mockResolvedValue([]);
+    vi.mocked(findOrganizationById).mockImplementation(async () =>
+      cloneDeep(storedOrganization),
+    );
+    vi.mocked(findSDKConnectionsByOrganization).mockResolvedValue([]);
   });
 
   it("refreshes every connection using saved settings, including removed environments", async () => {
@@ -98,9 +102,7 @@ describe("organization config import payload refresh", () => {
         },
       }),
     );
-    jest
-      .mocked(findSDKConnectionsByOrganization)
-      .mockResolvedValue(connections);
+    vi.mocked(findSDKConnectionsByOrganization).mockResolvedValue(connections);
 
     await importConfig(context, {
       organization: {
@@ -114,7 +116,7 @@ describe("organization config import payload refresh", () => {
     });
 
     expect(queueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
-    const [refresh] = jest.mocked(queueSDKPayloadRefresh).mock.calls[0];
+    const [refresh] = vi.mocked(queueSDKPayloadRefresh).mock.calls[0];
     expect(refresh.context).not.toBe(context);
     expect(refresh.context.org.settings).toEqual({
       confidenceLevel: 0.95,
@@ -174,7 +176,7 @@ describe("organization config import payload refresh", () => {
       { id: "staging", description: "" },
     ]);
     expect(queueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
-    const [refresh] = jest.mocked(queueSDKPayloadRefresh).mock.calls[0];
+    const [refresh] = vi.mocked(queueSDKPayloadRefresh).mock.calls[0];
     expect(refresh.context).not.toBe(context);
     expect(refresh.context.org.settings).toEqual(storedOrganization.settings);
   });
@@ -201,7 +203,7 @@ describe("organization config import payload refresh", () => {
       );
 
       expect(queueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
-      const [refresh] = jest.mocked(queueSDKPayloadRefresh).mock.calls[0];
+      const [refresh] = vi.mocked(queueSDKPayloadRefresh).mock.calls[0];
       expect(refresh.context.org.settings).toEqual(storedOrganization.settings);
     },
   );
@@ -216,9 +218,9 @@ describe("organization config import payload refresh", () => {
   });
 
   it("does not refresh when saving settings fails", async () => {
-    jest
-      .mocked(updateOrganization)
-      .mockRejectedValueOnce(new Error("Write failed"));
+    vi.mocked(updateOrganization).mockRejectedValueOnce(
+      new Error("Write failed"),
+    );
 
     await expect(
       importConfig(getContextForAgendaJobByOrgObject(organization), {
@@ -234,12 +236,12 @@ describe("organization config import payload refresh", () => {
 
   it("refreshes saved settings even when a later resource import fails", async () => {
     const context = getContextForAgendaJobByOrgObject(organization);
-    jest
-      .spyOn(context.models.segments, "getById")
-      .mockImplementationOnce(async () => {
+    vi.spyOn(context.models.segments, "getById").mockImplementationOnce(
+      async () => {
         expect(queueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
         throw new Error("Segment unavailable");
-      });
+      },
+    );
 
     await expect(
       importConfig(context, {

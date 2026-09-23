@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   getAccountPlan,
@@ -18,58 +19,62 @@ import {
   inviteUser,
 } from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/enterprise", () => ({
-  ...jest.requireActual("back-end/src/enterprise"),
-  getAccountPlan: jest.fn(),
-  getLicense: jest.fn(),
-  licenseInit: jest.fn(),
+vi.mock("back-end/src/enterprise", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/enterprise")>(
+    "back-end/src/enterprise",
+  )),
+  getAccountPlan: vi.fn(),
+  getLicense: vi.fn(),
+  licenseInit: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  acceptOrganizationInvite: jest.fn(),
-  addOrganizationInviteIfSeatAvailable: jest.fn(),
-  addOrganizationMemberIfSeatAvailable: jest.fn(),
-  createOrganization: jest.fn(),
-  findAllOrganizations: jest.fn(),
-  findOrganizationById: jest.fn(),
-  findOrganizationByInviteKey: jest.fn(),
-  findOrganizationsByDomain: jest.fn(),
-  updateOrganization: jest.fn(),
+vi.mock("back-end/src/models/OrganizationModel", () => ({
+  acceptOrganizationInvite: vi.fn(),
+  addOrganizationInviteIfSeatAvailable: vi.fn(),
+  addOrganizationMemberIfSeatAvailable: vi.fn(),
+  createOrganization: vi.fn(),
+  findAllOrganizations: vi.fn(),
+  findOrganizationById: vi.fn(),
+  findOrganizationByInviteKey: vi.fn(),
+  findOrganizationsByDomain: vi.fn(),
+  updateOrganization: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/email", () => ({
-  isEmailEnabled: jest.fn(() => false),
-  sendInviteEmail: jest.fn(),
-  sendNewMemberEmail: jest.fn(),
-  sendPendingMemberEmail: jest.fn(),
+vi.mock("back-end/src/services/email", () => ({
+  isEmailEnabled: vi.fn(() => false),
+  sendInviteEmail: vi.fn(),
+  sendNewMemberEmail: vi.fn(),
+  sendPendingMemberEmail: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/plan-limits", () => ({
-  getEffectiveOrgLimits: jest.fn(() => ({
+vi.mock("back-end/src/services/plan-limits", () => ({
+  getEffectiveOrgLimits: vi.fn(() => ({
     orgSupportsRoles: () => true,
   })),
 }));
 
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   IS_CLOUD: true,
 }));
 
-const mockedGetAccountPlan = jest.mocked(getAccountPlan);
-const mockedGetLicense = jest.mocked(getLicense);
-const mockedLicenseInit = jest.mocked(licenseInit);
-const mockedAcceptOrganizationInvite = jest.mocked(acceptOrganizationInvite);
-const mockedAddOrganizationInviteIfSeatAvailable = jest.mocked(
+const mockedGetAccountPlan = vi.mocked(getAccountPlan);
+const mockedGetLicense = vi.mocked(getLicense);
+const mockedLicenseInit = vi.mocked(licenseInit);
+const mockedAcceptOrganizationInvite = vi.mocked(acceptOrganizationInvite);
+const mockedAddOrganizationInviteIfSeatAvailable = vi.mocked(
   addOrganizationInviteIfSeatAvailable,
 );
-const mockedAddOrganizationMemberIfSeatAvailable = jest.mocked(
+const mockedAddOrganizationMemberIfSeatAvailable = vi.mocked(
   addOrganizationMemberIfSeatAvailable,
 );
-const mockedFindOrganizationByInviteKey = jest.mocked(
+const mockedFindOrganizationByInviteKey = vi.mocked(
   findOrganizationByInviteKey,
 );
-const mockedFindOrganizationById = jest.mocked(findOrganizationById);
-const mockedUpdateOrganization = jest.mocked(updateOrganization);
+const mockedFindOrganizationById = vi.mocked(findOrganizationById);
+const mockedUpdateOrganization = vi.mocked(updateOrganization);
 
 function makeOrganization(
   overrides: Partial<OrganizationInterface> = {},
@@ -132,7 +137,7 @@ function addMember(organization: OrganizationInterface, userId: string) {
 
 describe("organization seat limits", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedGetAccountPlan.mockReturnValue("enterprise");
     mockedGetLicense.mockReturnValue(null);
     mockedLicenseInit.mockResolvedValue(undefined);

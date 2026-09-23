@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   updateSlackMessage,
@@ -17,22 +18,24 @@ import {
   slackConversationId,
 } from "back-end/src/services/slack/slackTaskSafety";
 
-jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
-  runAgentTurnToCompletion: jest.fn(),
+vi.mock("back-end/src/enterprise/services/agent-handler", () => ({
+  runAgentTurnToCompletion: vi.fn(),
 }));
-jest.mock("back-end/src/services/slack/slackIdentity", () => ({
-  resolveSlackAssistantTarget: jest.fn(),
-  getSlackWorkspaceBotToken: jest.fn().mockResolvedValue("token"),
+vi.mock("back-end/src/services/slack/slackIdentity", () => ({
+  resolveSlackAssistantTarget: vi.fn(),
+  getSlackWorkspaceBotToken: vi.fn().mockResolvedValue("token"),
 }));
-jest.mock("back-end/src/services/slack/slackWebApi", () => ({
-  SlackRateLimitError: jest.requireActual(
-    "back-end/src/services/slack/slackWebApi",
+vi.mock("back-end/src/services/slack/slackWebApi", async () => ({
+  SlackRateLimitError: (
+    await vi.importActual<
+      typeof import("back-end/src/services/slack/slackWebApi")
+    >("back-end/src/services/slack/slackWebApi")
   ).SlackRateLimitError,
-  postSlackMessage: jest.fn(),
-  postSlackEphemeralMessage: jest.fn(),
-  updateSlackMessage: jest.fn(),
+  postSlackMessage: vi.fn(),
+  postSlackEphemeralMessage: vi.fn(),
+  updateSlackMessage: vi.fn(),
 }));
-jest.mock("back-end/src/services/slack/slackAgent", () => ({
+vi.mock("back-end/src/services/slack/slackAgent", () => ({
   slackAgentConfig: {},
 }));
 const thread = { teamId: "T1", channelId: "C1", rootTs: "123.456" };
@@ -43,21 +46,21 @@ const conversationId = slackConversationId({
   userId: "user1",
   linkId: "link1",
 });
-const getById = jest.fn().mockResolvedValue({ pendingAction: { id: "first" } });
-const claim = jest.fn(async () => true);
-const acquireThreadLease = jest.fn(async (): Promise<string | null> => "turn");
-const renewThreadLease = jest.fn(async () => true);
-const releaseThreadLease = jest.fn(async () => undefined);
+const getById = vi.fn().mockResolvedValue({ pendingAction: { id: "first" } });
+const claim = vi.fn(async () => true);
+const acquireThreadLease = vi.fn(async (): Promise<string | null> => "turn");
+const renewThreadLease = vi.fn(async () => true);
+const releaseThreadLease = vi.fn(async () => undefined);
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   claim.mockResolvedValue(true);
   renewThreadLease.mockResolvedValue(true);
-  jest.mocked(postSlackEphemeralMessage).mockResolvedValue(true);
+  vi.mocked(postSlackEphemeralMessage).mockResolvedValue(true);
   // Only the fields consumed by this service are needed in the mocked context.
-  jest.mocked(resolveSlackAssistantTarget).mockImplementation(
+  vi.mocked(resolveSlackAssistantTarget).mockImplementation(
     async () =>
       ({
         ok: true,
@@ -87,9 +90,7 @@ it.each([
   "AI is enabled, but no usable AI provider API key is configured. An admin can add one in GrowthBook → Settings → AI & Prompts.",
   "Over AI usage limits",
 ])("preserves the specific AI access failure: %s", async (message) => {
-  jest
-    .mocked(runAgentTurnToCompletion)
-    .mockResolvedValue({ ok: false, message });
+  vi.mocked(runAgentTurnToCompletion).mockResolvedValue({ ok: false, message });
   await handleSlackAssistantMention({
     teamId: "T1",
     channelId: "C1",
@@ -153,7 +154,7 @@ it.each([
 ])(
   "heads the approval card from the model's title given $card",
   async ({ action, heading, section }) => {
-    jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+    vi.mocked(runAgentTurnToCompletion).mockResolvedValue({
       ok: true,
       conversationId,
       reply: "",
@@ -184,7 +185,7 @@ it.each([
 it.each(["confirm", "cancel"] as const)(
   "offers fresh approval controls when a %s continuation parks another action",
   async (decision) => {
-    jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+    vi.mocked(runAgentTurnToCompletion).mockResolvedValue({
       ok: true,
       conversationId,
       reply: "Next I can **update** the rule.",
@@ -263,23 +264,23 @@ it("keeps controls retryable before dispatch but blocks replay after an uncertai
     threadTs: "123.456",
     buttonsMessageTs: "123.457",
   };
-  jest.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
+  vi.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
     ok: false,
     message: "Limit reached",
   });
   await handleSlackAssistantConfirmation(input);
   expect(claim).not.toHaveBeenCalled();
   expect(updateSlackMessage).not.toHaveBeenCalled();
-  const dispatch = jest
+  const dispatch = vi
     .fn()
     .mockRejectedValue(new Error("Unknown mutation outcome"));
-  jest
-    .mocked(runAgentTurnToCompletion)
-    .mockImplementation(async ({ beforeResolvePendingAction }) => {
+  vi.mocked(runAgentTurnToCompletion).mockImplementation(
+    async ({ beforeResolvePendingAction }) => {
       await beforeResolvePendingAction?.();
       return dispatch();
-    });
-  jest.mocked(claim).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    },
+  );
+  vi.mocked(claim).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
   await handleSlackAssistantConfirmation(input);
   await handleSlackAssistantConfirmation(input);
   expect(dispatch).toHaveBeenCalledTimes(1);
@@ -316,7 +317,7 @@ it.each([
     });
     expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
     // A replaced card loses its buttons; a handled one already shows its outcome.
-    expect(jest.mocked(updateSlackMessage).mock.calls).toEqual(
+    expect(vi.mocked(updateSlackMessage).mock.calls).toEqual(
       unclaimed
         ? [
             [
@@ -345,9 +346,10 @@ it("rejects approvals from an earlier link generation, even for the same account
     slackUserId: "U1",
   });
   if (!target.ok) throw new Error("Expected a target");
-  jest
-    .mocked(resolveSlackAssistantTarget)
-    .mockResolvedValue({ ...target, linkId: "replacement" });
+  vi.mocked(resolveSlackAssistantTarget).mockResolvedValue({
+    ...target,
+    linkId: "replacement",
+  });
   await handleSlackAssistantConfirmation({
     teamId: "T1",
     channelId: "C1",
@@ -367,8 +369,7 @@ it.each(["link", "permissions"])(
       slackUserId: "U1",
     });
     if (!target.ok) throw new Error("Expected a target");
-    jest
-      .mocked(resolveSlackAssistantTarget)
+    vi.mocked(resolveSlackAssistantTarget)
       .mockResolvedValueOnce(target)
       .mockResolvedValue(
         changed === "link"
@@ -381,13 +382,13 @@ it.each(["link", "permissions"])(
               } as ApiReqContext,
             },
       );
-    const dispatch = jest.fn();
-    jest
-      .mocked(runAgentTurnToCompletion)
-      .mockImplementation(async ({ beforeResolvePendingAction }) => {
+    const dispatch = vi.fn();
+    vi.mocked(runAgentTurnToCompletion).mockImplementation(
+      async ({ beforeResolvePendingAction }) => {
         await beforeResolvePendingAction?.();
         return dispatch();
-      });
+      },
+    );
     await handleSlackAssistantConfirmation({
       teamId: "T1",
       channelId: "C1",
@@ -402,7 +403,7 @@ it.each(["link", "permissions"])(
   },
 );
 it("sends an unlinked user a private signed URL and asks them to resend", async () => {
-  jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
+  vi.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
     ok: false,
     reason: "not_linked",
     organizationId: "org1",
@@ -424,7 +425,7 @@ it("sends an unlinked user a private signed URL and asks them to resend", async 
     threadTs: undefined,
     text: expect.stringContaining("After linking, send your question again."),
   });
-  const prompt = jest.mocked(postSlackEphemeralMessage).mock.calls[0][0].text;
+  const prompt = vi.mocked(postSlackEphemeralMessage).mock.calls[0][0].text;
   const url = prompt.match(/<([^|]+)\|Link my account>/)?.[1];
   expect(url).toBeDefined();
   const state = new URL(url || "").searchParams.get("state") || "";
@@ -458,7 +459,7 @@ it("refreshes signed link consent on request even for already-linked users", asy
 it.each(["C1", "G1", "D1"])(
   "answers in %s using the workspace organization without a channel binding",
   async (channelId) => {
-    jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+    vi.mocked(runAgentTurnToCompletion).mockResolvedValue({
       ok: true,
       conversationId,
       reply: "Answer",
@@ -507,7 +508,7 @@ it.each([
 ])(
   "strips the mention without rewriting whitespace: $message",
   async ({ text, message }) => {
-    jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+    vi.mocked(runAgentTurnToCompletion).mockResolvedValue({
       ok: true,
       conversationId,
       reply: "Answer",
@@ -529,9 +530,9 @@ it.each([
   },
 );
 it("replaces the thinking placeholder with the answer", async () => {
-  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
-  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
-  jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+  vi.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  vi.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  vi.mocked(runAgentTurnToCompletion).mockResolvedValue({
     ok: true,
     conversationId,
     reply: "Answer",
@@ -552,9 +553,9 @@ it("replaces the thinking placeholder with the answer", async () => {
 
 it("propagates exhausted reply retries without rerunning the agent or retrying a fallback", async () => {
   const error = new SlackRateLimitError("chat.update");
-  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
-  jest.mocked(updateSlackMessage).mockRejectedValueOnce(error);
-  jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+  vi.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  vi.mocked(updateSlackMessage).mockRejectedValueOnce(error);
+  vi.mocked(runAgentTurnToCompletion).mockResolvedValue({
     ok: true,
     conversationId,
     reply: "Answer",
@@ -576,8 +577,8 @@ it("propagates exhausted reply retries without rerunning the agent or retrying a
 
 it("propagates exhausted confirmation delivery retries without rerunning the turn", async () => {
   const error = new SlackRateLimitError("chat.postMessage");
-  jest.mocked(postSlackMessage).mockRejectedValueOnce(error);
-  jest.mocked(runAgentTurnToCompletion).mockResolvedValue({
+  vi.mocked(postSlackMessage).mockRejectedValueOnce(error);
+  vi.mocked(runAgentTurnToCompletion).mockResolvedValue({
     ok: true,
     conversationId,
     reply: "Done",
@@ -599,7 +600,7 @@ it("propagates exhausted confirmation delivery retries without rerunning the tur
 });
 
 it("acknowledges a waiting message and hands its placeholder to the retry", async () => {
-  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  vi.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
   acquireThreadLease.mockResolvedValueOnce(null);
   const attempt = handleSlackAssistantMention({
     teamId: "T1",
@@ -618,8 +619,8 @@ it("acknowledges a waiting message and hands its placeholder to the retry", asyn
 });
 
 it("a retry reuses its placeholder and releases the thread afterwards", async () => {
-  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
-  jest.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
+  vi.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  vi.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
     ok: true,
     conversationId,
     reply: "Answer",
@@ -671,17 +672,15 @@ const expectTimeoutNotice = () =>
   );
 
 it("replaces the placeholder with a timeout notice when the deadline passes mid-turn", async () => {
-  jest.useFakeTimers();
-  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
-  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
-  jest
-    .mocked(runAgentTurnToCompletion)
-    .mockImplementationOnce(answerOnceAborted);
+  vi.useFakeTimers();
+  vi.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  vi.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  vi.mocked(runAgentTurnToCompletion).mockImplementationOnce(answerOnceAborted);
   const turn = handleSlackAssistantMention(mention);
-  await jest.advanceTimersByTimeAsync(15 * 60 * 1000 - 1);
+  await vi.advanceTimersByTimeAsync(15 * 60 * 1000 - 1);
   expect(renewThreadLease).toHaveBeenCalled();
   expect(updateSlackMessage).not.toHaveBeenCalled();
-  await jest.advanceTimersByTimeAsync(1);
+  await vi.advanceTimersByTimeAsync(1);
   await turn;
   expectTimeoutNotice();
   expect(releaseThreadLease).toHaveBeenCalledWith(
@@ -691,15 +690,13 @@ it("replaces the placeholder with a timeout notice when the deadline passes mid-
 });
 
 it("renews the thread lease while a turn runs and aborts it once the lease is lost", async () => {
-  jest.useFakeTimers();
-  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
-  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  vi.useFakeTimers();
+  vi.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  vi.mocked(updateSlackMessage).mockResolvedValueOnce(true);
   renewThreadLease.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
-  jest
-    .mocked(runAgentTurnToCompletion)
-    .mockImplementationOnce(answerOnceAborted);
+  vi.mocked(runAgentTurnToCompletion).mockImplementationOnce(answerOnceAborted);
   const turn = handleSlackAssistantMention(mention);
-  await jest.advanceTimersByTimeAsync(60 * 1000);
+  await vi.advanceTimersByTimeAsync(60 * 1000);
   await turn;
   expect(renewThreadLease).toHaveBeenCalledTimes(2);
   expect(renewThreadLease).toHaveBeenCalledWith(
@@ -710,21 +707,21 @@ it("renews the thread lease while a turn runs and aborts it once the lease is lo
 });
 
 it("stops renewing at the deadline so a turn that never returns lets the lease lapse", async () => {
-  jest.useFakeTimers();
-  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
-  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  vi.useFakeTimers();
+  vi.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  vi.mocked(updateSlackMessage).mockResolvedValueOnce(true);
   let finishHungTurn = () => {};
-  jest.mocked(runAgentTurnToCompletion).mockImplementationOnce(
+  vi.mocked(runAgentTurnToCompletion).mockImplementationOnce(
     () =>
       new Promise((resolve) => {
         finishHungTurn = () => resolve(lateAnswer);
       }),
   );
   const turn = handleSlackAssistantMention(mention);
-  await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
+  await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
   const renewalsByDeadline = renewThreadLease.mock.calls.length;
   expect(renewalsByDeadline).toBeGreaterThan(0);
-  await jest.advanceTimersByTimeAsync(5 * 60 * 1000);
+  await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
   expect(renewThreadLease).toHaveBeenCalledTimes(renewalsByDeadline);
   finishHungTurn();
   await turn;
@@ -733,9 +730,9 @@ it("stops renewing at the deadline so a turn that never returns lets the lease l
 
 it("a failed lease release does not replace the turn's own error", async () => {
   const error = new SlackRateLimitError("chat.update");
-  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
-  jest.mocked(updateSlackMessage).mockRejectedValueOnce(error);
-  jest.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
+  vi.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  vi.mocked(updateSlackMessage).mockRejectedValueOnce(error);
+  vi.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
     ok: true,
     conversationId,
     reply: "Answer",
@@ -746,9 +743,9 @@ it("a failed lease release does not replace the turn's own error", async () => {
 });
 
 it("a failed lease release does not fail a turn that already answered", async () => {
-  jest.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
-  jest.mocked(updateSlackMessage).mockResolvedValueOnce(true);
-  jest.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
+  vi.mocked(postSlackMessage).mockResolvedValueOnce("999.111");
+  vi.mocked(updateSlackMessage).mockResolvedValueOnce(true);
+  vi.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
     ok: true,
     conversationId,
     reply: "Answer",

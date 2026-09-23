@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { UserInterface } from "shared/types/user";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -8,7 +9,7 @@ import {
 } from "back-end/src/services/owner";
 
 function makeContext(users: Partial<UserInterface>[]): ReqContext {
-  const getUsersByIds = jest.fn(async (ids: string[]) =>
+  const getUsersByIds = vi.fn(async (ids: string[]) =>
     users.filter((u) => u.id && ids.includes(u.id)),
   );
   return { getUsersByIds } as unknown as ReqContext;
@@ -21,7 +22,7 @@ function makeOwnerContext({
   members?: Partial<UserInterface>[];
   userId?: string;
 }): ReqContext {
-  const getUserByEmail = jest.fn(async (email: string) =>
+  const getUserByEmail = vi.fn(async (email: string) =>
     members.find((m) => m.email === email),
   );
   return {

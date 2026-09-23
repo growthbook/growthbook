@@ -1,13 +1,14 @@
+import { vi } from "vitest";
 import { memoizeNotification } from "back-end/src/services/experimentNotifications";
 import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  setExperimentNotificationState: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  setExperimentNotificationState: vi.fn(),
 }));
 
 describe("memoizeNotification", () => {
   it("calls the handler when notification is triggered and hasn't been dispatched yet", async () => {
-    const dispatch = jest.fn();
+    const dispatch = vi.fn();
     await memoizeNotification({
       context: "da-context",
       experiment: { id: "da-experiment" },
@@ -26,7 +27,7 @@ describe("memoizeNotification", () => {
   });
 
   it("does not call the handler when notification is triggered and it already has been dispatched", async () => {
-    const dispatch = jest.fn();
+    const dispatch = vi.fn();
     await memoizeNotification({
       context: "da-context",
       experiment: { id: "da-experiment", pastNotifications: ["foo"] },
@@ -40,7 +41,7 @@ describe("memoizeNotification", () => {
   });
 
   it("clears the marker without dispatching when a sent notification ends", async () => {
-    const dispatch = jest.fn();
+    const dispatch = vi.fn();
     await expect(
       memoizeNotification({
         context: "da-context",
@@ -61,7 +62,7 @@ describe("memoizeNotification", () => {
   });
 
   it("does not call the handler when notification is not triggered and it was not previously dispatched", async () => {
-    const dispatch = jest.fn();
+    const dispatch = vi.fn();
     await memoizeNotification({
       context: "da-context",
       experiment: { id: "da-experiment", pastNotifications: ["bla"] },

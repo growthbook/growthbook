@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import { AggregatedFactTableInterface } from "shared/validators";
@@ -103,14 +104,14 @@ function makeContext(
 ): ApiReqContext {
   return {
     logger: {
-      info: jest.fn(),
-      debug: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+      info: vi.fn(),
+      debug: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     },
     models: {
       aggregatedFactTables: {
-        getByKey: jest.fn().mockResolvedValue(registry),
+        getByKey: vi.fn().mockResolvedValue(registry),
       },
     },
   } as unknown as ApiReqContext;
@@ -223,14 +224,14 @@ describe("resolveCovariateInsertPath", () => {
   it("falls back to legacy when the registry lookup throws (failsafe)", async () => {
     const context = {
       logger: {
-        info: jest.fn(),
-        debug: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
+        info: vi.fn(),
+        debug: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
       },
       models: {
         aggregatedFactTables: {
-          getByKey: jest.fn().mockRejectedValue(new Error("db down")),
+          getByKey: vi.fn().mockRejectedValue(new Error("db down")),
         },
       },
     } as unknown as ApiReqContext;

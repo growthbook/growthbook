@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   isPureRevertRevision,
   proposedChangesOnlyRestore,
@@ -105,7 +106,7 @@ describe("isPureRevertRevision — target status", () => {
     return {
       models: {
         revisions: {
-          getById: jest.fn(async () => ({
+          getById: vi.fn(async () => ({
             id: "rev_target",
             status: targetStatus,
             target: {

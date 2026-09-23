@@ -1,27 +1,28 @@
+import { MockedFunction, vi } from "vitest";
 import { pauseEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarder/connector";
 import { postPauseEventForwarderToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 
-jest.mock("back-end/src/enterprise/licenseUtil", () => ({
-  postPauseEventForwarderToLicenseServer: jest.fn(),
-  postProvisionEventForwarderToLicenseServer: jest.fn(),
-  postResumeEventForwarderToLicenseServer: jest.fn(),
-  postTeardownEventForwarderToLicenseServer: jest.fn(),
-  postUpdateEventForwarderCredentialsToLicenseServer: jest.fn(),
+vi.mock("back-end/src/enterprise/licenseUtil", () => ({
+  postPauseEventForwarderToLicenseServer: vi.fn(),
+  postProvisionEventForwarderToLicenseServer: vi.fn(),
+  postResumeEventForwarderToLicenseServer: vi.fn(),
+  postTeardownEventForwarderToLicenseServer: vi.fn(),
+  postUpdateEventForwarderCredentialsToLicenseServer: vi.fn(),
 }));
 
 describe("pauseEventForwarderThroughLicenseServer", () => {
   const pauseRemoteMock =
-    postPauseEventForwarderToLicenseServer as jest.MockedFunction<
+    postPauseEventForwarderToLicenseServer as MockedFunction<
       typeof postPauseEventForwarderToLicenseServer
     >;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     pauseRemoteMock.mockResolvedValue(undefined);
   });
 
   it("calls license server and updates config when ready", async () => {
-    const update = jest.fn().mockResolvedValue(undefined);
+    const update = vi.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1" },
       throwPlanDoesNotAllowError: (message: string): never => {

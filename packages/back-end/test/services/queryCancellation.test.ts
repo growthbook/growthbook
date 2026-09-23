@@ -1,3 +1,4 @@
+import { Mocked, vi } from "vitest";
 import {
   CANCEL_CONFIRMATION_DELAY_MS,
   cancelQueryAndConfirm,
@@ -8,16 +9,16 @@ import {
 } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    warn: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
-const mockedLogger = logger as jest.Mocked<typeof logger>;
+const mockedLogger = logger as Mocked<typeof logger>;
 
 const logContext = { datasourceId: "ds_1", modelId: "mdl_1" };
 
@@ -33,14 +34,14 @@ function makeIntegration(stub: IntegrationStub): SourceIntegrationInterface {
 // The confirmation probe runs inside a setTimeout callback, so the fake clock
 // has to be advanced and the callback's own promise chain drained.
 async function flushConfirmation() {
-  jest.advanceTimersByTime(CANCEL_CONFIRMATION_DELAY_MS);
+  vi.advanceTimersByTime(CANCEL_CONFIRMATION_DELAY_MS);
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe("cancelQueryAndConfirm", () => {
@@ -54,9 +55,9 @@ describe("cancelQueryAndConfirm", () => {
   });
 
   it("warns immediately when the warehouse rejects the cancel request", async () => {
-    const getExternalQueryStatus = jest.fn();
+    const getExternalQueryStatus = vi.fn();
     const integration = makeIntegration({
-      cancelQuery: jest.fn().mockRejectedValue(new Error("boom")),
+      cancelQuery: vi.fn().mockRejectedValue(new Error("boom")),
       getExternalQueryStatus,
     });
 
@@ -72,7 +73,7 @@ describe("cancelQueryAndConfirm", () => {
 
   it("skips confirmation when the integration cannot report status", async () => {
     const integration = makeIntegration({
-      cancelQuery: jest.fn().mockResolvedValue(undefined),
+      cancelQuery: vi.fn().mockResolvedValue(undefined),
     });
 
     await cancelQueryAndConfirm(integration, { externalId: "q1" }, logContext);
@@ -82,11 +83,11 @@ describe("cancelQueryAndConfirm", () => {
   });
 
   it("warns after the delay when the query is still running", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     try {
       const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue(undefined),
-        getExternalQueryStatus: jest.fn().mockResolvedValue({
+        cancelQuery: vi.fn().mockResolvedValue(undefined),
+        getExternalQueryStatus: vi.fn().mockResolvedValue({
           state: "running",
         }),
       });
@@ -110,8 +111,8 @@ describe("cancelQueryAndConfirm", () => {
         "External query still running after cancel request",
       );
     } finally {
-      jest.clearAllTimers();
-      jest.useRealTimers();
+      vi.clearAllTimers();
+      vi.useRealTimers();
     }
   });
 
@@ -119,11 +120,11 @@ describe("cancelQueryAndConfirm", () => {
     { state: "succeeded" },
     { state: "failed", error: "nope" },
   ])("does not warn when the query is %j", async (status) => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     try {
       const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue(undefined),
-        getExternalQueryStatus: jest.fn().mockResolvedValue(status),
+        cancelQuery: vi.fn().mockResolvedValue(undefined),
+        getExternalQueryStatus: vi.fn().mockResolvedValue(status),
       });
 
       await cancelQueryAndConfirm(
@@ -135,17 +136,17 @@ describe("cancelQueryAndConfirm", () => {
 
       expect(mockedLogger.warn).not.toHaveBeenCalled();
     } finally {
-      jest.clearAllTimers();
-      jest.useRealTimers();
+      vi.clearAllTimers();
+      vi.useRealTimers();
     }
   });
 
   it("warns with the reason when the status is unknown", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     try {
       const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue(undefined),
-        getExternalQueryStatus: jest.fn().mockResolvedValue({
+        cancelQuery: vi.fn().mockResolvedValue(undefined),
+        getExternalQueryStatus: vi.fn().mockResolvedValue({
           state: "unknown",
           reason: "expired",
         }),
@@ -168,19 +169,19 @@ describe("cancelQueryAndConfirm", () => {
         "Could not confirm external query cancellation",
       );
     } finally {
-      jest.clearAllTimers();
-      jest.useRealTimers();
+      vi.clearAllTimers();
+      vi.useRealTimers();
     }
   });
 
   it("warns instead of rejecting when the confirmation probe throws", async () => {
-    jest.useFakeTimers();
-    const unhandled = jest.fn();
+    vi.useFakeTimers();
+    const unhandled = vi.fn();
     process.on("unhandledRejection", unhandled);
     try {
       const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue(undefined),
-        getExternalQueryStatus: jest.fn().mockRejectedValue(new Error("down")),
+        cancelQuery: vi.fn().mockResolvedValue(undefined),
+        getExternalQueryStatus: vi.fn().mockRejectedValue(new Error("down")),
       });
 
       await cancelQueryAndConfirm(
@@ -198,8 +199,8 @@ describe("cancelQueryAndConfirm", () => {
       expect(unhandled).not.toHaveBeenCalled();
     } finally {
       process.off("unhandledRejection", unhandled);
-      jest.clearAllTimers();
-      jest.useRealTimers();
+      vi.clearAllTimers();
+      vi.useRealTimers();
     }
   });
 });

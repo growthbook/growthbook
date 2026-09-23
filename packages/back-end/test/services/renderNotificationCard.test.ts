@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
@@ -6,8 +7,8 @@ import type {
   CardSection,
 } from "back-end/src/services/notificationCards/types";
 
-jest.mock("back-end/src/services/notificationCards/cardStyles", () => ({
-  renderCard: jest.fn(),
+vi.mock("back-end/src/services/notificationCards/cardStyles", () => ({
+  renderCard: vi.fn(),
 }));
 
 // The results section, wherever the producer placed it (top level or in a column).
@@ -23,7 +24,7 @@ const resultsIn = (sections: CardSection[]): CardResults | undefined => {
 };
 
 const lastRenderedResults = () =>
-  resultsIn(jest.mocked(renderCard).mock.calls[0][0].sections);
+  resultsIn(vi.mocked(renderCard).mock.calls[0][0].sections);
 
 const notification = (
   event: string,
@@ -43,8 +44,8 @@ const srmWarning = notification("experiment.warning", {
 
 describe("renderNotificationCard", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.mocked(renderCard).mockResolvedValue(Buffer.from("png"));
+    vi.clearAllMocks();
+    vi.mocked(renderCard).mockResolvedValue(Buffer.from("png"));
   });
 
   it("renders the SRM warning card from the event payload alone", async () => {
@@ -643,7 +644,7 @@ describe("renderNotificationCard", () => {
   });
 
   it("falls back to text when rendering fails", async () => {
-    jest.mocked(renderCard).mockRejectedValue(new Error("boom"));
+    vi.mocked(renderCard).mockRejectedValue(new Error("boom"));
     await expect(
       renderNotificationCard(srmWarning, "light"),
     ).resolves.toBeNull();

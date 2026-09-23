@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { previewNotificationEventNames } from "shared/notifications";
 import { sendEventWebhook } from "back-end/src/events/handlers/webhooks/sendEventWebhook";
 import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
@@ -11,27 +12,29 @@ import {
   uploadSlackImageFile,
   postSlackMessageResult,
 } from "back-end/src/services/slack/slackWebApi";
-jest.mock("back-end/src/events/handlers/webhooks/sendEventWebhook", () => ({
-  sendEventWebhook: jest.fn(),
+vi.mock("back-end/src/events/handlers/webhooks/sendEventWebhook", () => ({
+  sendEventWebhook: vi.fn(),
 }));
-jest.mock("back-end/src/models/EventModel", () => ({
-  getEvent: jest.fn().mockResolvedValue(null),
+vi.mock("back-end/src/models/EventModel", () => ({
+  getEvent: vi.fn().mockResolvedValue(null),
 }));
-jest.mock("back-end/src/models/EventWebhookModel", () => ({
-  getEventWebHookById: jest.fn(),
+vi.mock("back-end/src/models/EventWebhookModel", () => ({
+  getEventWebHookById: vi.fn(),
 }));
-jest.mock("back-end/src/util/slackToken", () => ({
-  decryptSlackBotToken: jest.fn().mockReturnValue("test-token"),
+vi.mock("back-end/src/util/slackToken", () => ({
+  decryptSlackBotToken: vi.fn().mockReturnValue("test-token"),
 }));
-jest.mock("back-end/src/services/slack/slackWebApi", () => ({
-  ...jest.requireActual("back-end/src/services/slack/slackWebApi"),
-  uploadSlackImageFile: jest.fn(),
-  postSlackMessageResult: jest.fn(),
+vi.mock("back-end/src/services/slack/slackWebApi", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/services/slack/slackWebApi")
+  >("back-end/src/services/slack/slackWebApi")),
+  uploadSlackImageFile: vi.fn(),
+  postSlackMessageResult: vi.fn(),
 }));
-jest.mock(
+vi.mock(
   "back-end/src/services/notificationCards/renderNotificationCard",
   () => ({
-    renderNotificationCard: jest.fn().mockImplementation(async (event) =>
+    renderNotificationCard: vi.fn().mockImplementation(async (event) =>
       event.event === "experiment.warning"
         ? {
             png: Buffer.from("png"),
@@ -53,16 +56,16 @@ const context = {
   },
   models: {
     webhookSecrets: {
-      getBackEndSecretsReplacer: jest.fn().mockResolvedValue({}),
+      getBackEndSecretsReplacer: vi.fn().mockResolvedValue({}),
     },
     slackWorkspaceConnections: {
-      getByTeamId: jest
+      getByTeamId: vi
         .fn()
         .mockResolvedValue({ encryptedBotAccessToken: "encrypted" }),
     },
   },
 } as unknown as ReqContext;
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 it.each(previewNotificationEventNames)(
   "renders a real Slack message for sample %s",
   async (event) => {
@@ -105,7 +108,7 @@ it("rejects preview requests without integration management permission", async (
   ).rejects.toThrow("Forbidden");
 });
 it("does not deliver to an absent or another organization's channel", async () => {
-  jest.mocked(getEventWebHookById).mockResolvedValue(null);
+  vi.mocked(getEventWebHookById).mockResolvedValue(null);
   await expect(
     sendSlackSettingsTest(context, "other-channel", "experiment.warning", {
       type: "image",
@@ -120,15 +123,17 @@ it("does not deliver to an absent or another organization's channel", async () =
   expect(uploadSlackImageFile).not.toHaveBeenCalled();
 });
 it("falls back to the same text sample if the image upload fails", async () => {
-  jest.mocked(getEventWebHookById).mockResolvedValue({
+  vi.mocked(getEventWebHookById).mockResolvedValue({
     payloadType: "slack",
     url: "https://slack.com",
     slack: { teamId: "T1", channelId: "C1" },
   } as Awaited<ReturnType<typeof getEventWebHookById>>);
-  jest.mocked(uploadSlackImageFile).mockResolvedValue(null);
-  jest
-    .mocked(postSlackMessageResult)
-    .mockResolvedValue({ ok: true, ts: "1", error: null });
+  vi.mocked(uploadSlackImageFile).mockResolvedValue(null);
+  vi.mocked(postSlackMessageResult).mockResolvedValue({
+    ok: true,
+    ts: "1",
+    error: null,
+  });
   expect(
     await sendSlackSettingsTest(context, "channel", "experiment.warning", {
       type: "image",
@@ -160,7 +165,7 @@ it("picks up new image producers without a preview-specific event gate", async (
     objectName: "Test",
     altText: "Significance",
   };
-  jest.mocked(renderNotificationCard).mockResolvedValueOnce(card);
+  vi.mocked(renderNotificationCard).mockResolvedValueOnce(card);
   expect(
     (
       await buildSlackSettingsPreview(context, "experiment.info.significance", {
@@ -176,12 +181,12 @@ it("picks up new image producers without a preview-specific event gate", async (
 });
 it("test sends preserve the incoming webhook transport used in production", async () => {
   const url = "https://hooks.slack.com/services/test";
-  jest.mocked(getEventWebHookById).mockResolvedValue({
+  vi.mocked(getEventWebHookById).mockResolvedValue({
     payloadType: "slack",
     url,
     slack: { teamId: "T1", channelId: "C1" },
   } as Awaited<ReturnType<typeof getEventWebHookById>>);
-  jest.mocked(sendEventWebhook).mockResolvedValue({
+  vi.mocked(sendEventWebhook).mockResolvedValue({
     result: "success",
     statusCode: 200,
     responseBody: "ok",
@@ -208,12 +213,12 @@ it("test sends preserve the incoming webhook transport used in production", asyn
   ).not.toHaveBeenCalled();
 });
 it("test sends share the production image delivery path", async () => {
-  jest.mocked(getEventWebHookById).mockResolvedValue({
+  vi.mocked(getEventWebHookById).mockResolvedValue({
     payloadType: "slack",
     url: "https://slack.com",
     slack: { teamId: "T1", channelId: "C1" },
   } as Awaited<ReturnType<typeof getEventWebHookById>>);
-  jest.mocked(uploadSlackImageFile).mockResolvedValue("file-1");
+  vi.mocked(uploadSlackImageFile).mockResolvedValue("file-1");
   expect(
     await sendSlackSettingsTest(context, "channel", "experiment.warning", {
       type: "image",
@@ -265,14 +270,16 @@ it("previews sample data without sending it", async () => {
 });
 
 it("sends text settings without rendering an image", async () => {
-  jest.mocked(getEventWebHookById).mockResolvedValue({
+  vi.mocked(getEventWebHookById).mockResolvedValue({
     payloadType: "slack",
     url: "https://slack.com",
     slack: { teamId: "T1", channelId: "C1" },
   } as Awaited<ReturnType<typeof getEventWebHookById>>);
-  jest
-    .mocked(postSlackMessageResult)
-    .mockResolvedValue({ ok: true, ts: "1", error: null });
+  vi.mocked(postSlackMessageResult).mockResolvedValue({
+    ok: true,
+    ts: "1",
+    error: null,
+  });
   await expect(
     sendSlackSettingsTest(context, "channel", "experiment.warning", {
       type: "text",

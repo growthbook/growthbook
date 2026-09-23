@@ -1,5 +1,6 @@
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevision: jest.fn(),
+import { MockedFunction, vi } from "vitest";
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: vi.fn(),
 }));
 
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -12,7 +13,7 @@ import {
 import { SoftWarningError } from "back-end/src/util/errors";
 import { assertRevertHasChanges } from "back-end/src/services/revertGuards";
 
-const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
+const mockGetRevision = getRevision as MockedFunction<typeof getRevision>;
 
 const feature = { id: "feat", organization: "org_1" } as never;
 const ramp = {
@@ -45,13 +46,13 @@ function contextWith({
     ignoreWarnings,
     req: req ?? undefined,
     models: {
-      rampSchedules: { getAllByFeatureId: jest.fn().mockResolvedValue([ramp]) },
+      rampSchedules: { getAllByFeatureId: vi.fn().mockResolvedValue([ramp]) },
     },
   } as never;
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   mockGetRevision.mockResolvedValue({
     version: 2,
     datePublished: new Date("2026-09-11T00:00:00Z"),

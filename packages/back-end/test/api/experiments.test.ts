@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import {
@@ -18,40 +19,40 @@ import { assertValidExperimentPrerequisites } from "../../src/services/prerequis
 import { BadRequestError, NotFoundError } from "../../src/util/errors";
 import { setupApp } from "./api.setup";
 
-jest.mock("../../src/services/files", () => ({
+vi.mock("../../src/services/files", () => ({
   getSignedImageUrl: async (path) => `https://signed.example.com/${path}`,
-  uploadFile: jest
+  uploadFile: vi
     .fn()
     .mockResolvedValue("/upload/org_1/2026-03/img_test123.png"),
 }));
 
-jest.mock("../../src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
-  getExperimentByTrackingKey: jest.fn(),
-  createExperiment: jest.fn(),
-  updateExperiment: jest.fn(),
-  getAllExperiments: jest.fn(),
+vi.mock("../../src/models/ExperimentModel", () => ({
+  getExperimentById: vi.fn(),
+  getExperimentByTrackingKey: vi.fn(),
+  createExperiment: vi.fn(),
+  updateExperiment: vi.fn(),
+  getAllExperiments: vi.fn(),
 }));
 
-jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
-  getLatestSuccessfulSnapshot: jest.fn(),
-  getLatestSnapshotMultipleExperiments: jest.fn(),
+vi.mock("../../src/models/ExperimentSnapshotModel", () => ({
+  getLatestSuccessfulSnapshot: vi.fn(),
+  getLatestSnapshotMultipleExperiments: vi.fn(),
 }));
 
-jest.mock("../../src/models/MetricModel", () => ({
-  getMetricMap: jest.fn().mockResolvedValue(new Map()),
-  getMetricsByIds: jest.fn().mockResolvedValue([]),
+vi.mock("../../src/models/MetricModel", () => ({
+  getMetricMap: vi.fn().mockResolvedValue(new Map()),
+  getMetricsByIds: vi.fn().mockResolvedValue([]),
 }));
 
-jest.mock("../../src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("../../src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
-jest.mock("../../src/services/experimentLivePayload", () => ({
-  assertLivePayloadChangeAllowed: jest.fn(),
+vi.mock("../../src/services/experimentLivePayload", () => ({
+  assertLivePayloadChangeAllowed: vi.fn(),
 }));
-jest.mock("../../src/services/prerequisiteParents", () => ({
-  assertValidExperimentPrerequisites: jest.fn(),
+vi.mock("../../src/services/prerequisiteParents", () => ({
+  assertValidExperimentPrerequisites: vi.fn(),
   phasePrerequisites: (phases: { prerequisites?: unknown[] }[] = []) =>
     phases.flatMap((p) => p.prerequisites ?? []),
 }));
@@ -60,7 +61,7 @@ jest.mock("../../src/services/prerequisiteParents", () => ({
 // would put it above ./api.setup. Loading it first leaves shared/experiments
 // half-loaded, which breaks the GET tests in this file.
 const { PermissionError } =
-  jest.requireActual<typeof import("shared/util")>("shared/util");
+  await vi.importActual<typeof import("shared/util")>("shared/util");
 
 describe("experiments API", () => {
   const { app, setReqContext, updateReqContext } = setupApp();
@@ -71,7 +72,7 @@ describe("experiments API", () => {
   };
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   beforeEach(() => {
@@ -80,25 +81,25 @@ describe("experiments API", () => {
       organization: org,
       models: {
         metricGroups: {
-          getAll: jest.fn().mockResolvedValue([]),
+          getAll: vi.fn().mockResolvedValue([]),
         },
         customFields: {
-          getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+          getCustomFieldsBySectionAndProject: vi.fn().mockResolvedValue([]),
         },
         decisionCriteria: {
-          getById: jest.fn().mockResolvedValue(null),
+          getById: vi.fn().mockResolvedValue(null),
         },
         projects: {
-          getById: jest.fn().mockResolvedValue(null),
-          getByIds: jest.fn().mockResolvedValue([]),
-          getAll: jest.fn().mockResolvedValue([]),
-          ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
+          getById: vi.fn().mockResolvedValue(null),
+          getByIds: vi.fn().mockResolvedValue([]),
+          getAll: vi.fn().mockResolvedValue([]),
+          ensureProjectsExist: vi.fn().mockResolvedValue(undefined),
         },
         savedGroups: {
-          getAll: jest.fn().mockResolvedValue([]),
+          getAll: vi.fn().mockResolvedValue([]),
         },
         dataSources: {
-          getById: jest.fn().mockResolvedValue({
+          getById: vi.fn().mockResolvedValue({
             id: "ds_123",
             type: "postgres",
             settings: {
@@ -107,8 +108,8 @@ describe("experiments API", () => {
           }),
         },
         factMetrics: {
-          getAll: jest.fn().mockResolvedValue([]),
-          getByIds: jest.fn().mockResolvedValue([]),
+          getAll: vi.fn().mockResolvedValue([]),
+          getByIds: vi.fn().mockResolvedValue([]),
         },
       },
       permissions: {
@@ -118,7 +119,7 @@ describe("experiments API", () => {
         canAddComment: () => true,
       },
       hasPremiumFeature: () => false,
-      getUsersByIds: jest.fn().mockResolvedValue([]),
+      getUsersByIds: vi.fn().mockResolvedValue([]),
     });
   });
 
@@ -181,7 +182,7 @@ describe("experiments API", () => {
 
   describe("GET /api/v1/experiments/:id", () => {
     it("returns 200 with experiment details", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentById as Mock).mockResolvedValue(experiment);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -198,7 +199,7 @@ describe("experiments API", () => {
     });
 
     it("returns 404 when experiment not found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(null);
+      (getExperimentById as Mock).mockResolvedValue(null);
       const res = await request(app)
         .get("/api/v1/experiments/nonexistent")
         .set("Authorization", "Bearer foo");
@@ -208,7 +209,7 @@ describe("experiments API", () => {
     });
 
     it("returns experiment with correct variation structure", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentById as Mock).mockResolvedValue(experiment);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -241,7 +242,7 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
+      (getExperimentById as Mock).mockResolvedValue(experimentWithPhases);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -273,9 +274,7 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(
-        experimentWithNamespace,
-      );
+      (getExperimentById as Mock).mockResolvedValue(experimentWithNamespace);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -289,7 +288,7 @@ describe("experiments API", () => {
 
     it("returns experiment with draft status", async () => {
       const draftExperiment = { ...experiment, status: "draft" };
-      (getExperimentById as jest.Mock).mockResolvedValue(draftExperiment);
+      (getExperimentById as Mock).mockResolvedValue(draftExperiment);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -300,7 +299,7 @@ describe("experiments API", () => {
 
     it("returns experiment with running status", async () => {
       const runningExperiment = { ...experiment, status: "running" };
-      (getExperimentById as jest.Mock).mockResolvedValue(runningExperiment);
+      (getExperimentById as Mock).mockResolvedValue(runningExperiment);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -317,7 +316,7 @@ describe("experiments API", () => {
         winner: 0,
         analysis: "Control variation won",
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(stoppedExperiment);
+      (getExperimentById as Mock).mockResolvedValue(stoppedExperiment);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -355,9 +354,7 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(
-        multiVariationExperiment,
-      );
+      (getExperimentById as Mock).mockResolvedValue(multiVariationExperiment);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -370,7 +367,7 @@ describe("experiments API", () => {
     });
 
     it("returns signed screenshot URLs", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentById as Mock).mockResolvedValue(experiment);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -393,9 +390,7 @@ describe("experiments API", () => {
         guardrailMetrics: ["met_4"],
         activationMetric: "met_activation",
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(
-        experimentWithSettings,
-      );
+      (getExperimentById as Mock).mockResolvedValue(experimentWithSettings);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -414,7 +409,7 @@ describe("experiments API", () => {
         ...experiment,
         regressionAdjustmentEnabled: true,
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithRA);
+      (getExperimentById as Mock).mockResolvedValue(experimentWithRA);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -431,7 +426,7 @@ describe("experiments API", () => {
         sequentialTestingEnabled: true,
         sequentialTestingTuningParameter: 5000,
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithST);
+      (getExperimentById as Mock).mockResolvedValue(experimentWithST);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -445,7 +440,7 @@ describe("experiments API", () => {
 
     it("returns archived experiment", async () => {
       const archivedExperiment = { ...experiment, archived: true };
-      (getExperimentById as jest.Mock).mockResolvedValue(archivedExperiment);
+      (getExperimentById as Mock).mockResolvedValue(archivedExperiment);
       const res = await request(app)
         .get("/api/v1/experiments/exp_123")
         .set("Authorization", "Bearer foo");
@@ -457,7 +452,7 @@ describe("experiments API", () => {
 
   describe("GET /api/v1/experiments", () => {
     it("returns signed screenshot URLs for all experiments", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment]);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -470,7 +465,7 @@ describe("experiments API", () => {
     });
 
     it("returns empty array when no experiments exist", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([]);
+      (getAllExperiments as Mock).mockResolvedValue([]);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -486,10 +481,7 @@ describe("experiments API", () => {
         trackingKey: "exp_456",
         name: "Second Experiment",
       };
-      (getAllExperiments as jest.Mock).mockResolvedValue([
-        experiment,
-        experiment2,
-      ]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, experiment2]);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -502,7 +494,7 @@ describe("experiments API", () => {
 
     it("filters experiments by project", async () => {
       const projectExperiment = { ...experiment, project: "proj_1" };
-      (getAllExperiments as jest.Mock).mockResolvedValue([projectExperiment]);
+      (getAllExperiments as Mock).mockResolvedValue([projectExperiment]);
       const res = await request(app)
         .get("/api/v1/experiments?projectId=proj_1")
         .set("Authorization", "Bearer foo");
@@ -513,7 +505,7 @@ describe("experiments API", () => {
     });
 
     it("returns experiments with correct metadata", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment]);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -528,10 +520,7 @@ describe("experiments API", () => {
 
     it("includes archived experiments in list when requested", async () => {
       const archivedExp = { ...experiment, archived: true };
-      (getAllExperiments as jest.Mock).mockResolvedValue([
-        experiment,
-        archivedExp,
-      ]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, archivedExp]);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -551,7 +540,7 @@ describe("experiments API", () => {
         id: "exp_newer",
         dateCreated: new Date("2024-01-01"),
       };
-      (getAllExperiments as jest.Mock).mockResolvedValue([newer, older]);
+      (getAllExperiments as Mock).mockResolvedValue([newer, older]);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -566,7 +555,7 @@ describe("experiments API", () => {
     it("sorts by name descending, case-insensitively", async () => {
       const apple = { ...experiment, id: "exp_apple", name: "apple test" };
       const zebra = { ...experiment, id: "exp_zebra", name: "Zebra test" };
-      (getAllExperiments as jest.Mock).mockResolvedValue([apple, zebra]);
+      (getAllExperiments as Mock).mockResolvedValue([apple, zebra]);
       const res = await request(app)
         .get("/api/v1/experiments?sortBy=name&sortOrder=desc")
         .set("Authorization", "Bearer foo");
@@ -589,7 +578,7 @@ describe("experiments API", () => {
 
     it("filters by comma-separated tags", async () => {
       const tagged = { ...experiment, id: "exp_tagged", tags: ["checkout"] };
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, tagged]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, tagged]);
       const res = await request(app)
         .get("/api/v1/experiments?tag=checkout,promo")
         .set("Authorization", "Bearer foo");
@@ -605,10 +594,7 @@ describe("experiments API", () => {
         id: "exp_feature",
         linkedFeatures: ["feat_1"],
       };
-      (getAllExperiments as jest.Mock).mockResolvedValue([
-        experiment,
-        withFeature,
-      ]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, withFeature]);
       const res = await request(app)
         .get("/api/v1/experiments?implementationType=feature")
         .set("Authorization", "Bearer foo");
@@ -628,7 +614,7 @@ describe("experiments API", () => {
 
     it("filters by owner id", async () => {
       const owned = { ...experiment, id: "exp_owned", owner: "u_123" };
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, owned]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, owned]);
       const res = await request(app)
         .get("/api/v1/experiments?owner=u_123")
         .set("Authorization", "Bearer foo");
@@ -645,7 +631,7 @@ describe("experiments API", () => {
         status: "stopped",
         results: "won",
       };
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, won]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, won]);
       const res = await request(app)
         .get("/api/v1/experiments?result=won,lost")
         .set("Authorization", "Bearer foo");
@@ -669,10 +655,7 @@ describe("experiments API", () => {
         id: "exp_metric",
         guardrailMetrics: ["met_1"],
       };
-      (getAllExperiments as jest.Mock).mockResolvedValue([
-        experiment,
-        withMetric,
-      ]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, withMetric]);
       const res = await request(app)
         .get("/api/v1/experiments?metricId=met_1")
         .set("Authorization", "Bearer foo");
@@ -688,7 +671,7 @@ describe("experiments API", () => {
         id: "exp_bandit",
         type: "multi-armed-bandit",
       };
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, bandit]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, bandit]);
 
       const onlyBandits = await request(app)
         .get("/api/v1/experiments?bandits=true")
@@ -697,7 +680,7 @@ describe("experiments API", () => {
       expect(onlyBandits.body.experiments).toHaveLength(1);
       expect(onlyBandits.body.experiments[0].id).toBe("exp_bandit");
 
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, bandit]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, bandit]);
       const noBandits = await request(app)
         .get("/api/v1/experiments?bandits=false")
         .set("Authorization", "Bearer foo");
@@ -708,7 +691,7 @@ describe("experiments API", () => {
 
     it("applies filters from a q search string", async () => {
       const tagged = { ...experiment, id: "exp_tagged", tags: ["checkout"] };
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, tagged]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment, tagged]);
       const res = await request(app)
         .get("/api/v1/experiments?q=tag:checkout")
         .set("Authorization", "Bearer foo");
@@ -727,7 +710,7 @@ describe("experiments API", () => {
     });
 
     it("leaves the archived filter unset when the param is omitted", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment]);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -743,7 +726,7 @@ describe("experiments API", () => {
       ["true", true],
       ["false", false],
     ])("passes archived=%s through as a boolean", async (param, value) => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      (getAllExperiments as Mock).mockResolvedValue([experiment]);
       const res = await request(app)
         .get(`/api/v1/experiments?archived=${param}`)
         .set("Authorization", "Bearer foo");
@@ -762,8 +745,8 @@ describe("experiments API", () => {
         org,
         models: {
           projects: {
-            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
-            getById: jest.fn().mockResolvedValue(null),
+            ensureProjectsExist: vi.fn().mockResolvedValue(undefined),
+            getById: vi.fn().mockResolvedValue(null),
           },
         },
         permissions: {
@@ -771,15 +754,15 @@ describe("experiments API", () => {
         },
       });
 
-      (getDataSourceById as jest.Mock).mockResolvedValue({
+      (getDataSourceById as Mock).mockResolvedValue({
         id: "ds_123",
         type: "postgres",
         settings: {
           queries: { exposure: [{ id: "user_id", name: "User ID" }] },
         },
       });
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
-      (createExperiment as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(null);
+      (createExperiment as Mock).mockResolvedValue(experiment);
 
       const createPayload = {
         trackingKey: "exp_new",
@@ -814,12 +797,10 @@ describe("experiments API", () => {
     });
 
     it("rejects a phase prerequisite on a flag that does not exist", async () => {
-      jest
-        .mocked(assertValidExperimentPrerequisites)
-        .mockRejectedValueOnce(
-          new NotFoundError('Prerequisite feature "missing_flag" not found'),
-        );
-      (getDataSourceById as jest.Mock).mockResolvedValue({
+      vi.mocked(assertValidExperimentPrerequisites).mockRejectedValueOnce(
+        new NotFoundError('Prerequisite feature "missing_flag" not found'),
+      );
+      (getDataSourceById as Mock).mockResolvedValue({
         id: "ds_123",
         type: "postgres",
         settings: {
@@ -862,7 +843,7 @@ describe("experiments API", () => {
 
     // Phase saved groups reach the payload like a rule's, and get its checks.
     it("rejects a phase saved group that does not exist", async () => {
-      (getDataSourceById as jest.Mock).mockResolvedValue({
+      (getDataSourceById as Mock).mockResolvedValue({
         id: "ds_123",
         type: "postgres",
         settings: {
@@ -897,15 +878,15 @@ describe("experiments API", () => {
     });
 
     it("preserves id and variationId values when creating an experiment", async () => {
-      (getDataSourceById as jest.Mock).mockResolvedValue({
+      (getDataSourceById as Mock).mockResolvedValue({
         id: "ds_123",
         type: "postgres",
         settings: {
           queries: { exposure: [{ id: "user_id", name: "User ID" }] },
         },
       });
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
-      (createExperiment as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(null);
+      (createExperiment as Mock).mockResolvedValue(experiment);
 
       const res = await request(app)
         .post("/api/v1/experiments")
@@ -931,7 +912,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const createCall = (createExperiment as jest.Mock).mock.calls[0][0];
+      const createCall = (createExperiment as Mock).mock.calls[0][0];
       expect(createCall.data.variations.map((v) => v.id)).toEqual([
         "control",
         "treatment",
@@ -943,14 +924,14 @@ describe("experiments API", () => {
     });
 
     it("rejects duplicate user-specified variation ids", async () => {
-      (getDataSourceById as jest.Mock).mockResolvedValue({
+      (getDataSourceById as Mock).mockResolvedValue({
         id: "ds_123",
         type: "postgres",
         settings: {
           queries: { exposure: [{ id: "user_id", name: "User ID" }] },
         },
       });
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .post("/api/v1/experiments")
@@ -983,7 +964,7 @@ describe("experiments API", () => {
       updateReqContext({
         models: {
           customFields: {
-            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([
+            getCustomFieldsBySectionAndProject: vi.fn().mockResolvedValue([
               {
                 id: "cfd_team",
                 name: "Owning Team",
@@ -999,7 +980,7 @@ describe("experiments API", () => {
         },
       });
 
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(null);
 
       const createPayload = {
         trackingKey: "exp_new",
@@ -1036,7 +1017,7 @@ describe("experiments API", () => {
     });
 
     it("returns 400 when trackingKey already exists", async () => {
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(experiment);
 
       const createPayload = {
         trackingKey: "exp_123",
@@ -1070,8 +1051,8 @@ describe("experiments API", () => {
     });
 
     it("allows duplicate trackingKey when bypassDuplicateKeyCheck is true", async () => {
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
-      (createExperiment as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(experiment);
+      (createExperiment as Mock).mockResolvedValue(experiment);
 
       const createPayload = {
         trackingKey: "exp_123",
@@ -1108,7 +1089,7 @@ describe("experiments API", () => {
     });
 
     it("rejects duplicate trackingKey when requireUniqueExperimentTrackingKeys is enabled, even with bypassDuplicateKeyCheck", async () => {
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(experiment);
 
       const orgWithSetting = {
         ...org,
@@ -1120,18 +1101,18 @@ describe("experiments API", () => {
         organization: orgWithSetting,
         models: {
           decisionCriteria: {
-            getById: jest.fn().mockResolvedValue(null),
+            getById: vi.fn().mockResolvedValue(null),
           },
           projects: {
-            getById: jest.fn().mockResolvedValue(null),
-            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
-            getByIds: jest.fn().mockResolvedValue([]),
+            getById: vi.fn().mockResolvedValue(null),
+            ensureProjectsExist: vi.fn().mockResolvedValue(undefined),
+            getByIds: vi.fn().mockResolvedValue([]),
           },
           metricGroups: {
-            getAll: jest.fn().mockResolvedValue([]),
+            getAll: vi.fn().mockResolvedValue([]),
           },
           customFields: {
-            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+            getCustomFieldsBySectionAndProject: vi.fn().mockResolvedValue([]),
           },
         },
         permissions: {
@@ -1177,22 +1158,22 @@ describe("experiments API", () => {
     });
 
     it("validates datasource exists", async () => {
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
-      (getDataSourceById as jest.Mock).mockResolvedValue(null); // Mock datasource not found
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(null);
+      (getDataSourceById as Mock).mockResolvedValue(null); // Mock datasource not found
 
       updateReqContext({
         org,
         organization: org,
         models: {
           decisionCriteria: {
-            getById: jest.fn().mockResolvedValue(null),
+            getById: vi.fn().mockResolvedValue(null),
           },
           projects: {
-            getById: jest.fn().mockResolvedValue(null),
-            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
+            getById: vi.fn().mockResolvedValue(null),
+            ensureProjectsExist: vi.fn().mockResolvedValue(undefined),
           },
           dataSources: {
-            getById: jest.fn().mockResolvedValue(null), // datasource not found
+            getById: vi.fn().mockResolvedValue(null), // datasource not found
           },
         },
         permissions: {
@@ -1235,9 +1216,9 @@ describe("experiments API", () => {
 
     it("rejects an unresolvable email owner", async () => {
       updateReqContext({
-        getUserByEmail: jest.fn().mockResolvedValue(null),
+        getUserByEmail: vi.fn().mockResolvedValue(null),
       });
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .post("/api/v1/experiments")
@@ -1261,13 +1242,13 @@ describe("experiments API", () => {
       const testUser = { id: "u_user1", email: "user@example.com" };
       updateReqContext({
         org: { ...org, members: [{ id: testUser.id }] },
-        getUserByEmail: jest.fn().mockResolvedValue(testUser),
+        getUserByEmail: vi.fn().mockResolvedValue(testUser),
         models: {
-          watch: { upsertWatch: jest.fn().mockResolvedValue(undefined) },
+          watch: { upsertWatch: vi.fn().mockResolvedValue(undefined) },
         },
       });
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
-      (createExperiment as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(null);
+      (createExperiment as Mock).mockResolvedValue(experiment);
 
       const res = await request(app)
         .post("/api/v1/experiments")
@@ -1298,8 +1279,8 @@ describe("experiments API", () => {
         ...experiment,
         name: "Updated Experiment Name",
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (updateExperiment as jest.Mock).mockResolvedValue(updatedExperiment);
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (updateExperiment as Mock).mockResolvedValue(updatedExperiment);
 
       const updatePayload = {
         name: "Updated Experiment Name",
@@ -1332,8 +1313,8 @@ describe("experiments API", () => {
             },
           },
         });
-        (getExperimentById as jest.Mock).mockResolvedValue(liveExperiment);
-        (updateExperiment as jest.Mock).mockImplementation(
+        (getExperimentById as Mock).mockResolvedValue(liveExperiment);
+        (updateExperiment as Mock).mockImplementation(
           ({ experiment: exp, changes }) => ({ ...exp, ...changes }),
         );
       });
@@ -1411,7 +1392,7 @@ describe("experiments API", () => {
       });
 
       it("refuses clearing a pending scheduled stop through PUT /schedule without run permission", async () => {
-        (getExperimentById as jest.Mock).mockResolvedValue({
+        (getExperimentById as Mock).mockResolvedValue({
           ...liveExperiment,
           statusUpdateSchedule: {
             stopAt: new Date(future),
@@ -1429,7 +1410,7 @@ describe("experiments API", () => {
       });
 
       it("allows clearing a stop plan that is no longer pending without run permission", async () => {
-        (getExperimentById as jest.Mock).mockResolvedValue({
+        (getExperimentById as Mock).mockResolvedValue({
           ...liveExperiment,
           statusUpdateSchedule: {
             stopAt: new Date(Date.now() - 60 * 60 * 1000),
@@ -1466,7 +1447,7 @@ describe("experiments API", () => {
             },
           },
         });
-        (getExperimentById as jest.Mock).mockResolvedValue({
+        (getExperimentById as Mock).mockResolvedValue({
           ...experiment,
           status: "draft",
           hasVisualChangesets: false,
@@ -1572,8 +1553,8 @@ describe("experiments API", () => {
           { id: "var_b", key: "1", name: "Variation" },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(stored);
-      (updateExperiment as jest.Mock).mockResolvedValue(stored);
+      (getExperimentById as Mock).mockResolvedValue(stored);
+      (updateExperiment as Mock).mockResolvedValue(stored);
       // Reordered, renamed, and one id given: the omitted id follows its key.
       await request(app)
         .post("/api/v1/experiments/exp_123")
@@ -1597,14 +1578,12 @@ describe("experiments API", () => {
     });
 
     it("refuses to change what a running, live experiment serves", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      jest
-        .mocked(assertLivePayloadChangeAllowed)
-        .mockRejectedValueOnce(
-          new BadRequestError(
-            "Cannot change: [variation IDs] while the experiment is running and live in the SDK payload.",
-          ),
-        );
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      vi.mocked(assertLivePayloadChangeAllowed).mockRejectedValueOnce(
+        new BadRequestError(
+          "Cannot change: [variation IDs] while the experiment is running and live in the SDK payload.",
+        ),
+      );
       const res = await request(app)
         .post("/api/v1/experiments/exp_123")
         .send({
@@ -1629,7 +1608,7 @@ describe("experiments API", () => {
     });
 
     it("allows update when required custom fields are missing and payload omits customFields", async () => {
-      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+      const getCustomFieldsBySectionAndProject = vi.fn().mockResolvedValue([
         {
           id: "cfd_team",
           name: "Owning Team",
@@ -1649,11 +1628,11 @@ describe("experiments API", () => {
         },
       });
 
-      (getExperimentById as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue({
         ...experiment,
         customFields: {},
       });
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -1673,7 +1652,7 @@ describe("experiments API", () => {
     });
 
     it("allows update when customFields payload is unchanged", async () => {
-      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+      const getCustomFieldsBySectionAndProject = vi.fn().mockResolvedValue([
         {
           id: "cfd_team",
           name: "Owning Team",
@@ -1693,11 +1672,11 @@ describe("experiments API", () => {
         },
       });
 
-      (getExperimentById as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue({
         ...experiment,
         customFields: {},
       });
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -1718,7 +1697,7 @@ describe("experiments API", () => {
     });
 
     it("rejects update when customFields are cleared from a non-empty object", async () => {
-      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+      const getCustomFieldsBySectionAndProject = vi.fn().mockResolvedValue([
         {
           id: "cfd_team",
           name: "Owning Team",
@@ -1738,13 +1717,13 @@ describe("experiments API", () => {
         },
       });
 
-      (getExperimentById as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue({
         ...experiment,
         customFields: {
           cfd_team: "growth",
         },
       });
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -1768,7 +1747,7 @@ describe("experiments API", () => {
     });
 
     it("allows update when project payload is unchanged", async () => {
-      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+      const getCustomFieldsBySectionAndProject = vi.fn().mockResolvedValue([
         {
           id: "cfd_team",
           name: "Owning Team",
@@ -1788,11 +1767,11 @@ describe("experiments API", () => {
         },
       });
 
-      (getExperimentById as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue({
         ...experiment,
         customFields: {},
       });
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -1813,7 +1792,7 @@ describe("experiments API", () => {
     });
 
     it("revalidates and rejects when changing project to one with required custom fields", async () => {
-      const getCustomFieldsBySectionAndProject = jest
+      const getCustomFieldsBySectionAndProject = vi
         .fn()
         .mockImplementation(({ project }) => {
           if (project === "proj_2") {
@@ -1840,12 +1819,12 @@ describe("experiments API", () => {
         },
       });
 
-      (getExperimentById as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue({
         ...experiment,
         project: "proj_1",
         customFields: {},
       });
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -1869,7 +1848,7 @@ describe("experiments API", () => {
     });
 
     it("revalidates and rejects when changing project and customFields payload is changed", async () => {
-      const getCustomFieldsBySectionAndProject = jest
+      const getCustomFieldsBySectionAndProject = vi
         .fn()
         .mockImplementation(({ project }) => {
           if (project === "proj_2") {
@@ -1896,14 +1875,14 @@ describe("experiments API", () => {
         },
       });
 
-      (getExperimentById as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue({
         ...experiment,
         project: "proj_1",
         customFields: {
           cfd_team: "growth",
         },
       });
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -1931,10 +1910,10 @@ describe("experiments API", () => {
       const testUser = { id: "u_user1", email: "user@example.com" };
       updateReqContext({
         org: { ...org, members: [{ id: testUser.id }] },
-        getUserByEmail: jest.fn().mockResolvedValue(testUser),
+        getUserByEmail: vi.fn().mockResolvedValue(testUser),
       });
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (updateExperiment as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (updateExperiment as Mock).mockResolvedValue({
         ...experiment,
         owner: testUser.id,
       });
@@ -1953,7 +1932,7 @@ describe("experiments API", () => {
     });
 
     it("returns 400 when experiment not found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(null);
+      (getExperimentById as Mock).mockResolvedValue(null);
 
       const updatePayload = {
         name: "Updated Name",
@@ -1970,9 +1949,9 @@ describe("experiments API", () => {
     });
 
     it("allows duplicate trackingKey on update when bypassDuplicateKeyCheck is true", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
-      (updateExperiment as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(experiment);
+      (updateExperiment as Mock).mockResolvedValue({
         ...experiment,
         trackingKey: "existing_key",
       });
@@ -2002,12 +1981,10 @@ describe("experiments API", () => {
         trackingKey: "existing_key",
       };
 
-      (getExperimentById as jest.Mock).mockResolvedValue(
+      (getExperimentById as Mock).mockResolvedValue(
         existingExperimentWithDifferentKey,
       );
-      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(
-        anotherExperiment,
-      );
+      (getExperimentByTrackingKey as Mock).mockResolvedValue(anotherExperiment);
 
       const orgWithSetting = {
         ...org,
@@ -2019,15 +1996,15 @@ describe("experiments API", () => {
         organization: orgWithSetting,
         models: {
           projects: {
-            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
-            getById: jest.fn().mockResolvedValue(null),
-            getByIds: jest.fn().mockResolvedValue([]),
+            ensureProjectsExist: vi.fn().mockResolvedValue(undefined),
+            getById: vi.fn().mockResolvedValue(null),
+            getByIds: vi.fn().mockResolvedValue([]),
           },
           metricGroups: {
-            getAll: jest.fn().mockResolvedValue([]),
+            getAll: vi.fn().mockResolvedValue([]),
           },
           customFields: {
-            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+            getCustomFieldsBySectionAndProject: vi.fn().mockResolvedValue([]),
           },
         },
         permissions: {
@@ -2057,11 +2034,11 @@ describe("experiments API", () => {
         org,
         models: {
           projects: {
-            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
-            getById: jest.fn().mockResolvedValue(null),
+            ensureProjectsExist: vi.fn().mockResolvedValue(undefined),
+            getById: vi.fn().mockResolvedValue(null),
           },
           factMetrics: {
-            getAll: jest.fn().mockResolvedValue([]),
+            getAll: vi.fn().mockResolvedValue([]),
           },
         },
         permissions: {
@@ -2069,7 +2046,7 @@ describe("experiments API", () => {
         },
       });
 
-      (getDataSourceById as jest.Mock).mockResolvedValue({
+      (getDataSourceById as Mock).mockResolvedValue({
         id: "ds_123",
         type: "postgres",
         settings: {
@@ -2099,8 +2076,8 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (updateExperiment as jest.Mock).mockResolvedValue(updatedExperiment);
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (updateExperiment as Mock).mockResolvedValue(updatedExperiment);
 
       const updatePayload = {
         variations: [
@@ -2180,8 +2157,8 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (updateExperiment as jest.Mock).mockImplementation(
+      (getExperimentById as Mock).mockResolvedValue(experimentWithPhases);
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -2202,7 +2179,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const updateCall = (updateExperiment as Mock).mock.calls[0][0];
       expect(updateCall.changes.phases[0].variations).toEqual([
         { id: "va", status: "active" },
         { id: "vb", status: "active" },
@@ -2253,8 +2230,8 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (updateExperiment as jest.Mock).mockImplementation(
+      (getExperimentById as Mock).mockResolvedValue(experimentWithPhases);
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -2276,7 +2253,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const updateCall = (updateExperiment as Mock).mock.calls[0][0];
       expect(updateCall.changes).not.toHaveProperty("variations");
       expect(updateCall.changes.phases[0].variations).toEqual([
         { id: "v1", status: "active" },
@@ -2290,7 +2267,7 @@ describe("experiments API", () => {
         condition: '{"id": {"$inGroup": "grp_gone"}}',
         savedGroups: [{ match: "all", ids: ["grp_gone"] }],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue({
         ...experiment,
         phases: [
           {
@@ -2302,7 +2279,7 @@ describe("experiments API", () => {
           },
         ],
       });
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({ ...experiment, ...changes }),
       );
       const update = (targeting: Record<string, unknown>) =>
@@ -2332,14 +2309,14 @@ describe("experiments API", () => {
     });
 
     it("honors the GET-response phase field names on a round-trip update", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue({
         ...experiment,
         variations: [
           { id: "0", key: "control", name: "Control", screenshots: [] },
           { id: "1", key: "treatment", name: "Treatment", screenshots: [] },
         ],
       });
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({ ...experiment, ...changes }),
       );
 
@@ -2365,7 +2342,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const updateCall = (updateExperiment as Mock).mock.calls[0][0];
       const phase = updateCall.changes.phases[0];
       expect(phase.condition).toBe('{"path":{"$in":["/checkout"]}}');
       expect(phase.variationWeights).toEqual([0.9, 0.1]);
@@ -2373,14 +2350,14 @@ describe("experiments API", () => {
     });
 
     it("maps trafficSplit weights by variationId, not array position", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue({
         ...experiment,
         variations: [
           { id: "0", key: "control", name: "Control", screenshots: [] },
           { id: "1", key: "treatment", name: "Treatment", screenshots: [] },
         ],
       });
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({ ...experiment, ...changes }),
       );
 
@@ -2403,14 +2380,14 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const phase = (updateExperiment as jest.Mock).mock.calls[0][0].changes
+      const phase = (updateExperiment as Mock).mock.calls[0][0].changes
         .phases[0];
       expect(phase.variationWeights).toEqual([0.9, 0.1]);
     });
 
     it("honors variationId as an alias for id so variations round-trip", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (updateExperiment as jest.Mock).mockImplementation(
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({ ...experiment, ...changes }),
       );
 
@@ -2427,13 +2404,13 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const changes = (updateExperiment as jest.Mock).mock.calls[0][0].changes;
+      const changes = (updateExperiment as Mock).mock.calls[0][0].changes;
       expect(changes.variations.map((v) => v.id)).toEqual(["v0", "v1"]);
     });
 
     it("prefers the POST-only phase fields when both they and their aliases are set", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (updateExperiment as jest.Mock).mockImplementation(
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({ ...experiment, ...changes }),
       );
 
@@ -2459,7 +2436,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const phase = (updateExperiment as jest.Mock).mock.calls[0][0].changes
+      const phase = (updateExperiment as Mock).mock.calls[0][0].changes
         .phases[0];
       expect(phase.condition).toBe('{"id":"post"}');
       expect(phase.variationWeights).toEqual([0.7, 0.3]);
@@ -2509,8 +2486,8 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (updateExperiment as jest.Mock).mockImplementation(
+      (getExperimentById as Mock).mockResolvedValue(experimentWithPhases);
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -2534,7 +2511,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const updateCall = (updateExperiment as Mock).mock.calls[0][0];
       expect(updateCall.changes.phases[0].variations).toEqual([
         { id: "vb", status: "active" },
         { id: "va", status: "active" },
@@ -2542,8 +2519,8 @@ describe("experiments API", () => {
     });
 
     it("does not include phases in changes when updating non-phase fields", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (updateExperiment as jest.Mock).mockImplementation(
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -2559,7 +2536,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const updateCall = (updateExperiment as Mock).mock.calls[0][0];
       expect(updateCall.changes).not.toHaveProperty("phases");
     });
 
@@ -2606,8 +2583,8 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (updateExperiment as jest.Mock).mockImplementation(
+      (getExperimentById as Mock).mockResolvedValue(experimentWithPhases);
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -2627,7 +2604,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const updateCall = (updateExperiment as Mock).mock.calls[0][0];
       expect(updateCall.changes.phases[0].variations).toEqual([
         { id: "v1", status: "active" },
         { id: "v0", status: "active" },
@@ -2635,7 +2612,7 @@ describe("experiments API", () => {
     });
 
     it("returns 400 for invalid phase targeting condition", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentById as Mock).mockResolvedValue(experiment);
 
       const res = await request(app)
         .post("/api/v1/experiments/exp_123")
@@ -2656,7 +2633,7 @@ describe("experiments API", () => {
     });
 
     it("returns 400 for invalid phase prerequisite condition", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentById as Mock).mockResolvedValue(experiment);
 
       const res = await request(app)
         .post("/api/v1/experiments/exp_123")
@@ -2741,10 +2718,10 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(
+      (getExperimentById as Mock).mockResolvedValue(
         experimentWithMultiplePhases,
       );
-      (updateExperiment as jest.Mock).mockImplementation(
+      (updateExperiment as Mock).mockImplementation(
         ({ experiment, changes }) => ({
           ...experiment,
           ...changes,
@@ -2763,7 +2740,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const updateCall = (updateExperiment as Mock).mock.calls[0][0];
       expect(updateCall.changes.phases[0].variations).toEqual([
         { id: "v1", status: "active" },
         { id: "v0", status: "active" },
@@ -2803,8 +2780,8 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue(experimentWithPhases);
+      (getLatestSuccessfulSnapshot as Mock).mockResolvedValue({
         id: "snap_123",
         organization: "org_1",
         experiment: "exp_123",
@@ -2886,11 +2863,11 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithResults);
-      (getMetricsByIds as jest.Mock).mockResolvedValue([
+      (getExperimentById as Mock).mockResolvedValue(experimentWithResults);
+      (getMetricsByIds as Mock).mockResolvedValue([
         { id: "met_1", name: "Signups" },
       ]);
-      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
+      (getLatestSuccessfulSnapshot as Mock).mockResolvedValue({
         id: "snap_123",
         organization: "org_1",
         experiment: "exp_123",
@@ -2954,7 +2931,7 @@ describe("experiments API", () => {
     });
 
     it("returns 400 when experiment not found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(null);
+      (getExperimentById as Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .get("/api/v1/experiments/nonexistent/results")
@@ -2965,8 +2942,8 @@ describe("experiments API", () => {
     });
 
     it("returns 400 when no results found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue(null);
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (getLatestSuccessfulSnapshot as Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .get("/api/v1/experiments/exp_123/results")
@@ -3038,11 +3015,8 @@ describe("experiments API", () => {
     });
 
     it("returns the latest snapshot for each experiment", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([
-        experimentA,
-        experimentB,
-      ]);
-      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([
+      (getAllExperiments as Mock).mockResolvedValue([experimentA, experimentB]);
+      (getLatestSnapshotMultipleExperiments as Mock).mockResolvedValue([
         snapshotFor("exp_a"),
         snapshotFor("exp_b"),
       ]);
@@ -3063,11 +3037,8 @@ describe("experiments API", () => {
     });
 
     it("silently skips experiments without a snapshot", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([
-        experimentA,
-        experimentB,
-      ]);
-      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([
+      (getAllExperiments as Mock).mockResolvedValue([experimentA, experimentB]);
+      (getLatestSnapshotMultipleExperiments as Mock).mockResolvedValue([
         snapshotFor("exp_a"),
       ]);
 
@@ -3085,8 +3056,8 @@ describe("experiments API", () => {
     });
 
     it("returns an empty page when no experiments match", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([]);
-      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([]);
+      (getAllExperiments as Mock).mockResolvedValue([]);
+      (getLatestSnapshotMultipleExperiments as Mock).mockResolvedValue([]);
 
       const res = await request(app)
         .get("/api/v1/experiments/results")
@@ -3099,7 +3070,7 @@ describe("experiments API", () => {
     });
 
     it("forwards projectId, datasourceId, status, and trackingKey filters", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([]);
+      (getAllExperiments as Mock).mockResolvedValue([]);
 
       await request(app)
         .get(
@@ -3126,11 +3097,11 @@ describe("experiments API", () => {
         trackingKey: "exp_c",
         phases: [],
       };
-      (getAllExperiments as jest.Mock).mockResolvedValue([
+      (getAllExperiments as Mock).mockResolvedValue([
         experimentA,
         experimentWithoutPhases,
       ]);
-      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([
+      (getLatestSnapshotMultipleExperiments as Mock).mockResolvedValue([
         snapshotFor("exp_a"),
       ]);
 
@@ -3139,7 +3110,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      const phaseMap = (getLatestSnapshotMultipleExperiments as jest.Mock).mock
+      const phaseMap = (getLatestSnapshotMultipleExperiments as Mock).mock
         .calls[0][1] as Map<string, number>;
       expect(phaseMap.has("exp_a")).toBe(true);
       expect(phaseMap.has("exp_c")).toBe(false);
@@ -3149,11 +3120,8 @@ describe("experiments API", () => {
       // Two experiments matching the filter, page size 1, first one has no
       // snapshot. Page 0 returns count:0 (nothing dropped through). hasMore is
       // true so the consumer keeps paginating.
-      (getAllExperiments as jest.Mock).mockResolvedValue([
-        experimentA,
-        experimentB,
-      ]);
-      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([]);
+      (getAllExperiments as Mock).mockResolvedValue([experimentA, experimentB]);
+      (getLatestSnapshotMultipleExperiments as Mock).mockResolvedValue([]);
 
       const res = await request(app)
         .get("/api/v1/experiments/results?limit=1&offset=0")
@@ -3184,10 +3152,8 @@ describe("experiments API", () => {
 
     it("uploads variation screenshot successfully", async () => {
       const { uploadFile } = await import("../../src/services/files");
-      (getExperimentById as jest.Mock).mockResolvedValue(
-        experimentWithVariationId,
-      );
-      (updateExperiment as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue(experimentWithVariationId);
+      (updateExperiment as Mock).mockResolvedValue({
         ...experimentWithVariationId,
         variations: [
           {
@@ -3224,7 +3190,7 @@ describe("experiments API", () => {
     });
 
     it("returns 400 when experiment not found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(null);
+      (getExperimentById as Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .post(
@@ -3242,9 +3208,7 @@ describe("experiments API", () => {
     });
 
     it("returns 400 when variation not found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(
-        experimentWithVariationId,
-      );
+      (getExperimentById as Mock).mockResolvedValue(experimentWithVariationId);
 
       const res = await request(app)
         .post(
@@ -3280,10 +3244,8 @@ describe("experiments API", () => {
     };
 
     it("deletes variation screenshot successfully", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(
-        experimentWithScreenshots,
-      );
-      (updateExperiment as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue(experimentWithScreenshots);
+      (updateExperiment as Mock).mockResolvedValue({
         ...experimentWithScreenshots,
         variations: [
           {
@@ -3335,10 +3297,8 @@ describe("experiments API", () => {
           },
         ],
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(
-        experimentWithS3Screenshot,
-      );
-      (updateExperiment as jest.Mock).mockResolvedValue({
+      (getExperimentById as Mock).mockResolvedValue(experimentWithS3Screenshot);
+      (updateExperiment as Mock).mockResolvedValue({
         ...experimentWithS3Screenshot,
         variations: [
           {
@@ -3357,14 +3317,12 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(200);
       expect(updateExperiment).toHaveBeenCalled();
-      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const updateCall = (updateExperiment as Mock).mock.calls[0][0];
       expect(updateCall.changes.variations[0].screenshots).toHaveLength(0);
     });
 
     it("returns 400 when screenshot not found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(
-        experimentWithScreenshots,
-      );
+      (getExperimentById as Mock).mockResolvedValue(experimentWithScreenshots);
 
       const res = await request(app)
         .delete("/api/v1/experiments/exp_123/variation/var_test123/screenshot")
@@ -3377,7 +3335,7 @@ describe("experiments API", () => {
     });
 
     it("returns 400 when experiment not found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(null);
+      (getExperimentById as Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .delete(

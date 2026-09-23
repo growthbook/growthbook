@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -10,14 +11,14 @@ import {
 // `computeContextualBanditLinkageDelta` and covered by its own table tests in
 // shared. These cover the layer around it: what gets read, and what gets written.
 const cbModel = {
-  getLinkageCandidates: jest.fn(),
+  getLinkageCandidates: vi.fn(),
   // Both resolve, like the real methods: each pass awaits every write's settlement
   // before surfacing a failure, so a mock returning `undefined` models something
   // that cannot happen and breaks on the await rather than on the behaviour.
   // `setLinkageState` was left bare when the forward pass got its note, and the
   // reverse pass broke on it the moment it started awaiting too.
-  applyLinkageDelta: jest.fn().mockResolvedValue(undefined),
-  setLinkageState: jest.fn().mockResolvedValue(undefined),
+  applyLinkageDelta: vi.fn().mockResolvedValue(undefined),
+  setLinkageState: vi.fn().mockResolvedValue(undefined),
 };
 
 function makeContext(): ReqContext {
@@ -49,7 +50,7 @@ function revision(
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   cbModel.getLinkageCandidates.mockResolvedValue([]);
 });
 

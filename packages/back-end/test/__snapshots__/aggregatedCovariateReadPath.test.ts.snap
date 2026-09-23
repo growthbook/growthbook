@@ -1,6 +1,6 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`covariate insert SQL builders aggregated builder reads daily partials and re-aggregates them 1`] = `
+exports[`covariate insert SQL builders > aggregated builder reads daily partials and re-aggregates them 1`] = `
 "INSERT INTO
   proj.ds.cov (user_id, fact_ra1_value)
 SELECT
@@ -45,7 +45,7 @@ FROM
   )"
 `;
 
-exports[`covariate insert SQL builders legacy builder aligns the per-row covariate window to whole UTC days when requested 1`] = `
+exports[`covariate insert SQL builders > legacy builder aligns the per-row covariate window to whole UTC days when requested 1`] = `
 "INSERT INTO
   proj.ds.cov (user_id, fact_ra14_value)
 SELECT
@@ -104,7 +104,7 @@ FROM
   )"
 `;
 
-exports[`covariate insert SQL builders legacy builder scans raw events with the per-row covariate window 1`] = `
+exports[`covariate insert SQL builders > legacy builder scans raw events with the per-row covariate window 1`] = `
 "INSERT INTO
   proj.ds.cov (user_id, fact_ra1_value)
 SELECT

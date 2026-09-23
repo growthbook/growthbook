@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import { casUpdate } from "back-end/src/models/FeatureRevisionModel";
 import { setupApp } from "../api/api.setup";
@@ -52,7 +53,7 @@ describe("feature revision casUpdate", () => {
   });
 
   it("reports a missing document as ABORTED, not exhausted", async () => {
-    const build = jest.fn();
+    const build = vi.fn();
     const outcome = await casUpdate(
       { ...filter, version: 99 },
       ["status"],

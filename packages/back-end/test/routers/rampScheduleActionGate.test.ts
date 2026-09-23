@@ -1,37 +1,40 @@
+import { Mock, vi } from "vitest";
 import type { Response } from "express";
 import { rampRuleEnvKey, PermissionError } from "shared/util";
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextFromReq: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextFromReq: vi.fn(),
   // The gate resolves an "all" answer against the ORG's environments, never the
   // schedule's own patch list — collapsing "all" into the patch list was how an
   // `allEnvironments` rule could be rescoped by a dev-limited caller.
-  getEnvironmentIdsFromOrg: jest.fn(() => ["dev", "staging", "production"]),
+  getEnvironmentIdsFromOrg: vi.fn(() => ["dev", "staging", "production"]),
 }));
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
   // The gate resolves target projects from the RAW collection — `getFeature` is
   // read-filtered, and an unreadable target is exactly the one that must still
   // be checked.
-  getFeatureProjectsByIds: jest.fn(),
+  getFeatureProjectsByIds: vi.fn(),
   // The gate also asks what each target rule CURRENTLY serves, because a patch
   // naming `environments` REPLACES that field — narrowing production→dev is a
   // production change. An empty map means "no current envs to union", which keeps
   // these cases measuring exactly the patch footprint they were written for.
-  getFeatureRuleEnvironmentsByIds: jest.fn(async () => new Map()),
+  getFeatureRuleEnvironmentsByIds: vi.fn(async () => new Map()),
 }));
 // The gate itself lives here now (shared with the REST handlers), so keep the
 // real implementation and stub only the rest of the module's surface.
-jest.mock("back-end/src/services/rampSchedule", () => ({
-  assertCanControlRampSchedule: jest.requireActual(
-    "back-end/src/services/rampSchedule",
+vi.mock("back-end/src/services/rampSchedule", async () => ({
+  assertCanControlRampSchedule: (
+    await vi.importActual<typeof import("back-end/src/services/rampSchedule")>(
+      "back-end/src/services/rampSchedule",
+    )
   ).assertCanControlRampSchedule,
 }));
-jest.mock("back-end/src/services/safeRolloutSnapshots", () => ({
-  createSafeRolloutSnapshot: jest.fn(),
+vi.mock("back-end/src/services/safeRolloutSnapshots", () => ({
+  createSafeRolloutSnapshot: vi.fn(),
 }));
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
 import { postRampScheduleAction } from "back-end/src/routers/ramp-schedule/ramp-schedule.controller";
@@ -72,8 +75,8 @@ const SCHEDULE = {
 
 function makeRes(): Response {
   return {
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn().mockReturnThis(),
+    status: vi.fn().mockReturnThis(),
+    json: vi.fn().mockReturnThis(),
   } as unknown as Response;
 }
 
@@ -86,8 +89,8 @@ function arrange({
   canQueryDatasource?: boolean;
   monitored?: boolean;
 }) {
-  const canPublishFeature = jest.fn(() => canPublish);
-  const canCreateExperimentSnapshot = jest.fn(() => canQueryDatasource);
+  const canPublishFeature = vi.fn(() => canPublish);
+  const canCreateExperimentSnapshot = vi.fn(() => canQueryDatasource);
   // A schedule whose monitoring is configured is what makes the refresh path
   // reach its lazy SafeRollout create.
   // The refresh path answers 409 for a schedule with no monitored step, before
@@ -107,7 +110,7 @@ function arrange({
         monitoringConfig: { datasourceId: "ds_1" },
       }
     : SCHEDULE;
-  (getContextFromReq as jest.Mock).mockReturnValue({
+  (getContextFromReq as Mock).mockReturnValue({
     permissions: {
       canPublishFeature,
       canCreateExperimentSnapshot,
@@ -117,17 +120,17 @@ function arrange({
     },
     models: {
       rampSchedules: {
-        getById: jest.fn(async () => schedule),
-        publishEnvironments: jest.fn(() => ["production"]),
+        getById: vi.fn(async () => schedule),
+        publishEnvironments: vi.fn(() => ["production"]),
       },
-      safeRollout: { getById: jest.fn(async () => null) },
+      safeRollout: { getById: vi.fn(async () => null) },
     },
   });
-  (getFeature as jest.Mock).mockResolvedValue({ project: "prj_1" });
-  (getFeatureProjectsByIds as jest.Mock).mockResolvedValue(
+  (getFeature as Mock).mockResolvedValue({ project: "prj_1" });
+  (getFeatureProjectsByIds as Mock).mockResolvedValue(
     new Map([[schedule.entityId, "prj_1"]]),
   );
-  (getDataSourceById as jest.Mock).mockResolvedValue({ id: "ds_1" });
+  (getDataSourceById as Mock).mockResolvedValue({ id: "ds_1" });
   return { canPublishFeature, canCreateExperimentSnapshot };
 }
 
@@ -139,7 +142,9 @@ function makeReq(action: string) {
 }
 
 describe("postRampScheduleAction publish gate", () => {
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("refuses every action without publish authority", async () => {
     arrange({ canPublish: false });
@@ -163,11 +168,11 @@ describe("postRampScheduleAction publish gate", () => {
   // production rule under the admin agenda context.
   it("asks about every patch's ruleId, not only the target's", async () => {
     arrange({ canPublish: false });
-    (getContextFromReq as jest.Mock).mockReturnValue({
-      ...(getContextFromReq as jest.Mock)(),
+    (getContextFromReq as Mock).mockReturnValue({
+      ...(getContextFromReq as Mock)(),
       models: {
         rampSchedules: {
-          getById: jest.fn(async () => ({
+          getById: vi.fn(async () => ({
             ...SCHEDULE,
             targets: [
               {
@@ -190,13 +195,13 @@ describe("postRampScheduleAction publish gate", () => {
               },
             ],
           })),
-          publishEnvironments: jest.fn(() => ["dev"]),
+          publishEnvironments: vi.fn(() => ["dev"]),
         },
-        safeRollout: { getById: jest.fn(async () => null) },
+        safeRollout: { getById: vi.fn(async () => null) },
       },
     });
     const asked: string[] = [];
-    (getFeatureRuleEnvironmentsByIds as jest.Mock).mockImplementation(
+    (getFeatureRuleEnvironmentsByIds as Mock).mockImplementation(
       async (_ctx: unknown, refs: { ruleId?: string }[]) => {
         for (const r of refs) if (r.ruleId) asked.push(r.ruleId);
         return new Map();
@@ -213,11 +218,11 @@ describe("postRampScheduleAction publish gate", () => {
   // target overwrote a production target's answer and the gate read ["dev"] for both.
   it("keeps per-environment answers distinct for targets sharing a rule id", async () => {
     const { canPublishFeature } = arrange({ canPublish: false });
-    (getContextFromReq as jest.Mock).mockReturnValue({
-      ...(getContextFromReq as jest.Mock)(),
+    (getContextFromReq as Mock).mockReturnValue({
+      ...(getContextFromReq as Mock)(),
       models: {
         rampSchedules: {
-          getById: jest.fn(async () => ({
+          getById: vi.fn(async () => ({
             ...SCHEDULE,
             targets: [
               {
@@ -247,12 +252,12 @@ describe("postRampScheduleAction publish gate", () => {
               },
             ],
           })),
-          publishEnvironments: jest.fn(() => ["dev"]),
+          publishEnvironments: vi.fn(() => ["dev"]),
         },
-        safeRollout: { getById: jest.fn(async () => null) },
+        safeRollout: { getById: vi.fn(async () => null) },
       },
     });
-    (getFeatureRuleEnvironmentsByIds as jest.Mock).mockImplementation(
+    (getFeatureRuleEnvironmentsByIds as Mock).mockImplementation(
       async () =>
         new Map([
           [rampRuleEnvKey("feat_1", "fr_x", "production"), ["production"]],
@@ -274,11 +279,11 @@ describe("postRampScheduleAction publish gate", () => {
   // caller's ["production"]-free footprint.
   it("resolves an all-environments target against the ORG's environments", async () => {
     const { canPublishFeature } = arrange({ canPublish: false });
-    (getContextFromReq as jest.Mock).mockReturnValue({
-      ...(getContextFromReq as jest.Mock)(),
+    (getContextFromReq as Mock).mockReturnValue({
+      ...(getContextFromReq as Mock)(),
       models: {
         rampSchedules: {
-          getById: jest.fn(async () => ({
+          getById: vi.fn(async () => ({
             ...SCHEDULE,
             targets: [
               {
@@ -289,12 +294,12 @@ describe("postRampScheduleAction publish gate", () => {
               },
             ],
           })),
-          publishEnvironments: jest.fn(() => ["dev"]),
+          publishEnvironments: vi.fn(() => ["dev"]),
         },
-        safeRollout: { getById: jest.fn(async () => null) },
+        safeRollout: { getById: vi.fn(async () => null) },
       },
     });
-    (getFeatureRuleEnvironmentsByIds as jest.Mock).mockResolvedValue(
+    (getFeatureRuleEnvironmentsByIds as Mock).mockResolvedValue(
       // Keyed on the full (feature, rule, environment) triple — the environment is
       // part of the identity because the resolution honours it.
       new Map([[rampRuleEnvKey("feat_1", "fr_1"), "all"]]),
@@ -338,8 +343,8 @@ describe("postRampScheduleAction publish gate", () => {
     // A schedule moving rule A in dev and rule B in production touches neither
     // target in the other's environment. Unioning the two would demand
     // production authority in A's project and dev authority in B's.
-    const canPublishFeature = jest.fn(() => true);
-    (getContextFromReq as jest.Mock).mockReturnValue({
+    const canPublishFeature = vi.fn(() => true);
+    (getContextFromReq as Mock).mockReturnValue({
       permissions: {
         canPublishFeature,
         throwPermissionError: () => {
@@ -348,7 +353,7 @@ describe("postRampScheduleAction publish gate", () => {
       },
       models: {
         rampSchedules: {
-          getById: jest.fn(async () => ({
+          getById: vi.fn(async () => ({
             ...SCHEDULE,
             targets: [
               { id: "tgt_a", entityId: "feat_a" },
@@ -371,14 +376,14 @@ describe("postRampScheduleAction publish gate", () => {
               },
             ],
           })),
-          publishEnvironments: jest.fn(() => ["dev", "production"]),
+          publishEnvironments: vi.fn(() => ["dev", "production"]),
         },
       },
     });
-    (getFeature as jest.Mock).mockImplementation(async (_ctx, id) => ({
+    (getFeature as Mock).mockImplementation(async (_ctx, id) => ({
       project: id === "feat_a" ? "prj_a" : "prj_b",
     }));
-    (getFeatureProjectsByIds as jest.Mock).mockResolvedValue(
+    (getFeatureProjectsByIds as Mock).mockResolvedValue(
       new Map([
         ["feat_a", "prj_a"],
         ["feat_b", "prj_b"],

@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   assertValidFeatureRules,
@@ -17,8 +18,8 @@ import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureMo
 import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeaturesWithoutEditorFields: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getAllFeaturesWithoutEditorFields: vi.fn(),
 }));
 
 // `validateRuleAttributes` is the V2-side gate for the opt-in
@@ -175,7 +176,7 @@ describe("validateRuleAttributes (V2 helper)", () => {
 // Reject/accept outcomes are pinned end-to-end in ruleReferenceIntegrity.test.ts;
 // this covers what that harness cannot observe.
 describe("validateRulesReferences", () => {
-  const getAll = jest.fn();
+  const getAll = vi.fn();
   const ctx = {
     org: { settings: { attributeSchema: [] } },
     models: { savedGroups: { getAll } },
@@ -287,7 +288,7 @@ describe("rampPatchEntriesForTargets", () => {
 describe("rule write composites", () => {
   const ctx = {
     org: { id: "org_1", settings: { environments: [{ id: "production" }] } },
-    models: { savedGroups: { getAll: jest.fn().mockResolvedValue([]) } },
+    models: { savedGroups: { getAll: vi.fn().mockResolvedValue([]) } },
     getAllProjectIds: async () => [],
     hasPremiumFeature: () => true,
     canSkipSchemaValidationFor: () => false,
@@ -346,7 +347,7 @@ describe("rule write composites", () => {
 });
 
 describe("validateChangedPhaseReferences", () => {
-  const getAll = jest.fn();
+  const getAll = vi.fn();
   const ctx = {
     org: { id: "org_1", settings: { attributeSchema: [] } },
     models: { savedGroups: { getAll } },
@@ -448,7 +449,7 @@ describe("stagedFeatureOf", () => {
 });
 
 describe("validateRampPlanPatches", () => {
-  const getAll = jest.fn();
+  const getAll = vi.fn();
   const ctx = {
     org: {
       id: "org_1",
@@ -484,7 +485,7 @@ describe("validateRampPlanPatches", () => {
       prerequisites: [],
       ...extra,
     }) as FeatureInterface;
-  const loadFeatures = getAllFeaturesWithoutEditorFields as jest.Mock;
+  const loadFeatures = getAllFeaturesWithoutEditorFields as Mock;
   const run = (
     patches: Parameters<typeof rampPatchEntries>[0],
     target: FeatureInterface | null = feature,
@@ -840,12 +841,12 @@ describe("Saved Group scope in ramp patches", () => {
       condition: '{"id":{"$inGroup":"scoped"}}',
     },
   ];
-  const getAllWithoutValues = jest.fn().mockResolvedValue(groups);
+  const getAllWithoutValues = vi.fn().mockResolvedValue(groups);
   const context = {
     org: { settings: { enforceSavedGroupProjectScope: true } },
     models: {
       savedGroups: {
-        getAll: jest.fn().mockResolvedValue(groups),
+        getAll: vi.fn().mockResolvedValue(groups),
         getAllWithoutValues,
       },
     },
@@ -875,7 +876,7 @@ describe("Saved Group scope in ramp patches", () => {
       { stored },
     );
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it.each([
     { condition },

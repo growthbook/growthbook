@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   handleSlackAppHomeOpened,
   slackAppHomeOpenedEventSchema,
@@ -5,11 +6,11 @@ import {
 import { getSlackWorkspaceBotToken } from "back-end/src/services/slack/slackIdentity";
 import { cancellableFetch } from "back-end/src/util/http.util";
 
-jest.mock("back-end/src/services/slack/slackIdentity", () => ({
-  getSlackWorkspaceBotToken: jest.fn(),
+vi.mock("back-end/src/services/slack/slackIdentity", () => ({
+  getSlackWorkspaceBotToken: vi.fn(),
 }));
-jest.mock("back-end/src/util/http.util", () => ({
-  cancellableFetch: jest.fn(),
+vi.mock("back-end/src/util/http.util", () => ({
+  cancellableFetch: vi.fn(),
 }));
 
 const payload = {
@@ -26,9 +27,9 @@ const payload = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.mocked(getSlackWorkspaceBotToken).mockResolvedValue("xoxb-token");
-  jest.mocked(cancellableFetch).mockResolvedValue({
+  vi.clearAllMocks();
+  vi.mocked(getSlackWorkspaceBotToken).mockResolvedValue("xoxb-token");
+  vi.mocked(cancellableFetch).mockResolvedValue({
     responseWithoutBody: { ok: true, status: 200 },
     stringBody: JSON.stringify({ ok: true }),
   });
@@ -76,7 +77,7 @@ test("sets Messages tab prompts on repeated opens without inventing a message ti
 });
 
 test("does not call Slack after the workspace is disconnected", async () => {
-  jest.mocked(getSlackWorkspaceBotToken).mockResolvedValue(null);
+  vi.mocked(getSlackWorkspaceBotToken).mockResolvedValue(null);
   await handleSlackAppHomeOpened(slackAppHomeOpenedEventSchema.parse(payload));
   expect(cancellableFetch).not.toHaveBeenCalled();
 });

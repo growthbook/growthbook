@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import type { Response } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -10,9 +11,11 @@ import { setupApp } from "../api/api.setup";
 // MUTABLE rather than a constant `true`: the scheduling gate's unique
 // contribution IS the premium check, so an always-licensed fixture cannot tell
 // the gate from its publish-authority neighbour.
-let hasScheduledRevisions = true;
-jest.mock("back-end/src/enterprise", () => ({
-  ...jest.requireActual("back-end/src/enterprise"),
+let hasScheduledRevisions = vi.hoisted(() => true);
+vi.mock("back-end/src/enterprise", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/enterprise")>(
+    "back-end/src/enterprise",
+  )),
   orgHasPremiumFeature: (_org: unknown, feature: string) =>
     feature === "scheduled-revisions" ? hasScheduledRevisions : true,
 }));

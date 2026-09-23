@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { setupApp } from "back-end/test/api/api.setup";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
@@ -10,18 +11,28 @@ import {
   getSlackIntegrationsForFilters,
 } from "back-end/src/models/SlackIntegrationModel";
 
-jest.mock("back-end/src/models/EventWebhookModel", () => ({
-  ...jest.requireActual("back-end/src/models/EventWebhookModel"),
-  getAllEventWebHooksForEvent: jest.fn(
-    jest.requireActual("back-end/src/models/EventWebhookModel")
-      .getAllEventWebHooksForEvent,
+vi.mock("back-end/src/models/EventWebhookModel", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/models/EventWebhookModel")
+  >("back-end/src/models/EventWebhookModel")),
+  getAllEventWebHooksForEvent: vi.fn(
+    (
+      await vi.importActual<
+        typeof import("back-end/src/models/EventWebhookModel")
+      >("back-end/src/models/EventWebhookModel")
+    ).getAllEventWebHooksForEvent,
   ),
 }));
-jest.mock("back-end/src/models/SlackIntegrationModel", () => ({
-  ...jest.requireActual("back-end/src/models/SlackIntegrationModel"),
-  getSlackIntegrationsForFilters: jest.fn(
-    jest.requireActual("back-end/src/models/SlackIntegrationModel")
-      .getSlackIntegrationsForFilters,
+vi.mock("back-end/src/models/SlackIntegrationModel", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/models/SlackIntegrationModel")
+  >("back-end/src/models/SlackIntegrationModel")),
+  getSlackIntegrationsForFilters: vi.fn(
+    (
+      await vi.importActual<
+        typeof import("back-end/src/models/SlackIntegrationModel")
+      >("back-end/src/models/SlackIntegrationModel")
+    ).getSlackIntegrationsForFilters,
   ),
 }));
 
@@ -146,10 +157,10 @@ it("rechecks new subscriptions without caching a negative result", async () => {
 });
 
 it("keeps dispatching if either subscription lookup fails", async () => {
-  jest.mocked(getSlackIntegrationsForFilters).mockResolvedValueOnce(null);
+  vi.mocked(getSlackIntegrationsForFilters).mockResolvedValueOnce(null);
   expect(await hasEventSubscribers(filters)).toBe(true);
-  jest
-    .mocked(getAllEventWebHooksForEvent)
-    .mockRejectedValueOnce(new Error("Injected lookup failure"));
+  vi.mocked(getAllEventWebHooksForEvent).mockRejectedValueOnce(
+    new Error("Injected lookup failure"),
+  );
   expect(await hasEventSubscribers(filters)).toBe(true);
 });

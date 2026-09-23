@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { SlackWorkspaceConnectionInterface } from "shared/validators";
 import {
   pickSlackWorkspaceConnection,
@@ -6,14 +7,14 @@ import {
 import type { ReqContext } from "back-end/types/request";
 
 const connection = { organization: "org-1", teamId: "T1" };
-const update = jest.fn();
-const getAll = jest.fn();
+const update = vi.fn();
+const getAll = vi.fn();
 const context = {
   models: { slackWorkspaceConnections: { getAll, update } },
 } as unknown as ReqContext;
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   getAll.mockResolvedValue([connection]);
 });
 

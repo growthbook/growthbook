@@ -65,6 +65,3 @@ skills-src/*
 !skills-src/.gitkeep
 packages/back-end/agent-skills.local.json
 packages/back-end/generated/agent-skills/
-
-# Jest transform cache
-.jest-cache

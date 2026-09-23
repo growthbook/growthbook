@@ -1,14 +1,15 @@
+import { vi } from "vitest";
 import { generalAgentConfig } from "back-end/src/agent/general-agent";
 import { ReqContextClass } from "back-end/src/services/context";
 import { LocalConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
 import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
 
-jest.mock("back-end/src/api/api.router", () => ({ allRoutes: [] }));
-jest.mock("back-end/src/services/context");
-jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
+vi.mock("back-end/src/api/api.router", () => ({ allRoutes: [] }));
+vi.mock("back-end/src/services/context");
+vi.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
-jest.mock("back-end/src/enterprise/services/ai", () => ({
+vi.mock("back-end/src/enterprise/services/ai", () => ({
   aiTool: (definition: unknown) => definition,
 }));
 
@@ -48,7 +49,7 @@ it("omits web-only question controls without removing them from the web agent", 
 
 it("still parks Slack mutations for explicit confirmation", async () => {
   const buffer = conversation();
-  const emit = jest.fn();
+  const emit = vi.fn();
   const tools = slackAgentConfig.buildTools(context, buffer, {}, emit);
   if (!tools.callApi.execute) throw new Error("Missing callApi implementation");
   await tools.callApi.execute(
@@ -86,7 +87,7 @@ it("uses Slack guidance without web page context or question controls", async ()
 
 it("refuses existing dashboard writes from Slack before requesting confirmation", async () => {
   const buffer = conversation();
-  const emit = jest.fn();
+  const emit = vi.fn();
   const tools = slackAgentConfig.buildTools(context, buffer, {}, emit);
   if (!tools.callApi.execute) throw new Error("Missing callApi implementation");
   const result = await tools.callApi.execute(

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { OrganizationInterface } from "shared/types/organization";
 import { postFactMetricValidator } from "shared/validators";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
@@ -9,7 +10,7 @@ describe("Fact Metric API payload normalization", () => {
       id: "ft_events",
       datasource: "ds_events",
     });
-    const getFactTable = jest.fn().mockResolvedValue(factTable);
+    const getFactTable = vi.fn().mockResolvedValue(factTable);
     const body = postFactMetricValidator.bodySchema.parse({
       name: "Checkout funnel",
       metricType: "funnel",

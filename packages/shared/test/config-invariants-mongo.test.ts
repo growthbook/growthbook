@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   evaluateInvariants,
   invariantRuleFields,
@@ -486,7 +487,7 @@ describe("$ref resolution through evaluateInvariants", () => {
   });
 
   it("write-time probe accepts a shorthand $ref rule without console noise", () => {
-    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const stored = apiInvariantsToStored([
         { name: "eq", rule: { b: { $ref: "a" } }, message: "b must equal a" },

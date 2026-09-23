@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
 import { holdoutSizeToCoverage } from "shared/util";
@@ -17,15 +18,15 @@ import {
   updateHoldoutWithExperiment,
 } from "back-end/src/services/holdouts";
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  updateExperiment: jest.fn(),
-  createExperiment: jest.fn(),
-  deleteExperimentByIdForOrganization: jest.fn(),
-  getExperimentsByIds: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  updateExperiment: vi.fn(),
+  createExperiment: vi.fn(),
+  deleteExperimentByIdForOrganization: vi.fn(),
+  getExperimentsByIds: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/features", () => ({
-  queueSDKPayloadRefresh: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: vi.fn(),
 }));
 
 function makeExperiment(
@@ -137,11 +138,11 @@ const holdout = (
 
 describe("normalizeHoldoutScheduleUpdates", () => {
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(NOW);
+    vi.useFakeTimers().setSystemTime(NOW);
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe("clearing and absent input", () => {
@@ -360,8 +361,8 @@ describe("getNextScheduledStatusUpdateForStage", () => {
 });
 
 describe("rollbackExperimentAfterHoldoutFailure", () => {
-  const mockUpdateExperiment = updateExperiment as jest.Mock;
-  const mockQueueSDKPayloadRefresh = queueSDKPayloadRefresh as jest.Mock;
+  const mockUpdateExperiment = updateExperiment as Mock;
+  const mockQueueSDKPayloadRefresh = queueSDKPayloadRefresh as Mock;
 
   const makeRollbackExperiment = (
     overrides: Partial<ExperimentInterface> = {},
@@ -391,14 +392,14 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       ...overrides,
     }) as unknown as HoldoutInterface;
 
-  const makeContext = (holdoutUpdate: jest.Mock): ReqContext =>
+  const makeContext = (holdoutUpdate: Mock): ReqContext =>
     ({
       org: { id: "org", settings: {} },
       models: { holdout: { update: holdoutUpdate } },
     }) as unknown as ReqContext;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("metadata updates", () => {
@@ -407,7 +408,7 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       mockUpdateExperiment
         .mockResolvedValueOnce(makeRollbackExperiment({ name: "New" }))
         .mockResolvedValueOnce(makeRollbackExperiment({ name: "Old" }));
-      const holdoutUpdate = jest
+      const holdoutUpdate = vi
         .fn()
         .mockRejectedValue(new Error("holdout down"));
 
@@ -429,10 +430,12 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       mockUpdateExperiment
         .mockResolvedValueOnce(makeRollbackExperiment({ name: "New" }))
         .mockRejectedValueOnce(new Error("revert down"));
-      const holdoutUpdate = jest
+      const holdoutUpdate = vi
         .fn()
         .mockRejectedValue(new Error("holdout down"));
-      const error = jest.spyOn(logger, "error").mockImplementation();
+      const error = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => undefined);
 
       await expect(
         updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
@@ -466,7 +469,7 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
         ] as unknown as ExperimentInterface["phases"],
       });
       mockUpdateExperiment.mockResolvedValueOnce(experiment);
-      const holdoutUpdate = jest.fn();
+      const holdoutUpdate = vi.fn();
 
       const savedGroupTargeting = [{ match: "all" as const, ids: ["grp_1"] }];
       await updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
@@ -506,8 +509,8 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
           },
         },
         models: {
-          holdout: { update: jest.fn() },
-          projects: { ensureProjectsExist: jest.fn() },
+          holdout: { update: vi.fn() },
+          projects: { ensureProjectsExist: vi.fn() },
         },
       }) as unknown as ReqContext;
 
@@ -549,12 +552,12 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
   });
 
   describe("payload refresh", () => {
-    const makePayloadContext = (holdoutUpdate: jest.Mock): ReqContext =>
+    const makePayloadContext = (holdoutUpdate: Mock): ReqContext =>
       ({
         org: { id: "org", settings: { environments: [{ id: "production" }] } },
         models: {
           holdout: { update: holdoutUpdate },
-          projects: { ensureProjectsExist: jest.fn() },
+          projects: { ensureProjectsExist: vi.fn() },
         },
       }) as unknown as ReqContext;
 
@@ -565,9 +568,7 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       } as unknown as Partial<HoldoutInterface>);
 
     it("invalidates the old and the new keys when a running holdout moves projects", async () => {
-      const holdoutUpdate = jest
-        .fn()
-        .mockResolvedValue(withProjects(["prj_2"]));
+      const holdoutUpdate = vi.fn().mockResolvedValue(withProjects(["prj_2"]));
 
       await updateHoldoutWithExperiment(makePayloadContext(holdoutUpdate), {
         holdout: withProjects(["prj_1"]),
@@ -586,9 +587,7 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
     });
 
     it("skips the refresh when the holdout is not running", async () => {
-      const holdoutUpdate = jest
-        .fn()
-        .mockResolvedValue(withProjects(["prj_2"]));
+      const holdoutUpdate = vi.fn().mockResolvedValue(withProjects(["prj_2"]));
 
       await updateHoldoutWithExperiment(makePayloadContext(holdoutUpdate), {
         holdout: withProjects(["prj_1"]),
@@ -600,9 +599,7 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
     });
 
     it("skips the refresh for a metadata-only change", async () => {
-      const holdoutUpdate = jest
-        .fn()
-        .mockResolvedValue(withProjects(["prj_1"]));
+      const holdoutUpdate = vi.fn().mockResolvedValue(withProjects(["prj_1"]));
       mockUpdateExperiment.mockResolvedValueOnce(
         makeExperiment({ status: "running" }),
       );
@@ -623,7 +620,7 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       mockUpdateExperiment
         .mockResolvedValueOnce(makeRollbackExperiment({ status: "stopped" }))
         .mockResolvedValueOnce(makeRollbackExperiment({ status: "running" }));
-      const holdoutUpdate = jest
+      const holdoutUpdate = vi
         .fn()
         .mockRejectedValue(new Error("holdout down"));
 
@@ -648,7 +645,7 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       mockUpdateExperiment
         .mockResolvedValueOnce(makeExperiment({ status: "stopped" }))
         .mockRejectedValueOnce(new Error("experiment down"));
-      const holdoutUpdate = jest
+      const holdoutUpdate = vi
         .fn()
         .mockRejectedValue(new Error("holdout down"));
 
@@ -671,7 +668,7 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
       mockUpdateExperiment
         .mockResolvedValueOnce(makeExperiment({ status: "stopped" }))
         .mockResolvedValueOnce(makeExperiment({ status: "running" }));
-      const holdoutUpdate = jest
+      const holdoutUpdate = vi
         .fn()
         .mockRejectedValue(new Error("holdout down"));
 
@@ -750,11 +747,11 @@ describe("assertValidHoldoutEnvironments", () => {
 
 describe("assertValidHoldoutSchedule", () => {
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(NOW);
+    vi.useFakeTimers().setSystemTime(NOW);
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("is a no-op for an absent schedule", () => {

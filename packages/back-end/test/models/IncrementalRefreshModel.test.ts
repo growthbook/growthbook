@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import {
   connectTestMongo,
@@ -12,7 +13,7 @@ import type { Context } from "back-end/src/models/BaseModel";
 
 const context = {
   org: { id: "org_1" },
-  populateForeignRefs: jest.fn().mockResolvedValue(undefined),
+  populateForeignRefs: vi.fn().mockResolvedValue(undefined),
   models: {},
 } as unknown as Context;
 
@@ -73,7 +74,7 @@ describe("IncrementalRefreshModel", () => {
   });
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     await collection().deleteMany({});
   });
 

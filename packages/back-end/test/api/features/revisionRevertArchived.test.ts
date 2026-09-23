@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import type { Request } from "express";
@@ -7,8 +8,8 @@ import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archi
 import { SoftWarningError } from "back-end/src/util/errors";
 import { setupApp } from "../api.setup";
 
-jest.mock("back-end/src/services/archiveDependentsGuard", () => ({
-  assertFeatureArchiveDependentsGuard: jest.fn(),
+vi.mock("back-end/src/services/archiveDependentsGuard", () => ({
+  assertFeatureArchiveDependentsGuard: vi.fn(),
 }));
 
 // POST /features/{id}/revisions/{version}/revert restores the target's
@@ -87,7 +88,7 @@ describe("POST /api/v1/features/:id/revisions/:version/revert", () => {
       .set("Authorization", "Bearer foo");
 
   beforeEach(() => {
-    jest.mocked(assertFeatureArchiveDependentsGuard).mockReset();
+    vi.mocked(assertFeatureArchiveDependentsGuard).mockReset();
     setReqContext(
       new ReqContextClass({
         org,
@@ -123,11 +124,9 @@ describe("POST /api/v1/features/:id/revisions/:version/revert", () => {
   it("runs the archive-dependents guard when the restore re-archives", async () => {
     await insertFeature(false);
     await insertRevisions({ archived: false }, { archived: true });
-    jest
-      .mocked(assertFeatureArchiveDependentsGuard)
-      .mockRejectedValueOnce(
-        new SoftWarningError("dependents", ["1 feature flag(s)"]),
-      );
+    vi.mocked(assertFeatureArchiveDependentsGuard).mockRejectedValueOnce(
+      new SoftWarningError("dependents", ["1 feature flag(s)"]),
+    );
     const warned = await revert({ strategy: "publish" });
     expect(warned.status).toBe(422);
     expect(warned.body.warnings).toEqual(["1 feature flag(s)"]);

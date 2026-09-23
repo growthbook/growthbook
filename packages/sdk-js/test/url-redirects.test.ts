@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { AutoExperiment, GrowthBook } from "../src";
 
 function sleep(ms = 20) {
@@ -10,7 +11,7 @@ describe("urlRedirects", () => {
   beforeEach(() => {
     // @ts-expect-error: Ignoring operand for delete operator needing to be optional for testing
     delete window.location;
-    window.location = { ...realLocation, replace: jest.fn() };
+    window.location = { ...realLocation, replace: vi.fn() };
   });
 
   afterEach(() => {
@@ -352,7 +353,7 @@ describe("urlRedirects", () => {
   });
 
   it("only redirects once per url", async () => {
-    const navigateMock = jest.fn(async (_) => {
+    const navigateMock = vi.fn(async (_) => {
       await sleep(500);
     });
 

@@ -1,14 +1,15 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import { Response } from "express";
 import { ExpandedMember } from "shared/types/organization";
 import { listUsers } from "back-end/src/scim/users/listUsers";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { ScimListRequest, ScimListResponse } from "back-end/types/scim";
 
-jest.mock("back-end/src/services/organizations", () => ({
-  expandOrgMembers: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  expandOrgMembers: vi.fn(),
 }));
 
-const mockExpandOrgMembers = expandOrgMembers as jest.MockedFunction<
+const mockExpandOrgMembers = expandOrgMembers as MockedFunction<
   typeof expandOrgMembers
 >;
 
@@ -48,14 +49,14 @@ function shuffled<T>(arr: T[]): T[] {
 }
 
 describe("SCIM listUsers pagination", () => {
-  let mockJson: jest.Mock;
-  let mockStatus: jest.Mock;
+  let mockJson: Mock;
+  let mockStatus: Mock;
   let req: Partial<ScimListRequest>;
   let res: Partial<Response<ScimListResponse>>;
 
   beforeEach(() => {
-    mockJson = jest.fn();
-    mockStatus = jest.fn().mockReturnValue({ json: mockJson });
+    mockJson = vi.fn();
+    mockStatus = vi.fn().mockReturnValue({ json: mockJson });
     req = {
       query: {},
       organization: { id: "org_1", members: [] },
@@ -64,7 +65,7 @@ describe("SCIM listUsers pagination", () => {
       status: mockStatus,
       json: mockJson,
     };
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   async function getPage(

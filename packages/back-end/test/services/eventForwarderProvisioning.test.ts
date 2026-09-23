@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DataSourceInterface } from "shared/types/datasource";
 import { provisionEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarder/connector";
@@ -16,57 +17,57 @@ import { reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries } from "
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
 import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarder/factTable";
 
-jest.mock("back-end/src/models/DataSourceModel");
-jest.mock("back-end/src/enterprise/licenseUtil", () => ({
-  postPauseEventForwarderToLicenseServer: jest.fn(),
-  postProvisionEventForwarderToLicenseServer: jest.fn(),
-  postRestartEventForwarderToLicenseServer: jest.fn(),
-  postResumeEventForwarderToLicenseServer: jest.fn(),
-  postTeardownEventForwarderToLicenseServer: jest.fn(),
-  postUpdateEventForwarderCredentialsToLicenseServer: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel");
+vi.mock("back-end/src/enterprise/licenseUtil", () => ({
+  postPauseEventForwarderToLicenseServer: vi.fn(),
+  postProvisionEventForwarderToLicenseServer: vi.fn(),
+  postRestartEventForwarderToLicenseServer: vi.fn(),
+  postResumeEventForwarderToLicenseServer: vi.fn(),
+  postTeardownEventForwarderToLicenseServer: vi.fn(),
+  postUpdateEventForwarderCredentialsToLicenseServer: vi.fn(),
 }));
-jest.mock("back-end/src/services/eventForwarder/config");
-jest.mock("back-end/src/services/eventForwarder/bigquery");
-jest.mock("back-end/src/services/eventForwarder/writeAccess");
-jest.mock("back-end/src/services/eventForwarder/datasourceSync");
-jest.mock("back-end/src/services/eventForwarder/datasourceQueries");
-jest.mock("back-end/src/services/eventForwarder/factTable");
+vi.mock("back-end/src/services/eventForwarder/config");
+vi.mock("back-end/src/services/eventForwarder/bigquery");
+vi.mock("back-end/src/services/eventForwarder/writeAccess");
+vi.mock("back-end/src/services/eventForwarder/datasourceSync");
+vi.mock("back-end/src/services/eventForwarder/datasourceQueries");
+vi.mock("back-end/src/services/eventForwarder/factTable");
 
-const mockedGetDataSourceById = getDataSourceById as jest.MockedFunction<
+const mockedGetDataSourceById = getDataSourceById as MockedFunction<
   typeof getDataSourceById
 >;
 const mockedProvisionRemote =
-  postProvisionEventForwarderToLicenseServer as jest.MockedFunction<
+  postProvisionEventForwarderToLicenseServer as MockedFunction<
     typeof postProvisionEventForwarderToLicenseServer
   >;
-const mockedDecrypt = decryptEventForwarderConfigModel as jest.MockedFunction<
+const mockedDecrypt = decryptEventForwarderConfigModel as MockedFunction<
   typeof decryptEventForwarderConfigModel
 >;
 const mockedGetBigQueryProjectId =
-  getBigQueryEventForwarderProjectId as jest.MockedFunction<
+  getBigQueryEventForwarderProjectId as MockedFunction<
     typeof getBigQueryEventForwarderProjectId
   >;
 const mockedResolveBigQueryTablePrefix =
-  resolveBigQueryEventForwarderTablePrefix as jest.MockedFunction<
+  resolveBigQueryEventForwarderTablePrefix as MockedFunction<
     typeof resolveBigQueryEventForwarderTablePrefix
   >;
-const mockedWriteAccess = testEventForwarderWriteAccess as jest.MockedFunction<
+const mockedWriteAccess = testEventForwarderWriteAccess as MockedFunction<
   typeof testEventForwarderWriteAccess
 >;
 const mockedEnsureBigQueryTables =
-  ensureEventForwarderBigQueryTables as jest.MockedFunction<
+  ensureEventForwarderBigQueryTables as MockedFunction<
     typeof ensureEventForwarderBigQueryTables
   >;
 const mockedReconcileUserIdTypes =
-  reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries as jest.MockedFunction<
+  reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries as MockedFunction<
     typeof reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries
   >;
 const mockedEnsureFeatureUsage =
-  ensureEventForwarderFeatureUsageQuery as jest.MockedFunction<
+  ensureEventForwarderFeatureUsageQuery as MockedFunction<
     typeof ensureEventForwarderFeatureUsageQuery
   >;
 const mockedEnsureFactTable =
-  ensureEventForwarderEventsFactTable as jest.MockedFunction<
+  ensureEventForwarderEventsFactTable as MockedFunction<
     typeof ensureEventForwarderEventsFactTable
   >;
 
@@ -90,7 +91,7 @@ function datasource(): DataSourceInterface {
 
 describe("provisionEventForwarderThroughLicenseServer", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedGetDataSourceById.mockResolvedValue(datasource());
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -116,7 +117,7 @@ describe("provisionEventForwarderThroughLicenseServer", () => {
   });
 
   it("creates managed datasource resources without storing resource ids on the event forwarder config", async () => {
-    const update = jest.fn(async (existing, updates) => ({
+    const update = vi.fn(async (existing, updates) => ({
       ...existing,
       ...updates,
     }));

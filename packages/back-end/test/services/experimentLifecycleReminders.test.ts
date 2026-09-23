@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ExperimentInterface } from "shared/types/experiment";
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import {
@@ -9,26 +10,26 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { createEvent } from "back-end/src/models/EventModel";
 import { checkExperimentLifecycleReminders } from "back-end/src/services/experimentLifecycleReminders";
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentsByIds: jest.fn(),
-  dangerousGetExperimentsForLifecycleReminders: jest.fn(),
-  setExperimentNotificationState: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentsByIds: vi.fn(),
+  dangerousGetExperimentsForLifecycleReminders: vi.fn(),
+  setExperimentNotificationState: vi.fn(),
 }));
-jest.mock("back-end/src/models/EventModel", () => ({ createEvent: jest.fn() }));
+vi.mock("back-end/src/models/EventModel", () => ({ createEvent: vi.fn() }));
 // Reminders read the latest snapshot for the footer's unit count.
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  getLatestSuccessfulSnapshot: jest.fn().mockResolvedValue(null),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  getLatestSuccessfulSnapshot: vi.fn().mockResolvedValue(null),
 }));
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgId: jest.fn(),
-  getEnvironmentIdsFromOrg: jest.fn(() => []),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgId: vi.fn(),
+  getEnvironmentIdsFromOrg: vi.fn(() => []),
 }));
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    error: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 const now = new Date("2026-09-11T12:00:00Z");
@@ -49,46 +50,44 @@ const fixture = (id: string): ExperimentInterface =>
     statusUpdateSchedule: { stopAt: new Date(now.getTime() + day) },
   }) as unknown as ExperimentInterface;
 let experiments: ExperimentInterface[];
-const renewLease = jest.fn(async () => {});
+const renewLease = vi.fn(async () => {});
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers().setSystemTime(now);
+  vi.clearAllMocks();
+  vi.useFakeTimers().setSystemTime(now);
   experiments = [fixture("manual")];
-  jest
-    .mocked(dangerousGetExperimentsForLifecycleReminders)
-    .mockImplementation(async function* () {
+  vi.mocked(dangerousGetExperimentsForLifecycleReminders).mockImplementation(
+    async function* () {
       for (const experiment of experiments)
         yield { id: experiment.id, organization: experiment.organization };
-    });
-  jest
-    .mocked(getExperimentsByIds)
-    .mockImplementation(async (context, ids) =>
-      experiments.filter(
-        (experiment) =>
-          ids.includes(experiment.id) &&
-          experiment.organization === context.org.id,
-      ),
-    );
-  jest.mocked(getContextForAgendaJobByOrgId).mockImplementation(
+    },
+  );
+  vi.mocked(getExperimentsByIds).mockImplementation(async (context, ids) =>
+    experiments.filter(
+      (experiment) =>
+        ids.includes(experiment.id) &&
+        experiment.organization === context.org.id,
+    ),
+  );
+  vi.mocked(getContextForAgendaJobByOrgId).mockImplementation(
     async (id) =>
       ({
         org: { id, settings: { updateSchedule: { type: "never" } } },
       }) as Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>,
   );
-  jest
-    .mocked(setExperimentNotificationState)
-    .mockImplementation(async ({ experiment, type, triggered }) => {
+  vi.mocked(setExperimentNotificationState).mockImplementation(
+    async ({ experiment, type, triggered }) => {
       experiment.pastNotifications = [
         ...(experiment.pastNotifications || []).filter((item) => item !== type),
         ...(triggered ? [type] : []),
       ];
-    });
+    },
+  );
 });
-afterEach(() => jest.useRealTimers());
+afterEach(() => vi.useRealTimers());
 it("notifies manually refreshed experiments without a data source even when organization refreshes are disabled", async () => {
   await checkExperimentLifecycleReminders(renewLease);
   expect(
-    jest.mocked(createEvent).mock.calls.map(([event]) => event.event),
+    vi.mocked(createEvent).mock.calls.map(([event]) => event.event),
   ).toEqual(["status.endingSoon", "status.stale"]);
   expect(renewLease).toHaveBeenCalledTimes(1);
 });
@@ -108,9 +107,9 @@ it("resets ending-soon state when the schedule is extended", async () => {
 });
 it("continues with the next organization after one batch fails", async () => {
   experiments.push({ ...fixture("other"), organization: "org2" });
-  jest
-    .mocked(getExperimentsByIds)
-    .mockRejectedValueOnce(new Error("Failed lookup"));
+  vi.mocked(getExperimentsByIds).mockRejectedValueOnce(
+    new Error("Failed lookup"),
+  );
   await checkExperimentLifecycleReminders(renewLease);
   expect(createEvent).toHaveBeenCalledTimes(2);
   expect(getContextForAgendaJobByOrgId).toHaveBeenCalledTimes(2);
@@ -159,18 +158,18 @@ function applyReminderChange(changes: Partial<ExperimentInterface>) {
 
 it("notifies again after a stop and restart between scheduler passes", async () => {
   await checkExperimentLifecycleReminders(renewLease);
-  jest.mocked(createEvent).mockClear();
+  vi.mocked(createEvent).mockClear();
   applyReminderChange({ status: "stopped" });
   applyReminderChange({ status: "running" });
   await checkExperimentLifecycleReminders(renewLease);
   expect(
-    jest.mocked(createEvent).mock.calls.map(([event]) => event.event),
+    vi.mocked(createEvent).mock.calls.map(([event]) => event.event),
   ).toEqual(["status.endingSoon", "status.stale"]);
 });
 
 it("notifies about a revised end date without repeating the stale reminder", async () => {
   await checkExperimentLifecycleReminders(renewLease);
-  jest.mocked(createEvent).mockClear();
+  vi.mocked(createEvent).mockClear();
   applyReminderChange({
     statusUpdateSchedule: { stopAt: new Date(now.getTime() + 10 * day) },
   });
@@ -179,6 +178,6 @@ it("notifies about a revised end date without repeating the stale reminder", asy
   });
   await checkExperimentLifecycleReminders(renewLease);
   expect(
-    jest.mocked(createEvent).mock.calls.map(([event]) => event.event),
+    vi.mocked(createEvent).mock.calls.map(([event]) => event.event),
   ).toEqual(["status.endingSoon"]);
 });

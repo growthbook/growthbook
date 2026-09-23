@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import type { Request } from "express";
@@ -6,9 +7,11 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { setupApp } from "../api.setup";
 
-jest.mock("back-end/src/models/SdkConnectionModel", () => ({
-  ...jest.requireActual("back-end/src/models/SdkConnectionModel"),
-  findSDKConnectionsByOrganization: jest.fn(),
+vi.mock("back-end/src/models/SdkConnectionModel", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/models/SdkConnectionModel")
+  >("back-end/src/models/SdkConnectionModel")),
+  findSDKConnectionsByOrganization: vi.fn(),
 }));
 
 // Moving a flag out of a project that still serves a flag gating on it is a
@@ -88,7 +91,7 @@ describe("moving a prerequisite parent", () => {
       );
     await insertFeature("parent", "B");
     await insertFeature("dep", "B", [{ id: "parent", condition: "{}" }]);
-    jest.mocked(findSDKConnectionsByOrganization).mockResolvedValue([
+    vi.mocked(findSDKConnectionsByOrganization).mockResolvedValue([
       {
         projects: ["B"],
         environment: "production",

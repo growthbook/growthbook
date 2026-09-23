@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import { GrowthbookClickhouseDataSource } from "shared/types/datasource";
 import { SDKAttributeSchema } from "shared/types/organization";
@@ -23,35 +24,35 @@ import {
 } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 
-jest.mock("back-end/src/services/licenseServerManagedClickhouse", () => ({
-  dangerousRecreateClickhouseTables: jest.fn().mockResolvedValue(undefined),
+vi.mock("back-end/src/services/licenseServerManagedClickhouse", () => ({
+  dangerousRecreateClickhouseTables: vi.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock("back-end/src/models/FactTableModel", () => ({
-  dangerouslyGetFactTableByIdBypassPermission: jest.fn(),
-  dangerouslySyncManagedWarehouseFactTable: jest.fn(),
+vi.mock("back-end/src/models/FactTableModel", () => ({
+  dangerouslyGetFactTableByIdBypassPermission: vi.fn(),
+  dangerouslySyncManagedWarehouseFactTable: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getGrowthbookDatasource: jest.fn(),
-  dangerouslyGetGrowthbookDatasourceBypassPermission: jest.fn(),
-  updateDataSource: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getGrowthbookDatasource: vi.fn(),
+  dangerouslyGetGrowthbookDatasourceBypassPermission: vi.fn(),
+  updateDataSource: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/datasource", () => ({
-  getSourceIntegrationObject: jest.fn(),
+vi.mock("back-end/src/services/datasource", () => ({
+  getSourceIntegrationObject: vi.fn(),
 }));
 
-const mockGetGrowthbookDatasource = jest.mocked(getGrowthbookDatasource);
-const mockGetSourceIntegrationObject = jest.mocked(getSourceIntegrationObject);
-const mockGetFactTableById = jest.mocked(
+const mockGetGrowthbookDatasource = vi.mocked(getGrowthbookDatasource);
+const mockGetSourceIntegrationObject = vi.mocked(getSourceIntegrationObject);
+const mockGetFactTableById = vi.mocked(
   dangerouslyGetFactTableByIdBypassPermission,
 );
-const mockSyncFactTable = jest.mocked(dangerouslySyncManagedWarehouseFactTable);
-const mockGetDatasource = jest.mocked(
+const mockSyncFactTable = vi.mocked(dangerouslySyncManagedWarehouseFactTable);
+const mockGetDatasource = vi.mocked(
   dangerouslyGetGrowthbookDatasourceBypassPermission,
 );
-const mockUpdateDataSource = jest.mocked(updateDataSource);
+const mockUpdateDataSource = vi.mocked(updateDataSource);
 
 function makeFactTableColumn(
   column: string,
@@ -83,12 +84,12 @@ describe("listSessionReplays", () => {
   } as unknown as GrowthbookClickhouseDataSource;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetGrowthbookDatasource.mockResolvedValue(datasource);
   });
 
   it("adds supported session replay filters to the ClickHouse query", async () => {
-    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    const runQuery = vi.fn().mockResolvedValue({ rows: [] });
     mockGetSourceIntegrationObject.mockReturnValue({
       runQuery,
     } as never);
@@ -131,7 +132,7 @@ describe("listSessionReplays", () => {
 
   it("returns an empty list when there is no datasource", async () => {
     mockGetGrowthbookDatasource.mockResolvedValue(null);
-    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    const runQuery = vi.fn().mockResolvedValue({ rows: [] });
     mockGetSourceIntegrationObject.mockReturnValue({
       runQuery,
     } as never);
@@ -185,7 +186,7 @@ describe("syncManagedWarehouseIdentifiers", () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetDatasource.mockResolvedValue(datasource);
     mockUpdateDataSource.mockResolvedValue(undefined as never);
     mockSyncFactTable.mockResolvedValue(undefined as never);

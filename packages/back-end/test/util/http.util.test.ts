@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import nodeFetch from "node-fetch";
 import {
   cancellableFetch,
@@ -5,18 +6,20 @@ import {
   getHttpOptions,
 } from "back-end/src/util/http.util";
 
-// proxy-agent is stubbed in jest.config.js, so assert on the agent's presence, not its class.
-jest.mock("node-fetch");
+// proxy-agent is stubbed in test/setup.ts, so assert on the agent's presence, not its class.
+vi.mock("node-fetch");
 let mockUseProxy = false;
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   WEBHOOK_PROXY: "http://smokescreen.test:4750",
   get USE_PROXY() {
     return mockUseProxy;
   },
 }));
 
-const mockedFetch = nodeFetch as unknown as jest.Mock;
+const mockedFetch = nodeFetch as unknown as Mock;
 
 function proxyRefused() {
   const err = new Error(

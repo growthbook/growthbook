@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { setupApp } from "back-end/test/api/api.setup";
@@ -13,16 +14,21 @@ import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
 import { sendExperimentChangesEmail } from "back-end/src/services/email";
 import { metrics, experiments } from "./experimentSignificance.mocks.json";
 
-jest.mock("back-end/src/events/hasEventSubscribers", () => ({
-  hasEventSubscribers: jest.fn(
-    jest.requireActual("back-end/src/events/hasEventSubscribers")
-      .hasEventSubscribers,
+vi.mock("back-end/src/events/hasEventSubscribers", async () => ({
+  hasEventSubscribers: vi.fn(
+    (
+      await vi.importActual<
+        typeof import("back-end/src/events/hasEventSubscribers")
+      >("back-end/src/events/hasEventSubscribers")
+    ).hasEventSubscribers,
   ),
 }));
-jest.mock("back-end/src/services/email", () => ({
-  ...jest.requireActual("back-end/src/services/email"),
+vi.mock("back-end/src/services/email", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/services/email")>(
+    "back-end/src/services/email",
+  )),
   isEmailEnabled: () => true,
-  sendExperimentChangesEmail: jest.fn(),
+  sendExperimentChangesEmail: vi.fn(),
 }));
 
 const { isReady } = setupApp();

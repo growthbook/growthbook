@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import type { FeatureInterface } from "shared/types/feature";
 import type { Context } from "back-end/src/models/BaseModel";
 import { onFeatureUpdate } from "back-end/src/models/FeatureModel";
@@ -17,7 +18,7 @@ function gate<T>() {
 
 function ctx(
   getAllProjectIds: () => Promise<string[]>,
-  emitAttempted: jest.Mock,
+  emitAttempted: Mock,
 ): Context {
   return {
     org: {
@@ -80,7 +81,7 @@ const after = { ...before, description: "after" } as FeatureInterface;
 describe("onFeatureUpdate as a straggler (resumes mid-next-landing)", () => {
   it("emits for a landing that stood, while a later landing rolls the feature back", async () => {
     const projectIds = gate<string[]>();
-    const emitAttempted = jest.fn();
+    const emitAttempted = vi.fn();
     const context = ctx(() => projectIds.promise, emitAttempted);
     let producer!: Promise<void>;
 
@@ -104,7 +105,7 @@ describe("onFeatureUpdate as a straggler (resumes mid-next-landing)", () => {
 
   it("stays silent for a landing that rolled the feature back, while a later landing stands", async () => {
     const projectIds = gate<string[]>();
-    const emitAttempted = jest.fn();
+    const emitAttempted = vi.fn();
     const context = ctx(() => projectIds.promise, emitAttempted);
     let producer!: Promise<void>;
 

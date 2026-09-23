@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { FeatureInterface } from "shared/types/feature";
 import {
   assertValidExperimentPrerequisites,
@@ -6,11 +7,11 @@ import {
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { ApiReqContext } from "back-end/types/api";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeaturesWithoutEditorFields: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getAllFeaturesWithoutEditorFields: vi.fn(),
 }));
 const scanContext = { scan: true } as unknown as ApiReqContext;
-jest.mock("back-end/src/services/organizations", () => ({
+vi.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgObject: () => scanContext,
   getEnvironments: () => [{ id: "production" }, { id: "dev" }],
 }));
@@ -30,14 +31,14 @@ const flag = (id: string, ...parents: string[]): FeatureInterface =>
 const stub = (
   visible: (context: unknown) => Record<string, FeatureInterface>,
 ) =>
-  jest
+  vi
     .mocked(getAllFeaturesWithoutEditorFields)
     .mockImplementation(async (context, opts) => {
       const byId = visible(context);
       return (opts?.ids ?? []).flatMap((id) => (byId[id] ? [byId[id]] : []));
     });
 
-beforeEach(() => jest.mocked(getAllFeaturesWithoutEditorFields).mockReset());
+beforeEach(() => vi.mocked(getAllFeaturesWithoutEditorFields).mockReset());
 
 describe("assertValidPrerequisiteParents", () => {
   it("does not query when the write adds no prerequisite", async () => {

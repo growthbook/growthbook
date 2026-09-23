@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import {
   ExperimentMetricInterface,
   expandDerivedMetricsInMap,
@@ -20,6 +21,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
+  legacyDocDescribesPhase,
 } from "back-end/src/enterprise/services/data-pipeline";
 import {
   BadRequestError,
@@ -54,109 +56,103 @@ import {
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  updateExperiment: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  updateExperiment: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  createExperimentSnapshotModel: jest.fn(),
-  findSnapshotById: jest.fn(),
-  getLatestSuccessfulSnapshot: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  createExperimentSnapshotModel: vi.fn(),
+  findSnapshotById: vi.fn(),
+  getLatestSuccessfulSnapshot: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/MetricModel", () => ({
-  getMetricById: jest.fn(),
-  getMetricMap: jest.fn(),
-  getMetricsByIds: jest.fn(),
-  insertMetric: jest.fn(),
+vi.mock("back-end/src/models/MetricModel", () => ({
+  getMetricById: vi.fn(),
+  getMetricMap: vi.fn(),
+  getMetricsByIds: vi.fn(),
+  insertMetric: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FactTableModel", () => ({
-  getFactTableMap: jest.fn(),
+vi.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTableMap: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/datasource", () => ({
-  getIntegrationFromDatasourceId: jest.fn(),
-  getSourceIntegrationObject: jest.fn(),
+vi.mock("back-end/src/services/datasource", () => ({
+  getIntegrationFromDatasourceId: vi.fn(),
+  getSourceIntegrationObject: vi.fn(),
 }));
 
-jest.mock("back-end/src/enterprise/services/dashboards", () => ({
-  updateExperimentDashboards: jest.fn(),
+vi.mock("back-end/src/enterprise/services/dashboards", () => ({
+  updateExperimentDashboards: vi.fn(),
 }));
 
-jest.mock("back-end/src/enterprise", () => ({
-  orgHasPremiumFeature: jest.fn(),
+vi.mock("back-end/src/enterprise", () => ({
+  orgHasPremiumFeature: vi.fn(),
 }));
 
-jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
-  assertIncrementalRefreshPrerequisites: jest.fn(),
-  exploratoryOverallRequiresFullRefresh: jest.fn(),
-  legacyDocDescribesPhase: (
-    args: Parameters<
-      (typeof import("back-end/src/enterprise/services/data-pipeline"))["legacyDocDescribesPhase"]
-    >[0],
-  ) =>
-    jest
-      .requireActual<
-        typeof import("back-end/src/enterprise/services/data-pipeline")
-      >("back-end/src/enterprise/services/data-pipeline")
-      .legacyDocDescribesPhase(args),
+vi.mock("back-end/src/enterprise/services/data-pipeline", () => ({
+  legacyDocDescribesPhase: vi.fn(),
+  assertIncrementalRefreshPrerequisites: vi.fn(),
+  exploratoryOverallRequiresFullRefresh: vi.fn(),
 }));
 
 const {
+  legacyDocDescribesPhase: realLegacyDocDescribesPhase,
   getExperimentSettingsHashForIncrementalRefresh,
   getFactTablesNeedingRebuild,
   getMetricSettingsHashForIncrementalRefresh,
-} = jest.requireActual<
+} = (await vi.importActual<
   typeof import("back-end/src/enterprise/services/data-pipeline")
 >(
   "back-end/src/enterprise/services/data-pipeline",
-) as typeof import("back-end/src/enterprise/services/data-pipeline");
+)) as typeof import("back-end/src/enterprise/services/data-pipeline");
 
-const updateExperimentMock = updateExperiment as jest.MockedFunction<
+vi.mocked(legacyDocDescribesPhase).mockImplementation(
+  realLegacyDocDescribesPhase,
+);
+
+const updateExperimentMock = updateExperiment as MockedFunction<
   typeof updateExperiment
 >;
 const createExperimentSnapshotModelMock =
-  createExperimentSnapshotModel as jest.MockedFunction<
+  createExperimentSnapshotModel as MockedFunction<
     typeof createExperimentSnapshotModel
   >;
-const findSnapshotByIdMock = findSnapshotById as jest.MockedFunction<
+const findSnapshotByIdMock = findSnapshotById as MockedFunction<
   typeof findSnapshotById
 >;
 const getLatestSuccessfulSnapshotMock =
-  getLatestSuccessfulSnapshot as jest.MockedFunction<
+  getLatestSuccessfulSnapshot as MockedFunction<
     typeof getLatestSuccessfulSnapshot
   >;
-const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
+const getDataSourceByIdMock = getDataSourceById as MockedFunction<
   typeof getDataSourceById
 >;
-const getMetricMapMock = getMetricMap as jest.MockedFunction<
-  typeof getMetricMap
->;
-const getFactTableMapMock = getFactTableMap as jest.MockedFunction<
+const getMetricMapMock = getMetricMap as MockedFunction<typeof getMetricMap>;
+const getFactTableMapMock = getFactTableMap as MockedFunction<
   typeof getFactTableMap
 >;
 const getSourceIntegrationObjectMock =
-  getSourceIntegrationObject as jest.MockedFunction<
+  getSourceIntegrationObject as MockedFunction<
     typeof getSourceIntegrationObject
   >;
 const updateExperimentDashboardsMock =
-  updateExperimentDashboards as jest.MockedFunction<
+  updateExperimentDashboards as MockedFunction<
     typeof updateExperimentDashboards
   >;
 const assertIncrementalRefreshPrerequisitesMock =
-  assertIncrementalRefreshPrerequisites as jest.MockedFunction<
+  assertIncrementalRefreshPrerequisites as MockedFunction<
     typeof assertIncrementalRefreshPrerequisites
   >;
 const exploratoryOverallRequiresFullRefreshMock =
-  exploratoryOverallRequiresFullRefresh as jest.MockedFunction<
+  exploratoryOverallRequiresFullRefresh as MockedFunction<
     typeof exploratoryOverallRequiresFullRefresh
   >;
-const orgHasPremiumFeatureMock = orgHasPremiumFeature as jest.MockedFunction<
+const orgHasPremiumFeatureMock = orgHasPremiumFeature as MockedFunction<
   typeof orgHasPremiumFeature
 >;
 
@@ -191,8 +187,8 @@ function wireIncrementalRefreshState(
   }: { phaseDoc?: unknown; legacyDoc?: unknown } = {},
 ): void {
   context.models.incrementalRefresh = {
-    getByExperimentIdAndPhase: jest.fn().mockResolvedValue(phaseDoc),
-    getLegacyByExperimentIdWithoutPhase: jest.fn().mockResolvedValue(legacyDoc),
+    getByExperimentIdAndPhase: vi.fn().mockResolvedValue(phaseDoc),
+    getLegacyByExperimentIdWithoutPhase: vi.fn().mockResolvedValue(legacyDoc),
   } as never;
 }
 
@@ -204,7 +200,7 @@ function makeContext(): ApiReqContext {
     },
     models: {
       metricGroups: {
-        getAll: jest.fn().mockResolvedValue([]),
+        getAll: vi.fn().mockResolvedValue([]),
       },
     },
   } as unknown as ApiReqContext;
@@ -308,7 +304,7 @@ function makeAnalysisSettings(
 
 describe("snapshot planning", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
     getMetricMapMock.mockResolvedValue(new Map());
     getFactTableMapMock.mockResolvedValue(new Map() as FactTableMap);
@@ -819,10 +815,11 @@ describe("snapshot planning", () => {
   it("keeps the incremental runner when only metric settings drift", async () => {
     orgHasPremiumFeatureMock.mockReturnValue(true);
     assertIncrementalRefreshPrerequisitesMock.mockImplementation(
-      jest.requireActual<
-        typeof import("back-end/src/enterprise/services/data-pipeline")
-      >("back-end/src/enterprise/services/data-pipeline")
-        .assertIncrementalRefreshPrerequisites,
+      (
+        await vi.importActual<
+          typeof import("back-end/src/enterprise/services/data-pipeline")
+        >("back-end/src/enterprise/services/data-pipeline")
+      ).assertIncrementalRefreshPrerequisites,
     );
 
     const datasource = makeIncrementalDatasource();
@@ -1507,8 +1504,8 @@ describe("snapshot planning", () => {
   function makeNeverMaterializedContext() {
     const context = makeContext();
     context.models.incrementalRefresh = {
-      getByExperimentIdAndPhase: jest.fn().mockResolvedValue(null),
-      getLegacyByExperimentIdWithoutPhase: jest.fn().mockResolvedValue(null),
+      getByExperimentIdAndPhase: vi.fn().mockResolvedValue(null),
+      getLegacyByExperimentIdWithoutPhase: vi.fn().mockResolvedValue(null),
     } as never;
     return context;
   }
@@ -1521,12 +1518,13 @@ describe("snapshot planning", () => {
     };
   }
 
-  function useRealIncrementalPrerequisites(): void {
+  async function useRealIncrementalPrerequisites(): Promise<void> {
     assertIncrementalRefreshPrerequisitesMock.mockImplementation(
-      jest.requireActual<
-        typeof import("back-end/src/enterprise/services/data-pipeline")
-      >("back-end/src/enterprise/services/data-pipeline")
-        .assertIncrementalRefreshPrerequisites,
+      (
+        await vi.importActual<
+          typeof import("back-end/src/enterprise/services/data-pipeline")
+        >("back-end/src/enterprise/services/data-pipeline")
+      ).assertIncrementalRefreshPrerequisites,
     );
   }
 
@@ -1586,7 +1584,7 @@ describe("snapshot planning", () => {
   it("does not demand an Overall Results refresh the pipeline would reject for the same experiment", async () => {
     orgHasPremiumFeatureMock.mockReturnValue(true);
     wireIncrementalIntegration(makeIncrementalDatasource());
-    useRealIncrementalPrerequisites();
+    await useRealIncrementalPrerequisites();
 
     const plan = await planSnapshot({
       experiment: makeExperiment({ activationMetric: "fact_m1" }),

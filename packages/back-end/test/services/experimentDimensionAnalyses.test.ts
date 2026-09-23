@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -10,37 +11,39 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 
-jest.mock("shared/experiments", () => ({
-  ...jest.requireActual<typeof import("shared/experiments")>(
+vi.mock("shared/experiments", async () => ({
+  ...(await vi.importActual<typeof import("shared/experiments")>(
     "shared/experiments",
-  ),
-  getAllExpandedMetricIdsFromExperiment: jest.fn(() => ["met_1"]),
-  isFactMetricId: jest.fn(() => false),
-  expandDerivedMetricsInMap: jest.fn(),
-  getLatestPhaseVariations: jest.fn(() => [
+  )),
+  getAllExpandedMetricIdsFromExperiment: vi.fn(() => ["met_1"]),
+  isFactMetricId: vi.fn(() => false),
+  expandDerivedMetricsInMap: vi.fn(),
+  getLatestPhaseVariations: vi.fn(() => [
     { id: "0", name: "Control" },
     { id: "1", name: "Variation" },
   ]),
 }));
 
-jest.mock("back-end/src/models/MetricModel", () => ({
-  getMetricMap: jest.fn(),
+vi.mock("back-end/src/models/MetricModel", () => ({
+  getMetricMap: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FactTableModel", () => ({
-  getFactTableMap: jest.fn(),
+vi.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTableMap: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/experimentDimensionTimeSeries", () => ({
-  ...jest.requireActual("back-end/src/services/experimentDimensionTimeSeries"),
-  getOrCreatePrecomputedDimensionTimeSeriesAnalyses: jest.fn(),
+vi.mock("back-end/src/services/experimentDimensionTimeSeries", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/services/experimentDimensionTimeSeries")
+  >("back-end/src/services/experimentDimensionTimeSeries")),
+  getOrCreatePrecomputedDimensionTimeSeriesAnalyses: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    error: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
   },
 }));
 
@@ -199,13 +202,13 @@ function makeContext() {
   return {
     models: {
       metricGroups: {
-        getAll: jest.fn().mockResolvedValue([]),
+        getAll: vi.fn().mockResolvedValue([]),
       },
       metricTimeSeries: {
-        upsertMultipleSingleDataPoint: jest.fn().mockResolvedValue(undefined),
+        upsertMultipleSingleDataPoint: vi.fn().mockResolvedValue(undefined),
       },
       factMetrics: {
-        getByIds: jest.fn().mockResolvedValue([]),
+        getByIds: vi.fn().mockResolvedValue([]),
       },
     },
   };
@@ -213,11 +216,11 @@ function makeContext() {
 
 describe("runEagerExperimentAndUnitDimensionsAnalyses", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (getMetricMap as jest.Mock).mockResolvedValue(new Map());
-    (getFactTableMap as jest.Mock).mockResolvedValue(new Map());
+    vi.clearAllMocks();
+    (getMetricMap as Mock).mockResolvedValue(new Map());
+    (getFactTableMap as Mock).mockResolvedValue(new Map());
     (
-      getOrCreatePrecomputedDimensionTimeSeriesAnalyses as jest.Mock
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses as Mock
     ).mockResolvedValue([
       makeAnalysis({ differenceType: "relative" }),
       makeAnalysis({ differenceType: "absolute" }),
@@ -343,7 +346,7 @@ describe("runEagerExperimentAndUnitDimensionsAnalyses", () => {
   it("writes time series for empty string dimension values", async () => {
     const context = makeContext();
     (
-      getOrCreatePrecomputedDimensionTimeSeriesAnalyses as jest.Mock
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses as Mock
     ).mockResolvedValue([
       makeAnalysis({ differenceType: "relative", dimensionValue: "" }),
       makeAnalysis({ differenceType: "absolute", dimensionValue: "" }),
@@ -369,7 +372,7 @@ describe("runEagerExperimentAndUnitDimensionsAnalyses", () => {
   it("gets or creates unit-dimension analyses on the parent snapshot and writes time series", async () => {
     const context = makeContext();
     (
-      getOrCreatePrecomputedDimensionTimeSeriesAnalyses as jest.Mock
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses as Mock
     ).mockResolvedValue([
       makeAnalysis({ differenceType: "relative", dimensionId: "dim_country" }),
       makeAnalysis({ differenceType: "absolute", dimensionId: "dim_country" }),
@@ -438,7 +441,7 @@ describe("runEagerExperimentAndUnitDimensionsAnalyses", () => {
 
   it("logs per-dimension failures and continues with later dimensions", async () => {
     const context = makeContext();
-    (getOrCreatePrecomputedDimensionTimeSeriesAnalyses as jest.Mock)
+    (getOrCreatePrecomputedDimensionTimeSeriesAnalyses as Mock)
       .mockRejectedValueOnce(new Error("first dimension failed"))
       .mockResolvedValueOnce([
         makeAnalysis({

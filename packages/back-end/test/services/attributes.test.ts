@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   assertRegisteredAttributes,
   assertRegisteredAttributesScoped,
@@ -488,7 +489,7 @@ describe("assertRegisteredAttributesScoped", () => {
 
   it("does not run the scope loader when the setting is off", async () => {
     const ctx = makeContext({ requireRegisteredAttributes: false });
-    const loadScope = jest.fn(async () => ["p1"]);
+    const loadScope = vi.fn(async () => ["p1"]);
     await assertRegisteredAttributesScoped(
       ctx,
       { condition: JSON.stringify({ some_typo: "x" }) },
@@ -503,7 +504,7 @@ describe("assertRegisteredAttributesScoped", () => {
     const ctx = makeContext({
       requireRegisteredAttributes: { isOn: true, requireProjectScoping: true },
     });
-    const loadScope = jest.fn(async () => ["p1"]);
+    const loadScope = vi.fn(async () => ["p1"]);
     const condition = JSON.stringify({ userId: "a" });
     await assertRegisteredAttributesScoped(
       ctx,
@@ -519,7 +520,7 @@ describe("assertRegisteredAttributesScoped", () => {
     const ctx = makeContext({
       requireRegisteredAttributes: { isOn: true, requireProjectScoping: false },
     });
-    const loadScope = jest.fn(async () => ["p1"]);
+    const loadScope = vi.fn(async () => ["p1"]);
     await expect(
       assertRegisteredAttributesScoped(
         ctx,
@@ -537,7 +538,7 @@ describe("assertRegisteredAttributesScoped", () => {
       requireRegisteredAttributes: { isOn: true, requireProjectScoping: true },
       attributeSchema: projectSchema,
     });
-    const loadScope = jest.fn(async () => ["p1"]);
+    const loadScope = vi.fn(async () => ["p1"]);
     await expect(
       assertRegisteredAttributesScoped(
         ctx,
@@ -569,7 +570,7 @@ describe("assertRegisteredAttributesScoped", () => {
 
 describe("lazyAttributeScope", () => {
   it("runs the underlying load at most once", async () => {
-    const load = jest.fn(async () => ["p1"]);
+    const load = vi.fn(async () => ["p1"]);
     const scope = lazyAttributeScope(load);
     await expect(scope()).resolves.toEqual(["p1"]);
     await expect(scope()).resolves.toEqual(["p1"]);

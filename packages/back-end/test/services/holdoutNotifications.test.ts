@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { HoldoutInterface } from "shared/validators";
 import {
   holdoutCreatedNotificationPayload,
@@ -14,7 +15,7 @@ import {
 } from "back-end/src/services/holdoutNotifications";
 import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 
-jest.mock("back-end/src/models/EventModel", () => ({ createEvent: jest.fn() }));
+vi.mock("back-end/src/models/EventModel", () => ({ createEvent: vi.fn() }));
 const context = { org: { id: "org" } } as Context;
 const linked = (id: string) => ({ id, dateAdded: new Date() });
 const holdout = {
@@ -28,12 +29,12 @@ const holdout = {
   linkedFeatures: { existing: linked("existing") },
   linkedExperiments: {},
 } as unknown as HoldoutInterface;
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 it("announces creation with the holdout ID, scope, and Slack link", async () => {
   await notifyHoldoutCreated({ context, holdout });
   expect(createEvent).toHaveBeenCalledTimes(1);
-  const event = jest.mocked(createEvent).mock.calls[0][0];
+  const event = vi.mocked(createEvent).mock.calls[0][0];
   expect(event).toMatchObject({
     object: "holdout",
     objectId: holdout.id,
@@ -73,7 +74,7 @@ it("reports only newly linked items, with holdout scope and a Slack holdout link
     },
   });
   expect(createEvent).toHaveBeenCalledTimes(1);
-  const event = jest.mocked(createEvent).mock.calls[0][0];
+  const event = vi.mocked(createEvent).mock.calls[0][0];
   expect(event).toMatchObject({
     object: "holdout",
     objectId: holdout.id,
@@ -139,7 +140,7 @@ it.each([
     previousStatus,
     currentStatus,
   });
-  const event = jest.mocked(createEvent).mock.calls[0][0];
+  const event = vi.mocked(createEvent).mock.calls[0][0];
   expect(
     holdoutStatusChangedNotificationPayload.safeParse(event.data.object)
       .success,

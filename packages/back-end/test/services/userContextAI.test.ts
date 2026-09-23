@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { OrganizationInterface } from "shared/types/organization";
 import { AI_PROVIDERS } from "shared/ai";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -8,26 +9,35 @@ import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { getResolvedAIKeys } from "back-end/src/services/aiCredentials";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/enterprise", () => ({
-  ...jest.requireActual("back-end/src/enterprise"),
-  orgHasPremiumFeature: jest.fn(),
+vi.mock("back-end/src/enterprise", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/enterprise")>(
+    "back-end/src/enterprise",
+  )),
+  orgHasPremiumFeature: vi.fn(),
 }));
-jest.mock("back-end/src/services/aiCredentials", () => ({
-  ...jest.requireActual("back-end/src/services/aiCredentials"),
-  getResolvedAIKeys: jest.fn(),
+vi.mock("back-end/src/services/aiCredentials", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/services/aiCredentials")
+  >("back-end/src/services/aiCredentials")),
+  getResolvedAIKeys: vi.fn(),
 }));
-jest.mock("back-end/src/models/UserModel", () => ({
-  ...jest.requireActual("back-end/src/models/UserModel"),
-  getUserById: jest.fn(),
+vi.mock("back-end/src/models/UserModel", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/models/UserModel")>(
+    "back-end/src/models/UserModel",
+  )),
+  getUserById: vi.fn(),
 }));
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   IS_CLOUD: false,
 }));
-jest.mock("back-end/src/services/context", () => ({
-  ReqContextClass: jest
-    .fn()
-    .mockImplementation(({ org }: { org: OrganizationInterface }) => ({ org })),
+// Passed to vi.fn() rather than mockImplementation() so restoreAllMocks keeps it.
+vi.mock("back-end/src/services/context", () => ({
+  ReqContextClass: vi.fn(function ({ org }: { org: OrganizationInterface }) {
+    return { org };
+  }),
 }));
 
 const org: OrganizationInterface = {
@@ -43,30 +53,28 @@ const org: OrganizationInterface = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.mocked(orgHasPremiumFeature).mockReturnValue(true);
-  jest.mocked(getResolvedAIKeys).mockResolvedValue({
+  vi.clearAllMocks();
+  vi.mocked(orgHasPremiumFeature).mockReturnValue(true);
+  vi.mocked(getResolvedAIKeys).mockResolvedValue({
     openai: { key: "", source: "none" },
     anthropic: { key: "", source: "none" },
     google: { key: "", source: "none" },
     xai: { key: "", source: "none" },
     mistral: { key: "", source: "none" },
   });
-  jest.mocked(getUserById).mockResolvedValue({
+  vi.mocked(getUserById).mockResolvedValue({
     id: "user_1",
     email: "owner@example.com",
     verified: true,
     superAdmin: false,
   });
-  jest
-    .spyOn(TeamModel, "dangerousGetTeamsForOrganization")
-    .mockResolvedValue([]);
-  jest
-    .spyOn(ProjectModel, "dangerousGetRestrictedProjectIds")
-    .mockResolvedValue([]);
+  vi.spyOn(TeamModel, "dangerousGetTeamsForOrganization").mockResolvedValue([]);
+  vi.spyOn(ProjectModel, "dangerousGetRestrictedProjectIds").mockResolvedValue(
+    [],
+  );
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 async function getContext(organization = org) {
   const context = await getContextForUserIdInOrg(organization, "user_1");
@@ -112,7 +120,7 @@ it.each(AI_PROVIDERS)(
 );
 
 it("preserves the plan failure when AI is configured", async () => {
-  jest.mocked(orgHasPremiumFeature).mockReturnValue(false);
+  vi.mocked(orgHasPremiumFeature).mockReturnValue(false);
   await expect(assertAIEnabled(await getContext())).rejects.toMatchObject({
     status: 403,
     message: "Your plan does not support AI features.",

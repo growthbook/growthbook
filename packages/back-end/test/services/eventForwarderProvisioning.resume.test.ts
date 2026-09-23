@@ -1,27 +1,28 @@
+import { MockedFunction, vi } from "vitest";
 import { resumeEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarder/connector";
 import { postResumeEventForwarderToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 
-jest.mock("back-end/src/enterprise/licenseUtil", () => ({
-  postPauseEventForwarderToLicenseServer: jest.fn(),
-  postProvisionEventForwarderToLicenseServer: jest.fn(),
-  postResumeEventForwarderToLicenseServer: jest.fn(),
-  postTeardownEventForwarderToLicenseServer: jest.fn(),
-  postUpdateEventForwarderCredentialsToLicenseServer: jest.fn(),
+vi.mock("back-end/src/enterprise/licenseUtil", () => ({
+  postPauseEventForwarderToLicenseServer: vi.fn(),
+  postProvisionEventForwarderToLicenseServer: vi.fn(),
+  postResumeEventForwarderToLicenseServer: vi.fn(),
+  postTeardownEventForwarderToLicenseServer: vi.fn(),
+  postUpdateEventForwarderCredentialsToLicenseServer: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/eventForwarder/factTable", () => ({
-  ensureEventForwarderEventsFactTable: jest.fn(),
-  queueDelayedFactTableColumnsRefreshForDatasource: jest.fn(),
+vi.mock("back-end/src/services/eventForwarder/factTable", () => ({
+  ensureEventForwarderEventsFactTable: vi.fn(),
+  queueDelayedFactTableColumnsRefreshForDatasource: vi.fn(),
 }));
 
 const resumeRemoteMock =
-  postResumeEventForwarderToLicenseServer as jest.MockedFunction<
+  postResumeEventForwarderToLicenseServer as MockedFunction<
     typeof postResumeEventForwarderToLicenseServer
   >;
 
 describe("resumeEventForwarderThroughLicenseServer", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     resumeRemoteMock.mockResolvedValue({ ok: true });
   });
 
@@ -39,7 +40,7 @@ describe("resumeEventForwarderThroughLicenseServer", () => {
   };
 
   it("calls license server and marks config ready", async () => {
-    const update = jest.fn().mockResolvedValue(undefined);
+    const update = vi.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1", settings: { attributeSchema: [] } },
       models: { eventForwarderConfigs: { update } },

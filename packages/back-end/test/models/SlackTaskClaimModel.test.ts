@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { ReqContextClass } from "back-end/src/services/context";
@@ -38,7 +39,7 @@ beforeEach(async () => {
   await getCollection("slacktaskclaims").deleteMany({});
 });
 afterEach(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 test("one worker holds a thread until it releases; other threads proceed", async () => {
@@ -61,7 +62,7 @@ test("a claim past its deadline is taken over without manual cleanup", async () 
 test("a thread whose worker died mid-turn frees up within two minutes", async () => {
   const start = Date.now();
   await claims().acquireThreadLease(threadKey);
-  jest.spyOn(Date, "now").mockReturnValue(start + 121_000);
+  vi.spyOn(Date, "now").mockReturnValue(start + 121_000);
   expect(await claims().acquireThreadLease(threadKey)).not.toBeNull();
 });
 
@@ -69,7 +70,7 @@ test("renewing keeps a live turn's thread past the original expiry", async () =>
   const start = Date.now();
   const held = await claims().acquireThreadLease(threadKey);
   if (!held) throw new Error("expected the first claim to succeed");
-  const now = jest.spyOn(Date, "now").mockReturnValue(start + 90_000);
+  const now = vi.spyOn(Date, "now").mockReturnValue(start + 90_000);
   expect(await claims().renewThreadLease(threadKey, held)).toBe(true);
   now.mockReturnValue(start + 150_000);
   expect(await claims().acquireThreadLease(threadKey)).toBeNull();

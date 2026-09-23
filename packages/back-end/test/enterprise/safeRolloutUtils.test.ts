@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { OrganizationInterface } from "shared/types/organization";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
@@ -5,22 +6,22 @@ import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise
 const ORG_SCHEDULE_NEXT = new Date("2026-07-14T20:45:55.000Z");
 const NOW = new Date("2026-07-14T15:00:00.000Z");
 
-jest.mock("back-end/src/services/experiments", () => ({
-  determineNextDate: jest.fn(() => new Date("2026-07-14T20:45:55.000Z")),
+vi.mock("back-end/src/services/experiments", () => ({
+  determineNextDate: vi.fn(() => new Date("2026-07-14T20:45:55.000Z")),
 }));
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  editFeatureRule: jest.fn(),
-  publishRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  editFeatureRule: vi.fn(),
+  publishRevision: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  createRevision: jest.fn(),
-  getRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  createRevision: vi.fn(),
+  getRevision: vi.fn(),
 }));
 
-jest.mock("back-end/src/enterprise/licenseUtil", () => ({
-  orgHasPremiumFeature: jest.fn(),
+vi.mock("back-end/src/enterprise/licenseUtil", () => ({
+  orgHasPremiumFeature: vi.fn(),
 }));
 
 function makeSafeRollout(
@@ -42,10 +43,10 @@ const org = {
 
 describe("determineNextSafeRolloutSnapshotAttempt", () => {
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(NOW);
+    vi.useFakeTimers().setSystemTime(NOW);
   });
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("honors the ramp's updateScheduleMinutes cadence over the org schedule", () => {

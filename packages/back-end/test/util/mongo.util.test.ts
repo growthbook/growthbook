@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import type { Collection } from "mongodb";
 import mongoose from "mongoose";
 import { setupApp } from "back-end/test/api/api.setup";
@@ -337,20 +338,20 @@ describe("mongo utils", () => {
     }
 
     it("returns the result of the first successful op call", async () => {
-      const op = jest.fn().mockResolvedValue("ok");
+      const op = vi.fn().mockResolvedValue("ok");
       await expect(createWithVersionRetry(op)).resolves.toBe("ok");
       expect(op).toHaveBeenCalledTimes(1);
     });
 
     it("does not retry when op throws a non-duplicate-key error", async () => {
       const err = new Error("validation failed");
-      const op = jest.fn().mockRejectedValue(err);
+      const op = vi.fn().mockRejectedValue(err);
       await expect(createWithVersionRetry(op)).rejects.toBe(err);
       expect(op).toHaveBeenCalledTimes(1);
     });
 
     it("retries on duplicate-key error and returns the eventual success value", async () => {
-      const op = jest
+      const op = vi
         .fn()
         .mockRejectedValueOnce(makeDuplicateKeyError())
         .mockRejectedValueOnce(makeDuplicateKeyError())
@@ -369,7 +370,7 @@ describe("mongo utils", () => {
         e.code = 11000;
         return e;
       });
-      const op = jest.fn();
+      const op = vi.fn();
       errs.forEach((e) => op.mockRejectedValueOnce(e));
 
       await expect(createWithVersionRetry(op)).rejects.toBe(errs[4]);
@@ -378,7 +379,7 @@ describe("mongo utils", () => {
 
     it("re-throws non-duplicate-key errors raised after one or more duplicate-key retries", async () => {
       const fatal = new Error("connection lost");
-      const op = jest
+      const op = vi
         .fn()
         .mockRejectedValueOnce(makeDuplicateKeyError())
         .mockRejectedValueOnce(fatal);
@@ -389,12 +390,12 @@ describe("mongo utils", () => {
 });
 
 describe("ensureIndexOnce", () => {
-  const fakeCollection = (namespace: string, createIndex: jest.Mock) =>
+  const fakeCollection = (namespace: string, createIndex: Mock) =>
     ({ namespace, createIndex }) as unknown as Collection;
 
   it("shares one build between concurrent callers and caches success", async () => {
     let finish: (name: string) => void = () => undefined;
-    const createIndex = jest.fn(
+    const createIndex = vi.fn(
       () =>
         new Promise<string>((resolve) => {
           finish = resolve;
@@ -411,7 +412,7 @@ describe("ensureIndexOnce", () => {
   });
 
   it("keys the cache by collection, spec, and options", async () => {
-    const createIndex = jest.fn(async () => "built");
+    const createIndex = vi.fn(async () => "built");
     const collection = fakeCollection("test.keyed", createIndex);
     await ensureIndexOnce(collection, { id: 1 }, { unique: true });
     await ensureIndexOnce(
@@ -429,7 +430,7 @@ describe("ensureIndexOnce", () => {
   });
 
   it("rethrows a failed build and retries it on the next call", async () => {
-    const createIndex = jest
+    const createIndex = vi
       .fn()
       .mockRejectedValueOnce(new Error("index build failed"))
       .mockResolvedValueOnce("id_1");
@@ -453,7 +454,7 @@ describe("ensureIndexOnce", () => {
     );
     const collection = fakeCollection(
       "test.claims",
-      jest.fn().mockRejectedValue(buildError),
+      vi.fn().mockRejectedValue(buildError),
     );
     const error = await ensureIndexOnce(
       collection,

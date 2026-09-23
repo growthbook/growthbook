@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -16,16 +17,16 @@ import {
   searchProductAnalyticsResources,
 } from "back-end/src/services/product-analytics-tools";
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
-jest.mock("back-end/src/models/FactTableModel", () => ({
-  getAllFactTablesForOrganization: jest.fn(),
-  getFactTable: jest.fn(),
-  getFactTablesForDatasource: jest.fn(),
+vi.mock("back-end/src/models/FactTableModel", () => ({
+  getAllFactTablesForOrganization: vi.fn(),
+  getFactTable: vi.fn(),
+  getFactTablesForDatasource: vi.fn(),
 }));
-jest.mock("back-end/src/services/factTableColumns", () => ({
-  runColumnsTopValuesQuery: jest.fn(),
+vi.mock("back-end/src/services/factTableColumns", () => ({
+  runColumnsTopValuesQuery: vi.fn(),
 }));
 
 const metric = (id: string, name: string): FactMetricInterface =>
@@ -61,23 +62,23 @@ describe("product analytics tools", () => {
   const context = {
     models: {
       factMetrics: {
-        getAll: jest.fn(),
-        getByIds: jest.fn(),
+        getAll: vi.fn(),
+        getByIds: vi.fn(),
       },
     },
   } as unknown as ReqContext;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.mocked(getDataSourceById).mockResolvedValue({
+    vi.clearAllMocks();
+    vi.mocked(getDataSourceById).mockResolvedValue({
       id: "ds_1",
     } as Awaited<ReturnType<typeof getDataSourceById>>);
-    jest.mocked(getAllFactTablesForOrganization).mockResolvedValue([]);
-    jest.mocked(getFactTablesForDatasource).mockResolvedValue([]);
+    vi.mocked(getAllFactTablesForOrganization).mockResolvedValue([]);
+    vi.mocked(getFactTablesForDatasource).mockResolvedValue([]);
   });
 
   it("ranks singular and plural metric names as exact matches", async () => {
-    context.models.factMetrics.getAll = jest
+    context.models.factMetrics.getAll = vi
       .fn()
       .mockResolvedValue([
         metric("fact__views", "Page View"),
@@ -97,15 +98,15 @@ describe("product analytics tools", () => {
   });
 
   it("scopes datasource searches before returning resources", async () => {
-    context.models.factMetrics.getAll = jest
+    context.models.factMetrics.getAll = vi
       .fn()
       .mockResolvedValue([
         metric("fact__included", "Included"),
         { ...metric("fact__excluded", "Excluded"), datasource: "ds_2" },
       ]);
-    jest
-      .mocked(getFactTablesForDatasource)
-      .mockResolvedValue([factTable("ft_1", "Events")]);
+    vi.mocked(getFactTablesForDatasource).mockResolvedValue([
+      factTable("ft_1", "Events"),
+    ]);
 
     const result = await searchProductAnalyticsResources(context, {
       query: "",
@@ -122,7 +123,7 @@ describe("product analytics tools", () => {
   });
 
   it("rejects inaccessible Fact Metrics when listing columns", async () => {
-    context.models.factMetrics.getByIds = jest
+    context.models.factMetrics.getByIds = vi
       .fn()
       .mockResolvedValue([metric("fact__visible", "Visible")]);
 
@@ -147,10 +148,10 @@ describe("product analytics tools", () => {
       metricType: "proportion",
       numerator: { factTableId: "ft_2", column: "value" },
     } as FactMetricInterface;
-    context.models.factMetrics.getByIds = jest
+    context.models.factMetrics.getByIds = vi
       .fn()
       .mockResolvedValue([firstMetric, secondMetric]);
-    jest.mocked(getFactTable).mockImplementation(async (_context, id) => {
+    vi.mocked(getFactTable).mockImplementation(async (_context, id) => {
       if (id === "ft_1") {
         return factTable("ft_1", "First", {
           userIdTypes: ["user_id", "anonymous_id"],
@@ -181,10 +182,10 @@ describe("product analytics tools", () => {
       metricType: "mean",
       numerator: { factTableId: "ft_2", column: "value" },
     } as FactMetricInterface;
-    context.models.factMetrics.getByIds = jest
+    context.models.factMetrics.getByIds = vi
       .fn()
       .mockResolvedValue([unitMetric, noUnitMetric]);
-    jest.mocked(getFactTable).mockImplementation(async (_context, id) => {
+    vi.mocked(getFactTable).mockImplementation(async (_context, id) => {
       if (id === "ft_1") {
         return factTable("ft_1", "First", {
           userIdTypes: ["user_id"],
@@ -214,16 +215,16 @@ describe("product analytics tools", () => {
       datatype: "string",
       deleted: false,
     } as FactTableInterface["columns"][number];
-    jest.mocked(getFactTable).mockResolvedValue(
+    vi.mocked(getFactTable).mockResolvedValue(
       factTable("ft_1", "Events", {
         sql: "SELECT country, timestamp FROM events",
         timestampColumn: "timestamp",
         columns: [countryColumn],
       }),
     );
-    jest
-      .mocked(runColumnsTopValuesQuery)
-      .mockResolvedValue({ country: ["United States"] });
+    vi.mocked(runColumnsTopValuesQuery).mockResolvedValue({
+      country: ["United States"],
+    });
 
     const result = await getProductAnalyticsColumnValues(context, {
       source: "fact_table",

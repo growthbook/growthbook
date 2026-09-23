@@ -183,9 +183,8 @@ it("preserves a concurrent metric edit and still removes the slice", async () =>
 
   // Slip a concurrent write in between the cascade's read and its CAS write.
   let injected = false;
-  jest
-    .spyOn(factMetrics, "updateIfUnchanged")
-    .mockImplementation(async (existing, updates, writeOptions, options) => {
+  vi.spyOn(factMetrics, "updateIfUnchanged").mockImplementation(
+    async (existing, updates, writeOptions, options) => {
       if (!injected) {
         injected = true;
         await mongoose.connection.db!.collection("factmetrics").updateOne(
@@ -199,7 +198,8 @@ it("preserves a concurrent metric edit and still removes the slice", async () =>
         );
       }
       return updateIfUnchanged(existing, updates, writeOptions, options);
-    });
+    },
+  );
 
   const response = await disableCountrySlices();
 

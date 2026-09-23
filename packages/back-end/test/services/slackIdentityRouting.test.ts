@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   resolveSlackAssistantTarget,
   getSlackLinkConsent,
@@ -13,27 +14,27 @@ import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
 import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 import type { ApiReqContext } from "back-end/types/api";
 
-const webhooks = jest.fn();
-jest.mock("back-end/src/models/EventWebhookModel", () => ({
+const webhooks = vi.fn();
+vi.mock("back-end/src/models/EventWebhookModel", () => ({
   EventWebHookModel: { find: () => ({ lean: () => webhooks() }) },
 }));
-jest.mock("back-end/src/models/OrganizationModel", () => ({
+vi.mock("back-end/src/models/OrganizationModel", () => ({
   findOrganizationById: async (id: string) => ({
     id,
     name: `Organization ${id}`,
   }),
 }));
-jest.mock("back-end/src/models/SlackUserLinkModel", () => ({
-  SlackUserLinkModel: { dangerousFindAllBySlackIdentity: jest.fn() },
+vi.mock("back-end/src/models/SlackUserLinkModel", () => ({
+  SlackUserLinkModel: { dangerousFindAllBySlackIdentity: vi.fn() },
 }));
-jest.mock("back-end/src/models/SlackWorkspaceConnectionModel", () => ({
-  SlackWorkspaceConnectionModel: { dangerousGetForTeam: jest.fn() },
+vi.mock("back-end/src/models/SlackWorkspaceConnectionModel", () => ({
+  SlackWorkspaceConnectionModel: { dangerousGetForTeam: vi.fn() },
 }));
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForUserIdInOrg: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForUserIdInOrg: vi.fn(),
 }));
-jest.mock("back-end/src/enterprise", () => ({ licenseInit: jest.fn() }));
-jest.mock("back-end/src/util/slackToken", () => ({
+vi.mock("back-end/src/enterprise", () => ({ licenseInit: vi.fn() }));
+vi.mock("back-end/src/util/slackToken", () => ({
   decryptSlackBotToken: (token: string) => token,
 }));
 const linked = (organization: string, growthbookUserId = "user1") => ({
@@ -57,16 +58,16 @@ const connection = {
   dateUpdated: new Date(),
 };
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   webhooks.mockResolvedValue([]);
-  jest
-    .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
-    .mockResolvedValue(connection);
-  jest
-    .mocked(SlackUserLinkModel.dangerousFindAllBySlackIdentity)
-    .mockResolvedValue([linked("org1")]);
-  jest.mocked(getContextForUserIdInOrg).mockResolvedValue(context);
-  jest.mocked(licenseInit).mockResolvedValue(undefined);
+  vi.mocked(
+    SlackWorkspaceConnectionModel.dangerousGetForTeam,
+  ).mockResolvedValue(connection);
+  vi.mocked(
+    SlackUserLinkModel.dangerousFindAllBySlackIdentity,
+  ).mockResolvedValue([linked("org1")]);
+  vi.mocked(getContextForUserIdInOrg).mockResolvedValue(context);
+  vi.mocked(licenseInit).mockResolvedValue(undefined);
 });
 it("resolves the workspace's organization without notification subscriptions", async () => {
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
@@ -82,9 +83,9 @@ it("resolves the workspace's organization without notification subscriptions", a
   );
 });
 it("asks unlinked users to link their account without requiring notification channels", async () => {
-  jest
-    .mocked(SlackUserLinkModel.dangerousFindAllBySlackIdentity)
-    .mockResolvedValue([]);
+  vi.mocked(
+    SlackUserLinkModel.dangerousFindAllBySlackIdentity,
+  ).mockResolvedValue([]);
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
     ok: false,
     reason: "not_linked",
@@ -92,9 +93,9 @@ it("asks unlinked users to link their account without requiring notification cha
   expect(getContextForUserIdInOrg).not.toHaveBeenCalled();
 });
 it("never uses a link belonging to a different organization", async () => {
-  jest
-    .mocked(SlackUserLinkModel.dangerousFindAllBySlackIdentity)
-    .mockResolvedValue([linked("org2")]);
+  vi.mocked(
+    SlackUserLinkModel.dangerousFindAllBySlackIdentity,
+  ).mockResolvedValue([linked("org2")]);
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
     ok: false,
     reason: "not_linked",
@@ -102,9 +103,9 @@ it("never uses a link belonging to a different organization", async () => {
   expect(getContextForUserIdInOrg).not.toHaveBeenCalled();
 });
 it("uses only the workspace organization's account even if old links remain", async () => {
-  jest
-    .mocked(SlackUserLinkModel.dangerousFindAllBySlackIdentity)
-    .mockResolvedValue([linked("org2"), linked("org1", "user2")]);
+  vi.mocked(
+    SlackUserLinkModel.dangerousFindAllBySlackIdentity,
+  ).mockResolvedValue([linked("org2"), linked("org1", "user2")]);
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
     ok: true,
     organizationId: "org1",
@@ -113,7 +114,7 @@ it("uses only the workspace organization's account even if old links remain", as
   });
 });
 it("rechecks revoked membership", async () => {
-  jest.mocked(getContextForUserIdInOrg).mockResolvedValue(null);
+  vi.mocked(getContextForUserIdInOrg).mockResolvedValue(null);
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
     ok: false,
     reason: "not_a_member",
@@ -129,9 +130,9 @@ it("loads the organization license for the resolved context", async () => {
   );
 });
 it("tells the user when the organization license can't be loaded", async () => {
-  jest
-    .mocked(licenseInit)
-    .mockRejectedValue(new Error("License server unavailable"));
+  vi.mocked(licenseInit).mockRejectedValue(
+    new Error("License server unavailable"),
+  );
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
     ok: false,
     reason: "license_unavailable",
@@ -139,9 +140,9 @@ it("tells the user when the organization license can't be loaded", async () => {
   });
 });
 it("respects an explicit assistant opt-out", async () => {
-  jest
-    .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
-    .mockResolvedValue({ ...connection, assistantEnabled: false });
+  vi.mocked(
+    SlackWorkspaceConnectionModel.dangerousGetForTeam,
+  ).mockResolvedValue({ ...connection, assistantEnabled: false });
   expect(
     await resolveSlackAssistantTarget({
       ...request,
@@ -153,9 +154,9 @@ it("respects an explicit assistant opt-out", async () => {
   });
 });
 it("inherits organization AI access when the workspace setting is unset", async () => {
-  jest
-    .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
-    .mockResolvedValue({ ...connection, assistantEnabled: undefined });
+  vi.mocked(
+    SlackWorkspaceConnectionModel.dangerousGetForTeam,
+  ).mockResolvedValue({ ...connection, assistantEnabled: undefined });
   expect(
     await resolveSlackAssistantTarget({
       ...request,
@@ -164,9 +165,9 @@ it("inherits organization AI access when the workspace setting is unset", async 
   ).toMatchObject({ ok: true, organizationId: "org1" });
 });
 it("requires a connected workspace", async () => {
-  jest
-    .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
-    .mockResolvedValue(null);
+  vi.mocked(
+    SlackWorkspaceConnectionModel.dangerousGetForTeam,
+  ).mockResolvedValue(null);
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
     ok: false,
     reason: "no_connection",
@@ -174,9 +175,9 @@ it("requires a connected workspace", async () => {
   expect(getContextForUserIdInOrg).not.toHaveBeenCalled();
 });
 it("requires a bot token", async () => {
-  jest
-    .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
-    .mockResolvedValue({ ...connection, encryptedBotAccessToken: "" });
+  vi.mocked(
+    SlackWorkspaceConnectionModel.dangerousGetForTeam,
+  ).mockResolvedValue({ ...connection, encryptedBotAccessToken: "" });
   expect(await resolveSlackAssistantTarget(request)).toMatchObject({
     ok: false,
     reason: "no_bot_token",
@@ -189,12 +190,12 @@ it.each([
 ])(
   "offers one organization with account status $linkedAccount",
   async ({ linkedUser, linkedAccount }) => {
-    jest
-      .mocked(SlackUserLinkModel.dangerousFindAllBySlackIdentity)
-      .mockResolvedValue([
-        linked("org2"),
-        ...(linkedUser ? [linked("org1", linkedUser)] : []),
-      ]);
+    vi.mocked(
+      SlackUserLinkModel.dangerousFindAllBySlackIdentity,
+    ).mockResolvedValue([
+      linked("org2"),
+      ...(linkedUser ? [linked("org1", linkedUser)] : []),
+    ]);
     const state =
       new URL(
         buildSlackLinkUrl({ slackTeamId: "T1", slackUserId: "U1" }),
@@ -205,7 +206,7 @@ it.each([
       teamName: "Workspace",
       organization: { id: "org1", name: "Organization org1", linkedAccount },
     });
-    jest.mocked(getContextForUserIdInOrg).mockResolvedValue(null);
+    vi.mocked(getContextForUserIdInOrg).mockResolvedValue(null);
     await expect(getSlackLinkConsent(context, state)).rejects.toThrow(
       "Your account no longer has access",
     );
@@ -213,9 +214,9 @@ it.each([
 );
 
 it("rejects consent when the selected organization differs from the workspace", async () => {
-  jest
-    .mocked(SlackWorkspaceConnectionModel.dangerousGetForTeam)
-    .mockResolvedValue({ ...connection, organization: "org2" });
+  vi.mocked(
+    SlackWorkspaceConnectionModel.dangerousGetForTeam,
+  ).mockResolvedValue({ ...connection, organization: "org2" });
   const state =
     new URL(
       buildSlackLinkUrl({ slackTeamId: "T1", slackUserId: "U1" }),

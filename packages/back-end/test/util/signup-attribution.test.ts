@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   classifyEmail,
   parseAttributionCookie,
@@ -43,13 +44,13 @@ describe("parseAttributionCookie", () => {
 
 describe("reissueAttributionCookie", () => {
   it("does nothing when the cookie is missing", () => {
-    const cookie = jest.fn();
+    const cookie = vi.fn();
     reissueAttributionCookie({ cookies: {} }, { cookie });
     expect(cookie).not.toHaveBeenCalled();
   });
 
   it("reissues the raw cookie with the shared Domain and 30-day maxAge", () => {
-    const cookie = jest.fn();
+    const cookie = vi.fn();
     const raw = JSON.stringify({ utm_source: "linkedin", li_fat_id: "abc" });
     reissueAttributionCookie({ cookies: { gb_attr: raw } }, { cookie });
 

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -7,14 +8,14 @@ import { updateSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ReqContext } from "back-end/types/request";
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  updateSnapshot: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  updateSnapshot: vi.fn(),
 }));
 const context = {
   org: { id: "org_test" },
   permissions: { canRunExperimentQueries: () => true },
   models: {
-    incrementalRefresh: { releaseLock: jest.fn().mockResolvedValue(undefined) },
+    incrementalRefresh: { releaseLock: vi.fn().mockResolvedValue(undefined) },
   },
 } as unknown as ReqContext;
 const snapshot = {
@@ -25,7 +26,7 @@ const snapshot = {
   queries: [],
 } as unknown as ExperimentSnapshotInterface;
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 describe.each([
   ExperimentResultsQueryRunner,

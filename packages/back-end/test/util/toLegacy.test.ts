@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { FeatureRule } from "shared/validators";
 import { stemRuleId, suffixRuleId } from "shared/util";
 import { FeatureInterface, V1FeatureInterface } from "shared/types/feature";
@@ -195,7 +196,7 @@ describe("bucketRulesByEnv", () => {
   });
 
   it("applies the per-rule transform once per rule, not once per env", () => {
-    const transform = jest.fn((r: FeatureRule) => ({ id: r.id }));
+    const transform = vi.fn((r: FeatureRule) => ({ id: r.id }));
     const rule = v2Rule("r1", { allEnvironments: true });
     bucketRulesByEnv([rule], ["dev", "production", "staging"], transform);
     expect(transform).toHaveBeenCalledTimes(1);

@@ -30,6 +30,6 @@ in.
 
 ```bash
 pnpm --filter stats-ts build       # compile to dist/
-pnpm --filter stats-ts test        # run jest
+pnpm --filter stats-ts test        # run vitest
 pnpm --filter stats-ts type-check  # tsgo --noEmit
 ```

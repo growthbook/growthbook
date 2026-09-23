@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { FeatureInterface } from "shared/types/feature";
 import type { RampScheduleInterface } from "shared/validators";
 import {
@@ -8,8 +9,8 @@ import {
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeatures: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getAllFeatures: vi.fn(),
 }));
 
 describe("assertRampPlanChangeAllowed", () => {
@@ -90,12 +91,10 @@ describe("assertRampScheduleReplanAllowed", () => {
     }) as unknown as ReqContext;
 
   beforeEach(() => {
-    jest
-      .mocked(getAllFeatures)
-      .mockResolvedValue([
-        { id: "anchor" },
-        { id: "other" },
-      ] as FeatureInterface[]);
+    vi.mocked(getAllFeatures).mockResolvedValue([
+      { id: "anchor" },
+      { id: "other" },
+    ] as FeatureInterface[]);
   });
 
   it("needs bypass authority on every targeted feature", async () => {
@@ -112,9 +111,9 @@ describe("assertRampScheduleReplanAllowed", () => {
   });
 
   it("refuses a target the caller cannot read, even under the REST bypass", async () => {
-    jest
-      .mocked(getAllFeatures)
-      .mockResolvedValue([{ id: "anchor" }] as FeatureInterface[]);
+    vi.mocked(getAllFeatures).mockResolvedValue([
+      { id: "anchor" },
+    ] as FeatureInterface[]);
     await expect(
       assertRampScheduleReplanAllowed(ctx(["anchor", "other"]), schedule),
     ).rejects.toThrow(/"other" is not readable/);

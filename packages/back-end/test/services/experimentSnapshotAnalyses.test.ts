@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -25,25 +26,25 @@ import {
   toExperimentSnapshotBulkResultsApiInterface,
 } from "back-end/src/api/experiments/bulkResultSerialization";
 
-jest.mock("back-end/src/services/stats", () => ({
-  analyzeExperimentResults: jest.fn(),
-  getMetricsAndQueryDataForStatsEngine: jest.fn(),
-  runSnapshotAnalyses: jest.fn(),
-  writeSnapshotAnalyses: jest.fn(),
+vi.mock("back-end/src/services/stats", () => ({
+  analyzeExperimentResults: vi.fn(),
+  getMetricsAndQueryDataForStatsEngine: vi.fn(),
+  runSnapshotAnalyses: vi.fn(),
+  writeSnapshotAnalyses: vi.fn(),
 }));
 
-jest.mock("back-end/src/queryRunners/QueryRunner", () => ({
+vi.mock("back-end/src/queryRunners/QueryRunner", () => ({
   QueryRunner: class {},
-  getQueryMap: jest.fn(),
+  getQueryMap: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  addOrUpdateSnapshotAnalysis: jest.fn(),
-  addOrUpdateSnapshotMultipleAnalysis: jest.fn(),
-  createExperimentSnapshotModel: jest.fn(),
-  getLatestSnapshotMultipleExperiments: jest.fn(),
-  updateSnapshot: jest.fn(),
-  updateSnapshotAnalysis: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  addOrUpdateSnapshotAnalysis: vi.fn(),
+  addOrUpdateSnapshotMultipleAnalysis: vi.fn(),
+  createExperimentSnapshotModel: vi.fn(),
+  getLatestSnapshotMultipleExperiments: vi.fn(),
+  updateSnapshot: vi.fn(),
+  updateSnapshotAnalysis: vi.fn(),
 }));
 
 function makeAnalysisSettings(
@@ -621,8 +622,8 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
 
 describe("createSnapshotAnalysesBatched", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (getQueryMap as jest.Mock).mockResolvedValue(new Map());
+    vi.clearAllMocks();
+    (getQueryMap as Mock).mockResolvedValue(new Map());
   });
 
   it("writes errored final analyses when the stats engine fails", async () => {
@@ -630,7 +631,7 @@ describe("createSnapshotAnalysesBatched", () => {
       makeAnalysisSettings({ differenceType: "relative" }),
       makeAnalysisSettings({ differenceType: "absolute" }),
     ];
-    (analyzeExperimentResults as jest.Mock).mockRejectedValue(
+    (analyzeExperimentResults as Mock).mockRejectedValue(
       new Error("stats failed"),
     );
 
@@ -680,13 +681,13 @@ describe("createSnapshotAnalysesBatched", () => {
   it("rewrites parent unit-dimension queries to bare metric keys", async () => {
     const parentQuery = { id: "qry_parent" };
     const unitQuery = { id: "qry_unit_country" };
-    (getQueryMap as jest.Mock).mockResolvedValue(
+    (getQueryMap as Mock).mockResolvedValue(
       new Map([
         ["met_1", parentQuery],
         ["unitdim:dim_country:met_1", unitQuery],
       ]),
     );
-    (analyzeExperimentResults as jest.Mock).mockResolvedValue({
+    (analyzeExperimentResults as Mock).mockResolvedValue({
       results: [{ dimensions: [{ name: "US", variations: [] }] }],
     });
 
@@ -712,7 +713,7 @@ describe("createSnapshotAnalysesBatched", () => {
       },
     );
 
-    const queryData = (analyzeExperimentResults as jest.Mock).mock.calls[0][0]
+    const queryData = (analyzeExperimentResults as Mock).mock.calls[0][0]
       .queryData as Map<string, unknown>;
     expect(Array.from(queryData.keys())).toEqual(["met_1"]);
     expect(queryData.get("met_1")).toBe(unitQuery);
@@ -728,19 +729,19 @@ describe("createSnapshotAnalysesBatched", () => {
 
 describe("createSnapshotAnalysis", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("rewrites parent unit-dimension queries to bare metric keys for lazy analyses", async () => {
     const parentQuery = { id: "qry_parent" };
     const unitQuery = { id: "qry_unit_country" };
-    (getQueryMap as jest.Mock).mockResolvedValue(
+    (getQueryMap as Mock).mockResolvedValue(
       new Map([
         ["met_1", parentQuery],
         ["unitdim:dim_country:met_1", unitQuery],
       ]),
     );
-    (analyzeExperimentResults as jest.Mock).mockResolvedValue({
+    (analyzeExperimentResults as Mock).mockResolvedValue({
       results: [{ dimensions: [] }],
     });
 
@@ -759,7 +760,7 @@ describe("createSnapshotAnalysis", () => {
       }),
     });
 
-    const queryData = (analyzeExperimentResults as jest.Mock).mock.calls[0][0]
+    const queryData = (analyzeExperimentResults as Mock).mock.calls[0][0]
       .queryData as Map<string, unknown>;
     expect(Array.from(queryData.keys())).toEqual(["met_1"]);
     expect(queryData.get("met_1")).toBe(unitQuery);

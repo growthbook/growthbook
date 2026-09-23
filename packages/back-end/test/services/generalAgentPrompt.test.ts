@@ -1,23 +1,24 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { vi } from "vitest";
 import { generalAgentConfig } from "back-end/src/agent/general-agent";
 import { listDomainSkills } from "back-end/src/agent/skills";
 import { ReqContextClass } from "back-end/src/services/context";
 
-jest.mock("back-end/src/api/api.router", () => ({ allRoutes: [] }));
-jest.mock("back-end/src/services/context");
-jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
+vi.mock("back-end/src/api/api.router", () => ({ allRoutes: [] }));
+vi.mock("back-end/src/services/context");
+vi.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
-jest.mock("back-end/src/enterprise/services/ai", () => ({
+vi.mock("back-end/src/enterprise/services/ai", () => ({
   aiTool: (definition: unknown) => definition,
 }));
-jest.mock("back-end/src/agent/skills", () => ({
-  listDomainSkills: jest.fn(() => [
+vi.mock("back-end/src/agent/skills", () => ({
+  listDomainSkills: vi.fn(() => [
     { name: "feature-flags", description: "Manage Feature Flags." },
     { name: "experiments", description: "Analyze experiments." },
   ]),
-  readSkill: jest.fn(),
+  readSkill: vi.fn(),
 }));
 
 const context = new ReqContextClass({
@@ -48,7 +49,7 @@ it("preserves the complete web prompt byte for byte", async () => {
 });
 
 it("omits the skills index when no domains are available", async () => {
-  jest.mocked(listDomainSkills).mockReturnValueOnce([]);
+  vi.mocked(listDomainSkills).mockReturnValueOnce([]);
   expect(await generalAgentConfig.buildSystemPrompt(context, {})).toBe(
     expectedPrompt.split("\n\n# Available skills")[0],
   );

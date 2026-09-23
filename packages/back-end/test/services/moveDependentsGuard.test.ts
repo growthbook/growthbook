@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { ReqContext } from "back-end/types/request";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
@@ -9,18 +10,18 @@ import {
   getStrandedDependents,
 } from "back-end/src/services/moveDependentsGuard";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeaturesWithoutEditorFields: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getAllFeaturesWithoutEditorFields: vi.fn(),
 }));
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getAllExperimentsForStaleGraph: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getAllExperimentsForStaleGraph: vi.fn(),
 }));
-jest.mock("back-end/src/models/SdkConnectionModel", () => ({
-  findSDKConnectionsByOrganization: jest.fn(),
+vi.mock("back-end/src/models/SdkConnectionModel", () => ({
+  findSDKConnectionsByOrganization: vi.fn(),
 }));
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgObject: jest.fn((org) => ({ org })),
-  getEnvironments: jest.fn(() => [{ id: "production", projects: [] }]),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgObject: vi.fn((org) => ({ org })),
+  getEnvironments: vi.fn(() => [{ id: "production", projects: [] }]),
 }));
 
 const inA = { project: "A" };
@@ -140,18 +141,18 @@ describe("assertFeatureMoveDependentsGuard", () => {
   const parent = { id: "parent", ...inB };
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
+    vi.clearAllMocks();
+    vi.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([
       {
         id: "dep",
         ...inB,
         prerequisites: [{ id: "parent", condition: "{}" }],
       },
     ] as never);
-    jest.mocked(getAllExperimentsForStaleGraph).mockResolvedValue([]);
-    jest
-      .mocked(findSDKConnectionsByOrganization)
-      .mockResolvedValue([conn(["B"])] as never);
+    vi.mocked(getAllExperimentsForStaleGraph).mockResolvedValue([]);
+    vi.mocked(findSDKConnectionsByOrganization).mockResolvedValue([
+      conn(["B"]),
+    ] as never);
   });
 
   it("warns with the stranded counts, and lets ignoreWarnings through", async () => {
@@ -175,11 +176,9 @@ describe("assertFeatureMoveDependentsGuard", () => {
       targetingProjects: ["A"],
     });
     await assertFeatureMoveDependentsGuard(context, parent, undefined);
-    jest
-      .mocked(findSDKConnectionsByOrganization)
-      .mockResolvedValue([
-        conn(["B"], { includeReferencedPrerequisites: true }),
-      ] as never);
+    vi.mocked(findSDKConnectionsByOrganization).mockResolvedValue([
+      conn(["B"], { includeReferencedPrerequisites: true }),
+    ] as never);
     await assertFeatureMoveDependentsGuard(context, parent, inA);
     expect(getAllFeaturesWithoutEditorFields).not.toHaveBeenCalled();
   });

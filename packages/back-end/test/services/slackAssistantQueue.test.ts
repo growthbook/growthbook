@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type Agenda from "agenda";
 import { SlackThreadBusyError } from "back-end/src/services/slack/slackTaskSafety";
 import { handleSlackAssistantMention } from "back-end/src/services/slack/slackAssistant";
@@ -7,24 +8,28 @@ import addSlackAssistantJobs, {
   queueSlackAssistantConfirmation,
   queueSlackAppHomeOpened,
 } from "back-end/src/jobs/slackAssistantJobs";
-jest.mock("back-end/src/services/slack/slackAppHome", () => ({
-  ...jest.requireActual("back-end/src/services/slack/slackAppHome"),
-  handleSlackAppHomeOpened: jest.fn(),
+vi.mock("back-end/src/services/slack/slackAppHome", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/services/slack/slackAppHome")
+  >("back-end/src/services/slack/slackAppHome")),
+  handleSlackAppHomeOpened: vi.fn(),
 }));
-jest.mock("back-end/src/services/slack/slackAssistant", () => ({
-  ...jest.requireActual("back-end/src/services/slack/slackAssistant"),
-  handleSlackAssistantMention: jest.fn(),
-  handleSlackAssistantConfirmation: jest.fn(),
+vi.mock("back-end/src/services/slack/slackAssistant", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/services/slack/slackAssistant")
+  >("back-end/src/services/slack/slackAssistant")),
+  handleSlackAssistantMention: vi.fn(),
+  handleSlackAssistantConfirmation: vi.fn(),
 }));
 
-const createIndex = jest.fn(async () => "index");
-const unique = jest.fn();
-const schedule = jest.fn();
-const save = jest.fn(async () => undefined);
+const createIndex = vi.fn(async () => "index");
+const unique = vi.fn();
+const schedule = vi.fn();
+const save = vi.fn(async () => undefined);
 const agenda = {
-  define: jest.fn(),
+  define: vi.fn(),
   _collection: { createIndex },
-  create: jest.fn(() => ({ unique, schedule, save })),
+  create: vi.fn(() => ({ unique, schedule, save })),
 };
 const mention = {
   teamId: "team",
@@ -35,7 +40,7 @@ const mention = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   addSlackAssistantJobs(agenda as unknown as Agenda);
 });
 
@@ -119,9 +124,9 @@ test("accepts a concurrent duplicate insert as already queued", async () => {
 });
 
 test("reschedules a busy thread and keeps the placeholder for the retry", async () => {
-  jest
-    .mocked(handleSlackAssistantMention)
-    .mockRejectedValueOnce(new SlackThreadBusyError("999.111"));
+  vi.mocked(handleSlackAssistantMention).mockRejectedValueOnce(
+    new SlackThreadBusyError("999.111"),
+  );
   const process = agenda.define.mock.calls[0][1];
   const job = { attrs: { data: { kind: "mention", mention } }, schedule, save };
   await process(job);
@@ -157,9 +162,9 @@ test("normalizes absent mention fields read from MongoDB before running the turn
 });
 
 test("handler failure is recorded by Agenda", async () => {
-  jest
-    .mocked(handleSlackAssistantMention)
-    .mockRejectedValueOnce(new Error("failed turn"));
+  vi.mocked(handleSlackAssistantMention).mockRejectedValueOnce(
+    new Error("failed turn"),
+  );
   const process = agenda.define.mock.calls[0][1];
   await expect(
     process({ attrs: { data: { kind: "mention", mention } }, schedule, save }),

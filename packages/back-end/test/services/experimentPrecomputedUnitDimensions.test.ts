@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import { DataSourceInterface } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { ExperimentInterface } from "shared/validators";
@@ -11,20 +12,20 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { findDimensionsByIds } from "back-end/src/models/DimensionModel";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 
-jest.mock("back-end/src/services/datasource", () => ({
-  getSourceIntegrationObject: jest.fn(),
+vi.mock("back-end/src/services/datasource", () => ({
+  getSourceIntegrationObject: vi.fn(),
 }));
 
-jest.mock("back-end/src/enterprise", () => ({
-  orgHasPremiumFeature: jest.fn(),
+vi.mock("back-end/src/enterprise", () => ({
+  orgHasPremiumFeature: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/DimensionModel", () => ({
-  findDimensionsByIds: jest.fn(),
+vi.mock("back-end/src/models/DimensionModel", () => ({
+  findDimensionsByIds: vi.fn(),
 }));
 
-jest.mock("back-end/src/integrations/sql/queries/exposure-query", () => ({
-  getExposureQuery: jest.fn(),
+vi.mock("back-end/src/integrations/sql/queries/exposure-query", () => ({
+  getExposureQuery: vi.fn(),
 }));
 
 function makeDatasource(
@@ -61,19 +62,19 @@ const writableEphemeralPipeline = {
 const context = { org: { id: "org_1" } } as never;
 
 function mockPipelineEligible() {
-  (getSourceIntegrationObject as jest.Mock).mockReturnValue({
+  (getSourceIntegrationObject as Mock).mockReturnValue({
     getSourceProperties: () => ({ supportsWritingTables: true }),
   });
-  (orgHasPremiumFeature as jest.Mock).mockReturnValue(true);
+  (orgHasPremiumFeature as Mock).mockReturnValue(true);
 }
 
 describe("datasourceHasWritableEphemeralPipeline", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (getSourceIntegrationObject as jest.Mock).mockReturnValue({
+    vi.clearAllMocks();
+    (getSourceIntegrationObject as Mock).mockReturnValue({
       getSourceProperties: () => ({ supportsWritingTables: true }),
     });
-    (orgHasPremiumFeature as jest.Mock).mockReturnValue(true);
+    (orgHasPremiumFeature as Mock).mockReturnValue(true);
   });
 
   it("returns true when every condition holds", () => {
@@ -90,7 +91,7 @@ describe("datasourceHasWritableEphemeralPipeline", () => {
   });
 
   it("returns false when the integration cannot write tables", () => {
-    (getSourceIntegrationObject as jest.Mock).mockReturnValue({
+    (getSourceIntegrationObject as Mock).mockReturnValue({
       getSourceProperties: () => ({ supportsWritingTables: false }),
     });
     expect(
@@ -142,7 +143,7 @@ describe("datasourceHasWritableEphemeralPipeline", () => {
   });
 
   it("returns false without the pipeline-mode premium feature", () => {
-    (orgHasPremiumFeature as jest.Mock).mockReturnValue(false);
+    (orgHasPremiumFeature as Mock).mockReturnValue(false);
     expect(
       datasourceHasWritableEphemeralPipeline({
         context,
@@ -172,9 +173,9 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
   } as ExperimentInterface;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockPipelineEligible();
-    (getExposureQuery as jest.Mock).mockReturnValue({ userIdType: "user_id" });
+    (getExposureQuery as Mock).mockReturnValue({ userIdType: "user_id" });
   });
 
   it("ignores requested dimensions when the datasource lacks a writable ephemeral pipeline", async () => {
@@ -204,7 +205,7 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
   });
 
   it("returns ids whose datasource and userIdType match, dropping the rest", async () => {
-    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+    (findDimensionsByIds as Mock).mockResolvedValue([
       makeDimension({ id: "dim_country" }),
       makeDimension({ id: "dim_wrong_ds", datasource: "ds_other" }),
       makeDimension({ id: "dim_wrong_idtype", userIdType: "anonymous_id" }),
@@ -221,10 +222,10 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
   });
 
   it("returns empty when the exposure query lookup throws", async () => {
-    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+    (findDimensionsByIds as Mock).mockResolvedValue([
       makeDimension({ id: "dim_country" }),
     ]);
-    (getExposureQuery as jest.Mock).mockImplementation(() => {
+    (getExposureQuery as Mock).mockImplementation(() => {
       throw new Error("Unknown experiment assignment table - exposure");
     });
 
@@ -241,10 +242,10 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
 
 describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockPipelineEligible();
-    (getExposureQuery as jest.Mock).mockReturnValue({ userIdType: "user_id" });
-    (findDimensionsByIds as jest.Mock).mockResolvedValue([]);
+    (getExposureQuery as Mock).mockReturnValue({ userIdType: "user_id" });
+    (findDimensionsByIds as Mock).mockResolvedValue([]);
   });
 
   it("throws when saving dimensions the datasource cannot honor", async () => {
@@ -289,7 +290,7 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
   });
 
   it("throws when a requested dimension id does not exist", async () => {
-    (findDimensionsByIds as jest.Mock).mockResolvedValue([]);
+    (findDimensionsByIds as Mock).mockResolvedValue([]);
     await expect(
       assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
@@ -301,10 +302,10 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
   });
 
   it("throws when the experiment has no valid exposure query", async () => {
-    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+    (findDimensionsByIds as Mock).mockResolvedValue([
       makeDimension({ id: "dim_country" }),
     ]);
-    (getExposureQuery as jest.Mock).mockImplementation(() => {
+    (getExposureQuery as Mock).mockImplementation(() => {
       throw new Error("Unknown experiment assignment table - exposure");
     });
 
@@ -321,7 +322,7 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
   });
 
   it("throws when a dimension's datasource does not match the experiment's", async () => {
-    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+    (findDimensionsByIds as Mock).mockResolvedValue([
       makeDimension({ id: "dim_country", datasource: "ds_other" }),
     ]);
 
@@ -338,7 +339,7 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
   });
 
   it("throws when a dimension's userIdType does not match the exposure query", async () => {
-    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+    (findDimensionsByIds as Mock).mockResolvedValue([
       makeDimension({ id: "dim_country", userIdType: "anonymous_id" }),
     ]);
 
@@ -355,7 +356,7 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
   });
 
   it("resolves without error when every dimension is valid", async () => {
-    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+    (findDimensionsByIds as Mock).mockResolvedValue([
       makeDimension({ id: "dim_country" }),
     ]);
 

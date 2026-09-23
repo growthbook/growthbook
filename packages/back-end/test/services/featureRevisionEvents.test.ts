@@ -1,36 +1,37 @@
+import { MockedFunction, vi } from "vitest";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { deriveRevisionEventEnvironments } from "back-end/src/events/eventEnvironments";
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: vi.fn(),
 }));
-jest.mock("back-end/src/models/EventModel", () => ({
-  createEvent: jest.fn(),
+vi.mock("back-end/src/models/EventModel", () => ({
+  createEvent: vi.fn(),
 }));
-jest.mock("back-end/src/util/logger", () => ({
-  logger: { error: jest.fn() },
+vi.mock("back-end/src/util/logger", () => ({
+  logger: { error: vi.fn() },
 }));
 // The real services/features pulls in a heavy model/integration chain that
 // this unit test must not load. Only referenced inside dispatch functions,
 // which these tests never call.
-jest.mock("back-end/src/services/features", () => ({
-  revisionToApiInterface: jest.fn(),
-  toApiRevision: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  revisionToApiInterface: vi.fn(),
+  toApiRevision: vi.fn(),
 }));
-jest.mock("back-end/src/services/audit", () => ({
-  auditDetailsUpdate: jest.fn(),
+vi.mock("back-end/src/services/audit", () => ({
+  auditDetailsUpdate: vi.fn(),
 }));
-jest.mock("back-end/src/util/organization.util", () => ({
-  getEnvironments: jest.fn(() => []),
+vi.mock("back-end/src/util/organization.util", () => ({
+  getEnvironments: vi.fn(() => []),
 }));
 
 import { getPublishedRevisionForEvents } from "back-end/src/services/featureRevisionEvents";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { logger } from "back-end/src/util/logger";
 
-const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
+const mockGetRevision = getRevision as MockedFunction<typeof getRevision>;
 
 // Dispatch of `feature.revision.*` events fans out to webhook/Slack filters
 // keyed by (project, tag, environment). The derivation here feeds that
@@ -255,7 +256,7 @@ describe("getPublishedRevisionForEvents", () => {
   } as unknown as FeatureRevisionInterface;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("returns the re-read revision when the read succeeds", async () => {

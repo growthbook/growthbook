@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import {
   buildEventForwarderStatusResponse,
   mapLicenseConnectorPhaseToEventForwarderStatus,
@@ -6,20 +7,19 @@ import {
 import { postEventForwarderStatusToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarder/warehouseSync";
 
-jest.mock("back-end/src/enterprise/licenseUtil", () => ({
-  postEventForwarderStatusToLicenseServer: jest.fn(),
+vi.mock("back-end/src/enterprise/licenseUtil", () => ({
+  postEventForwarderStatusToLicenseServer: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/eventForwarder/warehouseSync", () => ({
-  queueDelayedEventForwarderWarehouseSyncForDatasource: jest.fn(),
+vi.mock("back-end/src/services/eventForwarder/warehouseSync", () => ({
+  queueDelayedEventForwarderWarehouseSyncForDatasource: vi.fn(),
 }));
 
-const statusMock =
-  postEventForwarderStatusToLicenseServer as jest.MockedFunction<
-    typeof postEventForwarderStatusToLicenseServer
-  >;
+const statusMock = postEventForwarderStatusToLicenseServer as MockedFunction<
+  typeof postEventForwarderStatusToLicenseServer
+>;
 const warehouseSyncMock =
-  queueDelayedEventForwarderWarehouseSyncForDatasource as jest.MockedFunction<
+  queueDelayedEventForwarderWarehouseSyncForDatasource as MockedFunction<
     typeof queueDelayedEventForwarderWarehouseSyncForDatasource
   >;
 
@@ -89,7 +89,7 @@ describe("buildEventForwarderStatusResponse", () => {
 
 describe("syncEventForwarderStatusFromLicenseServer", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     statusMock.mockResolvedValue({
       confluentState: "RUNNING",
       phase: "ready",
@@ -98,7 +98,7 @@ describe("syncEventForwarderStatusFromLicenseServer", () => {
   });
 
   it("queues initial warehouse sync when connector becomes ready", async () => {
-    const update = jest.fn().mockResolvedValue(undefined);
+    const update = vi.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1" },
       models: { eventForwarderConfigs: { update } },
@@ -120,7 +120,7 @@ describe("syncEventForwarderStatusFromLicenseServer", () => {
   });
 
   it("skips initial warehouse sync when already queued", async () => {
-    const update = jest.fn().mockResolvedValue(undefined);
+    const update = vi.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1" },
       models: { eventForwarderConfigs: { update } },
@@ -136,7 +136,7 @@ describe("syncEventForwarderStatusFromLicenseServer", () => {
 
   it("does not set initialWarehouseSyncQueued when queue fails", async () => {
     warehouseSyncMock.mockRejectedValue(new Error("queue failed"));
-    const update = jest.fn().mockResolvedValue(undefined);
+    const update = vi.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1" },
       models: { eventForwarderConfigs: { update } },

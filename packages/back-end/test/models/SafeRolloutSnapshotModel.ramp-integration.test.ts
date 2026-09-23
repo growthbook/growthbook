@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import { SafeRolloutSnapshotInterface } from "shared/validators";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import {
@@ -12,26 +13,26 @@ import {
 } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getFeature } from "back-end/src/models/FeatureModel";
 
-jest.mock("back-end/src/services/safeRolloutSnapshots", () => ({
-  getSafeRolloutAnalysisSummary: jest.fn(),
-  notifySafeRolloutChange: jest.fn(),
+vi.mock("back-end/src/services/safeRolloutSnapshots", () => ({
+  getSafeRolloutAnalysisSummary: vi.fn(),
+  notifySafeRolloutChange: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/safeRolloutTimeSeries", () => ({
-  updateSafeRolloutTimeSeries: jest.fn(),
+vi.mock("back-end/src/services/safeRolloutTimeSeries", () => ({
+  updateSafeRolloutTimeSeries: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/rampScheduleEvaluator", () => ({
-  evaluateRampScheduleAfterSafeRolloutSnapshot: jest.fn(),
+vi.mock("back-end/src/services/rampScheduleEvaluator", () => ({
+  evaluateRampScheduleAfterSafeRolloutSnapshot: vi.fn(),
 }));
 
-jest.mock("back-end/src/enterprise/saferollouts/safeRolloutUtils", () => ({
-  checkAndRollbackSafeRollout: jest.fn(),
-  updateRampUpSchedule: jest.fn(),
+vi.mock("back-end/src/enterprise/saferollouts/safeRolloutUtils", () => ({
+  checkAndRollbackSafeRollout: vi.fn(),
+  updateRampUpSchedule: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
 }));
 
 class TestSafeRolloutSnapshotModel extends SafeRolloutSnapshotModel {
@@ -57,29 +58,28 @@ class TestSafeRolloutSnapshotModel extends SafeRolloutSnapshotModel {
 }
 
 const mockGetSafeRolloutAnalysisSummary =
-  getSafeRolloutAnalysisSummary as jest.MockedFunction<
+  getSafeRolloutAnalysisSummary as MockedFunction<
     typeof getSafeRolloutAnalysisSummary
   >;
-const mockNotifySafeRolloutChange =
-  notifySafeRolloutChange as jest.MockedFunction<
-    typeof notifySafeRolloutChange
-  >;
+const mockNotifySafeRolloutChange = notifySafeRolloutChange as MockedFunction<
+  typeof notifySafeRolloutChange
+>;
 const mockUpdateSafeRolloutTimeSeries =
-  updateSafeRolloutTimeSeries as jest.MockedFunction<
+  updateSafeRolloutTimeSeries as MockedFunction<
     typeof updateSafeRolloutTimeSeries
   >;
 const mockEvaluateRampScheduleAfterSafeRolloutSnapshot =
-  evaluateRampScheduleAfterSafeRolloutSnapshot as jest.MockedFunction<
+  evaluateRampScheduleAfterSafeRolloutSnapshot as MockedFunction<
     typeof evaluateRampScheduleAfterSafeRolloutSnapshot
   >;
 const mockCheckAndRollbackSafeRollout =
-  checkAndRollbackSafeRollout as jest.MockedFunction<
+  checkAndRollbackSafeRollout as MockedFunction<
     typeof checkAndRollbackSafeRollout
   >;
-const mockUpdateRampUpSchedule = updateRampUpSchedule as jest.MockedFunction<
+const mockUpdateRampUpSchedule = updateRampUpSchedule as MockedFunction<
   typeof updateRampUpSchedule
 >;
-const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
+const mockGetFeature = getFeature as MockedFunction<typeof getFeature>;
 
 function makeSnapshot(
   overrides: Partial<SafeRolloutSnapshotInterface> = {},
@@ -116,7 +116,7 @@ function makeSnapshot(
 
 describe("SafeRolloutSnapshotModel ramp integration", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetSafeRolloutAnalysisSummary.mockResolvedValue({
       snapshotId: "srsnp_1",
     });
@@ -138,11 +138,11 @@ describe("SafeRolloutSnapshotModel ramp integration", () => {
       analysisSummary: { snapshotId: "srsnp_1" },
     };
     const context = {
-      logger: { error: jest.fn() },
+      logger: { error: vi.fn() },
       models: {
         safeRollout: {
-          getById: jest.fn().mockResolvedValue(safeRollout),
-          updateById: jest.fn().mockResolvedValue(updatedSafeRollout),
+          getById: vi.fn().mockResolvedValue(safeRollout),
+          updateById: vi.fn().mockResolvedValue(updatedSafeRollout),
         },
       },
     };
@@ -175,11 +175,11 @@ describe("SafeRolloutSnapshotModel ramp integration", () => {
 
   it("does not evaluate the ramp for stale snapshot updates", async () => {
     const context = {
-      logger: { error: jest.fn() },
+      logger: { error: vi.fn() },
       models: {
         safeRollout: {
-          getById: jest.fn(),
-          updateById: jest.fn(),
+          getById: vi.fn(),
+          updateById: vi.fn(),
         },
       },
     };

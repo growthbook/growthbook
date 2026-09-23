@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { EventForwarderConfigInterface } from "shared/validators";
 import { AES } from "crypto-js";
 import {
@@ -9,7 +10,7 @@ import {
 
 const ENCRYPTION_KEY = "test-encryption-key-for-event-forwarder!!";
 
-jest.mock("back-end/src/util/secrets", () => ({
+vi.mock("back-end/src/util/secrets", () => ({
   ENCRYPTION_KEY: "test-encryption-key-for-event-forwarder!!",
 }));
 
@@ -122,7 +123,7 @@ describe("isEventForwarderDraftUnchanged", () => {
 describe("event forwarder datasource lookup helpers", () => {
   it("loads one event forwarder by datasource id through the model helper", async () => {
     const existing = bqExisting();
-    const getByDatasourceId = jest.fn().mockResolvedValue(existing);
+    const getByDatasourceId = vi.fn().mockResolvedValue(existing);
     const context = {
       models: {
         eventForwarderConfigs: {
