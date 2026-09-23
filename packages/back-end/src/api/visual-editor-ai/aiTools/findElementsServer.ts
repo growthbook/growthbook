@@ -12,7 +12,7 @@ export type { PageStructureNode };
 export type LookupMemo = Map<string, number>;
 
 const repeatNote = (times: number): string =>
-  `You have asked exactly this ${times} times and the answer has not changed. Stop looking: act on what you already have (for a reorder whose shared parent is unknown, one CSS \`order\` rule per item), or list the part in \`skipped\` and ask the user to click the element.`;
+  `You have asked exactly this ${times} times and the answer has not changed. Stop looking: act on what you already have (for a reorder whose shared row is unknown, one CSS \`order\` rule per item — the uncaptured parent of each match, since \`order\` only moves the row's direct children), or list the part in \`skipped\` and ask the user to click the element.`;
 
 const countRepeat = (memo: LookupMemo | undefined, key: string): number => {
   if (!memo) return 1;
@@ -91,7 +91,7 @@ export function findElementsServerTool(
       if (times > 1) notes.push(repeatNote(times));
       if (matches.some((m) => m.parentSelector && !m.parentCaptured)) {
         notes.push(
-          "Some parentSelectors are not captured containers: describeContainer on them lists only what is known, and a position move into them cannot be verified. To reorder such siblings, emit one CSS `order` rule per item selector instead of hunting for the parent.",
+          "Some parentSelectors are not captured containers: describeContainer on them lists only what is known, and a position move into them cannot be verified. Such a match is usually an inner wrapper and its parentSelector is the item (the card). To reorder, emit one CSS `order` rule per item targeting each match's parentSelector, not the match — `order` only moves the row's direct children, so a rule on the wrapper does nothing.",
         );
       }
       return {

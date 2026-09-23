@@ -224,7 +224,7 @@ export function describeContainer(
       selector,
       children: [],
       descendants,
-      note: "This selector isn't a captured container and nothing is known about its layout or direct children. `descendants` are the known containers inside it, nearest first — act on those. For a reorder, prefer one CSS `order` rule per item over a position move into this selector, whose direct children can't be verified.",
+      note: "This selector isn't a captured container and nothing is known about its layout or direct children. `descendants` are the known containers inside it, nearest first — act on those. For a reorder, prefer one CSS `order` rule per item over a position move into this selector, whose direct children can't be verified. The items are the nearest descendants with `captured: false` (the cards); `order` only moves flex/grid items, so a rule on a captured wrapper inside a card does nothing.",
     };
   }
   const find = (list: StructureTreeNode[]): StructureTreeNode | null => {

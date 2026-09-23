@@ -21,23 +21,44 @@ describe("toolLoopProviderOptions", () => {
 });
 
 describe("lookupTerms", () => {
+  const find = (query: string) => ({
+    tool: "findElements",
+    input: JSON.stringify({ query }),
+  });
+  const describe_ = (selector: string) => ({
+    tool: "describeContainer",
+    input: JSON.stringify({ selector }),
+  });
+
   it("names the distinct queries and selectors a run asked for", () => {
     expect(
       lookupTerms([
-        { input: '{"selector":".tab-pane-content-1"}' },
-        { input: '{"query":"card-pricing_page"}' },
-        { input: '{"selector":".tab-pane-content-1"}' },
-        { input: '{"query":"Starter, plus"}' },
-        { input: '{"query":"Contact Us"}' },
+        describe_(".tab-pane-content-1"),
+        find("card-pricing_page"),
+        describe_(".tab-pane-content-1"),
+        find("Starter, plus"),
+        find("Contact Us"),
       ]),
     ).toBe("“.tab-pane-content-1”, “card-pricing_page” and “Starter, plus”");
   });
 
+  it("ignores searches that aren't page lookups", () => {
+    expect(
+      lookupTerms([
+        { tool: "searchImageLibrary", input: '{"query":"sunset hero"}' },
+        { tool: "searchPastExperiments", input: '{"query":"pricing test"}' },
+        find("hero"),
+      ]),
+    ).toBe("“hero”");
+  });
+
   it("copes with a single term, unparseable input, and nothing at all", () => {
     expect(
-      lookupTerms([{ input: '{"query":"hero"}' }, { input: "oops" }]),
+      lookupTerms([find("hero"), { tool: "findElements", input: "oops" }]),
     ).toBe("“hero”");
-    expect(lookupTerms([{ input: '{"prompt":"x"}' }])).toBe("");
+    expect(
+      lookupTerms([{ tool: "getInnerHTML", input: '{"prompt":"x"}' }]),
+    ).toBe("");
     expect(lookupTerms([])).toBe("");
   });
 });

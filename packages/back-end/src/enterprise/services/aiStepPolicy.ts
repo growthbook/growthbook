@@ -20,15 +20,26 @@ export function toolLoopProviderOptions(model: AIModel) {
   };
 }
 
-// The distinct things a run's lookup tools were asked for, as prose — so the
-// error a user sees after a lookup loop names what the AI was hunting for,
-// which is the element they should click.
+// The tools that look things up ON THE PAGE. Only their arguments describe
+// an element the user could click; an image-library or past-experiment
+// search in the same trace does not.
+const PAGE_LOOKUP_TOOLS: ReadonlySet<string> = new Set([
+  "findElements",
+  "describeContainer",
+  "getInnerHTML",
+  "getComputedStyles",
+]);
+
+// The distinct things a run's page-lookup tools were asked for, as prose — so
+// the error a user sees after a lookup loop names what the AI was hunting
+// for, which is the element they should click.
 export function lookupTerms(
-  trace: ReadonlyArray<{ input: string }>,
+  trace: ReadonlyArray<{ tool: string; input: string }>,
   max = 3,
 ): string {
   const terms: string[] = [];
-  for (const { input } of trace) {
+  for (const { tool, input } of trace) {
+    if (!PAGE_LOOKUP_TOOLS.has(tool)) continue;
     let parsed: unknown;
     try {
       parsed = JSON.parse(input);
