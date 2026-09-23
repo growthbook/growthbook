@@ -344,19 +344,24 @@ export const deleteSavedGroupValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
+// Features and contextual bandits share this shape; named so the generated
+// spec does not label one after the other.
+const savedGroupReferenceResource = namedSchema(
+  "SavedGroupReferenceResource",
+  z
+    .object({
+      id: z.string(),
+      name: z.string().optional(),
+      project: z.string().optional(),
+    })
+    .strict(),
+);
+
 export const apiSavedGroupReferencesValidator = namedSchema(
   "SavedGroupReferences",
   z
     .object({
-      features: z.array(
-        z
-          .object({
-            id: z.string(),
-            name: z.string().optional(),
-            project: z.string().optional(),
-          })
-          .strict(),
-      ),
+      features: z.array(savedGroupReferenceResource),
       experiments: z.array(
         z
           .object({
@@ -367,15 +372,7 @@ export const apiSavedGroupReferencesValidator = namedSchema(
           })
           .strict(),
       ),
-      contextualBandits: z.array(
-        z
-          .object({
-            id: z.string(),
-            name: z.string().optional(),
-            project: z.string().optional(),
-          })
-          .strict(),
-      ),
+      contextualBandits: z.array(savedGroupReferenceResource),
       savedGroups: z.array(
         z
           .object({

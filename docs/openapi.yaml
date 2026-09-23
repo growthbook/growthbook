@@ -730,6 +730,11 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/SavedGroupApprovalRule"
       />
+  - name: SavedGroupReferenceResource_model
+    x-displayName: Saved Group Reference Resource
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SavedGroupReferenceResource" />
   - name: SavedGroupReferences_model
     x-displayName: Saved Group References
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupReferences" />
@@ -21893,17 +21898,7 @@ paths:
                   features:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        name:
-                          type: string
-                        project:
-                          type: string
-                      required:
-                        - id
-                      additionalProperties: false
+                      $ref: '#/components/schemas/SavedGroupReferenceResource'
                   experiments:
                     type: array
                     items:
@@ -21925,7 +21920,7 @@ paths:
                   contextualBandits:
                     type: array
                     items:
-                      $ref: '#/components/schemas/contextualBandits'
+                      $ref: '#/components/schemas/SavedGroupReferenceResource'
                   savedGroups:
                     type: array
                     items:
@@ -23490,7 +23485,17 @@ paths:
                   features:
                     type: array
                     items:
-                      $ref: '#/components/schemas/contextualBandits'
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        project:
+                          type: string
+                      required:
+                        - id
+                      additionalProperties: false
                   constants:
                     type: array
                     items:
@@ -25447,7 +25452,17 @@ paths:
                   features:
                     type: array
                     items:
-                      $ref: '#/components/schemas/contextualBandits'
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        project:
+                          type: string
+                      required:
+                        - id
+                      additionalProperties: false
                   constants:
                     type: array
                     items:
@@ -64974,6 +64989,18 @@ components:
         - action
         - dateCreated
       additionalProperties: false
+    SavedGroupReferenceResource:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        project:
+          type: string
+      required:
+        - id
+      additionalProperties: false
     Constant:
       type: object
       properties:
@@ -76881,17 +76908,7 @@ components:
         features:
           type: array
           items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-            additionalProperties: false
+            $ref: '#/components/schemas/SavedGroupReferenceResource'
         experiments:
           type: array
           items:
@@ -76913,17 +76930,7 @@ components:
         contextualBandits:
           type: array
           items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-            additionalProperties: false
+            $ref: '#/components/schemas/SavedGroupReferenceResource'
         savedGroups:
           type: array
           items:
@@ -76946,6 +76953,20 @@ components:
         - contextualBandits
         - savedGroups
       additionalProperties: false
+      $defs:
+        SavedGroupReferenceResource:
+          id: SavedGroupReferenceResource
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            project:
+              type: string
+          required:
+            - id
+          additionalProperties: false
     ConstantReferences:
       type: object
       properties:
@@ -78367,18 +78388,6 @@ components:
         - table
         - columnCount
       additionalProperties: false
-    contextualBandits:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        project:
-          type: string
-      required:
-        - id
-      additionalProperties: false
     savedGroups:
       type: object
       properties:
@@ -79784,6 +79793,7 @@ x-tagGroups:
       - Safe Rollout Rule_model
       - SavedGroup_model
       - SavedGroupApprovalRule_model
+      - SavedGroupReferenceResource_model
       - SavedGroupReferences_model
       - SavedGroupRevision_model
       - SavedGroupRevisionActivityLogEntry_model
