@@ -2,6 +2,7 @@ import escapeRegExp from "lodash/escapeRegExp";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
 import {
+  ANCHORED_RAMP_SCHEDULE_STATUSES,
   ApiRampScheduleInterface,
   RampScheduleInterface,
   RampStartAction,
@@ -929,6 +930,22 @@ export class RampScheduleModel extends BaseClass {
     return this._find({
       entityType: "feature",
       entityId: { $in: featureIds },
+    });
+  }
+
+  // Schedules whose anchor a publish of `featureId` must reconcile with.
+  public async findAnchoredByTargetFeature(
+    featureId: string,
+  ): Promise<RampScheduleInterface[]> {
+    return this._find({
+      status: { $in: ANCHORED_RAMP_SCHEDULE_STATUSES },
+      targets: {
+        $elemMatch: {
+          entityType: "feature",
+          entityId: featureId,
+          status: "active",
+        },
+      },
     });
   }
 

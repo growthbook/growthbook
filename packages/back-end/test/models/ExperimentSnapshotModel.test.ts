@@ -1,10 +1,13 @@
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 import {
   getLatestSuccessfulSnapshot,
   getLatestSnapshotStatus,
@@ -258,18 +261,14 @@ async function insertLegacyInlineSnapshot({
 }
 
 describe("ExperimentSnapshotModel", () => {
-  let mongod: MongoMemoryServer;
-
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestMongo();
     snapshotTestContext.models.experimentSnapshotAnalysisChunks =
       new ExperimentSnapshotAnalysisChunkModel(snapshotTestContext);
   }, 60000);
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
+    await disconnectTestMongo();
   });
 
   afterEach(async () => {
