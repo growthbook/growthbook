@@ -57,8 +57,9 @@ const DatabricksEventForwarderForm: FC<{
         helpText="Must already exist. We suggest a dedicated schema such as growthbook."
       />
       <EventForwarderTableNameField
-        label="Table prefix"
+        label="Table prefix (optional)"
         name="eventForwarderDatabricksTablePrefix"
+        required={false}
         value={config.tablePrefix}
         onChange={(tablePrefix) => updateConfig({ tablePrefix })}
         placeholder="gb"

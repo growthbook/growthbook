@@ -12,6 +12,7 @@ import {
   EventForwarderConfigDraft,
   EventForwarderConfigWithMetadata,
   SnowflakeEventForwarderConfigDraft,
+  EventForwarderSinkType,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
@@ -37,8 +38,23 @@ type SinkConfig =
   | SnowflakeEventForwarderStoredConfig
   | DatabricksEventForwarderStoredConfig;
 
-/** Shared topic consumed by the GrowthBook-owned Databricks event forwarder. */
-export const EVENT_FORWARDER_DATABRICKS_TOPIC = "event_forwarder_databricks";
+// Sinks written by a GrowthBook-run consumer on one shared topic per sink,
+// instead of a per-datasource Confluent connector.
+const IN_HOUSE_CONSUMER_SINKS: ReadonlySet<EventForwarderSinkType> = new Set([
+  "databricks",
+]);
+
+export function isInHouseConsumerSink(
+  sinkType: EventForwarderSinkType,
+): boolean {
+  return IN_HOUSE_CONSUMER_SINKS.has(sinkType);
+}
+
+export function getInHouseConsumerTopicName(
+  sinkType: EventForwarderSinkType,
+): string {
+  return `event_forwarder_${sinkType}`;
+}
 
 function sanitizeKafkaName(value: string): string {
   return value
@@ -614,11 +630,9 @@ export async function syncEventForwarderConfigFromDatasource({
     return await context.models.eventForwarderConfigs.create({
       datasourceId: datasource.id,
       projects,
-      // Databricks rides the shared consumer topic; Confluent sinks get a per-datasource topic.
-      topic:
-        draft.sinkType === "databricks"
-          ? EVENT_FORWARDER_DATABRICKS_TOPIC
-          : getEventForwarderTopicName(datasource.organization, datasource.id),
+      topic: isInHouseConsumerSink(draft.sinkType)
+        ? getInHouseConsumerTopicName(draft.sinkType)
+        : getEventForwarderTopicName(datasource.organization, datasource.id),
       // Provisioning resolves the current registry schema id after the topic exists.
       schemaId: 0,
       sinkType: draft.sinkType,

@@ -29,6 +29,7 @@ import {
 import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderProjectId,
+  isInHouseConsumerSink,
 } from "back-end/src/services/eventForwarder/config";
 import {
   ensureEventForwarderBigQueryTables,
@@ -338,17 +339,20 @@ export async function provisionEventForwarderThroughLicenseServer(
         );
     }
 
-    // Databricks: tables exist and write access passed, so it is ready now.
-    const isDatabricks = eventForwarderConfig.sinkType === "databricks";
+    // In-house consumer sinks have no connector to wait on: tables exist and
+    // write access passed, so they are ready now.
+    const inHouseConsumer = isInHouseConsumerSink(
+      eventForwarderConfig.sinkType,
+    );
     const currentEventForwarderConfig =
       await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
         schemaId: result.schemaId,
-        status: isDatabricks ? "ready" : "pending",
+        status: inHouseConsumer ? "ready" : "pending",
         connectorName: result.connectorName,
         connectorId: result.connectorId,
         lastProvisioningError: "",
       });
-    if (isDatabricks) {
+    if (inHouseConsumer) {
       await queueInitialWarehouseSyncIfNeeded(
         context,
         currentEventForwarderConfig,
