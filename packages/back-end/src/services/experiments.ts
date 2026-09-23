@@ -1,4 +1,5 @@
 import uniqid from "uniqid";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
@@ -206,10 +207,12 @@ import {
 } from "back-end/src/models/FactTableModel";
 import {
   getFeatureProjectsByIds,
+  getFeature,
   getFeaturesByIds,
 } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
+  getRevision,
   getActiveDraftMetadataByFeatureIds,
   getFeatureRevisionsByFeatureIds,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -2454,11 +2457,12 @@ export async function assertCanRunExperimentChanges(
 
 // Run-experiments permission over the environments the experiment currently
 // affects, on its project and on any additional (e.g. destination) project.
-export async function assertCanRunExperimentInAffectedEnvironments(
+// The environments the experiment serves now plus those its pending drafts
+// reach once it starts, so a launch is gated like the live change it makes.
+export async function getExperimentAffectedEnvs(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
-  additionalProjects: (string | undefined)[] = [],
-): Promise<void> {
+): Promise<string[]> {
   const linkedFeatureIds = experiment.linkedFeatures || [];
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
 
@@ -2474,12 +2478,45 @@ export async function assertCanRunExperimentInAffectedEnvironments(
     hasUnreadableFeature = existingFeatures.size > linkedFeatures.length;
   }
 
-  const envs = getAffectedEnvsForExperiment({
+  const pendingDrafts: {
+    feature: FeatureInterface;
+    revision: FeatureRevisionInterface;
+  }[] = [];
+  for (const {
+    featureId,
+    revisionVersion,
+  } of experiment.pendingFeatureDrafts ?? []) {
+    const feature =
+      linkedFeatures.find((f) => f.id === featureId) ??
+      (await getFeature(context, featureId));
+    if (!feature) continue;
+    const revision = await getRevision({
+      context,
+      organization: context.org.id,
+      featureId,
+      feature,
+      version: revisionVersion,
+    });
+    if (revision && !["published", "discarded"].includes(revision.status)) {
+      pendingDrafts.push({ feature, revision });
+    }
+  }
+
+  return getAffectedEnvsForExperiment({
     experiment,
     orgEnvironments: context.org.settings?.environments || [],
     // Passing undefined here makes it return __ALL__ envs.
     linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
+    pendingDrafts,
   });
+}
+
+export async function assertCanRunExperimentInAffectedEnvironments(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  additionalProjects: (string | undefined)[] = [],
+): Promise<void> {
+  const envs = await getExperimentAffectedEnvs(context, experiment);
   if (envs.length > 0) {
     const projects = [experiment.project || undefined, ...additionalProjects];
     // check user's permission on existing experiment project and the updated project, if changed

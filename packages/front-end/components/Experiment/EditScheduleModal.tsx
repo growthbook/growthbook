@@ -65,16 +65,16 @@ export default function EditScheduleModal({
     experiment,
     {},
   );
-  // Stopping or shipping at the scheduled end is a deferred status change and
-  // needs run permission; without it only "notify" can be chosen, and a stop
-  // that is still pending cannot be re-timed or cleared.
+  // A scheduled start, stop or ship is a deferred status change and needs run
+  // permission; without it only a "notify" end can be chosen, and a start or
+  // stop that is still pending cannot be re-timed or cleared.
   const canScheduleStatusChange =
     !envs?.length || permissionsUtil.canRunExperiment(experiment, envs);
   const runPermissionReason =
     "Requires permission to start and stop experiments in this experiment's environments.";
-  const pendingStopLocked =
+  const pendingChangeLocked =
     !canScheduleStatusChange &&
-    experiment.nextScheduledStatusUpdate?.type === "stop" &&
+    !!experiment.nextScheduledStatusUpdate &&
     scheduleStagesStatusChange(experiment.statusUpdateSchedule);
 
   const decisionCriteria = getDecisionCriteria(
@@ -248,8 +248,9 @@ export default function EditScheduleModal({
   const hasEndDate = endMode !== "manual";
   // Without run permission, never submit a plan that stops or ships.
   const statusChangeLocked =
-    pendingStopLocked ||
-    (!canScheduleStatusChange && hasEndDate && mode !== "notify");
+    pendingChangeLocked ||
+    (!canScheduleStatusChange &&
+      (!!startAt || (hasEndDate && mode !== "notify")));
   // "On date" requires an actual date. Block save (rather than silently
   // discarding the shipping config on submit) if the picker was left empty.
   const endDateMissing = endMode === "on-date" && !stopAt;
@@ -427,7 +428,14 @@ export default function EditScheduleModal({
                   }
                 }}
                 containerStyle={{ width: 150 }}
-                disabled={experiment.status !== "draft"}
+                disabled={
+                  experiment.status !== "draft" || !canScheduleStatusChange
+                }
+                helpText={
+                  experiment.status === "draft" && !canScheduleStatusChange
+                    ? runPermissionReason
+                    : undefined
+                }
               />
               {startAt && (
                 <DatePicker

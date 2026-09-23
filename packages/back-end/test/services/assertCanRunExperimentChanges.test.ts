@@ -5,23 +5,32 @@ import { assertCanRunExperimentChanges } from "back-end/src/services/experiments
 // Import cycles: a lazy Proxy defers requireActual to first property access.
 const getFeaturesByIdsMock = jest.fn();
 const getFeatureProjectsByIdsMock = jest.fn();
+const getRevisionMock = jest.fn();
 
-jest.mock("back-end/src/models/FeatureModel", () => {
-  const overrides: Record<string, unknown> = {
-    getFeaturesByIds: (...args: unknown[]) => getFeaturesByIdsMock(...args),
-    getFeatureProjectsByIds: (...args: unknown[]) =>
-      getFeatureProjectsByIdsMock(...args),
-  };
+// A function declaration: hoisted, so the hoisted jest.mock factories can call it.
+function lazyMock(modulePath: string, overrides: Record<string, unknown>) {
   return new Proxy(
     {},
     {
       get: (_t, prop: string) =>
         prop in overrides
           ? overrides[prop]
-          : jest.requireActual("back-end/src/models/FeatureModel")[prop],
+          : jest.requireActual(modulePath)[prop],
     },
   );
-});
+}
+jest.mock("back-end/src/models/FeatureModel", () =>
+  lazyMock("back-end/src/models/FeatureModel", {
+    getFeaturesByIds: (...args: unknown[]) => getFeaturesByIdsMock(...args),
+    getFeatureProjectsByIds: (...args: unknown[]) =>
+      getFeatureProjectsByIdsMock(...args),
+  }),
+);
+jest.mock("back-end/src/models/FeatureRevisionModel", () =>
+  lazyMock("back-end/src/models/FeatureRevisionModel", {
+    getRevision: (...args: unknown[]) => getRevisionMock(...args),
+  }),
+);
 
 const experiment = (over: Partial<ExperimentInterface> = {}) =>
   ({
@@ -123,7 +132,7 @@ describe("assertCanRunExperimentChanges", () => {
       ).rejects.toThrow("permission denied");
     });
 
-    it("skips a notify-only end, an end with no plan, and a start-only schedule", async () => {
+    it("skips a notify-only end and an end with no plan", async () => {
       await assertCanRunExperimentChanges(context, served, {
         statusUpdateSchedule: {
           stopAt: future,
@@ -133,10 +142,15 @@ describe("assertCanRunExperimentChanges", () => {
       await assertCanRunExperimentChanges(context, served, {
         statusUpdateSchedule: { stopAt: future },
       });
-      await assertCanRunExperimentChanges(context, served, {
-        statusUpdateSchedule: { startAt: future },
-      });
       expect(canRunExperiment).not.toHaveBeenCalled();
+    });
+
+    it("checks a scheduled start, which publishes the drafts the start reaches", async () => {
+      await expect(
+        assertCanRunExperimentChanges(context, served, {
+          statusUpdateSchedule: { startAt: future },
+        }),
+      ).rejects.toThrow("permission denied");
     });
 
     it("checks clearing or downgrading a stop that is still pending", async () => {
@@ -232,5 +246,53 @@ describe("assertCanRunExperimentChanges", () => {
         "__ALL__",
       ]);
     });
+  });
+});
+
+describe("starting an experiment whose rule is still in a draft", () => {
+  const feature = {
+    id: "feat_1",
+    project: "proj_1",
+    rules: [],
+    environmentSettings: { production: { enabled: true } },
+  };
+  const draftRule = {
+    type: "experiment-ref",
+    id: "fr_1",
+    experimentId: "exp_1",
+    enabled: true,
+    allEnvironments: true,
+    variations: [],
+  };
+  const draft = experiment({
+    status: "draft",
+    linkedFeatures: ["feat_1"],
+    pendingFeatureDrafts: [{ featureId: "feat_1", revisionVersion: 2 }],
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    canRunExperiment.mockReturnValue(false);
+    getFeaturesByIdsMock.mockResolvedValue([feature]);
+    getFeatureProjectsByIdsMock.mockResolvedValue(new Map());
+  });
+
+  it("asks for run permission in the environments the pending draft reaches", async () => {
+    getRevisionMock.mockResolvedValue({ status: "draft", rules: [draftRule] });
+    await expect(
+      assertCanRunExperimentChanges(context, draft, { status: "running" }),
+    ).rejects.toThrow("permission denied");
+    expect(canRunExperiment).toHaveBeenCalledWith({ project: "proj_1" }, [
+      "production",
+    ]);
+  });
+
+  it("skips a start that reaches nothing: no live rule and the queued draft is gone", async () => {
+    getRevisionMock.mockResolvedValue({
+      status: "published",
+      rules: [draftRule],
+    });
+    await assertCanRunExperimentChanges(context, draft, { status: "running" });
+    expect(canRunExperiment).not.toHaveBeenCalled();
   });
 });

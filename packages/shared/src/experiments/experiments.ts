@@ -2981,18 +2981,22 @@ export function getEffectiveLookbackOverride(
 }
 
 type ScheduledEndLike = {
+  startAt?: Date | string | null;
   stopAt?: Date | string | null;
   stopAfter?: { value: number; unit: string } | null;
   scheduledStopPlan?: { mode?: string } | null;
 };
 
-// A scheduled end whose stop plan is anything other than "notify" stops the
-// experiment or ships a variation when it fires, i.e. it changes the
-// experiment's status / rollout, just later. No plan behaves as "notify".
+// A schedule stages a status change when it starts the experiment (publishing
+// its pending drafts) or ends it with a plan other than "notify" (stop or ship
+// a variation). No stop plan behaves as "notify".
 export function scheduleStagesStatusChange(
   schedule: ScheduledEndLike | null | undefined,
 ): boolean {
-  if (!schedule || !(schedule.stopAt || schedule.stopAfter)) return false;
+  if (!schedule) return false;
+  // A scheduled start publishes the experiment's pending drafts when it fires.
+  if (schedule.startAt) return true;
+  if (!(schedule.stopAt || schedule.stopAfter)) return false;
   return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
 }
 
@@ -3007,8 +3011,8 @@ export function scheduleWriteNeedsRunPermission(
   },
   incoming: ScheduledEndLike | null | undefined,
 ): boolean {
-  const pendingStop =
-    experiment.nextScheduledStatusUpdate?.type === "stop" &&
+  const pending =
+    !!experiment.nextScheduledStatusUpdate &&
     scheduleStagesStatusChange(experiment.statusUpdateSchedule);
-  return pendingStop || scheduleStagesStatusChange(incoming);
+  return pending || scheduleStagesStatusChange(incoming);
 }
