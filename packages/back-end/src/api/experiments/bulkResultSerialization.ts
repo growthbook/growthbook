@@ -1,6 +1,6 @@
 import { isEqual } from "lodash";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { isDefined } from "shared/util";
+import { isDefined, toApiAssignmentQueryRef } from "shared/util";
 import {
   ExperimentMetricInterface,
   getFunnelStepMetric,
@@ -17,6 +17,7 @@ import {
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/types/experiment";
+import { ExposureQuery } from "shared/types/datasource";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { safeFloatOrNull } from "back-end/src/services/experiments";
@@ -260,6 +261,8 @@ export function toExperimentSnapshotBulkResultsApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
+  // The snapshot's data source queries, to resolve a legacy identifier.
+  exposureQueries: ExposureQuery[],
 ): ApiExperimentBulkResult[] {
   const defaultAnalysis = snapshot.analyses[0];
   if (!defaultAnalysis || defaultAnalysis.status !== "success") return [];
@@ -324,19 +327,14 @@ export function toExperimentSnapshotBulkResultsApiInterface(
   // added per item below.
   const assignmentQueryId =
     snapshot.settings.exposureQueryId || experiment.exposureQueryId || "";
-  const assignmentQueryIdentifierType =
-    snapshot.settings.exposureQueryIdentifierType ??
-    experiment.exposureQueryIdentifierType;
   const baseSettings = {
     datasourceId: snapshot.settings.datasourceId || experiment.datasource || "",
-    ...(assignmentQueryId && assignmentQueryIdentifierType
-      ? {
-          assignmentQuery: {
-            id: assignmentQueryId,
-            identifierType: assignmentQueryIdentifierType,
-          },
-        }
-      : {}),
+    // The snapshot's own identifier; the experiment may have been repointed.
+    assignmentQuery: toApiAssignmentQueryRef(
+      assignmentQueryId,
+      snapshot.settings.exposureQueryIdentifierType,
+      exposureQueries,
+    ),
     assignmentQueryId,
     experimentId: snapshot.settings.experimentId || experiment.trackingKey,
     segmentId: snapshot.settings.segment,

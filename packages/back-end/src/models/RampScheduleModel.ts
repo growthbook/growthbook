@@ -2,6 +2,7 @@ import escapeRegExp from "lodash/escapeRegExp";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
+import { ExposureQuery } from "shared/types/datasource";
 import {
   ApiRampMonitoringConfig,
   ApiRampScheduleInterface,
@@ -22,6 +23,7 @@ import {
   isRampScheduleServing,
   unanchoredRampTargets,
   parseAssignmentQueryInput,
+  toApiAssignmentQueryRef,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
@@ -32,6 +34,7 @@ import {
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import {
   appendRampEvent,
   assertCanEditRampScheduleConfig,
@@ -272,27 +275,32 @@ export function apiMonitoringConfigToInternal<
 
 export function monitoringConfigToApi(
   mc: RampMonitoringConfig,
+  exposureQueries: ExposureQuery[],
 ): ApiRampMonitoringConfig {
   const { exposureQueryIdentifierType, ...rest } = mc;
   return {
     ...rest,
-    ...(rest.exposureQueryId && exposureQueryIdentifierType
-      ? {
-          exposureQuery: {
-            id: rest.exposureQueryId,
-            identifierType: exposureQueryIdentifierType,
-          },
-        }
-      : {}),
+    exposureQuery: toApiAssignmentQueryRef(
+      rest.exposureQueryId,
+      exposureQueryIdentifierType,
+      exposureQueries,
+    ),
   };
 }
 
+// `context` must have the monitoring data source cached; the model's
+// getForeignKeys does that on every read and write.
 export function rampScheduleToApiInterface(
+  context: ReqContext | ApiReqContext,
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
   const monitoringConfig = doc.monitoringConfig
     ? {
-        ...monitoringConfigToApi(doc.monitoringConfig),
+        ...monitoringConfigToApi(
+          doc.monitoringConfig,
+          context.foreignRefs.datasource.get(doc.monitoringConfig.datasourceId)
+            ?.settings?.queries?.exposure ?? [],
+        ),
         signalMetricIds: doc.monitoringConfig.signalMetricIds ?? [],
       }
     : doc.monitoringConfig;
@@ -467,6 +475,14 @@ function assertTargetsAnchored(
 }
 
 export class RampScheduleModel extends BaseClass {
+  // The monitoring data source is nested, so BaseModel wouldn't cache it.
+  protected getForeignKeys(doc: RampScheduleInterface) {
+    const keys = super.getForeignKeys(doc);
+    if (doc.monitoringConfig?.datasourceId) {
+      keys.datasource = doc.monitoringConfig.datasourceId;
+    }
+    return keys;
+  }
   protected async beforeCreate(doc: RampScheduleInterface) {
     assertTargetsAnchored(doc, []);
   }
@@ -659,7 +675,7 @@ export class RampScheduleModel extends BaseClass {
   protected toApiInterface(
     doc: RampScheduleInterface,
   ): ApiRampScheduleInterface {
-    return rampScheduleToApiInterface(doc);
+    return rampScheduleToApiInterface(this.context, doc);
   }
 
   public override async handleApiList(

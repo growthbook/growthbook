@@ -4,7 +4,10 @@ import {
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
-import { parseAssignmentQueryInput } from "shared/util";
+import {
+  parseAssignmentQueryInput,
+  toApiAssignmentQueryRef,
+} from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
@@ -190,13 +193,13 @@ export class ExperimentTemplatesModel extends BaseClass {
     ) as ExperimentTemplateInterface & ApiExperimentTemplateInterface;
     return {
       ...base,
-      exposureQuery:
-        doc.exposureQueryId && exposureQueryIdentifierType
-          ? {
-              id: doc.exposureQueryId,
-              identifierType: exposureQueryIdentifierType,
-            }
-          : undefined,
+      exposureQuery: toApiAssignmentQueryRef(
+        doc.exposureQueryId,
+        exposureQueryIdentifierType,
+        // BaseModel caches the template's data source on read and write.
+        this.getForeignRefs(doc, false).datasource?.settings?.queries
+          ?.exposure ?? [],
+      ),
     };
   }
 

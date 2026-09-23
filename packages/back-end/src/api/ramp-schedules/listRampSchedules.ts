@@ -67,7 +67,9 @@ export const listRampSchedules = createApiRequestHandler(
   );
 
   return {
-    rampSchedules: filtered.map(rampScheduleToApiInterface),
+    rampSchedules: filtered.map((s) =>
+      rampScheduleToApiInterface(req.context, s),
+    ),
     ...returnFields,
   };
 });

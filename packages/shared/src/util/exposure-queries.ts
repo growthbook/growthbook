@@ -120,6 +120,23 @@ export function assertValidAssignmentQuerySelection({
   return query;
 }
 
+/**
+ * API shape of a stored assignment query selection. Legacy records (no stored
+ * identifier) report their query's first; omitted when that can't be resolved.
+ */
+export function toApiAssignmentQueryRef(
+  id: string | undefined,
+  storedIdentifierType: string | undefined,
+  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
+): { id: string; identifierType: string } | undefined {
+  if (!id) return undefined;
+  const query = exposureQueries.find((q) => q.id === id);
+  const identifierType =
+    storedIdentifierType ||
+    (query ? getExposureQueryIdentifierTypes(query)[0] : undefined);
+  return identifierType ? { id, identifierType } : undefined;
+}
+
 export type AssignmentQuerySelection = {
   datasource: string;
   exposureQueryId: string;

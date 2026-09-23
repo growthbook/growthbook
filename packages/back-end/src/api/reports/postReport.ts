@@ -205,7 +205,8 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
 
     return {
       report: await resolveOwnerEmail(
-        toReportApiInterface(
+        await toReportApiInterface(
+          req.context,
           { ...report, snapshot: newSnapshot.id },
           newSnapshot,
         ),
@@ -220,7 +221,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     return {
       report: {
         ...(await resolveOwnerEmail(
-          toReportApiInterface({ ...report, snapshot: "" }),
+          await toReportApiInterface(req.context, { ...report, snapshot: "" }),
           req.context,
         )),
         snapshotStatus: "error" as const,

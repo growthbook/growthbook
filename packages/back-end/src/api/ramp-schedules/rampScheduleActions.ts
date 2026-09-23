@@ -121,7 +121,7 @@ export const startRampSchedule = createApiRequestHandler({
       return startSchedule(req.context, fresh, heartbeat);
     },
   );
-  return { rampSchedule: rampScheduleToApiInterface(current) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, current) };
 });
 
 export const pauseRampSchedule = createApiRequestHandler({
@@ -160,7 +160,7 @@ export const pauseRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const resumeRampSchedule = createApiRequestHandler({
@@ -199,7 +199,7 @@ export const resumeRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const jumpRampSchedule = createApiRequestHandler({
@@ -249,7 +249,7 @@ export const jumpRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const completeRampSchedule = createApiRequestHandler({
@@ -309,7 +309,7 @@ export const completeRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(completed) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, completed) };
 });
 
 export const approveStepRampSchedule = createApiRequestHandler({
@@ -403,7 +403,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
     ),
   });
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 const rollbackBodySchema = z
@@ -450,7 +450,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const restartRampSchedule = createApiRequestHandler({
@@ -488,7 +488,7 @@ export const restartRampSchedule = createApiRequestHandler({
       return restartSchedule(req.context, fresh, heartbeat);
     },
   );
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const addTargetRampSchedule = createApiRequestHandler({
@@ -656,7 +656,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const ejectTargetRampSchedule = createApiRequestHandler({
@@ -748,7 +748,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
         { targets: remaining },
       );
 
-      return { rampSchedule: rampScheduleToApiInterface(updated) };
+      return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
     },
   );
 });
@@ -869,7 +869,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   current =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? current;
 
-  return { rampSchedule: rampScheduleToApiInterface(current) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, current) };
 });
 
 const healthSummaryMetricSchema = z.object({
@@ -1329,7 +1329,7 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
     (fresh) =>
       setRampMonitoringMode(req.context, fresh, req.body.monitoringMode),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const setAutoUpdateRampSchedule = createApiRequestHandler({
@@ -1365,7 +1365,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
         req.body.enabled ? "auto" : "manual",
       ),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
@@ -1398,7 +1398,7 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
         apiMonitoringConfigToInternal(req.body)!,
       ),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const updateLockdownConfigRampSchedule = createApiRequestHandler({
@@ -1423,7 +1423,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
     schedule.id,
     (fresh) => updateRampLockdownConfig(req.context, fresh, req.body),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const putStepSchema = z
@@ -1517,7 +1517,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const refreshMonitoringRampSchedule = createApiRequestHandler({
@@ -1636,5 +1636,5 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
 
   const updated =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });

@@ -1,12 +1,17 @@
 import { ApiReport } from "shared/validators";
 import { ReportInterface } from "shared/types/report";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { toApiAssignmentQueryRef } from "shared/util";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
 
-export function toReportApiInterface(
+export async function toReportApiInterface(
+  context: ReqContext | ApiReqContext,
   report: ReportInterface,
   snapshot?: ExperimentSnapshotInterface | null,
-): ApiReport {
+): Promise<ApiReport> {
   // Reports persisted before share controls existed have undefined shareLevel.
   // Treat those as "private" in the API surface so we never silently expose them.
   const shareLevel: ApiReport["shareLevel"] =
@@ -69,13 +74,11 @@ export function toReportApiInterface(
         attributionModel: settings.attributionModel,
         lookbackOverride: settings.lookbackOverride,
         trackingKey: settings.trackingKey || undefined,
-        exposureQuery:
-          settings.exposureQueryId && settings.exposureQueryIdentifierType
-            ? {
-                id: settings.exposureQueryId,
-                identifierType: settings.exposureQueryIdentifierType,
-              }
-            : undefined,
+        exposureQuery: toApiAssignmentQueryRef(
+          settings.exposureQueryId,
+          settings.exposureQueryIdentifierType,
+          await getExposureQueriesForDatasource(context, settings.datasource),
+        ),
         exposureQueryId: settings.exposureQueryId || undefined,
         segment: settings.segment || undefined,
         queryFilter: settings.queryFilter || undefined,
@@ -128,13 +131,11 @@ export function toReportApiInterface(
         sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
         attributionModel: args.attributionModel,
         trackingKey: args.trackingKey || undefined,
-        exposureQuery:
-          args.exposureQueryId && args.exposureQueryIdentifierType
-            ? {
-                id: args.exposureQueryId,
-                identifierType: args.exposureQueryIdentifierType,
-              }
-            : undefined,
+        exposureQuery: toApiAssignmentQueryRef(
+          args.exposureQueryId,
+          args.exposureQueryIdentifierType,
+          await getExposureQueriesForDatasource(context, args.datasource),
+        ),
         exposureQueryId: args.exposureQueryId || undefined,
         segment: args.segment || undefined,
         queryFilter: args.queryFilter || undefined,

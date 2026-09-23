@@ -565,3 +565,17 @@ export async function assertValidAssignmentQuerySelectionChange(
     ...(await getScope()),
   });
 }
+
+// Resolves legacy assignment query identifiers from the request's data source
+// cache, so serializing a list reads data sources once.
+export async function getExposureQueriesForDatasource(
+  context: ReqContext | ApiReqContext,
+  datasourceId: string,
+): Promise<ExposureQuery[]> {
+  if (!datasourceId) return [];
+  await context.populateForeignRefs({ datasource: [datasourceId] });
+  return (
+    context.foreignRefs.datasource.get(datasourceId)?.settings?.queries
+      ?.exposure ?? []
+  );
+}

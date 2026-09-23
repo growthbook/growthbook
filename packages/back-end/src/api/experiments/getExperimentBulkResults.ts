@@ -16,6 +16,7 @@ import {
   EXPERIMENT_BULK_RESULTS_ENABLED,
   EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX,
 } from "back-end/src/util/secrets";
+import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
 
 // Answer exactly like the router's unknown-endpoint handler when disabled, so
 // a gated endpoint is indistinguishable from one that doesn't exist.
@@ -87,11 +88,27 @@ export const getExperimentBulkResults = createApiRequestHandler({
 
   // A single snapshot expands into one result item per dimension; pagination
   // stays over snapshots, so `count` reflects snapshots on this page.
+  const datasourceIds = [
+    ...new Set(
+      snapshots.map((s) => s.settings.datasourceId || experiment.datasource),
+    ),
+  ];
+  const exposureQueriesByDatasource = new Map(
+    await Promise.all(
+      datasourceIds.map(
+        async (id) =>
+          [id, await getExposureQueriesForDatasource(req.context, id)] as const,
+      ),
+    ),
+  );
   const results = snapshots.flatMap((snapshot) =>
     toExperimentSnapshotBulkResultsApiInterface(
       experiment,
       snapshot,
       metricsById,
+      exposureQueriesByDatasource.get(
+        snapshot.settings.datasourceId || experiment.datasource,
+      ) ?? [],
     ),
   );
 

@@ -7,11 +7,17 @@ jest.mock("back-end/src/services/rampSchedule", () => ({
 }));
 
 import { RampScheduleInterface } from "shared/validators";
+import { ExposureQuery } from "shared/types/datasource";
+import { ReqContext } from "back-end/types/request";
 import {
   apiMonitoringConfigToInternal,
   monitoringConfigToApi,
   rampScheduleToApiInterface,
 } from "back-end/src/models/RampScheduleModel";
+
+const context = {
+  foreignRefs: { datasource: new Map() },
+} as unknown as ReqContext;
 
 function makeSchedule(
   overrides: Partial<RampScheduleInterface> = {},
@@ -41,13 +47,14 @@ function makeSchedule(
 
 describe("rampScheduleToApiInterface approval fields", () => {
   it("reports awaitingApproval when the current step's only remaining gate is approval", () => {
-    const api = rampScheduleToApiInterface(makeSchedule());
+    const api = rampScheduleToApiInterface(context, makeSchedule());
     expect(api.awaitingApproval).toBe(true);
     expect(api.stepApproval).toBeUndefined();
   });
 
   it("reports awaitingApproval for a pre-start schedule with an unapproved start gate", () => {
     const api = rampScheduleToApiInterface(
+      context,
       makeSchedule({
         status: "ready",
         currentStepIndex: -1,
@@ -60,6 +67,7 @@ describe("rampScheduleToApiInterface approval fields", () => {
 
   it("does not report awaitingApproval while an approval step's time hold is still counting", () => {
     const api = rampScheduleToApiInterface(
+      context,
       makeSchedule({
         steps: [
           {
@@ -76,6 +84,7 @@ describe("rampScheduleToApiInterface approval fields", () => {
 
   it("clears awaitingApproval and serializes stepApproval once the current step is approved", () => {
     const api = rampScheduleToApiInterface(
+      context,
       makeSchedule({
         stepApproval: {
           stepIndex: 0,
@@ -96,6 +105,7 @@ describe("rampScheduleToApiInterface approval fields", () => {
 
   it("omits stepApproval when it belongs to a step other than the current one", () => {
     const api = rampScheduleToApiInterface(
+      context,
       makeSchedule({
         currentStepIndex: 1,
         steps: [
@@ -131,6 +141,7 @@ describe("rampScheduleToApiInterface exposureQuery", () => {
       reason: null,
     });
     const api = rampScheduleToApiInterface(
+      context,
       makeSchedule({
         monitoringConfig: {
           datasourceId: "ds_1",
@@ -203,13 +214,28 @@ describe("apiMonitoringConfigToInternal", () => {
 });
 
 describe("monitoringConfigToApi", () => {
-  it("omits exposureQuery for legacy configs without an identifier type", () => {
-    const api = monitoringConfigToApi({
-      datasourceId: "ds_1",
-      exposureQueryId: "eq_1",
-      guardrailMetricIds: ["met_1"],
+  const mc = {
+    datasourceId: "ds_1",
+    exposureQueryId: "eq_1",
+    guardrailMetricIds: ["met_1"],
+  };
+
+  it("resolves a legacy config to its query's first identifier", () => {
+    const api = monitoringConfigToApi(mc, [
+      {
+        id: "eq_1",
+        userIdType: "anonymous_id",
+        userIdTypes: ["anonymous_id", "user_id"],
+      } as ExposureQuery,
+    ]);
+    expect(api.exposureQuery).toEqual({
+      id: "eq_1",
+      identifierType: "anonymous_id",
     });
-    expect(api).not.toHaveProperty("exposureQuery");
-    expect(api.exposureQueryId).toBe("eq_1");
+    expect(api).not.toHaveProperty("exposureQueryIdentifierType");
+  });
+
+  it("leaves exposureQuery unset when the query can't be resolved", () => {
+    expect(monitoringConfigToApi(mc, []).exposureQuery).toBeUndefined();
   });
 });

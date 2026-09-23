@@ -17,6 +17,13 @@ import { assertValidExperimentPrerequisites } from "../../src/services/prerequis
 import { BadRequestError, NotFoundError } from "../../src/util/errors";
 import { setupApp } from "./api.setup";
 
+// Serializers resolve legacy identifiers through the request's data source cache,
+// which these mock contexts don't have.
+jest.mock("back-end/src/services/datasource", () => ({
+  ...jest.requireActual("back-end/src/services/datasource"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("../../src/services/files", () => ({
   getSignedImageUrl: async (path) => `https://signed.example.com/${path}`,
   uploadFile: jest

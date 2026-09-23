@@ -8,6 +8,7 @@ import {
   assertValidAssignmentQuerySelection,
   isExposureQueryAvailableForProjects,
   hasAssignmentQuerySelectionChanged,
+  toApiAssignmentQueryRef,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -397,5 +398,34 @@ describe("hasAssignmentQuerySelectionChanged", () => {
       ),
     ).resolves.toBe(true);
     expect(load).not.toHaveBeenCalled();
+  });
+});
+
+describe("toApiAssignmentQueryRef", () => {
+  const multi = query({
+    id: "eq_1",
+    userIdType: "anonymous_id",
+    userIdTypes: ["anonymous_id", "user_id"],
+  });
+
+  it("resolves a legacy record to its query's first identifier", () => {
+    expect(toApiAssignmentQueryRef("eq_1", undefined, [multi])).toEqual({
+      id: "eq_1",
+      identifierType: "anonymous_id",
+    });
+  });
+
+  it("reports the stored identifier as is, even if no longer declared", () => {
+    expect(toApiAssignmentQueryRef("eq_1", "company_id", [multi])).toEqual({
+      id: "eq_1",
+      identifierType: "company_id",
+    });
+  });
+
+  it("is undefined without a query id or a resolvable identifier", () => {
+    expect(toApiAssignmentQueryRef("", "user_id", [multi])).toBeUndefined();
+    expect(
+      toApiAssignmentQueryRef("eq_gone", undefined, [multi]),
+    ).toBeUndefined();
   });
 });

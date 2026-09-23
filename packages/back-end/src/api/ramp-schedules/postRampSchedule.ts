@@ -505,5 +505,5 @@ export const postRampSchedule = createApiRequestHandler(
     await dispatchAwaitingStartApproval(req.context, schedule);
   }
 
-  return { rampSchedule: rampScheduleToApiInterface(schedule) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, schedule) };
 });

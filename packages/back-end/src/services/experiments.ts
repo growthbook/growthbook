@@ -41,6 +41,7 @@ import {
   validateCondition,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
+  toApiAssignmentQueryRef,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -139,7 +140,7 @@ import {
   OrganizationInterface,
   OrganizationSettings,
 } from "shared/types/organization";
-import { DataSourceInterface } from "shared/types/datasource";
+import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
   ExperimentReportAnalysisSettings,
   MetricSnapshotSettings,
@@ -244,6 +245,7 @@ import {
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getMetricForSnapshot } from "./reports";
 import {
+  getExposureQueriesForDatasource,
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
 } from "./datasource";
@@ -3268,14 +3270,14 @@ export async function toExperimentApiInterface(
     })),
     settings: {
       datasourceId: experiment.datasource || "",
-      ...(experiment.exposureQueryId && experiment.exposureQueryIdentifierType
-        ? {
-            assignmentQuery: {
-              id: experiment.exposureQueryId,
-              identifierType: experiment.exposureQueryIdentifierType,
-            },
-          }
-        : {}),
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        await getExposureQueriesForDatasource(
+          context,
+          experiment.datasource ?? "",
+        ),
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
@@ -3441,6 +3443,8 @@ export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
+  // The experiment's data source queries, to resolve a legacy identifier.
+  exposureQueries: ExposureQuery[],
 ): ApiExperimentResults {
   const dimension = toApiDimension(snapshot.dimension);
 
@@ -3509,14 +3513,11 @@ export function toSnapshotApiInterface(
       datasourceId: experiment.datasource || "",
       // Legacy contract: settings describe the current experiment, not the
       // snapshot (bulk results are the snapshot-authoritative view).
-      ...(experiment.exposureQueryId && experiment.exposureQueryIdentifierType
-        ? {
-            assignmentQuery: {
-              id: experiment.exposureQueryId,
-              identifierType: experiment.exposureQueryIdentifierType,
-            },
-          }
-        : {}),
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        exposureQueries,
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: snapshot.settings.segment,

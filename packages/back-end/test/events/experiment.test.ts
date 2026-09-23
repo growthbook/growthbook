@@ -15,6 +15,13 @@ import {
 } from "back-end/src/services/experimentNotifications";
 import { EventModel } from "back-end/src/models/EventModel";
 
+// Serializers resolve legacy identifiers through the request's data source cache,
+// which these mock contexts don't have.
+jest.mock("back-end/src/services/datasource", () => ({
+  ...jest.requireActual("back-end/src/services/datasource"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
     static defineJob() {

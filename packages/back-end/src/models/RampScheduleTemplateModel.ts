@@ -138,6 +138,15 @@ export class RampScheduleTemplateModel extends BaseClass {
     ) as UpdateProps<RampScheduleTemplateInterface>;
   }
 
+  // The monitoring data source is nested, so BaseModel wouldn't cache it.
+  protected getForeignKeys(doc: RampScheduleTemplateInterface) {
+    const keys = super.getForeignKeys(doc);
+    if (doc.monitoringConfig?.datasourceId) {
+      keys.datasource = doc.monitoringConfig.datasourceId;
+    }
+    return keys;
+  }
+
   protected toApiInterface(
     doc: RampScheduleTemplateInterface,
   ): ApiRampScheduleTemplateInterface {
@@ -145,7 +154,11 @@ export class RampScheduleTemplateModel extends BaseClass {
     return {
       ...base,
       monitoringConfig: doc.monitoringConfig
-        ? monitoringConfigToApi(doc.monitoringConfig)
+        ? monitoringConfigToApi(
+            doc.monitoringConfig,
+            this.getForeignRefs(doc, false).datasource?.settings?.queries
+              ?.exposure ?? [],
+          )
         : doc.monitoringConfig,
     };
   }
