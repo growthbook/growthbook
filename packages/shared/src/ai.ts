@@ -217,6 +217,31 @@ export function getMaxOutputTokens(
   return modelMax === undefined ? desired : Math.min(desired, modelMax);
 }
 
+// Documented output-token ceilings above the default. Asking for more than
+// the ceiling is a 400, not a silent clamp, so only models with a published
+// figure are listed; the rest keep whatever the caller considers safe.
+const MODEL_MAX_OUTPUT_TOKENS: Partial<Record<AIModel, number>> = {
+  "claude-opus-5": 128000,
+  "claude-sonnet-5": 128000,
+  "claude-opus-4-8": 128000,
+  "claude-sonnet-4-6": 128000,
+  "claude-haiku-4-5-20251001": 64000,
+};
+
+// `safe` is what every model gets when its ceiling is unknown. `extended`
+// applies only where the ceiling is documented, capped at that ceiling. The
+// result still honours the small-model caps above.
+export function resolveMaxOutputTokens(
+  model: AIModel,
+  safe: number,
+  extended?: number,
+): number {
+  const ceiling = MODEL_MAX_OUTPUT_TOKENS[model];
+  const wanted =
+    ceiling === undefined ? safe : Math.min(ceiling, extended ?? safe);
+  return getMaxOutputTokens(model, wanted);
+}
+
 // Whether a text model can accept image input (vision). The model
 // registry carries no capability metadata, so this is a hand-maintained
 // allow-list — keep it in sync with AI_PROVIDER_MODEL_MAP. Routing an

@@ -11,6 +11,7 @@ import {
   buildImageAspectInstruction,
   DEFAULT_MAX_OUTPUT_TOKENS,
   getMaxOutputTokens,
+  resolveMaxOutputTokens,
 } from "../src/ai";
 
 describe("getProviderForAIModel", () => {
@@ -311,5 +312,33 @@ describe("getMaxOutputTokens", () => {
   it("leaves an explicit request below the cap alone", () => {
     expect(getMaxOutputTokens("claude-3-haiku-20240307", 1000)).toBe(1000);
     expect(getMaxOutputTokens("claude-sonnet-5", 1000)).toBe(1000);
+  });
+});
+
+describe("resolveMaxOutputTokens", () => {
+  it("keeps the safe value when the model's ceiling is unknown", () => {
+    expect(resolveMaxOutputTokens("gpt-4o", 16000, 32000)).toBe(16000);
+    expect(resolveMaxOutputTokens("mistral-large-latest", 8000)).toBe(8000);
+  });
+
+  it("uses the extended value on a model with a documented ceiling", () => {
+    expect(resolveMaxOutputTokens("claude-sonnet-5", 16000, 32000)).toBe(32000);
+  });
+
+  it("never exceeds the documented ceiling", () => {
+    expect(
+      resolveMaxOutputTokens("claude-haiku-4-5-20251001", 16000, 100000),
+    ).toBe(64000);
+  });
+
+  it("clamps the safe value too when no extended value is given", () => {
+    expect(resolveMaxOutputTokens("claude-haiku-4-5-20251001", 100000)).toBe(
+      64000,
+    );
+    expect(resolveMaxOutputTokens("claude-sonnet-5", 8000)).toBe(8000);
+  });
+
+  it("still honours a small model's cap", () => {
+    expect(resolveMaxOutputTokens("claude-3-haiku-20240307", 8000)).toBe(4096);
   });
 });
