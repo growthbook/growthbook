@@ -3020,6 +3020,9 @@ export async function finalizeRampActionsAfterPublish(
     featureBefore,
     featureAfter,
   );
+  // Read after the publish committed, so it is the state this revision went
+  // live with: a ramp attached after the read postdates the revision, and a
+  // revert to it rightly detaches (and first warns about) that ramp.
   if (remainingRamps) {
     await setRevisionRampAttachments(
       revision,
