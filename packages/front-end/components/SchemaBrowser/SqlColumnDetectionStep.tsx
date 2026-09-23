@@ -1,13 +1,18 @@
-import { MutableRefObject, useCallback, useEffect, useState } from "react";
+import {
+  MutableRefObject,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import { PiDotsThreeVertical, PiPlay, PiWarningFill } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { TestQueryRow } from "shared/types/integrations";
-import { DetectedFactTableColumn } from "shared/types/fact-table";
-import { isProjectListValidForProject, parseIntWithDefault } from "shared/util";
+import { DetectedColumn } from "shared/types/fact-table";
+import { parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import { getColumnMappingError as getFactTableColumnMappingError } from "@/services/factTables";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import {
@@ -25,7 +30,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
 const SAMPLE_ROW_LIMIT = 20;
@@ -35,36 +39,36 @@ type TestQueryResults = {
   error?: string;
   results?: TestQueryRow[];
   sql?: string;
-  columns?: DetectedFactTableColumn[];
+  columns?: DetectedColumn[];
 };
 
-export default function NewFactTableSqlStep({
+export default function SqlColumnDetectionStep({
   datasourceId,
-  setDatasourceId,
+  datasourceHeader,
   sql,
   setSql,
   detected,
   detectedSql,
   onColumnsDetected,
   validateRef,
-  getColumnMappingError = getFactTableColumnMappingError,
-  allowDatasourceChange = true,
+  getColumnMappingError,
+  placeholder,
 }: {
   datasourceId: string;
-  setDatasourceId: (id: string) => void;
+  // Replaces the data source name above the schema browser, e.g. with a picker.
+  datasourceHeader?: ReactNode;
   sql: string;
   setSql: (sql: string) => void;
-  detected: DetectedFactTableColumn[] | null;
+  detected: DetectedColumn[] | null;
   detectedSql: string | null;
-  onColumnsDetected: (columns: DetectedFactTableColumn[]) => void;
+  onColumnsDetected: (columns: DetectedColumn[]) => void;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
-  // Column-completeness check for the current object type (fact table vs EAQ).
-  getColumnMappingError?: (columns: DetectedFactTableColumn[]) => string | null;
-  // EAQs are created within a fixed data source, so the selector is hidden.
-  allowDatasourceChange?: boolean;
+  // Checks the detected columns are enough for the object being created.
+  getColumnMappingError: (columns: DetectedColumn[]) => string | null;
+  placeholder: string;
 }) {
   const { apiCall } = useAuth();
-  const { getDatasourceById, datasources, project } = useDefinitions();
+  const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
   const [testQueryResults, setTestQueryResults] =
@@ -88,10 +92,6 @@ export default function NewFactTableSqlStep({
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
-
-  const validDatasources = datasources
-    .filter((d) => isProjectListValidForProject(d.projects, project))
-    .filter((d) => d.properties?.queryLanguage === "sql");
 
   const runQuery = useCallback(
     async (limit: number): Promise<TestQueryResults> => {
@@ -243,9 +243,7 @@ export default function NewFactTableSqlStep({
                         if (formatError) setFormatError(null);
                         setSql(v);
                       }}
-                      placeholder={
-                        "SELECT\n  user_id,\n  timestamp\nFROM\n  events"
-                      }
+                      placeholder={placeholder}
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={() => runQuery(SAMPLE_ROW_LIMIT)}
@@ -287,21 +285,7 @@ export default function NewFactTableSqlStep({
       <Panel defaultSize={30} minSize={20} maxSize={50}>
         <AreaWithHeader
           header={
-            allowDatasourceChange ? (
-              <Select
-                label="Data Source"
-                labelSize="sm"
-                value={datasourceId}
-                setValue={setDatasourceId}
-                placeholder="Select..."
-              >
-                {validDatasources.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </Select>
-            ) : (
+            datasourceHeader ?? (
               <Text weight="semibold" color="text-mid">
                 {datasource?.name || "Data Source"}
               </Text>

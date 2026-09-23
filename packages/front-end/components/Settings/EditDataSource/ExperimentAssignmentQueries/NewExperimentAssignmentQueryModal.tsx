@@ -6,9 +6,11 @@ import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
-import { DetectedFactTableColumn } from "shared/types/fact-table";
-import NewFactTableSqlStep from "@/components/FactTables/NewFactTableSqlStep";
-import { MappingRow } from "@/components/FactTables/NewFactTableModal";
+import { DetectedColumn } from "shared/types/fact-table";
+import SqlColumnDetectionStep from "@/components/SchemaBrowser/SqlColumnDetectionStep";
+import ColumnMappingRow, {
+  validColumn,
+} from "@/components/SchemaBrowser/ColumnMappingRow";
 import {
   isIdentifierCandidate,
   isTimestampCandidate,
@@ -29,13 +31,10 @@ const BODY_HEIGHT = "calc(93vh - 200px)";
 
 const normalize = (name: string) => name.replace(/[^a-z]/gi, "").toLowerCase();
 
-const validColumn = (columns: DetectedFactTableColumn[], column: string) =>
-  columns.some((c) => c.column === column) ? column : "";
-
 // An EAQ must return experiment id, variation id, timestamp, and at least one
 // identifier column — so the query needs a date column plus a few others.
 function getExposureQueryColumnMappingError(
-  columns: DetectedFactTableColumn[],
+  columns: DetectedColumn[],
 ): string | null {
   if (!columns.some(isTimestampCandidate)) {
     return "Your query must return a date column to use as the timestamp.";
@@ -63,9 +62,7 @@ export const NewExperimentAssignmentQueryModal = ({
 
   const [step, setStep] = useState(0);
   const [sql, setSql] = useState("");
-  const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
-    null,
-  );
+  const [detected, setDetected] = useState<DetectedColumn[] | null>(null);
   const [detectedSql, setDetectedSql] = useState<string | null>(null);
 
   const [name, setName] = useState("");
@@ -115,7 +112,7 @@ export const NewExperimentAssignmentQueryModal = ({
     });
 
   const handleColumnsDetected = useCallback(
-    (cols: DetectedFactTableColumn[]) => {
+    (cols: DetectedColumn[]) => {
       setDetectedSql(sql);
       setDetected(cols);
 
@@ -268,10 +265,8 @@ export const NewExperimentAssignmentQueryModal = ({
           </Text>
         </Box>
         <Box p="2" style={{ height: BODY_HEIGHT }}>
-          <NewFactTableSqlStep
+          <SqlColumnDetectionStep
             datasourceId={dataSource.id}
-            setDatasourceId={() => {}}
-            allowDatasourceChange={false}
             sql={sql}
             setSql={setSql}
             detected={detected}
@@ -279,6 +274,9 @@ export const NewExperimentAssignmentQueryModal = ({
             onColumnsDetected={handleColumnsDetected}
             validateRef={validateSql}
             getColumnMappingError={getExposureQueryColumnMappingError}
+            placeholder={
+              "SELECT\n  user_id,\n  timestamp,\n  experiment_id,\n  variation_id\nFROM\n  exposures"
+            }
           />
         </Box>
       </Page>
@@ -332,26 +330,26 @@ export const NewExperimentAssignmentQueryModal = ({
               </Text>
               <Table size="sm" variant="surface" layout="fixed" mb="2">
                 <TableBody>
-                  <MappingRow
+                  <ColumnMappingRow
                     label="experiment_id"
                     value={experimentIdColumn}
                     options={columns}
                     setValue={setExperimentIdColumn}
                   />
-                  <MappingRow
+                  <ColumnMappingRow
                     label="variation_id"
                     value={variationIdColumn}
                     options={columns}
                     setValue={setVariationIdColumn}
                   />
-                  <MappingRow
+                  <ColumnMappingRow
                     label="timestamp"
                     value={timestampColumn}
                     options={timestampOptions}
                     setValue={setTimestampColumn}
                   />
                   {identifierTypes.map((idType) => (
-                    <MappingRow
+                    <ColumnMappingRow
                       key={idType}
                       label={idType}
                       value={userIdColumns[idType] || ""}
