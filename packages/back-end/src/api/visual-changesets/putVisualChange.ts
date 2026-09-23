@@ -11,7 +11,6 @@ export const putVisualChange = createApiRequestHandler(
 )(async (req) => {
   const changesetId = req.params.id;
   const visualChangeId = req.params.visualChangeId;
-  const orgId = req.organization.id;
   // The opt-in flag gates the write; it is not part of the visual change.
   const { allowRunningExperiment, ...payload } = req.body;
 
@@ -33,9 +32,9 @@ export const putVisualChange = createApiRequestHandler(
   });
 
   const res = await updateVisualChange({
+    context: req.context,
     changesetId,
     visualChangeId,
-    organization: orgId,
     payload,
   });
   await auditLiveEdit();

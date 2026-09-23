@@ -1201,9 +1201,9 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     // Non-null: the handler fails fast above on a variationId not in the changeset.
     const change = currentChange as NonNullable<typeof currentChange>;
     await updateVisualChange({
+      context,
       changesetId: visualChangesetId,
       visualChangeId: change.id,
-      organization: req.organization.id,
       payload: {
         // The model returns only new mutations, but complete css/js.
         domMutations: [

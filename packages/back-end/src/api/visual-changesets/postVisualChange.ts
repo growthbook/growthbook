@@ -31,7 +31,7 @@ export const postVisualChange = createApiRequestHandler(
 
   const visualChangeId = body.id ?? uniqid("vc_");
 
-  const res = await createVisualChange(req.params.id, req.organization.id, {
+  const res = await createVisualChange(req.context, req.params.id, {
     ...body,
     id: visualChangeId,
     description: body.description ?? "",
