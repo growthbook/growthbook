@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentType } from "shared/validators";
 import { useAuth } from "@/services/auth";
@@ -26,6 +27,8 @@ export interface Props {
   mutate: () => void;
   editable: boolean;
   stacked?: boolean;
+  /** Beside the stacked label, such as the description's own edit button. */
+  labelAction?: ReactNode;
 }
 
 export default function DescriptionField({
@@ -33,6 +36,7 @@ export default function DescriptionField({
   mutate,
   editable,
   stacked,
+  labelAction,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -45,6 +49,7 @@ export default function DescriptionField({
       )}
       editable={editable}
       stacked={stacked}
+      labelAction={labelAction}
       addLabel="Description"
       onSave={async (description) => {
         await apiCall(`/experiment/${experiment.id}`, {

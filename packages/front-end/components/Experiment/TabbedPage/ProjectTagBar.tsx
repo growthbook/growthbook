@@ -311,27 +311,7 @@ export default function ProjectTagBar({
         mb={vertical ? "0" : "1"}
         wrap={vertical ? "nowrap" : "wrap"}
       >
-        {experiment.holdoutId && (
-          <Metadata
-            size="sm"
-            stacked={vertical}
-            label="Holdout"
-            value={
-              <Link href={`/holdout/${experiment.holdoutId}`}>
-                {holdoutsMap.get(experiment.holdoutId)?.name}
-              </Link>
-            }
-          />
-        )}
         {renderProject()}
-        {experiment.type !== "holdout" && (
-          <Metadata
-            size="sm"
-            stacked={vertical}
-            label="Experiment Key"
-            value={trackingKey || "None"}
-          />
-        )}
         {experiment.type !== "holdout" && (
           <Metadata
             size="sm"
@@ -341,6 +321,26 @@ export default function ProjectTagBar({
               implementationType
                 ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
                 : "Not set"
+            }
+          />
+        )}
+        {experiment.type !== "holdout" && (
+          <Metadata
+            size="sm"
+            stacked={vertical}
+            label="Experiment Key"
+            value={trackingKey || "None"}
+          />
+        )}
+        {experiment.holdoutId && (
+          <Metadata
+            size="sm"
+            stacked={vertical}
+            label="Holdout"
+            value={
+              <Link href={`/holdout/${experiment.holdoutId}`}>
+                {holdoutsMap.get(experiment.holdoutId)?.name}
+              </Link>
             }
           />
         )}

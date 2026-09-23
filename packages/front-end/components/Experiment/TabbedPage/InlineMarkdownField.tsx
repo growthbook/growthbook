@@ -31,6 +31,8 @@ export interface Props {
   trackingSource?: string;
   /** Label above the field, to sit alongside the other metadata in a narrow column. */
   stacked?: boolean;
+  /** Beside a stacked label, such as the field's own edit button. */
+  labelAction?: ReactNode;
 }
 
 /**
@@ -49,6 +51,7 @@ export default function InlineMarkdownField({
   onAISuggestionReceived,
   trackingSource,
   stacked,
+  labelAction,
 }: Props) {
   const [value, setValue] = useState(savedValue);
   const editor = useRef<RichTextEditorHandle>(null);
@@ -95,6 +98,7 @@ export default function InlineMarkdownField({
         size="sm"
         stacked
         label={label}
+        action={labelAction}
         value={<Link onClick={() => setRevealed(true)}>+Add</Link>}
       />
     ) : (
@@ -195,6 +199,7 @@ export default function InlineMarkdownField({
         stacked
         style={{ width: "100%" }}
         label={label}
+        action={labelAction}
         value={
           <Box width="100%">
             {body}

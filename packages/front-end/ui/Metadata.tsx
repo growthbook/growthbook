@@ -10,10 +10,12 @@ type Props = {
   size?: Size<"sm" | "md">;
   /** Label above the value, for a narrow column. Otherwise inline "Label: value". */
   stacked?: boolean;
+  /** Sits at the far end of a stacked label's row, such as its edit button. */
+  action?: React.ReactNode;
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
-  { label, value, style, size = "md", stacked, ...props },
+  { label, value, style, size = "md", stacked, action, ...props },
   ref,
 ) {
   if (stacked) {
@@ -26,9 +28,18 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
         {...props}
         ref={ref}
       >
-        <Text weight="regular" color="text-mid" size={size}>
-          {label}
-        </Text>
+        {action ? (
+          <Flex align="center" justify="between" gap="2" width="100%">
+            <Text weight="regular" color="text-mid" size={size}>
+              {label}
+            </Text>
+            {action}
+          </Flex>
+        ) : (
+          <Text weight="regular" color="text-mid" size={size}>
+            {label}
+          </Text>
+        )}
         {typeof value === "string" ? (
           <Text weight="regular" color="text-high" size={size}>
             {value}

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { ReactNode, useState } from "react";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { PiPencilSimple } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { HoldoutInterfaceStringDates } from "shared/validators";
@@ -8,7 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ProjectTagBar from "@/components/Experiment/TabbedPage/ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
+  InfoSection,
 } from "@/components/Experiment/TabbedPage/EditExperimentInfoModal";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
+import { useUser } from "@/services/UserContext";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import Metadata from "@/ui/Metadata";
+import Text from "@/ui/Text";
 import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldoutInfoModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionField";
@@ -39,11 +46,42 @@ export default function ExperimentDetailsPanel({
   // the controls that would open one say why instead.
   const editsBlocked = useEditsBlockedReason();
   const [focusSelector, setFocusSelector] = useState<FocusSelector>("name");
-  const isHoldout = experiment.type === "holdout";
-  const { canEdit, editInline } = useExperimentEditing(
-    experiment,
-    disableEditing,
+  const [infoSection, setInfoSection] = useState<InfoSection>("all");
+  const editSection = (section: InfoSection) => {
+    setInfoSection(section);
+    setFocusSelector("name");
+    setShowEditInfoModal(true);
+  };
+
+  const statusIndicator = useExperimentStatusIndicator()(experiment);
+  const { hasCommercialFeature } = useUser();
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "experiment",
+    experiment.project,
   );
+  const hasCustomFields =
+    hasCommercialFeature("custom-metadata") && !!customFields?.length;
+
+  const pencil = (label: string, onClick: () => void) =>
+    canEdit ? (
+      <Tooltip content={editsBlocked ?? label}>
+        <IconButton
+          size="1"
+          variant="ghost"
+          color="violet"
+          radius="medium"
+          disabled={!!editsBlocked}
+          aria-label={label}
+          style={{ margin: 0 }}
+          onClick={onClick}
+        >
+          <PiPencilSimple size={14} />
+        </IconButton>
+      </Tooltip>
+    ) : null;
+  const isHoldout = experiment.type === "holdout";
+  const { canEdit } = useExperimentEditing(experiment, disableEditing);
 
   return (
     <>
@@ -53,6 +91,7 @@ export default function ExperimentDetailsPanel({
           setShowEditInfoModal={setShowEditInfoModal}
           mutate={mutate}
           focusSelector={focusSelector}
+          section={infoSection}
         />
       ) : null}
       {showEditInfoModal && isHoldout && holdout ? (
@@ -78,42 +117,24 @@ export default function ExperimentDetailsPanel({
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="comments">Comments</TabsTrigger>
           </TabsList>
-          {canEdit ? (
-            <Tooltip content={editsBlocked ?? "Edit details"}>
-              <IconButton
-                size="1"
-                variant="ghost"
-                color="violet"
-                radius="medium"
-                disabled={!!editsBlocked}
-                aria-label="Edit details"
-                style={{
-                  margin: 0,
-                  padding: 0,
-                  width: "var(--space-5)",
-                  height: "var(--space-5)",
-                }}
-                onClick={() => {
-                  setFocusSelector("name");
-                  setShowEditInfoModal(true);
-                }}
-              >
-                <PiPencilSimple size={14} />
-              </IconButton>
-            </Tooltip>
-          ) : null}
         </Flex>
         <TabsContent value="details">
           <Flex px="5" py="4" direction="column" gap="4">
-            <ProjectTagBar
-              vertical
-              experiment={experiment}
-              holdout={holdout}
-              setShowEditInfoModal={setShowEditInfoModal}
-              setEditInfoFocusSelector={setFocusSelector}
-              editTags={editTags}
-              editsBlockedReason={editsBlocked}
-              isManaged={isManaged}
+            <Metadata
+              size="sm"
+              stacked
+              label="Status"
+              value={
+                <Text size="sm" color="text-high">
+                  {statusIndicator.status}
+                  {statusIndicator.detailedStatus ? (
+                    <Text color="text-mid">
+                      {" "}
+                      · {statusIndicator.detailedStatus}
+                    </Text>
+                  ) : null}
+                </Text>
+              }
             />
             {!isHoldout && (
               <DescriptionField
@@ -121,16 +142,48 @@ export default function ExperimentDetailsPanel({
                 experiment={experiment}
                 mutate={mutate}
                 editable={false}
+                labelAction={pencil("Edit description", () =>
+                  editSection("description"),
+                )}
               />
             )}
-            <CustomFieldDisplay
-              stacked
-              target={experiment}
-              canEdit={canEdit}
-              mutate={mutate}
-              section="experiment"
-              collapseWhenEmpty={editInline}
-            />
+            <Separator size="4" />
+            <PanelSection
+              title="General"
+              action={pencil("Edit details", () =>
+                isHoldout ? setShowEditInfoModal(true) : editSection("general"),
+              )}
+            >
+              <ProjectTagBar
+                vertical
+                experiment={experiment}
+                holdout={holdout}
+                setShowEditInfoModal={setShowEditInfoModal}
+                setEditInfoFocusSelector={setFocusSelector}
+                editTags={editTags}
+                editsBlockedReason={editsBlocked}
+                isManaged={isManaged}
+              />
+            </PanelSection>
+            {hasCustomFields ? (
+              <>
+                <Separator size="4" />
+                <PanelSection
+                  title="Additional fields"
+                  action={pencil("Edit additional fields", () =>
+                    editSection("customFields"),
+                  )}
+                >
+                  <CustomFieldDisplay
+                    stacked
+                    target={experiment}
+                    canEdit={false}
+                    mutate={mutate}
+                    section="experiment"
+                  />
+                </PanelSection>
+              </>
+            ) : null}
           </Flex>
         </TabsContent>
         <TabsContent
@@ -164,5 +217,33 @@ export default function ExperimentDetailsPanel({
         </TabsContent>
       </Tabs>
     </>
+  );
+}
+
+/** A titled block of the panel, with the button that edits it. */
+function PanelSection({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Flex direction="column" gap="4">
+      <Flex align="center" justify="between" gap="2">
+        <Text
+          size="sm"
+          weight="medium"
+          color="text-low"
+          textTransform="uppercase"
+        >
+          {title}
+        </Text>
+        {action}
+      </Flex>
+      {children}
+    </Flex>
   );
 }

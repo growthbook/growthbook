@@ -23,11 +23,22 @@ import { getExperimentDescriptionPlaceholder } from "@/components/Experiment/Tab
 
 export type FocusSelector = "project" | "tags" | "name" | "projects";
 
+/** Which of the experiment's details the modal edits; all of them by default. */
+export type InfoSection = "all" | "general" | "description" | "customFields";
+
+const SECTION_HEADERS: Record<InfoSection, string> = {
+  all: "Edit Info",
+  general: "Edit Details",
+  description: "Edit Description",
+  customFields: "Edit Additional Fields",
+};
+
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   mutate: () => void;
   focusSelector?: FocusSelector;
+  section?: InfoSection;
 }
 
 export default function EditExperimentInfoModal({
@@ -35,7 +46,10 @@ export default function EditExperimentInfoModal({
   setShowEditInfoModal,
   mutate,
   focusSelector = "name",
+  section = "all",
 }: Props) {
+  const shows = (part: Exclude<InfoSection, "all">) =>
+    section === "all" || section === part;
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
@@ -48,6 +62,11 @@ export default function EditExperimentInfoModal({
       "experiment",
       experiment.project,
     ) ?? [];
+
+  const projectOptions = useProjectOptions(
+    (project) => canUpdateExperimentProject(project),
+    experiment.project ? [experiment.project] : [],
+  );
 
   const form = useForm({
     defaultValues: {
@@ -72,7 +91,7 @@ export default function EditExperimentInfoModal({
       trackingEventModalType="edit-experiment-info"
       size="lg"
       trackingEventModalSource="experiment-more-menu"
-      header="Edit Info"
+      header={SECTION_HEADERS[section]}
       submit={form.handleSubmit(async (data) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
@@ -81,79 +100,84 @@ export default function EditExperimentInfoModal({
         mutate();
       })}
     >
-      <Field
-        size="legacy"
-        autoFocus={focusSelector === "name"}
-        label="Experiment Name"
-        {...form.register("name")}
-        required
-      />
-      <Field
-        size="legacy"
-        disabled={experiment.status !== "draft"}
-        label="Experiment Key"
-        {...form.register("trackingKey")}
-        required
-      />
-      <SelectOwner
-        value={form.watch("owner")}
-        onChange={(v) => form.setValue("owner", v)}
-      />
-      <div className="form-group">
-        <Box mb="2">
-          <Text weight="semibold">Tags</Text>
-        </Box>
-        <TagsInput
-          autoFocus={focusSelector === "tags"}
-          value={form.watch("tags") ?? []}
-          onChange={(tags) => form.setValue("tags", tags)}
-        />
-      </div>
-      <SelectField
-        size="legacy"
-        label={
-          <>
-            <Text weight="semibold">Project</Text>
-            <Tooltip
-              className="pl-1"
-              body={
-                "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
-              }
+      {shows("general") ? (
+        <>
+          <Field
+            size="legacy"
+            autoFocus={focusSelector === "name"}
+            label="Experiment Name"
+            {...form.register("name")}
+            required
+          />
+          <Field
+            size="legacy"
+            disabled={experiment.status !== "draft"}
+            label="Experiment Key"
+            {...form.register("trackingKey")}
+            required
+          />
+          <SelectOwner
+            value={form.watch("owner")}
+            onChange={(v) => form.setValue("owner", v)}
+          />
+          <div className="form-group">
+            <Box mb="2">
+              <Text weight="semibold">Tags</Text>
+            </Box>
+            <TagsInput
+              autoFocus={focusSelector === "tags"}
+              value={form.watch("tags") ?? []}
+              onChange={(tags) => form.setValue("tags", tags)}
             />
-          </>
-        }
-        autoFocus={focusSelector === "project"}
-        value={form.watch("project")}
-        onChange={(v) => form.setValue("project", v)}
-        options={useProjectOptions(
-          (project) => canUpdateExperimentProject(project),
-          experiment.project ? [experiment.project] : [],
-        )}
-        initialOption={initialProjectOption}
-      />
-      {(experiment.project || "") !== form.watch("project") ? (
-        <Callout status="warning">
-          Moving to a different Project may prevent your linked Feature Flags,
-          Visual Changes, and URL Redirects from being sent to users, and could
-          restrict use of some Data Sources and Metrics.
-        </Callout>
+          </div>
+          <SelectField
+            size="legacy"
+            label={
+              <>
+                <Text weight="semibold">Project</Text>
+                <Tooltip
+                  className="pl-1"
+                  body={
+                    "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
+                  }
+                />
+              </>
+            }
+            autoFocus={focusSelector === "project"}
+            value={form.watch("project")}
+            onChange={(v) => form.setValue("project", v)}
+            options={projectOptions}
+            initialOption={initialProjectOption}
+          />
+          {(experiment.project || "") !== form.watch("project") ? (
+            <Callout status="warning">
+              Moving to a different Project may prevent your linked Feature
+              Flags, Visual Changes, and URL Redirects from being sent to users,
+              and could restrict use of some Data Sources and Metrics.
+            </Callout>
+          ) : null}
+        </>
       ) : null}
-      <Box mt="4">
-        <Box mb="2">
-          <Text weight="semibold">Description</Text>
+      {shows("description") ? (
+        <Box mt={section === "description" ? "0" : "4"}>
+          <Box mb="2">
+            <Text weight="semibold">Description</Text>
+          </Box>
+          <RichTextEditor
+            value={form.watch("description")}
+            onChange={(description) =>
+              form.setValue("description", description)
+            }
+            placeholder={getExperimentDescriptionPlaceholder(
+              experiment.type ?? "standard",
+            )}
+            height="md"
+            autoGrow
+          />
         </Box>
-        <RichTextEditor
-          value={form.watch("description")}
-          onChange={(description) => form.setValue("description", description)}
-          placeholder={getExperimentDescriptionPlaceholder(
-            experiment.type ?? "standard",
-          )}
-          height="md"
-          autoGrow
-        />
-      </Box>
-      {customFields.length > 0 ? (
-        <Box mt="4">
+      ) : null}
+      {shows("customFields") && customFields.length > 0 ? (
+        <Box mt={section === "customFields" ? "0" : "4"}>
           <CustomFieldInput
             fields={customFields}
             value={form.watch("customFields")}
