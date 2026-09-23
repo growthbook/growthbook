@@ -11,6 +11,7 @@ import {
   buildImageAspectInstruction,
   DEFAULT_MAX_OUTPUT_TOKENS,
   getMaxOutputTokens,
+  anthropicStructuredOutputMode,
 } from "../src/ai";
 
 describe("getProviderForAIModel", () => {
@@ -311,5 +312,33 @@ describe("getMaxOutputTokens", () => {
   it("leaves an explicit request below the cap alone", () => {
     expect(getMaxOutputTokens("claude-3-haiku-20240307", 1000)).toBe(1000);
     expect(getMaxOutputTokens("claude-sonnet-5", 1000)).toBe(1000);
+  });
+});
+
+describe("anthropicStructuredOutputMode", () => {
+  it("uses native structured output on every Claude model from 4.5 on", () => {
+    expect(anthropicStructuredOutputMode("claude-opus-5-5")).toBe(
+      "outputFormat",
+    );
+    expect(anthropicStructuredOutputMode("claude-sonnet-5")).toBe(
+      "outputFormat",
+    );
+    expect(anthropicStructuredOutputMode("claude-haiku-4-5-20251001")).toBe(
+      "outputFormat",
+    );
+  });
+
+  it("falls back to the json tool on models without structured output", () => {
+    expect(anthropicStructuredOutputMode("claude-sonnet-4-20250514")).toBe(
+      "jsonTool",
+    );
+    expect(anthropicStructuredOutputMode("claude-3-haiku-20240307")).toBe(
+      "jsonTool",
+    );
+  });
+
+  it("is null for other providers", () => {
+    expect(anthropicStructuredOutputMode("gpt-4o")).toBeNull();
+    expect(anthropicStructuredOutputMode("gemini-2.5-flash")).toBeNull();
   });
 });

@@ -26,6 +26,7 @@ import {
   AIModel,
   AIPromptType,
   AIProvider,
+  anthropicStructuredOutputMode,
   DEFAULT_MAX_OUTPUT_TOKENS,
   getMaxOutputTokens,
   getProviderFromModel,
@@ -135,17 +136,29 @@ export const getAIProviderClass = async (
   }
 };
 
-function getOpenAIProviderOptions(model: AIModel) {
-  if (getProviderFromModel(model) !== "openai") return {};
-
-  return {
-    providerOptions: {
-      openai: {
-        store: false,
-        include: ["reasoning.encrypted_content"],
-      } satisfies OpenAIResponsesProviderOptions,
-    },
-  };
+// Per-provider request options. For Claude this pins how schema-shaped output
+// is produced: the AI SDK's provider only uses native structured output for
+// the handful of models it recognises and falls back to a forced call of a
+// synthetic json tool for the rest — which the newest models (Opus 5.5)
+// reject with a 400, and which also forbids parallel tool calls.
+function getProviderOptions(model: AIModel): {
+  providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
+} {
+  if (getProviderFromModel(model) === "openai") {
+    return {
+      providerOptions: {
+        openai: {
+          store: false,
+          include: ["reasoning.encrypted_content"],
+        } satisfies OpenAIResponsesProviderOptions,
+      },
+    };
+  }
+  const structuredOutputMode = anthropicStructuredOutputMode(model);
+  if (structuredOutputMode) {
+    return { providerOptions: { anthropic: { structuredOutputMode } } };
+  }
+  return {};
 }
 
 function splitAnthropicOptions(message: ModelMessage) {
@@ -421,7 +434,7 @@ export const simpleCompletion = async ({
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
-    ...getOpenAIProviderOptions(model),
+    ...getProviderOptions(model),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
@@ -592,7 +605,7 @@ export const streamingChatCompletion = async ({
   const result = streamText({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
     messages: [systemMessage, ...messages],
-    ...getOpenAIProviderOptions(model),
+    ...getProviderOptions(model),
     maxOutputTokens: getMaxOutputTokens(model),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
@@ -791,7 +804,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
-      ...getOpenAIProviderOptions(model),
+      ...getProviderOptions(model),
       output: Output.object({
         schema: zodObjectSchema,
       }),
