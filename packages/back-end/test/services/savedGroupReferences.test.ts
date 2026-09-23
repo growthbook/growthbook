@@ -80,10 +80,6 @@ describe("loadSavedGroupReferences", () => {
       context([
         bandit("cb_cond", { condition: '{"id":{"$inGroup":"sg_1"}}' }),
         bandit("cb_groups", { savedGroups: [{ match: "any", ids: ["sg_1"] }] }),
-        bandit("cb_archived", {
-          archived: true,
-          savedGroups: [{ match: "any", ids: ["sg_1"] }],
-        }),
         bandit("cb_other", { savedGroups: [{ match: "any", ids: ["sg_2"] }] }),
       ]),
       "sg_1",

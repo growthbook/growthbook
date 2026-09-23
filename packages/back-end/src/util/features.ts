@@ -1117,6 +1117,14 @@ export function getFeatureDefinition({
     !!savedGroupsMap &&
     (savedGroupReferencesEnabled === false ||
       !capabilities.includes("savedGroupReferences"));
+  // Inline $inGroup/$notInGroup for SDKs without saved-group references, in
+  // the rule's own condition and its prerequisite gates alike.
+  const expandSavedGroups = (rule: FeatureDefinitionRule) => {
+    if (!shouldExpandSavedGroups || !savedGroupsMap || !organization) return;
+    const replace = replaceSavedGroups(savedGroupsMap, organization);
+    if (rule.condition) recursiveWalk(rule.condition, replace);
+    if (rule.parentConditions) recursiveWalk(rule.parentConditions, replace);
+  };
   // looseUnmarshalling => no capability-based strip. Connection settings still gate rule id, names, etc.
   const allowedKeys =
     capabilities !== undefined && !capabilities.includes("looseUnmarshalling")
@@ -1309,18 +1317,7 @@ export function getFeatureDefinition({
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
           }
-          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-            if (rule.condition)
-              recursiveWalk(
-                rule.condition,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-            if (rule.parentConditions)
-              recursiveWalk(
-                rule.parentConditions,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-          }
+          expandSavedGroups(rule);
           if (metadataOptions) {
             const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1437,13 +1434,7 @@ export function getFeatureDefinition({
           rule.phase = "0";
           if (includeExperimentNames) rule.name = cb.name;
 
-          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-            if (rule.condition)
-              recursiveWalk(
-                rule.condition,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-          }
+          expandSavedGroups(rule);
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1685,18 +1676,7 @@ export function getFeatureDefinition({
             }
           }
         }
-        if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-          if (rule.condition)
-            recursiveWalk(
-              rule.condition,
-              replaceSavedGroups(savedGroupsMap, organization!),
-            );
-          if (rule.parentConditions)
-            recursiveWalk(
-              rule.parentConditions,
-              replaceSavedGroups(savedGroupsMap, organization!),
-            );
-        }
+        expandSavedGroups(rule);
         if (metadataOptions) {
           applyRuleProjectMetadata(
             rule,

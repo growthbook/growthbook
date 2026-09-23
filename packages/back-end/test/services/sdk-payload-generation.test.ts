@@ -1824,7 +1824,9 @@ describe("SDK payload generation (scenario-specific)", () => {
       ...cbDoc,
       condition: '{"country":"US"}',
       savedGroups: [{ match: "all", ids: ["sg1"] }],
-      prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+      prerequisites: [
+        { id: "parent", condition: '{"value": {"$inGroup": "sg1"}}' },
+      ],
     } as unknown as ContextualBanditInterface;
     const sg1 = {
       id: "sg1",
@@ -1847,11 +1849,12 @@ describe("SDK payload generation (scenario-specific)", () => {
         data: cbData(targetedData),
       });
       const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
-      expect(rules[0].parentConditions).toEqual([
-        { id: "parent", condition: { value: true } },
-      ]);
       expect(JSON.stringify(rules[0].condition)).toMatch(/"country":"US"/);
+      // Saved groups are inlined for this SDK, in the gate as in the condition.
       expect(JSON.stringify(rules[0].condition)).toMatch(/"a","b"/);
+      expect(rules[0].parentConditions).toEqual([
+        { id: "parent", condition: { value: { $in: ["a", "b"] } } },
+      ]);
     });
 
     it("javascript 0.33.0 (no prerequisites): a gated bandit's feature is left out", async () => {

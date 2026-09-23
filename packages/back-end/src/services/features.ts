@@ -881,8 +881,8 @@ export async function getExperimentsDependingOnAsPrerequisite(
     .map((e) => e.id);
 }
 
-// Unarchived contextual bandits that gate on `featureId`; their targeting is
-// served on their linked features' rules.
+// Contextual bandits that gate on `featureId`; their targeting is served on
+// their linked features' rules, archived or not.
 export async function getContextualBanditsDependingOnAsPrerequisite(
   context: ReqContext | ApiReqContext,
   featureId: string,
@@ -892,9 +892,7 @@ export async function getContextualBanditsDependingOnAsPrerequisite(
     getContextForAgendaJobByOrgObject(context.org);
   const bandits = await scanContext.models.contextualBandits.getAll();
   return bandits
-    .filter(
-      (cb) => !cb.archived && cb.prerequisites?.some((p) => p.id === featureId),
-    )
+    .filter((cb) => cb.prerequisites?.some((p) => p.id === featureId))
     .map((cb) => cb.id);
 }
 

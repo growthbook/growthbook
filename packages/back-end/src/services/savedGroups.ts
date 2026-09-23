@@ -116,13 +116,11 @@ export async function loadSavedGroupReferences(
     }
   }
 
-  // A bandit's targeting is served on its linked features' rules.
+  // A bandit's targeting is served on its linked features' rules, archived or not.
   const groupIds = savedGroupsToCheck.map((sg) => sg.id);
   const contextualBandits = allBandits
-    .filter(
-      (cb) =>
-        !cb.archived &&
-        groupIds.some((id) => targetingReferencesSavedGroup(cb, id)),
+    .filter((cb) =>
+      groupIds.some((id) => targetingReferencesSavedGroup(cb, id)),
     )
     .map((cb) => ({ id: cb.id, name: cb.name, project: cb.project }));
 
