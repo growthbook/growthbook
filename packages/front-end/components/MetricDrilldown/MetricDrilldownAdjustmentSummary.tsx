@@ -11,7 +11,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { RadixColor } from "@/ui/HelperText";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { ExperimentTableRow } from "@/services/experiments";
 import {
   AdjustmentEffectSize,
@@ -149,8 +149,10 @@ const MetricDrilldownAdjustmentSummary: FC<
                     {label}
                   </Text>
                 )}
-                <Tooltip body={tooltipBody}>
-                  <Badge label={display.label} color={display.color} />
+                <Tooltip content={tooltipBody}>
+                  <span tabIndex={0} style={{ display: "inline-flex" }}>
+                    <Badge label={display.label} color={display.color} />
+                  </span>
                 </Tooltip>
               </Flex>
             );
