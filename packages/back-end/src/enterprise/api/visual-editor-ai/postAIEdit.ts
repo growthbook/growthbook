@@ -16,9 +16,12 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD, JWT_SECRET } from "back-end/src/util/secrets";
 import {
+  answeredToolCalls,
   generatedImagesIn,
   pendingToolCalls,
+  requestHash,
   signEnvelope,
+  toolLoopEnvelopeSchema,
   toolResultsMessage,
   verifyEnvelope,
 } from "back-end/src/api/visual-editor-ai/toolLoopEnvelope";
@@ -251,20 +254,7 @@ const bodySchema = z
     // honoured with the `x-gb-tool-loop: stateless` header.
     resume: z
       .object({
-        envelope: z.object({
-          transcript: z
-            .array(
-              z
-                .object({
-                  role: z.enum(["assistant", "tool"]),
-                  content: z.unknown(),
-                })
-                .passthrough(),
-            )
-            .max(60),
-          stepsUsed: z.number().int().min(0).max(200),
-          sig: z.string().min(1).max(200),
-        }),
+        envelope: toolLoopEnvelopeSchema,
         results: z
           .array(
             z.object({
@@ -1211,6 +1201,12 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       "`resume` requires the stateless tool loop.",
     );
   }
+  // Tool-call rounds are `{ kind }` envelopes, so the final answer must be too.
+  if (stateless && !streamingMode) {
+    return context.throwBadRequestError(
+      "The stateless tool loop requires `streamingMode`.",
+    );
+  }
   const useToolLoop = streamingMode && !IS_CLOUD && !stateless;
   const job = aiEditJobStore.create();
   const imageState = newImageTurnState();
@@ -1327,6 +1323,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       userId: context.userId ?? "",
       visualChangesetId,
       variationId,
+      requestHash: requestHash({ ...req.body, resume: undefined }),
     };
     let priorMessages: ModelMessage[] | undefined;
     let stepsAlreadyUsed = 0;
@@ -1344,6 +1341,9 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       );
       if (!answered.ok) return context.throwBadRequestError(answered.error);
       priorMessages = [...transcript, answered.message];
+      for (const r of answeredToolCalls(priorMessages)) {
+        for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
+      }
       stepsAlreadyUsed = resume.envelope.stepsUsed;
       // The per-turn image budget and the images already made live in the
       // transcript, not in this process — carry them over so a resume can't

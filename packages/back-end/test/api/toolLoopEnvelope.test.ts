@@ -1,8 +1,12 @@
 import type { ModelMessage } from "ai";
 import {
+  ENVELOPE_TTL_MS,
+  answeredToolCalls,
   generatedImagesIn,
   pendingToolCalls,
+  requestHash,
   signEnvelope,
+  toolLoopEnvelopeSchema,
   toolResultsMessage,
   verifyEnvelope,
   type EnvelopeScope,
@@ -14,6 +18,7 @@ const scope: EnvelopeScope = {
   userId: "u_1",
   visualChangesetId: "vcs_1",
   variationId: "var_1",
+  requestHash: requestHash({ prompt: "move the hero up" }),
 };
 
 // One step that called a server tool (answered) and a DOM tool (pending).
@@ -53,6 +58,46 @@ describe("signEnvelope / verifyEnvelope", () => {
     const env = signEnvelope(secret, scope, transcript, 3);
     const echoed = JSON.parse(JSON.stringify(env));
     expect(verifyEnvelope(secret, scope, echoed)).toBe(true);
+  });
+
+  it("verifies an envelope after the resume body schema reorders its keys", () => {
+    const env = signEnvelope(secret, scope, transcript, 3);
+    // Keys deliberately out of schema order, as a future SDK might emit them.
+    const echoed = {
+      sig: env.sig,
+      issuedAt: env.issuedAt,
+      stepsUsed: env.stepsUsed,
+      transcript: env.transcript.map(({ role, content }) => ({
+        content,
+        role,
+      })),
+    };
+    const parsed = toolLoopEnvelopeSchema.parse(
+      JSON.parse(JSON.stringify(echoed)),
+    );
+    expect(verifyEnvelope(secret, scope, parsed)).toBe(true);
+  });
+
+  it("rejects an expired envelope or a forged issue time", () => {
+    const issuedAt = Date.now();
+    const env = signEnvelope(secret, scope, transcript, 3, issuedAt);
+    expect(
+      verifyEnvelope(secret, scope, env, issuedAt + ENVELOPE_TTL_MS + 1),
+    ).toBe(false);
+    expect(
+      verifyEnvelope(secret, scope, { ...env, issuedAt: issuedAt + 60_000 }),
+    ).toBe(false);
+  });
+
+  it("rejects a resume whose request changed", () => {
+    const env = signEnvelope(secret, scope, transcript, 3);
+    expect(
+      verifyEnvelope(
+        secret,
+        { ...scope, requestHash: requestHash({ prompt: "delete the page" }) },
+        env,
+      ),
+    ).toBe(false);
   });
 
   it("rejects a tampered transcript, step count, scope, or secret", () => {
@@ -198,5 +243,32 @@ describe("generatedImagesIn", () => {
 
   it("is empty for a transcript with no images", () => {
     expect(generatedImagesIn(transcript)).toEqual([]);
+  });
+});
+
+describe("requestHash", () => {
+  it("ignores key order but not content", () => {
+    expect(requestHash({ a: 1, b: { c: 2, d: 3 } })).toBe(
+      requestHash({ b: { d: 3, c: 2 }, a: 1 }),
+    );
+    expect(requestHash({ a: 1 })).not.toBe(requestHash({ a: 2 }));
+  });
+
+  it("treats an undefined field as absent", () => {
+    expect(requestHash({ a: 1, resume: undefined })).toBe(
+      requestHash({ a: 1 }),
+    );
+  });
+});
+
+describe("answeredToolCalls", () => {
+  it("pairs each tool result with its call's input", () => {
+    expect(answeredToolCalls(transcript)).toEqual([
+      {
+        toolName: "findElements",
+        input: { query: "hero" },
+        output: { matches: [".hero"] },
+      },
+    ]);
   });
 });

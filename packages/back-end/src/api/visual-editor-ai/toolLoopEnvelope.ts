@@ -1,24 +1,67 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import type { ModelMessage } from "ai";
+import { z } from "zod";
 
 // The stateless tool loop hands the model's transcript to the extension and
 // gets it back on the next request, so no instance has to remember anything.
-// The envelope is HMAC-signed over the transcript, the step count, and who
-// it belongs to: the extension can answer tool calls (that is the point) but
-// can't forge assistant turns, server-tool results, or reset the budget.
+// The envelope is HMAC-signed over the transcript, the step count, when it
+// was issued, who it belongs to, and the request that started the loop: the
+// extension can answer tool calls (that is the point) but can't forge
+// assistant turns or server-tool results, reset the budget, change the
+// request mid-loop, or replay a stale envelope.
+
+// A loop's rounds are seconds apart; this only bounds replay.
+export const ENVELOPE_TTL_MS = 15 * 60 * 1000;
 
 export interface EnvelopeScope {
   orgId: string;
   userId: string;
   visualChangesetId: string;
   variationId: string;
+  // requestHash() of the body the loop started with.
+  requestHash: string;
 }
 
 export interface ToolLoopEnvelope {
   transcript: ModelMessage[];
   stepsUsed: number;
+  issuedAt: number;
   sig: string;
 }
+
+// The envelope as the extension echoes it back in `resume`.
+export const toolLoopEnvelopeSchema = z.object({
+  transcript: z
+    .array(
+      z
+        .object({
+          role: z.enum(["assistant", "tool"]),
+          content: z.unknown(),
+        })
+        .passthrough(),
+    )
+    .max(60),
+  stepsUsed: z.number().int().min(0).max(200),
+  issuedAt: z.number().int(),
+  sig: z.string().min(1).max(200),
+});
+
+// JSON with object keys sorted, so the signature doesn't depend on key order
+// surviving the trip through the extension and the body schema.
+const sortedJson = (v: unknown): string =>
+  JSON.stringify(v, (key, value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
+        )
+      : value,
+  );
+
+// Every round re-sends the original request; its hash is part of the scope.
+export const requestHash = (body: unknown): string =>
+  createHash("sha256").update(sortedJson(body)).digest("hex");
 
 export interface PendingToolCall {
   toolCallId: string;
@@ -32,13 +75,12 @@ export interface ClientToolResult {
   result: unknown;
 }
 
-// JSON round-trips preserve key order, so the client echoing the envelope it
-// received reproduces this byte for byte.
 const canonical = (
   scope: EnvelopeScope,
   transcript: unknown,
   stepsUsed: number,
-): string => JSON.stringify({ scope, transcript, stepsUsed });
+  issuedAt: number,
+): string => sortedJson({ scope, transcript, stepsUsed, issuedAt });
 
 const digest = (secret: string, payload: string): string =>
   createHmac("sha256", secret).update(payload).digest("hex");
@@ -48,21 +90,38 @@ export function signEnvelope(
   scope: EnvelopeScope,
   transcript: ModelMessage[],
   stepsUsed: number,
+  issuedAt = Date.now(),
 ): ToolLoopEnvelope {
   return {
     transcript,
     stepsUsed,
-    sig: digest(secret, canonical(scope, transcript, stepsUsed)),
+    issuedAt,
+    sig: digest(secret, canonical(scope, transcript, stepsUsed, issuedAt)),
   };
 }
 
 export function verifyEnvelope(
   secret: string,
   scope: EnvelopeScope,
-  envelope: { transcript: unknown; stepsUsed: number; sig: string },
+  envelope: {
+    transcript: unknown;
+    stepsUsed: number;
+    issuedAt: number;
+    sig: string;
+  },
+  now = Date.now(),
 ): boolean {
+  if (now - envelope.issuedAt > ENVELOPE_TTL_MS) return false;
   const expected = Buffer.from(
-    digest(secret, canonical(scope, envelope.transcript, envelope.stepsUsed)),
+    digest(
+      secret,
+      canonical(
+        scope,
+        envelope.transcript,
+        envelope.stepsUsed,
+        envelope.issuedAt,
+      ),
+    ),
   );
   const given = Buffer.from(envelope.sig);
   return expected.length === given.length && timingSafeEqual(expected, given);
@@ -92,6 +151,33 @@ export function pendingToolCalls(
     }
   }
   return calls.filter((c) => !answered.has(c.toolCallId));
+}
+
+// Each answered tool call with its input and JSON output, so a resume can
+// learn what earlier rounds' tools found.
+export function answeredToolCalls(
+  transcript: ModelMessage[],
+): Array<{ toolName: string; input: unknown; output: unknown }> {
+  const inputs = new Map<string, unknown>();
+  const answered: Array<{ toolName: string; input: unknown; output: unknown }> =
+    [];
+  for (const m of transcript) {
+    if (m.role === "assistant" && Array.isArray(m.content)) {
+      for (const part of m.content) {
+        if (part.type === "tool-call") inputs.set(part.toolCallId, part.input);
+      }
+    } else if (m.role === "tool") {
+      for (const part of m.content) {
+        if (part.type !== "tool-result") continue;
+        answered.push({
+          toolName: part.toolName,
+          input: inputs.get(part.toolCallId),
+          output: part.output.type === "json" ? part.output.value : undefined,
+        });
+      }
+    }
+  }
+  return answered;
 }
 
 export interface GeneratedImageRef {
