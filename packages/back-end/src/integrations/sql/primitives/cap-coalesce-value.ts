@@ -14,12 +14,16 @@ export function capCoalesceValue(
     capTablePrefix = "c",
     capValueCol = "value_cap",
     columnRef,
+    preserveType = false,
   }: {
     valueCol: string;
     metric: ExperimentMetricInterface;
     capTablePrefix?: string;
     capValueCol?: string;
     columnRef?: ColumnRef | null;
+    // Skip the float cast on uncapped values, for callers that persist the
+    // result into a typed (possibly integer) column.
+    preserveType?: boolean;
   },
 ): string {
   // Assumes cappable metrics do not have aggregate filters
@@ -55,5 +59,8 @@ export function capCoalesceValue(
     valueCol = `(CASE WHEN ${filters.join(" AND ")} THEN 1 ELSE NULL END)`;
   }
 
-  return `COALESCE(${valueCol}, 0)`;
+  // Cast to float so downstream SUM(a * b) cross products can't overflow
+  // integer types when per-unit totals are large whole-number counts.
+  const coalesced = `COALESCE(${valueCol}, 0)`;
+  return preserveType ? coalesced : dialect.castToFloat(coalesced);
 }

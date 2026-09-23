@@ -224,6 +224,10 @@ context.permissions.canTargetFeatureProjects(addedProjects);
 // Environment-scoped permissions
 context.permissions.canPublishFeature(feature, environments);
 context.permissions.canRunExperiment(experiment, environments);
+// For an experiment, resolve `environments` with getExperimentAffectedEnvs
+// (services/experiments): live linked rules, changesets, AND the drafts a start
+// will publish. A draft experiment is live nowhere, so live-only reach skipped
+// the check at launch. assertCanRunExperimentInAffectedEnvironments wraps it.
 
 // Throw error if permission denied
 context.permissions.throwPermissionError();

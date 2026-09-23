@@ -45,6 +45,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   HoldoutInterface,
   RevisionRampAction,
+  RampScheduleInterface,
   SafeRolloutRule,
 } from "shared/validators";
 import {
@@ -913,6 +914,7 @@ export function getRevisionPublishEnvs({
   environments,
   holdoutsMap,
   rampActions,
+  rampSchedules,
 }: {
   liveFeature: FeatureInterface;
   changes: MergeResultChanges;
@@ -920,6 +922,8 @@ export function getRevisionPublishEnvs({
   holdoutsMap: Map<string, HoldoutInterface>;
   /** Revision ramp actions, which are not part of the merge result. */
   rampActions?: RevisionRampAction[];
+  /** The feature's ramp schedules, so a detach is sized by what it removes. */
+  rampSchedules?: RampScheduleInterface[];
 }): string[] {
   const environmentIds = environments.map((e) => e.id);
   const holdout = holdoutEnvsForChange({
@@ -943,6 +947,7 @@ export function getRevisionPublishEnvs({
     rampActions,
     liveRules: liveFeature.rules ?? [],
     environmentIds,
+    schedules: rampSchedules,
   });
   return rampEnvs === "all"
     ? [...environmentIds]
