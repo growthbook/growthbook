@@ -227,6 +227,31 @@ describe("getMergeResultPublishEnvs", () => {
       expect(envs.sort()).toEqual(["dev", "staging"]);
     });
 
+    it.each([true, false])(
+      "routes a production toggle to %s independently of unchanged staging rules",
+      async (enabled) => {
+        const rules = [ruleA("staging")];
+        const feature = feat({
+          rules,
+          environmentSettings: {
+            staging: { enabled: true, rules: [] },
+            production: { enabled: !enabled, rules: [] },
+          },
+        });
+        const envs = await getMergeResultPublishEnvs({
+          context: ctxWith(),
+          feature,
+          filledLiveRules: rules,
+          result: {
+            rules,
+            environmentsEnabled: { production: enabled },
+          },
+          environmentIds: ENVS,
+        });
+        expect(envs).toEqual(["production"]);
+      },
+    );
+
     it("union of rule + toggle envs", async () => {
       const live = [ruleA("production")];
       const next = [ruleA("production", "edited")];

@@ -8,7 +8,10 @@ import {
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
-import { featurePublishRefusal } from "back-end/src/revisions/featureDraftAuthority";
+import {
+  featurePublishRefusal,
+  mergeResultTouchesPayload,
+} from "back-end/src/revisions/featureDraftAuthority";
 import { logger } from "back-end/src/util/logger";
 import {
   applyHoldoutExperimentLinkage,
@@ -106,6 +109,7 @@ import type {
 type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
   plan: FeatureMergePlan;
+  publishEnvironments: string[] | null;
   createdRampScheduleIds?: string[];
   // Ramp anchors the apply rewrote, captured as each write lands.
   rampBaseStatePreImages?: RampBaseStatePreImage[];
@@ -211,6 +215,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const desired: FeatureDesiredState = {
       mergeResult: plan.mergeResult,
       plan,
+      publishEnvironments: null,
     };
     return {
       desiredState: desired as unknown as Record<string, unknown>,
@@ -253,6 +258,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       rampActions: raw.rampActions,
       anchoredUpdates: rampBaseState.updates,
     });
+    desired.publishEnvironments = mergeResultTouchesPayload(plan.mergeResult)
+      ? envsToCheck
+      : null;
     const refusal = await featurePublishRefusal({
       context: callerContext,
       feature,
@@ -840,6 +848,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       finalRevision,
       "revision.published",
       bulkPublishFields(context),
+      desired.publishEnvironments === null
+        ? {}
+        : { environments: desired.publishEnvironments },
     );
     const revertedTo = draftRevertedFromVersion(finalRevision);
     if (revertedTo !== undefined) {

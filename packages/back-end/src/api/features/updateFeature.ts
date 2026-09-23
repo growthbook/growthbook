@@ -623,6 +623,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         revision,
         updatedFeature: updatedFeatureFromRevision,
         bypassedApproval,
+        publishEnvironments,
       } = await createAndPublishRevision({
         context: req.context,
         feature,
@@ -659,6 +660,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           ),
           "revision.published",
           {},
+          publishEnvironments === null
+            ? {}
+            : { environments: publishEnvironments },
         );
       } catch (e) {
         logger.error(
