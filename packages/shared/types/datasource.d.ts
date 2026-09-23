@@ -11,7 +11,7 @@ import { DatabricksConnectionParams } from "./integrations/databricks";
 import { AdobeExperiencePlatformQueryServiceConnectionParams } from "./integrations/adobe-experience-platform-query-service";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
-import { FactTableColumnType } from "./fact-table";
+import { DetectedColumn, FactTableColumnType } from "./fact-table";
 import { EventForwarderConfigWithMetadata } from "./event-forwarder";
 
 export type DataSourceType =
@@ -200,6 +200,11 @@ export interface ExposureQuery {
   timestampColumn?: string;
   experimentIdColumn?: string;
   variationIdColumn?: string;
+  /**
+   * Columns the query returned when it was last tested in the editor, so the
+   * column mapping can be edited without re-running the query.
+   */
+  columns?: DetectedColumn[];
 }
 
 export interface FeatureUsageQuery {

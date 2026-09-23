@@ -1,7 +1,15 @@
 import { useCallback, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowLeft } from "react-icons/pi";
+import { PiArrowClockwise, PiArrowLeft } from "react-icons/pi";
 import uniqId from "uniqid";
+import omit from "lodash/omit";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryIdentifierTypes,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+} from "shared/util";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -15,12 +23,16 @@ import {
   isIdentifierCandidate,
   isTimestampCandidate,
 } from "@/services/factTables";
+import { validateSQL } from "@/services/datasources";
+import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
@@ -48,39 +60,103 @@ function getExposureQueryColumnMappingError(
   return null;
 }
 
-export const NewExperimentAssignmentQueryModal = ({
+// The columns each role reads from, keyed by role label.
+function getRoleColumns(query: ExposureQuery): Record<string, string> {
+  return {
+    experiment_id: getExposureQueryExperimentIdColumn(query),
+    variation_id: getExposureQueryVariationIdColumn(query),
+    timestamp: getExposureQueryTimestampColumn(query),
+    ...Object.fromEntries(
+      getExposureQueryIdentifierTypes(query).map((idType) => [
+        idType,
+        getExposureQueryIdentifierColumn(query, idType),
+      ]),
+    ),
+  };
+}
+
+// Queries saved before detected columns were stored only tell us the columns
+// they use, and not their types, until the columns are refreshed.
+function getSavedColumns(query: ExposureQuery): DetectedColumn[] {
+  if (query.columns?.length) return query.columns;
+  const timestamp = getExposureQueryTimestampColumn(query);
+  const known = new Set([
+    ...Object.values(getRoleColumns(query)),
+    ...query.dimensions,
+    ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
+  ]);
+  return [...known].map((column) => ({
+    column,
+    datatype: column === timestamp ? "date" : "",
+  }));
+}
+
+export const ExperimentAssignmentQueryModal = ({
   dataSource,
+  exposureQuery,
   onSave,
   onCancel,
 }: {
   dataSource: DataSourceInterfaceWithParams;
+  // Edits this query when set; otherwise creates a new one.
+  exposureQuery?: ExposureQuery;
   onSave: (exposureQuery: ExposureQuery) => Promise<void> | void;
   onCancel: () => void;
 }) => {
   const { projects: allProjects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+  const { apiCall } = useAuth();
 
-  const [step, setStep] = useState(0);
-  const [sql, setSql] = useState("");
-  const [detected, setDetected] = useState<DetectedColumn[] | null>(null);
-  const [detectedSql, setDetectedSql] = useState<string | null>(null);
+  const savedRoleColumns = exposureQuery ? getRoleColumns(exposureQuery) : {};
+  const savedUserIdTypes = exposureQuery
+    ? getExposureQueryIdentifierTypes(exposureQuery)
+    : [];
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [projects, setProjects] = useState<string[]>([]);
-  const [experimentIdColumn, setExperimentIdColumn] = useState("");
-  const [variationIdColumn, setVariationIdColumn] = useState("");
-  const [timestampColumn, setTimestampColumn] = useState("");
-  const [userIdColumns, setUserIdColumns] = useState<Record<string, string>>(
-    {},
+  // Editing starts on the mapping, since most edits don't touch the SQL.
+  const [step, setStep] = useState(exposureQuery ? 1 : 0);
+  const [sql, setSql] = useState(exposureQuery?.query ?? "");
+  const [detected, setDetected] = useState<DetectedColumn[] | null>(() =>
+    exposureQuery ? getSavedColumns(exposureQuery) : null,
   );
-  const [dimensions, setDimensions] = useState<string[]>([]);
+  const [detectedSql, setDetectedSql] = useState<string | null>(
+    exposureQuery?.query ?? null,
+  );
+
+  const [name, setName] = useState(exposureQuery?.name ?? "");
+  const [description, setDescription] = useState(
+    exposureQuery?.description ?? "",
+  );
+  const [projects, setProjects] = useState<string[]>(
+    exposureQuery?.projects ?? [],
+  );
+  const [experimentIdColumn, setExperimentIdColumn] = useState(
+    savedRoleColumns.experiment_id ?? "",
+  );
+  const [variationIdColumn, setVariationIdColumn] = useState(
+    savedRoleColumns.variation_id ?? "",
+  );
+  const [timestampColumn, setTimestampColumn] = useState(
+    savedRoleColumns.timestamp ?? "",
+  );
+  const [userIdColumns, setUserIdColumns] = useState<Record<string, string>>(
+    () =>
+      Object.fromEntries(
+        savedUserIdTypes.map((idType) => [idType, savedRoleColumns[idType]]),
+      ),
+  );
+  const [dimensions, setDimensions] = useState<string[]>(
+    exposureQuery?.dimensions ?? [],
+  );
+
+  const [refreshingColumns, setRefreshingColumns] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const validateSql = useRef<(() => Promise<void>) | null>(null);
 
   const identifierTypes = (dataSource.settings?.userIdTypes || []).map(
     (t) => t.userIdType,
   );
+  const canRunQueries = permissionsUtil.canRunTestQueries(dataSource);
 
   const columns = detected || [];
   const timestampOptions = columns.filter(isTimestampCandidate);
@@ -103,6 +179,17 @@ export const NewExperimentAssignmentQueryModal = ({
   const dimensionOptions = columns
     .filter((c) => !roleColumns.has(c.column))
     .map((c) => ({ label: c.column, value: c.column }));
+
+  const mappedUserIdTypes = identifierTypes.filter((t) =>
+    validColumn(identifierOptions, userIdColumns[t] || ""),
+  );
+  const removedIdentifierTypes = savedUserIdTypes.filter(
+    (idType) => !mappedUserIdTypes.includes(idType),
+  );
+  // Saved mappings whose column the SQL no longer returns.
+  const missingRoleColumns = Object.entries(savedRoleColumns).filter(
+    ([, column]) => !columns.some((c) => c.column === column),
+  );
 
   const removeIdentifier = (idType: string) =>
     setUserIdColumns((prev) => {
@@ -157,6 +244,35 @@ export const NewExperimentAssignmentQueryModal = ({
     [detected, sql, identifierTypes],
   );
 
+  async function refreshColumns() {
+    setRefreshingColumns(true);
+    setRefreshError(null);
+    try {
+      validateSQL(sql, []);
+      const res = await apiCall<{ error?: string; columns?: DetectedColumn[] }>(
+        "/query/test",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            query: sql,
+            datasourceId: dataSource.id,
+            limit: 0,
+            detectColumns: true,
+          }),
+        },
+      );
+      if (res.error) throw new Error(res.error);
+      const cols = res.columns || [];
+      const error = getExposureQueryColumnMappingError(cols);
+      if (error) throw new Error(error);
+      handleColumnsDetected(cols);
+    } catch (e) {
+      setRefreshError(e.message);
+    } finally {
+      setRefreshingColumns(false);
+    }
+  }
+
   const projectOptions = useProjectOptions(
     () => permissionsUtil.canUpdateDataSourceSettings(dataSource),
     projects,
@@ -178,9 +294,7 @@ export const NewExperimentAssignmentQueryModal = ({
     if (!variationId) throw new Error("Select a variation id column");
     if (!timestamp) throw new Error("Select a timestamp column");
 
-    const userIdTypes = identifierTypes.filter((t) =>
-      validColumn(identifierOptions, userIdColumns[t] || ""),
-    );
+    const userIdTypes = mappedUserIdTypes;
     if (!userIdTypes.length) {
       throw new Error("Map at least one identifier column");
     }
@@ -210,8 +324,15 @@ export const NewExperimentAssignmentQueryModal = ({
         .map((t) => [t, userIdColumns[t]]),
     );
 
-    const exposureQuery: ExposureQuery = {
-      id: uniqId("exq_"),
+    const saved: ExposureQuery = {
+      // Keep fields this modal doesn't edit, but not stale mappings.
+      ...omit(exposureQuery ?? {}, [
+        "userIdColumns",
+        "timestampColumn",
+        "experimentIdColumn",
+        "variationIdColumn",
+      ]),
+      id: exposureQuery?.id ?? uniqId("exq_"),
       name,
       description,
       userIdType: userIdTypes[0],
@@ -220,6 +341,7 @@ export const NewExperimentAssignmentQueryModal = ({
       dimensions: dimensions.filter((d) => validColumn(columns, d)),
       hasNameCol,
       projects,
+      columns,
       ...(Object.keys(remappedUserIds).length
         ? { userIdColumns: remappedUserIds }
         : {}),
@@ -232,18 +354,26 @@ export const NewExperimentAssignmentQueryModal = ({
         : {}),
     };
 
-    await onSave(exposureQuery);
+    await onSave(saved);
   }
 
   return (
     <PagedModal
-      trackingEventModalType="new-experiment-assignment-query"
-      header="Add Experiment Assignment Query"
+      trackingEventModalType={
+        exposureQuery
+          ? "edit-experiment-assignment-query"
+          : "new-experiment-assignment-query"
+      }
+      header={
+        exposureQuery
+          ? "Edit Experiment Assignment Query"
+          : "Add Experiment Assignment Query"
+      }
       step={step}
       setStep={setStep}
       submit={submit}
       close={onCancel}
-      cta="Add"
+      cta={exposureQuery ? "Save" : "Add"}
       size={step === 0 ? "max" : "md"}
       overflowAuto={false}
       autoFocusSelector=""
@@ -325,9 +455,41 @@ export const NewExperimentAssignmentQueryModal = ({
             )}
 
             <Box>
-              <Text as="div" weight="semibold" mb="2">
-                Column mapping
-              </Text>
+              <Flex align="center" justify="between" mb="2">
+                <Text as="div" weight="semibold">
+                  Column mapping
+                </Text>
+                {exposureQuery ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<PiArrowClockwise />}
+                    onClick={refreshColumns}
+                    loading={refreshingColumns}
+                    disabled={!canRunQueries || !sql}
+                  >
+                    Refresh columns
+                  </Button>
+                ) : null}
+              </Flex>
+              {exposureQuery && !exposureQuery.columns?.length ? (
+                <Callout status="info" mb="2">
+                  Only the columns this query already uses are listed. Refresh
+                  columns to see everything it returns.
+                </Callout>
+              ) : null}
+              {refreshError ? (
+                <Callout status="error" mb="2">
+                  {refreshError}
+                </Callout>
+              ) : null}
+              {missingRoleColumns.length > 0 ? (
+                <Callout status="warning" mb="2">
+                  {`Your query no longer returns ${missingRoleColumns
+                    .map(([role, column]) => `"${column}" (${role})`)
+                    .join(", ")}. Choose a new column for each.`}
+                </Callout>
+              ) : null}
               <Table size="sm" variant="surface" layout="fixed" mb="2">
                 <TableBody>
                   <ColumnMappingRow
@@ -362,6 +524,15 @@ export const NewExperimentAssignmentQueryModal = ({
                   ))}
                 </TableBody>
               </Table>
+              {removedIdentifierTypes.length > 0 ? (
+                <Callout status="warning">
+                  {`Experiments analyzed on ${removedIdentifierTypes
+                    .map((idType) => `"${idType}"`)
+                    .join(
+                      ", ",
+                    )} won't be able to update results until they're switched to another identifier.`}
+                </Callout>
+              ) : null}
             </Box>
 
             <MultiSelectField
