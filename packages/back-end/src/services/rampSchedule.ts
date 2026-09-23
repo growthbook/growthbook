@@ -1148,13 +1148,23 @@ export async function restoreRampBaseStates(
 ): Promise<void> {
   for (const { id, patches, event } of preImages) {
     await runLockedRampScheduleAction(ctx, id, async (fresh) => {
+      // History is append-only, so position orders writes that share a
+      // millisecond. An event already truncated away counts everything as later.
+      const history = fresh.eventHistory ?? [];
       const at = (e: RampEvent) => new Date(e.timestamp).getTime();
-      const laterWrites = (fresh.eventHistory ?? []).filter(
+      const mine = history.findIndex(
         (e) =>
-          e.type === "config-edited" &&
-          e.reason?.startsWith(BASE_STATE_SYNC_PREFIX) &&
-          at(e) > at(event),
+          e.type === event.type &&
+          e.reason === event.reason &&
+          at(e) === at(event),
       );
+      const laterWrites = history
+        .slice(mine + 1)
+        .filter(
+          (e) =>
+            e.type === "config-edited" &&
+            e.reason?.startsWith(BASE_STATE_SYNC_PREFIX),
+        );
       const startActions = (fresh.startActions ?? []).map((a) => {
         const p = patches.find((x) => sameAction(a, x));
         if (!p) return a;
@@ -1176,14 +1186,7 @@ export async function restoreRampBaseStates(
       });
       await ctx.models.rampSchedules.updateById(id, {
         startActions,
-        eventHistory: (fresh.eventHistory ?? []).filter(
-          (e) =>
-            !(
-              e.type === event.type &&
-              e.reason === event.reason &&
-              at(e) === at(event)
-            ),
-        ),
+        eventHistory: mine < 0 ? history : history.filter((_, i) => i !== mine),
       });
     });
   }

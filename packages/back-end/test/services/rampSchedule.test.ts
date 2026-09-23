@@ -5751,7 +5751,7 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
     expect(writes.eventHistory).toEqual([older]);
   });
 
-  it("leaves a field alone once a later publish rewrote it on the same rule, same value or not", async () => {
+  it("leaves a field alone once a later publish rewrote it on the same rule, same value, even same millisecond", async () => {
     const event = { type: "config-edited", timestamp: new Date(1000), reason };
     const preImage = {
       id: "rs_1",
@@ -5766,7 +5766,7 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
       event,
     };
     const restoredWith = async (later: { reason: string }) => {
-      const laterEvent = { ...event, ...later, timestamp: new Date(2000) };
+      const laterEvent = { ...event, ...later };
       const { ctx, updateById } = makeCtx(
         fresh({
           startActions: [anchor({ condition: '{"a":1}' })],
