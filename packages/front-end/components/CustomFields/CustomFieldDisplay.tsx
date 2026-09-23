@@ -203,7 +203,12 @@ const CustomFieldDisplay: FC<{
                 label={field.name}
                 value={
                   value === "" ? (
-                    <Text weight="regular" color="text-mid" size="sm">
+                    <Text
+                      weight="regular"
+                      color="text-mid"
+                      size="sm"
+                      fontStyle="italic"
+                    >
                       None
                     </Text>
                   ) : (

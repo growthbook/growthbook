@@ -245,7 +245,7 @@ function PanelSection({
       gap="4"
       className={action ? revealsQuickEdit : undefined}
     >
-      <Flex align="center" justify="between" gap="2">
+      <Flex align="center" gap="1">
         <Text
           size="sm"
           weight="medium"

@@ -51,13 +51,13 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
       >
         {action && actionPlacement === "label" ? (
           <Flex align="center" gap="1">
-            <Text weight="regular" color="text-mid" size={size}>
+            <Text weight="regular" color="text-low" size={size}>
               {label}
             </Text>
             {action}
           </Flex>
         ) : (
-          <Text weight="regular" color="text-mid" size={size}>
+          <Text weight="regular" color="text-low" size={size}>
             {label}
           </Text>
         )}

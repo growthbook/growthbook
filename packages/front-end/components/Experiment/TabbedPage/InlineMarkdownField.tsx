@@ -120,7 +120,12 @@ export default function InlineMarkdownField({
       // page on its own it would just be noise.
       if (!stacked) return null;
       body = (
-        <Text weight="regular" color="text-mid" size={stacked ? "sm" : "md"}>
+        <Text
+          weight="regular"
+          color="text-mid"
+          size={stacked ? "sm" : "md"}
+          fontStyle="italic"
+        >
           None
         </Text>
       );

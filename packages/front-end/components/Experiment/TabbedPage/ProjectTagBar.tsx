@@ -235,7 +235,12 @@ export default function ProjectTagBar({
           addLink("project")}
         {(!showAddLinks || !canUpdateExperimentProject(project)) &&
           !projectId && (
-            <Text weight="regular" color="text-mid" size="sm">
+            <Text
+              weight="regular"
+              color="text-mid"
+              size="sm"
+              fontStyle="italic"
+            >
               None
             </Text>
           )}
@@ -259,7 +264,12 @@ export default function ProjectTagBar({
           addLink("projects")}
         {(!showAddLinks || !canUpdateHoldoutProjects(holdout.projects)) &&
           holdout.projects.length === 0 && (
-            <Text weight="regular" color="text-mid" size="sm">
+            <Text
+              weight="regular"
+              color="text-mid"
+              size="sm"
+              fontStyle="italic"
+            >
               None
             </Text>
           )}
@@ -303,7 +313,7 @@ export default function ProjectTagBar({
           experiment.tags?.length === 0 &&
           addLink("tags")}
         {(!showAddLinks || !editTags) && experiment.tags?.length === 0 && (
-          <Text weight="regular" color="text-mid" size="sm">
+          <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
             None
           </Text>
         )}
@@ -326,9 +336,18 @@ export default function ProjectTagBar({
             stacked={vertical}
             label="Implementation"
             value={
-              implementationType
-                ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
-                : "Not set"
+              implementationType ? (
+                IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
+              ) : (
+                <Text
+                  weight="regular"
+                  color="text-mid"
+                  size="sm"
+                  fontStyle="italic"
+                >
+                  Not set
+                </Text>
+              )
             }
           />
         )}
@@ -339,7 +358,18 @@ export default function ProjectTagBar({
             label="Experiment Key"
             actionPlacement="value"
             action={fieldAction?.("trackingKey")}
-            value={trackingKey || "None"}
+            value={
+              trackingKey || (
+                <Text
+                  weight="regular"
+                  color="text-mid"
+                  size="sm"
+                  fontStyle="italic"
+                >
+                  None
+                </Text>
+              )
+            }
           />
         )}
         {experiment.holdoutId && (
