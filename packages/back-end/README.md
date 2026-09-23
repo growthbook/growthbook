@@ -344,7 +344,7 @@ pnpm --filter back-end test test/features.test.ts
 pnpm --filter back-end test --shard=1/4
 ```
 
-The test command preserves the Node flags needed by the sandbox and disables the Python pool. Tests run in isolated fork workers, with half the available cores locally. CI runs four shards. API suites use an in-memory MongoDB and a 20-second timeout.
+The test command preserves the Node flags needed by the sandbox and disables the Python pool. Tests run in isolated fork workers, with half the available cores locally. CI runs four shards. One in-memory mongod starts in `test/globalSetup.ts` and each suite gets its own database. API suites use a 20-second timeout.
 
 Prefer standalone utility tests that do not import database models. For partial module mocks, use an async `importOriginal` factory. Initialize mock factory dependencies with `vi.hoisted`. Hooks run in declaration order; use block bodies so a hook does not accidentally return a mock as a cleanup function.
 
