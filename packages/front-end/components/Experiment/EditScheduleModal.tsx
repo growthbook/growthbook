@@ -65,9 +65,8 @@ export default function EditScheduleModal({
     experiment,
     {},
   );
-  // A scheduled start, stop or ship is a deferred status change and needs run
-  // permission; without it only a "notify" end can be chosen, and a start or
-  // stop that is still pending cannot be re-timed or cleared.
+  // A scheduled start, stop or ship needs run permission; without it only a
+  // "notify" end can be chosen and a pending one cannot be re-timed or cleared.
   // Fail closed when an opener did not resolve the environments.
   const canScheduleStatusChange =
     envs !== undefined &&

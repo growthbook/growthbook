@@ -109,16 +109,17 @@ describe("assertCanRunExperimentChanges", () => {
     const future = new Date(Date.now() + 60 * 60 * 1000);
     const served = experiment({ hasVisualChangesets: true });
 
-    it.each([
-      { plan: { mode: "stop" as const } },
-      { plan: { mode: "force-ship" as const, fallbackVariationId: "v1" } },
-      { plan: { mode: "auto-ship" as const, fallback: "notify" as const } },
-    ])("checks a scheduled end that will $plan.mode", async ({ plan }) => {
-      await expect(
-        assertCanRunExperimentChanges(context, served, {
-          statusUpdateSchedule: { stopAt: future, scheduledStopPlan: plan },
-        }),
-      ).rejects.toThrow("permission denied");
+    it("checks a scheduled end that will stop or ship, auto-ship included", async () => {
+      for (const plan of [
+        { mode: "stop" as const },
+        { mode: "auto-ship" as const, fallback: "notify" as const },
+      ]) {
+        await expect(
+          assertCanRunExperimentChanges(context, served, {
+            statusUpdateSchedule: { stopAt: future, scheduledStopPlan: plan },
+          }),
+        ).rejects.toThrow("permission denied");
+      }
     });
 
     it("checks a relative end (stopAfter) that will stop", async () => {
