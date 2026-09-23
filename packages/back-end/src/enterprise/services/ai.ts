@@ -8,7 +8,7 @@ import {
   NoObjectGeneratedError,
   NoOutputGeneratedError,
 } from "ai";
-import type { ToolSet, ModelMessage } from "ai";
+import type { ToolSet, ModelMessage, LanguageModelUsage } from "ai";
 import {
   createOpenAI,
   type OpenAIResponsesProviderOptions,
@@ -674,6 +674,23 @@ export const streamingChatCompletion = async ({
 
 export { aiTool };
 
+// Stateless tool loop: the run ended on tool calls the server can't execute
+// (declared without execute()). Carries what the caller needs to hand the
+// extension: this call's response messages, the calls still owed, and the
+// steps spent.
+export interface DeferredToolCalls {
+  transcript: ModelMessage[];
+  pending: Array<{ toolCallId: string; toolName: string; input: unknown }>;
+  stepsUsed: number;
+}
+
+export class DeferredToolCallsError extends Error {
+  constructor(public readonly deferred: DeferredToolCalls) {
+    super("Tool calls deferred to the client");
+    this.name = "DeferredToolCallsError";
+  }
+}
+
 export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   context,
   instructions,
@@ -692,6 +709,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS,
   extendedMaxOutputTokens,
   logContext,
+  priorMessages,
+  stepsAlreadyUsed = 0,
+  deferToolCalls = false,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -722,6 +742,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // it); models without one keep `maxOutputTokens`, since over-asking is a
   // 400.
   extendedMaxOutputTokens?: number;
+  // Stateless tool loop: earlier rounds' assistant/tool messages, appended
+  // after the user message, and how many steps they already consumed of
+  // `maxSteps`.
+  priorMessages?: ModelMessage[];
+  stepsAlreadyUsed?: number;
+  // A tool declared without execute() stops the run with its call pending.
+  // With this set, that ends the call with DeferredToolCallsError carrying
+  // the transcript instead of surfacing as a no-output failure.
+  deferToolCalls?: boolean;
   // Extra fields merged into the NoObjectGeneratedError diagnostic logs so
   // callers can attach request-specific context (e.g. the visual editor's
   // picked-element selectors) for correlating which inputs trip the
@@ -763,6 +792,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }
 
   const messages = constructMessages(prompt, instructions, images);
+  if (priorMessages && priorMessages.length > 0) {
+    messages.push(...priorMessages);
+  }
 
   // Attach a provider-specific cache breakpoint to the system message
   // when requested. Anthropic charges ~10% of input cost for cached
@@ -776,6 +808,16 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       sys.providerOptions = {
         anthropic: { cacheControl: { type: "ephemeral" } },
       };
+    }
+    // Every round of a stateless loop re-sends the user message (digest,
+    // outline, attachments) byte for byte; a breakpoint there makes it a hit.
+    if (priorMessages && priorMessages.length > 0) {
+      const user = messages.find((m) => m.role === "user");
+      if (user) {
+        user.providerOptions = {
+          anthropic: { cacheControl: { type: "ephemeral" } },
+        };
+      }
     }
   }
 
@@ -799,8 +841,13 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   let stepsUsed = 0;
   let toolsCalled: string[] = [];
   let lastFinishReason: string | undefined;
+  const remainingSteps = Math.max(1, maxSteps - stepsAlreadyUsed);
 
-  const generateOnce = async () => {
+  const generateOnce = async (): Promise<{
+    output?: unknown;
+    usage: LanguageModelUsage;
+    deferred?: DeferredToolCalls;
+  }> => {
     stepsUsed = 0;
     toolsCalled = [];
     lastFinishReason = undefined;
@@ -818,7 +865,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       ...(tools
         ? {
             tools,
-            stopWhen: stepCountIs(maxSteps),
+            stopWhen: stepCountIs(remainingSteps),
             // Force a final answer on the last allowed step. Otherwise a model
             // that keeps calling tools until it exhausts maxSteps ends ON a
             // tool call (finishReason !== "stop"), so no output object is
@@ -828,7 +875,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
             // whatever it has gathered. Only fires on a runaway loop — a model
             // that answers within budget never reaches this step.
             prepareStep: ({ stepNumber }: { stepNumber: number }) =>
-              stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
+              stepNumber >= remainingSteps - 1
+                ? { toolChoice: "none" as const }
+                : {},
           }
         : {}),
       onStepFinish: (step) => {
@@ -839,6 +888,31 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         onStepFinish?.(step);
       },
     });
+    // Ended on tool calls the server couldn't execute: hand them back rather
+    // than reading `output`, which would throw NoOutputGeneratedError.
+    if (deferToolCalls && result.finishReason === "tool-calls") {
+      const last = result.steps[result.steps.length - 1];
+      const answered = new Set(
+        (last?.toolResults ?? []).map((r) => r.toolCallId),
+      );
+      const pending = (last?.toolCalls ?? []).filter(
+        (c) => !answered.has(c.toolCallId),
+      );
+      if (pending.length > 0) {
+        return {
+          usage: result.totalUsage,
+          deferred: {
+            transcript: result.response.messages,
+            pending: pending.map((c) => ({
+              toolCallId: c.toolCallId,
+              toolName: c.toolName,
+              input: c.input,
+            })),
+            stepsUsed,
+          },
+        };
+      }
+    }
     // Read the lazy `output` getter HERE, inside this awaited function, so the
     // try/catch below catches BOTH generation failures. generateText only
     // parses the object (and throws NoObjectGeneratedError) when the run ends
@@ -846,7 +920,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     // output, and the getter throws NoOutputGeneratedError only on access.
     // Touching it here routes that lazy throw through the same retry path
     // instead of letting it escape at the call site as an opaque error.
-    return { output: result.output, usage: result.usage };
+    return { output: result.output, usage: result.totalUsage };
   };
 
   // Output.object steers the model toward the schema but doesn't
@@ -1000,6 +1074,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
           numTokensFromMessages(messages, model)) + retriedTokens;
       await updateTokenUsage({ numTokensUsed, organization: context.org });
     }
+  }
+
+  // After the accounting above: this round's tokens are real spend even
+  // though the caller gets a transcript rather than an object.
+  if (response.deferred) {
+    throw new DeferredToolCallsError(response.deferred);
   }
 
   if (!response.output) {

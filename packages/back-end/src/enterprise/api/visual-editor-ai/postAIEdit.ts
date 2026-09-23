@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ModelMessage } from "ai";
 import { pickVisionModel } from "shared/ai";
 import {
   findVisualChangesetById,
@@ -6,13 +7,25 @@ import {
 } from "back-end/src/models/VisualChangesetModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
+  DeferredToolCallsError,
   parsePrompt,
   secondsUntilAICanBeUsedAgainForModel,
 } from "back-end/src/enterprise/services/ai";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { IS_CLOUD, JWT_SECRET } from "back-end/src/util/secrets";
+import {
+  answeredToolCalls,
+  generatedImagesIn,
+  pendingToolCalls,
+  requestHash,
+  signEnvelope,
+  toolLoopEnvelopeSchema,
+  toolResultsMessage,
+  verifyEnvelope,
+} from "back-end/src/api/visual-editor-ai/toolLoopEnvelope";
+import { clientToolArgs } from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
 import {
   buildVisualEditorTools,
@@ -234,6 +247,24 @@ const bodySchema = z
         }),
       )
       .max(2)
+      .optional(),
+    // Stateless tool loop, round 2+. The extension re-sends the original
+    // request with the envelope it was handed (signed transcript + steps
+    // spent) and the results of the DOM-tool calls that were pending. Only
+    // honoured with the `x-gb-tool-loop: stateless` header.
+    resume: z
+      .object({
+        envelope: toolLoopEnvelopeSchema,
+        results: z
+          .array(
+            z.object({
+              toolCallId: z.string().min(1).max(200),
+              toolName: z.string().min(1).max(100),
+              result: z.unknown(),
+            }),
+          )
+          .max(10),
+      })
       .optional(),
   })
   .strict();
@@ -736,6 +767,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     locale,
     persist,
     attachments,
+    resume,
   } = req.body;
 
   // Carried inside domDigest; rendered as an outline in the prompt and backs
@@ -1152,25 +1184,36 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     };
   };
 
-  // ---- Run the LLM (with tools) via the job-based race. Streaming
-  // mode includes DOM-side tools and yields tool-call responses to the
-  // client; non-streaming mode runs without DOM tools so the race only
-  // ever resolves to "final".
+  // ---- Run the LLM. Three shapes:
+  //   stateless (`x-gb-tool-loop: stateless`): DOM-side tools are declared
+  //     without execute(), so a call to one ends the run; the pending calls
+  //     go back to the extension with a signed transcript and the next POST
+  //     carries the same request plus `resume`. No instance holds anything,
+  //     so this works on Cloud.
+  //   streaming (self-hosted): the in-memory job race, resumed via
+  //     /edit/resume — which only works when the resume hits the SAME
+  //     process, hence never on Cloud.
+  //   plain: single shot, server-side tools only.
   const streamingMode = !!req.body.streamingMode;
-  // The streaming tool loop parks an in-memory job and resumes it via a
-  // follow-up /edit/resume request — which only works if the resume hits
-  // the SAME process. On Cloud (multi-instance, no affinity) it can hit
-  // another instance → "AI edit session not found", and an in-flight
-  // generation can't be shared. So skip the DOM-side tool loop on Cloud:
-  // run a single-shot generation (server-side tools only) and answer
-  // immediately, still returning the {kind:"final"} envelope so the
-  // extension's handling is unchanged.
-  const useToolLoop = streamingMode && !IS_CLOUD;
+  const stateless = req.headers["x-gb-tool-loop"] === "stateless";
+  if (resume && !stateless) {
+    return context.throwBadRequestError(
+      "`resume` requires the stateless tool loop.",
+    );
+  }
+  // Tool-call rounds are `{ kind }` envelopes, so the final answer must be too.
+  if (stateless && !streamingMode) {
+    return context.throwBadRequestError(
+      "The stateless tool loop requires `streamingMode`.",
+    );
+  }
+  const useToolLoop = streamingMode && !IS_CLOUD && !stateless;
   const job = aiEditJobStore.create();
   const imageState = newImageTurnState();
   const tools = buildVisualEditorTools({
     context,
     job: useToolLoop ? job : undefined,
+    deferDomTools: stateless,
     pageStructure,
     imageState,
     quarantineImages: !persist,
@@ -1183,7 +1226,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     }
   ).finalize = finalizeOutput;
 
-  const generation = parsePrompt({
+  const parsePromptArgs = {
     context,
     instructions: effectiveInstructions,
     prompt: buildPrompt({
@@ -1197,7 +1240,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       attachments: attachmentMeta,
     }),
     temperature: 0.2,
-    type: "visual-editor-ai-edit",
+    type: "visual-editor-ai-edit" as const,
     isDefaultPrompt: true,
     zodObjectSchema: outputSchema,
     overrideModel: editModel,
@@ -1214,7 +1257,17 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       variationId,
       pickedSelectors: elementContext.map((e) => e.selector),
     },
-    onStepFinish: ({ toolCalls, toolResults }) => {
+    onStepFinish: ({
+      toolCalls,
+      toolResults,
+    }: {
+      toolCalls?: Array<{ toolName: string }>;
+      toolResults?: Array<{
+        toolName: string;
+        input: unknown;
+        output: unknown;
+      }>;
+    }) => {
       for (const r of toolResults ?? []) {
         for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
       }
@@ -1228,7 +1281,106 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         );
       }
     },
-  });
+  };
+
+  // Save (when asked) and shape the response — the tail every path shares.
+  const completeTurn = async (raw: z.infer<typeof outputSchema>) => {
+    const finalized = await finalizeOutput(raw);
+    if (persist) {
+      // Non-null: the handler fails fast above on a variationId not in the changeset.
+      const change = currentChange as NonNullable<typeof currentChange>;
+      await updateVisualChange({
+        context,
+        changesetId: visualChangesetId,
+        visualChangeId: change.id,
+        payload: {
+          // The model returns only new mutations, but complete css/js.
+          domMutations: [
+            ...(change.domMutations ?? []),
+            ...(finalized.mutations as typeof change.domMutations),
+          ],
+          ...(finalized.css !== undefined ? { css: finalized.css } : {}),
+          ...(finalized.js !== undefined ? { js: finalized.js } : {}),
+        },
+      });
+      return {
+        ...finalized,
+        saved: true as const,
+        visualChangeId: change.id,
+        images: imageState.generated,
+        warnings: imageState.warnings,
+      };
+    }
+    return streamingMode
+      ? { kind: "final" as const, payload: finalized }
+      : finalized;
+  };
+
+  if (stateless) {
+    aiEditJobStore.delete(job.id);
+    const scope = {
+      orgId: req.organization.id,
+      userId: context.userId ?? "",
+      visualChangesetId,
+      variationId,
+      requestHash: requestHash({ ...req.body, resume: undefined }),
+    };
+    let priorMessages: ModelMessage[] | undefined;
+    let stepsAlreadyUsed = 0;
+    if (resume) {
+      if (!verifyEnvelope(JWT_SECRET, scope, resume.envelope)) {
+        return context.throwBadRequestError(
+          "The AI edit transcript failed verification. Start the prompt again.",
+        );
+      }
+      // Verified above, so the shape is whatever the SDK gave us last round.
+      const transcript = resume.envelope.transcript as ModelMessage[];
+      const answered = toolResultsMessage(
+        pendingToolCalls(transcript),
+        resume.results,
+      );
+      if (!answered.ok) return context.throwBadRequestError(answered.error);
+      priorMessages = [...transcript, answered.message];
+      for (const r of answeredToolCalls(priorMessages)) {
+        for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
+      }
+      stepsAlreadyUsed = resume.envelope.stepsUsed;
+      // The per-turn image budget and the images already made live in the
+      // transcript, not in this process — carry them over so a resume can't
+      // buy three more.
+      const priorImages = generatedImagesIn(transcript);
+      imageState.count = priorImages.length;
+      imageState.generated.push(...priorImages);
+    }
+    try {
+      const raw = await parsePrompt({
+        ...parsePromptArgs,
+        priorMessages,
+        stepsAlreadyUsed,
+        deferToolCalls: true,
+      });
+      return await completeTurn(raw);
+    } catch (e) {
+      if (!(e instanceof DeferredToolCallsError)) throw e;
+      const { transcript, pending, stepsUsed } = e.deferred;
+      return {
+        kind: "tool-call" as const,
+        envelope: signEnvelope(
+          JWT_SECRET,
+          scope,
+          [...(priorMessages ?? []), ...transcript],
+          stepsAlreadyUsed + stepsUsed,
+        ),
+        calls: pending.map((c) => ({
+          toolCallId: c.toolCallId,
+          toolName: c.toolName,
+          args: clientToolArgs(c.toolName, c.input),
+        })),
+      };
+    }
+  }
+
+  const generation = parsePrompt(parsePromptArgs);
   (
     job as unknown as {
       setGenerationPromise: (p: Promise<unknown>) => void;
@@ -1270,36 +1422,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   }
 
   // outcome.kind === "final"
-  const finalized = await finalizeOutput(outcome.payload);
   aiEditJobStore.delete(job.id);
-
-  if (persist) {
-    // Non-null: the handler fails fast above on a variationId not in the changeset.
-    const change = currentChange as NonNullable<typeof currentChange>;
-    await updateVisualChange({
-      context,
-      changesetId: visualChangesetId,
-      visualChangeId: change.id,
-      payload: {
-        // The model returns only new mutations, but complete css/js.
-        domMutations: [
-          ...(change.domMutations ?? []),
-          ...(finalized.mutations as typeof change.domMutations),
-        ],
-        ...(finalized.css !== undefined ? { css: finalized.css } : {}),
-        ...(finalized.js !== undefined ? { js: finalized.js } : {}),
-      },
-    });
-    return {
-      ...finalized,
-      saved: true as const,
-      visualChangeId: change.id,
-      images: imageState.generated,
-      warnings: imageState.warnings,
-    };
-  }
-
-  return streamingMode
-    ? { kind: "final" as const, payload: finalized }
-    : finalized;
+  return await completeTurn(outcome.payload);
 });
