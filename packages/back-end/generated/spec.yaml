@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  version: 5.0.1
+  version: 5.1.0
   title: GrowthBook REST API
   description: >
     GrowthBook offers a full REST API for interacting with the application.
@@ -21272,6 +21272,14 @@ paths:
                       - type
                       - pattern
                     additionalProperties: {}
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 visualChanges:
                   type: array
                   items:
@@ -21366,6 +21374,14 @@ paths:
                   type: string
                 variation:
                   type: string
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 domMutations:
                   type: array
                   items:
@@ -21444,6 +21460,14 @@ paths:
                   type: string
                 variation:
                   type: string
+                allowRunningExperiment:
+                  description: >-
+                    Also accept the write when the experiment is running. Off by
+                    default so a stale editor can't change a live test. When
+                    set, the change reaches live traffic immediately and the
+                    caller needs the runExperiments permission on the affected
+                    environments; the write is audited.
+                  type: boolean
                 domMutations:
                   type: array
                   items:
@@ -48163,8 +48187,8 @@ paths:
                     type: string
                 updateVariations:
                   description: >-
-                    Metadata edits to existing active arms. Only `name` and
-                    `description` may be changed; key, values, weights,
+                    Metadata edits to existing active arms. `name`,
+                    `description`, and `key` may be changed; values, weights,
                     screenshots, and status are preserved.
                   type: array
                   items:
@@ -48175,6 +48199,14 @@ paths:
                       name:
                         type: string
                       description:
+                        type: string
+                      key:
+                        description: >-
+                          New key for the arm. Must be unique across the
+                          contextual bandit's arms, including removed ones. The
+                          key is what SDKs report in exposure events, so
+                          renaming an arm on a running bandit orphans exposures
+                          already recorded under the old key.
                         type: string
                     required:
                       - id
@@ -66833,6 +66865,16 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        conditionalInlineFilters:
+          description: >-
+            Value -> additional column to prompt for when a metric filters this
+            column to that value, e.g. {"Page View": "path", "Modal Open":
+            "properties.modalType"}. Requires alwaysInlineFilter.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         deleted:
           default: false
           type: boolean
@@ -66958,6 +67000,16 @@ components:
             Whether this column should always be included as an inline filter in
             queries
           type: boolean
+        conditionalInlineFilters:
+          description: >-
+            Value -> additional column to prompt for when a metric filters this
+            column to that value, e.g. {"Page View": "path", "Modal Open":
+            "properties.modalType"}. Requires alwaysInlineFilter.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         deleted:
           default: false
           type: boolean

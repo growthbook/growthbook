@@ -1,4 +1,3 @@
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import React, { FC, useRef, useCallback, useState } from "react";
 import pick from "lodash/pick";
@@ -61,7 +60,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 }) => {
   const { getProjectById } = useDefinitions();
   const permissionsUtils = usePermissionsUtil();
-  const workspaceUIEnabled = useFeatureIsOn("slack-workspace-ui");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const {
@@ -149,7 +147,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 
   const loading = state?.type === "loading";
   const slackSettingsUrl =
-    workspaceUIEnabled &&
     payloadType === "slack" &&
     eventWebHook.slack?.teamId &&
     permissionsUtils.canManageIntegrations()

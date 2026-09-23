@@ -17,6 +17,7 @@ import {
   getRuleAttributeScopeProjectIds,
   getTargetingProjectIds,
   getRuleTargetingProjectIds,
+  rampTargetMatchesRule,
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
@@ -462,9 +463,7 @@ export default function RuleModal({
   // still resolve to the same schedule as their bare stem (fr_abc).
   const ruleRampSchedule = rule?.id
     ? rampSchedules.find((rs) =>
-        rs.targets.some(
-          (t) => t.ruleId && stemRuleId(t.ruleId) === stemRuleId(rule.id),
-        ),
+        rs.targets.some((t) => rampTargetMatchesRule(t, rule.id)),
       )
     : undefined;
 
