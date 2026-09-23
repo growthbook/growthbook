@@ -50,6 +50,13 @@ interface Props
   metricSnapshotSettings?: MetricSnapshotSettings;
 }
 
+/** Join adjustment names into a readable list ("a, b, and c"). */
+function formatAdjustmentList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
 export default function ChangeColumn({
   metric,
   pValueThreshold,
@@ -161,20 +168,34 @@ export default function ChangeColumn({
 
   const priorUsed =
     statsEngine === "bayesian" && !!metricSnapshotSettings?.properPrior;
-  const priorInfo = priorUsed ? (
-    <Tooltip content="This estimate is affected by usage of a Bayesian prior.">
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          color: "var(--color-text-low)",
-          cursor: "help",
-        }}
+  const cupedUsed = !!metricSnapshotSettings?.regressionAdjustmentEnabled;
+  const postStratificationUsed =
+    !!stats?.realizedSettings?.postStratificationApplied;
+
+  const adjustmentLabels: string[] = [];
+  if (priorUsed) adjustmentLabels.push("a Bayesian prior");
+  if (cupedUsed) adjustmentLabels.push("CUPED");
+  if (postStratificationUsed) adjustmentLabels.push("post-stratification");
+
+  const adjustmentInfo =
+    adjustmentLabels.length > 0 ? (
+      <Tooltip
+        content={`This estimate is affected by usage of ${formatAdjustmentList(
+          adjustmentLabels,
+        )}.`}
       >
-        <PiInfo size={15} />
-      </span>
-    </Tooltip>
-  ) : null;
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            color: "var(--color-text-low)",
+            cursor: "help",
+          }}
+        >
+          <PiInfo size={15} />
+        </span>
+      </Tooltip>
+    ) : null;
 
   if (!metric) {
     return <td {...otherProps} />;
@@ -197,7 +218,7 @@ export default function ChangeColumn({
     <td className={clsx("results-change", className)} {...otherProps}>
       <Flex align="center" justify="end" gap="2">
         <Trigger>{changeContent}</Trigger>
-        {priorInfo}
+        {adjustmentInfo}
         {additionalButton}
       </Flex>
     </td>
