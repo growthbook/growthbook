@@ -538,7 +538,11 @@ function EventForwarderModal({
                 }}
                 disabled={isEditingEventForwarder}
                 options={dataRegionOptions}
-                helpText="Where the forwarder's Kafka/Confluent resources are provisioned. This cannot be changed later."
+                helpText={
+                  eventForwarderConfig.sinkType === "databricks"
+                    ? "Where GrowthBook processes event data before writing to Databricks. This cannot be changed later."
+                    : "Where the forwarder's Kafka/Confluent resources are provisioned. This cannot be changed later."
+                }
               />
             ) : null}
             <Callout status="info" mb="0" mt="3" icon={null}>

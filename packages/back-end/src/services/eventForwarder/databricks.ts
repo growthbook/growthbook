@@ -29,6 +29,16 @@ const EVENT_FORWARDER_DATABRICKS_COLUMNS = [
   "attributes VARIANT",
 ];
 
+// Fails with UNRESOLVED_COLUMN when a pre-existing table lacks a contract column.
+export function buildDatabricksEventForwarderColumnCheckSql(
+  tableRef: string,
+): string {
+  const columns = EVENT_FORWARDER_DATABRICKS_COLUMNS.map(
+    (column) => column.split(" ")[0],
+  );
+  return `SELECT ${columns.join(", ")} FROM ${tableRef} LIMIT 0`;
+}
+
 export function buildDatabricksEventForwarderCreateTableSql(
   tableRef: string,
 ): string {
@@ -57,6 +67,16 @@ export async function ensureEventForwarderDatabricksTables(
       params,
       buildDatabricksEventForwarderCreateTableSql(tableRef),
     );
+    try {
+      await runDatabricksQuery(
+        params,
+        buildDatabricksEventForwarderColumnCheckSql(tableRef),
+      );
+    } catch (e) {
+      throw new Error(
+        `Existing table ${tableRef} does not match the event forwarder schema. Drop it or choose another table prefix. (${e instanceof Error ? e.message : String(e)})`,
+      );
+    }
     logger.info({ tableRef }, "Event forwarder Databricks table ensured");
   }
 }

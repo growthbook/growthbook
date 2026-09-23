@@ -73,7 +73,7 @@ const DatabricksEventForwarderForm: FC<{
         onChange={(zerobusEndpoint) => updateConfig({ zerobusEndpoint })}
         placeholder={zerobusPlaceholder}
         tooltip="Zerobus Ingest endpoint for your workspace."
-        helpText="<workspace-id> is the number after ?o= in your workspace URL; <region> is the workspace's cloud region (e.g. us-east-1, eastus, us-central1)."
+        helpText="<workspace-id> is the numeric id in your workspace URL (after ?o=, or after adb- on Azure); <region> is the workspace's cloud region (e.g. us-east-1, eastus, us-central1)."
       />
     </Flex>
   );
