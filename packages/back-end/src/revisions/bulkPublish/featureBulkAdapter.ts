@@ -107,13 +107,17 @@ import type {
  * The apply phase stashes runtime state here (created ramp schedule ids, the
  * post-apply feature) for restorePreImage/emitPublished to read.
  */
+const detachKey = (d: RevisionRampDetachAction) =>
+  `${d.rampScheduleId}:${d.ruleId}`;
+
 type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
   plan: FeatureMergePlan;
   createdRampScheduleIds?: string[];
   revertRampDetaches?: RevisionRampDetachAction[];
-  // Schedules the gate-time revert warning covered; the apply refuses others.
-  warnedRevertRampScheduleIds?: string[];
+  // The (schedule, rule) detaches the gate-time revert warning covered; the
+  // apply refuses any other.
+  warnedRevertRampDetaches?: string[];
   // Ramp anchors the apply rewrote, captured as each write lands.
   rampBaseStatePreImages?: RampBaseStatePreImage[];
   // Schedules the gate-time plan authorized; the apply refuses any newcomer.
@@ -243,9 +247,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const revertRampDetaches = (
       await resolveRevertRampStopsForRevision(callerContext, feature, raw)
     ).detaches;
-    desired.warnedRevertRampScheduleIds = revertRampDetaches.map(
-      (d) => d.rampScheduleId,
-    );
+    desired.warnedRevertRampDetaches = revertRampDetaches.map(detachKey);
     const rampBaseState = await planRampBaseStateSyncForPublish(
       overlayContext,
       feature,
@@ -492,8 +494,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     ).detaches;
     // The gates warned about and authorized a set of ramps; one attached since
     // must go back through them rather than be detached unannounced.
-    const warned = new Set(desired.warnedRevertRampScheduleIds ?? []);
-    if (desired.revertRampDetaches.some((d) => !warned.has(d.rampScheduleId))) {
+    const warned = new Set(desired.warnedRevertRampDetaches ?? []);
+    if (desired.revertRampDetaches.some((d) => !warned.has(detachKey(d)))) {
       throw new ConflictError(
         "A ramp schedule was attached to this feature while publishing; retry the publish",
       );
