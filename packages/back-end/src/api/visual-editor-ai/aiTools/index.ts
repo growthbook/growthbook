@@ -32,9 +32,7 @@ export interface VisualEditorToolsetOptions {
   // through the client. When omitted, only server-side tools are
   // included — the handler runs as a single HTTP request.
   job?: ClientJob<unknown>;
-  // Stateless alternative to `job`: the DOM-side tools are declared without
-  // execute(), so a call to one ends the run and is handed back to the
-  // extension with a signed transcript. Ignored when `job` is set.
+  // Stateless alternative to `job`: DOM tools without execute(). Ignored when `job` is set.
   deferDomTools?: boolean;
   // Page-structure snapshot for the server-side `findElements` tool. When
   // present, the model can locate uncatalogued containers (sections, layout
@@ -83,11 +81,7 @@ export function buildVisualEditorTools({
     getDesignTokens: getDesignTokensTool(context),
     searchPastExperiments: searchPastExperimentsTool(context),
     getExperimentVariations: getExperimentVariationsTool(context),
-    // Server-side container lookups over the in-request snapshot — work on
-    // Cloud (no client round-trip). Only added when the extension sent a
-    // snapshot. describeContainer promises siblings and children in page
-    // order, which older extensions (capture-priority order, no docOrder)
-    // can't back — so it's withheld from them rather than misordering a move.
+    // Server-side lookups over the in-request snapshot; describeContainer needs document order.
     ...(hasStructure
       ? {
           findElements: findElementsServerTool(
@@ -125,11 +119,5 @@ export function buildVisualEditorTools({
   };
 }
 
-// How many LLM round-trips the chat handler permits before forcing a
-// final structured output. Each tool call adds a step (one call per step on
-// Claude, whose json-tool mode disables parallel calls). The ceiling is
-// latency, not cost: every step is a full round-trip with the conversation
-// resent, lookup steps take a few seconds each, and the extension aborts the
-// request at 180s — so 20 leaves room for a long multi-part edit and its
-// final, larger answer step, but not for an unbounded exploration.
+// Steps before a forced final answer; bounded by latency, since the extension aborts at 180s.
 export const VISUAL_EDITOR_MAX_STEPS = 20;

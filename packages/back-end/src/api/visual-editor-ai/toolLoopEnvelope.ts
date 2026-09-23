@@ -2,13 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "crypto";
 import type { ModelMessage } from "ai";
 import { z } from "zod";
 
-// The stateless tool loop hands the model's transcript to the extension and
-// gets it back on the next request, so no instance has to remember anything.
-// The envelope is HMAC-signed over the transcript, the step count, when it
-// was issued, who it belongs to, and the request that started the loop: the
-// extension can answer tool calls (that is the point) but can't forge
-// assistant turns or server-tool results, reset the budget, change the
-// request mid-loop, or replay a stale envelope.
+// Signed so the extension can answer tool calls but not forge turns, reset the budget or swap the request.
 
 // A loop's rounds are seconds apart; this only bounds replay.
 export const ENVELOPE_TTL_MS = 15 * 60 * 1000;
@@ -46,8 +40,7 @@ export const toolLoopEnvelopeSchema = z.object({
   sig: z.string().min(1).max(200),
 });
 
-// JSON with object keys sorted, so the signature doesn't depend on key order
-// surviving the trip through the extension and the body schema.
+// Key-sorted JSON, so the signature survives key reordering in transit.
 const sortedJson = (v: unknown): string =>
   JSON.stringify(v, (key, value: unknown) =>
     value && typeof value === "object" && !Array.isArray(value)
@@ -153,8 +146,6 @@ export function pendingToolCalls(
   return calls.filter((c) => !answered.has(c.toolCallId));
 }
 
-// Each answered tool call with its input and JSON output, so a resume can
-// learn what earlier rounds' tools found.
 export function answeredToolCalls(
   transcript: ModelMessage[],
 ): Array<{ toolName: string; input: unknown; output: unknown }> {
@@ -186,10 +177,7 @@ export interface GeneratedImageRef {
   height: number;
 }
 
-// Images generateImage produced earlier in this logical turn. Each resume
-// runs in a fresh process with a fresh per-turn image counter, so the paid
-// budget has to be re-seeded from the signed transcript or every round would
-// start it from zero.
+// Resumes run with a fresh image counter, so the paid budget is re-seeded from the signed transcript.
 export function generatedImagesIn(
   transcript: ModelMessage[],
 ): GeneratedImageRef[] {
@@ -220,8 +208,7 @@ export function generatedImagesIn(
   return images;
 }
 
-// Every pending call answered exactly once and nothing else, or the loop
-// would stop again immediately with the same calls outstanding.
+// Every pending call answered exactly once, or the loop would stop again immediately.
 export function toolResultsMessage(
   pending: PendingToolCall[],
   results: ClientToolResult[],
@@ -271,8 +258,7 @@ export function toolResultsMessage(
   };
 }
 
-// Tool outputs must be JSON; the client's result already crossed the wire
-// as JSON, so this only normalizes `undefined`.
+// Normalizes `undefined`; the result already crossed the wire as JSON.
 function toJsonValue(v: unknown): ReturnType<typeof JSON.parse> {
   return v === undefined ? null : JSON.parse(JSON.stringify(v));
 }

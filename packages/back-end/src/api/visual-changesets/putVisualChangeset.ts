@@ -33,10 +33,7 @@ export const putVisualChangeset = createApiRequestHandler(
   if (!req.context.permissions.canUpdateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
-  // Reject writes to non-draft experiments. Re-checked on every save so a
-  // stale editor can't clobber an experiment that was started after it loaded
-  // the (then-draft) changeset — unless the caller opted into editing the
-  // running experiment.
+  // Re-checked on every save so a stale editor can't clobber a test started since it loaded.
   const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
     allowRunning: !!req.body.allowRunningExperiment,
     visualChangesetId: visualChangeset.id,
