@@ -47,6 +47,10 @@ export class LruCache<T, K> {
     return entry;
   }
 
+  public delete(key: K) {
+    this.store.delete(key);
+  }
+
   public put(key: K, value: T) {
     if (this.store.size >= this.maxEntries) {
       // items are stored in insertion order, so the first key is the oldest

@@ -389,6 +389,9 @@ export async function getSignedUploadUrl(
   // The Cache-Control header the client must send with its PUT/POST.
   // `null` when no cache header is configured for this destination.
   cacheControl: string | null;
+  // Content-Disposition the client must echo on the GCS PUT (S3 gets it as
+  // a signed form field). `null` when none applies.
+  contentDisposition: string | null;
   // Echoes the size cap so the client can do an early-error check.
   maxBytes: number | null;
 }> {
@@ -398,6 +401,13 @@ export async function getSignedUploadUrl(
   }
 
   const cfg = getDestinationConfig(destination);
+
+  // An SVG opened directly renders as a document and runs any <script> it
+  // carries, in this bucket's origin. `attachment` makes a direct link
+  // download instead; <img> embedding ignores it, so rendering is
+  // unaffected. Defence in depth behind the CDN's CSP header.
+  const contentDisposition =
+    contentType === "image/svg+xml" ? "attachment" : null;
 
   if (UPLOAD_METHOD === "s3") {
     const client = getS3Client(cfg.s3Region);
@@ -416,6 +426,10 @@ export async function getSignedUploadUrl(
     if (cfg.cacheControl) {
       conditions.push(["eq", "$Cache-Control", cfg.cacheControl]);
       fields["Cache-Control"] = cfg.cacheControl;
+    }
+    if (contentDisposition) {
+      conditions.push(["eq", "$Content-Disposition", contentDisposition]);
+      fields["Content-Disposition"] = contentDisposition;
     }
     // content-length-range is the actual server-side size enforcement;
     // any client-side check is just UX.
@@ -439,6 +453,7 @@ export async function getSignedUploadUrl(
       fileUrl,
       fields: signedFields as Record<string, string>,
       cacheControl: cfg.cacheControl ?? null,
+      contentDisposition,
       maxBytes: maxBytes ?? null,
     };
   } else if (UPLOAD_METHOD === "google-cloud") {
@@ -454,9 +469,12 @@ export async function getSignedUploadUrl(
       action: "write",
       expires: Date.now() + expiresInMinutes * 60 * 1000,
       contentType,
-      ...(cfg.cacheControl
-        ? { extensionHeaders: { "cache-control": cfg.cacheControl } }
-        : {}),
+      extensionHeaders: {
+        ...(cfg.cacheControl ? { "cache-control": cfg.cacheControl } : {}),
+        ...(contentDisposition
+          ? { "content-disposition": contentDisposition }
+          : {}),
+      },
     });
 
     const fileUrl =
@@ -466,6 +484,7 @@ export async function getSignedUploadUrl(
       signedUrl,
       fileUrl,
       cacheControl: cfg.cacheControl ?? null,
+      contentDisposition,
       // FOOTGUN: GCS V4 signed URLs don't support content-length-range,
       // so the size cap is client-side only here — a known enforcement
       // gap to revisit (e.g., delete oversize uploads post-hoc).

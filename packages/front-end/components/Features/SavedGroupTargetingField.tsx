@@ -1,3 +1,4 @@
+import { isSavedGroupAvailableForProjects } from "shared/util";
 import { SavedGroupTargeting } from "shared/types/feature";
 import { PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React, { useEffect } from "react";
@@ -26,6 +27,8 @@ export interface Props {
   value: SavedGroupTargeting[];
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
   project: string;
+  // undefined preserves the default picker convenience; null targets all Projects.
+  savedGroupProjects?: string[] | null;
   slimMode?: boolean;
   emptyText?: string;
   label?: string;
@@ -43,6 +46,7 @@ export default function SavedGroupTargetingField({
   value,
   setValue,
   project,
+  savedGroupProjects,
   slimMode,
   emptyText,
   label = "Target by Saved Groups",
@@ -106,9 +110,12 @@ export default function SavedGroupTargetingField({
     );
 
   const filteredSavedGroups = savedGroups.filter((group) => {
-    return (
-      !project || !group.projects?.length || group.projects.includes(project)
-    );
+    // Keep already selected references visible for grandfathered rules.
+    if (value.some((targeting) => targeting.ids.includes(group.id)))
+      return true;
+    return savedGroupProjects === undefined
+      ? !project || !group.projects?.length || group.projects.includes(project)
+      : isSavedGroupAvailableForProjects(group, savedGroupProjects);
   });
 
   const options = filteredSavedGroups.map((s) => ({

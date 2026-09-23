@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { reconcileInlineFilterPrompts } from "shared/experiments";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import {
   PiCaretDown,
@@ -123,7 +124,12 @@ export default function FunnelStepCard({
 
   const handleFiltersChange = (filters: RowFilter[]) => {
     setDraftExploreState((prev) =>
-      updateStep(prev, index, (s) => ({ ...s, rowFilters: filters })),
+      updateStep(prev, index, (s) => ({
+        ...s,
+        rowFilters: factTable
+          ? reconcileInlineFilterPrompts(factTable, s.rowFilters, filters)
+          : filters,
+      })),
     );
   };
 
