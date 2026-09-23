@@ -17,6 +17,7 @@ import {
   ExperimentMetricInterface,
   funnelStepMetricId,
   getAllExpandedMetricIdsFromExperiment,
+  getCompatibleFunnelAutoSliceColumns,
   getFunnelStepMetric,
   getFunnelStepMetrics,
   getMetricSnapshotSettings,
@@ -27,6 +28,9 @@ import {
   funnelSettingsValidator,
 } from "shared/validators";
 import {
+  ColumnInterface,
+  FactTableDefinition,
+  FactTableInterface,
   FunnelFactMetricInterface,
   FunnelStep,
   RowFilter,
@@ -199,6 +203,68 @@ describe("funnel step metric ids", () => {
   });
 });
 
+describe("getCompatibleFunnelAutoSliceColumns", () => {
+  const steps: FunnelStep[] = [
+    {
+      name: "View",
+      factTableId: "ft_views",
+      rowFilters: [],
+      optional: false,
+    },
+    {
+      name: "Signup",
+      factTableId: "ft_signups",
+      rowFilters: [],
+      optional: false,
+    },
+  ];
+  const makeColumn = (
+    overrides: Partial<ColumnInterface> = {},
+  ): ColumnInterface =>
+    ({
+      column: "country",
+      name: "Country",
+      datatype: "string",
+      deleted: false,
+      isAutoSliceColumn: true,
+      autoSlices: ["US", "CA"],
+      ...overrides,
+    }) as ColumnInterface;
+  const getColumns = (
+    secondColumn: ColumnInterface | null,
+  ): ((id: string) => Pick<FactTableInterface, "columns"> | null) => {
+    const factTables = new Map<string, Pick<FactTableInterface, "columns">>([
+      ["ft_views", { columns: [makeColumn()] }],
+      ["ft_signups", { columns: secondColumn ? [secondColumn] : [] }],
+    ]);
+    return (id) => factTables.get(id) ?? null;
+  };
+
+  it("returns columns configured consistently on every step", () => {
+    const columns = getCompatibleFunnelAutoSliceColumns({
+      steps,
+      getFactTable: getColumns(makeColumn({ autoSlices: ["CA", "US"] })),
+    });
+
+    expect(columns.map((column) => column.column)).toEqual(["country"]);
+  });
+
+  it.each<[string, ColumnInterface | null]>([
+    ["missing", null],
+    ["deleted", makeColumn({ deleted: true })],
+    ["different datatype", makeColumn({ datatype: "boolean" })],
+    ["different levels", makeColumn({ autoSlices: ["US", "GB"] })],
+    ["not an Auto Slice", makeColumn({ isAutoSliceColumn: false })],
+  ])("excludes a column when another step is %s", (_, secondColumn) => {
+    const columns = getCompatibleFunnelAutoSliceColumns({
+      steps,
+      getFactTable: getColumns(secondColumn),
+    });
+
+    expect(columns).toEqual([]);
+  });
+});
+
 const signupRowFilter: RowFilter = {
   operator: "=",
   column: "event",
@@ -298,6 +364,50 @@ describe("expandDerivedMetricsInMap funnel expansion", () => {
 
   it("leaves the funnel itself untouched", () => {
     expect(expandFunnelMetric().get(funnelMetric.id)).toBe(funnelMetric);
+  });
+
+  it("only expands Auto Slices configured consistently across every step", () => {
+    const slicedFunnel = {
+      ...funnelMetric,
+      metricAutoSlices: ["country"],
+    };
+    const makeFactTable = (
+      id: string,
+      autoSlices: string[],
+    ): FactTableDefinition =>
+      ({
+        id,
+        columns: [
+          {
+            column: "country",
+            datatype: "string",
+            deleted: false,
+            isAutoSliceColumn: true,
+            autoSlices,
+          },
+        ],
+      }) as unknown as FactTableDefinition;
+    const expand = (signupAutoSlices: string[]) => {
+      const metricMap = new Map<string, ExperimentMetricInterface>([
+        [slicedFunnel.id, slicedFunnel],
+      ]);
+      expandDerivedMetricsInMap({
+        metricMap,
+        factTableMap: new Map([
+          ["ft_views", makeFactTable("ft_views", ["US", "CA"])],
+          ["ft_events", makeFactTable("ft_events", signupAutoSlices)],
+        ]),
+        experiment: { goalMetrics: [slicedFunnel.id] },
+      });
+      return metricMap;
+    };
+
+    expect(expand(["CA", "US"]).has(`${funnelMetric.id}?dim:country=US`)).toBe(
+      true,
+    );
+    expect(expand(["US", "GB"]).has(`${funnelMetric.id}?dim:country=US`)).toBe(
+      false,
+    );
   });
 });
 

@@ -1,6 +1,6 @@
 import { useForm, UseFormReturn } from "react-hook-form";
 import omit from "lodash/omit";
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
@@ -29,6 +29,7 @@ import {
   canInlineFilterColumn,
   getAggregateFilters,
   getColumnRefWhereClause,
+  getCompatibleFunnelAutoSliceColumns,
   getSelectedColumnDatatype,
   reconcileInlineFilterPrompts,
 } from "shared/experiments";
@@ -1507,6 +1508,7 @@ function StandardFactMetricModal({
     getDatasourceById,
     project,
     getFactTableById,
+    factTables,
     mutateDefinitions,
     metrics,
   } = useDefinitions();
@@ -1625,6 +1627,34 @@ function StandardFactMetricModal({
   const [funnelSettings, setFunnelSettings] = useState<FunnelSettings | null>(
     existing?.funnelSettings || null,
   );
+  const availableAutoSliceColumns = useMemo(() => {
+    if (type !== "funnel") {
+      return (
+        numeratorFactTable?.columns.filter(
+          (column) => column.isAutoSliceColumn && !column.deleted,
+        ) ?? []
+      );
+    }
+    if (!funnelSettings) return [];
+    return getCompatibleFunnelAutoSliceColumns({
+      steps: funnelSettings.steps,
+      getFactTable: (id) => factTables.find((factTable) => factTable.id === id),
+    });
+  }, [type, numeratorFactTable, funnelSettings, factTables]);
+
+  useEffect(() => {
+    if (type !== "funnel") return;
+    const compatibleColumns = new Set(
+      availableAutoSliceColumns.map((column) => column.column),
+    );
+    const currentColumns = form.getValues("metricAutoSlices") ?? [];
+    const nextColumns = currentColumns.filter((column) =>
+      compatibleColumns.has(column),
+    );
+    if (nextColumns.length !== currentColumns.length) {
+      form.setValue("metricAutoSlices", nextColumns);
+    }
+  }, [type, availableAutoSliceColumns, form]);
 
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
@@ -2520,15 +2550,7 @@ function StandardFactMetricModal({
 
               {hasMetricSlicesFeature &&
                 (() => {
-                  const factTableId =
-                    type === "funnel"
-                      ? (funnelSettings?.steps?.[0]?.factTableId ?? "")
-                      : form.watch("numerator.factTableId");
-                  const factTable = getFactTableById(factTableId);
-                  const availableSlices =
-                    factTable?.columns?.filter(
-                      (col) => col.isAutoSliceColumn && !col.deleted,
-                    ) || [];
+                  const availableSlices = availableAutoSliceColumns;
 
                   return (
                     <div className="mt-3 mb-4">

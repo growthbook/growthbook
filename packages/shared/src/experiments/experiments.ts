@@ -24,6 +24,7 @@ import {
   FactTableInterface,
   FactTableMap,
   FunnelFactMetricInterface,
+  FunnelStep,
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
@@ -2351,6 +2352,55 @@ export interface SliceDataForMetric {
   allSliceLevels: string[];
 }
 
+export function getCompatibleFunnelAutoSliceColumns({
+  steps,
+  getFactTable,
+}: {
+  steps: FunnelStep[];
+  getFactTable: (
+    id: string,
+  ) => Pick<FactTableInterface, "columns"> | null | undefined;
+}): ColumnInterface[] {
+  const factTables = steps.map((step) => getFactTable(step.factTableId));
+  const primaryFactTable = factTables[0];
+  if (!primaryFactTable || factTables.some((factTable) => !factTable)) {
+    return [];
+  }
+
+  return primaryFactTable.columns.filter((primaryColumn) => {
+    if (
+      primaryColumn.deleted ||
+      !primaryColumn.isAutoSliceColumn ||
+      !primaryColumn.autoSlices?.length ||
+      (primaryColumn.datatype !== "string" &&
+        primaryColumn.datatype !== "boolean")
+    ) {
+      return false;
+    }
+
+    const primaryAutoSlices = [...primaryColumn.autoSlices].sort();
+    return factTables.every((factTable) => {
+      const column = factTable?.columns.find(
+        (candidate) => candidate.column === primaryColumn.column,
+      );
+      if (
+        !column ||
+        column.deleted ||
+        !column.isAutoSliceColumn ||
+        column.datatype !== primaryColumn.datatype
+      ) {
+        return false;
+      }
+
+      const autoSlices = [...(column.autoSlices ?? [])].sort();
+      return (
+        autoSlices.length === primaryAutoSlices.length &&
+        autoSlices.every((value, index) => value === primaryAutoSlices[index])
+      );
+    });
+  });
+}
+
 // Creates auto slice data for a fact metric based on the metric's metricAutoSlices
 // Used for FE: row generation, slice filtering/expansion
 export function createAutoSliceDataForMetric({
@@ -2986,6 +3036,12 @@ export function expandDerivedMetricsInMap({
       const primaryFactTable = factTableMap.get(
         getFactMetricPrimaryFactTableId(metric),
       );
+      const compatibleAutoSliceColumns = new Set(
+        getCompatibleFunnelAutoSliceColumns({
+          steps: metric.funnelSettings.steps,
+          getFactTable: (id) => factTableMap.get(id),
+        }).map((column) => column.column),
+      );
 
       const addSlicedFunnel = (slicedFunnel: FactMetricInterface): void => {
         metricMap.set(slicedFunnel.id, slicedFunnel);
@@ -3002,7 +3058,7 @@ export function expandDerivedMetricsInMap({
           .filter((sliced) => {
             const sliceInfo = parseSliceMetricId(sliced.id);
             return sliceInfo.sliceLevels.every((sl) =>
-              sliceColumnValidForAllSteps(sl.column),
+              compatibleAutoSliceColumns.has(sl.column),
             );
           })
           .forEach(addSlicedFunnel);
