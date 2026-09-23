@@ -132,6 +132,12 @@ import {
   getEnvironments,
 } from "back-end/src/services/organizations";
 import {
+  LandingConflictError,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
+import { CasConflictError } from "back-end/src/models/BaseModel";
+import {
+  applyRevisionChanges,
   addLinkedExperiment,
   createFeature,
   deleteFeature,
@@ -2235,7 +2241,7 @@ async function repairFeatureDriftIfNeeded(
           : {}),
         rules: liveRulesFlat,
       },
-      { preserveStoredValues: true },
+      { preserveStoredValues: true, casOnDateUpdated: feature.dateUpdated },
     );
     Object.assign(feature, repaired);
 
@@ -2265,6 +2271,12 @@ async function repairFeatureDriftIfNeeded(
       );
     }
   } catch (e) {
+    // A rival landed since our read; it holds the truth now, so there is
+    // nothing to repair. Writers retry like any lost landing; readers move on.
+    if (e instanceof CasConflictError) {
+      if (throwOnFailure) throw new LandingConflictError("feature", feature.id);
+      return;
+    }
     logger.error(
       { err: e, featureId: feature.id, orgId: context.org.id },
       "Failed to repair feature drift",
@@ -3822,12 +3834,18 @@ export async function postFeatureSync(
     );
   }
 
-  const updates: Partial<FeatureInterface> = {
-    description: data.description ?? feature.description,
-    owner: data.owner ?? feature.owner,
-    tags: data.tags ?? feature.tags,
-  };
-  const updatesInRevision: Partial<FeatureInterface> = {};
+  const metadata: Partial<
+    Pick<FeatureInterface, "description" | "owner" | "tags">
+  > = {};
+  if (data.description != null && data.description !== feature.description) {
+    metadata.description = data.description;
+  }
+  if (data.owner != null && data.owner !== feature.owner) {
+    metadata.owner = data.owner;
+  }
+  if (data.tags != null && !isEqual(data.tags, feature.tags ?? [])) {
+    metadata.tags = data.tags;
+  }
 
   // The Sync endpoint accepts per-env rule arrays under
   // `environmentSettings[env].rules`. Produce a flat array with unique ids by
@@ -3884,18 +3902,18 @@ export async function postFeatureSync(
     return result;
   };
   const nextFlatRules = buildNextFlatRules();
-  const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
+  const changes: Partial<FeatureRevisionInterface> = {
     rules: nextFlatRules,
     defaultValue: data.defaultValue ?? feature.defaultValue,
+    ...(Object.keys(metadata).length ? { metadata } : {}),
   };
 
-  let needsNewRevision = false;
+  let needsNewRevision = Object.keys(metadata).length > 0;
 
   if (
     data.defaultValue != null &&
     !isEqual(feature.defaultValue, data.defaultValue)
   ) {
-    updatesInRevision.defaultValue = data.defaultValue;
     needsNewRevision = true;
   }
 
@@ -3907,7 +3925,10 @@ export async function postFeatureSync(
   );
   const liveRuleById = new Map((feature.rules ?? []).map((r) => [r.id, r]));
   assertFeatureValuesValid(context, feature, {
-    defaultValue: updatesInRevision.defaultValue,
+    defaultValue:
+      changes.defaultValue !== feature.defaultValue
+        ? changes.defaultValue
+        : undefined,
     rules: nextFlatRules.filter((r) => {
       const live = liveRuleById.get(r.id);
       return (
@@ -3917,28 +3938,20 @@ export async function postFeatureSync(
     }),
   });
 
-  environments.forEach((env) => {
-    // envSettings tracks the kill switch only; rules flow via changes.rules.
-    updatesInRevision.environmentSettings =
-      updatesInRevision.environmentSettings || {};
-    updatesInRevision.environmentSettings[env] = updatesInRevision
-      .environmentSettings[env] || {
-      enabled: feature.environmentSettings?.[env]?.enabled ?? false,
-    };
-
-    const inboundEnvRules = (
-      data.environmentSettings as
-        | Record<string, { rules?: FeatureRule[] }>
-        | undefined
-    )?.[env]?.rules;
+  for (const env of environments) {
+    const inboundEnvRules = envSettingsIn?.[env]?.rules;
     if (
       inboundEnvRules !== undefined &&
       !isEqual(inboundEnvRules, getRulesForEnvironment(liveFeatureRules, env))
     ) {
       needsNewRevision = true;
     }
-  });
+  }
 
+  // The landing is the only write to the document: a plain write here re-saved
+  // a pre-request read over whatever landed meanwhile, and never carried the
+  // rules the revision published.
+  let updatedFeature = feature;
   if (needsNewRevision) {
     const revision = await createRevision({
       context,
@@ -3953,12 +3966,30 @@ export async function postFeatureSync(
     });
 
     if (revision.status === "published") {
-      updates.version = revision.version;
-      Object.assign(updates, updatesInRevision);
+      try {
+        updatedFeature = await runGuardedWrite("feature", feature.id, () =>
+          applyRevisionChanges(context, feature, revision, changes),
+        );
+      } catch (e) {
+        // Recorded as published before the write; a lost CAS wrote nothing,
+        // so the record must go (see toggleFeature for the full reasoning).
+        if (e instanceof LandingConflictError) {
+          await deleteRevisionForFailedLanding(
+            context,
+            context.org.id,
+            feature.id,
+            revision.version,
+          ).catch((cleanupErr: unknown) => {
+            logger.error(
+              cleanupErr,
+              `Feature sync for ${feature.id} lost its landing race AND failed to remove revision v${revision.version}; that revision is phantom history and needs removing by hand`,
+            );
+          });
+        }
+        throw e;
+      }
     }
   }
-
-  const updatedFeature = await updateFeature(context, feature, updates);
 
   await req.audit({
     event: "feature.update",
