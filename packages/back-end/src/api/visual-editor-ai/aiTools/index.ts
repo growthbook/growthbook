@@ -1,5 +1,6 @@
 import type { ToolSet } from "ai";
 import type { ApiReqContext } from "back-end/types/api";
+import { hasDocumentOrder } from "back-end/src/api/visual-editor-ai/pageStructure";
 import { generateImageTool, type ImageTurnState } from "./generateImage";
 import { searchImageLibraryTool } from "./searchImageLibrary";
 import { getDesignTokensTool } from "./getDesignTokens";
@@ -11,6 +12,7 @@ import {
   getInnerHTMLTool,
 } from "./clientSideTools";
 import {
+  describeContainerServerTool,
   findElementsServerTool,
   type PageStructureNode,
 } from "./findElementsServer";
@@ -68,12 +70,21 @@ export function buildVisualEditorTools({
     getDesignTokens: getDesignTokensTool(context),
     searchPastExperiments: searchPastExperimentsTool(context),
     getExperimentVariations: getExperimentVariationsTool(context),
-    // Server-side container lookup over the in-request snapshot — works on
+    // Server-side container lookups over the in-request snapshot — work on
     // Cloud (no client round-trip). Only added when the extension sent a
-    // snapshot.
+    // snapshot. describeContainer promises siblings and children in page
+    // order, which older extensions (capture-priority order, no docOrder)
+    // can't back — so it's withheld from them rather than misordering a move.
     ...(hasStructure
       ? {
           findElements: findElementsServerTool(
+            pageStructure as PageStructureNode[],
+          ),
+        }
+      : {}),
+    ...(hasStructure && hasDocumentOrder(pageStructure as PageStructureNode[])
+      ? {
+          describeContainer: describeContainerServerTool(
             pageStructure as PageStructureNode[],
           ),
         }

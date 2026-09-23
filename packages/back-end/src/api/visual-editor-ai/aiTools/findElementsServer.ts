@@ -1,20 +1,13 @@
 import { tool as aiTool } from "ai";
 import { z } from "zod";
+import {
+  describeContainer,
+  type PageStructureNode,
+} from "back-end/src/api/visual-editor-ai/pageStructure";
 
-// One node of the page's structural snapshot (mirrors structureNodeSchema in
-// postAIEdit.ts). Captured client-side with a durable selector precomputed
-// per node.
-export interface PageStructureNode {
-  selector: string;
-  parentSelector?: string;
-  tag: string;
-  id?: string;
-  classes?: string[];
-  role?: string;
-  label?: string;
-}
+export type { PageStructureNode };
 
-const inputSchema = z.object({
+const findInputSchema = z.object({
   query: z
     .string()
     .min(1)
@@ -33,8 +26,8 @@ const inputSchema = z.object({
 export function findElementsServerTool(nodes: PageStructureNode[]) {
   return aiTool({
     description:
-      "Find a page container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list <section>s or layout wrapper <div>s. Use this to locate such a container by its visible text or class name (e.g. to move/reorder a whole section). Each match returns a durable `selector` (use it verbatim) and its `parentSelector` (the destination parent for a sibling position move). If it returns no matches, ask the user to click the element so its selector can be captured.",
-    inputSchema,
+      "Find a page container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list <section>s or layout wrapper <div>s. Use this to locate such a container by its visible text or class name (e.g. to move/reorder a whole section). Each match returns a durable `selector` (use it verbatim), its `parentSelector` (the destination parent for a sibling move), and the visible siblings around it as `prevSiblingSelector` / `nextSiblingSelector` (the insert-before targets for moving it up or down). If it returns no matches, ask the user to click the element so its selector can be captured.",
+    inputSchema: findInputSchema,
     execute: async ({ query, limit }: { query: string; limit?: number }) => {
       const q = query.trim().toLowerCase();
       const cap = limit ?? 10;
@@ -55,6 +48,8 @@ export function findElementsServerTool(nodes: PageStructureNode[]) {
         .map((n) => ({
           selector: n.selector,
           parentSelector: n.parentSelector,
+          prevSiblingSelector: n.prevSiblingSelector,
+          nextSiblingSelector: n.nextSiblingSelector,
           tag: n.tag,
           label: n.label,
           classes: n.classes,
@@ -70,6 +65,33 @@ export function findElementsServerTool(nodes: PageStructureNode[]) {
         } as const;
       }
       return { ok: true, count: matches.length, matches } as const;
+    },
+  });
+}
+
+const describeInputSchema = z.object({
+  selector: z
+    .string()
+    .min(1)
+    .describe(
+      "A container selector copied verbatim from the Page outline or a findElements match.",
+    ),
+});
+
+export function describeContainerServerTool(nodes: PageStructureNode[]) {
+  return aiTool({
+    description:
+      "Describe one container from the Page outline or a findElements match: its `parentSelector`, the visible sibling immediately BEFORE it (`prevSiblingSelector`) and AFTER it (`nextSiblingSelector`), and its direct child containers in page order. This is how to build a position move — to move X up one place: parentSelector = X's parentSelector, insertBeforeSelector = X's prevSiblingSelector; to move X above Y: insertBeforeSelector = Y's selector; to move X after Y: insertBeforeSelector = Y's nextSiblingSelector (null appends). Returns ok:false when the selector isn't a captured container.",
+    inputSchema: describeInputSchema,
+    execute: async ({ selector }: { selector: string }) => {
+      const described = describeContainer(nodes, selector.trim());
+      if (!described) {
+        return {
+          ok: false,
+          note: "That selector isn't a captured container. Copy one verbatim from the Page outline or a findElements match.",
+        } as const;
+      }
+      return { ok: true, ...described } as const;
     },
   });
 }
