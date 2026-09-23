@@ -34,9 +34,6 @@ jobs:
       - name: Check YAML frontmatter quoting
         run: node scripts/check-docs-frontmatter.mjs
 
-      - name: Check DocLink registry targets
-        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-doclink-registry.mjs
-
       - name: Install Mintlify CLI
         run: npm install -g mint
 
@@ -46,4 +43,7 @@ jobs:
 
       - name: Check for broken links
         working-directory: docs
-        run: mint broken-links --check-anchors
+        run: mint broken-links --check-anchors --check-redirects
+
+      - name: Check DocLink registry targets
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-doclink-registry.mjs
