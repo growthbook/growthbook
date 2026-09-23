@@ -102,7 +102,7 @@ export function createReferencesV1Strategy(
   organization?: OrganizationInterface,
 ): SavedGroupPayloadStrategy {
   return {
-    rendering: "referencesV1",
+    format: "referencesV1",
     groupMap,
     createCondition: ({ groupId, include }) => {
       const group = groupMap.get(groupId);

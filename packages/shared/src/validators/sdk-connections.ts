@@ -3,12 +3,24 @@ import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
-/** Keep in sync with SavedGroupFormat in shared/types/sdk-connection. */
+/**
+ * The three ways Saved Groups can be written into an SDK payload.
+ *
+ * - `inline`: put each group's values straight into the conditions, using
+ *   `$in` and `$nin`. The payload has no `savedGroups` field. For SDKs that
+ *   cannot look up a reference at all.
+ * - `referencesV1`: ID list groups become `$inGroup` or `$notInGroup`, looked
+ *   up in a map of plain value arrays. Condition groups have no reference form
+ *   here, so their conditions still go inline.
+ * - `referencesV2`: every group becomes a `$savedGroup` reference, looked up in
+ *   a map of typed entries.
+ */
 export const savedGroupFormatValidator = z.enum([
   "inline",
   "referencesV1",
   "referencesV2",
 ]);
+export type SavedGroupFormat = z.infer<typeof savedGroupFormatValidator>;
 
 // Corresponds to schemas/SdkConnection.yaml
 export const apiSdkConnectionValidator = namedSchema(

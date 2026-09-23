@@ -5,7 +5,7 @@ import { SDKCapability } from "../types";
 import { createInlineStrategy } from "./strategy-inline";
 import { createReferencesV1Strategy } from "./strategy-references-v1";
 import { createReferencesV2Strategy } from "./strategy-references-v2";
-import { SavedGroupPayloadStrategy, SavedGroupRendering } from "./types";
+import { SavedGroupPayloadStrategy } from "./types";
 
 /**
  * The format a connection's setting asks for, before capabilities are applied.
@@ -73,7 +73,7 @@ export function withLegacySavedGroupFlag<
  * A format the SDK cannot read steps down to the next one: v2 to v1,
  * references to inline.
  */
-export function resolveSavedGroupRendering({
+export function resolveSavedGroupFormat({
   capabilities,
   savedGroupFormat,
   canInline = false,
@@ -88,7 +88,7 @@ export function resolveSavedGroupRendering({
   // organization for attribute types. Without those, the safe fallback is to
   // leave the reference operators in place for a later pass to handle.
   canInline?: boolean;
-}): SavedGroupRendering {
+}): SavedGroupFormat {
   if (capabilities === undefined) return "referencesV1";
 
   const wanted = savedGroupFormat ?? "inline";
@@ -129,7 +129,7 @@ export function getSavedGroupPayloadStrategy({
   groupMap: GroupMap;
   organization?: OrganizationInterface;
 }): SavedGroupPayloadStrategy {
-  const rendering = resolveSavedGroupRendering({
+  const format = resolveSavedGroupFormat({
     capabilities,
     savedGroupFormat,
     canInline: !!organization,
@@ -138,10 +138,10 @@ export function getSavedGroupPayloadStrategy({
   // Checking `organization` again is not needed, since `inline` only comes
   // back when `canInline` was true. It is here so TypeScript can narrow the
   // type without a cast.
-  if (rendering === "inline" && organization) {
+  if (format === "inline" && organization) {
     return createInlineStrategy(groupMap, organization);
   }
-  if (rendering === "referencesV2") {
+  if (format === "referencesV2") {
     return createReferencesV2Strategy(
       groupMap,
       capabilities ?? [],

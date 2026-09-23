@@ -1,7 +1,7 @@
 import {
   getConnectionSDKCapabilities,
   getSDKCapabilityVersion,
-  resolveSavedGroupRendering,
+  resolveSavedGroupFormat,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
@@ -50,16 +50,16 @@ export function useLargeSavedGroupSupport(
   (connections || []).forEach((conn) => {
     // The format written to the payload, not the connection's setting, so this
     // can never disagree with what the SDK receives.
-    const rendering = resolveSavedGroupRendering({
+    const format = resolveSavedGroupFormat({
       capabilities: getConnectionSDKCapabilities(conn),
       savedGroupFormat: savedGroupFormatFromConnection(conn),
     });
-    if (rendering === "inline") {
+    if (format === "inline") {
       unsupportedConnections.push(conn);
     }
     // A language with no version supporting the capability has nothing to
     // upgrade to, so there is nothing useful to say about it
-    if (rendering !== "referencesV2" && canSupportV2(conn)) {
+    if (format !== "referencesV2" && canSupportV2(conn)) {
       unsupportedConnectionsV2.push(conn);
     }
   });

@@ -699,7 +699,7 @@ export async function getFeatureDefinitionsWithCache({
       allowedCustomFieldsInMetadata: params.allowedCustomFieldsInMetadata,
       includeTagsInMetadata: params.includeTagsInMetadata,
       hashSecureAttributes: params.hashSecureAttributes,
-      // resolveSavedGroupRendering steps this down when the SDK cannot read
+      // resolveSavedGroupFormat steps this down when the SDK cannot read
       // it, so filtering here too would only make the two disagree.
       savedGroupFormat: params.savedGroupFormat,
       includeReferencedPrerequisites: params.includeReferencedPrerequisites,

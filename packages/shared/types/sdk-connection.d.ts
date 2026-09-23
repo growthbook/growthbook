@@ -1,4 +1,4 @@
-import { ManagedBy } from "shared/validators";
+import { ManagedBy, SavedGroupFormat } from "shared/validators";
 
 // GrowthBook Proxy
 export interface ProxyConnection {
@@ -67,8 +67,7 @@ import { sdkLanguages } from "shared/constants";
 
 export type SDKLanguage = (typeof sdkLanguages)[number];
 
-/** The three ways Saved Groups can be written into a payload. */
-export type SavedGroupFormat = "inline" | "referencesV1" | "referencesV2";
+export type { SavedGroupFormat };
 
 export interface SDKConnectionInterface {
   id: string;

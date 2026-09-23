@@ -5,21 +5,8 @@ import {
   SavedGroupPayloadMap,
   SavedGroupsValues,
 } from "shared/types/saved-group";
+import { SavedGroupFormat } from "shared/types/sdk-connection";
 import { NodeHandler } from "../../util";
-
-/**
- * The three ways saved groups can be written into an SDK payload.
- *
- * - `inline`: put each group's values straight into the conditions, using
- *   `$in` and `$nin`. The payload has no `savedGroups` field. For SDKs that
- *   cannot look up a reference at all.
- * - `referencesV1`: ID list groups become `$inGroup` or `$notInGroup`, looked
- *   up in a map of plain value arrays. Condition groups have no reference form
- *   here, so their conditions still go inline.
- * - `referencesV2`: every group becomes a `$savedGroup` reference, looked up in
- *   a map of typed entries.
- */
-export type SavedGroupRendering = "inline" | "referencesV1" | "referencesV2";
 
 /**
  * Everything a payload build does with saved groups. The group map,
@@ -30,14 +17,14 @@ export type SavedGroupRendering = "inline" | "referencesV1" | "referencesV2";
  * That way the format is chosen once, and the conditions and the `savedGroups`
  * field cannot end up disagreeing.
  *
- * There is one implementation per rendering. The two older ones are frozen. We
+ * There is one implementation per format. The two older ones are frozen. We
  * cannot upgrade SDKs that are already out there, so `inline` and
  * `referencesV1` should not need to change again. A new format means a new
  * implementation, and nothing else changes.
  */
 export interface SavedGroupPayloadStrategy {
   /** Which format this strategy writes. */
-  readonly rendering: SavedGroupRendering;
+  readonly format: SavedGroupFormat;
 
   /**
    * The group map the methods below use. Read it from here instead of passing

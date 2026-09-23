@@ -1309,7 +1309,7 @@ export async function getFeatureDefinitionsResponse({
   // inlined these; this pass is a no-op there. It exists for the other entry
   // points into this function, which build their features elsewhere.
   if (
-    savedGroupStrategy.rendering === "inline" &&
+    savedGroupStrategy.format === "inline" &&
     usedSavedGroups?.length > 0 &&
     organization
   ) {

@@ -54,7 +54,7 @@ export function createInlineStrategy(
   organization: OrganizationInterface,
 ): SavedGroupPayloadStrategy {
   return {
-    rendering: "inline",
+    format: "inline",
     groupMap,
     createCondition: ({ groupId, include }) => {
       const group = groupMap.get(groupId);

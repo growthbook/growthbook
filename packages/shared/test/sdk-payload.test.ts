@@ -7,7 +7,7 @@ import {
   getPayloadAllowedKeys,
   buildV2SavedGroupsPayload,
   findAllReferencedSavedGroupIds,
-  resolveSavedGroupRendering,
+  resolveSavedGroupFormat,
   savedGroupFormatFromConnection,
   withLegacySavedGroupFlag,
   getSavedGroupPayloadStrategy,
@@ -820,18 +820,18 @@ describe("buildV2SavedGroupsPayload", () => {
   });
 });
 
-describe("resolveSavedGroupRendering", () => {
+describe("resolveSavedGroupFormat", () => {
   const V1 = ["savedGroupReferences"] as const;
   const V2 = ["savedGroupReferences", "savedGroupReferencesV2"] as const;
 
   it("keeps reference operators when there is no SDK connection", () => {
     // Previews and the in-app evaluators pass no capabilities. They pass the
     // group values in separately when they evaluate.
-    expect(resolveSavedGroupRendering({ capabilities: undefined })).toBe(
+    expect(resolveSavedGroupFormat({ capabilities: undefined })).toBe(
       "referencesV1",
     );
     expect(
-      resolveSavedGroupRendering({
+      resolveSavedGroupFormat({
         capabilities: undefined,
         savedGroupFormat: "inline",
         canInline: true,
@@ -841,7 +841,7 @@ describe("resolveSavedGroupRendering", () => {
 
   it("inlines when the connection asks for inline", () => {
     expect(
-      resolveSavedGroupRendering({
+      resolveSavedGroupFormat({
         capabilities: [...V2],
         savedGroupFormat: "inline",
         canInline: true,
@@ -851,7 +851,7 @@ describe("resolveSavedGroupRendering", () => {
 
   it("treats an absent setting as inline", () => {
     expect(
-      resolveSavedGroupRendering({
+      resolveSavedGroupFormat({
         capabilities: [...V1],
         canInline: true,
       }),
@@ -860,14 +860,14 @@ describe("resolveSavedGroupRendering", () => {
 
   it("gives each format to an SDK that can read it", () => {
     expect(
-      resolveSavedGroupRendering({
+      resolveSavedGroupFormat({
         capabilities: [...V1],
         savedGroupFormat: "referencesV1",
         canInline: true,
       }),
     ).toBe("referencesV1");
     expect(
-      resolveSavedGroupRendering({
+      resolveSavedGroupFormat({
         capabilities: [...V2],
         savedGroupFormat: "referencesV2",
         canInline: true,
@@ -877,7 +877,7 @@ describe("resolveSavedGroupRendering", () => {
 
   it("steps v2 down to v1 when the SDK cannot read v2", () => {
     expect(
-      resolveSavedGroupRendering({
+      resolveSavedGroupFormat({
         capabilities: [...V1],
         savedGroupFormat: "referencesV2",
         canInline: true,
@@ -887,7 +887,7 @@ describe("resolveSavedGroupRendering", () => {
 
   it("steps references down to inline when the SDK cannot read any", () => {
     expect(
-      resolveSavedGroupRendering({
+      resolveSavedGroupFormat({
         capabilities: ["looseUnmarshalling"],
         savedGroupFormat: "referencesV2",
         canInline: true,
@@ -899,7 +899,7 @@ describe("resolveSavedGroupRendering", () => {
     // With no organization there is nothing to inline from, so the operators
     // are left for a later pass.
     expect(
-      resolveSavedGroupRendering({
+      resolveSavedGroupFormat({
         capabilities: ["looseUnmarshalling"],
         savedGroupFormat: "referencesV2",
         canInline: false,
@@ -911,7 +911,7 @@ describe("resolveSavedGroupRendering", () => {
     // Cannot happen today, since v2 is newer than v1. Asking for both is what
     // stops the conditions and the savedGroups map disagreeing.
     expect(
-      resolveSavedGroupRendering({
+      resolveSavedGroupFormat({
         capabilities: ["savedGroupReferencesV2"],
         savedGroupFormat: "referencesV2",
         canInline: true,
@@ -1082,7 +1082,7 @@ describe("createInlineStrategy", () => {
     });
 
   it("is the strategy chosen when the SDK cannot resolve references", () => {
-    expect(strategy().rendering).toBe("inline");
+    expect(strategy().format).toBe("inline");
   });
 
   it("swaps $inGroup for $in with the group's values", () => {
@@ -1149,7 +1149,7 @@ describe("getSavedGroupPayloadStrategy", () => {
       capabilities: ["looseUnmarshalling"],
       groupMap,
     });
-    expect(strategy.rendering).toBe("referencesV1");
+    expect(strategy.format).toBe("referencesV1");
     const condition = { country: { $inGroup: "list_1" } };
     strategy.finalizeCondition(condition);
     expect(condition).toEqual({ country: { $inGroup: "list_1" } });
@@ -1163,7 +1163,7 @@ describe("getSavedGroupPayloadStrategy", () => {
           groupMap,
           organization: org,
         }),
-        rendering: "inline",
+        format: "inline",
         expected: { country: { $inGroup: "list_1" } },
       },
       {
@@ -1173,7 +1173,7 @@ describe("getSavedGroupPayloadStrategy", () => {
           groupMap,
           organization: org,
         }),
-        rendering: "referencesV1",
+        format: "referencesV1",
         expected: { country: { $inGroup: "list_1" } },
       },
       {
@@ -1183,12 +1183,12 @@ describe("getSavedGroupPayloadStrategy", () => {
           groupMap,
           organization: org,
         }),
-        rendering: "referencesV2",
+        format: "referencesV2",
         expected: { $savedGroup: { id: "list_1" } },
       },
     ];
-    cases.forEach(({ strategy, rendering, expected }) => {
-      expect(strategy.rendering).toBe(rendering);
+    cases.forEach(({ strategy, format, expected }) => {
+      expect(strategy.format).toBe(format);
       expect(
         strategy.createCondition({ groupId: "list_1", include: true }),
       ).toEqual(expected);

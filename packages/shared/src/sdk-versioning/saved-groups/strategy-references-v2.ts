@@ -267,7 +267,7 @@ export function createReferencesV2Strategy(
   organization?: OrganizationInterface,
 ): SavedGroupPayloadStrategy {
   return {
-    rendering: "referencesV2",
+    format: "referencesV2",
     groupMap,
     createCondition: ({ groupId, include }) => {
       const group = groupMap.get(groupId);
