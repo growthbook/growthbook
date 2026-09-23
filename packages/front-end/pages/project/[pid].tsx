@@ -1,9 +1,10 @@
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiDetective } from "react-icons/pi";
-import React, { FC, useEffect, useMemo, useState } from "react";
+import React, { FC, useEffect, useMemo, useRef, useState } from "react";
 import router from "next/router";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
@@ -91,7 +92,9 @@ const ProjectPage: FC = () => {
   const canDelete =
     permissionsUtil.canDeleteProject(pid) && !p?.managedBy?.type;
 
-  const form = useForm<ProjectSettings>({ mode: "onChange" });
+  const form = useForm<Omit<ProjectSettings, "defaultDashboardId">>({
+    mode: "onChange",
+  });
 
   const { data, mutate } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
@@ -112,11 +115,19 @@ const ProjectPage: FC = () => {
   const noProjectDashboards =
     !dashboardsLoading && projectDashboards.length === 0;
 
+  const lastFormSettings = useRef<{
+    projectId: string;
+    settings: ProjectSettings;
+  } | null>(null);
   useEffect(() => {
     if (settings) {
+      const formSettings = omit(settings, "defaultDashboardId");
+      const nextSettings = { projectId: pid, settings: formSettings };
+      if (isEqual(lastFormSettings.current, nextSettings)) return;
+      lastFormSettings.current = nextSettings;
       const newVal = { ...form.getValues() };
-      Object.keys(settings).forEach((k) => {
-        newVal[k] = settings?.[k] || newVal[k];
+      Object.keys(formSettings).forEach((k) => {
+        newVal[k] = formSettings[k] || newVal[k];
       });
       if (typeof newVal.confidenceLevel === "number") {
         newVal.confidenceLevel = newVal.confidenceLevel * 100;
@@ -124,7 +135,29 @@ const ProjectPage: FC = () => {
       form.reset(newVal);
       setOriginalValue(newVal);
     }
-  }, [form, settings]);
+  }, [form, settings, pid]);
+
+  const [savingDashboard, setSavingDashboard] = useState(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const setDefaultDashboard = async (dashboardId: string) => {
+    setSavingDashboard(true);
+    setDashboardError(null);
+    try {
+      await apiCall(`/projects/${pid}/default-dashboard`, {
+        method: "PUT",
+        body: JSON.stringify({ defaultDashboardId: dashboardId || null }),
+      });
+      await mutateDefinitions();
+    } catch (error) {
+      setDashboardError(
+        error instanceof Error
+          ? error.message
+          : "Failed to update the default dashboard.",
+      );
+    } finally {
+      setSavingDashboard(false);
+    }
+  };
 
   const isValid = form.formState.isValid;
   const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
@@ -133,9 +166,6 @@ const ProjectPage: FC = () => {
     const payload: ProjectSettings = { ...value };
     if (typeof payload.confidenceLevel === "number") {
       payload.confidenceLevel = payload.confidenceLevel / 100;
-    }
-    if (!payload.defaultDashboardId) {
-      delete payload.defaultDashboardId;
     }
     await apiCall(`/projects/${pid}/settings`, {
       method: "PUT",
@@ -486,6 +516,9 @@ const ProjectPage: FC = () => {
                             home page by default. They can still pick a
                             different one for themselves.
                           </Text>
+                          {dashboardError && (
+                            <Callout status="error">{dashboardError}</Callout>
+                          )}
                           {dashboardsLoading ? null : noProjectDashboards ? (
                             <Callout status="info">
                               No dashboards are available for this Project yet.{" "}
@@ -498,13 +531,9 @@ const ProjectPage: FC = () => {
                           ) : (
                             <DashboardSelector
                               dashboards={projectDashboards}
-                              value={form.watch("defaultDashboardId") || ""}
-                              setValue={(v) =>
-                                form.setValue(
-                                  "defaultDashboardId",
-                                  v || undefined,
-                                )
-                              }
+                              value={settings?.defaultDashboardId || ""}
+                              setValue={setDefaultDashboard}
+                              disabled={savingDashboard}
                               allowClear
                               clearLabel="No default"
                             />

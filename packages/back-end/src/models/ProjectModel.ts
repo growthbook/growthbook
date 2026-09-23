@@ -1,5 +1,8 @@
-import { isEqual } from "lodash";
-import { pruneApprovalRuleReferences } from "shared/util";
+import { isEqual, omit } from "lodash";
+import {
+  isProjectListValidForProject,
+  pruneApprovalRuleReferences,
+} from "shared/util";
 import { TeamInterface } from "shared/types/team";
 import {
   ManagedBy,
@@ -8,6 +11,7 @@ import {
   ApiProject,
 } from "shared/validators";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
+import { createModelAuditLogger } from "back-end/src/services/audit";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -98,6 +102,55 @@ export class ProjectModel extends BaseClass {
 
   protected canUpdate(doc: ProjectInterface) {
     return this.context.permissions.canUpdateProject(doc.id);
+  }
+
+  public async setDefaultDashboard(
+    project: ProjectInterface,
+    dashboardId: string | null,
+  ) {
+    if (!this.canUpdate(project))
+      this.context.permissions.throwPermissionError();
+    if (this.useConfigFile())
+      throw new Error("Cannot update projects managed by config.yml");
+    if (dashboardId !== null) {
+      const dashboard =
+        await this.context.models.dashboards.getById(dashboardId);
+      if (
+        !dashboard ||
+        !!dashboard.experimentId ||
+        !isProjectListValidForProject(dashboard.projects, project.id)
+      ) {
+        this.context.throwBadRequestError(
+          "Dashboard is not available for this Project",
+        );
+      }
+    }
+    // A dotted update preserves concurrent changes to unrelated Project settings.
+    const { value } = await this._dangerousGetCollection().findOneAndUpdate(
+      { id: project.id, organization: this.context.org.id },
+      dashboardId === null
+        ? {
+            $unset: { "settings.defaultDashboardId": "" },
+            $set: { dateUpdated: new Date() },
+          }
+        : {
+            $set: {
+              "settings.defaultDashboardId": dashboardId,
+              dateUpdated: new Date(),
+            },
+          },
+      { returnDocument: "after" },
+    );
+    if (!value) throw new Error("Could not find project");
+    const updated = projectValidator.parse(omit(value, "_id"));
+    await touchDefinitionsVersion(this.context.org.id);
+    await createModelAuditLogger({
+      entity: "project",
+      updateEvent: "project.update",
+      createEvent: "project.create",
+      deleteEvent: "project.delete",
+    }).logUpdate(this.context, project, updated);
+    return updated;
   }
 
   protected canDelete(doc: ProjectInterface) {
