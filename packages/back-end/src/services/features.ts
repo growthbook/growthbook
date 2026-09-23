@@ -91,6 +91,7 @@ import {
   reviewerKeyForEventUser,
   RevisionRampAction,
   SdkConnectionCacheAuditContext,
+  RampScheduleInterface,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -122,7 +123,9 @@ import {
   getRevisionReviewRequirement,
   liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
+  getEnvsForRampTarget,
 } from "shared/util";
+import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -161,6 +164,7 @@ import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
+import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -3335,23 +3339,23 @@ export function validateFeatureRuleValues(
   }
 }
 
-// Enforce JSON-schema validation for a feature's default value and/or rule
-// values. Validation is on by default; an explicit `?skipSchemaValidation=true`
-// opts out (see context.canSkipSchemaValidationFor("feature")). Pass the EFFECTIVE feature —
+// Enforce value types even when schema validation is skipped. Pass the EFFECTIVE feature —
 // i.e. one already carrying the inbound/draft `jsonSchema`, `valueType`, so a
 // request that changes the schema validates against the new schema.
 export function assertFeatureValuesValid(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
-  if (context.canSkipSchemaValidationFor("feature")) return;
-  if (values.defaultValue !== undefined) {
-    validateFeatureValue(feature, values.defaultValue, "Default value");
-  }
-  for (const rule of values.rules ?? []) {
-    validateFeatureRuleValues(feature, rule);
-  }
+  const valueFeature = context.canSkipSchemaValidationFor("feature")
+    ? { valueType: feature.valueType }
+    : feature;
+  mapChangedFeatureValues(
+    values,
+    (value, label) => validateFeatureValue(valueFeature, value, label),
+    previous,
+  );
 }
 
 // Publish-time safety net: re-validate the values a revision is about to make
@@ -3367,23 +3371,21 @@ export function assertFeatureValuesValid(
 export function collectFeatureValueErrorsForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): string[] {
   const errors: string[] = [];
-  const collect = (fn: () => void) => {
-    try {
-      fn();
-    } catch (e) {
-      errors.push(e instanceof Error ? e.message : String(e));
-    }
-  };
-  if (values.defaultValue !== undefined) {
-    collect(() =>
-      validateFeatureValue(feature, values.defaultValue!, "Default value"),
-    );
-  }
-  for (const rule of values.rules ?? []) {
-    collect(() => validateFeatureRuleValues(feature, rule));
-  }
+  mapChangedFeatureValues(
+    values,
+    (value, label) => {
+      try {
+        validateFeatureValue(feature, value, label);
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e));
+      }
+      return value;
+    },
+    previous,
+  );
   return errors;
 }
 
@@ -3391,10 +3393,17 @@ export function assertFeatureValuesValidForPublish(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
+  const typeErrors = collectFeatureValueErrorsForPublish(
+    { valueType: feature.valueType },
+    values,
+    previous,
+  );
+  if (typeErrors.length) throw new BadRequestError(typeErrors.join(", "));
   if (context.canSkipSchemaValidationFor("feature")) return;
 
-  const errors = collectFeatureValueErrorsForPublish(feature, values);
+  const errors = collectFeatureValueErrorsForPublish(feature, values, previous);
   if (!errors.length) return;
 
   // Default to blocking when the setting is absent.
@@ -4106,6 +4115,7 @@ export async function getMergeResultPublishEnvs({
   result,
   environmentIds,
   rampActions,
+  anchoredUpdates,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -4114,6 +4124,12 @@ export async function getMergeResultPublishEnvs({
   environmentIds: string[];
   /** The revision's ramp actions, whose reach the publish must answer for. */
   rampActions?: RevisionRampAction[];
+  /** Ramp anchors this publish rewrites; their replays reach every env the target serves or a patch names. */
+  anchoredUpdates?: {
+    schedule: Parameters<typeof getEnvsForRampTarget>[0] &
+      Pick<RampScheduleInterface, "targets">;
+    patches: { targetId: string; ruleId: string }[];
+  }[];
 }): Promise<string[]> {
   // A project/targeting move makes environments applicable that the pre-move
   // feature excluded, so `environmentIds` (computed against the OLD project)
@@ -4158,14 +4174,43 @@ export async function getMergeResultPublishEnvs({
     ),
   });
 
+  const detachScheduleIds = [
+    ...new Set(
+      (rampActions ?? []).flatMap((a) =>
+        a.mode === "detach" ? [a.rampScheduleId] : [],
+      ),
+    ),
+  ];
   const rampEnvs = rampActionFootprint({
     rampActions,
     liveRules: filledLiveRules,
     environmentIds: effectiveEnvironmentIds,
+    schedules: detachScheduleIds.length
+      ? await context.models.rampSchedules.getByIds(detachScheduleIds)
+      : [],
   });
-  return rampEnvs === "all"
-    ? [...effectiveEnvironmentIds]
-    : [...new Set([...base, ...rampEnvs])];
+  if (rampEnvs === "all") return [...effectiveEnvironmentIds];
+  const reached = new Set<string>();
+  for (const { schedule, patches } of anchoredUpdates ?? []) {
+    for (const { targetId, ruleId } of patches) {
+      // A legacy target is bound to one environment; its siblings are not ours.
+      const environment =
+        schedule.targets.find((t) => t.id === targetId)?.environment ?? null;
+      const rules = resolveRampTargets(
+        { ruleId, environment },
+        filledLiveRules,
+      );
+      const current = rules.some((r) => r.allEnvironments)
+        ? "all"
+        : rules.flatMap((r) => r.environments ?? []);
+      const envs = getEnvsForRampTarget(schedule, targetId, current);
+      if (envs === "all") return [...effectiveEnvironmentIds];
+      for (const env of envs) {
+        if (effectiveEnvironmentIds.includes(env)) reached.add(env);
+      }
+    }
+  }
+  return [...new Set([...base, ...rampEnvs, ...reached])];
 }
 
 // `undefined` = merge didn't touch holdout. Otherwise unions the active
