@@ -124,6 +124,15 @@ describe("getMergeResultPublishEnvs", () => {
         anchoredUpdates: [
           {
             schedule: {
+              targets: [
+                {
+                  id: "t1",
+                  entityType: "feature" as const,
+                  entityId: "f1",
+                  ruleId: "r1",
+                  status: "active" as const,
+                },
+              ],
               startActions: [
                 {
                   targetType: "feature-rule" as const,

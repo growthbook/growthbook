@@ -91,6 +91,7 @@ import {
   reviewerKeyForEventUser,
   RevisionRampAction,
   SdkConnectionCacheAuditContext,
+  RampScheduleInterface,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -4125,7 +4126,8 @@ export async function getMergeResultPublishEnvs({
   rampActions?: RevisionRampAction[];
   /** Ramp anchors this publish rewrites; their replays reach every env the target serves or a patch names. */
   anchoredUpdates?: {
-    schedule: Parameters<typeof getEnvsForRampTarget>[0];
+    schedule: Parameters<typeof getEnvsForRampTarget>[0] &
+      Pick<RampScheduleInterface, "targets">;
     patches: { targetId: string; ruleId: string }[];
   }[];
 }): Promise<string[]> {
@@ -4181,7 +4183,13 @@ export async function getMergeResultPublishEnvs({
   const reached = new Set<string>();
   for (const { schedule, patches } of anchoredUpdates ?? []) {
     for (const { targetId, ruleId } of patches) {
-      const rules = resolveRampTargets({ ruleId }, filledLiveRules);
+      // A legacy target is bound to one environment; its siblings are not ours.
+      const environment =
+        schedule.targets.find((t) => t.id === targetId)?.environment ?? null;
+      const rules = resolveRampTargets(
+        { ruleId, environment },
+        filledLiveRules,
+      );
       const current = rules.some((r) => r.allEnvironments)
         ? "all"
         : rules.flatMap((r) => r.environments ?? []);
