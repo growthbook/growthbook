@@ -38,10 +38,6 @@ export function getAnalysisIdentifierType(
     : undefined;
 }
 
-function firstIdentifierType(query: ExposureQueryIdentity): string {
-  return getExposureQueryIdentifierTypes(query)[0] ?? query.userIdType;
-}
-
 /**
  * Reads a REST body's grouped assignment query field and its deprecated flat
  * `<field>Id`, which are mutually exclusive.
@@ -236,8 +232,8 @@ export function getExposureQueriesWithChangedBaseIdentifier(
   for (const nextQuery of next) {
     const previousQuery = previousById.get(nextQuery.id);
     if (!previousQuery) continue;
-    const previousFirst = firstIdentifierType(previousQuery);
-    const nextFirst = firstIdentifierType(nextQuery);
+    const previousFirst = getAnalysisIdentifierType(previousQuery, undefined);
+    const nextFirst = getAnalysisIdentifierType(nextQuery, undefined);
     if (previousFirst && nextFirst && previousFirst !== nextFirst) {
       changed.push({ id: nextQuery.id, previousIdentifierType: previousFirst });
     }

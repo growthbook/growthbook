@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isExposureQueryAvailableForProjects } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  isExposureQueryAvailableForProjects,
+} from "shared/util";
 import {
   getDefaultIdentifierType,
   getExposureQueriesForProject,
-  getExposureQueryIdentifierTypes,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getIdentifierTypeForHashAttribute,

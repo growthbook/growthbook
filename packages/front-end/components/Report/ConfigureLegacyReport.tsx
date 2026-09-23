@@ -22,13 +22,14 @@ import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
 } from "shared/experiments";
-import { getAnalysisIdentifierType, isDefined } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  getAnalysisIdentifierType,
+  isDefined,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  getExposureQuery,
-  getExposureQueryIdentifierTypes,
-} from "@/services/datasources";
+import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";

@@ -12,6 +12,7 @@ import Collapsible from "react-collapsible";
 import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import {
+  getExposureQueryIdentifierTypes,
   isProjectListValidForProject,
   parsePlainJSONObject,
   stripDefaultsForSparse,
@@ -63,10 +64,7 @@ import RuleEnvironmentScopeField, {
 import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
-import {
-  getExposureQueriesForProject,
-  getExposureQueryIdentifierTypes,
-} from "@/services/datasources";
+import { getExposureQueriesForProject } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
   formatAttributeOptionLabel,

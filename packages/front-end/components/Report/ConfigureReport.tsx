@@ -1,5 +1,8 @@
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
-import { getAnalysisIdentifierType } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  getAnalysisIdentifierType,
+} from "shared/util";
 import React, { RefObject, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -24,7 +27,7 @@ import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlic
 import AssignmentQueryFields, {
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
-import { getExposureQueryIdentifierTypes } from "@/services/datasources";
+
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricAnalysisWindowSelector from "@/components/Experiment/MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "@/components/Experiment/MetricsOverridesSelector";

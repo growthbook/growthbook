@@ -7,7 +7,10 @@ import cloneDeep from "lodash/cloneDeep";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
-import { isEventForwarderManaged } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  isEventForwarderManaged,
+} from "shared/util";
 import {
   EVENT_FORWARDER_MANAGED_TOOLTIP,
   EventForwarderManagedBadge,
@@ -179,15 +182,14 @@ export const ExperimentAssignmentQueries: FC<
                     <strong className="font-weight-semibold">
                       Identifiers:{" "}
                     </strong>
-                    {(query.userIdTypes?.length
-                      ? query.userIdTypes
-                      : [query.userIdType]
-                    ).map((identifierType, index) => (
-                      <Fragment key={identifierType}>
-                        {index ? ", " : ""}
-                        <code>{identifierType}</code>
-                      </Fragment>
-                    ))}
+                    {getExposureQueryIdentifierTypes(query).map(
+                      (identifierType, index) => (
+                        <Fragment key={identifierType}>
+                          {index ? ", " : ""}
+                          <code>{identifierType}</code>
+                        </Fragment>
+                      ),
+                    )}
                   </Box>
                   <Box>
                     <strong className="font-weight-semibold">

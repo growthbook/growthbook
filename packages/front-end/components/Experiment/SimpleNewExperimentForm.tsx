@@ -6,6 +6,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import {
+  getExposureQueryIdentifierTypes,
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
 } from "shared/util";
@@ -28,7 +29,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getExposureQueriesForProject,
   getDefaultIdentifierTypeForQuery,
-  getExposureQueryIdentifierTypes,
   getHashAttributeIdentifierTypeMap,
 } from "@/services/datasources";
 import { useUser } from "@/services/UserContext";

@@ -1,4 +1,5 @@
 import React, { FC, useMemo, useState } from "react";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -68,9 +69,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       mode === "edit" && exposureQuery
         ? {
             ...cloneDeep<ExposureQuery>(exposureQuery),
-            userIdTypes: exposureQuery.userIdTypes?.length
-              ? exposureQuery.userIdTypes
-              : [exposureQuery.userIdType].filter(Boolean),
+            userIdTypes: getExposureQueryIdentifierTypes(exposureQuery),
           }
         : {
             description: "",
@@ -142,9 +141,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
 
   const savedUserIdTypes =
     mode === "edit" && exposureQuery
-      ? exposureQuery.userIdTypes?.length
-        ? exposureQuery.userIdTypes
-        : [exposureQuery.userIdType].filter(Boolean)
+      ? getExposureQueryIdentifierTypes(exposureQuery)
       : [];
   const removedIdentifierTypes = savedUserIdTypes.filter(
     (idType) => !userEnteredUserIdTypes.includes(idType),

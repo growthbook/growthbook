@@ -1,11 +1,11 @@
 import { ExposureQuery } from "shared/types/datasource";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import { describe, expect, it } from "vitest";
 import {
   getDefaultIdentifierType,
   getIdentifierTypeForHashAttribute,
   getExposureQueriesForProject,
   getDefaultIdentifierTypeForQuery,
-  getExposureQueryIdentifierTypes,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getSelectableIdentifierTypes,
