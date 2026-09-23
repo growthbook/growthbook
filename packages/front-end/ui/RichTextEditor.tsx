@@ -52,6 +52,7 @@ import {
   IMAGE_TRANSFORMER,
 } from "./RichTextEditorImageNode";
 import RichTextEditorToolbar from "./RichTextEditorToolbar";
+import { hasMarkdownFormatting } from "./richTextFormatting";
 import styles from "./RichTextEditor.module.scss";
 
 export interface RichTextEditorHandle {
@@ -375,7 +376,11 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
   },
   ref,
 ) {
-  const [toolbarOpen, setToolbarOpen] = useState(!collapsibleToolbar);
+  // A collapsed toolbar opens on content that already uses it, so editing
+  // formatted text starts with the formatting in reach.
+  const [toolbarOpen, setToolbarOpen] = useState(
+    () => !collapsibleToolbar || hasMarkdownFormatting(value ?? ""),
+  );
   // What the editor last held, so a value we emitted doesn't loop back in.
   const lastMarkdown = useRef(value);
   const [uploading, setUploading] = useState(false);
