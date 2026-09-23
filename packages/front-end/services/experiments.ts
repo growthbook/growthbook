@@ -1022,6 +1022,7 @@ export function convertExperimentToTemplate(
     tags: experiment.tags,
     datasource: experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
     hashAttribute: experiment.hashAttribute,
     fallbackAttribute: experiment.fallbackAttribute,
     disableStickyBucketing: experiment.disableStickyBucketing,
