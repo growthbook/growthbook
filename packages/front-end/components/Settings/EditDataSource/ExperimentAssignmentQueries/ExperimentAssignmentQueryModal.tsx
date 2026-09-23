@@ -506,6 +506,7 @@ export const ExperimentAssignmentQueryModal = ({
                   />
                   <ColumnMappingRow
                     label="timestamp"
+                    kind="timestamp"
                     value={timestampColumn}
                     options={timestampOptions}
                     setValue={setTimestampColumn}
@@ -514,6 +515,7 @@ export const ExperimentAssignmentQueryModal = ({
                     <ColumnMappingRow
                       key={idType}
                       label={idType}
+                      kind="identifier"
                       value={userIdColumns[idType] || ""}
                       options={identifierOptions}
                       setValue={(v) =>

@@ -388,6 +388,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
                 <TableBody>
                   <ColumnMappingRow
                     label="timestamp"
+                    kind="timestamp"
                     value={timestampColumn}
                     options={timestampOptions}
                     setValue={setTimestampColumn}
@@ -405,6 +406,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
                     <ColumnMappingRow
                       key={idType}
                       label={idType}
+                      kind="identifier"
                       value={userIdColumns[idType] || ""}
                       options={identifierOptions}
                       setValue={(v) => {
