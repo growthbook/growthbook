@@ -1,4 +1,7 @@
-import { getAnalysisIdentifierType } from "shared/util";
+import {
+  assertExposureQueryDeclaresIdentifierType,
+  getAnalysisIdentifierType,
+} from "shared/util";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
@@ -94,6 +97,11 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   if (!exposureQuery) {
     throw new Error("Exposure query not found");
   }
+  // The query may have dropped the stored identifier since it was saved.
+  assertExposureQueryDeclaresIdentifierType(
+    exposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
 
   const resolvedExposureQuery = {
     query: exposureQuery.query,
