@@ -1,18 +1,15 @@
 import { z } from "zod";
 import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { customMetricSlice } from "./experiments";
-import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import {
+  apiAssignmentQueryRef,
+  featurePrerequisite,
+  savedGroupTargeting,
+} from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { ownerEmailField, ownerField } from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
-
-// Groups an exposure query id with its chosen identifier type. Replaces the
-// deprecated flat exposureQueryId field.
-const apiExposureQueryRef = z.object({
-  id: z.string(),
-  identifierType: z.string(),
-});
 
 export const experimentTemplateInterface = baseSchema
   .safeExtend({
@@ -80,7 +77,7 @@ export const apiExperimentTemplateValidator = namedSchema(
     customFields: z.record(z.string(), z.string()).optional(),
 
     datasource: z.string(),
-    exposureQuery: apiExposureQueryRef.optional(),
+    exposureQuery: apiAssignmentQueryRef.optional(),
     /** @deprecated use exposureQuery.id */
     exposureQueryId: z.string().meta({ deprecated: true }),
 
@@ -133,7 +130,7 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
   customFields: z.record(z.string(), z.string()).optional(),
 
   datasource: z.string(),
-  exposureQuery: apiExposureQueryRef
+  exposureQuery: apiAssignmentQueryRef
     .describe(
       "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
     )

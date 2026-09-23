@@ -13,6 +13,7 @@ import {
   ignoreWarningsBodyField,
   booleanQueryField,
   csvQueryField,
+  apiAssignmentQueryRef,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -715,13 +716,6 @@ const apiLookbackOverrideInput = z
   .describe(
     'Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required.',
   );
-
-// Groups an assignment query id with its chosen identifier type. Supersedes the
-// deprecated flat assignmentQueryId field.
-const apiAssignmentQueryRef = z.object({
-  id: z.string(),
-  identifierType: z.string(),
-});
 
 // Corresponds to schemas/ExperimentAnalysisSettings.yaml (API version)
 export const apiExperimentAnalysisSettingsValidator = namedSchema(

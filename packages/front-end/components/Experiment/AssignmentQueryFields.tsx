@@ -191,11 +191,13 @@ export function useAssignmentQuerySelection({
 export default function AssignmentQueryFields({
   selection,
   initialOption,
+  placeholder,
   size,
   disabled,
 }: {
   selection: Selection;
   initialOption?: string;
+  placeholder?: string;
   size?: "legacy";
   disabled?: boolean;
 }) {
@@ -227,6 +229,7 @@ export default function AssignmentQueryFields({
         value={identifierType ?? ""}
         onChange={changeIdentifierType}
         initialOption={initialOption}
+        placeholder={placeholder}
         required
         disabled={disabled}
         sort={false}
@@ -249,6 +252,7 @@ export default function AssignmentQueryFields({
         value={exposureQueryId ?? ""}
         onChange={setExposureQueryId}
         initialOption={initialOption}
+        placeholder={placeholder}
         required
         disabled={disabled}
         sort={false}

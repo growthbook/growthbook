@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import {
+  apiAssignmentQueryRef,
+  featurePrerequisite,
+  savedGroupTargeting,
+} from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
@@ -108,8 +112,7 @@ export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 export const apiRampMonitoringConfig = rampMonitoringConfig
   .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
   .extend({
-    exposureQuery: z
-      .object({ id: z.string(), identifierType: z.string() })
+    exposureQuery: apiAssignmentQueryRef
       .describe(
         "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
       )

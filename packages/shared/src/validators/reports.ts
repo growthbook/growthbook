@@ -12,7 +12,11 @@ import {
   ownerField,
   optionalOwnerInputField,
 } from "./owner-field";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiAssignmentQueryRef,
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+} from "./shared";
 
 const idParams = z
   .object({
@@ -65,8 +69,7 @@ const reportAnalysisSettingsSchema = z
       .string()
       .describe("Tracking key used to identify experiment exposures")
       .optional(),
-    exposureQuery: z
-      .object({ id: z.string(), identifierType: z.string() })
+    exposureQuery: apiAssignmentQueryRef
       .describe(
         "Datasource exposure query (Assignment Table), grouping its ID with the identifier type analyzed on.",
       )
