@@ -35,7 +35,7 @@ jobs:
         run: node scripts/check-docs-frontmatter.mjs
 
       - name: Check DocLink registry targets
-        run: node scripts/check-doclink-registry.mjs
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-doclink-registry.mjs
 
       - name: Install Mintlify CLI
         run: npm install -g mint

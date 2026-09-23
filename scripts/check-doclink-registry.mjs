@@ -24,21 +24,13 @@
  *
  * Zero npm dependencies on purpose: the docs workflow never runs an install.
  * The registry is imported directly; Node >= 22.18 strips the types natively.
+ * `packages/front-end/package.json` has no `"type": "module"`, so that import
+ * needs `--disable-warning=MODULE_TYPELESS_PACKAGE_JSON` on the node command.
  */
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
-// `packages/front-end/package.json` has no `"type": "module"`, so Node warns
-// when it reparses the stripped-types registry as ESM. It loads fine; the
-// warning would only bury this script's own output.
-const emitWarning = process.emitWarning.bind(process);
-process.emitWarning = (warning, ...args) => {
-  const code = typeof args[0] === "object" ? args[0]?.code : args[1];
-  if (code === "MODULE_TYPELESS_PACKAGE_JSON") return;
-  return emitWarning(warning, ...args);
-};
 
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
