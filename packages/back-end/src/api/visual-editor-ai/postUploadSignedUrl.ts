@@ -75,23 +75,30 @@ export const postUploadSignedUrl = createApiRequestHandler(validation)(async (
   const ext = MIMETYPES[contentType];
   const filePath = `${org.id}/visual-editor/img_${uuidv4()}.${ext}`;
 
-  const { signedUrl, fileUrl, fields, cacheControl, maxBytes } =
-    await getSignedUploadUrl(
-      filePath,
-      contentType,
-      SIGNED_EXPIRY_MINUTES,
-      "visual-editor-assets",
-      MAX_UPLOAD_BYTES,
-    );
+  const {
+    signedUrl,
+    fileUrl,
+    fields,
+    cacheControl,
+    contentDisposition,
+    maxBytes,
+  } = await getSignedUploadUrl(
+    filePath,
+    contentType,
+    SIGNED_EXPIRY_MINUTES,
+    "visual-editor-assets",
+    MAX_UPLOAD_BYTES,
+  );
 
   return {
     signedUrl,
     fileUrl,
     filePath,
     fields: fields ?? null,
-    // S3 embeds Cache-Control in `fields`; GCS clients must send it on the
-    // PUT themselves, so we surface the value here.
+    // S3 embeds these in `fields`; GCS signs them into the URL, so the
+    // client must send them on the PUT.
     cacheControl: cacheControl ?? null,
+    contentDisposition: contentDisposition ?? null,
     // Lets the client show "file too large" before attempting the upload.
     maxBytes: maxBytes ?? null,
     expiresAt: new Date(
