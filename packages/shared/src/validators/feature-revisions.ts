@@ -585,7 +585,12 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
     ignoreWarnings: ignoreWarningsBodyField,
   }),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    warnings: z
+      .array(z.string())
+      .optional()
+      .describe("Non-fatal advisories about how the request was interpreted."),
+  }),
 };
 
 export const deleteFeatureRevisionRuleRampScheduleValidator = {

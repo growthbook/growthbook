@@ -1,5 +1,7 @@
 import {
   slackNotificationPreviewBodySchema,
+  slackLinkBodySchema,
+  slackAccountLinkSchema,
   slackNotificationSettingsBodySchema,
   zodNotificationEventNamesEnum,
 } from "shared/validators";
@@ -85,6 +87,27 @@ router.post(
   slackIntegrationController.postSlackOAuthInstall,
 );
 
+router.post(
+  "/link/consent",
+  validateRequestMiddleware({
+    body: z.strictObject({ state: z.string().min(1) }),
+  }),
+  slackIntegrationController.postSlackLinkConsent,
+);
+router.post(
+  "/link",
+  validateRequestMiddleware({ body: slackLinkBodySchema }),
+  slackIntegrationController.postSlackLink,
+);
+router.get("/links", slackIntegrationController.getMySlackLinks);
+router.delete(
+  "/links",
+  validateRequestMiddleware({
+    body: slackAccountLinkSchema.omit({ teamName: true }).strict(),
+  }),
+  slackIntegrationController.deleteMySlackLink,
+);
+
 // Channel management for workspace-level installs. Registered before /:id so
 // "channels" isn't captured as an id param.
 router.get(
@@ -120,6 +143,16 @@ router.post(
     body: z.object({ teamId: z.string().optional() }).strict(),
   }),
   slackIntegrationController.postSlackDisconnect,
+);
+
+router.post(
+  "/assistant",
+  validateRequestMiddleware({
+    body: z
+      .object({ teamId: z.string().optional(), enabled: z.boolean() })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackAssistant,
 );
 
 router.get(

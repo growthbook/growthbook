@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
@@ -1409,13 +1410,13 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
     const wrote = await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
-      {
-        queries: this.model.queries,
-        error,
-      },
+      { queries: this.model.queries, error },
+      "unknown",
     );
     if (wrote) {
       await this.context.models.incrementalRefresh
@@ -1435,12 +1436,14 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     runStarted,
     result,
     error,
+    failureCause,
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const snapshotStatus =
       status === "running"
@@ -1460,6 +1463,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

@@ -10,10 +10,7 @@ import {
   ChecklistStatus,
   ExperimentStartChecklistStatus,
 } from "shared/validators";
-import {
-  getAffectedEnvsForExperiment,
-  experimentHasLiveLinkedChanges,
-} from "shared/util";
+import { experimentHasLiveLinkedChanges } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -24,11 +21,11 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  assertCanRunExperimentInAffectedEnvironments,
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
 } from "back-end/src/services/experiments";
@@ -393,22 +390,7 @@ async function loadAndValidateExperimentForStatusChange(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatures = await getFeaturesByIds(
-    context,
-    experiment.linkedFeatures || [],
-  );
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   return experiment;
 }
@@ -862,8 +844,9 @@ export async function stopExperiment({
     changes,
   });
 
-  // Only track true stop events; ignore results edits to already-stopped experiments.
   if (isEnding) {
+    // Only track true stop events; ignore results edits to already-stopped
+    // experiments.
     trackEventForContext(context, "Experiment Stopped", {
       source: context.auditUser?.type ?? "agenda-job",
       result: updated.results,

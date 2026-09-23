@@ -140,6 +140,71 @@ export function canInlineFilterColumn(
   return true;
 }
 
+export function getInlineFilterPromptColumns(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  rowFilters: RowFilter[] = [],
+): string[] {
+  const columns: string[] = [];
+  const add = (c: string) => {
+    if (!columns.includes(c)) columns.push(c);
+  };
+  factTable.columns.forEach((c) => {
+    if (
+      !c.alwaysInlineFilter ||
+      c.deleted ||
+      !canInlineFilterColumn(factTable, c.column)
+    ) {
+      return;
+    }
+    add(c.column);
+    const mapping = c.conditionalInlineFilters;
+    if (!mapping) return;
+    rowFilters.forEach((rf) => {
+      if (rf.column !== c.column) return;
+      if (rf.operator !== "=" && rf.operator !== "in") return;
+      const values = (rf.values ?? []).filter((v) => v !== "");
+      if (values.length !== 1) return;
+      const mapped = mapping[values[0]];
+      if (mapped) add(mapped);
+    });
+  });
+  return columns;
+}
+
+export function isEmptyInlineFilterPlaceholder(rf: RowFilter): boolean {
+  return rf.operator === "=" && (rf.values ?? []).every((v) => v === "");
+}
+
+// Runs after a filter edit - add secondary filters if needed
+export function reconcileInlineFilterPrompts(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  previous: RowFilter[],
+  next: RowFilter[],
+): RowFilter[] {
+  const before = new Set(getInlineFilterPromptColumns(factTable, previous));
+  const after = new Set(getInlineFilterPromptColumns(factTable, next));
+  let result = next;
+  for (const column of before) {
+    if (after.has(column)) continue;
+    result = result.filter(
+      (rf) => !(rf.column === column && isEmptyInlineFilterPlaceholder(rf)),
+    );
+  }
+  for (const column of after) {
+    if (before.has(column)) continue;
+    if (!result.some((rf) => rf.column === column)) {
+      result = [...result, { column, operator: "=", values: [""] }];
+    }
+  }
+  return result;
+}
+
 // Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,
 // and Databricks (Spark) use backticks. When the active data source's dialect
 // is unknown we assume the standard, which is correct for every dialect except
@@ -3091,4 +3156,37 @@ export function getEffectiveLookbackOverride(
     return lookbackOverride;
   }
   return undefined;
+}
+
+type ScheduledEndLike = {
+  startAt?: Date | string | null;
+  stopAt?: Date | string | null;
+  stopAfter?: { value: number; unit: string } | null;
+  scheduledStopPlan?: { mode?: string } | null;
+};
+
+// A schedule stages a status change when it starts the experiment or ends it
+// with a plan other than "notify" (stop or ship); no stop plan means "notify".
+export function scheduleStagesStatusChange(
+  schedule: ScheduledEndLike | null | undefined,
+): boolean {
+  if (!schedule) return false;
+  if (schedule.startAt) return true;
+  if (!(schedule.stopAt || schedule.stopAfter)) return false;
+  return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
+}
+
+// True when the incoming schedule stages a status change, or a staged one is
+// still pending (a fired or abandoned one leaves no pointer and can be cleared).
+export function scheduleWriteNeedsRunPermission(
+  experiment: {
+    statusUpdateSchedule?: ScheduledEndLike | null;
+    nextScheduledStatusUpdate?: { type: string } | null;
+  },
+  incoming: ScheduledEndLike | null | undefined,
+): boolean {
+  const pending =
+    !!experiment.nextScheduledStatusUpdate &&
+    scheduleStagesStatusChange(experiment.statusUpdateSchedule);
+  return pending || scheduleStagesStatusChange(incoming);
 }
