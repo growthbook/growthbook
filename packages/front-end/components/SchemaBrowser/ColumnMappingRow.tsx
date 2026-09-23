@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiClockBold, PiPlus, PiUserBold, PiX } from "react-icons/pi";
+import {
+  PiArrowsSplitBold,
+  PiClockBold,
+  PiFlaskBold,
+  PiPlus,
+  PiUserBold,
+  PiX,
+} from "react-icons/pi";
 import { DetectedColumn } from "shared/types/fact-table";
 import Avatar from "@/ui/Avatar";
 import Button from "@/ui/Button";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
 import { TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
@@ -12,10 +19,18 @@ import Text from "@/ui/Text";
 export const validColumn = (options: DetectedColumn[], column: string) =>
   options.some((c) => c.column === column) ? column : "";
 
-// Same badges the Fact Table column list uses for these roles.
+// Identifier and timestamp match the badges on the Fact Table column list.
 const KIND_BADGES = {
+  experiment: {
+    tooltip: "Experiment ID",
+    icon: <PiFlaskBold size={14} />,
+  },
+  variation: {
+    tooltip: "Variation ID",
+    icon: <PiArrowsSplitBold size={14} />,
+  },
   identifier: {
-    tooltip: "User Identifier Type",
+    tooltip: "Unit identifier type",
     icon: <PiUserBold size={14} />,
   },
   timestamp: { tooltip: "Main date field", icon: <PiClockBold size={14} /> },
@@ -44,10 +59,14 @@ export default function ColumnMappingRow({
       <TableCell style={{ width: "50%" }}>
         <Flex align="center" gap="2">
           {kind ? (
-            <Tooltip body={KIND_BADGES[kind].tooltip} tipPosition="left">
-              <Avatar size="sm" color="violet" variant="soft" radius="small">
-                {KIND_BADGES[kind].icon}
-              </Avatar>
+            <Tooltip content={KIND_BADGES[kind].tooltip} side="left">
+              {/* Avatar forwards trigger props to its hidden image, so the
+                  wrapper takes the tooltip's hover handlers instead. */}
+              <Flex as="span" flexShrink="0">
+                <Avatar size="sm" color="violet" variant="soft" radius="small">
+                  {KIND_BADGES[kind].icon}
+                </Avatar>
+              </Flex>
             </Tooltip>
           ) : (
             // Keeps labels aligned with the badged rows.

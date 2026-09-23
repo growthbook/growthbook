@@ -494,12 +494,14 @@ export const ExperimentAssignmentQueryModal = ({
                 <TableBody>
                   <ColumnMappingRow
                     label="experiment_id"
+                    kind="experiment"
                     value={experimentIdColumn}
                     options={columns}
                     setValue={setExperimentIdColumn}
                   />
                   <ColumnMappingRow
                     label="variation_id"
+                    kind="variation"
                     value={variationIdColumn}
                     options={columns}
                     setValue={setVariationIdColumn}
