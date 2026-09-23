@@ -970,14 +970,14 @@ describe("assertValidAssignmentQuery", () => {
   it("throws for an unknown query", () => {
     expect(() =>
       assertValidAssignmentQuery(datasource, "exq_missing", undefined, []),
-    ).toThrow("Unrecognized assignment query ID: exq_missing");
+    ).toThrow('Assignment query "exq_missing" doesn\'t exist');
   });
 
   it("throws for an identifier the query does not declare", () => {
     expect(() =>
       assertValidAssignmentQuery(datasource, "exq_multi", "device_id", []),
     ).toThrow(
-      'Identifier type "device_id" is not declared by assignment query "exq_multi"',
+      'Assignment query "Multi" doesn\'t declare the "device_id" identifier type',
     );
   });
 
@@ -1015,7 +1015,7 @@ describe("assertValidAssignmentQuery", () => {
           "prj_a",
           "prj_c",
         ]),
-      ).toThrow("is not available for every project this holdout covers");
+      ).toThrow("isn't available for every project this holdout covers");
     });
 
     it("rejects a scoped query for a holdout covering all projects", () => {

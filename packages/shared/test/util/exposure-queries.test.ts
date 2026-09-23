@@ -305,7 +305,7 @@ describe("assertValidAssignmentQuerySelection", () => {
         exposureQueryId: "eq_missing",
         project: undefined,
       }),
-    ).toThrow("Unrecognized assignment query ID: eq_missing");
+    ).toThrow('Assignment query "eq_missing" doesn\'t exist');
   });
 
   it("rejects an identifier the query does not declare", () => {
@@ -316,7 +316,7 @@ describe("assertValidAssignmentQuerySelection", () => {
         identifierType: "company_id",
         project: undefined,
       }),
-    ).toThrow('Identifier type "company_id" is not declared');
+    ).toThrow('doesn\'t declare the "company_id" identifier type');
   });
 
   it("rejects a query outside the project, unless the scope check is skipped", () => {
@@ -327,7 +327,7 @@ describe("assertValidAssignmentQuerySelection", () => {
     };
     expect(() =>
       assertValidAssignmentQuerySelection({ ...selection, project: "prj_b" }),
-    ).toThrow("is not available for project");
+    ).toThrow("isn't available for the selected project");
     expect(
       assertValidAssignmentQuerySelection({ ...selection, project: undefined })
         .id,
