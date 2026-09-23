@@ -1,16 +1,6 @@
 import type { ModelMessage } from "ai";
 import { type AIModel, getProviderFromModel } from "shared/ai";
 
-// Anthropic json-tool mode ignores toolChoice, so the final step empties activeTools instead. No `thinking`.
-export function toolLoopProviderOptions(model: AIModel) {
-  if (getProviderFromModel(model) !== "anthropic") return {};
-  return {
-    providerOptions: {
-      anthropic: { structuredOutputMode: "jsonTool" as const },
-    },
-  };
-}
-
 // Page-lookup tools: only their arguments name an element the user could click.
 const PAGE_LOOKUP_TOOLS: ReadonlySet<string> = new Set([
   "findElements",

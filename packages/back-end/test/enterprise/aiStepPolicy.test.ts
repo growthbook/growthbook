@@ -3,22 +3,9 @@ import {
   FINAL_TOOL_CALL_NOTICE,
   lookupTerms,
   prepareToolStep,
-  toolLoopProviderOptions,
 } from "back-end/src/enterprise/services/aiStepPolicy";
 
 const messages: ModelMessage[] = [{ role: "user", content: "swap the plans" }];
-
-describe("toolLoopProviderOptions", () => {
-  it("pins Claude to json-tool structured output", () => {
-    expect(toolLoopProviderOptions("claude-sonnet-4-6")).toEqual({
-      providerOptions: { anthropic: { structuredOutputMode: "jsonTool" } },
-    });
-  });
-
-  it("leaves other providers alone", () => {
-    expect(toolLoopProviderOptions("gpt-4.1")).toEqual({});
-  });
-});
 
 describe("lookupTerms", () => {
   const find = (query: string) => ({
@@ -80,7 +67,7 @@ describe("prepareToolStep", () => {
     });
   });
 
-  it("empties the tool set on Claude's final step so only the json tool remains", () => {
+  it("empties the tool set on Claude's final step so it must commit to structured output", () => {
     expect(step("claude-sonnet-4-6", 2)).toEqual({ activeTools: [] });
   });
 
