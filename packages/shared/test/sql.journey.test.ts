@@ -178,6 +178,19 @@ describe("journey row bound", () => {
 });
 
 describe("buildJourneySql", () => {
+  it("applies dataset filters on the raw scan", () => {
+    const config = baseJourneyConfig();
+    if (config.dataset.type !== "journey") throw new Error("expected journey");
+    config.dataset.rowFilters = [
+      { column: "country", operator: "=", values: ["US"] },
+    ];
+    const { sql } = buildJourneySql(config, factTableMap, helpers);
+    const raw = sql.slice(
+      sql.indexOf("__journey_raw"),
+      sql.indexOf("__journey_events"),
+    );
+    expect(raw).toContain("(country = 'US')");
+  });
   it("applies a distinct top-N per frontier level", () => {
     const config = baseJourneyConfig();
     if (config.dataset.type !== "journey") throw new Error("expected journey");

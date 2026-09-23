@@ -1,8 +1,10 @@
+import type { Collection } from "mongodb";
 import mongoose from "mongoose";
 import { setupApp } from "back-end/test/api/api.setup";
 import {
   getConnectionStringWithDeprecatedKeysMigratedForV3to4,
   dbSafeBulkWrite,
+  ensureIndexOnce,
   isDuplicateKeyError,
   createWithVersionRetry,
 } from "back-end/src/util/mongo.util";
@@ -383,5 +385,82 @@ describe("mongo utils", () => {
       await expect(createWithVersionRetry(op)).rejects.toBe(fatal);
       expect(op).toHaveBeenCalledTimes(2);
     });
+  });
+});
+
+describe("ensureIndexOnce", () => {
+  const fakeCollection = (namespace: string, createIndex: jest.Mock) =>
+    ({ namespace, createIndex }) as unknown as Collection;
+
+  it("shares one build between concurrent callers and caches success", async () => {
+    let finish: (name: string) => void = () => undefined;
+    const createIndex = jest.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const collection = fakeCollection("test.shared", createIndex);
+    const first = ensureIndexOnce(collection, { id: 1 }, { unique: true });
+    const second = ensureIndexOnce(collection, { id: 1 }, { unique: true });
+    expect(createIndex).toHaveBeenCalledTimes(1);
+    finish("id_1");
+    await Promise.all([first, second]);
+    await ensureIndexOnce(collection, { id: 1 }, { unique: true });
+    expect(createIndex).toHaveBeenCalledTimes(1);
+  });
+
+  it("keys the cache by collection, spec, and options", async () => {
+    const createIndex = jest.fn(async () => "built");
+    const collection = fakeCollection("test.keyed", createIndex);
+    await ensureIndexOnce(collection, { id: 1 }, { unique: true });
+    await ensureIndexOnce(
+      collection,
+      { id: 1 },
+      { unique: true, sparse: true },
+    );
+    await ensureIndexOnce(collection, { other: 1 }, { unique: true });
+    await ensureIndexOnce(
+      fakeCollection("test.keyed2", createIndex),
+      { id: 1 },
+      { unique: true },
+    );
+    expect(createIndex).toHaveBeenCalledTimes(4);
+  });
+
+  it("rethrows a failed build and retries it on the next call", async () => {
+    const createIndex = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("index build failed"))
+      .mockResolvedValueOnce("id_1");
+    const collection = fakeCollection("test.retry", createIndex);
+    await expect(
+      ensureIndexOnce(collection, { id: 1 }, { unique: true }),
+    ).rejects.toThrow('Could not build index {"id":1} on test.retry');
+    await expect(
+      ensureIndexOnce(collection, { id: 1 }, { unique: true }),
+    ).resolves.toBeUndefined();
+    expect(createIndex).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not surface a unique build over duplicates as a duplicate-key error", async () => {
+    // What the driver throws when existing documents violate a unique index.
+    const buildError = Object.assign(
+      new Error(
+        "Index build failed: E11000 duplicate key error collection: test.claims index: id_1 dup key: { id: null }",
+      ),
+      { code: 11000 },
+    );
+    const collection = fakeCollection(
+      "test.claims",
+      jest.fn().mockRejectedValue(buildError),
+    );
+    const error = await ensureIndexOnce(
+      collection,
+      { id: 1 },
+      { unique: true },
+    ).catch((e: unknown) => e);
+    expect(isDuplicateKeyError(error)).toBe(false);
+    expect((error as { cause?: unknown }).cause).toBe(buildError);
   });
 });
