@@ -48,6 +48,10 @@ import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDepe
 import { MergeConflictError } from "back-end/src/util/errors";
 import { pendingScheduleGate } from "back-end/src/revisions/pendingScheduleGuard";
 import {
+  resolveRevertRampStopsForRevision,
+  revertRampStopGate,
+} from "back-end/src/revisions/revertRampGuard";
+import {
   assertFeatureSavedGroupScope,
   collectSavedGroupScopeGate,
 } from "back-end/src/services/savedGroupProjectScope";
@@ -335,13 +339,20 @@ export async function planFeatureRevisionMerge({
       )
     ).length > 0;
 
+  // A revert whose only effect is removing ramps its target predates still
+  // changes something, like a draft that only activates a ramp.
+  const detachesRevertRamps =
+    (await resolveRevertRampStopsForRevision(context, feature, revision))
+      .detaches.length > 0;
+
   return {
     environmentIds,
     mergeResult: merged.result,
     filledLiveRules: filledLive.rules,
     hasChanges:
       draftDiffersFromLive(revision, live, feature, environmentIds) ||
-      hasLinkedPendingRamp,
+      hasLinkedPendingRamp ||
+      detachesRevertRamps,
     hasLinkedPendingRamp,
     requiresReview,
     uncoveredApprovers,
@@ -478,6 +489,25 @@ export async function collectFeaturePublishGates({
     })),
   );
 
+  // Above the validation-gate cutoff: values that cannot be the feature's type
+  // are refused outright on every path. The proposed feature computed below
+  // normalizes JSON values and would throw on them, and the schema-family
+  // checks would report the same value again as a schema failure.
+  const typeErrors = collectFeatureValueErrorsForPublish(
+    { valueType: feature.valueType },
+    plan.mergeResult,
+    feature,
+  );
+  if (typeErrors.length) {
+    gates.push(
+      makeBlockingGate({
+        type: "invalid-feature-value",
+        messages: typeErrors,
+      }),
+    );
+    return gates;
+  }
+
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(
       context,
@@ -499,6 +529,8 @@ export async function collectFeaturePublishGates({
 
   const scheduleGate = pendingScheduleGate(revision);
   if (scheduleGate) gates.push(scheduleGate);
+  const rampStopGate = await revertRampStopGate(context, feature, revision);
+  if (rampStopGate) gates.push(rampStopGate);
 
   // Structural payload guard: a config-backed default carrying its own override
   // patch breaks the SDK payload (the override ships verbatim, the backing
@@ -512,10 +544,14 @@ export async function collectFeaturePublishGates({
   // override chosen by the org's blockPublishOnSchemaError setting: block ->
   // validation-class (skipSchemaValidation); warn -> acknowledge-class.
   const schemaErrors = [
-    ...collectFeatureValueErrorsForPublish(feature, {
-      defaultValue: plan.mergeResult.defaultValue,
-      rules: plan.mergeResult.rules,
-    }),
+    ...collectFeatureValueErrorsForPublish(
+      feature,
+      {
+        defaultValue: plan.mergeResult.defaultValue,
+        rules: plan.mergeResult.rules,
+      },
+      feature,
+    ),
     ...(defaultToCheck !== undefined || rulesToCheck.length
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {
           defaultValue: defaultToCheck,
@@ -552,6 +588,7 @@ export async function collectFeaturePublishGates({
     revision: {
       ...revision,
       ...computeRevisionPublishChanges(
+        feature,
         revision,
         publisher ?? context.auditUser,
         comment ?? "",

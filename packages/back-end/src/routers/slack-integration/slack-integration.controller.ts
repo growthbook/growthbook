@@ -2,6 +2,9 @@ import {
   SlackNotificationPreviewBody,
   SlackNotificationSettingsBody,
   SlackWorkspaceConnectionFrontEndInterface,
+  SlackLinkBody,
+  SlackLinkConsent,
+  SlackAccountLink,
 } from "shared/validators";
 import type { Response } from "express";
 import {
@@ -16,6 +19,10 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getSlackLinkConsent,
+  getSlackAccountLinks,
+} from "back-end/src/services/slack/slackIdentity";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
 import {
   addSlackChannelToWorkspace,
@@ -28,6 +35,7 @@ import {
   isSlackOAuthConfigured,
   listSlackOAuthConnections,
   listSlackWorkspaceChannels,
+  setSlackAssistantEnabled,
   type SlackChannelOption,
   updateSlackOAuthIntegration,
 } from "back-end/src/services/slackIntegration";
@@ -338,6 +346,64 @@ export const postSlackDisconnect = async (
   });
 
   return res.json(result);
+};
+
+export const postSlackLinkConsent = async (
+  req: AuthRequest<{ state: string }>,
+  res: Response<SlackLinkConsent>,
+) => {
+  return res.json(
+    await getSlackLinkConsent(getContextFromReq(req), req.body.state),
+  );
+};
+
+export const postSlackLink = async (
+  req: AuthRequest<SlackLinkBody>,
+  res: Response<{ linked: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  if (req.body.organizationId !== context.org.id) {
+    return res.status(403).json({
+      message:
+        "Switch to the GrowthBook organization connected to this Slack workspace to link your account.",
+    });
+  }
+  await context.models.slackUserLinks.linkCurrentUser(req.body.state);
+  return res.json({ linked: true });
+};
+
+export const getMySlackLinks = async (
+  req: AuthRequest,
+  res: Response<{ links: SlackAccountLink[] }>,
+) => res.json({ links: await getSlackAccountLinks(getContextFromReq(req)) });
+
+export const deleteMySlackLink = async (
+  req: AuthRequest<
+    Pick<SlackAccountLink, "slackTeamId" | "slackUserId" | "linkId">
+  >,
+  res: Response<{ unlinked: boolean }>,
+) =>
+  res.json({
+    unlinked: await getContextFromReq(
+      req,
+    ).models.slackUserLinks.unlinkCurrentUser(req.body),
+  });
+
+export const postSlackAssistant = async (
+  req: AuthRequest<{ teamId?: string; enabled: boolean }>,
+  res: Response<{ enabled: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+  return res.json(
+    await setSlackAssistantEnabled({
+      context,
+      teamId: req.body.teamId,
+      enabled: req.body.enabled,
+    }),
+  );
 };
 
 // endregion POST /integrations/slack/disconnect

@@ -9,6 +9,7 @@ import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getDefaultHashAttribute,
   filterEnvironmentsByFeature,
   generateVariationId,
   isProjectListValidForProject,
@@ -16,6 +17,7 @@ import {
   getRuleAttributeScopeProjectIds,
   getTargetingProjectIds,
   getRuleTargetingProjectIds,
+  rampTargetMatchesRule,
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
@@ -461,9 +463,7 @@ export default function RuleModal({
   // still resolve to the same schedule as their bare stem (fr_abc).
   const ruleRampSchedule = rule?.id
     ? rampSchedules.find((rs) =>
-        rs.targets.some(
-          (t) => t.ruleId && stemRuleId(t.ruleId) === stemRuleId(rule.id),
-        ),
+        rs.targets.some((t) => rampTargetMatchesRule(t, rule.id)),
       )
     : undefined;
 
@@ -1086,11 +1086,10 @@ export default function RuleModal({
       // When auto-promoting to rollout, ensure hashAttribute has a sensible value
       if (targetType === "rollout") {
         if (!form.getValues("hashAttribute")) {
-          const defaultHash =
-            attributeSchema?.find((a) => a.hashAttribute)?.property ||
-            attributeSchema?.[0]?.property ||
-            "id";
-          form.setValue("hashAttribute", defaultHash);
+          form.setValue(
+            "hashAttribute",
+            getDefaultHashAttribute(attributeSchema),
+          );
         }
       }
     }

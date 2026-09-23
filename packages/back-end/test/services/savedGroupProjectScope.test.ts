@@ -1002,7 +1002,11 @@ describe("Saved Group project scope publish gates", () => {
       context,
       feature: f,
       revision,
-      plan: { rebaseRequired: true, requiresReview: false } as FeatureMergePlan,
+      plan: {
+        rebaseRequired: true,
+        requiresReview: false,
+        mergeResult: {},
+      } as FeatureMergePlan,
       includeValidationGates: false,
     });
     expect(gates.map((g) => g.type)).toEqual([

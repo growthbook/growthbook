@@ -543,6 +543,23 @@ export function generateRowFilterSQL(
     .filter((sql): sql is string => sql !== null);
 }
 
+/**
+ * Scan-level WHERE for several row-filter groups (metrics, funnel steps)
+ * reading the same fact table: the minimal OR of the groups. "" means no
+ * pushdown (some group is unfiltered, so every row is needed).
+ */
+export function generatePushdownFilterSQL(
+  rowFilterGroups: RowFilter[][],
+  factTable: MinimalFactTable,
+  helpers: SqlDialect,
+): string {
+  return buildMinimalOrCondition(
+    rowFilterGroups.map((filters) =>
+      generateRowFilterSQL(filters, factTable, helpers),
+    ),
+  );
+}
+
 // True if `column` resolves to a real underlying column on `factTable` —
 // either a top-level column, or (for a dotted path) a JSON field defined on
 // a JSON-typed top-level column. A ratio metric's denominator can live on a
@@ -1562,6 +1579,13 @@ export function buildFunnelSql(
     const ft = group.factTable;
     const timestampColumn = requireTimestampColumn(ft);
     const dateFilter = `${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`;
+    // Rows no step on this table can match are dropped at the scan, the same
+    // way multi-metric fact table explorations push their filters down.
+    const stepsFilter = generatePushdownFilterSQL(
+      group.stepIndexes.map((stepN) => steps[stepN - 1].rowFilters),
+      ft,
+      dialect,
+    );
     ctes.push({
       name: `__funnel_ft${group.index}_raw`,
       sql: `
@@ -1569,7 +1593,7 @@ export function buildFunnelSql(
           -- Raw fact table SQL
           ${ft.sql}
         ) t
-        WHERE ${dateFilter}
+        WHERE ${dateFilter}${stepsFilter ? `\n          AND ${stepsFilter}` : ""}
       `,
     });
   });
