@@ -544,9 +544,16 @@ describe("suggestDatabricksEventForwarderZerobusEndpoint", () => {
       ),
     ).toBe("https://<workspace-id>.zerobus.<region>.cloud.databricks.com");
     expect(
-      suggestDatabricksEventForwarderZerobusEndpoint("x.gcp.databricks.com"),
+      suggestDatabricksEventForwarderZerobusEndpoint("x.example.com"),
     ).toBe("");
     expect(suggestDatabricksEventForwarderZerobusEndpoint(undefined)).toBe("");
+  });
+  it("fills the workspace id and domain from a GCP host", () => {
+    expect(
+      suggestDatabricksEventForwarderZerobusEndpoint(
+        "1234567890123456.0.gcp.databricks.com",
+      ),
+    ).toBe("https://1234567890123456.zerobus.<region>.gcp.databricks.com");
   });
 });
 
@@ -562,6 +569,11 @@ describe("normalizeDatabricksEventForwarderZerobusEndpoint", () => {
         "https://1234.zerobus.eastus.azuredatabricks.net",
       ),
     ).toBe("https://1234.zerobus.eastus.azuredatabricks.net");
+    expect(
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        "1234.zerobus.us-central1.gcp.databricks.com",
+      ),
+    ).toBe("https://1234.zerobus.us-central1.gcp.databricks.com");
   });
 
   it("rejects Zerobus-looking hosts outside Databricks domains", () => {
