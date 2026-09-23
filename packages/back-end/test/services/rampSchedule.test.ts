@@ -5586,6 +5586,87 @@ describe("planRampBaseStateSync", () => {
     );
   });
 
+  describe("a legacy all-environment target over migrated siblings", () => {
+    const sibling = (env: string, over: Record<string, unknown> = {}) =>
+      rule({
+        id: `r1__${env}`,
+        allEnvironments: false,
+        environments: [env],
+        ...over,
+      });
+    const live = [sibling("dev"), sibling("production")];
+    const legacy = schedule({
+      targets: [
+        {
+          id: "t1",
+          entityType: "feature",
+          entityId: "f1",
+          ruleId: "r1",
+          environment: null,
+          status: "active",
+        },
+      ],
+    });
+    const planSiblings = (next: FeatureRule[], apiRequest = true) =>
+      planRampBaseStateSync({
+        featureId: "f1",
+        schedules: [legacy],
+        liveRules: live,
+        nextRules: next,
+        apiRequest,
+      });
+
+    it.each([
+      [
+        "edited differently",
+        [
+          sibling("dev", { condition: '{"a":1}' }),
+          sibling("production", { condition: '{"b":2}' }),
+        ],
+      ],
+      [
+        "edited in one environment only",
+        [sibling("dev", { condition: '{"a":1}' }), sibling("production")],
+      ],
+    ])(
+      "refuses siblings %s, since their one anchor replays onto both",
+      (_, next) => {
+        const { refusals, updates } = planSiblings(next);
+        expect(updates).toEqual([]);
+        expect(refusals).toHaveLength(1);
+        expect(refusals[0]).toMatchObject({
+          kind: "ramp-shared-base-state",
+          scheduleId: "rs_1",
+        });
+        expect(refusals[0].message).toMatch(
+          /DELETE \/api\/v2\/features\/f1\/revisions\/\{version\}\/rules\/r1__dev\/ramp-schedule/,
+        );
+        expect(planSiblings(next, false).refusals[0].message).toBe(
+          'Rule "r1__dev" shares its ramp-up with Rule "r1__production", so this change would also apply there. Remove the ramp-up, publish the change, then add a new ramp-up.',
+        );
+      },
+    );
+
+    it("syncs an edit every sibling agrees on into their shared anchor", () => {
+      expect(
+        planSiblings([
+          sibling("dev", { condition: '{"a":1}' }),
+          sibling("production", { condition: '{"a":1}' }),
+        ]),
+      ).toEqual({
+        refusals: [],
+        updates: [
+          {
+            schedule: legacy,
+            patches: [
+              { targetId: "t1", ruleId: "r1", patch: { condition: '{"a":1}' } },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
   it("refuses any change while a stepped schedule runs; a step-less one just syncs", () => {
     const running = schedule({ status: "running" });
     const { refusals, updates } = plan(

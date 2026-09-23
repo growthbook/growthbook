@@ -348,11 +348,14 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
                   method: "POST",
                   path: `/ramp-schedules/${refusal.scheduleId}/actions/pause`,
                 }
-              : {
-                  action: "edit-plan",
-                  method: "PUT",
-                  path: `/ramp-schedules/${refusal.scheduleId}`,
-                },
+              : refusal.kind === "ramp-controlled-field"
+                ? {
+                    action: "edit-plan",
+                    method: "PUT",
+                    path: `/ramp-schedules/${refusal.scheduleId}`,
+                  }
+                : // The message carries the remove-then-reattach steps.
+                  null,
         }),
       );
     }
