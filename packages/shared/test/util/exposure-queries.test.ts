@@ -4,6 +4,7 @@ import {
   parseAssignmentQueryInput,
   getExposureQueriesOutsideProjectScope,
   getExposureQueriesWithChangedBaseIdentifier,
+  resolveExposureQueryIdentifierType,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -242,5 +243,29 @@ describe("parseAssignmentQueryInput", () => {
     ).toThrow(
       "Cannot set exposureQuery together with the deprecated exposureQueryId",
     );
+  });
+});
+
+describe("resolveExposureQueryIdentifierType", () => {
+  const multi = query({
+    id: "eq_1",
+    userIdType: "anonymous_id",
+    userIdTypes: ["anonymous_id", "user_id"],
+  });
+
+  it("uses the stored identifier when the query declares it", () => {
+    expect(resolveExposureQueryIdentifierType(multi, "user_id")).toBe(
+      "user_id",
+    );
+  });
+
+  it("falls back to the query's first identifier when none is stored", () => {
+    expect(resolveExposureQueryIdentifierType(multi, undefined)).toBe(
+      "anonymous_id",
+    );
+  });
+
+  it("returns null when the stored identifier is no longer declared", () => {
+    expect(resolveExposureQueryIdentifierType(multi, "company_id")).toBeNull();
   });
 });

@@ -14,6 +14,22 @@ export function getExposureQueryIdentifierTypes(
     : [query.userIdType].filter(Boolean);
 }
 
+/**
+ * The identifier an analysis runs on: the stored one, or the query's first when
+ * none is stored. Null when the stored one is no longer declared, since
+ * analysis refuses to run on it.
+ */
+export function resolveExposureQueryIdentifierType(
+  query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
+  storedIdentifierType: string | undefined,
+): string | null {
+  const identifierTypes = getExposureQueryIdentifierTypes(query);
+  if (!storedIdentifierType) return identifierTypes[0] ?? null;
+  return identifierTypes.includes(storedIdentifierType)
+    ? storedIdentifierType
+    : null;
+}
+
 function firstIdentifierType(query: ExposureQueryIdentity): string {
   return getExposureQueryIdentifierTypes(query)[0] ?? query.userIdType;
 }
