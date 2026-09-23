@@ -75,6 +75,16 @@ export function getRevertRampDetachActions(
   );
 }
 
+// The targets of `schedule` that `detaches` remove, matched as the detach does.
+export function detachedRampTargets<T extends { ruleId?: string | null }>(
+  schedule: { id: string; targets: T[] },
+  detaches: Pick<RevisionRampDetachAction, "rampScheduleId" | "ruleId">[],
+): T[] {
+  return detaches
+    .filter((d) => d.rampScheduleId === schedule.id)
+    .flatMap((d) => rampTargetsDetachedBy(schedule.targets, d.ruleId));
+}
+
 // Dashboard copy names the rules only; REST callers also get the schedules,
 // since they have no page showing them. A schedule left with no targets is
 // deleted, so the copy says "delete" when that is every affected schedule.
@@ -95,15 +105,10 @@ export function revertRampStopWarning(
   const affected = schedules.filter((s) =>
     detaches.some((d) => d.rampScheduleId === s.id),
   );
-  // Matched the way the detach removes targets, so "delete" is only claimed
-  // when the schedule really ends up empty.
+  // "Delete" only when the detach really leaves the schedule empty.
   const deletesAll = affected.every((s) => {
-    const detached = new Set(
-      detaches
-        .filter((d) => d.rampScheduleId === s.id)
-        .flatMap((d) => rampTargetsDetachedBy(s.targets, d.ruleId)),
-    );
-    return s.targets.every((t) => detached.has(t));
+    const detached = detachedRampTargets(s, detaches);
+    return s.targets.every((t) => detached.includes(t));
   });
   const plural = affected.length > 1;
   const rules = `${ruleIds.length === 1 ? "Rule" : "Rules"} ${quote(ruleIds)}`;

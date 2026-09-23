@@ -34,7 +34,7 @@ import {
   RAMP_PATCH_RULE_FIELDS,
   rampPlanControlledFields,
   rampTargetFootprint,
-  rampTargetsDetachedBy,
+  detachedRampTargets,
   rampTargetRuleIds,
   stemRuleId,
   stringifyFeatureValue,
@@ -1086,9 +1086,7 @@ export async function planRampBaseStateSyncForPublish(
   return planRampBaseStateSync({
     featureId: feature.id,
     schedules: schedules.map((schedule) => {
-      const detached = detaching
-        .filter((d) => d.rampScheduleId === schedule.id)
-        .flatMap((d) => rampTargetsDetachedBy(schedule.targets, d.ruleId));
+      const detached = detachedRampTargets(schedule, detaching);
       return detached.length
         ? {
             ...schedule,

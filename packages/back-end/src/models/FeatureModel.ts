@@ -4114,12 +4114,6 @@ async function publishRevisionInner({
     throw new Error("Can only publish a draft revision");
   }
 
-  // The authoritative landing gate, INSIDE the engine: evidence comes from the
-  // merge result itself, so a caller cannot under-describe the change the way
-  // a hand-built field list can. A landing that reaches the payload takes
-  // publish authority; one that is entirely inert metadata is draft-class and
-  // skips the gate (the semantic the features matrix pins for drafters
-  // editing descriptions).
   // Resolved before the landing gate and any mutation: the ramps a revert
   // detaches reach environments its rule diff may not, and a failed read must
   // block the revert rather than leave the ramp running over it.
@@ -4137,6 +4131,12 @@ async function publishRevisionInner({
         detaching: revertRampStops.detaches,
       });
 
+  // The authoritative landing gate, INSIDE the engine: evidence comes from the
+  // merge result itself, so a caller cannot under-describe the change the way
+  // a hand-built field list can. A landing that reaches the payload (or
+  // detaches a revert's ramps) takes publish authority; one that is entirely inert metadata is draft-class and
+  // skips the gate (the semantic the features matrix pins for drafters
+  // editing descriptions).
   if (mergeResultTouchesPayload(result) || revertRampStops.detaches.length) {
     await assertCanPublishFeatureRevision({
       context,
