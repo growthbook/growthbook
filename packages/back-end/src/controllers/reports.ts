@@ -19,6 +19,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
+  findLatestSuccessfulReportSnapshotId,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -264,10 +265,19 @@ export async function getReportPublic(
   }
   const context = await getContextForAgendaJobByOrgId(report.organization);
 
-  const snapshot =
-    report.type === "experiment-snapshot"
-      ? (await findSnapshotById(context, report.snapshot)) || undefined
-      : undefined;
+  let snapshot =
+    (await findSnapshotById(context, report.snapshot)) || undefined;
+  // The public page loads once and never polls, so a refresh in progress
+  // shows the report's last successful results instead of a spinner.
+  if (snapshot?.status === "running") {
+    const latestSuccessId = await findLatestSuccessfulReportSnapshotId(
+      context,
+      report,
+    );
+    if (latestSuccessId) {
+      snapshot = (await findSnapshotById(context, latestSuccessId)) || snapshot;
+    }
+  }
 
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined

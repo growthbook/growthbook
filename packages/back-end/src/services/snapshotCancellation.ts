@@ -151,10 +151,14 @@ export async function cancelExperimentSnapshot(
 
   // The cancelled run has no results, so its report goes back to the latest
   // successful one. This holds even when a runner that saw the fenced queries
-  // concluded the run first. If that runner succeeded instead, the run is the
-  // latest successful snapshot and keeps the report. The CAS keeps a newer
-  // refresh's pointer.
-  if (action === "conclude" && report?.type === "experiment-snapshot") {
+  // concluded the run first, and for a stuck run that already errored with
+  // live pointers. If a runner succeeded instead, the run is the latest
+  // successful snapshot and keeps the report. The CAS keeps a newer refresh's
+  // pointer.
+  const runHasNoResults =
+    action === "conclude" ||
+    (action === "reconcile" && snapshot.status === "error");
+  if (runHasNoResults && report?.type === "experiment-snapshot") {
     const latestSuccessId = await findLatestSuccessfulReportSnapshotId(
       context,
       report,

@@ -507,6 +507,39 @@ describe("cancelExperimentSnapshot", () => {
     expect(await reportSnapshotId(reportId)).toBe("snp_prev");
   });
 
+  it("moves the report from a stuck errored run to its latest successful snapshot", async () => {
+    const queued = await insertQuery("queued");
+    const { snapshot, reportId } = await insertReportSnapshot({
+      id: "snp_stuck",
+      status: "error",
+      error: "Query timed out",
+      queries: [pointer(queued, "queued")],
+      reportSnapshotId: "snp_stuck",
+      dateCreated: new Date("2025-01-02T00:00:00Z"),
+    });
+    await insertReportSnapshot({
+      id: "snp_prev_success",
+      status: "success",
+      queries: [],
+      reportSnapshotId: "snp_stuck",
+      existingReportId: reportId,
+      dateCreated: new Date("2025-01-01T00:00:00Z"),
+    });
+
+    const result = await cancelExperimentSnapshot(context, snapshot);
+
+    expect(result).toEqual({
+      outcome: "reconciled",
+      cancelledQueryIds: [queued],
+    });
+    expect(await findSnapshotById(context, snapshot.id)).toMatchObject({
+      status: "error",
+      error: "Query timed out",
+      queries: [pointer(queued, "failed")],
+    });
+    expect(await reportSnapshotId(reportId)).toBe("snp_prev_success");
+  });
+
   it("keeps the results and status of a successful snapshot with a stale pointer", async () => {
     const done = await insertQuery("succeeded");
     const stale = await insertQuery("running");

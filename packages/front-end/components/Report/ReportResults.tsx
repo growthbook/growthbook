@@ -11,6 +11,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import React, { RefObject } from "react";
+import { Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -313,9 +314,9 @@ export default function ReportResults({
                 }
               />
             ) : queryStatusData.status === "running" ? (
-              <div className="d-flex justify-content-center my-4">
+              <Flex justify="center" my="4">
                 <LoadingSpinner />
-              </div>
+              </Flex>
             ) : (
               <div className="mx-3 mb-3">
                 <Callout status="error">
