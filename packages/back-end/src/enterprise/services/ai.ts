@@ -900,7 +900,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       );
       if (pending.length > 0) {
         return {
-          usage: result.usage,
+          usage: result.totalUsage,
           deferred: {
             transcript: result.response.messages,
             pending: pending.map((c) => ({
@@ -920,7 +920,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     // output, and the getter throws NoOutputGeneratedError only on access.
     // Touching it here routes that lazy throw through the same retry path
     // instead of letting it escape at the call site as an opaque error.
-    return { output: result.output, usage: result.usage };
+    return { output: result.output, usage: result.totalUsage };
   };
 
   // Output.object steers the model toward the schema but doesn't
