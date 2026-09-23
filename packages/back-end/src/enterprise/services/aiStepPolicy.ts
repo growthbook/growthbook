@@ -20,6 +20,37 @@ export function toolLoopProviderOptions(model: AIModel) {
   };
 }
 
+// The distinct things a run's lookup tools were asked for, as prose — so the
+// error a user sees after a lookup loop names what the AI was hunting for,
+// which is the element they should click.
+export function lookupTerms(
+  trace: ReadonlyArray<{ input: string }>,
+  max = 3,
+): string {
+  const terms: string[] = [];
+  for (const { input } of trace) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(input);
+    } catch {
+      continue;
+    }
+    if (!parsed || typeof parsed !== "object") continue;
+    const { query, selector } = parsed as {
+      query?: unknown;
+      selector?: unknown;
+    };
+    const term = [query, selector].find(
+      (v): v is string => typeof v === "string" && v.trim().length > 0,
+    );
+    if (term && !terms.includes(term.trim())) terms.push(term.trim());
+  }
+  const shown = terms.slice(0, max).map((t) => `“${t}”`);
+  if (shown.length === 0) return "";
+  if (shown.length === 1) return shown[0];
+  return `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
+}
+
 export const FINAL_TOOL_CALL_NOTICE =
   "You have one tool call left. After it, reply with the final structured output built from what you already have — complete every part you can, and say what you could not resolve rather than looking further.";
 

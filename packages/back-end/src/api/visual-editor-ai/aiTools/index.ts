@@ -15,6 +15,7 @@ import {
 import {
   describeContainerServerTool,
   findElementsServerTool,
+  type LookupMemo,
   type PageStructureNode,
 } from "./findElementsServer";
 import type { ClientJob } from "./clientJob";
@@ -69,6 +70,8 @@ export function buildVisualEditorTools({
   if (disabled) return undefined;
   const turnCounter = imageState ?? newImageTurnState();
   const hasStructure = !!pageStructure && pageStructure.length > 0;
+  // Shared by the two lookup tools so a repeated question is called out.
+  const lookups: LookupMemo = new Map();
   const serverTools = {
     generateImage: generateImageTool({
       context,
@@ -89,6 +92,7 @@ export function buildVisualEditorTools({
       ? {
           findElements: findElementsServerTool(
             pageStructure as PageStructureNode[],
+            lookups,
           ),
         }
       : {}),
@@ -96,6 +100,7 @@ export function buildVisualEditorTools({
       ? {
           describeContainer: describeContainerServerTool(
             pageStructure as PageStructureNode[],
+            lookups,
           ),
         }
       : {}),

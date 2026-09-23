@@ -118,13 +118,55 @@ export interface ContainerSummary {
   layout?: PageStructureNode["layout"];
 }
 
+export interface KnownContainer {
+  selector: string;
+  // False for a parent the snapshot only knows by selector.
+  captured: boolean;
+  tag?: string;
+  label?: string;
+}
+
 export interface ContainerDescription extends Omit<ContainerSummary, "tag"> {
   tag?: string;
   parentSelector?: string;
   prevSiblingSelector?: string;
   nextSiblingSelector?: string;
   children: ContainerSummary[];
+  // Known containers somewhere under an uncaptured selector, nearest first.
+  // Their exact nesting is unknown, so they are not `children`.
+  descendants?: KnownContainer[];
   note?: string;
+}
+
+// Every selector the snapshot knows anything about: captured nodes, plus the
+// parents they point at. Uncaptured parents take their first child's place in
+// document order.
+function knownContainers(
+  nodes: PageStructureNode[],
+): Array<KnownContainer & { docOrder: number }> {
+  const out = new Map<string, KnownContainer & { docOrder: number }>();
+  const sorted = [...nodes].sort(
+    (a, b) => (a.docOrder ?? 0) - (b.docOrder ?? 0),
+  );
+  for (const n of sorted) {
+    if (n.parentSelector && !out.has(n.parentSelector)) {
+      out.set(n.parentSelector, {
+        selector: n.parentSelector,
+        captured: false,
+        docOrder: n.docOrder ?? 0,
+      });
+    }
+  }
+  for (const n of sorted) {
+    out.set(n.selector, {
+      selector: n.selector,
+      captured: true,
+      tag: n.tag,
+      ...(n.label ? { label: n.label } : {}),
+      docOrder: n.docOrder ?? 0,
+    });
+  }
+  return [...out.values()];
 }
 
 const summarize = (n: PageStructureNode): ContainerSummary => ({
@@ -152,11 +194,37 @@ export function describeContainer(
     const children = nodes
       .filter((n) => n.parentSelector === selector)
       .sort((a, b) => (a.docOrder ?? 0) - (b.docOrder ?? 0));
-    if (children.length === 0 || !hasDocumentOrder(children)) return null;
+    if (children.length > 0 && hasDocumentOrder(children)) {
+      return {
+        selector,
+        children: children.map(summarize),
+        note: "This container wasn't captured itself, so its tag, layout and siblings are unknown; `children` are its captured direct children in page order.",
+      };
+    }
+    // Neither captured nor a captured node's parent — typically a selector
+    // the model built from a class name it saw in a match. What IS known
+    // underneath it is still useful: a model probing for the plans' row can
+    // act on the plan cards themselves instead of asking again.
+    const descendants = knownContainers(nodes)
+      .filter(
+        (k) =>
+          k.selector.startsWith(`${selector} `) ||
+          k.selector.startsWith(`${selector}>`),
+      )
+      .sort(
+        (a, b) =>
+          a.selector.slice(selector.length).split(/\s+|>/).length -
+            b.selector.slice(selector.length).split(/\s+|>/).length ||
+          a.docOrder - b.docOrder,
+      )
+      .slice(0, 12)
+      .map(({ docOrder: _order, ...k }) => k);
+    if (descendants.length === 0) return null;
     return {
       selector,
-      children: children.map(summarize),
-      note: "This container wasn't captured itself, so its tag, layout and siblings are unknown; `children` are its captured direct children in page order.",
+      children: [],
+      descendants,
+      note: "This selector isn't a captured container and nothing is known about its layout or direct children. `descendants` are the known containers inside it, nearest first — act on those. For a reorder, prefer one CSS `order` rule per item over a position move into this selector, whose direct children can't be verified.",
     };
   }
   const find = (list: StructureTreeNode[]): StructureTreeNode | null => {

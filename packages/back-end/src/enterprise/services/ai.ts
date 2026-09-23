@@ -38,6 +38,7 @@ import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import {
+  lookupTerms,
   prepareToolStep,
   toolLoopProviderOptions,
 } from "back-end/src/enterprise/services/aiStepPolicy";
@@ -1067,13 +1068,17 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       const truncated =
         firstDiag.finishReason === "length" ||
         retryDiag.finishReason === "length";
-      // Ended on a tool call: spent the step budget gathering context.
+      // Ended on a tool call: spent the step budget gathering context. Name
+      // what it was hunting for — that is the element the user should click.
       const ranOutOfSteps = retryDiag.finishReason === "tool-calls";
+      const lookedFor = lookupTerms(retryDiag.toolTrace);
       throw new Error(
         truncated
           ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
           : ranOutOfSteps
-            ? "The AI didn't finish this request — it spent its time gathering page details instead of returning a change. Try pointing it at a specific element, or splitting this into smaller changes."
+            ? `The AI ran out of lookups before it could make a change.${
+                lookedFor ? ` It was searching the page for ${lookedFor}.` : ""
+              } Click the element you want changed so its selector is captured, then ask again — or ask for one part at a time.`
             : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
       );
     }

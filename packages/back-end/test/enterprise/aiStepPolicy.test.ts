@@ -1,6 +1,7 @@
 import type { ModelMessage } from "ai";
 import {
   FINAL_TOOL_CALL_NOTICE,
+  lookupTerms,
   prepareToolStep,
   toolLoopProviderOptions,
 } from "back-end/src/enterprise/services/aiStepPolicy";
@@ -16,6 +17,28 @@ describe("toolLoopProviderOptions", () => {
 
   it("leaves other providers alone", () => {
     expect(toolLoopProviderOptions("gpt-4.1")).toEqual({});
+  });
+});
+
+describe("lookupTerms", () => {
+  it("names the distinct queries and selectors a run asked for", () => {
+    expect(
+      lookupTerms([
+        { input: '{"selector":".tab-pane-content-1"}' },
+        { input: '{"query":"card-pricing_page"}' },
+        { input: '{"selector":".tab-pane-content-1"}' },
+        { input: '{"query":"Starter, plus"}' },
+        { input: '{"query":"Contact Us"}' },
+      ]),
+    ).toBe("“.tab-pane-content-1”, “card-pricing_page” and “Starter, plus”");
+  });
+
+  it("copes with a single term, unparseable input, and nothing at all", () => {
+    expect(
+      lookupTerms([{ input: '{"query":"hero"}' }, { input: "oops" }]),
+    ).toBe("“hero”");
+    expect(lookupTerms([{ input: '{"prompt":"x"}' }])).toBe("");
+    expect(lookupTerms([])).toBe("");
   });
 });
 
