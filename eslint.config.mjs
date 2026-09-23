@@ -310,11 +310,11 @@ export default defineConfig([
     },
   },
   {
-    // DocLink.tsx is the one place the docs origin is allowed to live: it owns
-    // the docSections registry and the docUrl() helper everything else must use.
+    // docSections.ts is the one place the docs origin is allowed to live: it
+    // owns the registry that DocLink and docUrl() resolve every docs link from.
     // Front-end tests assert fully-resolved docs URLs, so they keep the literals.
     files: [
-      "./packages/front-end/components/DocLink.tsx",
+      "./packages/front-end/components/docSections.ts",
       "./packages/front-end/test/**/*.{ts,tsx}",
     ],
 
@@ -525,6 +525,25 @@ export default defineConfig([
           ],
         },
       ],
+    },
+  },
+  {
+    files: ["./packages/shared/**/*.{ts,tsx,js,mjs,cjs}"],
+    // Codegen scripts are exempt: scripts/gen-sdk-resources.ts is input data
+    // for generated SDK resource links, not UI code that could use the
+    // front-end docSections registry.
+    ignores: ["./packages/shared/scripts/**"],
+
+    plugins: {
+      local: {
+        rules: {
+          "no-raw-docs-link": noRawDocsLink,
+        },
+      },
+    },
+
+    rules: {
+      "local/no-raw-docs-link": "error",
     },
   },
   {
