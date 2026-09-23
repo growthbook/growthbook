@@ -73,6 +73,7 @@ import {
   getPhaseVariations,
   isVariationWeightsSumValid,
   scheduleWriteNeedsRunPermission,
+  withScheduledBy,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -4916,6 +4917,7 @@ function resolveExperimentUpdateVariationsAndPhases(
 export function normalizeStatusUpdateScheduleChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
+  scheduledBy?: string,
 ): void {
   if ("statusUpdateSchedule" in changes) {
     const incoming = changes.statusUpdateSchedule;
@@ -4960,7 +4962,10 @@ export function normalizeStatusUpdateScheduleChanges(
       // Re-stage the single pending action from the new schedule:
       //  - running experiment: (re)stage the stop from the resolved stopAt
       //  - otherwise (draft): clear any staged start; it must be re-approved
-      changes.nextScheduledStatusUpdate = stagedStop;
+      changes.nextScheduledStatusUpdate = withScheduledBy(
+        stagedStop,
+        scheduledBy,
+      );
     }
   } else if (
     changes.status &&
