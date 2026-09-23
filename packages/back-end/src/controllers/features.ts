@@ -3948,9 +3948,8 @@ export async function postFeatureSync(
     }
   }
 
-  // The landing is the only write to the document: a plain write here re-saved
-  // a pre-request read over whatever landed meanwhile, and never carried the
-  // rules the revision published.
+  // The landing is the only write to the document; the plain write it replaces
+  // re-saved a pre-request read over rivals and never carried the rules.
   let updatedFeature = feature;
   if (needsNewRevision) {
     const revision = await createRevision({

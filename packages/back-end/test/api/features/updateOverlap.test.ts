@@ -104,28 +104,22 @@ describe("overlapping REST feature updates", () => {
   const send = (path: string, body: unknown) =>
     request(app).post(path).send(body).set("Authorization", "Bearer foo");
 
-  let premiumSpy: jest.SpyInstance | undefined;
-
   beforeEach(async () => {
-    // Scheduled rules are a paid feature.
-    premiumSpy = jest
-      .spyOn(ReqContextClass.prototype, "hasPremiumFeature")
-      .mockReturnValue(true);
     setReqContext(makeContext());
     await insertFeature();
   });
 
   afterEach(() => {
     mockDispatch.mockReset();
-    premiumSpy?.mockRestore();
+    jest.restoreAllMocks();
   });
 
   it.each([
-    ["v1", `/api/v1/features/${FLAG}`],
-    ["v2", `/api/v2/features/${FLAG}`],
+    { version: "v1", path: `/api/v1/features/${FLAG}` },
+    { version: "v2", path: `/api/v2/features/${FLAG}` },
   ])(
-    "%s: the later landing is not reverted by the earlier request",
-    async (_label, path) => {
+    "$version: the later landing is not reverted by the earlier request",
+    async ({ path }) => {
       const gate = deferred();
       let dispatches = 0;
       mockDispatch.mockImplementation(async () => {
@@ -134,7 +128,7 @@ describe("overlapping REST feature updates", () => {
         if (dispatches === 1) await gate.promise;
       });
 
-      // Started now, awaited after B lands.
+      // Started now (supertest sends on `then`), awaited after B lands.
       const requestA = send(path, { defaultValue: "from-a" }).then((r) => r);
       let responseA: Awaited<typeof requestA>;
       try {
@@ -160,6 +154,10 @@ describe("overlapping REST feature updates", () => {
   );
 
   it("v1: a scheduled rule sets nextScheduledUpdate from the new rules", async () => {
+    // Scheduled rules are a paid feature.
+    jest
+      .spyOn(ReqContextClass.prototype, "hasPremiumFeature")
+      .mockReturnValue(true);
     const startsAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     startsAt.setMilliseconds(0);
     const response = await send(`/api/v1/features/${FLAG}`, {

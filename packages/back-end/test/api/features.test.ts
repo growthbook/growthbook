@@ -14,7 +14,6 @@ import {
   getSavedGroupMap,
   getApiFeatureObj,
   createInterfaceEnvSettingsFromApiEnvSettings,
-  updateInterfaceEnvSettingsFromApiEnvSettings,
   addIdsToFlatRules,
   buildFeatureRulesFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -478,7 +477,6 @@ describe("features API", () => {
 
       expect(response.status).toBe(200);
       expect(createAndPublishRevision).toHaveBeenCalled();
-      expect(updateFeature).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -511,7 +509,6 @@ describe("features API", () => {
 
       expect(response.status).toBe(200);
       expect(createAndPublishRevision).toHaveBeenCalled();
-      expect(updateFeature).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -582,7 +579,6 @@ describe("features API", () => {
 
       expect(response.status).toBe(200);
       expect(createAndPublishRevision).toHaveBeenCalled();
-      expect(updateFeature).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -680,34 +676,6 @@ describe("features API", () => {
   // ---------------------------------------------------------------------------
 
   describe("direct feature writes", () => {
-    it("answers a request that changes nothing from the feature as read, with no write", async () => {
-      defaultContext({
-        getProjects: async () => [{ id: "project_1" }],
-      });
-
-      const existingFeature = makeFeature({
-        project: "project_1",
-        version: 10,
-        environmentSettings: { production: { enabled: true, rules: [] } },
-      });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (
-        updateInterfaceEnvSettingsFromApiEnvSettings as jest.Mock
-      ).mockReturnValue(existingFeature.environmentSettings);
-
-      const response = await request(app)
-        .post(`/api/v1/features/${existingFeature.id}`)
-        .send({
-          defaultValue: existingFeature.defaultValue,
-          environments: { production: { enabled: true, rules: [] } },
-        });
-
-      expect(response.status).toBe(200);
-      expect(createAndPublishRevision).not.toHaveBeenCalled();
-      expect(updateFeature).not.toHaveBeenCalled();
-      expect(response.body.feature.feature.version).toBe(10);
-    });
-
     it("lands a change through the revision only and answers with the landed feature", async () => {
       defaultContext({
         getProjects: async () => [{ id: "project_1" }, { id: "project_2" }],

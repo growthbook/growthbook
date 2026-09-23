@@ -1359,12 +1359,8 @@ export async function updateFeature(
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>,
   options: {
-    // Compare-and-swap: conditions the write on the doc still carrying this
-    // `dateUpdated`, throwing `CasConflictError` otherwise — the feature twin
-    // of `updateIfUnchanged` on BaseModel. Required: every whole-field write
-    // to the document is a landing or a restore, and an unguarded one can put
-    // a stale read back over a rival's publish. Fields no landing owns take a
-    // targeted `FeatureModel.updateOne` instead (see updateNextScheduledDate).
+    // Required CAS on `dateUpdated` (CasConflictError on a miss): an unguarded
+    // whole-field write can put a stale read back over a rival's landing.
     casOnDateUpdated: Date;
     // Remove the holdout pointer in the SAME write: splitting into two writes
     // opens a gap where a rival publish can land and be overwritten.
@@ -1797,8 +1793,9 @@ export async function removeProjectFromFeatures(
   const ruleScopedDocs = await FeatureModel.find(ruleScopeQuery);
   for (const doc of ruleScopedDocs || []) {
     let feature = toInterface(doc, context);
+    let scrubbed = false;
     // A landing may win in between; scrub what it wrote rather than our read.
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 3 && !scrubbed; attempt++) {
       const updatedRules = (feature.rules ?? []).map((rule) =>
         rule && Array.isArray(rule.projects) && rule.projects.includes(project)
           ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
@@ -1813,13 +1810,14 @@ export async function removeProjectFromFeatures(
         { $set: { rules: updatedRules } },
       );
       if (written.matchedCount > 0) {
+        scrubbed = true;
         const updatedFeature = { ...feature, rules: updatedRules };
         onFeatureUpdate(context, feature, updatedFeature, project).catch(
           (e) => {
             logger.error(e, "Error refreshing SDK Payload on feature update");
           },
         );
-        break;
+        continue;
       }
       const fresh = await FeatureModel.findOne({
         organization: context.org.id,
@@ -1827,6 +1825,12 @@ export async function removeProjectFromFeatures(
       });
       if (!fresh) break;
       feature = toInterface(fresh, context);
+    }
+    if (!scrubbed) {
+      logger.warn(
+        { featureId: feature.id, orgId: context.org.id, project },
+        "Deleted project still referenced by rules after repeated landings",
+      );
     }
   }
 }
