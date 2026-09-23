@@ -1,9 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { z } from "zod";
-import {
-  ensureIndexOnce,
-  isDuplicateKeyError,
-} from "back-end/src/util/mongo.util";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 import {
   handleSlackAppHomeOpened,
   SlackAppHomeOpened,
@@ -95,6 +93,26 @@ let agenda: Agenda;
 export default function addSlackAssistantJobs(ag: Agenda) {
   agenda = ag;
   agenda.define(SLACK_ASSISTANT_JOB_NAME, processSlackAssistantTask);
+  // job.unique already dedupes deliveries that don't overlap; this index also
+  // rejects two that upsert at the same moment. It is best effort: DocumentDB
+  // before 5.0 has no partial indexes and Cosmos DB builds unique indexes only
+  // on empty collections, so without it Slack still works, and two overlapping
+  // deliveries of one event can each run a turn.
+  agenda._collection
+    .createIndex(
+      { name: 1, "data.dedupeKey": 1 },
+      {
+        unique: true,
+        name: "slack_assistant_delivery",
+        partialFilterExpression: { name: SLACK_ASSISTANT_JOB_NAME },
+      },
+    )
+    .catch((error) => {
+      logger.warn(
+        error,
+        "Could not build the Slack assistant delivery index; overlapping Slack redeliveries may run twice",
+      );
+    });
 }
 
 async function enqueue(
@@ -104,15 +122,6 @@ async function enqueue(
   if (!agenda) {
     throw new Error("Slack assistant queue not initialized");
   }
-  await ensureIndexOnce(
-    agenda._collection,
-    { name: 1, "data.dedupeKey": 1 },
-    {
-      unique: true,
-      name: "slack_assistant_delivery",
-      partialFilterExpression: { name: SLACK_ASSISTANT_JOB_NAME },
-    },
-  );
   const job = agenda.create(SLACK_ASSISTANT_JOB_NAME, {
     ...data,
     dedupeKey,

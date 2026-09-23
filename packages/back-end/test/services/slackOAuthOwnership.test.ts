@@ -40,6 +40,10 @@ const makeContext = (id: string) =>
 beforeAll(async () => {
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri());
+  // The 1:1 indexes build in the background when the model is first
+  // constructed; the concurrent-connect tests need them in place.
+  makeContext("setup");
+  await waitForIndexes();
 }, 30000);
 afterAll(async () => {
   await waitForIndexes();

@@ -3,13 +3,17 @@ import {
   slackWorkspaceConnectionSchema,
 } from "shared/validators";
 import {
-  ensureIndexOnce,
   getCollection,
   isDuplicateKeyError,
 } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
-// Keep the org-scoped primary key; these removable indexes impose today's 1:1 policy.
+// Keep the org-scoped primary key; these removable indexes impose today's 1:1
+// policy. assertConnectionAvailable rejects conflicts before a write, and the
+// indexes only close the race between two concurrent connects. BaseModel builds
+// them in the background and logs a failure (Cosmos DB builds unique indexes
+// only on empty collections); without them, dangerousGetForTeam still refuses
+// a workspace that ends up with two connections.
 const connectionIndexes: {
   fields: { teamId: 1 } | { organization: 1 };
   unique: true;
@@ -103,17 +107,6 @@ export class SlackWorkspaceConnectionModel extends BaseClass {
     await this.assertConnectionAvailable(doc.teamId);
   }
 
-  // assertConnectionAvailable is a read-then-write check, so only the unique
-  // indexes close the race between two concurrent connects.
-  private async ensureUniquenessIndexes(): Promise<void> {
-    const collection = this._dangerousGetCollection();
-    await Promise.all(
-      connectionIndexes.map(({ fields, ...options }) =>
-        ensureIndexOnce(collection, fields, options),
-      ),
-    );
-  }
-
   public getByTeamId(
     teamId: string,
   ): Promise<SlackWorkspaceConnectionInterface | null> {
@@ -124,7 +117,6 @@ export class SlackWorkspaceConnectionModel extends BaseClass {
     teamId: string,
     fields: SlackWorkspaceConnectionFields,
   ): Promise<SlackWorkspaceConnectionInterface> {
-    await this.ensureUniquenessIndexes();
     for (let attempt = 0; attempt < 3; attempt++) {
       const existing = await this.getByTeamId(teamId);
       if (existing) {

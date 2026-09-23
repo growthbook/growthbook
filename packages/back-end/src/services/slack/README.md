@@ -87,8 +87,12 @@ The connection model enforces this temporary 1:1 policy with the unique indexes
 `slack_one_org_per_workspace` and `slack_one_workspace_per_org`. Both OAuth install
 paths reject a conflicting connection; reconnecting the same pair refreshes its
 credentials. Disconnect the existing pair before moving either side to a new one.
-Existing conflicting connections must be disconnected before these indexes can
-be created. Writes wait for index creation and fail if it cannot enforce the policy.
+The indexes only close the race between two concurrent connects and are built in
+the background at startup. When they can't be built (existing conflicting
+connections, or Cosmos DB, which builds unique indexes only on empty collections),
+the error is logged and connects still run the conflict check; a workspace that
+ends up with two connections is refused when its Slack events arrive until the
+extra connection is disconnected.
 
 To support shared workspaces later, remove this validation, explicitly drop the
 two policy indexes, and extend the workspace resolver. Connection primary keys,
@@ -141,7 +145,10 @@ instead of silently succeeding or replaying the AI turn or a mutation.
 Slack event and interaction requests are acknowledged only after Agenda accepts
 the job. A unique delivery index and insert-only upsert retain completed delivery
 identities for the normal Agenda cleanup period (seven days). A duplicate never
-reschedules a completed task. Database failures return 503 so Slack can retry. Button deliveries are deduplicated
+reschedules a completed task. The delivery index is built at startup and is
+best effort: DocumentDB before 5.0 and Cosmos DB cannot build it, and without it
+two deliveries of one event that arrive at the same moment can each run a turn.
+Database failures return 503 so Slack can retry. Button deliveries are deduplicated
 by the Slack click timestamp: a fresh click can retry a failed access or usage
 check. The permanent action claim is acquired only after these checks pass,
 immediately before resolving the approved action; preflight failures leave the

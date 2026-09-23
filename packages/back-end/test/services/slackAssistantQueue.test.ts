@@ -47,10 +47,25 @@ test("retains a completed delivery instead of scheduling it again", async () => 
     { insertOnly: true },
   );
   expect(unique.mock.calls[0]).toEqual(unique.mock.calls[1]);
+});
+
+test("builds the delivery index when the job is registered, not per enqueue", async () => {
+  expect(createIndex).toHaveBeenCalledTimes(1);
   expect(createIndex).toHaveBeenCalledWith(
     { name: 1, "data.dedupeKey": 1 },
     expect.objectContaining({ unique: true }),
   );
+  await queueSlackAssistantMention({ eventId: "event", mention });
+  expect(createIndex).toHaveBeenCalledTimes(1);
+});
+
+test("keeps enqueueing when the delivery index can't be built", async () => {
+  createIndex.mockRejectedValueOnce(
+    new Error("unique index needs an empty collection"),
+  );
+  addSlackAssistantJobs(agenda as unknown as Agenda);
+  await queueSlackAssistantMention({ eventId: "event", mention });
+  expect(save).toHaveBeenCalledTimes(1);
 });
 
 test("deduplicates app opens by event and workspace while allowing a later open", async () => {
