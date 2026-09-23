@@ -102,7 +102,10 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
 import { getExposureQuery } from "@/services/datasources";
-import { useAssignmentQuerySelection } from "@/components/Experiment/AssignmentQueryFields";
+import {
+  AssignmentQueryDriftWarning,
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import styles from "./RampScheduleSection.module.scss";
 
 export type IntervalUnit = "minutes" | "hours" | "days";
@@ -3054,6 +3057,11 @@ export default function RampScheduleSection({
   const identifierTypeName =
     assignmentQuerySelection.identifierType ??
     (assignmentQuerySelection.identifierTypes.length > 0 ? "Select" : "—");
+  const identifierTypeDisabled =
+    !state.monitoring.datasourceId ||
+    assignmentQuerySelection.identifierTypes.length === 0;
+  const exposureQueryDisabled =
+    assignmentQuerySelection.exposureQueryOptions.length === 0;
 
   const hasAdvancedOverrides =
     (state.monitoring.updateScheduleMinutes !== null &&
@@ -3110,9 +3118,9 @@ export default function RampScheduleSection({
               <Link
                 type="button"
                 style={{
-                  color: state.monitoring.datasourceId
-                    ? "var(--color-text-high)"
-                    : "var(--color-text-disabled)",
+                  color: identifierTypeDisabled
+                    ? "var(--color-text-disabled)"
+                    : "var(--color-text-high)",
                 }}
               >
                 <Text mr="1">{identifierTypeName}</Text>
@@ -3121,6 +3129,7 @@ export default function RampScheduleSection({
             }
             menuPlacement="start"
             variant="soft"
+            disabled={identifierTypeDisabled}
           >
             {assignmentQuerySelection.groupedIdentifierTypes.map((option) =>
               "options" in option ? (
@@ -3159,9 +3168,9 @@ export default function RampScheduleSection({
               <Link
                 type="button"
                 style={{
-                  color: state.monitoring.datasourceId
-                    ? "var(--color-text-high)"
-                    : "var(--color-text-disabled)",
+                  color: exposureQueryDisabled
+                    ? "var(--color-text-disabled)"
+                    : "var(--color-text-high)",
                 }}
               >
                 <Text mr="1">{eqName}</Text>
@@ -3170,6 +3179,7 @@ export default function RampScheduleSection({
             }
             menuPlacement="start"
             variant="soft"
+            disabled={exposureQueryDisabled}
           >
             <DropdownMenuGroup>
               {assignmentQuerySelection.exposureQueryOptions.map((o) => (
@@ -3183,6 +3193,14 @@ export default function RampScheduleSection({
             </DropdownMenuGroup>
           </DropdownMenu>
         </Flex>
+        {state.monitoring.datasourceId &&
+        assignmentQuerySelection.identifierTypes.length === 0 ? (
+          <HelperText status="warning" size="sm">
+            No assignment queries are scoped to this Project. Add one in the
+            Data Source settings.
+          </HelperText>
+        ) : null}
+        <AssignmentQueryDriftWarning selection={assignmentQuerySelection} />
 
         <Box mt="4">
           <Text as="label" weight="medium" mb="1">

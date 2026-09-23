@@ -28,6 +28,7 @@ type Selection = {
   // A kept selection the current scope or query no longer allows.
   outOfScope: boolean;
   identifierUndeclared: boolean;
+  multiProject: boolean;
   setExposureQueryId: (exposureQueryId: string) => void;
   changeIdentifierType: (identifierType: string) => void;
 };
@@ -211,6 +212,7 @@ export function useAssignmentQuerySelection({
     exposureQueryOptions,
     outOfScope,
     identifierUndeclared,
+    multiProject: !!projects,
     setExposureQueryId,
     changeIdentifierType,
   };
@@ -218,7 +220,7 @@ export function useAssignmentQuerySelection({
 
 // Shown wherever a saved selection is displayed, including collapsed summaries.
 export function AssignmentQueryDriftWarning({
-  selection: { outOfScope, identifierUndeclared, identifierType },
+  selection: { outOfScope, identifierUndeclared, identifierType, multiProject },
 }: {
   selection: Selection;
 }) {
@@ -227,7 +229,7 @@ export function AssignmentQueryDriftWarning({
     <Callout status="warning" mb="3">
       {identifierUndeclared
         ? `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`
-        : "The selected assignment query is no longer scoped to this project. Results still update, but consider switching to a query that is."}
+        : `The selected assignment query is no longer scoped to ${multiProject ? "every selected Project" : "this Project"}. Results still update, but consider switching to a query that is.`}
     </Callout>
   );
 }
@@ -253,6 +255,7 @@ export default function AssignmentQueryFields({
     exposureQueryOptions,
     setExposureQueryId,
     changeIdentifierType,
+    multiProject,
   } = selection;
   return (
     <>
@@ -261,14 +264,14 @@ export default function AssignmentQueryFields({
         size={size}
         label={
           <>
-            Identifier type{" "}
+            Identifier Type{" "}
             <Tooltip body="The unit this experiment is analyzed on. Should correspond to the attribute used to randomize units for this experiment." />
           </>
         }
         labelClassName="font-weight-bold"
         helpText={
           identifierTypes.length === 0
-            ? "No assignment queries are scoped to this Project. Add one in the Data Source settings."
+            ? `No assignment queries are scoped to ${multiProject ? "the selected Projects" : "this Project"}. Add one in the Data Source settings.`
             : undefined
         }
         value={identifierType ?? ""}

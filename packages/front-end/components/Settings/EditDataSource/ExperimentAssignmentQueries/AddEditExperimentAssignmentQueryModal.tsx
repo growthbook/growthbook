@@ -305,7 +305,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               />
               <MultiSelectField
                 legacyHeight
-                label="Identifier types"
+                label="Identifier Types"
                 helpText="Each identifier type must be returned as a same-named column in the query below."
                 options={identityTypes.map((i) => ({
                   value: i.userIdType,
@@ -337,12 +337,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               {projects.length > 0 && (
                 <MultiSelectField
                   legacyHeight
-                  label={
-                    <>
-                      Projects{" "}
-                      <Tooltip body="Limit this assignment query to specific projects. Only projects within the data source's projects are available. Leave empty to make it available for all of the data source's projects." />
-                    </>
-                  }
+                  label="Projects"
+                  helpText="Only the Data Source's Projects can be selected. Leave empty to make this query available to all of them."
                   placeholder="All Data Source Projects"
                   value={userEnteredProjects}
                   options={projectOptions}
