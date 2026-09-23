@@ -1,4 +1,5 @@
 import request from "supertest";
+import mongoose from "mongoose";
 import {
   getExperimentById,
   getExperimentByTrackingKey,
@@ -1442,6 +1443,86 @@ describe("experiments API", () => {
           .set("Authorization", "Bearer foo");
 
         expect(res.status).toBe(200);
+      });
+
+      it("refuses scheduling a start through PUT /schedule without run permission", async () => {
+        const res = await request(app)
+          .put("/api/v1/experiments/exp_123/schedule")
+          .send({ startAt: future })
+          .set("Authorization", "Bearer foo");
+        expect(res.status).toBe(403);
+      });
+
+      it("refuses launching a draft whose rule is still in a feature draft", async () => {
+        // Live nowhere yet: the only reach is the pending draft the start publishes.
+        updateReqContext({
+          permissions: {
+            canUpdateExperiment: () => true,
+            canRunExperiment: () => false,
+            // Loading the linked feature from Mongo needs the read check too.
+            canReadTargetingScopedResource: () => true,
+            throwPermissionError: () => {
+              throw new PermissionError("permission denied");
+            },
+          },
+        });
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...experiment,
+          status: "draft",
+          hasVisualChangesets: false,
+          linkedFeatures: ["feat_launch"],
+          pendingFeatureDrafts: [
+            { featureId: "feat_launch", revisionVersion: 2 },
+          ],
+        });
+        const features = mongoose.connection.collection("features");
+        const revisions = mongoose.connection.collection("featurerevisions");
+        await features.insertOne({
+          id: "feat_launch",
+          organization: "org_1",
+          project: "proj_1",
+          valueType: "boolean",
+          defaultValue: "false",
+          version: 1,
+          rules: [],
+          environmentSettings: { production: { enabled: true } },
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        });
+        await revisions.insertOne({
+          id: "frev_feat_launch_2",
+          organization: "org_1",
+          featureId: "feat_launch",
+          version: 2,
+          baseVersion: 1,
+          status: "draft",
+          createdBy: { type: "api_key", apiKey: "k" },
+          defaultValue: "false",
+          rules: [
+            {
+              type: "experiment-ref",
+              id: "fr_launch",
+              experimentId: "exp_123",
+              enabled: true,
+              allEnvironments: true,
+              variations: [],
+            },
+          ],
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        });
+        try {
+          const res = await request(app)
+            .post("/api/v1/experiments/exp_123")
+            .send({ status: "running" })
+            .set("Authorization", "Bearer foo");
+          expect(res.body.message).toMatch(/permission/i);
+          expect(res.status).toBe(403);
+          expect(updateExperiment).not.toHaveBeenCalled();
+        } finally {
+          await features.deleteMany({ organization: "org_1" });
+          await revisions.deleteMany({ organization: "org_1" });
+        }
       });
 
       it("allows a notify-only schedule without run permission on both routes", async () => {
