@@ -820,18 +820,12 @@ export function getExposureQueryIdentifierType(
     : (identifierTypes[0] ?? exposureQuery.userIdType);
 }
 
-/**
- * `keepQueryId` survives the filter so an out-of-scope selection doesn't vanish.
- */
 export function getExposureQueriesForProject(
   exposureQueries: ExposureQuery[],
   project: string | undefined,
-  keepQueryId?: string,
 ): ExposureQuery[] {
-  return exposureQueries.filter(
-    (q) =>
-      (keepQueryId && q.id === keepQueryId) ||
-      isProjectListValidForProject(q.projects, project),
+  return exposureQueries.filter((q) =>
+    isProjectListValidForProject(q.projects, project),
   );
 }
 

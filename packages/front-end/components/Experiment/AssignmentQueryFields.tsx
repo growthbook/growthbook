@@ -15,6 +15,7 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 type Selection = {
   exposureQueryId: string | undefined;
@@ -22,6 +23,9 @@ type Selection = {
   identifierTypes: string[];
   groupedIdentifierTypes: (GroupedValue | SingleValue)[];
   exposureQueryOptions: SingleValue[];
+  // A kept selection the current scope or query no longer allows.
+  outOfScope: boolean;
+  identifierUndeclared: boolean;
   setExposureQueryId: (exposureQueryId: string) => void;
   changeIdentifierType: (identifierType: string) => void;
 };
@@ -55,16 +59,25 @@ export function useAssignmentQuerySelection({
   keepCurrentSelection?: boolean;
 }): Selection {
   const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
-  const exposureQueries = useMemo(() => {
+  const scopedQueries = useMemo(() => {
     const all = datasource?.settings?.queries?.exposure ?? [];
-    if (!projects)
-      return getExposureQueriesForProject(all, project, keptQueryId);
-    return all.filter(
-      (q) =>
-        q.id === keptQueryId ||
-        isExposureQueryAvailableForProjects(q, projects),
-    );
-  }, [datasource?.settings?.queries?.exposure, project, projects, keptQueryId]);
+    return projects
+      ? all.filter((q) => isExposureQueryAvailableForProjects(q, projects))
+      : getExposureQueriesForProject(all, project);
+  }, [datasource?.settings?.queries?.exposure, project, projects]);
+  const keptQuery = keptQueryId
+    ? datasource?.settings?.queries?.exposure?.find((q) => q.id === keptQueryId)
+    : undefined;
+  const outOfScope = !!keptQuery && !scopedQueries.includes(keptQuery);
+  const exposureQueries = useMemo(
+    () =>
+      keptQuery && outOfScope ? [...scopedQueries, keptQuery] : scopedQueries,
+    [scopedQueries, keptQuery, outOfScope],
+  );
+  const identifierUndeclared =
+    !!keptQuery &&
+    !!identifierType &&
+    !getExposureQueryIdentifierTypes(keptQuery).includes(identifierType);
   const hashAttributeIdentifierTypeMap = useMemo(
     () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
     [datasource?.settings?.userIdTypes],
@@ -183,6 +196,8 @@ export function useAssignmentQuerySelection({
     identifierTypes,
     groupedIdentifierTypes,
     exposureQueryOptions,
+    outOfScope,
+    identifierUndeclared,
     setExposureQueryId,
     changeIdentifierType,
   };
@@ -207,11 +222,20 @@ export default function AssignmentQueryFields({
     identifierTypes,
     groupedIdentifierTypes,
     exposureQueryOptions,
+    outOfScope,
+    identifierUndeclared,
     setExposureQueryId,
     changeIdentifierType,
   } = selection;
   return (
     <>
+      {(outOfScope || identifierUndeclared) && (
+        <Callout status="warning" mb="3">
+          {identifierUndeclared
+            ? `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`
+            : "The selected assignment query is no longer scoped to this project. Results still update, but consider switching to a query that is."}
+        </Callout>
+      )}
       <SelectField
         size={size}
         label={

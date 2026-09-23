@@ -120,6 +120,40 @@ export function assertValidAssignmentQuerySelection({
   return query;
 }
 
+export type AssignmentQuerySelection = {
+  datasource: string;
+  exposureQueryId: string;
+  identifierType?: string;
+};
+
+/**
+ * Whether a saved assignment query selection changed. A missing identifier
+ * means the query's first, so a client sending that resolved value back is not
+ * a change. `loadExposureQueries` only runs when the raw identifiers differ.
+ */
+export async function hasAssignmentQuerySelectionChanged(
+  previous: AssignmentQuerySelection,
+  next: AssignmentQuerySelection,
+  loadExposureQueries: () => Promise<ExposureQuery[]>,
+): Promise<boolean> {
+  if (
+    previous.datasource !== next.datasource ||
+    previous.exposureQueryId !== next.exposureQueryId
+  ) {
+    return true;
+  }
+  const previousType = previous.identifierType || undefined;
+  const nextType = next.identifierType || undefined;
+  if (previousType === nextType) return false;
+  const query = (await loadExposureQueries()).find(
+    (q) => q.id === next.exposureQueryId,
+  );
+  const firstType = query
+    ? getExposureQueryIdentifierTypes(query)[0]
+    : undefined;
+  return (previousType ?? firstType) !== (nextType ?? firstType);
+}
+
 /**
  * Throws rather than let analysis run on an identifier the query no longer
  * returns. A missing identifier type falls back to the query's first.

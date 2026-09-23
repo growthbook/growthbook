@@ -30,6 +30,9 @@ import {
   DataSourceParamsForType,
   mergeDataSourceParams,
   redactSecretParams,
+  AssignmentQuerySelection,
+  assertValidAssignmentQuerySelection,
+  hasAssignmentQuerySelectionChanged,
 } from "shared/util";
 import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
 import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
@@ -520,4 +523,45 @@ export async function testFeatureUsageQueryValidity(
   } catch (e) {
     return e.message;
   }
+}
+
+type AssignmentQueryScope = {
+  project: string | undefined;
+  projects?: string[];
+};
+
+/**
+ * Validates `next` only when it differs from `previous` (always when `previous`
+ * is null), so a record whose query later drifted can still save unrelated
+ * edits. A missing data source or query id is left for analysis to surface.
+ */
+export async function assertValidAssignmentQuerySelectionChange(
+  context: ReqContext | ApiReqContext,
+  previous: AssignmentQuerySelection | null,
+  next: AssignmentQuerySelection,
+  getScope: () => AssignmentQueryScope | Promise<AssignmentQueryScope>,
+): Promise<void> {
+  if (!next.datasource || !next.exposureQueryId) return;
+  let datasource: Promise<DataSourceInterface | null> | undefined;
+  const loadDatasource = () =>
+    (datasource ??= getDataSourceById(context, next.datasource));
+  const loadExposureQueries = async () =>
+    (await loadDatasource())?.settings.queries?.exposure ?? [];
+  if (
+    previous &&
+    !(await hasAssignmentQuerySelectionChanged(
+      previous,
+      next,
+      loadExposureQueries,
+    ))
+  ) {
+    return;
+  }
+  if (!(await loadDatasource())) return;
+  assertValidAssignmentQuerySelection({
+    exposureQueries: await loadExposureQueries(),
+    exposureQueryId: next.exposureQueryId,
+    identifierType: next.identifierType,
+    ...(await getScope()),
+  });
 }

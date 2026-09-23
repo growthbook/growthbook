@@ -4,10 +4,7 @@ import {
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
-import {
-  assertValidAssignmentQuerySelection,
-  parseAssignmentQueryInput,
-} from "shared/util";
+import { parseAssignmentQueryInput } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
@@ -15,7 +12,7 @@ import {
   experimentTemplateApiSpec,
   bulkImportExperimentTemplatesEndpoint,
 } from "back-end/src/api/specs/experiment-template.spec";
-import { getDataSourceById } from "./DataSourceModel";
+import { assertValidAssignmentQuerySelectionChange } from "back-end/src/services/datasource";
 import { MakeModelClass } from "./BaseModel";
 
 const ID_PREFIX = "tmplt__";
@@ -149,31 +146,28 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.hasPremiumFeature("templates");
   }
 
-  // Runs for internal and REST writes. Only a changed selection is checked, so a
-  // template whose query later drifted can still save unrelated edits.
+  // Runs for internal and REST writes. A project change re-checks the
+  // selection, since it changes which queries the template may use.
   protected override async customValidation(
     doc: ExperimentTemplateInterface,
     previousDoc?: ExperimentTemplateInterface,
   ) {
-    if (
-      previousDoc &&
-      previousDoc.datasource === doc.datasource &&
-      previousDoc.exposureQueryId === doc.exposureQueryId &&
-      (previousDoc.exposureQueryIdentifierType || null) ===
-        (doc.exposureQueryIdentifierType || null) &&
-      (previousDoc.project || "") === (doc.project || "")
-    ) {
-      return;
-    }
-    if (!doc.datasource || !doc.exposureQueryId) return;
-    const datasource = await getDataSourceById(this.context, doc.datasource);
-    if (!datasource) return;
-    assertValidAssignmentQuerySelection({
-      exposureQueries: datasource.settings.queries?.exposure ?? [],
-      exposureQueryId: doc.exposureQueryId,
-      identifierType: doc.exposureQueryIdentifierType,
-      project: doc.project ?? "",
-    });
+    await assertValidAssignmentQuerySelectionChange(
+      this.context,
+      previousDoc && (previousDoc.project || "") === (doc.project || "")
+        ? {
+            datasource: previousDoc.datasource,
+            exposureQueryId: previousDoc.exposureQueryId,
+            identifierType: previousDoc.exposureQueryIdentifierType,
+          }
+        : null,
+      {
+        datasource: doc.datasource,
+        exposureQueryId: doc.exposureQueryId,
+        identifierType: doc.exposureQueryIdentifierType,
+      },
+      () => ({ project: doc.project ?? "" }),
+    );
   }
 
   protected override async processApiCreateBody(rawBody: unknown) {

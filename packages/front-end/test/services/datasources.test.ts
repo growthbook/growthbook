@@ -260,14 +260,6 @@ describe("getExposureQueriesForProject", () => {
       ),
     ).toEqual(["exq_all"]);
   });
-
-  it("keeps an out-of-scope query when it is the current selection", () => {
-    expect(
-      getExposureQueriesForProject([scoped, unscoped], "prj_b", "exq_a").map(
-        (q) => q.id,
-      ),
-    ).toEqual(["exq_a", "exq_all"]);
-  });
 });
 
 describe("getHashAttributeIdentifierTypeMap", () => {

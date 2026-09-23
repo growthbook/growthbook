@@ -7,6 +7,7 @@ import {
   resolveExposureQueryIdentifierType,
   assertValidAssignmentQuerySelection,
   isExposureQueryAvailableForProjects,
+  hasAssignmentQuerySelectionChanged,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -355,5 +356,46 @@ describe("isExposureQueryAvailableForProjects", () => {
     expect(
       isExposureQueryAvailableForProjects({ projects: ["prj_a"] }, []),
     ).toBe(false);
+  });
+});
+
+describe("hasAssignmentQuerySelectionChanged", () => {
+  const multi = query({
+    id: "eq_1",
+    userIdType: "anonymous_id",
+    userIdTypes: ["anonymous_id", "user_id"],
+  });
+  const legacy = { datasource: "ds_1", exposureQueryId: "eq_1" };
+
+  it("treats echoing a legacy record's resolved identifier as unchanged", async () => {
+    await expect(
+      hasAssignmentQuerySelectionChanged(
+        legacy,
+        { ...legacy, identifierType: "anonymous_id" },
+        async () => [multi],
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it("detects a real identifier change", async () => {
+    await expect(
+      hasAssignmentQuerySelectionChanged(
+        legacy,
+        { ...legacy, identifierType: "user_id" },
+        async () => [multi],
+      ),
+    ).resolves.toBe(true);
+  });
+
+  it("detects a query change without loading queries", async () => {
+    const load = jest.fn(async () => [multi]);
+    await expect(
+      hasAssignmentQuerySelectionChanged(
+        legacy,
+        { ...legacy, exposureQueryId: "eq_2" },
+        load,
+      ),
+    ).resolves.toBe(true);
+    expect(load).not.toHaveBeenCalled();
   });
 });

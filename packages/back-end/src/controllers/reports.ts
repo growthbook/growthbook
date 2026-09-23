@@ -1,10 +1,7 @@
 import { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import {
-  assertValidAssignmentQuerySelection,
-  getSnapshotAnalysis,
-} from "shared/util";
+import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
 import { experimentAnalysisSettings } from "shared/validators";
 import {
@@ -28,7 +25,6 @@ import {
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createReport,
   deleteReportById,
@@ -39,7 +35,10 @@ import {
   updateReport,
 } from "back-end/src/models/ReportModel";
 import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
-import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import {
+  assertValidAssignmentQuerySelectionChange,
+  getIntegrationFromDatasourceId,
+} from "back-end/src/services/datasource";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,
@@ -429,38 +428,31 @@ type ReportAssignmentQuerySelection = {
   exposureQueryIdentifierType?: string;
 };
 
-// Only a changed selection is checked, so a report whose query later drifted
-// can still save unrelated edits.
-async function assertValidReportAssignmentQuery(
+function assertValidReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,
   next: ReportAssignmentQuerySelection,
   experiment: ExperimentInterface | null,
 ) {
-  if (
-    previous.datasource === next.datasource &&
-    previous.exposureQueryId === next.exposureQueryId &&
-    (previous.exposureQueryIdentifierType || null) ===
-      (next.exposureQueryIdentifierType || null)
-  ) {
-    return;
-  }
-  if (!next.datasource || !next.exposureQueryId) return;
-  const datasource = await getDataSourceById(context, next.datasource);
-  if (!datasource) return;
-  assertValidAssignmentQuerySelection({
-    exposureQueries: datasource.settings.queries?.exposure ?? [],
-    exposureQueryId: next.exposureQueryId,
-    identifierType: next.exposureQueryIdentifierType,
-    ...(experiment?.type === "holdout"
-      ? {
-          project: undefined,
-          projects:
-            (await context.models.holdout.getByExperimentId(experiment.id))
-              ?.projects ?? [],
-        }
-      : { project: experiment?.project ?? "" }),
+  const toSelection = (s: ReportAssignmentQuerySelection) => ({
+    datasource: s.datasource,
+    exposureQueryId: s.exposureQueryId,
+    identifierType: s.exposureQueryIdentifierType,
   });
+  return assertValidAssignmentQuerySelectionChange(
+    context,
+    toSelection(previous),
+    toSelection(next),
+    async () =>
+      experiment?.type === "holdout"
+        ? {
+            project: undefined,
+            projects:
+              (await context.models.holdout.getByExperimentId(experiment.id))
+                ?.projects ?? [],
+          }
+        : { project: experiment?.project ?? "" },
+  );
 }
 
 export async function putReport(
