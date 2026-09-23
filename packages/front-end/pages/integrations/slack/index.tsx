@@ -671,7 +671,7 @@ const SlackWorkspacePage: NextPage = () => {
                     setConnectError(
                       error instanceof Error
                         ? error.message
-                        : "Could not update Slack settings",
+                        : "Could not update Slack settings.",
                     );
                   } finally {
                     setUpdatingAssistantTeamId(null);
