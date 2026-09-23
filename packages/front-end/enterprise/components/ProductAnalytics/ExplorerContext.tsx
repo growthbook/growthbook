@@ -8,7 +8,7 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import { ColumnInterface, FullFactTableColumns } from "shared/types/fact-table";
 import {
   ExplorationConfig,
   ProductAnalyticsValue,
@@ -35,13 +35,11 @@ import { isFactFunnelMetric } from "shared/experiments";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   cleanConfigForSubmission,
-  clearInapplicableShowAs,
   compareConfig,
   explorationPollDelayMs,
   createEmptyDataset,
   createEmptyValue,
   ExplorerDraftConfig,
-  fillMissingUnits,
   generateUniqueValueName,
   getAvailableDimensionColumns,
   getInitialInlineFilters,
@@ -52,12 +50,11 @@ import {
   isSubmittableConfig,
   journeyDiffersOnlyByPath,
   canInteractWithJourney,
-  normalizeTimelessSqlConfig,
   resetValueAxisLabelOnDatasetChange,
   applyTimestampColumn,
   stripExplorerDraftFields,
   toFetchKey,
-  validateDimensions,
+  normalizeExplorerDraft,
   withDefaultSqlRawTable,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -86,7 +83,7 @@ export interface ExplorerContextValue {
   error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
   /** Full (jsonFields-complete) fact table lookup for the columns/values pickers. */
-  getFullFactTableById: (id: string) => Omit<FactTableInterface, "sql"> | null;
+  getFullFactTableById: (id: string) => FullFactTableColumns | null;
   isStale: boolean;
   needsFetch: boolean;
   needsUpdate: boolean;
@@ -214,27 +211,22 @@ export function ExplorerProvider({
     error: string | null;
     query: QueryInterface | null;
   }>(() => {
-    const withUnits = fillMissingUnits(
-      initialConfig,
+    // The full-fact-table resolver doesn't exist yet at mount (it's derived
+    // from this very state, below) — treat every dataset as "not ready" so
+    // dimensions are left untouched rather than dropped before the data that
+    // would validate them has loaded. The follow-on effect re-runs this once
+    // the resolver is available.
+    const initHelpers = {
       getFactTableById,
       getFactMetricById,
-    );
+      getFullFactTableById: () => null,
+      fullFactTablesLoadedFor: () => false,
+    };
     const normalizedInitial = withDefaultSqlRawTable(
-      normalizeTimelessSqlConfig(
-        clearInapplicableShowAs(withUnits, getFactMetricById),
-      ),
+      normalizeExplorerDraft(initialConfig, initHelpers),
     );
     const normalizedSubmitted = initialSubmittedConfig
-      ? normalizeTimelessSqlConfig(
-          clearInapplicableShowAs(
-            fillMissingUnits(
-              initialSubmittedConfig,
-              getFactTableById,
-              getFactMetricById,
-            ),
-            getFactMetricById,
-          ),
-        )
+      ? normalizeExplorerDraft(initialSubmittedConfig, initHelpers)
       : normalizedInitial;
     return {
       draftState: normalizedInitial,
@@ -315,29 +307,12 @@ export function ExplorerProvider({
             ? newStateOrUpdater(currentDraft)
             : newStateOrUpdater;
 
-        // Backfill missing units from the fact table's primary userIdType
-        // so configs loaded from URLs, saved explorations, or AI-generated
-        // payloads always have a unit set when one is applicable.
-        const unitFilledState = fillMissingUnits(
-          newState,
+        const validatedState = normalizeExplorerDraft(newState, {
           getFactTableById,
           getFactMetricById,
-        );
-        // Strip `showAs` when the current dataset doesn't support it, so the
-        // stored value never disagrees with what the chart actually renders.
-        const showAsNormalized = normalizeTimelessSqlConfig(
-          clearInapplicableShowAs(unitFilledState, getFactMetricById),
-        );
-        const columnTablesReady = fullFactTablesLoadedFor(
-          getRelevantFactTableIds(showAsNormalized.dataset, getFactMetricById),
-        );
-        const validatedState = columnTablesReady
-          ? validateDimensions(
-              showAsNormalized,
-              getFullFactTableById,
-              getFactMetricById,
-            )
-          : showAsNormalized;
+          getFullFactTableById,
+          fullFactTablesLoadedFor,
+        });
 
         return {
           ...prev,
@@ -359,29 +334,17 @@ export function ExplorerProvider({
   // Re-normalize the draft state whenever the definitions resolver functions
   // change identity — this handles the case where an initialConfig loaded from
   // a URL, saved exploration, or dashboard block needed metric/fact-table
-  // lookups that weren't resolved yet at first render. fillMissingUnits,
-  // clearInapplicableShowAs, and validateDimensions all return the same
-  // reference when nothing changes, so the setExplorerState is a no-op in the
-  // steady state.
+  // lookups that weren't resolved yet at first render. normalizeExplorerDraft
+  // returns the same reference when nothing changes, so the setExplorerState
+  // is a no-op in the steady state.
   useEffect(() => {
     setExplorerState((prev) => {
-      const filled = fillMissingUnits(
-        prev.draftState,
+      const validated = normalizeExplorerDraft(prev.draftState, {
         getFactTableById,
         getFactMetricById,
-      );
-      const normalized = normalizeTimelessSqlConfig(
-        clearInapplicableShowAs(filled, getFactMetricById),
-      );
-      const validated = fullFactTablesLoadedFor(
-        getRelevantFactTableIds(normalized.dataset, getFactMetricById),
-      )
-        ? validateDimensions(
-            normalized,
-            getFullFactTableById,
-            getFactMetricById,
-          )
-        : normalized;
+        getFullFactTableById,
+        fullFactTablesLoadedFor,
+      });
       if (validated === prev.draftState) return prev;
       return { ...prev, draftState: validated };
     });

@@ -22,6 +22,7 @@ import {
   FactFilterTestResults,
   ColumnInterface,
   FactTableColumnType,
+  FullFactTableColumns,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
@@ -103,9 +104,11 @@ export const getFactTables = async (
 
 // Full column metadata (including jsonFields) for a specific id set.
 // The org-wide list endpoint strips jsonFields to keep that payload light.
+// Slimmed to id/columns/userIdTypes (no `sql`) — callers only need this to
+// resolve dimension/column availability, not to run queries.
 export const getFullFactTables = async (
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
-  res: Response<{ status: 200; factTables: FactTableInterface[] }>,
+  res: Response<{ status: 200; factTables: FullFactTableColumns[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -114,7 +117,11 @@ export const getFullFactTables = async (
 
   res.status(200).json({
     status: 200,
-    factTables,
+    factTables: factTables.map((ft) => ({
+      id: ft.id,
+      columns: ft.columns,
+      userIdTypes: ft.userIdTypes,
+    })),
   });
 };
 

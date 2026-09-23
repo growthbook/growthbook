@@ -39,6 +39,7 @@ import {
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
+  dateGranularity,
 } from "../../validators/product-analytics";
 import {
   getRowFilterSQL,
@@ -51,6 +52,7 @@ import {
 import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
+import { factTableHasResolvableColumn } from "./columns";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
@@ -157,7 +159,7 @@ interface CTE {
   name: string;
   sql: string;
 }
-interface DateRange {
+export interface DateRange {
   startDate: Date;
   endDate: Date;
 }
@@ -518,6 +520,17 @@ export function getDateGranularity(
   return "month";
 }
 
+/** Date granularities valid for a resolved date range (for filtering dropdown
+ * options and for `sanitizeDimensions`). A granularity is valid if
+ * `getDateGranularity` returns it unchanged (or, for "auto", always valid). */
+export function getValidDateGranularities(
+  dateRange: DateRange,
+): (typeof dateGranularity)[number][] {
+  return dateGranularity.filter(
+    (g) => g === "auto" || getDateGranularity(g, dateRange) === g,
+  );
+}
+
 // Generate row filter SQL
 export function generateRowFilterSQL(
   rowFilters: RowFilter[],
@@ -560,25 +573,6 @@ export function generatePushdownFilterSQL(
       generateRowFilterSQL(filters, factTable, helpers),
     ),
   );
-}
-
-// True if `column` resolves to a real underlying column on `factTable` —
-// either a top-level column, or (for a dotted path) a JSON field defined on
-// a JSON-typed top-level column. A ratio metric's denominator can live on a
-// different fact table than its numerator, and that table may not expose
-// the dimension's column at all; callers use this to skip applying a static
-// dimension's filter to a group whose table can't actually resolve it,
-// rather than injecting a WHERE clause that references a nonexistent
-// column and fails at the warehouse.
-export function factTableHasResolvableColumn(
-  factTable: Pick<FactTableInterface, "columns">,
-  column: string,
-): boolean {
-  const [baseColumn, ...rest] = column.split(".");
-  const col = factTable.columns.find((c) => c.column === baseColumn);
-  if (!col) return false;
-  if (rest.length === 0) return true;
-  return col.datatype === "json" && !!col.jsonFields?.[rest.join(".")];
 }
 
 // Dimension values are compared against string literals — the 'other' fallback
@@ -1893,6 +1887,37 @@ export function transformFunnelRowsToResult(
 
 /* -------------------------------------------------------------------------- */
 
+// The literal SQL to substitute for a dimension whose column can't resolve on
+// `factTable` (typically a ratio metric's denominator table not exposing the
+// numerator's dimension column): "NULL" for a pinned (static) dimension,
+// since the row is excluded from this group entirely by
+// `getStaticDimensionFilters`; "'other'" for a dynamic (top-N) dimension, so
+// the group's rows still roll up into the breakdown; `null` when the column
+// resolves normally and the caller should generate the real expression.
+function unresolvableDimensionFallback(
+  dimension: ProductAnalyticsDimension,
+  factTable: Pick<FactTableInterface, "columns">,
+): "NULL" | "'other'" | null {
+  switch (dimension.dimensionType) {
+    case "static":
+      return factTableHasResolvableColumn(factTable, dimension.column)
+        ? null
+        : "NULL";
+    case "dynamic":
+      return dimension.column !== null &&
+        !factTableHasResolvableColumn(factTable, dimension.column)
+        ? "'other'"
+        : null;
+    case "date":
+    case "slice":
+      return null;
+    default: {
+      const _exhaustive: never = dimension;
+      return _exhaustive;
+    }
+  }
+}
+
 export function generateProductAnalyticsSQL(
   config: ExplorationConfig,
   factTableMap: FactTableMap,
@@ -1980,17 +2005,12 @@ export function generateProductAnalyticsSQL(
     // this group's rows rather than dropping them or emitting an
     // unresolvable column reference.
     const groupDimensions: DimensionData[] = config.dimensions.map((d, di) => {
-      const unresolvable =
-        (d.dimensionType === "static" &&
-          !factTableHasResolvableColumn(factTableGroup.factTable, d.column)) ||
-        (d.dimensionType === "dynamic" &&
-          d.column !== null &&
-          !factTableHasResolvableColumn(factTableGroup.factTable, d.column));
-      if (unresolvable) {
-        return {
-          alias: `dimension${di}`,
-          valueExpr: d.dimensionType === "static" ? "NULL" : "'other'",
-        };
+      const fallback = unresolvableDimensionFallback(
+        d,
+        factTableGroup.factTable,
+      );
+      if (fallback !== null) {
+        return { alias: `dimension${di}`, valueExpr: fallback };
       }
       return {
         alias: `dimension${di}`,
