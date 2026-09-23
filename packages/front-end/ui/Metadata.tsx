@@ -12,10 +12,7 @@ type Props = {
   stacked?: boolean;
   /** A stacked row's own control, such as its edit button. */
   action?: React.ReactNode;
-  /**
-   * `label`: at the far end of the label's row, for a value that fills the
-   * width anyway. `value`: straight after the value, for a short one.
-   */
+  /** Straight after the label, or straight after the value. */
   actionPlacement?: "label" | "value";
 };
 
@@ -53,7 +50,7 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
         ref={ref}
       >
         {action && actionPlacement === "label" ? (
-          <Flex align="center" justify="between" gap="2" width="100%">
+          <Flex align="center" gap="1">
             <Text weight="regular" color="text-mid" size={size}>
               {label}
             </Text>
