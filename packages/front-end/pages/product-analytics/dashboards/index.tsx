@@ -157,10 +157,11 @@ export default function DashboardsPage() {
   // project. Either way, setting a project's default requires permission on
   // that project specifically, not on the dashboard.
   const getEligibleProjectsForDefault = (d: DashboardInterface) => {
-    const candidates = d.projects?.length
-      ? projects.filter((p) => d.projects?.includes(p.id))
-      : projects;
-    return candidates.filter((p) => permissionsUtil.canUpdateProject(p.id));
+    return projects.filter(
+      (p) =>
+        isProjectListValidForProject(d.projects, p.id) &&
+        permissionsUtil.canUpdateProject(p.id),
+    );
   };
 
   const setDefaultDashboard = async (
