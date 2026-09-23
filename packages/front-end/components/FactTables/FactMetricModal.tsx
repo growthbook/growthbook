@@ -24,7 +24,6 @@ import {
   FactTableColumnType,
   RowFilter,
   StandardFactMetricInterface,
-  FactMetricType,
 } from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
@@ -33,6 +32,7 @@ import {
   getSelectedColumnDatatype,
   reconcileInlineFilterPrompts,
 } from "shared/experiments";
+import { isCappableFactMetric } from "shared/validators";
 import { createLikeStringMatchFn } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
@@ -93,21 +93,6 @@ export interface Props {
   switchToLegacy?: () => void;
   source: string;
   datasource?: string;
-}
-
-function isCappableFactMetric(metricType: FactMetricType) {
-  switch (metricType) {
-    case "mean":
-      return true;
-    case "ratio":
-      return true;
-    case "proportion":
-    case "retention":
-    case "funnel":
-    case "dailyParticipation":
-    case "quantile":
-      return false;
-  }
 }
 
 function QuantileSelector({
@@ -1696,6 +1681,7 @@ function StandardFactMetricModal({
       close={close}
       submit={form.handleSubmit(
         async (values) => {
+          // Normalize capping values
           if (!isCappableFactMetric(values.metricType)) {
             values.cappingSettings = {
               type: "",
@@ -1704,6 +1690,17 @@ function StandardFactMetricModal({
             };
             values.lowerCappingSettings = null;
           }
+          if (values.metricType === "ratio") {
+            if (values.cappingSettings.type === "absolute")
+              values.cappingSettings = {
+                type: "",
+                value: 0,
+                ignoreZeros: false,
+              };
+            if (values.lowerCappingSettings?.type === "absolute")
+              values.lowerCappingSettings = null;
+          }
+
           if (values.metricType === "funnel") {
             const fs = funnelSettings;
             if (!fs || fs.steps.length < 2) {
@@ -2607,7 +2604,7 @@ function StandardFactMetricModal({
                         {type !== "retention" ? (
                           <MetricDelaySettings form={form} />
                         ) : null}
-                        {isCappableFactMetric(form.watch("metricType")) ? (
+                        {isCappableFactMetric(type) ? (
                           <MetricCappingSettingsForm
                             form={form}
                             datasourceType={selectedDataSource.type}

@@ -12,6 +12,7 @@ import type { SqlDialect } from "shared/types/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
+import { getFactMetricPercentileData } from "back-end/src/integrations/sql/columns/fact-metric-percentile-data";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
@@ -102,51 +103,9 @@ export function parseExperimentFactMetricsParams(
     );
   });
 
-  // Build the flat per-metric pivots once, from the global metricData. Each
-  // entry carries its `sourceIndex` (already set in metric-data.ts), so
-  // consumers can partition per source by filtering on that field.
-  const percentileData: FactMetricPercentileData[] = [];
-  metricData.forEach((m) => {
-    // Upper-tail percentile cap uses the metric's own (upper) cappingSettings.
-    if (m.isUpperPercentileCapped) {
-      percentileData.push({
-        valueCol: `${m.alias}_value`,
-        outputCol: `${m.alias}_value_cap`,
-        percentile: m.metric.cappingSettings.value ?? 1,
-        ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-        sourceIndex: m.numeratorSourceIndex,
-      });
-      if (m.ratioMetric) {
-        percentileData.push({
-          valueCol: `${m.alias}_denominator`,
-          outputCol: `${m.alias}_denominator_cap`,
-          percentile: m.metric.cappingSettings.value ?? 1,
-          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-          sourceIndex: m.denominatorSourceIndex,
-        });
-      }
-    }
-    // Lower-tail percentile cap uses the independent lowerCappingSettings.
-    if (m.isLowerPercentileCapped) {
-      const lower = m.metric.lowerCappingSettings;
-      percentileData.push({
-        valueCol: `${m.alias}_value`,
-        outputCol: `${m.alias}_value_cap_lower`,
-        percentile: lower?.value ?? 0,
-        ignoreZeros: lower?.ignoreZeros ?? false,
-        sourceIndex: m.numeratorSourceIndex,
-      });
-      if (m.ratioMetric) {
-        percentileData.push({
-          valueCol: `${m.alias}_denominator`,
-          outputCol: `${m.alias}_denominator_cap_lower`,
-          percentile: lower?.value ?? 0,
-          ignoreZeros: lower?.ignoreZeros ?? false,
-          sourceIndex: m.denominatorSourceIndex,
-        });
-      }
-    }
-  });
+  const percentileData = metricData.flatMap((m) =>
+    getFactMetricPercentileData(m),
+  );
 
   const eventQuantileData = getFactMetricQuantileData(metricData, "event");
 

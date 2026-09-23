@@ -1,10 +1,10 @@
-import type { DataType } from "shared/types/integrations";
+import type {
+  DataType,
+  FactMetricPercentileData,
+} from "shared/types/integrations";
 import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
-import {
-  defaultPercentileCapSelectClause,
-  PercentileCapSelectClauseValue,
-} from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
@@ -43,7 +43,7 @@ const PERCENTILE_CAP_RESHAPE_THRESHOLD = 10;
  * it at every requested percentile's offset.
  */
 function bigQueryPercentileCapSelectClause(
-  values: PercentileCapSelectClauseValue[],
+  values: FactMetricPercentileData[],
   metricTable: string,
   where: string = "",
 ): string {

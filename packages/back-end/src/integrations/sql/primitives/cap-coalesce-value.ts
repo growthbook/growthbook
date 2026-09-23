@@ -14,7 +14,6 @@ export function capCoalesceValue(
     valueCol,
     metric,
     capTablePrefix = "c",
-    lowerCapTablePrefix,
     capValueCol = "value_cap",
     lowerCapValueCol = "value_cap_lower",
     columnRef,
@@ -22,8 +21,6 @@ export function capCoalesceValue(
     valueCol: string;
     metric: ExperimentMetricInterface;
     capTablePrefix?: string;
-    /** When lower-tail uses a separate cap subquery/join alias (e.g. `cap_lower`). */
-    lowerCapTablePrefix?: string;
     capValueCol?: string;
     lowerCapValueCol?: string;
     columnRef?: ColumnRef | null;
@@ -45,7 +42,6 @@ export function capCoalesceValue(
   // which is true for now
   if (hasUpperAbs || hasUpperPct || hasLowerAbs || hasLowerPct) {
     let expression = dialect.castToFloat(`COALESCE(${valueCol}, 0)`);
-    const lowerPrefix = lowerCapTablePrefix ?? capTablePrefix;
     // Absolute caps are applied OUTERMOST (percentile inner, absolute outer).
     // When one tail is absolute and the other percentile and their thresholds
     // cross (only possible for mixed types; same-type pairs are validated at
@@ -55,7 +51,7 @@ export function capCoalesceValue(
       expression = `LEAST(${expression}, ${capTablePrefix}.${capValueCol})`;
     }
     if (hasLowerPct) {
-      expression = `GREATEST(${expression}, ${lowerPrefix}.${lowerCapValueCol})`;
+      expression = `GREATEST(${expression}, ${capTablePrefix}.${lowerCapValueCol})`;
     }
     if (hasUpperAbs) {
       expression = `LEAST(${expression}, ${upperThreshold})`;

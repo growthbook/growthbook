@@ -162,9 +162,9 @@ export function getNonQuantileNonFunnelFloatColumns({
       case "proportion":
       case "retention":
       case "quantile":
+      case "dailyParticipation":
         return [];
       case "mean":
-      case "dailyParticipation":
         return [
           ...BASE_METRIC_FLOAT_COLS_UNCAPPED,
           ...(regressionAdjusted ? BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),

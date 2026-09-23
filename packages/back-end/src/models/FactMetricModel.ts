@@ -334,6 +334,16 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       newDoc.denominator = FactMetricModel.migrateColumnRef(newDoc.denominator);
     }
 
+    // Ratio metrics support only percentile capping.
+    if (newDoc.metricType === "ratio") {
+      if (newDoc.cappingSettings?.type === "absolute") {
+        newDoc.cappingSettings = { type: "", value: 0 };
+      }
+      if (newDoc.lowerCappingSettings?.type === "absolute") {
+        newDoc.lowerCappingSettings = null;
+      }
+    }
+
     return newDoc as FactMetricInterface;
   }
 

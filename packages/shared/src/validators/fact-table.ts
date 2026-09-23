@@ -2,6 +2,7 @@ import { z } from "zod";
 import isEqual from "lodash/isEqual";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -358,6 +359,20 @@ function normalizeCappingTypeForTails(
   return type;
 }
 
+function isValidTailValue(
+  value: number | null | undefined,
+  type: "" | "absolute" | "percentile",
+  isLower: boolean,
+): boolean {
+  if (type === "") return false;
+  if (value === undefined || value === null || !Number.isFinite(value))
+    return false;
+  if (type === "percentile") {
+    return value > 0 && value < 1;
+  }
+  return isLower || value > 0;
+}
+
 /**
  * Upper tail activation for a capping settings object.
  * Percentile: `value` ∈ (0,1). Absolute: `value` > 0.
@@ -370,17 +385,9 @@ function getUpperTailFlags(cs: CappingSettingsTailInput | null | undefined): {
   const value = cs?.value;
   return {
     upperPercentileCapped:
-      type === "percentile" &&
-      value !== undefined &&
-      value !== null &&
-      value > 0 &&
-      value < 1,
+      type === "percentile" && isValidTailValue(value, type, false),
     upperAbsoluteCapped:
-      type === "absolute" &&
-      value !== undefined &&
-      value !== null &&
-      value > 0 &&
-      Number.isFinite(value),
+      type === "absolute" && isValidTailValue(value, type, false),
   };
 }
 
@@ -396,16 +403,9 @@ function getLowerTailFlags(cs: CappingSettingsTailInput | null | undefined): {
   const value = cs?.value;
   return {
     lowerPercentileCapped:
-      type === "percentile" &&
-      value !== undefined &&
-      value !== null &&
-      value > 0 &&
-      value < 1,
+      type === "percentile" && isValidTailValue(value, type, true),
     lowerAbsoluteCapped:
-      type === "absolute" &&
-      value !== undefined &&
-      value !== null &&
-      Number.isFinite(value),
+      type === "absolute" && isValidTailValue(value, type, true),
   };
 }
 
@@ -526,13 +526,7 @@ export function validateCappingSettingsValueEntered(
     : "cappingSettings.value";
 
   if (type === "percentile") {
-    if (
-      value === undefined ||
-      value === null ||
-      !Number.isFinite(value) ||
-      value <= 0 ||
-      value >= 1
-    ) {
+    if (!isValidTailValue(value, type, isLower)) {
       throw new Error(
         `${tailLabel} must be greater than 0 and less than 1. Disable the cap explicitly to remove it.`,
       );
@@ -580,14 +574,6 @@ type CappingPair = Pick<
   z.infer<typeof factMetricValidator>,
   "cappingSettings" | "lowerCappingSettings"
 >;
-
-type CappingMetric = Partial<
-  Pick<
-    z.infer<typeof factMetricValidator>,
-    "metricType" | "numerator" | "denominator"
-  >
-> &
-  Partial<CappingPair>;
 
 function sameCappingTail(
   a: CappingSettingsTailInput | null | undefined,
@@ -646,8 +632,22 @@ export function resolveCappingSettingsPatch(
 }
 
 export function validateFactMetricCapping(
-  metric: CappingMetric,
-  previous: CappingMetric | null = null,
+  metric: Pick<
+    FactMetricInterface,
+    | "metricType"
+    | "cappingSettings"
+    | "lowerCappingSettings"
+    | "numerator"
+    | "denominator"
+  >,
+  previous: Pick<
+    FactMetricInterface,
+    | "metricType"
+    | "cappingSettings"
+    | "lowerCappingSettings"
+    | "numerator"
+    | "denominator"
+  > | null = null,
 ): void {
   const changed =
     !previous ||
@@ -669,11 +669,7 @@ export function validateFactMetricCapping(
     const enabled =
       !!normalizeCappingTypeForTails(metric.cappingSettings?.type) ||
       !!normalizeCappingTypeForTails(metric.lowerCappingSettings?.type);
-    if (
-      enabled &&
-      metric.metricType !== "mean" &&
-      metric.metricType !== "ratio"
-    ) {
+    if (enabled && !isCappableFactMetric(metric.metricType)) {
       throw new Error(
         `Capping is not supported for ${metric.metricType} metrics. Disable both tails explicitly.`,
       );
@@ -805,6 +801,24 @@ export const metricTypeValidator = z.enum([
   "dailyParticipation",
   "funnel",
 ]);
+
+export function isCappableFactMetric(
+  metricType: z.infer<typeof metricTypeValidator>,
+): boolean {
+  switch (metricType) {
+    case "mean":
+    case "ratio":
+      return true;
+    case "proportion":
+    case "retention":
+    case "funnel":
+    case "dailyParticipation":
+    case "quantile":
+      return false;
+    default:
+      return metricType satisfies never;
+  }
+}
 
 const factMetricObjectValidator = z
   .object({

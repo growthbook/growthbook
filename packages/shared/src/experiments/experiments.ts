@@ -63,7 +63,10 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import { stringToBoolean } from "../util";
-import { getCappingTailState } from "../validators/fact-table";
+import {
+  getCappingTailState,
+  isCappableFactMetric,
+} from "../validators/fact-table";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -1239,6 +1242,9 @@ export function getMetricTemplateVariables(
 }
 
 export function isCappableMetricType(m: ExperimentMetricDefinition) {
+  if (isFactMetric(m)) {
+    return isCappableFactMetric(m.metricType);
+  }
   return !quantileMetricType(m) && !isBinomialMetric(m);
 }
 
