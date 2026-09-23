@@ -83,12 +83,6 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
     );
   },
 
-  arrayConcatAgg: () => {
-    throw new Error(
-      "Merging arrays across rows is not supported by this data source.",
-    );
-  },
-
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
 
   ifElse: (condition: string, ifTrue: string, ifFalse: string) =>

@@ -1,12 +1,14 @@
 import { getValidDate } from "shared/dates";
 import {
   getExperimentOutdatedReasonLabel,
+  isFactFunnelMetric,
   isFactMetric,
   isExperimentOutdatedReasonField,
   quantileMetricType,
   ExperimentMetricDefinition,
 } from "shared/experiments";
 import type {
+  DataSourceProperties,
   DataSourceType,
   DataSourcePipelineMode,
   DataSourcePipelineSettings,
@@ -127,6 +129,59 @@ export function isExperimentIncrementalEnabled(
   );
 }
 
+type IncrementalMetricDatasourceProperties = Pick<
+  DataSourceProperties,
+  "hasQuantileSketch" | "hasArrayConcatAgg"
+>;
+
+// Ordered by priority: an experiment reports the first rule any of its metrics
+// breaks, whatever the metric order.
+const INCREMENTAL_METRIC_RULES: {
+  isUnsupported: (
+    metric: ExperimentMetricDefinition,
+    datasourceProperties: IncrementalMetricDatasourceProperties | undefined,
+  ) => boolean;
+  reason: string;
+}[] = [
+  {
+    isUnsupported: (metric) => !isFactMetric(metric),
+    reason:
+      "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.",
+  },
+  {
+    // Unit quantiles store a float and re-aggregate via SUM, so they work on
+    // any incremental-capable warehouse. Only event quantiles need a quantile
+    // sketch (the quantile must be computed over raw event values, which
+    // requires a mergeable sketch for incremental aggregation).
+    isUnsupported: (metric, datasourceProperties) =>
+      quantileMetricType(metric) === "event" &&
+      !datasourceProperties?.hasQuantileSketch,
+    reason:
+      "Event quantile metrics are not supported with Incremental Pipeline mode on this data source.",
+  },
+  {
+    isUnsupported: (metric, datasourceProperties) =>
+      isFactFunnelMetric(metric) && !datasourceProperties?.hasArrayConcatAgg,
+    reason:
+      "Funnel metrics are not supported with Incremental Pipeline mode on this Data Source.",
+  },
+];
+
+/**
+ * Why this metric can't run in Incremental Pipeline mode on a data source with
+ * these properties, or null when it can.
+ */
+export function getIncrementalUnsupportedMetricReason(
+  metric: ExperimentMetricDefinition,
+  datasourceProperties: IncrementalMetricDatasourceProperties | undefined,
+): string | null {
+  return (
+    INCREMENTAL_METRIC_RULES.find((rule) =>
+      rule.isUnsupported(metric, datasourceProperties),
+    )?.reason ?? null
+  );
+}
+
 /**
  * The highest-priority reason this experiment can't run in Incremental Pipeline
  * mode, or null when it can. Combines coverage (delegated to
@@ -136,10 +191,10 @@ export function isExperimentIncrementalEnabled(
  */
 export function getIncrementalPipelineUnsupportedReason(params: {
   datasourceProperties:
-    | {
-        hasIncrementalRefresh?: boolean;
-        hasQuantileSketch?: boolean;
-      }
+    | Pick<
+        DataSourceProperties,
+        "hasIncrementalRefresh" | "hasQuantileSketch" | "hasArrayConcatAgg"
+      >
     | undefined;
   pipelineSettings: DataSourcePipelineSettings | undefined;
   experimentId: string;
@@ -174,26 +229,13 @@ export function getIncrementalPipelineUnsupportedReason(params: {
     return "Experiment must have at least 1 metric.";
   }
 
-  if (params.metrics.some((m) => !isFactMetric(m))) {
-    return "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.";
-  }
-
-  // Unit quantiles store a float and re-aggregate via SUM, so they work on
-  // any incremental-capable warehouse. Only event quantiles need a quantile
-  // sketch (the quantile must be computed over raw event values, which
-  // requires a mergeable sketch for incremental aggregation).
-  if (
-    params.metrics.some(
-      (metric) =>
-        isFactMetric(metric) &&
-        quantileMetricType(metric) === "event" &&
-        !params.datasourceProperties?.hasQuantileSketch,
-    )
-  ) {
-    return "Event quantile metrics are not supported with Incremental Pipeline mode on this data source.";
-  }
-
-  return null;
+  const metricReasons = params.metrics.map((metric) =>
+    getIncrementalUnsupportedMetricReason(metric, params.datasourceProperties),
+  );
+  return (
+    INCREMENTAL_METRIC_RULES.find((rule) => metricReasons.includes(rule.reason))
+      ?.reason ?? null
+  );
 }
 
 export type PipelineValidationResult = {

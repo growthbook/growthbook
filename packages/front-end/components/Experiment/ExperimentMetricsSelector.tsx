@@ -3,11 +3,10 @@ import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
 import {
   expandMetricGroups,
-  quantileMetricType,
-  isFactMetric,
   isFactFunnelMetric,
   getUserIdTypes,
 } from "shared/experiments";
+import { getIncrementalUnsupportedMetricReason } from "shared/enterprise";
 import {
   FactMetricType,
   FactTableDefinitionMap,
@@ -88,15 +87,15 @@ export default function ExperimentMetricsSelector({
           experimentId,
           experimentType,
         );
+      const ids = isGroup
+        ? expandMetricGroups(
+            metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
+            metricGroups,
+          )
+        : [metricId];
 
       // Query generation rejects funnel metrics for bandits.
       if (experimentType === "multi-armed-bandit") {
-        const ids = isGroup
-          ? expandMetricGroups(
-              metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
-              metricGroups,
-            )
-          : [metricId];
         const hasFunnelMetric = ids.some((id) => {
           const metric = getExperimentMetricById(id);
           return metric && isFactFunnelMetric(metric);
@@ -113,68 +112,16 @@ export default function ExperimentMetricsSelector({
         return { disabled: false };
       }
 
-      if (isGroup) {
-        const metricGroup = metricGroups.find((mg) => mg.id === metricId);
-        if (!metricGroup) {
-          return { disabled: false };
-        }
-        const expandedIds = expandMetricGroups(
-          metricGroup.metrics,
-          metricGroups,
-        );
-
-        // Event quantile metrics require KLL support for incremental refresh.
-        const hasUnsupportedEventQuantileMetrics = expandedIds.some((id) => {
-          const metric = getExperimentMetricById(id);
-          return (
-            metric &&
-            quantileMetricType(metric) === "event" &&
-            !datasourceObj?.properties?.hasQuantileSketch
-          );
-        });
-
-        if (hasUnsupportedEventQuantileMetrics) {
-          return {
-            disabled: true,
-            reason:
-              "Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.",
-          };
-        }
-
-        // Check if metric group contains legacy metrics
-        const hasLegacyMetrics = expandedIds.some((id) => {
-          const metric = getExperimentMetricById(id);
-          return metric && !isFactMetric(metric);
-        });
-
-        if (hasLegacyMetrics) {
-          return {
-            disabled: true,
-            reason: "Only fact metrics are supported with Incremental Refresh",
-          };
-        }
-      } else {
-        const metric = getExperimentMetricById(metricId);
-
-        // Event quantile metrics require KLL support for incremental refresh.
-        if (
-          metric &&
-          quantileMetricType(metric) === "event" &&
-          !datasourceObj?.properties?.hasQuantileSketch
-        ) {
-          return {
-            disabled: true,
-            reason:
-              "Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.",
-          };
-        }
-
-        // Check if metric is a legacy metric (non-fact metric)
-        if (metric && !isFactMetric(metric)) {
-          return {
-            disabled: true,
-            reason: "Only fact metrics are supported with Incremental Refresh",
-          };
+      for (const id of ids) {
+        const metric = getExperimentMetricById(id);
+        const reason = metric
+          ? getIncrementalUnsupportedMetricReason(
+              metric,
+              datasourceObj?.properties,
+            )
+          : null;
+        if (reason) {
+          return { disabled: true, reason };
         }
       }
 
