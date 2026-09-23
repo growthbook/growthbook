@@ -244,8 +244,10 @@ type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
 
-// Where a request's override flags (ignoreWarnings, skipSchemaValidation,
-// skipHooks) are read from.
+/**
+ * Where a request's override flags (ignoreWarnings, skipSchemaValidation,
+ * skipHooks) are read from.
+ */
 type OverrideSource = { body?: unknown; query?: Record<string, unknown> };
 
 export class ReqContextClass {
@@ -335,10 +337,12 @@ export class ReqContextClass {
   // gates, so they must run with guards active — hence a separate flag.
   public bulkPublishApplying?: boolean;
 
-  // The request whose ignoreWarnings/skip* flags apply, when it isn't `req`.
-  // Set by the agent while it replays a confirmed call: the flags belong to
-  // that call, not to the chat request (web) or to its absence (Slack, which
-  // would otherwise read as a background job that ignores every warning).
+  /**
+   * The request whose ignoreWarnings/skip* flags apply, when it isn't `req`.
+   * Set by the agent while it replays a confirmed call: the flags belong to
+   * that call, not to the chat request (web) or to its absence (Slack, which
+   * would otherwise read as a background job that ignores every warning).
+   */
   public dispatchedRequest: OverrideSource | null = null;
 
   // Models

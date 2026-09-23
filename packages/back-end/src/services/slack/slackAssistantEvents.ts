@@ -18,6 +18,8 @@ const assistantEventSchema = z.object({
   authorizations: z
     .array(z.object({ user_id: z.string().optional() }))
     .optional(),
+  // Channel messages must arrive as app_mention; DMs never produce that event,
+  // even when the user explicitly mentions the bot.
   event: z.discriminatedUnion("type", [
     messageSchema.extend({ type: z.literal("app_mention") }),
     messageSchema.extend({
@@ -37,8 +39,6 @@ export function getSlackAssistantEvent(payload: unknown): {
   const botUserId = authorizations?.[0]?.user_id;
   if (event.bot_id || event.subtype || event.user === botUserId) return null;
 
-  // Channel messages must arrive as app_mention; DMs never produce that event,
-  // even when the user explicitly mentions the bot.
   return {
     eventId: event_id,
     mention: {

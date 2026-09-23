@@ -1,7 +1,3 @@
-import {
-  SLACK_BOT_SCOPES,
-  missingSlackBotScopes,
-} from "shared/slack-integration";
 import React, {
   useCallback,
   useEffect,
@@ -11,6 +7,10 @@ import React, {
 } from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
+import {
+  SLACK_BOT_SCOPES,
+  missingSlackBotScopes,
+} from "shared/slack-integration";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";

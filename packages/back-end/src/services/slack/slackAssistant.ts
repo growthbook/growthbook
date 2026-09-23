@@ -62,6 +62,7 @@ const SLACK_TEXT_LIMIT = 3000;
 const TIMED_OUT_TEXT =
   "This request timed out. Please send a new message to continue.";
 const MAX_TURN_MS = 15 * 60 * 1000;
+
 /**
  * Remove the bot mention (and any other leading user mention) from the text.
  * All other whitespace is kept verbatim: quoted values and pasted code depend on it.
@@ -75,7 +76,7 @@ function stripBotMention(text: string, botUserId?: string): string {
       " ",
     );
   }
-  // Strip a leading mention of anyone, just in case the bot id wasn't passed.
+  // Also strip a leading mention of anyone, for when the bot id is unknown.
   t = t.replace(/^\s*<@[^>]+>\s*/, " ");
   return t.trim();
 }
@@ -210,10 +211,9 @@ export async function handleSlackAssistantMention(
               text: target.message,
               threadTs: mention.threadTs,
             });
-      // Ephemeral messages are visible only to the mentioning user and are
-      // transient, so log whether Slack accepted the post — otherwise a
-      // "nothing happened" report is impossible to distinguish from a missed
-      // ephemeral reply.
+      // Ephemerals leave no trace, so log whether Slack accepted this one;
+      // otherwise a "nothing happened" report can't be told apart from a
+      // missed reply.
       logger[posted ? "info" : "warn"](
         { reason: target.reason, channelId, slackUserId, rootTs, posted },
         posted
@@ -221,7 +221,6 @@ export async function handleSlackAssistantMention(
           : "Slack assistant: FAILED to post ephemeral prompt (see chat.postEphemeral warning above)",
       );
     } else {
-      // No connection / no token — we can't post anything back.
       logger.warn(
         { reason: target.reason, teamId, channelId, slackUserId },
         "Slack assistant: cannot reply (no bot token for this workspace)",
@@ -418,7 +417,7 @@ async function postPendingApproval({
       channel,
       text: heading,
       blocks,
-      threadTs: threadTs,
+      threadTs,
     });
   }
 }

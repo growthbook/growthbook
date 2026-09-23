@@ -23,9 +23,11 @@ import {
 const SLACK_ASSISTANT_JOB_NAME = "slackAssistantTask";
 const BUSY_RETRY_MS = 5000;
 
-// One job type with a discriminated payload serves the interaction
-// kinds. `dedupeKey` + job.unique stops a Slack re-delivery from spawning a
-// second pending job.
+/**
+ * One job type with a discriminated payload serves every Slack interaction
+ * kind. `dedupeKey` + job.unique stops a Slack re-delivery from spawning a
+ * second pending job.
+ */
 const slackAssistantTaskSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("mention"),
@@ -43,8 +45,10 @@ const slackAssistantTaskSchema = z.discriminatedUnion("kind", [
 type SlackAssistantTask = z.infer<typeof slackAssistantTaskSchema>;
 type SlackAssistantJob = Job<SlackAssistantTask & { dedupeKey: string }>;
 
-// Agenda saves job data with the driver's defaults, which store an absent
-// optional field as BSON null. The payload schemas only know `undefined`.
+/**
+ * Agenda saves job data with the driver's defaults, which store an absent
+ * optional field as BSON null. The payload schemas only know `undefined`.
+ */
 const withoutNulls = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(withoutNulls);
   if (value === null || typeof value !== "object") return value;

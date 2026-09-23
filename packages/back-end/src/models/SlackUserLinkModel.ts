@@ -43,7 +43,7 @@ export class SlackUserLinkModel extends BaseClass {
     );
   }
 
-  // Authentication lookup only. Each returned link still requires a current membership check.
+  /** Authentication lookup only. Each returned link still requires a current membership check. */
   public static async dangerousFindAllBySlackIdentity(identity: {
     slackTeamId: string;
     slackUserId: string;

@@ -1,7 +1,7 @@
-import { missingSlackBotScopes } from "shared/slack-integration";
 import { useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { ago } from "shared/dates";
+import { missingSlackBotScopes } from "shared/slack-integration";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   notificationCardFormats,

@@ -8,12 +8,16 @@ import {
 } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
-// Keep the org-scoped primary key; these removable indexes impose today's 1:1
-// policy. assertConnectionAvailable rejects conflicts before a write, and the
-// indexes only close the race between two concurrent connects. BaseModel builds
-// them in the background and logs a failure (Cosmos DB builds unique indexes
-// only on empty collections); without them, dangerousGetForTeam still refuses
-// a workspace that ends up with two connections.
+const COLLECTION_NAME = "slackworkspaceconnections";
+
+/**
+ * Keep the org-scoped primary key; these removable indexes impose today's 1:1
+ * policy. assertConnectionAvailable rejects conflicts before a write, and the
+ * indexes only close the race between two concurrent connects. BaseModel builds
+ * them in the background and logs a failure (Cosmos DB builds unique indexes
+ * only on empty collections); without them, dangerousGetForTeam still refuses
+ * a workspace that ends up with two connections.
+ */
 const connectionIndexes: {
   fields: { teamId: 1 } | { organization: 1 };
   unique: true;
@@ -33,7 +37,7 @@ const connectionIndexes: {
 
 const BaseClass = MakeModelClass({
   schema: slackWorkspaceConnectionSchema,
-  collectionName: "slackworkspaceconnections",
+  collectionName: COLLECTION_NAME,
   pKey: ["teamId"] as const,
   readonlyFields: [],
   additionalIndexes: connectionIndexes,
@@ -45,11 +49,11 @@ type SlackWorkspaceConnectionFields = Omit<
 >;
 
 export class SlackWorkspaceConnectionModel extends BaseClass {
-  // Used before org resolution for signed Slack events and account consent.
+  /** Used before org resolution for signed Slack events and account consent. */
   public static async dangerousGetForTeam(
     teamId: string,
   ): Promise<SlackWorkspaceConnectionInterface | null> {
-    const docs = await getCollection("slackworkspaceconnections")
+    const docs = await getCollection(COLLECTION_NAME)
       .find({ teamId })
       .limit(2)
       .toArray();

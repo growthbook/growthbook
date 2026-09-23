@@ -37,15 +37,10 @@ export function toSlackMrkdwn(
     const index = match.index ?? 0;
     text += escapeSlackMrkdwn(markdown.slice(end, index));
     const [full, label, href] = match;
-    try {
-      if (/[<>|\s]/.test(href)) throw new Error("Invalid link");
-      const url = new URL(href.startsWith("/") ? `${origin}${href}` : href);
-      if (url.protocol !== "https:" && url.protocol !== "http:")
-        throw new Error("Invalid link protocol");
-      text += `<${escapeSlackMrkdwn(url.href)}|${escapeSlackMrkdwn(label).replace(/\|/g, "｜")}>`;
-    } catch {
-      text += escapeSlackMrkdwn(full);
-    }
+    const url = toSlackLinkUrl(href, origin);
+    text += url
+      ? `<${escapeSlackMrkdwn(url)}|${escapeSlackMrkdwn(label).replace(/\|/g, "｜")}>`
+      : escapeSlackMrkdwn(full);
     end = index + full.length;
   }
   text += escapeSlackMrkdwn(markdown.slice(end));
@@ -58,4 +53,16 @@ export function toSlackMrkdwn(
   text = text.replace(/^#{1,6}\s+(.*)$/gm, "*$1*");
 
   return text.trim();
+}
+
+function toSlackLinkUrl(href: string, origin: string): string | null {
+  if (/[<>|\s]/.test(href)) return null;
+  try {
+    const url = new URL(href.startsWith("/") ? `${origin}${href}` : href);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
 }

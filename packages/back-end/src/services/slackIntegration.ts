@@ -439,7 +439,7 @@ export const listSlackOAuthConnections = async (
   };
 };
 
-// A single connected workspace may be implied; several must be named.
+/** A single connected workspace may be implied; several must be named. */
 export const pickSlackWorkspaceConnection = (
   connections: SlackWorkspaceConnectionInterface[],
   teamId?: string,

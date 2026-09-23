@@ -315,14 +315,11 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// Inbound Slack traffic (Events API + Interactivity). Slack signs the raw
-// request bytes, and the global JSON parser below cannot serve that check: it
-// has no `verify` hook to keep the raw body, and body-parser skips a body an
-// earlier parser already consumed, so a later parser could never recover the
-// bytes. The router mounts here, ahead of it, and parses for itself. It only
-// registers /events and /interactions and falls through for everything else
-// under this prefix, which the session-authed slackIntegrationRouter (mounted
-// further down) owns. Never add those two paths to that router.
+// Inbound Slack traffic (Events API + Interactivity). Mounted ahead of the
+// global JSON parser because Slack signs the raw request bytes (see the
+// router). It only registers /events and /interactions; everything else under
+// this prefix falls through to the session-authed slackIntegrationRouter below.
+// Never add those two paths to that router.
 app.use("/integrations/slack", slackActionsRouter);
 
 // 2mb default; 10mb for screenshot upload and the visual-editor AI routes

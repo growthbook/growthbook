@@ -109,8 +109,8 @@ async function slackApiRequest<T extends SlackApiResponse>(
       waitedMs += delayMs;
     }
   } catch (e) {
-    logger.error(e, `Slack API ${method} request threw`);
     if (e instanceof SlackRateLimitError) throw e;
+    logger.error(e, `Slack API ${method} request threw`);
     return null;
   }
 }

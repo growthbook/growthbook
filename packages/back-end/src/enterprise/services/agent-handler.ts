@@ -301,7 +301,6 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       system,
       orgAdditionalPrompt,
       dbOverrideModel,
-      initialEmit: undefined,
       prepareTransport: () => {
         setSseHeaders(res);
         transportEmit = createEmit(res, buffer);
@@ -334,7 +333,6 @@ async function executeAgentTurn<TParams>({
   system,
   orgAdditionalPrompt,
   dbOverrideModel,
-  initialEmit,
   prepareTransport,
   beforeResolvePendingAction,
   enforceUsageCap,
@@ -350,9 +348,8 @@ async function executeAgentTurn<TParams>({
   system: string;
   orgAdditionalPrompt: unknown;
   dbOverrideModel: AIModel | undefined;
-  initialEmit?: AgentEmit;
   /** Initialize transport output only after access/usage gates pass. */
-  prepareTransport?: () => AgentEmit;
+  prepareTransport: () => AgentEmit;
   /** Acquire a transport-specific replay guard only after all access gates pass. */
   beforeResolvePendingAction?: () => Promise<void>;
   /** Return false to abort before streaming (HTTP writes a 429 itself). */
@@ -391,7 +388,7 @@ async function executeAgentTurn<TParams>({
     return;
   }
 
-  const emit = initialEmit ?? prepareTransport?.() ?? (() => undefined);
+  const emit = prepareTransport();
   buffer.setModel(resolvedModel);
 
   const tools = config.buildTools(context, buffer, params, emit);
@@ -422,8 +419,9 @@ async function executeAgentTurn<TParams>({
   // to the rejection plus the new instruction in the same turn.
   if (pendingAction) {
     await beforeResolvePendingAction?.();
-    // Re-check the current page at confirmation, as the user may have navigated
-    // since the action was proposed. Headless callers share this guard.
+    // Re-checked here, not only when the model proposed it: the user can
+    // navigate off the dashboard between the card appearing and clicking
+    // Confirm, and the stored call would then write to an off-screen one.
     const offScreenNow = isConfirm
       ? offScreenDashboardWriteRejection({
           method: pendingAction.method,
@@ -468,6 +466,9 @@ async function executeAgentTurn<TParams>({
     if (config.resolveSkill) {
       const seeded = new Set<string>();
       for (const name of skills) {
+        // A leaf picked from the `/` menu arrives without the domain router the
+        // model would have read on its way there, so its shared conventions
+        // would be missing. Seed the router first, as the two-step flow does.
         const domain = name.split("/")[0];
         for (const target of domain === name ? [name] : [domain, name]) {
           if (seeded.has(target)) continue;
@@ -691,8 +692,6 @@ export async function runAgentTurnToCompletion<TParams>({
     config.agentType,
   );
 
-  // Keep the streamed-at timestamp fresh so stale-stream detection matches
-  // the HTTP path even without an SSE sink.
   const previousMessageCount = buffer.getMessages().length;
   let streamError: string | null = null;
   const emit: AgentEmit = (event, data) => {
@@ -706,6 +705,8 @@ export async function runAgentTurnToCompletion<TParams>({
           ? message
           : "The assistant could not complete this request.";
     }
+    // Keep the streamed-at timestamp fresh so stale-stream detection matches
+    // the HTTP path even without an SSE sink.
     buffer.touchStreamedAt();
   };
 
@@ -721,7 +722,7 @@ export async function runAgentTurnToCompletion<TParams>({
     system,
     orgAdditionalPrompt,
     dbOverrideModel,
-    initialEmit: emit,
+    prepareTransport: () => emit,
     beforeResolvePendingAction,
     signal,
     enforceUsageCap: async (model) => {
