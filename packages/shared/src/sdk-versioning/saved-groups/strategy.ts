@@ -20,19 +20,49 @@ export function savedGroupFormatFromConnection(connection: {
 }
 
 /**
- * Keeps the deprecated boolean in step with the format that replaced it, so
- * rolling back to a build that only reads the boolean does not strand the
- * setting. Both reference formats read as "on" to that build.
+ * Keeps `savedGroupFormat` and the deprecated boolean in step on a write, in
+ * whichever direction the caller supplied.
  *
- * The inverse of `savedGroupFormatFromConnection`.
+ * Writing the boolean means a rollback to a build that only reads it keeps the
+ * setting. Writing the format means a caller that still sends only the boolean
+ * still changes what gets served, since reads prefer the format.
+ *
+ * `current` is the connection being edited, and is left out when creating one.
  */
 export function withLegacySavedGroupFlag<
-  T extends { savedGroupFormat?: SavedGroupFormat },
->(changes: T): T & { savedGroupReferencesEnabled?: boolean } {
-  if (!changes.savedGroupFormat) return changes;
+  T extends {
+    savedGroupFormat?: SavedGroupFormat;
+    savedGroupReferencesEnabled?: boolean;
+  },
+>(
+  changes: T,
+  current?: { savedGroupFormat?: SavedGroupFormat },
+): T & {
+  savedGroupFormat?: SavedGroupFormat;
+  savedGroupReferencesEnabled?: boolean;
+} {
+  // The format wins when both are sent
+  if (changes.savedGroupFormat) {
+    return {
+      ...changes,
+      savedGroupReferencesEnabled: changes.savedGroupFormat !== "inline",
+    };
+  }
+
+  if (changes.savedGroupReferencesEnabled === undefined) return changes;
+
+  // Only the boolean was sent, so work out the format it means. Turning
+  // references on for a connection already on one leaves it there: the boolean
+  // cannot say which reference format was wanted, and picking v1 would
+  // silently downgrade a v2 connection.
+  const currentFormat = current?.savedGroupFormat;
   return {
     ...changes,
-    savedGroupReferencesEnabled: changes.savedGroupFormat !== "inline",
+    savedGroupFormat: !changes.savedGroupReferencesEnabled
+      ? "inline"
+      : currentFormat && currentFormat !== "inline"
+        ? currentFormat
+        : "referencesV1",
   };
 }
 

@@ -978,11 +978,66 @@ describe("withLegacySavedGroupFlag", () => {
     });
   });
 
-  // An edit that does not touch the format must not touch the boolean either,
-  // or a partial update would overwrite it.
-  it("changes nothing when the format is absent", () => {
+  // An edit that touches neither field must not touch either, or a partial
+  // update would overwrite one of them.
+  it("changes nothing when neither field is sent", () => {
     expect(withLegacySavedGroupFlag({ name: "conn" })).toEqual({
       name: "conn",
+    });
+  });
+
+  // A caller still sending only the boolean has to keep working, and reads
+  // prefer the format, so the boolean has to set it.
+  it("derives the format when only the boolean is sent", () => {
+    expect(
+      withLegacySavedGroupFlag({ savedGroupReferencesEnabled: false }),
+    ).toEqual({
+      savedGroupReferencesEnabled: false,
+      savedGroupFormat: "inline",
+    });
+    expect(
+      withLegacySavedGroupFlag({ savedGroupReferencesEnabled: true }),
+    ).toEqual({
+      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV1",
+    });
+  });
+
+  it("turns references off for a connection already on v2", () => {
+    expect(
+      withLegacySavedGroupFlag(
+        { savedGroupReferencesEnabled: false },
+        { savedGroupFormat: "referencesV2" },
+      ).savedGroupFormat,
+    ).toBe("inline");
+  });
+
+  // The boolean cannot say which reference format was wanted, so turning it on
+  // for a connection already on one leaves it there rather than downgrading.
+  it("does not downgrade a v2 connection when the boolean is turned on", () => {
+    expect(
+      withLegacySavedGroupFlag(
+        { savedGroupReferencesEnabled: true },
+        { savedGroupFormat: "referencesV2" },
+      ).savedGroupFormat,
+    ).toBe("referencesV2");
+    expect(
+      withLegacySavedGroupFlag(
+        { savedGroupReferencesEnabled: true },
+        { savedGroupFormat: "inline" },
+      ).savedGroupFormat,
+    ).toBe("referencesV1");
+  });
+
+  it("lets the format win when both are sent", () => {
+    expect(
+      withLegacySavedGroupFlag(
+        { savedGroupFormat: "inline", savedGroupReferencesEnabled: true },
+        { savedGroupFormat: "referencesV2" },
+      ),
+    ).toEqual({
+      savedGroupFormat: "inline",
+      savedGroupReferencesEnabled: false,
     });
   });
 

@@ -375,7 +375,7 @@ export async function editSDKConnection(
     editSDKConnectionValidator.parse(updates);
 
   const otherChanges = {
-    ...withLegacySavedGroupFlag(rest),
+    ...withLegacySavedGroupFlag(rest, connection),
     languages: languages as SDKLanguage[],
   };
 

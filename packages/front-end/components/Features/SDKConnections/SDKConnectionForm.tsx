@@ -167,12 +167,16 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
-      // New connections start on the newest format; existing ones keep what
-      // they have. `savedGroupFormat` is derived from the old boolean by the
-      // model, so it is always set for a connection that has been saved.
+      // New connections start on the newest format the org can use; existing
+      // ones keep what they have. `savedGroupFormat` is derived from the old
+      // boolean by the model, so it is always set once a connection is saved.
       savedGroupFormat:
         initialValue.savedGroupFormat ??
-        (edit ? savedGroupFormatFromConnection(initialValue) : "referencesV2"),
+        (edit
+          ? savedGroupFormatFromConnection(initialValue)
+          : hasLargeSavedGroupFeature
+            ? "referencesV2"
+            : "inline"),
       includeProjectIdInMetadata:
         initialValue.includeProjectIdInMetadata ??
         (initialValue as { includeProjectId?: boolean }).includeProjectId ??
@@ -1224,24 +1228,29 @@ export default function SDKConnectionForm({
               },
               {
                 value: "referencesV1",
-                label: "Pass Saved Groups by reference (v1 serialization)",
+                label: "Pass ID Lists by reference",
                 description:
-                  "ID Lists are sent once and referenced. Condition Groups are still copied into each rule.",
+                  "ID Lists are sent once and referenced. Condition Groups are still copied into each rule. (v1 serialization)",
                 disabled: !hasLargeSavedGroupFeature,
                 disabledReason:
                   "Available with an Enterprise plan. Upgrade to use it.",
               },
               {
                 value: "referencesV2",
-                label: "Pass Saved Groups by reference (v2 serialization)",
+                label: "Pass all Saved Groups by reference",
                 description:
-                  "Every Saved Group is sent once and referenced, Condition Groups included.",
-                // Left selectable when it is already the saved value, so an SDK
-                // downgrade shows the warning rather than silently dropping the
-                // choice. Re-upgrading the SDK resumes v2.
+                  "Every Saved Group is sent once and referenced, Condition Groups included. (v2 serialization)",
+                // An SDK downgrade on a saved connection keeps this
+                // selectable, so the choice shows a warning rather than being
+                // silently dropped, and re-upgrading the SDK resumes v2. That
+                // only applies to a connection already on v2, never to a new
+                // one, and never without the plan.
                 disabled:
-                  (!hasLargeSavedGroupFeature || !supportsAllSavedGroupTypes) &&
-                  form.watch("savedGroupFormat") !== "referencesV2",
+                  !hasLargeSavedGroupFeature ||
+                  (!supportsAllSavedGroupTypes &&
+                    !(
+                      edit && initialValue.savedGroupFormat === "referencesV2"
+                    )),
                 disabledReason: !hasLargeSavedGroupFeature
                   ? "Available with an Enterprise plan. Upgrade to use it."
                   : "This SDK version cannot read v2 references. Upgrade the SDK to use it.",
