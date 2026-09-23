@@ -14,14 +14,10 @@ export default function DashboardCanvas({
   blocks,
   globalControls,
   dashboardComparison,
-  isGeneralDashboard = true,
-  mutate,
 }: {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   globalControls?: DashboardInterface["globalControls"];
   dashboardComparison?: DashboardInterface["comparison"];
-  isGeneralDashboard?: boolean;
-  mutate?: () => void;
 }) {
   if (blocks.length === 0) {
     return (
@@ -49,13 +45,6 @@ export default function DashboardCanvas({
     <DashboardChartsProvider>
       <DashboardGrid
         blocks={blocks}
-        isEditing={false}
-        editSidebarDirty={false}
-        stagedBlockIndex={undefined}
-        isAddingBlock={false}
-        updateLayout={undefined}
-        addBlockType={undefined}
-        isGeneralDashboard={isGeneralDashboard}
         renderBlock={(block, i) => (
           <DashboardBlock
             isTabActive
@@ -63,19 +52,6 @@ export default function DashboardCanvas({
             dashboardGlobalControls={globalControls}
             dashboardComparison={dashboardComparison}
             blockIndex={i}
-            isEditing={false}
-            isFocused={false}
-            editingBlock={false}
-            canMoveBlock={false}
-            disableBlock="none"
-            scrollAreaRef={null}
-            setBlock={undefined}
-            editBlock={() => undefined}
-            duplicateBlock={() => undefined}
-            deleteBlock={() => undefined}
-            isGeneralDashboard={isGeneralDashboard}
-            mutate={mutate ?? (() => undefined)}
-            canEdit={false}
           />
         )}
       />

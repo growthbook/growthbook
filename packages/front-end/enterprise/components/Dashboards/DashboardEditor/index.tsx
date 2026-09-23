@@ -41,10 +41,12 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardBlock from "./DashboardBlock";
+import DashboardEditBlock from "./DashboardBlock/DashboardEditBlock";
 import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
 import { AddBlockDropdown } from "./DashboardBlockTypeMenu";
 import { AddBlockOptions } from "./dashboardLayout";
 import DashboardGrid from "./DashboardGrid";
+import DashboardEditGrid from "./DashboardEditGrid";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 
@@ -207,14 +209,50 @@ function DashboardEditor({
       | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>;
     isEditingBlock: boolean;
   }) => {
+    if (!isEditing)
+      return (
+        <DashboardBlock
+          block={block}
+          blockIndex={i}
+          isTabActive={isTabActive}
+          dashboardGlobalControls={globalControls}
+          dashboardComparison={dashboardComparison}
+          actions={
+            canEdit && setIsEditing ? (
+              <DropdownMenu
+                variant="soft"
+                menuPlacement="end"
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    radius="full"
+                    size="1"
+                    aria-label="Block actions"
+                  >
+                    <BsThreeDotsVertical />
+                  </IconButton>
+                }
+              >
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (enterEditModeForBlock) enterEditModeForBlock(i);
+                    else setIsEditing(true);
+                  }}
+                >
+                  Edit
+                </DropdownMenuItem>
+              </DropdownMenu>
+            ) : null
+          }
+        />
+      );
     return (
-      <DashboardBlock
+      <DashboardEditBlock
         isTabActive={isTabActive}
         block={block}
         dashboardGlobalControls={globalControls}
         dashboardComparison={dashboardComparison}
         blockIndex={i}
-        isEditing={isEditing}
         isFocused={isFocused}
         editingBlock={isEditingBlock}
         canMoveBlock={
@@ -248,10 +286,6 @@ function DashboardEditor({
             : undefined
         }
         isGeneralDashboard={isGeneralDashboard}
-        mutate={mutate}
-        canEdit={canEdit}
-        setIsEditing={setIsEditing}
-        enterEditModeForBlock={enterEditModeForBlock}
       />
     );
   };
@@ -576,10 +610,9 @@ function DashboardEditor({
               </Button>
             ) : null}
           </Flex>
-        ) : (
-          <DashboardGrid
+        ) : isEditing ? (
+          <DashboardEditGrid
             blocks={blocks}
-            isEditing={isEditing}
             editSidebarDirty={!!editSidebarDirty}
             stagedBlockIndex={stagedBlockIndex}
             isAddingBlock={!!isAddingBlock}
@@ -593,6 +626,19 @@ function DashboardEditor({
                 isFocused: focusedBlockIndex === i,
                 setBlock: setBlock ? (block) => setBlock(i, block) : undefined,
                 isEditingBlock: stagedBlockIndex === i,
+              })
+            }
+          />
+        ) : (
+          <DashboardGrid
+            blocks={blocks}
+            renderBlock={(block, i) =>
+              renderSingleBlock({
+                block,
+                i,
+                isFocused: false,
+                setBlock: undefined,
+                isEditingBlock: false,
               })
             }
           />

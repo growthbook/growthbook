@@ -31,8 +31,6 @@ export default function DashboardView({
         blocks={visibleBlocks}
         globalControls={dashboard.globalControls}
         dashboardComparison={dashboard.comparison}
-        isGeneralDashboard
-        mutate={mutate}
       />
       {hasHiddenBlocks && (
         <Flex justify="end" mt="2">
