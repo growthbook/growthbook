@@ -39,6 +39,12 @@ const raMetric = factMetricFactory.build({
   regressionAdjustmentEnabled: true,
 });
 const metrics = [sumMetric, countDistinctMetric, raMetric];
+const unitQuantileMetric = factMetricFactory.build({
+  id: "fact_q",
+  metricType: "quantile",
+  numerator: { factTableId: "ft_events", column: "amount", aggregation: "sum" },
+  quantileSettings: { type: "unit", quantile: 0.9, ignoreZeros: false },
+});
 
 const exposureQuery: ExposureQuery = {
   id: "exposure",
@@ -289,4 +295,31 @@ describe("Redshift incremental refresh SQL", () => {
       );
     },
   );
+
+  it("statistics: every PERCENTILE_CONT for a quantile metric shares one ordering", () => {
+    const sql = redshift.getIncrementalRefreshStatisticsQuery({
+      settings,
+      exposureQuery: resolvedExposureQuery,
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: [],
+      factTableMap,
+      metricSources: [
+        { factTableId: "ft_events", tableFullName: metricSourceTable },
+      ],
+      unitsSourceTableFullName: unitsTable,
+      metrics: [unitQuantileMetric],
+      lastMaxTimestamp: watermark,
+    });
+    // Percentile caps are scalar subqueries (SELECT PERCENTILE_CONT ...), a
+    // separate SELECT list, so they may order by something else.
+    const orderings = Array.from(
+      sql.matchAll(
+        /(?<!SELECT\s+)PERCENTILE_CONT\([^)]*\)\s+WITHIN GROUP\s*\(\s*ORDER BY\s+([^)]+?)\s*\)/g,
+      ),
+      (match) => match[1],
+    );
+    expect(orderings.length).toBeGreaterThan(1);
+    expect(new Set(orderings)).toEqual(new Set(["m.m0_value"]));
+  });
 });
