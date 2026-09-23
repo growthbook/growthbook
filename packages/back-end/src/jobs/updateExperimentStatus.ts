@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { PermissionError } from "shared/util";
+import { isPermissionError } from "shared/util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -142,7 +142,7 @@ export const updateSingleExperimentStatus = async (
     try {
       await assertCanRunExperimentInAffectedEnvironments(scheduler, experiment);
     } catch (e) {
-      if (e instanceof PermissionError) {
+      if (isPermissionError(e)) {
         throw new TerminalPublishError(
           `The user who scheduled this ${scheduled.type} may not run the experiment in its environments`,
         );
