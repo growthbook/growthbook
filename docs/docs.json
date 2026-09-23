@@ -383,6 +383,10 @@
                   "using/security",
                   "using/programs"
                 ]
+              },
+              {
+                "group": "Guides for Agents",
+                "pages": []
               }
             ]
           }
