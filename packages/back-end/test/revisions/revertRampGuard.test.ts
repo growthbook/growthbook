@@ -157,28 +157,33 @@ describe("revertRampGuard", () => {
       { revertedFrom: 2 },
     );
     const background = contextWith({ req: null, ignoreWarnings: true });
-    const draftBefore = { dateCreated: new Date("2026-09-09T00:00:00Z") };
-    const draftAfter = { dateCreated: new Date("2026-09-12T00:00:00Z") };
-    expect(() =>
-      assertUnattendedRevertRampStopsPredateDraft(
-        background,
-        draftBefore,
-        stops,
-      ),
-    ).toThrow(/"Gradual rollout" \(rs_1\), attached after the revert draft/);
-    expect(() =>
-      assertUnattendedRevertRampStopsPredateDraft(
-        background,
-        draftAfter,
-        stops,
-      ),
-    ).not.toThrow();
-    expect(() =>
-      assertUnattendedRevertRampStopsPredateDraft(
-        contextWith(),
-        draftBefore,
-        stops,
-      ),
-    ).not.toThrow();
+    // The draft's base (live when it was made) records what was attached.
+    const withBase = (rampAttachments?: unknown[]) =>
+      mockGetRevision.mockResolvedValueOnce({
+        version: 5,
+        ...(rampAttachments ? { rampAttachments } : {}),
+      } as never);
+    const draft = (dateCreated: string) => ({
+      baseVersion: 5,
+      dateCreated: new Date(dateCreated),
+    });
+    const run = (d = draft("2026-09-12T00:00:00Z"), ctx = background) =>
+      assertUnattendedRevertRampStopsPredateDraft(ctx, feature, d, stops);
+    const newer = /"Gradual rollout" \(rs_1\), attached after the revert draft/;
+
+    // An older schedule attached since the draft still counts as newer.
+    withBase([]);
+    await expect(run()).rejects.toThrow(newer);
+    withBase([{ rampScheduleId: "rs_1", ruleId: "fr_1" }]);
+    await expect(run()).resolves.toBeUndefined();
+    // Unrecorded base: fall back to when the schedule was created.
+    withBase();
+    await expect(run(draft("2026-09-09T00:00:00Z"))).rejects.toThrow(newer);
+    withBase();
+    await expect(run()).resolves.toBeUndefined();
+    // A person publishing saw the warning.
+    await expect(
+      run(draft("2026-09-09T00:00:00Z"), contextWith()),
+    ).resolves.toBeUndefined();
   });
 });

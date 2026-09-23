@@ -4213,8 +4213,9 @@ async function publishRevisionInner({
     );
   }
   assertRevertRampStopsAcknowledged(context, revertRampStops);
-  assertUnattendedRevertRampStopsPredateDraft(
+  await assertUnattendedRevertRampStopsPredateDraft(
     context,
+    feature,
     revision,
     revertRampStops,
   );

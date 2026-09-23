@@ -90,19 +90,44 @@ export function assertRevertRampStopsAcknowledged(
 }
 
 // A scheduled or auto-published revert runs with no request, so nobody sees
-// the warning. It may still remove the ramps its author could have seen when
-// the draft was made, but not one attached since: that publish fails instead,
-// to be confirmed by publishing manually.
-export function assertUnattendedRevertRampStopsPredateDraft(
+// the warning. It may still remove the ramps attached when the draft was made
+// (its base revision's recorded attachments), but not one attached since: that
+// publish fails instead, to be confirmed by publishing manually.
+export async function assertUnattendedRevertRampStopsPredateDraft(
   context: Context,
-  draft: Pick<FeatureRevisionInterface, "dateCreated">,
-  { schedules }: RevertRampStops,
-): void {
-  if (context.req) return;
-  const newer = schedules.filter(
-    (s) =>
-      new Date(s.dateCreated).getTime() > new Date(draft.dateCreated).getTime(),
+  feature: FeatureInterface,
+  draft: Pick<FeatureRevisionInterface, "baseVersion" | "dateCreated">,
+  { detaches, schedules }: RevertRampStops,
+): Promise<void> {
+  if (context.req || !detaches.length) return;
+  const base = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: draft.baseVersion,
+  });
+  const known = base?.rampAttachments;
+  const newerIds = new Set(
+    detaches
+      .filter((d) => {
+        if (known) {
+          return !known.some(
+            (a) =>
+              a.rampScheduleId === d.rampScheduleId && a.ruleId === d.ruleId,
+          );
+        }
+        // Unrecorded base: the schedule's creation is the best evidence.
+        const s = schedules.find((x) => x.id === d.rampScheduleId);
+        return (
+          !!s &&
+          new Date(s.dateCreated).getTime() >
+            new Date(draft.dateCreated).getTime()
+        );
+      })
+      .map((d) => d.rampScheduleId),
   );
+  const newer = schedules.filter((s) => newerIds.has(s.id));
   if (!newer.length) return;
   const names = newer.map((s) => `"${s.name}" (${s.id})`).join(", ");
   throw new Error(

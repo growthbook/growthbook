@@ -164,6 +164,8 @@ While it is `paused` (or `ready`, before it starts), publishing an edit to the r
 
 Removing a schedule needs no approval: `eject-target` and `DELETE` leave the rule as it is right now, so a ramp can always be cleaned up.
 
+Reverting the Feature Flag to a revision published before a schedule was attached removes that schedule from the rule, and deletes it once it controls no rules; you're warned first. A running schedule still needs pausing before the revert, like any other change to its rule. A scheduled or auto-published revert fails instead of removing a schedule attached after its draft was created, so publish that one manually to confirm.
+
 ## Templates
 
 Use **Save as template** to store a schedule's steps and end state as a **Ramp Schedule Template** and reuse them across features. Apply a template when you create a schedule to inherit its steps, then override any of them as needed.
