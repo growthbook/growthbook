@@ -36,6 +36,13 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
+/** Join adjustment names into a readable list ("a, b, and c"). */
+function formatAdjustmentList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
@@ -197,6 +204,35 @@ export default function ResultsTab({
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
+
+  // Table-level note: a prior/CUPED/post-stratification adjusts every result
+  // column (Chance to Win, lift, and the intervals), not just the raw diff.
+  const engineIsBayesian =
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) !== "frequentist";
+  const anyMetricUsesProperPrior =
+    snapshot?.settings?.metricSettings?.some(
+      (m) => m.computedSettings?.properPrior,
+    ) ?? false;
+  const adjustmentLabels: string[] = [];
+  if (engineIsBayesian && anyMetricUsesProperPrior) {
+    adjustmentLabels.push("Bayesian prior");
+  }
+  if (analysis?.settings?.regressionAdjusted) {
+    adjustmentLabels.push("CUPED");
+  }
+  if (
+    analysis?.settings?.postStratificationEnabled &&
+    !organization?.settings?.disablePrecomputedDimensions
+  ) {
+    adjustmentLabels.push("post-stratification");
+  }
+  const adjustmentMessage =
+    hasData && adjustmentLabels.length > 0
+      ? `Results below are affected by ${formatAdjustmentList(
+          adjustmentLabels,
+        )}.`
+      : null;
+
   return (
     <div>
       {isBandit && hasResults ? (
@@ -207,7 +243,13 @@ export default function ResultsTab({
       ) : null}
 
       <Box>
-        <Flex direction="row" align="start" gap="3" mx="1" mb="4">
+        <Flex
+          direction="row"
+          align="start"
+          gap="3"
+          mx="1"
+          mb={adjustmentMessage ? "1" : "4"}
+        >
           {!(
             experiment.type === "multi-armed-bandit" &&
             experiment.status === "running"
@@ -334,6 +376,11 @@ export default function ResultsTab({
             </>
           )}
         </Flex>
+        {adjustmentMessage ? (
+          <Text as="p" size="1" color="gray" mx="1" mb="4">
+            {adjustmentMessage}
+          </Text>
+        ) : null}
       </Box>
 
       <div className="appbox">

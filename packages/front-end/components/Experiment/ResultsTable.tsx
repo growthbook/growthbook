@@ -1352,9 +1352,6 @@ export default function ResultsTable({
                                             pValueAdjustmentEnabled={
                                               !!appliedPValueCorrection
                                             }
-                                            metricSnapshotSettings={
-                                              row.metricSnapshotSettings
-                                            }
                                           />
                                         ) : (
                                           <td></td>
