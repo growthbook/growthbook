@@ -374,7 +374,7 @@ export const ExperimentAssignmentQueryModal = ({
       submit={submit}
       close={onCancel}
       cta={exposureQuery ? "Save" : "Add"}
-      size={step === 0 ? "max" : "md"}
+      size={step === 0 ? "max" : "lg"}
       overflowAuto={false}
       autoFocusSelector=""
       hideNav
