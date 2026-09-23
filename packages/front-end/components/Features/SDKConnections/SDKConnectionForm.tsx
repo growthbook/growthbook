@@ -1243,6 +1243,7 @@ export default function SDKConnectionForm({
             label="Pass Saved Groups by reference"
             sort={false}
             isClearable={false}
+            isSearchable={false}
             value={form.watch("savedGroupFormat") ?? "inline"}
             onChange={(val) => {
               savedGroupFormatChosen.current = true;
