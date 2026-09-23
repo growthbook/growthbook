@@ -1,5 +1,11 @@
 import React, { FC, useMemo, useState } from "react";
-import { getExposureQueryIdentifierTypes } from "shared/util";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryIdentifierTypes,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+} from "shared/util";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -92,6 +98,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const handleSubmit = form.handleSubmit(async (value) => {
     // Keep the deprecated scalar in sync with the first declared identifier.
     value.userIdType = value.userIdTypes[0] ?? value.userIdType;
+    // Drop column mappings for identifiers that are no longer declared.
+    if (value.userIdColumns) {
+      value.userIdColumns = Object.fromEntries(
+        Object.entries(value.userIdColumns).filter(([idType]) =>
+          value.userIdTypes.includes(idType),
+        ),
+      );
+    }
     await onSave(value);
 
     form.reset({
@@ -108,15 +122,25 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   });
 
   const requiredColumns = useMemo(() => {
+    // Queries created with column mappings return their own column names.
+    const columnMapping = mode === "edit" && exposureQuery ? exposureQuery : {};
     return new Set([
-      "experiment_id",
-      "variation_id",
-      "timestamp",
-      ...userEnteredUserIdTypes,
+      getExposureQueryExperimentIdColumn(columnMapping),
+      getExposureQueryVariationIdColumn(columnMapping),
+      getExposureQueryTimestampColumn(columnMapping),
+      ...userEnteredUserIdTypes.map((idType) =>
+        getExposureQueryIdentifierColumn(columnMapping, idType),
+      ),
       ...(userEnteredDimensions || []),
       ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
-  }, [userEnteredUserIdTypes, userEnteredDimensions, userEnteredHasNameCol]);
+  }, [
+    mode,
+    exposureQuery,
+    userEnteredUserIdTypes,
+    userEnteredDimensions,
+    userEnteredHasNameCol,
+  ]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],
