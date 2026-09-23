@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getAnalysisIdentifierType } from "shared/util";
 import { Fragment, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -57,6 +58,10 @@ export default function AnalysisSettings({
 
   const assignmentQuery = datasource?.settings?.queries?.exposure?.find(
     (e) => e.id === experiment.exposureQueryId,
+  );
+  const identifierType = getAnalysisIdentifierType(
+    assignmentQuery,
+    experiment.exposureQueryIdentifierType,
   );
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
@@ -187,6 +192,15 @@ export default function AnalysisSettings({
                 <Text color="text-mid">
                   {assignmentQuery ? assignmentQuery.name : "--"}
                 </Text>
+              </div>
+            </div>
+
+            <div className="col-4 mb-4">
+              <Text color="text-high" weight="semibold">
+                Identifier Type
+              </Text>
+              <div>
+                <Text color="text-mid">{identifierType || "--"}</Text>
               </div>
             </div>
 
