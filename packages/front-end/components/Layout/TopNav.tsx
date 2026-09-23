@@ -533,6 +533,14 @@ const TopNav: FC<{
             <DropdownMenuSeparator />
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}
+            <DropdownMenuItem
+              onClick={() => {
+                setDropdownOpen(false);
+                router.push("/account/slack");
+              }}
+            >
+              My Slack links
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             {renderChangePassword()}
             {renderLogoutDropDown()}

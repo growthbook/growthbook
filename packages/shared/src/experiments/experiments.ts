@@ -3044,3 +3044,36 @@ export function getEffectiveLookbackOverride(
   }
   return undefined;
 }
+
+type ScheduledEndLike = {
+  startAt?: Date | string | null;
+  stopAt?: Date | string | null;
+  stopAfter?: { value: number; unit: string } | null;
+  scheduledStopPlan?: { mode?: string } | null;
+};
+
+// A schedule stages a status change when it starts the experiment or ends it
+// with a plan other than "notify" (stop or ship); no stop plan means "notify".
+export function scheduleStagesStatusChange(
+  schedule: ScheduledEndLike | null | undefined,
+): boolean {
+  if (!schedule) return false;
+  if (schedule.startAt) return true;
+  if (!(schedule.stopAt || schedule.stopAfter)) return false;
+  return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
+}
+
+// True when the incoming schedule stages a status change, or a staged one is
+// still pending (a fired or abandoned one leaves no pointer and can be cleared).
+export function scheduleWriteNeedsRunPermission(
+  experiment: {
+    statusUpdateSchedule?: ScheduledEndLike | null;
+    nextScheduledStatusUpdate?: { type: string } | null;
+  },
+  incoming: ScheduledEndLike | null | undefined,
+): boolean {
+  const pending =
+    !!experiment.nextScheduledStatusUpdate &&
+    scheduleStagesStatusChange(experiment.statusUpdateSchedule);
+  return pending || scheduleStagesStatusChange(incoming);
+}

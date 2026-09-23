@@ -7,6 +7,10 @@ import React, {
 } from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
+import {
+  SLACK_BOT_SCOPES,
+  missingSlackBotScopes,
+} from "shared/slack-integration";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
@@ -55,20 +59,6 @@ type WorkspaceGroup = {
   channels: SlackOAuthIntegrationInterface[];
 };
 
-const REQUIRED_SCOPES = [
-  "chat:write",
-  "files:write",
-  "channels:read",
-  "groups:read",
-  "channels:join",
-  "assistant:write",
-  "im:history",
-  "app_mentions:read",
-  "commands",
-  "links:read",
-  "links:write",
-];
-
 const getQueryStringValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
@@ -76,18 +66,6 @@ const getSlackAuthorizationError = (error: string) =>
   error === "access_denied"
     ? "Slack authorization was canceled."
     : "Slack authorization failed. Try again.";
-
-const workspaceNeedsReconnect = (
-  connection: SlackWorkspaceConnectionFrontEndInterface,
-) => {
-  const scopes = new Set(
-    (connection.scope || "")
-      .split(",")
-      .map((scope) => scope.trim())
-      .filter(Boolean),
-  );
-  return REQUIRED_SCOPES.some((scope) => !scopes.has(scope));
-};
 
 function AddChannelModal({
   teamId,
@@ -236,6 +214,9 @@ const SlackWorkspacePage: NextPage = () => {
   const [installing, setInstalling] = useState(false);
   const [addChannelTeamId, setAddChannelTeamId] = useState<string | null>(null);
   const [disconnectTeamId, setDisconnectTeamId] = useState<string | null>(null);
+  const [updatingAssistantTeamId, setUpdatingAssistantTeamId] = useState<
+    string | null
+  >(null);
 
   const {
     data,
@@ -618,13 +599,14 @@ const SlackWorkspacePage: NextPage = () => {
           <Callout status="warning">
             Slack OAuth is not configured. Set <code>SLACK_CLIENT_ID</code> and{" "}
             <code>SLACK_CLIENT_SECRET</code> for an app with the{" "}
-            <code>chat:write</code>, <code>files:write</code>,{" "}
-            <code>channels:read</code>, <code>groups:read</code>,{" "}
-            <code>channels:join</code>, <code>assistant:write</code>,{" "}
-            <code>im:history</code>, <code>app_mentions:read</code>,{" "}
-            <code>commands</code>, <code>links:read</code>, and{" "}
-            <code>links:write</code> bot scopes. A Slack signing secret is not
-            required for outgoing notifications.
+            {SLACK_BOT_SCOPES.map((scope, index) => (
+              <React.Fragment key={scope}>
+                {index > 0 && ", "}
+                <code>{scope}</code>
+              </React.Fragment>
+            ))}{" "}
+            bot scopes. A Slack signing secret is not required for outgoing
+            notifications.
           </Callout>
         )}
 
@@ -637,7 +619,7 @@ const SlackWorkspacePage: NextPage = () => {
           !isCloud() &&
           workspaceGroups.length === 0 ? (
           <Frame>
-            <SlackAppSetup scopes={REQUIRED_SCOPES} />
+            <SlackAppSetup />
           </Frame>
         ) : workspaceGroups.length === 0 ? (
           <Frame>
@@ -668,8 +650,33 @@ const SlackWorkspacePage: NextPage = () => {
                 workspace={group.workspace}
                 channels={group.channels}
                 selectedChannelId={selectedChannelId}
-                needsReconnect={workspaceNeedsReconnect(group.workspace)}
+                needsReconnect={
+                  missingSlackBotScopes(group.workspace.scope).length > 0
+                }
                 connecting={connecting}
+                updatingAssistant={updatingAssistantTeamId === group.teamId}
+                onAssistantChange={async (enabled) => {
+                  setUpdatingAssistantTeamId(group.teamId);
+                  setConnectError(null);
+                  try {
+                    await apiCall("/integrations/slack/assistant", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        teamId: group.teamId,
+                        enabled,
+                      }),
+                    });
+                    await mutate();
+                  } catch (error) {
+                    setConnectError(
+                      error instanceof Error
+                        ? error.message
+                        : "Could not update Slack settings.",
+                    );
+                  } finally {
+                    setUpdatingAssistantTeamId(null);
+                  }
+                }}
                 onReconnect={() => connectToSlack(group.teamId)}
                 onDisconnect={() => setDisconnectTeamId(group.teamId)}
                 onAddChannel={() => setAddChannelTeamId(group.teamId)}
