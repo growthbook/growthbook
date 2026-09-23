@@ -316,14 +316,11 @@ describe("getMaxOutputTokens", () => {
 });
 
 describe("anthropicStructuredOutputMode", () => {
-  it("uses native structured output on every Claude model from 4.5 on", () => {
+  it("uses native structured output on the spike-verified models", () => {
     expect(anthropicStructuredOutputMode("claude-opus-5-5")).toBe(
       "outputFormat",
     );
     expect(anthropicStructuredOutputMode("claude-sonnet-5")).toBe(
-      "outputFormat",
-    );
-    expect(anthropicStructuredOutputMode("claude-haiku-4-5-20251001")).toBe(
       "outputFormat",
     );
   });
@@ -333,6 +330,13 @@ describe("anthropicStructuredOutputMode", () => {
       "jsonTool",
     );
     expect(anthropicStructuredOutputMode("claude-3-haiku-20240307")).toBe(
+      "jsonTool",
+    );
+    // Not individually spike-tested; mirrors @ai-sdk/anthropic's own
+    // capability table, which marks these as json-tool-only.
+    expect(anthropicStructuredOutputMode("claude-opus-4-8")).toBe("jsonTool");
+    expect(anthropicStructuredOutputMode("claude-sonnet-4-6")).toBe("jsonTool");
+    expect(anthropicStructuredOutputMode("claude-haiku-4-5-20251001")).toBe(
       "jsonTool",
     );
   });

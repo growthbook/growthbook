@@ -203,12 +203,18 @@ export function supportsTemperature(model: AIModel): boolean {
   return !CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(model);
 }
 
-// Claude models from before structured outputs (Claude 4.5). For these the
-// only way to get schema-shaped JSON is the AI SDK's json-tool fallback: a
-// forced call to a synthetic tool. Every later model supports the native
-// `output_format`, and the newest ones (Opus 5.5) reject forced tool use
-// outright, so the fallback is a 400 there — the mode has to follow the model.
+// Claude models without native structured output. For these the only way to
+// get schema-shaped JSON is the AI SDK's json-tool fallback: a forced call to
+// a synthetic tool. The newest models (Opus 5.5) reject forced tool use
+// outright, so the fallback is a 400 there — the mode has to follow the
+// model. Only Opus 5.5 and Sonnet 5 are spike-verified against the real API;
+// the other entries below Sonnet 5 mirror @ai-sdk/anthropic's own
+// getModelCapabilities() table (supportsStructuredOutput), since it's the
+// only signal we have for models we haven't individually tested.
 const CLAUDE_MODELS_WITHOUT_STRUCTURED_OUTPUT: ReadonlySet<string> = new Set([
+  "claude-opus-4-8",
+  "claude-sonnet-4-6",
+  "claude-haiku-4-5-20251001",
   "claude-opus-4-20250514",
   "claude-sonnet-4-20250514",
   "claude-3-7-sonnet-20250219",
