@@ -241,6 +241,11 @@ const ensuredIndexes = new Map<string, Promise<void>>();
  * indexes in the background and swallows failures, so it cannot give that
  * guarantee. Concurrent callers share one build; a failed build is retried by
  * the next caller.
+ *
+ * A failed build is rethrown wrapped, never as the driver error. A unique
+ * build over existing duplicates fails with E11000, and callers that read
+ * E11000 on their write as "another writer won" would mistake a broken index
+ * for contention.
  */
 export function ensureIndexOnce(
   collection: Collection,
@@ -255,7 +260,12 @@ export function ensureIndexOnce(
     .then(() => undefined)
     .catch((error: unknown) => {
       ensuredIndexes.delete(key);
-      throw error;
+      throw Object.assign(
+        new Error(
+          `Could not build index ${JSON.stringify(spec)} on ${collection.namespace}`,
+        ),
+        { cause: error },
+      );
     });
   ensuredIndexes.set(key, build);
   return build;

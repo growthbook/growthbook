@@ -436,10 +436,31 @@ describe("ensureIndexOnce", () => {
     const collection = fakeCollection("test.retry", createIndex);
     await expect(
       ensureIndexOnce(collection, { id: 1 }, { unique: true }),
-    ).rejects.toThrow("index build failed");
+    ).rejects.toThrow('Could not build index {"id":1} on test.retry');
     await expect(
       ensureIndexOnce(collection, { id: 1 }, { unique: true }),
     ).resolves.toBeUndefined();
     expect(createIndex).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not surface a unique build over duplicates as a duplicate-key error", async () => {
+    // What the driver throws when existing documents violate a unique index.
+    const buildError = Object.assign(
+      new Error(
+        "Index build failed: E11000 duplicate key error collection: test.claims index: id_1 dup key: { id: null }",
+      ),
+      { code: 11000 },
+    );
+    const collection = fakeCollection(
+      "test.claims",
+      jest.fn().mockRejectedValue(buildError),
+    );
+    const error = await ensureIndexOnce(
+      collection,
+      { id: 1 },
+      { unique: true },
+    ).catch((e: unknown) => e);
+    expect(isDuplicateKeyError(error)).toBe(false);
+    expect((error as { cause?: unknown }).cause).toBe(buildError);
   });
 });
