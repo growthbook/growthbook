@@ -5,7 +5,14 @@ import { useEffect, useState } from "react";
  * crossed, unlike a resize listener, which fires on every frame of a drag.
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+  // Read on the first render where there is a window, so a layout that loads
+  // already past the boundary doesn't paint the other side of it first.
+  const [matches, setMatches] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      !!window.matchMedia &&
+      window.matchMedia(query).matches,
+  );
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;

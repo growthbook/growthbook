@@ -57,9 +57,11 @@ import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import {
+  NARROW_LAYOUT_BREAKPOINT_PX,
   TABS_BAR_HEIGHT_PX,
   TABS_HEADER_HEIGHT_PX,
 } from "@/components/Layout/constants";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import ExperimentHeader from "./ExperimentHeader";
 import ExperimentDetailsPanel from "./ExperimentDetailsPanel";
 import { ExperimentEditsProvider } from "./ExperimentEdits";
@@ -226,12 +228,22 @@ function TabbedPageContents({
     experiment.defaultDashboardId ? true : false,
   );
   const showDetailsPanel = tab === "overview" && !showDashboardView;
-  const detailsPanelOpen = showDetailsPanel && detailsOpen;
+
+  // Too narrow for the page and the panel side by side, the panel starts
+  // hidden and opens only when asked, over the content. The stored choice is
+  // for a wide window, so narrowing one never overwrites it.
+  const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
+  const [openWhileNarrow, setOpenWhileNarrow] = useState(false);
+  useEffect(() => setOpenWhileNarrow(false), [narrow]);
+  const detailsShown = narrow ? openWhileNarrow : detailsOpen;
+  const detailsPanelOpen = showDetailsPanel && detailsShown;
+  const setDetailsShown = (open: boolean) =>
+    narrow ? setOpenWhileNarrow(open) : setDetailsOpen(open);
 
   // The toggle is a fresh start: a width dragged out earlier is forgotten.
   const toggleDetailsPanel = (open: boolean) => {
     setDetailsWidth(PANEL_WIDTH_PX);
-    setDetailsOpen(open);
+    setDetailsShown(open);
   };
 
   // Results tab filters
@@ -622,7 +634,7 @@ function TabbedPageContents({
         mutateWatchers={mutateWatchers}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
-        detailsOpen={detailsOpen}
+        detailsOpen={detailsShown}
         setDetailsOpen={showDetailsPanel ? toggleDetailsPanel : undefined}
         newPhase={newPhase}
         editPhases={editPhases}
@@ -644,7 +656,7 @@ function TabbedPageContents({
           top={TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX}
           width={detailsWidth}
           onWidthChange={setDetailsWidth}
-          onCollapse={() => setDetailsOpen(false)}
+          onCollapse={() => setDetailsShown(false)}
           panel={
             showDetailsPanel ? (
               <ExperimentDetailsPanel
