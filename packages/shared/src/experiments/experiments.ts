@@ -2987,23 +2987,19 @@ type ScheduledEndLike = {
   scheduledStopPlan?: { mode?: string } | null;
 };
 
-// A schedule stages a status change when it starts the experiment (publishing
-// its pending drafts) or ends it with a plan other than "notify" (stop or ship
-// a variation). No stop plan behaves as "notify".
+// A schedule stages a status change when it starts the experiment or ends it
+// with a plan other than "notify" (stop or ship); no stop plan means "notify".
 export function scheduleStagesStatusChange(
   schedule: ScheduledEndLike | null | undefined,
 ): boolean {
   if (!schedule) return false;
-  // A scheduled start publishes the experiment's pending drafts when it fires.
   if (schedule.startAt) return true;
   if (!(schedule.stopAt || schedule.stopAfter)) return false;
   return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
 }
 
-// Writing a schedule is the deferred form of a status change when the incoming
-// schedule stages one, or when it re-times / clears a stop that is still
-// pending on the experiment (a fired or abandoned stop leaves no pointer, so a
-// stale plan can be cleared or replaced with a reminder without it).
+// True when the incoming schedule stages a status change, or a staged one is
+// still pending (a fired or abandoned one leaves no pointer and can be cleared).
 export function scheduleWriteNeedsRunPermission(
   experiment: {
     statusUpdateSchedule?: ScheduledEndLike | null;

@@ -2436,9 +2436,8 @@ export async function assertCanRunExperimentChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
 ): Promise<void> {
-  // A scheduled end that stops the experiment or ships a variation is a
-  // deferred status change: staging one, or re-timing / clearing one that is
-  // still pending, counts too.
+  // A schedule that will start, stop or ship is a deferred status change;
+  // so is re-timing or clearing one that is still pending.
   const needsRunExperimentsPermission =
     PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.some((key) => key in changes) ||
     ("statusUpdateSchedule" in changes &&
@@ -2455,8 +2454,6 @@ export async function assertCanRunExperimentChanges(
   );
 }
 
-// Run-experiments permission over the environments the experiment currently
-// affects, on its project and on any additional (e.g. destination) project.
 // The environments the experiment serves now plus those its pending drafts
 // reach once it starts, so a launch is gated like the live change it makes.
 export async function getExperimentAffectedEnvs(
@@ -2511,6 +2508,8 @@ export async function getExperimentAffectedEnvs(
   });
 }
 
+// Run-experiments permission over the affected environments, on the
+// experiment's project and on any additional (e.g. destination) project.
 export async function assertCanRunExperimentInAffectedEnvironments(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
