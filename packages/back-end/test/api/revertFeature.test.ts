@@ -22,7 +22,9 @@ jest.mock("back-end/src/services/archiveDependentsGuard", () => ({
 }));
 jest.mock("back-end/src/revisions/revertRampGuard", () => ({
   assertRevertRampStopsAcknowledged: jest.fn(),
-  resolveRevertRampStops: jest.fn(),
+  resolveRevertRampStops: jest
+    .fn()
+    .mockResolvedValue({ detaches: [], warning: null }),
 }));
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),

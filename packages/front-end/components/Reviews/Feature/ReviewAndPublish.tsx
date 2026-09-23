@@ -37,6 +37,8 @@ import {
   isPureFeatureArchive,
   isPureFeatureRevert,
   MergeStrategy,
+  draftRevertedFromVersion,
+  getRevertRampDetachActions,
 } from "shared/util";
 import {
   isScheduledPublishPending,
@@ -80,6 +82,7 @@ import Revisionlog, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
+import { useFeatureRevisionByVersion } from "@/hooks/useFeatureRevisionByVersion";
 import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
@@ -1195,12 +1198,38 @@ export default function ReviewAndPublish({
   // over the current revision so unchanged fields are present on both sides.
   const draftRawAfter = { ...currentRevisionData, ...draftDiffInput };
 
+  // An open revert draft also removes the ramps its target predates; they show
+  // and count as changes like the draft's own ramp removals.
+  const revertDraftTargetVersion =
+    revision &&
+    revision.status !== "published" &&
+    revision.status !== "discarded"
+      ? draftRevertedFromVersion(revision)
+      : undefined;
+  const revertDraftTarget = useFeatureRevisionByVersion(
+    feature.id,
+    revertDraftTargetVersion,
+    revisions,
+  );
+
   const rampDiffs = useMemo(
     () =>
       revision
-        ? buildRampDiffs({ feature, revision, rampSchedules, holdoutsMap })
+        ? buildRampDiffs({
+            feature,
+            revision,
+            rampSchedules,
+            holdoutsMap,
+            revertDetaches: revertDraftTarget
+              ? getRevertRampDetachActions(
+                  feature.id,
+                  revertDraftTarget,
+                  rampSchedules ?? [],
+                )
+              : [],
+          })
         : [],
-    [feature, revision, rampSchedules, holdoutsMap],
+    [feature, revision, rampSchedules, holdoutsMap, revertDraftTarget],
   );
 
   const onUpdateFromLive = async () => {

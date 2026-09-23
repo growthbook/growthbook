@@ -21,7 +21,7 @@ import {
 } from "shared/permissions";
 import isEqual from "lodash/isEqual";
 import { Flex, Box } from "@radix-ui/themes";
-import useApi from "@/hooks/useApi";
+import { useFeatureRevisionByVersion } from "@/hooks/useFeatureRevisionByVersion";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 // eslint-disable-next-line no-restricted-imports
@@ -118,19 +118,11 @@ export default function RevertModal({
     effectiveApprovalsRequired ? "new" : "publish",
   );
 
-  const targetRevisionFromCache = allRevisions.find(
-    (r) => r.version === targetVersion,
+  const targetRevision = useFeatureRevisionByVersion(
+    feature.id,
+    targetVersion,
+    allRevisions,
   );
-  // If the selected version isn't in the parent's lazy cache, fetch it directly.
-  const { data: fetchedRevisionData } = useApi<{
-    status: 200;
-    revisions: FeatureRevisionInterface[];
-  }>(`/feature/${feature.id}/revisions?versions=${targetVersion}`, {
-    shouldRun: () => !targetRevisionFromCache,
-  });
-  const targetRevision =
-    targetRevisionFromCache ??
-    fetchedRevisionData?.revisions?.find((r) => r.version === targetVersion);
   const isLoadingRevision = !targetRevision;
   // Fall back to current revision only for submit/permissions — never for the diff.
   const targetRevisionForAction = targetRevision ?? revision;

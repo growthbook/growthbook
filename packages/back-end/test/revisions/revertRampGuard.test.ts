@@ -9,6 +9,7 @@ import {
   revertRampStopGate,
 } from "back-end/src/revisions/revertRampGuard";
 import { SoftWarningError } from "back-end/src/util/errors";
+import { assertRevertHasChanges } from "back-end/src/services/revertGuards";
 
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
 
@@ -107,5 +108,32 @@ describe("revertRampGuard", () => {
         'This revert will delete the ramp schedule "Gradual rollout" (rs_1) on Rule "fr_1".',
       ],
     });
+  });
+
+  it("counts removing a predated ramp as the diff of an otherwise empty revert", async () => {
+    const target = {
+      version: 2,
+      datePublished: new Date("2026-09-11T00:00:00Z"),
+    } as never;
+    await expect(
+      assertRevertHasChanges(contextWith(), feature, {}, {
+        ...(target as object),
+        rampAttachments: [{ rampScheduleId: "rs_1", ruleId: "fr_1" }],
+      } as never),
+    ).rejects.toThrow(/Nothing to revert: .* revision #2/);
+    await expect(
+      assertRevertHasChanges(contextWith(), feature, {}, {
+        ...(target as object),
+        rampAttachments: [],
+      } as never),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertRevertHasChanges(
+        contextWith(),
+        feature,
+        { defaultValue: "x" },
+        target,
+      ),
+    ).resolves.toBeUndefined();
   });
 });

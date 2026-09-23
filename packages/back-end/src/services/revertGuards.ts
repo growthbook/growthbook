@@ -58,6 +58,26 @@ export function assertRevertValuesReadable(
   }
 }
 
+// A revert with no diff against live is refused. Removing ramps the target
+// predates counts as a diff: it is sometimes all a revert restores.
+export async function assertRevertHasChanges(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  changes: MergeResultChanges,
+  targetRevision: FeatureRevisionInterface,
+): Promise<void> {
+  if (Object.keys(changes).length) return;
+  const { detaches } = await resolveRevertRampStops(
+    context,
+    feature,
+    targetRevision,
+  );
+  if (detaches.length) return;
+  throw new Error(
+    `Nothing to revert: the live feature already matches revision #${targetRevision.version}.`,
+  );
+}
+
 // The guards a landing revert runs before its revision exists: a project
 // move, a restore that re-archives the flag, and ramps the target predates.
 export async function assertRevertLandingGuards(

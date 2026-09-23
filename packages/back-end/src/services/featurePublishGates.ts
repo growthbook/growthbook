@@ -47,7 +47,10 @@ import {
 import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDependentsGuard";
 import { MergeConflictError } from "back-end/src/util/errors";
 import { pendingScheduleGate } from "back-end/src/revisions/pendingScheduleGuard";
-import { revertRampStopGate } from "back-end/src/revisions/revertRampGuard";
+import {
+  resolveRevertRampStopsForRevision,
+  revertRampStopGate,
+} from "back-end/src/revisions/revertRampGuard";
 import {
   assertFeatureSavedGroupScope,
   collectSavedGroupScopeGate,
@@ -336,13 +339,20 @@ export async function planFeatureRevisionMerge({
       )
     ).length > 0;
 
+  // A revert whose only effect is removing ramps its target predates still
+  // changes something, like a draft that only activates a ramp.
+  const detachesRevertRamps =
+    (await resolveRevertRampStopsForRevision(context, feature, revision))
+      .detaches.length > 0;
+
   return {
     environmentIds,
     mergeResult: merged.result,
     filledLiveRules: filledLive.rules,
     hasChanges:
       draftDiffersFromLive(revision, live, feature, environmentIds) ||
-      hasLinkedPendingRamp,
+      hasLinkedPendingRamp ||
+      detachesRevertRamps,
     hasLinkedPendingRamp,
     requiresReview,
     uncoveredApprovers,
