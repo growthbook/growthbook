@@ -7,6 +7,7 @@ import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { DocLink } from "@/components/DocLink";
 
 export default function InAppHelp() {
   const router = useRouter();
@@ -94,13 +95,13 @@ export default function InAppHelp() {
               >
                 Join The Slack Community <FaArrowRight className="ml-2" />
               </a>
-              <a
-                href="https://docs.growthbook.io/"
-                target="blank"
+              <DocLink
+                docSection="home"
+                useRadix={false}
                 className="btn btn-outline-primary font-weight-normal my-2 w-100"
               >
                 View Docs <FaArrowRight className="ml-2" />
-              </a>
+              </DocLink>
             </div>
             {showUpgradeModal && (
               <div className="bg-white border rounded p-3 m-3 shadow">

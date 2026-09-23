@@ -7,6 +7,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
+import { DocLink } from "@/components/DocLink";
 
 // hard coded agreements for now:
 const agreements: Record<
@@ -32,13 +33,9 @@ const agreements: Record<
         data analysis.
         <Box mt="2">
           For more information about how your data is used, please see our{" "}
-          <a
-            href="https://docs.growthbook.io/integrations/ai"
-            target="_blank"
-            rel="noreferrer"
-          >
+          <DocLink docSection="aiIntegrations" useRadix={false}>
             AI docs
-          </a>
+          </DocLink>
           , review our{" "}
           <a
             href="https://www.growthbook.io/legal/privacy-policy/06-19-2025"

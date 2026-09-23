@@ -40,6 +40,7 @@ import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { docUrl } from "@/components/DocLink";
 
 export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
@@ -178,7 +179,7 @@ const MetricCorrelations = (): React.ReactElement => {
           title="Examine relationships between metrics"
           description="Explore how metrics are related across experiments."
           commercialFeature="metric-correlations"
-          learnMoreLink="https://docs.growthbook.io/app/metrics" //<- fix this link when docs are ready
+          learnMoreLink={docUrl("metricCorrelations")}
           image="/images/empty-states/metric_correlations.png"
         />
       </Box>
@@ -204,7 +205,7 @@ const MetricCorrelations = (): React.ReactElement => {
           title="Examine relationships between metrics"
           description="Explore how metrics are related across experiments."
           commercialFeature="metric-correlations"
-          learnMoreLink="https://docs.growthbook.io/app/metrics" //<- fix this link when docs are ready
+          learnMoreLink={docUrl("metricCorrelations")}
           image="/images/empty-states/metric_correlations.png"
         />
       </Box>

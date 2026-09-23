@@ -27,6 +27,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { docUrl } from "@/components/DocLink";
 
 // Formatter for numbers
 const requestsFormatter = new Intl.NumberFormat("en-US", {
@@ -290,7 +291,7 @@ export default function CloudUsage() {
       )}
       <Box mt="5">
         <a
-          href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
+          href={docUrl("cloudCdnUsageLimits")}
           className="text-decoration-none"
           target="_blank"
           rel="noopener noreferrer"

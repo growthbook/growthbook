@@ -9,6 +9,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
+import { docUrl } from "@/components/DocLink";
 import styles from "./AccountPlanNotices.module.scss";
 
 export default function AccountPlanNotices() {
@@ -28,7 +29,7 @@ export default function AccountPlanNotices() {
     <Box className={styles["notice-tooltip"]}>
       Click to upgrade, or visit{" "}
       <a
-        href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
+        href={docUrl("cloudCdnUsageLimits")}
         className="text-decoration-none"
         target="_blank"
         rel="noopener noreferrer"
@@ -97,7 +98,7 @@ export default function AccountPlanNotices() {
     <Box className={styles["notice-tooltip"]}>
       Click to upgrade, or visit{" "}
       <a
-        href="https://docs.growthbook.io/app/managed-warehouse#limits"
+        href={docUrl("managedWarehouseLimits")}
         className="text-decoration-none"
         target="_blank"
         rel="noopener noreferrer"

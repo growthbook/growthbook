@@ -8,6 +8,7 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Callout from "@/ui/Callout";
+import { DocLink } from "@/components/DocLink";
 import { ExperimentTab } from "./TabbedPage";
 import { useSnapshot } from "./SnapshotProvider";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
@@ -160,13 +161,12 @@ const SRMWarning: FC<{
                   </li>
                 </ul>
                 <p>
-                  <a
-                    target="_blank"
-                    rel="noreferrer"
-                    href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
+                  <DocLink
+                    docSection="troubleshootingExperiments"
+                    useRadix={false}
                   >
                     Read about troubleshooting experiments in our docs
-                  </a>
+                  </DocLink>
                 </p>
               </>
             )}

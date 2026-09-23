@@ -32,6 +32,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import Callout from "@/ui/Callout";
+import { docUrl } from "@/components/DocLink";
 
 function TemplateRowMenu({
   templateId,
@@ -194,7 +195,7 @@ export const TemplatesPage = ({
           description="Save time configuring experiment details, and ensure consistency
             across your team and projects."
           commercialFeature="templates"
-          learnMoreLink="https://docs.growthbook.io/running-experiments/experiment-templates"
+          learnMoreLink={docUrl("experimentTemplates")}
         />
       </>
     );
@@ -294,7 +295,7 @@ export const TemplatesPage = ({
         across your team and projects."
       leftButton={
         <LinkButton
-          href="https://docs.growthbook.io/running-experiments/experiment-templates"
+          href={docUrl("experimentTemplates")}
           variant="outline"
           external={true}
         >

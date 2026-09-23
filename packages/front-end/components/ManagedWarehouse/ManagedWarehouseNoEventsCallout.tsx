@@ -1,12 +1,11 @@
 import {
   MANAGED_WAREHOUSE_MIGRATING_MESSAGE,
   MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE,
-  MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL,
   isManagedWarehouseMigrating,
 } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 
 export default function ManagedWarehouseNoEventsCallout() {
@@ -27,13 +26,7 @@ export default function ManagedWarehouseNoEventsCallout() {
     <Callout status="info">
       <Text>
         {MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE} Read{" "}
-        <Link
-          href={MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL}
-          target="_blank"
-          rel="noreferrer"
-        >
-          our full docs
-        </Link>{" "}
+        <DocLink docSection="managedWarehouseTracking">our full docs</DocLink>{" "}
         with instructions on how to send events from your app to GrowthBook.
       </Text>
     </Callout>

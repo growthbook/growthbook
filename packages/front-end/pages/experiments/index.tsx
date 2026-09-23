@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
+import { docUrl } from "@/components/DocLink";
 
 const EXPERIMENT_LIST_TABS = [
   "all",
@@ -198,7 +199,7 @@ const ExperimentsPage = (): React.ReactElement => {
               description="Use our powerful query and stats engine to analyze experiment results using data from your warehouse."
               leftButton={
                 <LinkButton
-                  href="https://docs.growthbook.io/app/importing-experiments"
+                  href={docUrl("importingExperiments")}
                   variant="outline"
                   external
                 >
@@ -226,7 +227,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 description="Run unlimited tests with linked feature flags, URL redirects or the Visual Editor."
                 leftButton={
                   <LinkButton
-                    href="https://docs.growthbook.io/experiments"
+                    href={docUrl("experimentsOverview")}
                     variant="outline"
                     external
                   >
