@@ -582,6 +582,20 @@ describe("getRuleReachability — soft conflicts (attribute overlap)", () => {
     });
   });
 
+  it("does not warn on overlapping modeled attributes when another ANDed attribute is disjoint", () => {
+    // #7109: country and install_unix_time overlap, but language can't.
+    const shared = { country: "US", install_unix_time: { $gt: 1700000000 } };
+    const result = analyze([
+      rollout("r1", 0.5, cond({ ...shared, language: "ru" })),
+      force("r2", { condition: cond({ ...shared, language: "de" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
   it("still warns on an opaque shared attribute when the other attribute overlaps", () => {
     const now = { $gt: "2026-01-01T00:00:00Z" };
     const result = analyze([
