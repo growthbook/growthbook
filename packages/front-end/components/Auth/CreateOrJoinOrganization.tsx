@@ -50,6 +50,7 @@ const CreateOrJoinOrganization: FC<{
   });
 
   const [loading, setLoading] = useState(false);
+  const [joiningOrgId, setJoiningOrgId] = useState<string | null>(null);
   const [error, setError] = useState(null);
   const [mode, setMode] = useState<"create" | "join">("create");
   function switchMode() {
@@ -82,10 +83,13 @@ const CreateOrJoinOrganization: FC<{
     }
   }, [orgs]);
 
-  const joinOrgFormSubmit = async (org) => {
-    if (loading) return;
+  const joinOrgFormSubmit = async (org: {
+    id: string;
+    currentUserIsPending: boolean;
+  }) => {
+    if (loading || joiningOrgId) return;
     setError(null);
-    setLoading(true);
+    setJoiningOrgId(org.id);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const resp: any = await apiCall("/member", {
@@ -94,7 +98,7 @@ const CreateOrJoinOrganization: FC<{
       });
       track("Join Organization");
       updateUser();
-      setLoading(false);
+      setJoiningOrgId(null);
       if (resp?.isPending) {
         org.currentUserIsPending = true;
       } else {
@@ -110,7 +114,7 @@ const CreateOrJoinOrganization: FC<{
       }
     } catch (e) {
       setError(e.message);
-      setLoading(false);
+      setJoiningOrgId(null);
     }
   };
 
@@ -208,8 +212,11 @@ const CreateOrJoinOrganization: FC<{
                       <Flex flexShrink="0">
                         <Button
                           size="md"
-                          loading={loading}
-                          disabled={org.currentUserIsPending || false}
+                          loading={joiningOrgId === org.id}
+                          disabled={
+                            org.currentUserIsPending ||
+                            (joiningOrgId !== null && joiningOrgId !== org.id)
+                          }
                           onClick={() => joinOrgFormSubmit(org)}
                         >
                           {org.currentUserIsPending ? "Pending" : "Join"}
