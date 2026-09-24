@@ -26,7 +26,9 @@ import { factMetricFactory } from "../factories/FactMetric.factory";
 const watermark = new Date("2024-01-10T12:00:00.999Z");
 const NEXT_MS = "'2024-01-10 12:00:01.000'";
 const RAW = "2024-01-10 12:00:00.999999";
-const AFTER_RAW = `> CAST('${RAW}' AS TIMESTAMP)`;
+// BigQuery writes the exact value back as a bare literal, which coerces to
+// the column's own type (TIMESTAMP or DATETIME).
+const AFTER_RAW = `> '${RAW}'`;
 
 const factTable = factTableFactory.build({
   id: "ft_events",
@@ -152,6 +154,24 @@ describe("rawWatermark", () => {
 
 describe("afterWatermark", () => {
   it("compares strictly against the exact value when it is known", () => {
+    expect(afterWatermark(bigQueryDialect, "m.timestamp", watermark, RAW)).toBe(
+      `m.timestamp ${AFTER_RAW}`,
+    );
+  });
+
+  it("writes the exact value back in the dialect's literal form", () => {
+    // A TIMESTAMP cast is the default. BigQuery's fact-table timestamp columns
+    // may be DATETIME, which does not compare with TIMESTAMP, so it uses a bare
+    // literal that coerces to either type. Presto's CAST is timestamp(3) and
+    // would round a finer watermark, so it uses a typed literal.
+    for (const dialect of [baseDialect, snowflakeDialect]) {
+      expect(afterWatermark(dialect, "m.timestamp", watermark, RAW)).toBe(
+        `m.timestamp > CAST('${RAW}' AS TIMESTAMP)`,
+      );
+    }
+    expect(afterWatermark(prestoDialect, "m.timestamp", watermark, RAW)).toBe(
+      `m.timestamp > TIMESTAMP '${RAW}'`,
+    );
     expect(afterWatermark(bigQueryDialect, "m.timestamp", watermark, RAW)).toBe(
       `m.timestamp ${AFTER_RAW}`,
     );

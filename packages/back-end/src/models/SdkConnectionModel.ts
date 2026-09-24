@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { isEqual, omit } from "lodash";
+import { isEqual, isUndefined, omit, omitBy } from "lodash";
 import {
   managedByValidator,
   ManagedBy,
@@ -160,6 +160,18 @@ export async function findSDKConnectionsByOrganization(
   return connections.filter((conn) =>
     context.permissions.canReadMultiProjectResource(conn.projects),
   );
+}
+
+// Not filtered by the caller's project read access: used as a referential
+// integrity check before an environment is removed.
+export async function countSDKConnectionsByEnvironment(
+  context: ReqContext | ApiReqContext,
+  environment: string,
+) {
+  return await SDKConnectionModel.countDocuments({
+    organization: context.org.id,
+    environment,
+  });
 }
 
 export async function findAllSDKConnectionsAcrossAllOrgs() {
@@ -346,10 +358,16 @@ export async function editSDKConnection(
   const { proxyEnabled, proxyHost, languages, ...rest } =
     editSDKConnectionValidator.parse(updates);
 
-  const otherChanges = {
-    ...rest,
-    languages: languages as SDKLanguage[],
-  };
+  // Keep only the fields that were sent. A field that was left out comes
+  // through as `undefined`, and the payload rebuild below would use that
+  // instead of the saved value.
+  const otherChanges = omitBy(
+    {
+      ...rest,
+      languages: languages as SDKLanguage[] | undefined,
+    },
+    isUndefined,
+  );
 
   let newProxy = {
     ...connection.proxy,

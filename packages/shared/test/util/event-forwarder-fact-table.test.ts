@@ -240,6 +240,32 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
 FROM MY_DB.PUBLIC.GB_EVENTS`);
   });
 
+  it("builds Databricks fact table SQL with variant_get casts and received_at filter", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "databricks",
+      catalog: "main",
+      schema: "analytics",
+      tablePrefix: "GB",
+      attributeSchema: [
+        { property: "user_id", datatype: "string" },
+        { property: "age", datatype: "number" },
+        { property: "beta", datatype: "boolean" },
+        { property: "tags", datatype: "string[]" },
+      ],
+    });
+
+    expect(sql).toBe(`SELECT
+  timestamp,
+  event_name,
+  -- Attributes
+  variant_get(attributes, '$.user_id', 'STRING') AS user_id,
+  variant_get(attributes, '$.age', 'DOUBLE') AS age,
+  variant_get(attributes, '$.beta', 'BOOLEAN') AS beta,
+  variant_get(attributes, '$.tags') AS tags
+FROM \`main\`.\`analytics\`.\`gb_events\`
+WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`);
+  });
+
   it("maps default auto-attributes to enriched warehouse keys in BigQuery SQL", () => {
     const defaultAutoAttributes = [
       { property: "id", datatype: "string" as const, hashAttribute: true },

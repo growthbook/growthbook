@@ -5,6 +5,8 @@ import {
   isMigrationSuffixedRuleId,
   parseRuleId,
   RULE_ID_ENV_SUFFIX_DELIMITER,
+  findStoredRuleCounterpart,
+  rampTargetsDetachedBy,
 } from "shared/util";
 
 describe("ruleId helpers", () => {
@@ -174,5 +176,78 @@ describe("rampRuleEnvKey with characters encodeURIComponent rejects", () => {
       rampRuleEnvKey("f", "r", "dev"),
     );
     expect(rampRuleEnvKey("f", "r", "dev").startsWith("[")).toBe(false);
+  });
+});
+
+describe("findStoredRuleCounterpart", () => {
+  const stored = [
+    { id: "fr_x__production", environments: ["production"] },
+    { id: "fr_x__dev", environments: ["dev"] },
+    { id: "fr_all", allEnvironments: true },
+  ];
+
+  it("prefers an exact id match", () => {
+    expect(findStoredRuleCounterpart(stored, { id: "fr_x__dev" })?.id).toBe(
+      "fr_x__dev",
+    );
+  });
+
+  it("matches a stemmed v1 post-back to the sibling in the same environment", () => {
+    expect(
+      findStoredRuleCounterpart(stored, {
+        id: "fr_x",
+        environments: ["production"],
+      })?.id,
+    ).toBe("fr_x__production");
+    expect(
+      findStoredRuleCounterpart(stored, { id: "fr_x", environments: ["qa"] }),
+    ).toBeUndefined();
+  });
+
+  it("treats an all-environments rule on either side as overlapping", () => {
+    expect(
+      findStoredRuleCounterpart(stored, {
+        id: "fr_all__production",
+        environments: ["production"],
+      })?.id,
+    ).toBe("fr_all");
+  });
+
+  it("never matches an id-less rule", () => {
+    expect(
+      findStoredRuleCounterpart(stored, { environments: ["production"] }),
+    ).toBeUndefined();
+  });
+});
+
+describe("rampTargetsDetachedBy", () => {
+  const ids = (ruleIds: string[]) => ruleIds.map((ruleId) => ({ ruleId }));
+  it.each([
+    [
+      "the literal id, not its migrated sibling",
+      ["fr_1__dev", "fr_1__prod"],
+      "fr_1__dev",
+      ["fr_1__dev"],
+    ],
+    [
+      "a suffixed id to its bare legacy target",
+      ["fr_1", "fr_2"],
+      "fr_1__prod",
+      ["fr_1"],
+    ],
+    [
+      "a bare id to every migrated suffix",
+      ["fr_1__dev", "fr_1__prod"],
+      "fr_1",
+      ["fr_1__dev", "fr_1__prod"],
+    ],
+    [
+      "no migrated sibling once the literal target is gone",
+      ["fr_1__prod"],
+      "fr_1__dev",
+      [],
+    ],
+  ])("matches %s", (_, targets, ruleId, expected) => {
+    expect(rampTargetsDetachedBy(ids(targets), ruleId)).toEqual(ids(expected));
   });
 });

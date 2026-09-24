@@ -5,6 +5,7 @@ import {
   QueryInterface,
   QueryPointer,
   QueryStatus,
+  QueryRunnerFailureCause,
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
@@ -16,6 +17,8 @@ import {
   getQueriesByIds,
   getRecentQuery,
   markPendingQueriesAsFailed,
+  setQueryExternalId,
+  touchQueuedQueriesHeartbeat,
   updateQuery,
   updateQueryIfPending,
   updateQueryIfRunning,
@@ -23,7 +26,10 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-import { promiseAllChunks } from "back-end/src/util/promise";
+import {
+  cancelExternalJobsForQueries,
+  cancelQueryAndConfirm,
+} from "back-end/src/services/queryCancellation";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -110,6 +116,23 @@ export function getQueryFailureError(queryMap: QueryMap): string {
     (q) => !q.error?.startsWith("Dependencies failed"),
   );
   return (rootCause ?? failed[0])?.error || GENERIC_QUERY_FAILURE_ERROR;
+}
+
+// Error recorded on a query a user cancelled; the controller appends who did
+// it, so cancellation is detected by prefix.
+export const QUERY_CANCELLED_BY_USER_ERROR = "Query cancelled by user";
+
+export function getQueryFailureCause(
+  queryMap: QueryMap,
+): QueryRunnerFailureCause {
+  // A separate runner can observe cancellation before the snapshot is marked terminal.
+  return Array.from(queryMap.values()).some(
+    (query) =>
+      query.status === "failed" &&
+      !!query.error?.startsWith(QUERY_CANCELLED_BY_USER_ERROR),
+  )
+    ? "cancelled"
+    : "query";
 }
 
 /**
@@ -222,7 +245,7 @@ export abstract class QueryRunner<
   private dagPersisted = false;
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
-  private lockHeartbeatTimer: null | NodeJS.Timeout = null;
+  private heartbeatTimer: null | NodeJS.Timeout = null;
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
   /** Non-null while a refresh pass is in flight; watchdog skips re-arm then. */
   private refreshStartedAt: number | null = null;
@@ -264,6 +287,7 @@ export abstract class QueryRunner<
     runStarted?: Date;
     result?: Result;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<Model>;
 
   private setTimer(id: string, timer: NodeJS.Timeout): void {
@@ -306,17 +330,31 @@ export abstract class QueryRunner<
    */
   protected onHeartbeat(): void {}
 
-  private startLockHeartbeat(): void {
-    if (this.lockHeartbeatTimer) return;
-    this.lockHeartbeatTimer = setInterval(() => {
+  private startHeartbeat(): void {
+    if (this.heartbeatTimer) return;
+    this.heartbeatTimer = setInterval(() => {
       this.onHeartbeat();
+      this.heartbeatQueuedQueries();
     }, 30000);
   }
 
-  private stopLockHeartbeat(): void {
-    if (this.lockHeartbeatTimer) {
-      clearInterval(this.lockHeartbeatTimer);
-      this.lockHeartbeatTimer = null;
+  /**
+   * While the query is queued, update the heartbeat to show that this
+   * runner is still alive and monitoring the dependencies and will start
+   * the query when ready.
+   */
+  private heartbeatQueuedQueries(): void {
+    const ids = this.model.queries.map((q) => q.query);
+    if (!ids.length) return;
+    touchQueuedQueriesHeartbeat(this.context, ids).catch((e) =>
+      logger.warn(e, `Failed to heartbeat queued queries for ${this.model.id}`),
+    );
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 
@@ -581,6 +619,7 @@ export abstract class QueryRunner<
         queries: [],
         runStarted: new Date(),
         error: noQueriesError,
+        failureCause: "no-queries",
       });
       this.model = newModel;
       this.setStatus("finished", noQueriesError);
@@ -589,6 +628,7 @@ export abstract class QueryRunner<
 
     // If already finished (queries were cached)
     let error = "";
+    let failureCause: QueryRunnerFailureCause | undefined;
     let result: Result | undefined = undefined;
 
     const queryStatus = this.getOverallQueryStatus();
@@ -606,11 +646,13 @@ export abstract class QueryRunner<
       } catch (e) {
         logger.error(e, this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
+        failureCause = "analysis";
       }
     } else if (queryStatus === "failed") {
       this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       logger.debug(this.model.id + " runner: Query failed immediately");
       error = "Error running one or more database queries";
+      failureCause = getQueryFailureCause(await this.getQueryMap(queries));
     }
 
     const newModel = await this.updateModel({
@@ -619,6 +661,7 @@ export abstract class QueryRunner<
       runStarted: new Date(),
       result: result,
       error: error,
+      failureCause,
     });
     this.model = newModel;
     this.dagPersisted = true;
@@ -647,12 +690,12 @@ export abstract class QueryRunner<
     this.result = result;
 
     if (this.status === "running") {
-      this.startLockHeartbeat();
+      this.startHeartbeat();
       this.startRefreshWatchdog();
     }
 
     if (this.status === "finished") {
-      this.stopLockHeartbeat();
+      this.stopHeartbeat();
       this.stopRefreshWatchdog();
       this.emitter.emit(FINISH_EVENT);
     }
@@ -824,10 +867,12 @@ export abstract class QueryRunner<
     if (!hasChanges && !needsFinalize) return queryMap;
 
     let error: string | undefined = undefined;
+    let failureCause: QueryRunnerFailureCause | undefined;
     let result: Result | undefined = undefined;
 
     if (newStatus === "failed") {
       error = getQueryFailureError(queryMap);
+      failureCause = getQueryFailureCause(queryMap);
 
       if (oldStatus === "running") {
         this.experimentUpdateExecutionLogger?.endPhase("runQueries");
@@ -856,8 +901,13 @@ export abstract class QueryRunner<
         logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
+        failureCause = "analysis";
         logger.error(e, `Queries ${newStatus}, failed running analysis`);
       }
+    }
+
+    if (error && getQueryFailureCause(queryMap) === "cancelled") {
+      failureCause = "cancelled";
     }
 
     const newModel = await this.updateModel({
@@ -866,6 +916,7 @@ export abstract class QueryRunner<
       result,
       // Empty string clears stale error text; mongoose strips undefined from $set.
       error: error ?? "",
+      failureCause,
     });
     this.model = newModel;
 
@@ -900,84 +951,19 @@ export abstract class QueryRunner<
       const affected = await markPendingQueriesAsFailed(
         this.context,
         pendingIds,
-        "Query cancelled by user",
+        QUERY_CANCELLED_BY_USER_ERROR,
       );
       logger.debug(
         { modelId: this.model.id, affected, attempted: pendingIds.length },
         "Marked queries as cancelled in Mongo",
       );
 
-      const queryDocs = await getQueriesByIds(this.context, pendingIds, false);
-
-      // Cached copies (createNewQueryFromCached) share their upstream's
-      // externalId via cachedQueryUsed; chase one hop to find it.
-      const cachedSourceIds = Array.from(
-        new Set(
-          queryDocs
-            .map((q) => q.cachedQueryUsed)
-            .filter((id): id is string => Boolean(id)),
-        ),
+      await cancelExternalJobsForQueries(
+        this.context,
+        this.integration,
+        pendingIds,
+        { modelId: this.model.id },
       );
-      const cachedSourceDocs = cachedSourceIds.length
-        ? await getQueriesByIds(this.context, cachedSourceIds, false)
-        : [];
-      const cachedSourceById = new Map(cachedSourceDocs.map((q) => [q.id, q]));
-
-      // Dedupe by externalId so cached copies don't trigger duplicate cancels.
-      type ExternalJob = { id: string; metadata?: Record<string, string> };
-      const externalJobsById = new Map<string, ExternalJob>();
-      for (const q of queryDocs) {
-        if (q.externalId) {
-          if (!externalJobsById.has(q.externalId)) {
-            externalJobsById.set(q.externalId, {
-              id: q.externalId,
-              metadata: q.externalIdMetadata,
-            });
-          }
-          continue;
-        }
-        if (q.cachedQueryUsed) {
-          const source = cachedSourceById.get(q.cachedQueryUsed);
-          if (source?.externalId && !externalJobsById.has(source.externalId)) {
-            externalJobsById.set(source.externalId, {
-              id: source.externalId,
-              metadata: source.externalIdMetadata,
-            });
-          }
-        }
-      }
-      const externalJobs = [...externalJobsById.values()];
-      logger.debug(
-        {
-          datasourceId: this.integration.datasource.id,
-          modelId: this.model.id,
-          externalJobs: externalJobs.map((j) => ({
-            id: j.id,
-            metadataKeys: j.metadata ? Object.keys(j.metadata) : [],
-          })),
-        },
-        `Cancelling ${externalJobs.length} external jobs`,
-      );
-
-      if (externalJobs.length) {
-        await promiseAllChunks(
-          externalJobs.map(({ id, metadata }) => {
-            return async () => {
-              if (!this.integration.cancelQuery) return;
-              try {
-                await this.integration.cancelQuery(id, metadata);
-              } catch (e) {
-                const msg = e instanceof Error ? e.message : String(e);
-                logger.warn(
-                  { err: e, externalId: id },
-                  `Failed to cancel external job: ${msg}`,
-                );
-              }
-            };
-          }),
-          5,
-        );
-      }
     }
 
     this.clearAllTimers();
@@ -985,6 +971,7 @@ export abstract class QueryRunner<
       queries: [],
       status: "failed",
       error: "",
+      failureCause: "cancelled",
     });
     this.model = newModel;
 
@@ -1116,13 +1103,28 @@ export abstract class QueryRunner<
       id: string,
       metadata?: Record<string, string>,
     ) => {
-      await updateQuery(this.context, doc, {
-        externalId: id,
-        ...(metadata ? { externalIdMetadata: metadata } : {}),
-      });
+      const status = await setQueryExternalId(this.context, doc, id, metadata);
+      if (!this.integration.cancelQuery) return;
+
+      // In case the query was cancelled before externalId was set, detect that and cancel
+      // the external job here
+      if (status === null || status === "failed") {
+        await cancelQueryAndConfirm(
+          this.integration,
+          { externalId: id, metadata },
+          {
+            datasourceId: this.integration.datasource.id,
+            modelId: this.model.id,
+            queryId: doc.id,
+          },
+        );
+      }
     };
 
-    run(doc.query, setExternalId, { queryType: doc.queryType || "unknown" })
+    run(doc.query, setExternalId, {
+      queryType: doc.queryType || "unknown",
+      queryId: doc.id,
+    })
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);

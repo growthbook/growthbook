@@ -1,0 +1,117 @@
+---
+title: IP Addresses
+description: The IP addresses GrowthBook Cloud connects out from, the addresses to reach GrowthBook on, and which of them are safe to pin in a firewall allowlist.
+id: ip-addresses
+slug: ip-addresses
+sidebarTitle: IP Addresses
+---
+
+Which addresses you need depends on the direction of the traffic.
+
+## GrowthBook Cloud connecting to you
+
+GrowthBook Cloud makes outbound connections to your systems when it queries your data warehouse, sends [event webhooks](/app/webhooks/event-webhooks) and [SDK webhooks](/app/webhooks/sdk-webhooks), and fetches from any other endpoint you configure.
+
+All of that traffic leaves from a single static address:
+
+| Address          | Purpose                                        |
+| ---------------- | ---------------------------------------------- |
+| `52.70.79.40/32` | All outbound connections from GrowthBook Cloud |
+
+It is a static NAT gateway address, unchanged since 2020, so it is safe to put in a firewall allowlist. If we ever need to change or add to it, we will announce it in advance.
+
+If you see connections from other addresses claiming to be GrowthBook, they are not us — contact [support@growthbook.io](mailto:support@growthbook.io).
+
+## You connecting to GrowthBook Cloud
+
+<Warning>
+Do not pin the addresses behind `app.growthbook.io`, `api.growthbook.io`, or `cdn.growthbook.io` in an allowlist. They are load balancer and CDN addresses that our providers can change without notice, and an allowlist built from them will break.
+</Warning>
+
+Allow the hostnames instead, and let DNS resolve them at connection time:
+
+| Hostname            | Used for                                                    |
+| ------------------- | ----------------------------------------------------------- |
+| `app.growthbook.io` | The GrowthBook app and its API                              |
+| `api.growthbook.io` | The [REST API](/api/introduction) and SDK payload endpoints |
+| `cdn.growthbook.io` | SDK payload delivery                                        |
+
+If your egress firewall cannot allow hostnames, contact [support@growthbook.io](mailto:support@growthbook.io) and we will work out an arrangement with you rather than have you guess at addresses.
+
+## Event Forwarder connections to your warehouse
+
+The [Event Forwarder](/app/event-forwarder) reaches your warehouse from **two** places, and a warehouse network policy has to admit both:
+
+| Source           | Address                         | What it does                                                           |
+| ---------------- | ------------------------------- | ---------------------------------------------------------------------- |
+| GrowthBook Cloud | `52.70.79.40/32`                | Creates the destination tables and validates write access during setup |
+| Confluent Cloud  | The list for your region, below | Streams your events in continuously                                    |
+
+The streaming half runs on Confluent Cloud rather than on our own infrastructure, so it does not come from our NAT address. Allow the full list for your Event Forwarder's Data Region — any address in it can be the one that connects, so a partial list produces intermittent failures that look like the connector working and then breaking.
+
+<AccordionGroup>
+<Accordion title="us-east-1 (27 addresses)">
+```
+3.217.171.197/32
+3.227.73.0/32
+3.234.42.230/32
+18.204.235.237/32
+18.232.30.126/32
+34.204.253.120/32
+34.205.233.46/32
+34.231.151.179/32
+35.173.154.142/32
+52.3.108.122/32
+52.4.168.0/32
+52.5.120.21/32
+52.45.226.34/32
+52.55.155.248/32
+52.73.34.234/32
+52.201.77.94/32
+54.83.252.163/32
+54.146.88.203/32
+54.156.105.40/32
+54.172.40.193/32
+54.204.102.217/32
+54.204.113.211/32
+54.237.164.14/32
+54.242.207.111/32
+54.243.244.175/32
+100.24.204.241/32
+107.21.116.39/32
+```
+</Accordion>
+<Accordion title="eu-west-1 (12 addresses)">
+```
+34.249.137.102/32
+34.252.23.23/32
+34.255.44.95/32
+46.137.38.75/32
+52.211.107.164/32
+54.73.29.219/32
+54.155.209.247/32
+54.194.111.121/32
+54.217.148.240/32
+54.220.149.186/32
+54.229.132.209/32
+79.125.38.18/32
+```
+</Accordion>
+</AccordionGroup>
+
+Unlike our NAT address, this set is Confluent's rather than ours, and Confluent notes that a major upgrade to their platform can change it. Check this page when you next revisit your network policy, and contact [support@growthbook.io](mailto:support@growthbook.io) if the forwarder starts failing to connect.
+
+_Last verified: September 16, 2026._
+
+## Self-hosted license verification
+
+[Self-hosted](/self-host) installs with a Pro or Enterprise license verify it against `central-license-server.growthbook.io`. That runs behind AWS Global Accelerator, which serves **two** static anycast addresses. Traffic can use either one, so allow both:
+
+| Address            | Purpose              |
+| ------------------ | -------------------- |
+| `75.2.109.47/32`   | License verification |
+| `99.83.189.109/32` | License verification |
+
+Allowing only one of the two causes license checks to fail intermittently.
+
+If outbound access is not an option at all, contact [sales@growthbook.io](mailto:sales@growthbook.io) for an air-gapped license.

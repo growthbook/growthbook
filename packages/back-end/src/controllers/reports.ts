@@ -19,7 +19,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
-  findLatestRunningSnapshotByReportId,
+  findLatestSuccessfulReportSnapshotId,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -45,8 +45,8 @@ import {
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
-import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
+import { BadRequestError } from "back-end/src/util/errors";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -265,10 +265,19 @@ export async function getReportPublic(
   }
   const context = await getContextForAgendaJobByOrgId(report.organization);
 
-  const snapshot =
-    report.type === "experiment-snapshot"
-      ? (await findSnapshotById(context, report.snapshot)) || undefined
-      : undefined;
+  let snapshot =
+    (await findSnapshotById(context, report.snapshot)) || undefined;
+  // The public page loads once and never polls, so a refresh in progress
+  // shows the report's last successful results instead of a spinner.
+  if (snapshot?.status === "running") {
+    const latestSuccessId = await findLatestSuccessfulReportSnapshotId(
+      context,
+      report,
+    );
+    if (latestSuccessId) {
+      snapshot = (await findSnapshotById(context, latestSuccessId)) || snapshot;
+    }
+  }
 
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined
@@ -372,6 +381,9 @@ export async function refreshReport(
         metricMap,
         factTableMap,
       });
+
+      // Point the report at the run so a page load, poll or cancel sees it.
+      await updateReport(org.id, report.id, { snapshot: newSnapshot.id });
 
       return res.status(200).json({
         status: 200,
@@ -626,40 +638,9 @@ export async function cancelReport(
   }
 
   if (report.type === "experiment-snapshot") {
-    const snapshot = report.snapshot
-      ? (await findLatestRunningSnapshotByReportId(context, report.id)) ||
-        undefined
-      : undefined;
-    if (!snapshot) {
-      return res.status(400).json({
-        status: 400,
-        message: "No running query found",
-      });
-    }
-
-    const datasourceId = snapshot?.settings?.datasourceId;
-    if (!datasourceId) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid datasource: " + datasourceId,
-      });
-      return;
-    }
-
-    const integration = await getIntegrationFromDatasourceId(
-      context,
-      datasourceId,
-      true,
+    throw new BadRequestError(
+      "Experiment-snapshot report updates are cancelled via POST /snapshot/:id/cancel.",
     );
-
-    const queryRunner = new ExperimentResultsQueryRunner(
-      context,
-      snapshot,
-      integration,
-    );
-    await queryRunner.cancelQueries();
-
-    return res.status(200).json({ status: 200 });
   } else if (report.type === "experiment") {
     const integration = await getIntegrationFromDatasourceId(
       context,

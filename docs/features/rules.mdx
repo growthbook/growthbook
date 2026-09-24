@@ -75,14 +75,14 @@ Experiment rules randomly split users into variations, assign each variation a v
 
 You control both the percentage of users included and the split between variations. For example, including 50% of users with a 40/60 split means 20% of all users see variation A, 30% see variation B, and the remaining 50% fall through to the next rule.
 
-→ [Full experimentation documentation](/feature-flag-experiments)
+→ [Full experimentation documentation](/features/feature-flag-experiments)
 
 ### Bandit
 
 A [Bandit](/bandits/overview) rule works like an experiment but **automatically shifts traffic toward the better-performing variation** as results come in, rather than holding a fixed split. Use it to optimize toward a metric across several options instead of measuring one change precisely.
 
 <Note>
-**Contextual Bandits**, which choose a variation per user based on their attributes, are in closed beta.
+[**Contextual Bandits**](/bandits/contextual), which choose a variation per user based on their attributes, are in beta.
 </Note>
 
 ## Ramp-ups and Safe Rollouts

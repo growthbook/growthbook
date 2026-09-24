@@ -1,7 +1,11 @@
 import crypto from "crypto";
 
-// AUTH_SECRET lives ~1 year, so the nonce embeds its mint time to keep callbacks from validating indefinitely
-const NONCE_TTL_MS = 60 * 60 * 1000;
+// AUTH_SECRET lives ~1 year, so the nonce embeds its mint time to keep callbacks from validating indefinitely.
+// 24h covers tabs parked on the IdP overnight; anything staler restarts silently client-side.
+const NONCE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// A failure the browser can fix by silently starting a fresh login flow
+export class RetriableAuthError extends Error {}
 
 export function createNonce(): string {
   return `${Date.now().toString(36)}.${crypto

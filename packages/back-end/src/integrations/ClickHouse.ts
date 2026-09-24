@@ -1,6 +1,12 @@
 import { subDays } from "date-fns";
-import { createClient, ResponseJSON } from "@clickhouse/client";
 import {
+  ClickHouseError,
+  ClickHouseLogLevel,
+  createClient,
+  ResponseJSON,
+} from "@clickhouse/client";
+import {
+  ExternalIdCallback,
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
@@ -11,12 +17,16 @@ import {
   isManagedWarehouse,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseMigrating,
+  ManagedWarehouseOutOfMemoryError,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
+import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
+import { metrics } from "back-end/src/util/metrics";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
 
@@ -27,6 +37,9 @@ import { clickHouseDialect } from "./dialects/clickhouse";
 // reflects that declared zone rather than needing this override.
 const NAIVE_CLICKHOUSE_DATETIME_TYPE =
   /^Nullable\(DateTime(64\(\d+\))?\)$|^DateTime(64\(\d+\))?$/;
+
+/** ClickHouse MEMORY_LIMIT_EXCEEDED — the per-query and server-total caps both raise it. */
+const CLICKHOUSE_MEMORY_LIMIT_EXCEEDED_CODE = "241";
 
 // Managed warehouse DateTime/DateTime64 columns carry no explicit timezone,
 // so ClickHouse renders them as bare "YYYY-MM-DD HH:mm:ss[.ffffff]" strings
@@ -82,7 +95,11 @@ export default class ClickHouse extends SqlIntegration {
     return super.testConnection();
   }
 
-  async runQuery(sql: string): Promise<QueryResponse> {
+  async runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+    metadata?: RunQueryMetadata,
+  ): Promise<QueryResponse> {
     // Block queries while never-provisioned OR mid-migration (tables being recreated).
     // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
     // the callout distinguishes the migrating case for honest "upgrading" copy.
@@ -99,6 +116,8 @@ export default class ClickHouse extends SqlIntegration {
       database: this.params.database,
       application: "GrowthBook",
       request_timeout: 3620_000,
+      // The client warns per instance when request_timeout > 60s without progress headers; we create one per query.
+      log: { level: ClickHouseLogLevel.ERROR },
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
@@ -113,27 +132,74 @@ export default class ClickHouse extends SqlIntegration {
           ? {
               allow_suspicious_types_in_group_by: 1,
               allow_suspicious_types_in_order_by: 1,
+              // Switch off the in-RAM hash join when memory runs short instead of failing the query.
+              join_algorithm: "auto",
+              // Bucket size after that switch; the 1GB default is itself too large an allocation under pressure.
+              max_bytes_in_join: "268435456",
             }
           : {}),
       },
     });
-    const results = await client.query({ query: sql, format: "JSON" });
-    // eslint-disable-next-line
-    const data: ResponseJSON<Record<string, any>[]> = await results.json();
-    const rows = data.data ? data.data : [];
-    if (isManagedWarehouse(this.datasource)) {
-      normalizeManagedWarehouseDatetimes(rows, data.meta);
+    try {
+      const results = await client.query({ query: sql, format: "JSON" });
+      // eslint-disable-next-line
+      const data: ResponseJSON<Record<string, any>[]> = await results.json();
+      const rows = data.data ? data.data : [];
+      if (isManagedWarehouse(this.datasource)) {
+        normalizeManagedWarehouseDatetimes(rows, data.meta);
+      }
+      return {
+        rows,
+        columns: data.meta?.map((col) => {
+          const dataType = getFactTableTypeFromClickHouseType(col.type);
+          return { name: col.name, ...(dataType && { dataType }) };
+        }),
+        statistics: data.statistics
+          ? {
+              executionDurationMs: data.statistics.elapsed,
+              rowsProcessed: data.statistics.rows_read,
+              bytesProcessed: data.statistics.bytes_read,
+            }
+          : undefined,
+      };
+    } catch (e) {
+      // QueryRunner only logs failures at debug level (suppressed in prod), so this is
+      // the only place Managed Warehouse failure rate/detail is visible in prod logs.
+      if (isManagedWarehouse(this.datasource)) {
+        const code = e instanceof ClickHouseError ? e.code : "unknown";
+        try {
+          logger.error(
+            {
+              err: e,
+              orgId: this.datasource.organization,
+              datasourceId: this.datasource.id,
+              queryId: metadata?.queryId,
+            },
+            `Managed Warehouse query failed (code ${code})`,
+          );
+          metrics
+            .getCounter("clickhouse.managed_warehouse_errors")
+            .increment({ code });
+        } catch (telemetryError) {
+          // Don't let a metrics/logging failure replace the query error below.
+          logger.warn(
+            telemetryError,
+            "Failed to record Managed Warehouse query failure telemetry",
+          );
+        }
+
+        if (code === CLICKHOUSE_MEMORY_LIMIT_EXCEEDED_CODE) {
+          throw new ManagedWarehouseOutOfMemoryError();
+        }
+      }
+      throw e;
+    } finally {
+      try {
+        await client.close();
+      } catch (e) {
+        logger.warn(e, "Failed to close ClickHouse client");
+      }
     }
-    return {
-      rows,
-      statistics: data.statistics
-        ? {
-            executionDurationMs: data.statistics.elapsed,
-            rowsProcessed: data.statistics.rows_read,
-            bytesProcessed: data.statistics.bytes_read,
-          }
-        : undefined,
-    };
   }
 
   getInformationSchemaWhereClause(): string {

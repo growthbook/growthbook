@@ -12,7 +12,7 @@ The Experiments section in GrowthBook is where you create experiments, configure
 
 Before [analyzing results](/app/experiment-results), you need to run the experiment. GrowthBook supports several ways to do this:
 
-- [Feature Flags](/feature-flag-experiments) (most common)
+- [Feature Flags](/features/feature-flag-experiments) (most common)
 - Running an inline experiment directly with our [SDKs](/lib)
 - [URL Redirects](/app/url-redirects)
 - Our [Visual Editor](/app/visual)
@@ -46,7 +46,7 @@ After creation, the draft experiment's Overview tab includes a pre-launch checkl
 
 - Selecting a data source and experiment assignment table
 - Adding at least one goal metric
-- Adding a linked [Feature Flag](/feature-flag-experiments), [Visual Editor](/app/visual) change, or [URL Redirect](/app/url-redirects)
+- Adding a linked [Feature Flag](/features/feature-flag-experiments), [Visual Editor](/app/visual) change, or [URL Redirect](/app/url-redirects)
 
 The pre-launch checklist can be configured by Enterprise customers, [read more here](/app/pre-launch-checklist).
 
@@ -96,7 +96,7 @@ The **Edit Settings** button is only visible to users with permission to edit th
 Previously called "Attribution Model" in the UI, this setting lets you use an experiment level override to disable all conversion windows and instead use the exposure period for a user (from their first exposure until the end of the experiment) as the metric window. You can read more about Metric Windows on the [Metric documentation page](/app/metrics).
 
 - **Respect Conversion Windows** - This setting ensures that all conversion windows on your metrics are respected.
-- **Ignore Conversion Windows** - This setting overrides all metrics to be as if they had no conversion windows. Lookback windows will not be overriden by this setting.
+- **Ignore Conversion Windows** - This setting overrides all metrics to be as if they had no conversion windows. Lookback windows will not be overridden by this setting.
 
 For those familiar with he "Experiment Duration" attribution model, choosing "Ignore Conversion Windows" will work the same way, and you should know that you can now specify the metric window behavior on a metric-by-metric basis (see the [Metric documentation page](/app/metrics)).
 
