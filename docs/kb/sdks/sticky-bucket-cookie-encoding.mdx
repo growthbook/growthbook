@@ -18,7 +18,7 @@ This is valid per [RFC 6265](https://datatracker.ietf.org/doc/html/rfc6265), and
 
 A cookie written by the browser service looks like this:
 
-```
+```text
 gbStickyBuckets__id||e49b8ce1-c7ec-47c7-af50-e059b561a54e={%22attributeName%22:%22id%22%2C%22assignments%22:{%22pro...
 ```
 
@@ -75,13 +75,13 @@ Two things combine.
 
 **`js-cookie` leaves some characters literal on purpose.** Its default write converter runs `encodeURIComponent` over the value, then reverts these characters — all permitted by RFC 6265 — for readability:
 
-```
+```text
 # $ & + / : < = > ? @ [ ] ^ ` { | }
 ```
 
 The cookie **name** goes through a separate hardcoded path that reverts a shorter list, which is why the pipes survive:
 
-```
+```text
 # $ & + ^ ` |
 ```
 
@@ -90,11 +90,12 @@ The cookie **name** goes through a separate hardcoded path that reverts a shorte
 <Note>
   `ExpressCookieStickyBucketService` encodes both name and value in full, so the same document written server-side looks different on the wire:
 
-```
+```text
 gbStickyBuckets__id%7C%7Cabc-123=%7B%22attributeName%22%3A%22id%22%2C...
 ```
 
-  Both forms decode identically, so interop is unaffected — but a rule matching a literal `||` fires on the client-written cookie only.
+Both forms decode identically, so interop is unaffected — but a rule matching a literal `||` fires on the client-written cookie only.
+
 </Note>
 
 Verified against `@growthbook/growthbook` 1.7.x with `js-cookie` v3.
