@@ -38,6 +38,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { getDefaultMetricOverridesFormValue } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
+import styles from "./MetricsOverridesSelector.module.scss";
 
 const defaultFieldMap = {
   goalMetrics: "goalMetrics",
@@ -54,6 +55,7 @@ export default function MetricsOverridesSelector({
   fieldMap = defaultFieldMap,
   datasource = experiment.datasource,
   statsEngine,
+  highlightMetricId = null,
 }: {
   experiment: ExperimentInterfaceStringDates;
   // eslint-disable-next-line
@@ -68,6 +70,8 @@ export default function MetricsOverridesSelector({
   datasource?: string;
   /** The engine the experiment will be analysed with, as currently edited. */
   statsEngine: StatsEngine;
+  /** A metric whose card is outlined for a moment as it opens. */
+  highlightMetricId?: string | null;
 }) {
   const {
     metrics: metricDefinitions,
@@ -135,6 +139,11 @@ export default function MetricsOverridesSelector({
               ) ?? null
             }
             allMetricDefinitions={allMetricDefinitions}
+            highlighted={
+              !!highlightMetricId &&
+              form.watch(`${fieldMap["metricOverrides"]}.${i}.id`) ===
+                highlightMetricId
+            }
             settings={settings}
             hasRegressionAdjustmentFeature={hasCommercialFeature(
               "regression-adjustment",
@@ -187,6 +196,7 @@ function OverrideCard({
   form,
   metricDefinition,
   allMetricDefinitions,
+  highlighted,
   settings,
   hasRegressionAdjustmentFeature,
   bayesian,
@@ -197,6 +207,7 @@ function OverrideCard({
   form: UseFormReturn<any>;
   metricDefinition: ExperimentMetricDefinition | null;
   allMetricDefinitions: ExperimentMetricDefinition[];
+  highlighted: boolean;
   settings: OrganizationSettings;
   hasRegressionAdjustmentFeature: boolean;
   /** Priors only apply under the Bayesian engine. */
@@ -350,7 +361,10 @@ function OverrideCard({
   ].filter((a): a is { label: string; add: () => void } => !!a);
 
   return (
-    <Box data-override-metric={metricDefinition?.id}>
+    <Box
+      data-override-metric={metricDefinition?.id}
+      className={highlighted ? styles.highlight : undefined}
+    >
       <Table variant="surface">
         <TableHeader>
           <TableRow>

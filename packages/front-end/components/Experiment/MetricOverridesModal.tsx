@@ -1,10 +1,9 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MetricOverride } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
-import ModalStandard, {
-  focusFirstField,
-} from "@/ui/Modal/Patterns/ModalStandard";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -44,8 +43,8 @@ export default function MetricOverridesModal({
   >;
   overrides: MetricOverride[];
   /**
-   * The metrics it was opened for: the first of them with a card starts
-   * focused, so the edit lands on the metric that was clicked.
+   * The metrics it was opened for. Just one, and its card starts focused so
+   * the edit lands on the metric that was clicked.
    */
   focusMetricIds?: string[];
   close: () => void;
@@ -64,6 +63,13 @@ export default function MetricOverridesModal({
   const hasFeature = hasCommercialFeature("override-metrics");
   const canOverride = hasFeature && !incremental;
 
+  // The one metric it was opened for, settled once: its card starts focused
+  // and outlined. Opened for a group, it points at none of them.
+  const [targetId] = useState(() => {
+    const id = focusMetricIds?.length === 1 ? focusMetricIds[0] : null;
+    return id && overrides.some((o) => o.id === id) ? id : null;
+  });
+
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
       ...metrics,
@@ -79,20 +85,17 @@ export default function MetricOverridesModal({
     <ModalStandard
       onOpenAutoFocus={(e) => {
         const content = e.currentTarget as HTMLElement;
-        const id = focusMetricIds?.find((mid) =>
-          form.getValues("metricOverrides")?.some((o) => o.id === mid),
-        );
-        const card = id
+        const card = targetId
           ? content.querySelector<HTMLElement>(
-              `[data-override-metric="${CSS.escape(id)}"]`,
+              `[data-override-metric="${CSS.escape(targetId)}"]`,
             )
           : null;
         // Its first setting, past the header's remove link.
         const field = card?.querySelector<HTMLElement>(
           "tbody button[role='combobox'], tbody input:not([type='hidden'])",
         );
-        if (!field) return focusFirstField(e);
         e.preventDefault();
+        if (!field) return content.focus();
         field.focus();
         card?.scrollIntoView({ block: "nearest" });
       }}
@@ -126,6 +129,7 @@ export default function MetricOverridesModal({
         disabled={!canOverride}
         datasource={datasource}
         statsEngine={statsEngine}
+        highlightMetricId={targetId}
       />
     </ModalStandard>
   );
