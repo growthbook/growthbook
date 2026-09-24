@@ -78,6 +78,7 @@ import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import HelperText from "@/ui/HelperText";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ConfigJsonEditor from "@/components/Configs/ConfigJsonEditor";
@@ -1963,12 +1964,12 @@ export default function ConfigDetailPage(): React.ReactElement {
                             actions (remove field/override) have no row editor. */}
                         {editError && editKey === null && (
                           <Callout status="error" mt="3">
-                            {editError}
+                            <MarkdownLinks text={editError} />
                           </Callout>
                         )}
                         {deleteError && (
                           <Callout status="error" mt="3">
-                            {deleteError}
+                            <MarkdownLinks text={deleteError} />
                           </Callout>
                         )}
                         <Box style={{ minWidth: 800 }}>
