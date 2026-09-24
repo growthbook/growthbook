@@ -322,8 +322,8 @@ const TopNav: FC<{
     (showMultiOrgSelfSelector() || allowSelfOrgCreation());
 
   const renderOrganizationDropDown = () => {
-    if (!organizations?.length) {
-      return;
+    if (!organizations || organizations.length === 0) {
+      return null;
     }
 
     const showOrgPicker = organizations.length > 1 || canAddOrganization;
