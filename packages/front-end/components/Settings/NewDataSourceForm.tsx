@@ -220,7 +220,7 @@ const NewDataSourceForm: FC<{
     type: connectionInfo.type,
   })
     ? undefined
-    : "You don't have permission to create a Data Source for All Projects. Select a Project.";
+    : "You don't have permission to create a Data Source for All Projects; please select a Project.";
 
   const saveConnectionInfo =
     async (): Promise<DataSourceInterfaceWithParams> => {
