@@ -88,7 +88,9 @@ Because execution continues after `addWarning`, you can raise warnings and still
 
 A warning can include links in Markdown syntax, such as a link to your internal
 guidelines. In the app, only `http://` and `https://` links are shown as links,
-and they open in a new tab. A REST API client receives the raw text.
+and they open in a new tab. A REST API client receives the raw text. Links are
+also rendered in any user-entered text your hook adds to a warning, such as an
+experiment name.
 
 ```js
 if (!feature.description) {

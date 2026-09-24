@@ -99,7 +99,11 @@ export function useRestApiCall() {
       let response = await issue(url);
 
       if (!response.ok) {
-        let errData: { message?: string; warnings?: string[] } | null = null;
+        let errData: {
+          message?: string;
+          warnings?: string[];
+          hookWarnings?: string[];
+        } | null = null;
         try {
           errData = await response.json();
         } catch {
@@ -107,7 +111,10 @@ export function useRestApiCall() {
         }
 
         if (response.status === 422 && Array.isArray(errData?.warnings)) {
-          const proceed = await confirmIgnoreWarnings(errData.warnings);
+          const proceed = await confirmIgnoreWarnings(
+            errData.warnings,
+            errData.hookWarnings,
+          );
           if (!proceed) {
             throw new Error(errData?.message || "Action cancelled");
           }

@@ -7,10 +7,12 @@ import WarningText from "@/components/WarningText";
 // Global dialog for API soft warnings (HTTP 422) — acknowledge to proceed, or cancel.
 export default function ApiWarningModal({
   warnings,
+  hookWarnings,
   onConfirm,
   onCancel,
 }: {
   warnings: string[];
+  hookWarnings: Set<string>;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -35,7 +37,11 @@ export default function ApiWarningModal({
       <Flex direction="column" gap="3">
         {warnings.map((warning, i) => (
           <Callout key={i} status="warning">
-            <WarningText text={warning} />
+            {hookWarnings.has(warning) ? (
+              <WarningText text={warning} />
+            ) : (
+              warning
+            )}
           </Callout>
         ))}
       </Flex>

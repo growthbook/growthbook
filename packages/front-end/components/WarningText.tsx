@@ -1,7 +1,7 @@
 import Link from "@/ui/Link";
 
 // Only http(s) targets, so a warning can't smuggle in a javascript: URL.
-const MARKDOWN_LINK = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const MARKDOWN_LINK = /\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g;
 
 // Renders `[text](https://…)` Markdown links in a warning; the rest stays plain text.
 export default function WarningText({ text }: { text: string }) {

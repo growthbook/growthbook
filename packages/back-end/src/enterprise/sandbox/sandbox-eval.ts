@@ -703,7 +703,7 @@ async function _runCustomHooks(
 
   // Hook warnings are acknowledge-class: bypassable by ignoreWarnings (anyone).
   if (warnings.length && !context.ignoreWarnings) {
-    throw new SoftWarningError(warnings.join("\n"), warnings);
+    throw new SoftWarningError(warnings.join("\n"), warnings, warnings);
   }
 }
 
