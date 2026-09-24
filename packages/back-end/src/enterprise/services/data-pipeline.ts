@@ -111,9 +111,14 @@ export async function assertIncrementalRefreshPrerequisites({
 
 const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
+type HashExposureQuery = Pick<
+  ExposureQuery,
+  "id" | "userIdType" | "userIdTypes"
+>;
+
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
-  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
+  exposureQueries: HashExposureQuery[],
 ): string {
   const settingsForHash: Record<string, unknown> = {};
 
@@ -156,7 +161,7 @@ export function legacyDocDescribesPhase({
 }: {
   legacyDoc: IncrementalRefreshInterface;
   snapshotSettings: ExperimentSnapshotSettings;
-  exposureQueries: ExposureQuery[];
+  exposureQueries: HashExposureQuery[];
 }): boolean {
   const storedHash = legacyDoc.experimentSettingsHash;
   if (!storedHash) return false;
@@ -552,7 +557,7 @@ export function exploratoryOverallRequiresFullRefresh({
   latestOverallSnapshotId,
 }: {
   snapshotSettings: ExperimentSnapshotSettings;
-  exposureQueries: ExposureQuery[];
+  exposureQueries: HashExposureQuery[];
   incrementalRefreshModel: IncrementalRefreshInterface;
   latestOverallSnapshotId: string | null;
 }): boolean {
