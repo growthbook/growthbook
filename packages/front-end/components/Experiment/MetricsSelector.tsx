@@ -541,6 +541,9 @@ const MetricsSelector: FC<{
       const metricsWithJoinableStatus = isGroup
         ? groupMetricsJoinableMap.get(value) || []
         : [];
+      // A chosen metric's card lists what its own tooltip would, so the card
+      // replaces it rather than opening on top of it.
+      const withCard = context === "value" && !!metricOverrides;
       const name = (
         <MetricName
           id={value}
@@ -548,14 +551,14 @@ const MetricsSelector: FC<{
           isGroup={isGroup}
           metrics={metricsWithJoinableStatus}
           filterConversionWindowMetrics={filterConversionWindowMetrics}
+          hideGroupTooltip={withCard}
           badgeColor={
             context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
           }
           officialBadgePosition="left"
         />
       );
-      // Only a chosen metric has overrides to show; the menu stays as it was.
-      if (context !== "value" || !metricOverrides) return name;
+      if (!withCard) return name;
       return (
         <OptionPopover
           context="value"
@@ -565,6 +568,8 @@ const MetricsSelector: FC<{
               id={value}
               overrides={metricOverrides}
               onManageOverrides={onManageOverrides}
+              members={metricsWithJoinableStatus}
+              filterConversionWindowMetrics={filterConversionWindowMetrics}
             />
           }
         >
@@ -619,6 +624,8 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
+      // The card names the chip, so a native title would only cover it.
+      valueTitles={!metricOverrides}
       customStyles={
         overriddenChips.size
           ? {

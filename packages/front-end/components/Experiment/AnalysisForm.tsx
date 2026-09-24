@@ -1283,6 +1283,8 @@ const AnalysisForm: FC<{
                           </small>
                           <MetricsOverridesSelector
                             experiment={experiment}
+                            // The source being edited here, not the stored one.
+                            datasource={form.watch("datasource")}
                             form={
                               form as unknown as UseFormReturn<EditMetricsFormInterface>
                             }

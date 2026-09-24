@@ -42,8 +42,15 @@ export default function MetricsOverridesSelector({
   form,
   disabled,
   fieldMap = defaultFieldMap,
+  datasource = experiment.datasource,
 }: {
   experiment: ExperimentInterfaceStringDates;
+  /**
+   * The data source the metrics are picked from. Defaults to the stored one;
+   * pass the unsaved one when it may have changed, or its metrics can't be
+   * picked.
+   */
+  datasource?: string;
   // eslint-disable-next-line
   form: UseFormReturn<any>;
   disabled: boolean;
@@ -705,7 +712,7 @@ export default function MetricsOverridesSelector({
         <div className="row">
           <div className="col">
             <MetricSelector
-              datasource={experiment.datasource}
+              datasource={datasource}
               availableIds={unusedMetrics}
               project={experiment.project}
               includeFacts={true}

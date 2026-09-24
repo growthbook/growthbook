@@ -93,6 +93,7 @@ export default function MetricOverridesModal({
         experiment={experiment}
         form={form}
         disabled={!canOverride}
+        datasource={datasource}
       />
     </ModalStandard>
   );
