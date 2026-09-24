@@ -1,5 +1,5 @@
 import React, { ReactNode, useMemo } from "react";
-import { Box, Card, Flex, Grid, IconButton, Inset } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiInfo, PiPlusBold, PiXBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
@@ -26,6 +26,13 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import TextField, { TextFieldProps } from "@/ui/TextField";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -335,26 +342,22 @@ function OverrideCard({
   ].filter((a): a is { label: string; add: () => void } => !!a);
 
   return (
-    <Card>
-      <Inset side="top" pb="current">
-        <Flex
-          justify="between"
-          align="center"
-          gap="3"
-          px="3"
-          py="2"
-          style={{ borderBottom: "1px solid var(--gray-a5)" }}
-        >
-          <Text weight="semibold">
-            <MetricName id={metricDefinition?.id || ""} />
-          </Text>
-          <Link type="button" color="red" onClick={onRemove}>
-            Remove overrides
-          </Link>
-        </Flex>
-      </Inset>
-
-      <Flex direction="column" gap="4">
+    <Table variant="surface">
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader>
+            <Flex justify="between" align="center" gap="3">
+              <Text weight="semibold">
+                <MetricName id={metricDefinition?.id || ""} />
+              </Text>
+              <Link type="button" color="red" onClick={onRemove}>
+                Remove overrides
+              </Link>
+            </Flex>
+          </TableColumnHeader>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {windowOverridden ? (
           <OverrideRow
             label="Metric window"
@@ -499,27 +502,29 @@ function OverrideCard({
         ) : null}
 
         {addable.length > 0 ? (
-          <Box>
-            <DropdownMenu
-              trigger={
-                <Link type="button">
-                  <PiPlusBold style={ICON_STYLE} />
-                  Add override
-                </Link>
-              }
-              menuPlacement="start"
-              variant="soft"
-            >
-              {addable.map(({ label, add }) => (
-                <DropdownMenuItem key={label} onClick={add}>
-                  {label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenu>
-          </Box>
+          <TableRow>
+            <TableCell>
+              <DropdownMenu
+                trigger={
+                  <Link type="button">
+                    <PiPlusBold style={ICON_STYLE} />
+                    Add override
+                  </Link>
+                }
+                menuPlacement="start"
+                variant="soft"
+              >
+                {addable.map(({ label, add }) => (
+                  <DropdownMenuItem key={label} onClick={add}>
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
         ) : null}
-      </Flex>
-    </Card>
+      </TableBody>
+    </Table>
   );
 }
 
@@ -532,9 +537,9 @@ const withDefault = (label: string, isDefault: boolean) =>
   isDefault ? `${label} (default)` : label;
 
 /**
- * A setting a metric overrides: its choice, labelled with the setting, then
- * its details and a reset. Details share two even slots, so they line up from
- * one row to the next.
+ * A row for a setting a metric overrides: its choice, labelled with the
+ * setting, then its details and a reset. Details share two even slots, so they
+ * line up from one row to the next.
  */
 function OverrideRow({
   label,
@@ -568,32 +573,37 @@ function OverrideRow({
     </Flex>
   );
   return (
-    <Flex direction="column" gap="1">
-      <Flex align="end" gap="3">
-        <Flex
-          direction="column"
-          flexShrink="0"
-          width={choice ? `${SELECT_WIDTH}px` : undefined}
-          flexGrow={choice ? undefined : "1"}
-        >
-          {heading}
-          {choice ?? children}
+    <TableRow>
+      <TableCell>
+        <Flex align="end" gap="3">
+          <Flex
+            direction="column"
+            flexShrink="0"
+            width={choice ? `${SELECT_WIDTH}px` : undefined}
+            flexGrow={choice ? undefined : "1"}
+          >
+            {heading}
+            {choice ?? children}
+          </Flex>
+          {choice ? (
+            <Grid columns="2" gap="3" align="end" flexGrow="1" minWidth="0">
+              {children}
+            </Grid>
+          ) : null}
+          <Box pb="6px">
+            <RemoveButton
+              label={`Stop overriding ${label}`}
+              onClick={onClear}
+            />
+          </Box>
         </Flex>
-        {choice ? (
-          <Grid columns="2" gap="3" align="end" flexGrow="1" minWidth="0">
-            {children}
-          </Grid>
+        {help ? (
+          <HelperText status="warning" size="sm" mt="1" ml={DETAILS_INDENT}>
+            {help}
+          </HelperText>
         ) : null}
-        <Box pb="6px">
-          <RemoveButton label={`Stop overriding ${label}`} onClick={onClear} />
-        </Box>
-      </Flex>
-      {help ? (
-        <HelperText status="warning" size="sm" ml={DETAILS_INDENT}>
-          {help}
-        </HelperText>
-      ) : null}
-    </Flex>
+      </TableCell>
+    </TableRow>
   );
 }
 
