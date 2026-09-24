@@ -20,10 +20,9 @@ import {
   OptionTooltipShell,
 } from "@/components/Features/OptionTooltipShell";
 import HelperText from "@/ui/HelperText";
+import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-
-const ICON_STYLE = { verticalAlign: "-2px", marginRight: 4 };
 
 /** A group member as the selector sees it: whether it can join the query. */
 export interface GroupMemberStatus {
@@ -106,15 +105,14 @@ export function MetricOverrideTooltipContent({
       ) : null}
       {onManageOverrides ? (
         <Box>
-          {/* Inline, not in a flex box: underline doesn't reach into one. */}
-          <Link onClick={() => onManageOverrides(memberIds)}>
-            {hasOverrides ? (
-              <PiSlidersHorizontal style={ICON_STYLE} />
-            ) : (
-              <PiPlusBold style={ICON_STYLE} />
-            )}
+          <Button
+            variant="outline"
+            size="sm"
+            icon={hasOverrides ? <PiSlidersHorizontal /> : <PiPlusBold />}
+            onClick={() => onManageOverrides(memberIds)}
+          >
             {hasOverrides ? "Manage overrides" : "Add overrides"}
-          </Link>
+          </Button>
         </Box>
       ) : null}
       {group ? (
