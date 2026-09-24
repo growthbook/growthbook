@@ -14,6 +14,7 @@ import { ExperimentMetricDefinition } from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
+import { getScopedSettings } from "shared/settings";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -140,10 +141,16 @@ const EditMetricsForm: FC<{
 }> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const settings = useOrgSettings();
-  const { hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { getDatasourceById, getExperimentMetricById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById, getProjectById } =
+    useDefinitions();
+  const statsEngine = getScopedSettings({
+    organization,
+    project: getProjectById(experiment.project || "") ?? undefined,
+    experiment,
+  }).settings.statsEngine.value;
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
@@ -309,12 +316,14 @@ const EditMetricsForm: FC<{
                     Override metric behaviors within this experiment.
                   </p>
                   <p className="mb-0">
-                    Leave any fields empty that you do not want to override.
+                    Anything you don&apos;t override follows the metric&apos;s
+                    own settings.
                   </p>
                 </div>
                 <MetricsOverridesSelector
                   experiment={experiment}
                   form={form}
+                  statsEngine={statsEngine}
                   disabled={
                     !hasOverrideMetricsFeature ||
                     isExperimentIncludedInIncrementalRefresh

@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MetricOverride } from "shared/validators";
+import { StatsEngine } from "shared/types/stats";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,6 +23,7 @@ import {
 export default function MetricOverridesModal({
   experiment,
   datasource,
+  statsEngine,
   metrics,
   overrides,
   close,
@@ -30,6 +32,8 @@ export default function MetricOverridesModal({
   experiment: ExperimentInterfaceStringDates;
   /** The data source as the page currently has it, which may be unsaved. */
   datasource: string;
+  /** The engine as the page currently has it, which may be unsaved. */
+  statsEngine: StatsEngine;
   /** The metrics as the page currently has them, which may be unsaved. */
   metrics: Pick<
     EditMetricsFormInterface,
@@ -94,6 +98,7 @@ export default function MetricOverridesModal({
         form={form}
         disabled={!canOverride}
         datasource={datasource}
+        statsEngine={statsEngine}
       />
     </ModalStandard>
   );

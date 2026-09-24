@@ -1278,13 +1278,17 @@ const AnalysisForm: FC<{
                           </PremiumTooltip>
                           <small className="form-text text-muted mb-2">
                             Override metric behaviors within this experiment.
-                            Leave any fields empty that you do not want to
-                            override.
+                            Anything you don&apos;t override follows the
+                            metric&apos;s own settings.
                           </small>
                           <MetricsOverridesSelector
                             experiment={experiment}
                             // The source being edited here, not the stored one.
                             datasource={form.watch("datasource")}
+                            statsEngine={
+                              form.watch("statsEngine") ||
+                              scopedSettings.statsEngine.value
+                            }
                             form={
                               form as unknown as UseFormReturn<EditMetricsFormInterface>
                             }

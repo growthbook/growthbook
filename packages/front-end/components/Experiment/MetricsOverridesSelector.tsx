@@ -1,6 +1,6 @@
 import React, { ReactNode, useMemo } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { PiInfo, PiPlusBold, PiXBold } from "react-icons/pi";
+import { PiInfo, PiXBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import {
@@ -18,11 +18,11 @@ import {
   isRetentionMetric,
 } from "shared/experiments";
 import { OrganizationSettings } from "shared/types/organization";
+import { StatsEngine } from "shared/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricName from "@/components/Metrics/MetricName";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
@@ -53,6 +53,7 @@ export default function MetricsOverridesSelector({
   disabled,
   fieldMap = defaultFieldMap,
   datasource = experiment.datasource,
+  statsEngine,
 }: {
   experiment: ExperimentInterfaceStringDates;
   // eslint-disable-next-line
@@ -65,6 +66,8 @@ export default function MetricsOverridesSelector({
    * picked.
    */
   datasource?: string;
+  /** The engine the experiment will be analysed with, as currently edited. */
+  statsEngine: StatsEngine;
 }) {
   const {
     metrics: metricDefinitions,
@@ -136,6 +139,7 @@ export default function MetricsOverridesSelector({
             hasRegressionAdjustmentFeature={hasCommercialFeature(
               "regression-adjustment",
             )}
+            bayesian={statsEngine === "bayesian"}
             onRemove={() => metricOverrides.remove(i)}
           />
         ))}
@@ -185,6 +189,7 @@ function OverrideCard({
   allMetricDefinitions,
   settings,
   hasRegressionAdjustmentFeature,
+  bayesian,
   onRemove,
 }: {
   path: string;
@@ -194,6 +199,8 @@ function OverrideCard({
   allMetricDefinitions: ExperimentMetricDefinition[];
   settings: OrganizationSettings;
   hasRegressionAdjustmentFeature: boolean;
+  /** Priors only apply under the Bayesian engine. */
+  bayesian: boolean;
   onRemove: () => void;
 }) {
   const field = (name: string) => `${path}.${name}`;
@@ -321,6 +328,7 @@ function OverrideCard({
         }),
     },
     !priorOverridden &&
+      bayesian &&
       hasRegressionAdjustmentFeature && {
         label: "Prior",
         add: () =>
@@ -417,9 +425,14 @@ function OverrideCard({
             label="Prior"
             tooltip="Only used by the Bayesian stats engine."
             onClear={clearPrior}
+            help={
+              bayesian
+                ? null
+                : "Not applied: this experiment uses the frequentist stats engine."
+            }
             choice={
               <Select
-                disabled={!hasRegressionAdjustmentFeature}
+                disabled={!bayesian || !hasRegressionAdjustmentFeature}
                 value={mo?.properPriorEnabled ? "proper" : "improper"}
                 setValue={(value) =>
                   set({ properPriorEnabled: value === "proper" })
@@ -440,12 +453,16 @@ function OverrideCard({
                   "properPriorMean",
                   "Mean",
                   `Default ${defaultPrior.mean}`,
+                  { disabled: !bayesian },
                 )}
                 {numberField(
                   "properPriorStdDev",
                   "Standard deviation",
                   `Default ${defaultPrior.stddev}`,
-                  { rules: { validate: (v) => !((v ?? 0) <= 0) } },
+                  {
+                    disabled: !bayesian,
+                    rules: { validate: (v) => !((v ?? 0) <= 0) },
+                  },
                 )}
               </>
             ) : null}
@@ -504,22 +521,21 @@ function OverrideCard({
         {addable.length > 0 ? (
           <TableRow>
             <TableCell>
-              <DropdownMenu
-                trigger={
-                  <Link type="button">
-                    <PiPlusBold style={ICON_STYLE} />
-                    Add override
-                  </Link>
-                }
-                menuPlacement="start"
-                variant="soft"
-              >
-                {addable.map(({ label, add }) => (
-                  <DropdownMenuItem key={label} onClick={add}>
-                    {label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenu>
+              <Box width={`${SELECT_WIDTH}px`}>
+                <Select
+                  value=""
+                  placeholder="Override a setting..."
+                  setValue={(value) =>
+                    addable.find(({ label }) => label === value)?.add()
+                  }
+                >
+                  {addable.map(({ label }) => (
+                    <SelectItem key={label} value={label}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </Box>
             </TableCell>
           </TableRow>
         ) : null}
@@ -529,9 +545,6 @@ function OverrideCard({
 }
 
 const SELECT_WIDTH = 190;
-/** Where a row's details start, past its choice and the gap after it. */
-const DETAILS_INDENT = `${SELECT_WIDTH + 12}px`;
-const ICON_STYLE = { verticalAlign: "-2px", marginRight: 4 };
 
 const withDefault = (label: string, isDefault: boolean) =>
   isDefault ? `${label} (default)` : label;
@@ -554,7 +567,7 @@ function OverrideRow({
   /** Left out where the setting can't be chosen; its details take its place. */
   choice: ReactNode;
   onClear: () => void;
-  /** A warning about the details, under them. */
+  /** A warning about the setting, under the row. */
   help?: string | null;
   children?: ReactNode;
 }) {
@@ -598,7 +611,7 @@ function OverrideRow({
           </Box>
         </Flex>
         {help ? (
-          <HelperText status="warning" size="sm" mt="1" ml={DETAILS_INDENT}>
+          <HelperText status="warning" size="sm" mt="2">
             {help}
           </HelperText>
         ) : null}

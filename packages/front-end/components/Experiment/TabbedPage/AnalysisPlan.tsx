@@ -12,7 +12,9 @@ import {
   ExperimentAnalysisSettingsDraft,
   experimentAnalysisSettingsDraft,
 } from "shared/validators";
+import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -74,7 +76,9 @@ export default function AnalysisPlan({
     getDatasourceById,
     getExperimentMetricById,
     getSegmentById,
+    getProjectById,
   } = useDefinitions();
+  const { organization } = useUser();
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
@@ -97,6 +101,15 @@ export default function AnalysisPlan({
     (advanced && "metricOverrides" in advanced
       ? advanced.metricOverrides
       : experiment.metricOverrides) ?? [];
+  // The engine as the page holds it, a staged change included.
+  const statsEngine = getScopedSettings({
+    organization,
+    project: getProjectById(experiment.project || "") ?? undefined,
+    experiment:
+      advanced && "statsEngine" in advanced
+        ? { ...experiment, statsEngine: advanced.statsEngine }
+        : experiment,
+  }).settings.statsEngine.value;
   // Which metrics the overrides editor opened for, or null while it is shut.
   const [overridesFor, setOverridesFor] = useState<string[] | null>(null);
 
@@ -280,6 +293,7 @@ export default function AnalysisPlan({
         <MetricOverridesModal
           experiment={experiment}
           datasource={datasource}
+          statsEngine={statsEngine}
           metrics={{
             goalMetrics,
             secondaryMetrics,
