@@ -672,13 +672,9 @@ export function applyPatchToRule(
   if ("prerequisites" in patch) {
     updated.prerequisites = patch.prerequisites ?? undefined;
   }
-  // Process `environments` before `allEnvironments` so that when both appear in
-  // the same patch (e.g. from getStartPatchForRule on an allEnvironments rule),
-  // the explicit `allEnvironments: true` always wins and is not silently reset
-  // to false by the `environments` branch running afterwards.
-  // Only a list scopes the rule. A null or undefined list changes nothing:
-  // dropping the key would widen the rule to every environment, and an
-  // undefined key is stored by Mongo as null.
+  // Only a list scopes the rule; a null or undefined list changes nothing, since
+  // dropping the key would widen the rule and Mongo stores an undefined key as
+  // null. `allEnvironments` runs last so an explicit true wins over the list.
   if (Array.isArray(patch.environments)) {
     updated.allEnvironments = false;
     updated.environments = patch.environments;

@@ -7,7 +7,6 @@ import {
   hasNoV1EnvRules,
   isV2RevisionRules,
   narrowRuleForEnvRemoval,
-  ruleFootprint,
   V1FeatureRule,
   V1RulesByEnv,
   rampTargetsEquivalent,
@@ -1141,71 +1140,6 @@ describe("getApplicableEnvIds", () => {
         targetingAllProjects: true,
       }),
     ).toEqual(["global", "eu-prod"]);
-  });
-});
-
-// ================= ruleFootprint (back-end) =================
-//
-// Must stay semantically identical to the shared `ruleFootprint` helper —
-// callers on both sides of the fence route the same rule through the same
-// scope interpretation. Lock the tri-state contract here explicitly.
-
-describe("ruleFootprint (back-end util)", () => {
-  const applicable = ["dev", "staging", "production"];
-  const base = {
-    id: "r1",
-    type: "force",
-    description: "",
-    value: "x",
-    enabled: true,
-  } as unknown as FeatureRule;
-
-  it("allEnvironments: true expands to the applicable env set", () => {
-    expect(
-      ruleFootprint(
-        { ...base, allEnvironments: true } as FeatureRule,
-        applicable,
-      ),
-    ).toEqual(applicable);
-  });
-
-  it("environments:[list] intersects with the applicable set", () => {
-    expect(
-      ruleFootprint(
-        {
-          ...base,
-          allEnvironments: false,
-          environments: ["production", "dev", "unknown"],
-        } as FeatureRule,
-        applicable,
-      ),
-    ).toEqual(["production", "dev"]);
-  });
-
-  it("strict: explicit environments:[] returns [] (applies nowhere)", () => {
-    expect(
-      ruleFootprint(
-        { ...base, allEnvironments: false, environments: [] } as FeatureRule,
-        applicable,
-      ),
-    ).toEqual([]);
-  });
-
-  it("permissive fallback: neither field declared expands to applicable envs", () => {
-    expect(ruleFootprint(base, applicable)).toEqual(applicable);
-  });
-
-  it("a stored null list applies nowhere rather than throwing", () => {
-    expect(
-      ruleFootprint(
-        {
-          ...base,
-          allEnvironments: false,
-          environments: null,
-        } as unknown as FeatureRule,
-        applicable,
-      ),
-    ).toEqual([]);
   });
 });
 

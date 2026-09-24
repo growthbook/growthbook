@@ -1,10 +1,14 @@
 // `resolveRampTargets` moved to `shared/util` so the Publish control resolves ramp
 // targets the same way the gate and the executor do; re-exported here because every
 // caller looks for it in this module.
-export { resolveRampTargets } from "shared/util";
+export { resolveRampTargets, ruleFootprint } from "shared/util";
 export type { RampTargetQuery } from "shared/util";
 
-import { resolveRampTargets, type RampTargetQuery } from "shared/util";
+import {
+  resolveRampTargets,
+  ruleFootprint,
+  type RampTargetQuery,
+} from "shared/util";
 import isEqual from "lodash/isEqual";
 import { FeatureRule, V1FeatureRule } from "shared/validators";
 import { parseRuleId, stemRuleId, suffixRuleId } from "shared/util";
@@ -89,23 +93,6 @@ export function ensureUniqueRuleIds(
   }
 
   return { rules: out, collisions };
-}
-
-// Footprint of a v2 rule, intersected with `applicableEnvs`. Must stay in sync
-// with shared `ruleAppliesToEnv`.
-//   allEnvironments:true            → every applicable env
-//   environments:[list]             → list ∩ applicable
-//   environments:[]                 → [] (pending)
-//   neither field declared (legacy) → every applicable env
-export function ruleFootprint(
-  rule: FeatureRule,
-  applicableEnvs: string[],
-): string[] {
-  if (rule.allEnvironments) return applicableEnvs;
-  if (rule.environments === undefined) return applicableEnvs;
-  if (!Array.isArray(rule.environments)) return [];
-  const applicableSet = new Set(applicableEnvs);
-  return rule.environments.filter((e) => applicableSet.has(e));
 }
 
 // Tolerate sparse/legacy storage. `rules` is Mongoose `Mixed`, and pre-v2 docs

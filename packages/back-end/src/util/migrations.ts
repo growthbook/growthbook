@@ -366,11 +366,9 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // read as no environments, not as every environment; a rule whose list is
   // wildcarded drops the key so the two spellings compare equal.
   if (rule.environments === null) {
-    const { environments, ...rest } = rule;
-    rule = (
-      rule.allEnvironments ? rest : { ...rest, environments: [] }
-    ) as FeatureRule;
-    void environments;
+    const scoped = { ...rule };
+    delete scoped.environments;
+    rule = rule.allEnvironments ? scoped : { ...scoped, environments: [] };
   }
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
