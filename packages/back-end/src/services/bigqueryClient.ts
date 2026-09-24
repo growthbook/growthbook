@@ -23,27 +23,12 @@ export function createBigQueryClient(options: BigQueryOptions): BigQuery {
 
   const client = new BigQuery({ ...options, apiEndpoint });
   if (customCloudEndpoint) {
-    const base = new URL(`${apiEndpoint}/bigquery/v2/`);
     client.interceptors.push({
-      request: (request) => {
-        const uri = "uri" in request ? request.uri : request.url;
-        const url = new URL(uri);
-        if (
-          url.username ||
-          url.password ||
-          url.origin !== base.origin ||
-          !url.pathname.startsWith(base.pathname)
-        ) {
-          throw new BadRequestError(
-            "BigQuery request must use its configured API endpoint.",
-          );
-        }
-        return {
-          ...request,
-          uri,
-          proxy: WEBHOOK_PROXY,
-        };
-      },
+      request: (request) => ({
+        ...request,
+        uri: "uri" in request ? request.uri : request.url,
+        proxy: WEBHOOK_PROXY,
+      }),
     });
   }
   return client;

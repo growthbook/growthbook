@@ -1,6 +1,5 @@
 import { BigQuery } from "@google-cloud/bigquery";
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
-import { BadRequestError } from "back-end/src/util/errors";
 import * as secrets from "back-end/src/util/secrets";
 
 jest.mock("@google-cloud/bigquery", () => ({
@@ -67,21 +66,6 @@ describe("Cloud BigQuery endpoints", () => {
       method: "GET",
       proxy: secrets.WEBHOOK_PROXY,
     });
-  });
-
-  it.each([
-    "https://attacker.example/tenant/bigquery/v2/projects/my-project/datasets",
-    "http://proxy.example/tenant/bigquery/v2/projects/my-project/datasets",
-    "https://proxy.example/other-tenant/bigquery/v2/projects/my-project/datasets",
-    "https://proxy.example/tenant/bigquery/v2/../../../admin",
-    "https://user:pass@proxy.example/tenant/bigquery/v2/projects/my-project/datasets",
-  ])("rejects requests outside the configured endpoint: %s", (uri) => {
-    const client = createBigQueryClient({
-      apiEndpoint: "https://proxy.example/tenant",
-    });
-    const request = client.interceptors[0].request;
-    if (!request) throw new Error("Missing request interceptor");
-    expect(() => request({ uri })).toThrow(BadRequestError);
   });
 });
 

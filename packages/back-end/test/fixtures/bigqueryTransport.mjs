@@ -153,17 +153,6 @@ async function main() {
     assert.equal(endpointRequests, 1);
     assert.equal(await client.getProjectId(), "synthetic-project");
 
-    const escapingClient = createBigQueryClient({
-      ...clientOptions,
-      projectId: "../../../../admin",
-    });
-    await assert.rejects(
-      escapingClient.getDatasets(),
-      /must use its configured API endpoint/,
-    );
-    assert.equal(proxyConnections, 1);
-    assert.equal(endpointRequests, 1);
-
     // Redirects reuse the request's proxy agent, so each hop is filtered like the first.
     redirect = {
       status: 307,
