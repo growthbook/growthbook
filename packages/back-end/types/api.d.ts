@@ -48,8 +48,6 @@ type ApiErrorResponseBase = {
   conflicts?: unknown[];
   // Populated on 422 soft-warning responses; re-submit with `"ignoreWarnings": true` in the body to proceed.
   warnings?: string[];
-  // Subset of `warnings` written by Custom Hooks, which may contain Markdown links.
-  hookWarnings?: string[];
   // Populated on 422 blocked-publish responses: every blocking gate and the body flag that clears it.
   gates?: PublishGate[];
 };
@@ -61,7 +59,6 @@ type ApiErrorResponseStructured = {
     /** @deprecated Read `details.conflicts` instead. Populated only when code === "conflict" for backwards compatibility. */
     conflicts?: unknown[];
     warnings?: string[];
-    hookWarnings?: string[];
     gates?: PublishGate[];
   };
 }[ApiErrorCode];

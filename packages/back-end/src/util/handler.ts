@@ -234,7 +234,6 @@ export async function runApiHandler(
     if (e instanceof PublishBlockedError) {
       body.gates = e.gates;
       body.warnings = e.warnings;
-      body.hookWarnings = e.hookWarnings;
     }
     // Bulk-publish commit failures carry per-item outcomes so callers can see
     // which entities compensated cleanly.
@@ -247,7 +246,6 @@ export async function runApiHandler(
     // Surface soft warnings so clients can re-submit with ignoreWarnings
     if (e instanceof SoftWarningError) {
       body.warnings = e.warnings;
-      body.hookWarnings = e.hookWarnings;
       // Front-end shows a "Save anyway" dialog and doesn't need a retry hint
       const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
       if (!isJwtAuth) {

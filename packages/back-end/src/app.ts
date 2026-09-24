@@ -1361,7 +1361,6 @@ const errorHandler: ErrorRequestHandler = (
     message: string;
     errorId?: string;
     warnings?: string[];
-    hookWarnings?: string[];
     code?: string;
     details?: unknown;
     sql?: string;
@@ -1373,7 +1372,6 @@ const errorHandler: ErrorRequestHandler = (
   // Picked up by front-end (when combined with 422 status code) to show a "Save anyway" dialog
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
-    body.hookWarnings = err.hookWarnings;
   }
   // Surface the rendered SQL so the front-end can display it alongside the error
   if (err instanceof SQLExecutionError) {

@@ -59,10 +59,7 @@ export interface AuthContextValue {
   ) => Promise<T>;
   fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
   // Show the global "Save anyway?" dialog; resolves true if the user proceeds.
-  confirmIgnoreWarnings: (
-    warnings: string[],
-    hookWarnings?: string[],
-  ) => Promise<boolean>;
+  confirmIgnoreWarnings: (warnings: string[]) => Promise<boolean>;
   ssoConnectionId: string;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
@@ -271,16 +268,9 @@ export const AuthProvider: React.FC<{
   const [sessionError, setSessionError] = useState(false);
   // Pending soft-warning requests, batched so concurrent ones share one dialog.
   const pendingWarnings = useRef<
-    {
-      warnings: string[];
-      hookWarnings: string[];
-      resolve: (proceed: boolean) => void;
-    }[]
+    { warnings: string[]; resolve: (proceed: boolean) => void }[]
   >([]);
-  const [currentWarnings, setCurrentWarnings] = useState<{
-    warnings: string[];
-    hookWarnings: Set<string>;
-  } | null>(null);
+  const [currentWarnings, setCurrentWarnings] = useState<string[] | null>(null);
   const [initialPlanSelection, setInitialPlanSelection] =
     useSessionStorage<InitialPlanOptions>(
       INITIAL_PLAN_SELECTION_SESSION_KEY,
@@ -499,22 +489,14 @@ export const AuthProvider: React.FC<{
   );
 
   // Register a warning request; all pending requests share one dialog.
-  const confirmIgnoreWarnings = useCallback(
-    (warnings: string[], hookWarnings: string[] = []) => {
-      return new Promise<boolean>((resolve) => {
-        pendingWarnings.current.push({ warnings, hookWarnings, resolve });
-        setCurrentWarnings({
-          warnings: [
-            ...new Set(pendingWarnings.current.flatMap((w) => w.warnings)),
-          ],
-          hookWarnings: new Set(
-            pendingWarnings.current.flatMap((w) => w.hookWarnings),
-          ),
-        });
-      });
-    },
-    [],
-  );
+  const confirmIgnoreWarnings = useCallback((warnings: string[]) => {
+    return new Promise<boolean>((resolve) => {
+      pendingWarnings.current.push({ warnings, resolve });
+      setCurrentWarnings([
+        ...new Set(pendingWarnings.current.flatMap((w) => w.warnings)),
+      ]);
+    });
+  }, []);
 
   // Resolve every pending warning with the same choice and close the dialog.
   const resolveWarnings = useCallback((proceed: boolean) => {
@@ -565,10 +547,7 @@ export const AuthProvider: React.FC<{
           responseData.status === 422 &&
           Array.isArray(responseData.warnings)
         ) {
-          const proceed = await confirmIgnoreWarnings(
-            responseData.warnings,
-            responseData.hookWarnings,
-          );
+          const proceed = await confirmIgnoreWarnings(responseData.warnings);
           if (proceed) {
             responseData = await _makeApiCall(
               appendIgnoreWarnings(url),
@@ -729,8 +708,7 @@ export const AuthProvider: React.FC<{
         {authComponent}
         {currentWarnings && (
           <ApiWarningModal
-            warnings={currentWarnings.warnings}
-            hookWarnings={currentWarnings.hookWarnings}
+            warnings={currentWarnings}
             onConfirm={() => resolveWarnings(true)}
             onCancel={() => resolveWarnings(false)}
           />

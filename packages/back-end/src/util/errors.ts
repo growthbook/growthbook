@@ -195,17 +195,10 @@ export class BulkImportPartialFailureError extends Error {
 export class SoftWarningError extends Error {
   status = 422;
   warnings: string[];
-  // Subset of `warnings` written by Custom Hooks; the app renders links in these.
-  hookWarnings: string[];
-  constructor(
-    message: string,
-    warnings: string[],
-    hookWarnings: string[] = [],
-  ) {
+  constructor(message: string, warnings: string[]) {
     super(message);
     this.name = "SoftWarningError";
     this.warnings = warnings;
-    this.hookWarnings = hookWarnings;
   }
 }
 

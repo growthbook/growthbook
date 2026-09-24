@@ -755,12 +755,12 @@ export default function CustomHookModal({
           {testResult.suppressed && (
             <Box mt="3">
               <strong>Suppressed by Incremental Changes Only:</strong>
-              {testResult.suppressed.error && (
-                <Callout status="info" mt="2">
-                  {testResult.suppressed.error}
-                </Callout>
-              )}
-              {(testResult.suppressed.warnings ?? []).map((m, i) => (
+              {[
+                ...(testResult.suppressed.error
+                  ? [testResult.suppressed.error]
+                  : []),
+                ...(testResult.suppressed.warnings ?? []),
+              ].map((m, i) => (
                 <Callout key={i} status="info" mt="2">
                   <MarkdownLinks text={m} />
                 </Callout>

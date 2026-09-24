@@ -439,8 +439,6 @@ export class PublishBlockedError extends Error {
   // clear those, so listing them would loop the ack-and-retry. `gates` keeps
   // every gate, clearable or not.
   warnings: string[];
-  // Subset of `warnings` written by Custom Hooks; the app renders links in these.
-  hookWarnings: string[];
 
   constructor(gates: PublishGate[]) {
     super(
@@ -455,12 +453,6 @@ export class PublishBlockedError extends Error {
       .filter(
         (gate) =>
           gate.override === "ignoreWarnings" && !gate.requiresPermission,
-      )
-      .flatMap((gate) => gate.messages);
-    this.hookWarnings = gates
-      .filter(
-        (gate) =>
-          gate.type === "custom-hook" && gate.override === "ignoreWarnings",
       )
       .flatMap((gate) => gate.messages);
   }
