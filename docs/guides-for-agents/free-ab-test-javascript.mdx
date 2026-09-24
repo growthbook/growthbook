@@ -133,6 +133,7 @@ The reference implementation creates or changes these files:
 .env.example
 src/
   analytics/
+    best-effort.ts
     signup-events.ts
   experimentation/
     device-id.ts
@@ -144,6 +145,7 @@ src/
   main.tsx
   vite-env.d.ts
 tests/
+  best-effort.test.ts
   growthbook-assignment.test.ts
   signup-events.test.ts
 ```
@@ -626,7 +628,7 @@ The important behavior is deliberate:
 
 The tracking plug-in maps a string `user_id` attribute to the top-level warehouse `user_id` column. It maps `device_id`, `anonymous_id`, or `id` to the top-level `device_id` column, preferring an explicit `device_id`. Use one key for one ID space. Never put a logged-in user ID in `id` and later introduce a browser ID in `device_id`; that mixes identifier semantics.
 
-The plug-in batches events, uses fetch with `credentials: "omit"`, keeps eligible browser requests alive across navigation, and uses `sendBeacon` during unload when available. Await a critical completion event before redirecting anyway. Delivery is still not a transactional guarantee, so server-confirmed business outcomes should also remain in the application database or existing analytics source of truth.
+The plug-in batches events, uses fetch with `credentials: "omit"`, keeps eligible browser requests alive across navigation, and uses `sendBeacon` during unload when available. Browser analytics delivery is best effort: never make a successful signup or its navigation wait for it. Keep server-confirmed business outcomes in the application database or existing analytics source of truth, and reconcile browser completion loss before trusting experiment results.
 
 ## Step 4: Define narrow outcome events
 
@@ -682,6 +684,20 @@ The `flow` property is diagnostic. Do not calculate experiment lift by filtering
 
 ## Step 5: Evaluate the feature at the treatment boundary
 
+Create `src/analytics/best-effort.ts`. This boundary catches synchronous and asynchronous analytics failures without waiting for delivery. An analytics outage must not turn a completed signup into an error or a permanently submitting form.
+
+```ts title="src/analytics/best-effort.ts"
+export function runBestEffort(action: () => void | Promise<unknown>): void {
+  try {
+    void Promise.resolve(action()).catch(() => {
+      console.warn("Signup analytics delivery failed");
+    });
+  } catch {
+    console.warn("Signup analytics delivery failed");
+  }
+}
+```
+
 The signup component is the first place that needs the feature value. That is where the application should evaluate it. Do not evaluate every experiment in a global provider “for convenience.” Broad evaluation adds people who never encounter the treatment, dilutes effects, consumes event allowance, and makes activation filtering necessary.
 
 Create `src/features/signup/SignupExperiment.tsx`:
@@ -698,6 +714,7 @@ import {
   trackSignupStarted,
 } from "../../analytics/signup-events";
 import { setAuthenticatedUser } from "../../experimentation/growthbook";
+import { runBestEffort } from "../../analytics/best-effort";
 
 type SignupResponse = {
   userId: string;
@@ -770,7 +787,7 @@ export function SignupExperiment() {
   function recordFirstInteraction(): void {
     if (started.current) return;
     started.current = true;
-    void trackSignupStarted(flow);
+    runBestEffort(() => trackSignupStarted(flow));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -786,15 +803,15 @@ export function SignupExperiment() {
     try {
       const account = await createAccount({ email, password, method });
 
-      // Add the opaque authenticated ID without replacing device_id.
-      setAuthenticatedUser(account.userId);
-
-      // Await the SDK event flush before a full-page navigation.
-      await trackSignupCompleted({ flow, method });
+      // Analytics must not block navigation after the account exists.
+      runBestEffort(() => {
+        setAuthenticatedUser(account.userId);
+        return trackSignupCompleted({ flow, method });
+      });
       window.location.assign(account.redirectTo);
     } catch (caught) {
       const code = toFailureCode(caught);
-      void trackSignupFailed({ flow, code });
+      runBestEffort(() => trackSignupFailed({ flow, code }));
       setError("We could not create the account. Check the form and try again.");
       setSubmitting(false);
     }
@@ -1325,6 +1342,40 @@ Also join first exposure to completion using the exact fact-table logic. Compare
 ## Step 9: Add tests that protect assignment and event semantics
 
 Tests should prove properties, not hard-code a bucket produced by an undocumented hash calculation.
+
+### Test that analytics cannot block signup navigation
+
+Create `tests/best-effort.test.ts`:
+
+```ts title="tests/best-effort.test.ts"
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { runBestEffort } from "../src/analytics/best-effort";
+
+afterEach(() => vi.restoreAllMocks());
+
+describe("runBestEffort", () => {
+  it("returns immediately when delivery never settles", () => {
+    const navigate = vi.fn();
+    runBestEffort(() => new Promise<void>(() => {}));
+    navigate();
+    expect(navigate).toHaveBeenCalledOnce();
+  });
+
+  it("contains synchronous analytics errors", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(() => runBestEffort(() => { throw new Error("offline"); })).not.toThrow();
+  });
+
+  it("handles rejected delivery promises", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    runBestEffort(() => Promise.reject(new Error("offline")));
+    await Promise.resolve();
+    expect(warning).toHaveBeenCalledOnce();
+  });
+});
+```
+
+Run `npx vitest run tests/best-effort.test.ts`. Also exercise the real signup flow in a browser with the ingestor request deliberately stalled, rejected, and blocked. Successful account creation must still navigate without an analytics wait; genuine account-creation failures must still display the form error. Check durable signup counts against browser completions and investigate differential event loss between variations.
 
 ### Test deterministic assignment and exposure deduplication
 
