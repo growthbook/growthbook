@@ -1159,7 +1159,6 @@ export async function postExperiments(
       originalId?: string;
       autoRefreshResults?: boolean;
       allowSameSeedAsOriginal?: boolean;
-      isImport?: boolean;
     }
   >,
   res: Response<
@@ -1377,8 +1376,18 @@ export async function postExperiments(
       });
     }
 
-    // Imported keys come from the warehouse and can't be renamed
-    if (!req.query.isImport) assertExperimentKeyFormat(org, obj.trackingKey);
+    // Keys discovered in the warehouse can't be renamed, so they're exempt
+    const pastExperiments =
+      org.settings?.experimentKeyRegexValidator && obj.datasource
+        ? await getPastExperimentsModelByDatasource(org.id, obj.datasource)
+        : null;
+    if (
+      !pastExperiments?.experiments?.some(
+        (e) => e.trackingKey === obj.trackingKey,
+      )
+    ) {
+      assertExperimentKeyFormat(org, obj.trackingKey);
+    }
 
     // Make sure tracking key is unique
     if (

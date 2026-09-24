@@ -615,9 +615,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (autoRefreshResults && isImport) {
       params.autoRefreshResults = true;
     }
-    if (isImport) {
-      params.isImport = true;
-    }
 
     const res = await apiCall<
       | { experiment: ExperimentInterfaceStringDates }
