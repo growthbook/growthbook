@@ -264,11 +264,10 @@ export default function SDKConnectionForm({
     () => currentSdkCapabilities.includes("savedGroupReferencesV2"),
     [currentSdkCapabilities],
   );
-  // Offer v2 only when upgrading the SDK can reach it. The current version
-  // counts too: a prerelease version typed in by hand is never the latest.
-  const allSavedGroupTypesAvailable =
-    supportsAllSavedGroupTypes ||
-    latestSdkCapabilities.includes("savedGroupReferencesV2");
+  // Offer v2 only when upgrading the SDK can reach it.
+  const allSavedGroupTypesAvailable = latestSdkCapabilities.includes(
+    "savedGroupReferencesV2",
+  );
   const savedAsAllSavedGroupTypes =
     edit && initialValue.savedGroupFormat === "referencesV2";
 

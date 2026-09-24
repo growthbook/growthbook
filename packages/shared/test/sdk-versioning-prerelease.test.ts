@@ -1,4 +1,5 @@
 import {
+  getConnectionSDKCapabilities,
   getLatestSDKVersion,
   getSDKCapabilities,
   getSDKCapabilityVersion,
@@ -52,5 +53,23 @@ describe("prerelease SDK versions", () => {
     expect(getSDKCapabilities("rust", "1.1.0")).not.toContain(
       "savedGroupReferencesV2",
     );
+  });
+
+  it("count as the newest version for a connection set to one", () => {
+    expect(
+      getConnectionSDKCapabilities(
+        { languages: ["rust"], sdkVersion: "2.0.0" },
+        "max-ver-intersection",
+      ),
+    ).toContain("savedGroupReferencesV2");
+  });
+
+  it("do not count as the newest version for older connections", () => {
+    const capabilities = getConnectionSDKCapabilities(
+      { languages: ["rust"], sdkVersion: "1.0.0" },
+      "max-ver-intersection",
+    );
+    expect(capabilities).toContain("savedGroupReferences");
+    expect(capabilities).not.toContain("savedGroupReferencesV2");
   });
 });

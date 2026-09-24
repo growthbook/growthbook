@@ -36,11 +36,6 @@ type SDKData = {
 type SDKVersionData = {
   version: string;
   capabilities?: string[];
-  /**
-   * Not published yet. Left out of the version list, "latest" and the
-   * "requires vX" prompts, but a connection set to this version by hand still
-   * gets its capabilities, so the payload can be tested before the release.
-   */
   prerelease?: boolean;
 };
 
@@ -125,6 +120,17 @@ export const getLatestSDKVersion = (
   return getPublishedVersions(language)[0]?.version || "0.0.0";
 };
 
+const getLatestOrGivenSDKVersion = (
+  language: SDKLanguage = "other",
+  version?: string,
+): string => {
+  const latest = getLatestSDKVersion(language);
+  if (!version) return latest;
+  return paddedVersionString(version) > paddedVersionString(latest)
+    ? version
+    : latest;
+};
+
 export const getDefaultSDKVersion = (
   language: SDKLanguage = "other",
 ): string => {
@@ -149,7 +155,6 @@ export const getSDKCapabilities = (
 
   version = version || getDefaultSDKVersion(language);
   const sdkData = getSdkData(language);
-  // Includes prerelease versions, so a version typed in by hand gets them
   const versions = sdkData?.versions || [];
   const matches = versions.filter(
     (data) => paddedVersionString(data.version) <= paddedVersionString(version),
@@ -178,7 +183,10 @@ export const getConnectionSDKCapabilities = (
         "min-ver-intersection-loose-unmarshalling",
       ].includes(strategy)
         ? connection.sdkVersion
-        : getLatestSDKVersion(connection.languages?.[0]),
+        : getLatestOrGivenSDKVersion(
+            connection.languages?.[0],
+            connection.sdkVersion,
+          ),
     );
   }
   let capabilities: SDKCapability[] = [];
