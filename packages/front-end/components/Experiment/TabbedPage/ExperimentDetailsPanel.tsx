@@ -82,6 +82,22 @@ export default function ExperimentDetailsPanel({
     return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
   };
   const isHoldout = experiment.type === "holdout";
+  // The panel shows these fields in two places: what files the experiment,
+  // with its description, and the rest of its details further down.
+  const tagBar = (fields: "projectAndTags" | "details") => (
+    <ProjectTagBar
+      fields={fields}
+      fieldAction={isHoldout ? undefined : fieldAction}
+      vertical
+      experiment={experiment}
+      holdout={holdout}
+      setShowEditInfoModal={setShowEditInfoModal}
+      setEditInfoFocusSelector={setFocusSelector}
+      editTags={editTags}
+      editsBlockedReason={editsBlocked}
+      isManaged={isManaged}
+    />
+  );
   const { canEdit } = useExperimentEditing(experiment, disableEditing);
 
   return (
@@ -121,10 +137,10 @@ export default function ExperimentDetailsPanel({
         </Flex>
         <TabsContent value="details">
           <Flex px="5" py="4" direction="column" gap="4">
-            <Flex direction="column" gap="2">
+            <Flex direction="column" gap="3">
               <Metadata
                 size="sm"
-                row
+                stacked
                 label="Status"
                 value={
                   <Text size="sm" color="text-high">
@@ -149,41 +165,23 @@ export default function ExperimentDetailsPanel({
                   )}
                 />
               )}
-              <ProjectTagBar
-                fields="projectAndTags"
-                fieldAction={isHoldout ? undefined : fieldAction}
-                vertical
-                experiment={experiment}
-                holdout={holdout}
-                setShowEditInfoModal={setShowEditInfoModal}
-                setEditInfoFocusSelector={setFocusSelector}
-                editTags={editTags}
-                editsBlockedReason={editsBlocked}
-                isManaged={isManaged}
-              />
+              {tagBar("projectAndTags")}
             </Flex>
             <Separator size="4" />
-            <PanelSection
-              title="General"
-              action={
-                isHoldout
-                  ? pencil("Edit details", () => setShowEditInfoModal(true))
-                  : null
-              }
-            >
-              <ProjectTagBar
-                fields="details"
-                fieldAction={isHoldout ? undefined : fieldAction}
-                vertical
-                experiment={experiment}
-                holdout={holdout}
-                setShowEditInfoModal={setShowEditInfoModal}
-                setEditInfoFocusSelector={setFocusSelector}
-                editTags={editTags}
-                editsBlockedReason={editsBlocked}
-                isManaged={isManaged}
-              />
-            </PanelSection>
+            {/* Holdouts edit all of this at once, so they keep a heading
+                for the button; elsewhere each field has its own. */}
+            {isHoldout ? (
+              <PanelSection
+                title="General"
+                action={pencil("Edit details", () =>
+                  setShowEditInfoModal(true),
+                )}
+              >
+                {tagBar("details")}
+              </PanelSection>
+            ) : (
+              tagBar("details")
+            )}
             {/* Bandits and holdouts show their analysis on the page itself. */}
             {!isHoldout && experiment.type !== "multi-armed-bandit" ? (
               <>

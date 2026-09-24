@@ -56,6 +56,10 @@ export default function ProjectTagBar({
 }: Props) {
   const showProjectAndTags = fields !== "details";
   const showDetails = fields !== "projectAndTags";
+  // Shown on their own, project and tags stack like the description above
+  // them; among the details, the project lines up with the rest as a row.
+  const projectRow = vertical && fields !== "projectAndTags";
+  const projectStacked = vertical && fields === "projectAndTags";
   const {
     projects,
     project: currentProject,
@@ -290,7 +294,8 @@ export default function ProjectTagBar({
     return (projects.length > 0 || projectIsDeReferenced) && !holdout ? (
       <Metadata
         size="sm"
-        row={vertical}
+        row={projectRow}
+        stacked={projectStacked}
         label="Project"
         actionPlacement="value"
         action={fieldAction?.("project")}
@@ -299,7 +304,8 @@ export default function ProjectTagBar({
     ) : holdout ? (
       <Metadata
         size="sm"
-        row={vertical}
+        row={projectRow}
+        stacked={projectStacked}
         label="Projects"
         value={renderHoldoutProjectMetaDataValue()}
       />
@@ -333,7 +339,7 @@ export default function ProjectTagBar({
     <div className={vertical ? undefined : "pb-3"}>
       <Flex
         direction={vertical ? "column" : "row"}
-        gap={vertical ? "2" : "3"}
+        gap={vertical && !projectStacked ? "2" : "3"}
         mt={vertical ? "0" : "2"}
         mb={vertical ? "0" : "1"}
         wrap={vertical ? "nowrap" : "wrap"}
