@@ -2,7 +2,7 @@ import "tsx/cjs";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createServer as createTlsServer } from "node:https";
-import { connect } from "node:net";
+import { BlockList, connect, isIP } from "node:net";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { once } from "node:events";
@@ -24,14 +24,15 @@ async function listen(server) {
 }
 
 async function main() {
-  // This key and certificate are synthetic and used only by the local TLS server.
+  // This key and certificate are synthetic and used only by the local TLS servers.
   const pem = readFileSync(
     path.join(fixtureDirectory, "bigqueryTransport.pem"),
     "utf8",
   );
   let endpointRequests = 0;
   let tokenRequests = 0;
-  let targetRequests = 0;
+  let internalRequests = 0;
+  const thirdPartyAuthorization = [];
   let proxyConnections = 0;
   const deniedTunnels = [];
   let deny = false;
@@ -55,15 +56,20 @@ async function main() {
       }),
     );
   });
-  const target = createServer((req, res) => {
-    targetRequests++;
+  const internal = createServer((req, res) => {
+    internalRequests++;
+    res.end(JSON.stringify({ datasets: [] }));
+  });
+  const thirdParty = createTlsServer({ key: pem, cert: pem }, (req, res) => {
+    thirdPartyAuthorization.push(req.headers.authorization);
+    res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ datasets: [] }));
   });
   const endpoint = createTlsServer({ key: pem, cert: pem }, (req, res) => {
     endpointRequests++;
     assert.equal(req.headers.authorization, "Bearer synthetic-access-token");
     assert.equal(
-      new URL(req.url, "https://approved-proxy.invalid").pathname,
+      new URL(req.url, "https://customer-proxy.invalid").pathname,
       "/tenant/bigquery/v2/projects/synthetic-project/datasets",
     );
     if (redirect) {
@@ -79,24 +85,34 @@ async function main() {
     }
   });
   const proxy = createServer();
-  const servers = [tokenServer, target, endpoint, proxy];
+  const servers = [tokenServer, internal, thirdParty, endpoint, proxy];
   for (const server of servers) server.on("connection", track);
 
   try {
     const tokenPort = await listen(tokenServer);
-    const targetPort = await listen(target);
+    const internalPort = await listen(internal);
+    const thirdPartyPort = await listen(thirdParty);
     const endpointPort = await listen(endpoint);
+    // Like the egress proxy: no allowlist, public hosts pass and private addresses are denied.
+    const privateRanges = new BlockList();
+    privateRanges.addSubnet("127.0.0.0", 8);
+    privateRanges.addSubnet("10.0.0.0", 8);
+    privateRanges.addSubnet("169.254.0.0", 16);
+    const publicHosts = {
+      "customer-proxy.invalid:443": endpointPort,
+      "third-party.invalid:443": thirdPartyPort,
+    };
     proxy.on("connect", (req, socket, head) => {
       proxyConnections++;
       assert.equal(req.headers.authorization, undefined);
-      // Like the egress proxy, tunnel only to the approved public endpoint.
-      if (deny || req.url !== "approved-proxy.invalid:443") {
+      const host = req.url.slice(0, req.url.lastIndexOf(":"));
+      if (deny || (isIP(host) && privateRanges.check(host))) {
         deniedTunnels.push(req.url);
         socket.end("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n");
         return;
       }
       const upstream = track(
-        connect(endpointPort, "127.0.0.1", () => {
+        connect(publicHosts[req.url], "127.0.0.1", () => {
           socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
           if (head.length) upstream.write(head);
           socket.pipe(upstream).pipe(socket);
@@ -106,7 +122,7 @@ async function main() {
       socket.on("error", () => upstream.destroy());
     });
     const proxyPort = await listen(proxy);
-    const apiEndpoint = "https://approved-proxy.invalid/tenant";
+    const apiEndpoint = "https://customer-proxy.invalid/tenant";
     // Substitute only deployment configuration; load the real factory and SDK.
     const secretsPath = fixtureRequire.resolve("../../src/util/secrets.ts");
     const secrets = fixtureRequire(secretsPath);
@@ -148,15 +164,24 @@ async function main() {
     assert.equal(proxyConnections, 1);
     assert.equal(endpointRequests, 1);
 
+    // Redirects reuse the request's proxy agent, so each hop is filtered like the first.
     redirect = {
       status: 307,
-      location: `http://127.0.0.1:${targetPort}/datasets`,
+      location: `http://127.0.0.1:${internalPort}/datasets`,
     };
-    // Redirects reuse the request's proxy agent, so the egress proxy still filters them.
     await assert.rejects(client.getDatasets(), /403|Forbidden/i);
     assert.equal(endpointRequests, 2);
-    assert.equal(targetRequests, 0);
-    assert.deepEqual(deniedTunnels, [`127.0.0.1:${targetPort}`]);
+    assert.equal(internalRequests, 0);
+    assert.deepEqual(deniedTunnels, [`127.0.0.1:${internalPort}`]);
+
+    // A public redirect target is reachable, but never receives the access token.
+    redirect = {
+      status: 307,
+      location: "https://third-party.invalid/datasets",
+    };
+    await client.getDatasets();
+    assert.equal(endpointRequests, 3);
+    assert.deepEqual(thirdPartyAuthorization, [undefined]);
 
     deny = true;
     const before = endpointRequests;
