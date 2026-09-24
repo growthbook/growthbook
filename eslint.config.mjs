@@ -1,7 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, globalIgnores } from "eslint/config";
-import { fixupConfigRules, fixupPluginRules } from "@eslint/compat";
+import { defineConfig } from "eslint/config";
+import {
+  fixupConfigRules,
+  fixupPluginRules,
+  includeIgnoreFile,
+} from "@eslint/compat";
 import react from "eslint-plugin-react";
 import typescriptEslint from "@typescript-eslint/eslint-plugin";
 import nextEslintPluginNext from "@next/eslint-plugin-next";
@@ -25,23 +29,7 @@ const { name: _nextName, ...nextRecommendedConfig } =
   nextEslintPluginNext.configs.recommended;
 
 export default defineConfig([
-  globalIgnores([
-    // Claude Code parks agent worktrees (full checkouts) here; linting them
-    // rewrites another branch's files.
-    ".claude/",
-    "**/.next",
-    "**/dist",
-    "**/coverage",
-    "**/.venv",
-    "**/node_modules",
-    "docs/.docusaurus",
-    "docs/docusaurus.config.js",
-    "docs/build",
-    "docs-archive/",
-    "packages/sdk-js/scripts",
-    "**/*.tsbuildinfo",
-    "packages/shared/types/*.js",
-  ]),
+  includeIgnoreFile(path.join(__dirname, ".gitignore")),
   nextRecommendedConfig,
   {
     extends: fixupConfigRules(
@@ -198,7 +186,12 @@ export default defineConfig([
   {
     // Standalone runtime/tooling scripts (no build step): require() is correct
     // and console is the intended logging channel.
-    files: ["./preview/idle-monitor.js", "./scripts/*.js", "./scripts/*.mjs"],
+    files: [
+      "./preview/idle-monitor.js",
+      "./scripts/*.js",
+      "./scripts/*.mjs",
+      "./packages/sdk-js/scripts/*.js",
+    ],
 
     rules: {
       "@typescript-eslint/no-require-imports": "off",
