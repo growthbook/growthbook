@@ -22,6 +22,8 @@ import {
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
+import { ExposureQuery } from "shared/types/datasource";
+import { getAnalysisIdentifierType } from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   FactMetricInterface,
@@ -94,8 +96,10 @@ export async function assertIncrementalRefreshPrerequisites({
   // rebuilds only that metric's fact-table cache, leaving the units table and
   // every unaffected metric cache on the incremental path.
   if (analysisType === "main-update" && incrementalRefreshModel) {
-    const currentSettingsHash =
-      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+    const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
+      snapshotSettings,
+      integration.datasource.settings.queries?.exposure ?? [],
+    );
     const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
     if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
       throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
@@ -109,11 +113,27 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
+  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
 ): string {
   const settingsForHash: Record<string, unknown> = {};
 
   for (const field of INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS) {
     settingsForHash[field] = snapshotSettings[field];
+  }
+
+  // Units tables built before queries had several identifiers used the query's
+  // first, so only hash a different one to keep those tables' hashes stable.
+  // Changing a query's first identifier re-keys experiments on the old or new
+  // first, costing them one full refresh.
+  const identifierType = snapshotSettings.exposureQueryIdentifierType;
+  const query = exposureQueries.find(
+    (q) => q.id === snapshotSettings.exposureQueryId,
+  );
+  if (
+    identifierType &&
+    identifierType !== getAnalysisIdentifierType(query, undefined)
+  ) {
+    settingsForHash.exposureQueryIdentifierType = identifierType;
   }
 
   // Incremental units SQL used to ignore segment and queryFilter before #6711.
@@ -132,15 +152,20 @@ export function getExperimentSettingsHashForIncrementalRefresh(
 export function legacyDocDescribesPhase({
   legacyDoc,
   snapshotSettings,
+  exposureQueries,
 }: {
   legacyDoc: IncrementalRefreshInterface;
   snapshotSettings: ExperimentSnapshotSettings;
+  exposureQueries: ExposureQuery[];
 }): boolean {
   const storedHash = legacyDoc.experimentSettingsHash;
   if (!storedHash) return false;
   return (
     storedHash ===
-    getExperimentSettingsHashForIncrementalRefresh(snapshotSettings)
+    getExperimentSettingsHashForIncrementalRefresh(
+      snapshotSettings,
+      exposureQueries,
+    )
   );
 }
 
@@ -522,15 +547,19 @@ export function getAggregatedFactTableRestateReason({
 // experiment-level settings.
 export function exploratoryOverallRequiresFullRefresh({
   snapshotSettings,
+  exposureQueries,
   incrementalRefreshModel,
   latestOverallSnapshotId,
 }: {
   snapshotSettings: ExperimentSnapshotSettings;
+  exposureQueries: ExposureQuery[];
   incrementalRefreshModel: IncrementalRefreshInterface;
   latestOverallSnapshotId: string | null;
 }): boolean {
-  const currentSettingsHash =
-    getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+  const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
+    snapshotSettings,
+    exposureQueries,
+  );
   const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
   if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
     return true;

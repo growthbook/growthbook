@@ -27,15 +27,17 @@ export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
   "skipPartialData",
   "datasourceId",
   "exposureQueryId",
-  "exposureQueryIdentifierType",
   "startDate",
   "regressionAdjustmentEnabled",
   "experimentId",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
 
+// `exposureQueryIdentifierType` is resolved to the query's first when unset.
+// It is hashed separately (getExperimentSettingsHashForIncrementalRefresh).
 export type IncrementalFullRefreshComparable = Pick<
   ExperimentSnapshotSettings,
-  (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
+  | (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
+  | "exposureQueryIdentifierType"
 >;
 
 // Keep this aligned with snapshotSettings so UI labels match backend hash checks.
@@ -68,6 +70,14 @@ export function getIncrementalFullRefreshReasons(
     if (changed) {
       reasons.push(getExperimentOutdatedReasonLabel(field));
     }
+  }
+  if (
+    (current.exposureQueryIdentifierType ?? null) !==
+    (baseline.exposureQueryIdentifierType ?? null)
+  ) {
+    reasons.push(
+      getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
+    );
   }
   return reasons;
 }

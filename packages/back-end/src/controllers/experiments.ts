@@ -872,12 +872,16 @@ export async function getExperimentIncrementalRefresh(
         })
       : null;
 
+    const datasource = snapshot
+      ? await getDataSourceById(context, experiment.datasource)
+      : null;
     if (
       legacyDoc &&
       snapshot &&
       legacyDocDescribesPhase({
         legacyDoc,
         snapshotSettings: snapshot.settings,
+        exposureQueries: datasource?.settings.queries?.exposure ?? [],
       })
     ) {
       incrementalRefresh = legacyDoc;

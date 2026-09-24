@@ -578,7 +578,10 @@ const startExperimentIncrementalRefreshQueries = async (
             unitsMaxTimestamp: watermark.maxTimestamp,
             unitsMaxTimestampRaw: watermark.maxTimestampRaw,
             experimentSettingsHash:
-              getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+              getExperimentSettingsHashForIncrementalRefresh(
+                snapshotSettings,
+                integration.datasource.settings.queries?.exposure ?? [],
+              ),
             unitsDimensions: eligibleDimensions.map((d) => d.id),
           },
         );

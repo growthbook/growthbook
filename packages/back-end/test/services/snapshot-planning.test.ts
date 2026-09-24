@@ -290,6 +290,7 @@ function settingsHashForPhase({
       incrementalRefreshModel: null,
       datasource,
     }),
+    datasource.settings.queries?.exposure ?? [],
   );
 }
 
@@ -912,7 +913,10 @@ describe("snapshot planning", () => {
     expect(staleMetricHash).not.toEqual(currentMetricHash);
 
     const experimentSettingsHash =
-      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+      getExperimentSettingsHashForIncrementalRefresh(
+        snapshotSettings,
+        datasource.settings.queries?.exposure ?? [],
+      );
 
     const context = makeContext();
     wireIncrementalRefreshState(context, {

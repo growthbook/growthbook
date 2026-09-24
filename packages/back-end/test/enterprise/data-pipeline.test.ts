@@ -80,6 +80,7 @@ function makeIncrementalRefreshModel(
     metricCovariateSources: [],
     experimentSettingsHash: getExperimentSettingsHashForIncrementalRefresh(
       makeSnapshotSettings(),
+      [],
     ),
     currentExecutionSnapshotId: null,
     dateCreated: new Date(),
@@ -113,7 +114,10 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         experiment,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+            getExperimentSettingsHashForIncrementalRefresh(
+              snapshotSettings,
+              [],
+            ),
         }),
         analysisType: "main-update",
       }),
@@ -179,7 +183,10 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         experiment,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+            getExperimentSettingsHashForIncrementalRefresh(
+              snapshotSettings,
+              [],
+            ),
         }),
         analysisType: "exploratory",
       }),
@@ -424,26 +431,58 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
   } as ExperimentSnapshotSettings;
 
   it("produces the pinned md5 for the fixed input", () => {
-    expect(getExperimentSettingsHashForIncrementalRefresh(GOLDEN_INPUT)).toBe(
-      "1c14c7b3c695413e66101563d2b606ab",
-    );
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(GOLDEN_INPUT, []),
+    ).toBe("1c14c7b3c695413e66101563d2b606ab");
+  });
+
+  const EXPOSURE_QUERIES = [
+    {
+      id: "exposure_1",
+      userIdType: "user_id",
+      userIdTypes: ["user_id", "anonymous_id"],
+    },
+  ];
+
+  it("keeps the pinned md5 when the identifier is the query's first", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, exposureQueryIdentifierType: "user_id" },
+        EXPOSURE_QUERIES,
+      ),
+    ).toBe("1c14c7b3c695413e66101563d2b606ab");
+  });
+
+  it("changes the hash when the identifier isn't the query's first", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, exposureQueryIdentifierType: "anonymous_id" },
+        EXPOSURE_QUERIES,
+      ),
+    ).not.toBe("1c14c7b3c695413e66101563d2b606ab");
   });
 
   it("salts the hash when a segment is set so pre-fix units tables refresh", () => {
     expect(
-      getExperimentSettingsHashForIncrementalRefresh({
-        ...GOLDEN_INPUT,
-        segment: "seg_1",
-      }),
+      getExperimentSettingsHashForIncrementalRefresh(
+        {
+          ...GOLDEN_INPUT,
+          segment: "seg_1",
+        },
+        [],
+      ),
     ).toBe("87ac81f4eeb663e34dac3a40ff93eb1a");
   });
 
   it("salts the hash when a query filter is set so pre-fix units tables refresh", () => {
     expect(
-      getExperimentSettingsHashForIncrementalRefresh({
-        ...GOLDEN_INPUT,
-        queryFilter: "country = 'US'",
-      }),
+      getExperimentSettingsHashForIncrementalRefresh(
+        {
+          ...GOLDEN_INPUT,
+          queryFilter: "country = 'US'",
+        },
+        [],
+      ),
     ).toBe("96e51c90778ee575dc6cae62b2e99df2");
   });
 });
@@ -453,9 +492,13 @@ describe("legacyDocDescribesPhase", () => {
     const snapshotSettings = makeSnapshotSettings();
     expect(
       legacyDocDescribesPhase({
+        exposureQueries: [],
         legacyDoc: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+            getExperimentSettingsHashForIncrementalRefresh(
+              snapshotSettings,
+              [],
+            ),
         }),
         snapshotSettings,
       }),
@@ -465,6 +508,7 @@ describe("legacyDocDescribesPhase", () => {
   it("returns false when experimentSettingsHash is null", () => {
     expect(
       legacyDocDescribesPhase({
+        exposureQueries: [],
         legacyDoc: makeIncrementalRefreshModel({
           experimentSettingsHash: null,
         }),
@@ -476,6 +520,7 @@ describe("legacyDocDescribesPhase", () => {
   it("returns false when experimentSettingsHash is undefined", () => {
     expect(
       legacyDocDescribesPhase({
+        exposureQueries: [],
         legacyDoc: makeIncrementalRefreshModel({
           experimentSettingsHash: undefined,
         }),
@@ -487,10 +532,12 @@ describe("legacyDocDescribesPhase", () => {
   it("returns false when the phase start date differs", () => {
     expect(
       legacyDocDescribesPhase({
+        exposureQueries: [],
         legacyDoc: makeIncrementalRefreshModel({
           experimentSettingsHash:
             getExperimentSettingsHashForIncrementalRefresh(
               makeSnapshotSettings({ startDate: new Date("2024-01-01") }),
+              [],
             ),
         }),
         snapshotSettings: makeSnapshotSettings({
@@ -503,10 +550,12 @@ describe("legacyDocDescribesPhase", () => {
   it("returns false when another setting differs", () => {
     expect(
       legacyDocDescribesPhase({
+        exposureQueries: [],
         legacyDoc: makeIncrementalRefreshModel({
           experimentSettingsHash:
             getExperimentSettingsHashForIncrementalRefresh(
               makeSnapshotSettings({ regressionAdjustmentEnabled: true }),
+              [],
             ),
         }),
         snapshotSettings: makeSnapshotSettings(),
@@ -519,6 +568,7 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
   it("returns true when the experiment settings hash drifted", () => {
     expect(
       exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
         snapshotSettings: makeSnapshotSettings({ metricSettings: [] }),
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash: "stale_hash",
@@ -531,6 +581,7 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
   it("returns true when there is no stored settings hash", () => {
     expect(
       exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
         snapshotSettings: makeSnapshotSettings({ metricSettings: [] }),
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash: "",
@@ -546,10 +597,14 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     });
     expect(
       exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
         snapshotSettings: settingsWithMetric,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(settingsWithMetric),
+            getExperimentSettingsHashForIncrementalRefresh(
+              settingsWithMetric,
+              [],
+            ),
           metricSources: [],
         }),
         latestOverallSnapshotId: null,
@@ -561,10 +616,11 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     const settings = makeSnapshotSettings({ metricSettings: [] });
     expect(
       exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
         snapshotSettings: settings,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(settings),
+            getExperimentSettingsHashForIncrementalRefresh(settings, []),
           materializedBySnapshotId: "snp_old",
         }),
         latestOverallSnapshotId: "snp_new",
@@ -576,10 +632,11 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     const settings = makeSnapshotSettings({ metricSettings: [] });
     expect(
       exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
         snapshotSettings: settings,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(settings),
+            getExperimentSettingsHashForIncrementalRefresh(settings, []),
           materializedBySnapshotId: "snp_old",
         }),
         latestOverallSnapshotId: "snp_old",
@@ -591,10 +648,11 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     const settings = makeSnapshotSettings({ metricSettings: [] });
     expect(
       exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
         snapshotSettings: settings,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(settings),
+            getExperimentSettingsHashForIncrementalRefresh(settings, []),
           materializedBySnapshotId: undefined,
         }),
         latestOverallSnapshotId: "snp_new",
@@ -609,10 +667,11 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     });
     expect(
       exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
         snapshotSettings: settings,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(settings),
+            getExperimentSettingsHashForIncrementalRefresh(settings, []),
           materializedBySnapshotId: undefined,
         }),
         latestOverallSnapshotId: "snp_new",

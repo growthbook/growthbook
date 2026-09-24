@@ -309,7 +309,7 @@ export default function AnalysisSettingsSummary({
       skipPartialData: experiment.skipPartialData ?? false,
       datasourceId: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId ?? "",
-      exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
+      exposureQueryIdentifierType: userIdType,
       // Match isOutdated's commercial-feature gate for regression adjustment.
       regressionAdjustmentEnabled: hasRegressionAdjustmentFeature
         ? !!experiment.regressionAdjustmentEnabled
@@ -327,8 +327,12 @@ export default function AnalysisSettingsSummary({
       skipPartialData: dimensionless.settings.skipPartialData,
       datasourceId: dimensionless.settings.datasourceId,
       exposureQueryId: dimensionless.settings.exposureQueryId,
-      exposureQueryIdentifierType:
+      exposureQueryIdentifierType: getAnalysisIdentifierType(
+        datasourceSettings?.queries?.exposure?.find(
+          (e) => e.id === dimensionless.settings.exposureQueryId,
+        ),
         dimensionless.settings.exposureQueryIdentifierType,
+      ),
       regressionAdjustmentEnabled:
         dimensionless.settings.regressionAdjustmentEnabled,
       experimentId: dimensionless.settings.experimentId,
@@ -356,6 +360,8 @@ export default function AnalysisSettingsSummary({
     phase,
     hasRegressionAdjustmentFeature,
     incrementalRefresh,
+    userIdType,
+    datasourceSettings,
   ]);
 
   const overallNeedsFullRefresh =

@@ -1736,6 +1736,7 @@ async function planSnapshotQueryRunner({
     incrementalRefreshModel &&
     exploratoryOverallRequiresFullRefresh({
       snapshotSettings,
+      exposureQueries: datasource.settings.queries?.exposure ?? [],
       incrementalRefreshModel,
       latestOverallSnapshotId,
     })
@@ -1925,6 +1926,7 @@ export async function planSnapshot({
           ...snapshotSettingsArgs,
           incrementalRefreshModel: null,
         }),
+        exposureQueries: datasource.settings.queries?.exposure ?? [],
       })
     ) {
       legacyIncrementalRefresh = legacyDoc;
@@ -2100,6 +2102,7 @@ export async function createSnapshotFromPlan({
         legacyExperimentSettingsHash:
           getExperimentSettingsHashForIncrementalRefresh(
             plan.snapshot.settings,
+            datasource.settings.queries?.exposure ?? [],
           ),
       });
     if (!hasIncrementalRefreshLock) {
