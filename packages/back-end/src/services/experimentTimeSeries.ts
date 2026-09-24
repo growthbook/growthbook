@@ -436,9 +436,12 @@ export function getFiltersForHash(
  */
 function getDefinitionMetricId(metricId: string): string {
   const stepInfo = parseFunnelStepMetricId(metricId);
-  return stepInfo.isFunnelStepMetric
+  // Strip step info first (if present), then strip slice info.
+  // A sliced funnel step like funnelId?step=0&dim:col=val has both.
+  const afterStep = stepInfo.isFunnelStepMetric
     ? stepInfo.baseMetricId
-    : parseSliceMetricId(metricId).baseMetricId;
+    : metricId;
+  return parseSliceMetricId(afterStep).baseMetricId;
 }
 
 /**

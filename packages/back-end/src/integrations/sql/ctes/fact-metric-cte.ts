@@ -118,6 +118,9 @@ export function getFactMetricCTE(
       // A funnel has no value column. Each step instead projects the row's
       // timestamp when the row matches that step's filters, so the resolution
       // CTEs downstream can collect per-step timestamps per user.
+      const sliceInfo = parseSliceMetricId(m.id, {
+        [factTable.id]: factTable,
+      });
       m.funnelSettings.steps.forEach((step, stepIndex) => {
         if (step.factTableId !== factTable.id) return;
 
@@ -133,6 +136,7 @@ export function getFactMetricCTE(
           jsonExtract: dialect.jsonExtract,
           evalBoolean: dialect.evalBoolean,
           castToTimestamp: dialect.castToTimestamp,
+          sliceInfo,
           identifierQuote: dialect.identifierQuote,
         });
 

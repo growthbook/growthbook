@@ -39,7 +39,10 @@ import {
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  excludeFunnelSliceRows,
+  ExperimentTableRow,
+} from "@/services/experiments";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import RadixTooltip from "@/ui/Tooltip";
@@ -324,12 +327,13 @@ const CompactResults: FC<{
   // Filter rows based on expansion state when there's no slice filter
   const hasSliceFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
   const filteredRows = useMemo(() => {
+    const visibleRows = excludeFunnelSliceRows(rows);
     if (hasSliceFilter) {
       // When filter is active, use isHiddenByFilter from the hook
-      return rows;
+      return visibleRows;
     }
     // When no filter, filter out slice rows that aren't expanded
-    return rows.filter((row) => {
+    return visibleRows.filter((row) => {
       if (!row.isChildRow) return true; // Always include parent rows
       // Check if parent metric is expanded
       if (row.parentRowId) {

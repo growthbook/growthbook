@@ -17,8 +17,10 @@ import {
   ExperimentMetricInterface,
   funnelStepMetricId,
   getAllExpandedMetricIdsFromExperiment,
+  getCompatibleFunnelAutoSliceColumns,
   getFunnelStepMetric,
   getFunnelStepMetrics,
+  getMetricAutoSliceFactTableIds,
   getMetricSnapshotSettings,
   parseFunnelStepMetricId,
 } from "shared/experiments";
@@ -27,6 +29,10 @@ import {
   funnelSettingsValidator,
 } from "shared/validators";
 import {
+  ColumnInterface,
+  FactMetricInterface,
+  FactTableDefinition,
+  FactTableInterface,
   FunnelFactMetricInterface,
   FunnelStep,
   RowFilter,
@@ -170,6 +176,120 @@ describe("funnel step metric ids", () => {
       parseFunnelStepMetricId("fact__abc?dim:country=US").isFunnelStepMetric,
     ).toBe(false);
   });
+
+  it("parses a sliced funnel step (composite id)", () => {
+    expect(parseFunnelStepMetricId("fact__abc?dim:country=US&step=1")).toEqual({
+      isFunnelStepMetric: true,
+      baseMetricId: "fact__abc?dim:country=US",
+      stepIndex: 1,
+    });
+  });
+
+  it("builds a sliced funnel step id from a sliced base", () => {
+    const id = funnelStepMetricId("fact__abc?dim:country=US", 0);
+    expect(id).toBe("fact__abc?dim:country=US&step=0");
+    const parsed = parseFunnelStepMetricId(id);
+    expect(parsed).toEqual({
+      isFunnelStepMetric: true,
+      baseMetricId: "fact__abc?dim:country=US",
+      stepIndex: 0,
+    });
+  });
+
+  it("handles step param at the beginning of query string", () => {
+    expect(parseFunnelStepMetricId("fact__abc?step=2&dim:country=US")).toEqual({
+      isFunnelStepMetric: true,
+      baseMetricId: "fact__abc?dim:country=US",
+      stepIndex: 2,
+    });
+  });
+});
+
+describe("getMetricAutoSliceFactTableIds", () => {
+  const ratioMetric = {
+    id: "fact__ratio",
+    metricType: "ratio",
+    numerator: { factTableId: "ft_numerator", column: "$$distinctUsers" },
+    denominator: { factTableId: "ft_denominator", column: "$$distinctUsers" },
+    funnelSettings: null,
+  } as unknown as FactMetricInterface;
+
+  it("uses the numerator's table only for a cross-table ratio metric", () => {
+    // Auto slices come from the numerator, so a same-named column on the
+    // denominator's table must not invalidate them.
+    expect(getMetricAutoSliceFactTableIds(ratioMetric)).toEqual([
+      "ft_numerator",
+    ]);
+  });
+
+  it("uses every step's table for a funnel", () => {
+    expect(getMetricAutoSliceFactTableIds(funnelMetric)).toEqual([
+      "ft_views",
+      "ft_events",
+    ]);
+  });
+});
+
+describe("getCompatibleFunnelAutoSliceColumns", () => {
+  const steps: FunnelStep[] = [
+    {
+      name: "View",
+      factTableId: "ft_views",
+      rowFilters: [],
+      optional: false,
+    },
+    {
+      name: "Signup",
+      factTableId: "ft_signups",
+      rowFilters: [],
+      optional: false,
+    },
+  ];
+  const makeColumn = (
+    overrides: Partial<ColumnInterface> = {},
+  ): ColumnInterface =>
+    ({
+      column: "country",
+      name: "Country",
+      datatype: "string",
+      deleted: false,
+      isAutoSliceColumn: true,
+      autoSlices: ["US", "CA"],
+      ...overrides,
+    }) as ColumnInterface;
+  const getColumns = (
+    secondColumn: ColumnInterface | null,
+  ): ((id: string) => Pick<FactTableInterface, "columns"> | null) => {
+    const factTables = new Map<string, Pick<FactTableInterface, "columns">>([
+      ["ft_views", { columns: [makeColumn()] }],
+      ["ft_signups", { columns: secondColumn ? [secondColumn] : [] }],
+    ]);
+    return (id) => factTables.get(id) ?? null;
+  };
+
+  it("returns columns configured consistently on every step", () => {
+    const columns = getCompatibleFunnelAutoSliceColumns({
+      steps,
+      getFactTable: getColumns(makeColumn({ autoSlices: ["CA", "US"] })),
+    });
+
+    expect(columns.map((column) => column.column)).toEqual(["country"]);
+  });
+
+  it.each<[string, ColumnInterface | null]>([
+    ["missing", null],
+    ["deleted", makeColumn({ deleted: true })],
+    ["different datatype", makeColumn({ datatype: "boolean" })],
+    ["different levels", makeColumn({ autoSlices: ["US", "GB"] })],
+    ["not an Auto Slice", makeColumn({ isAutoSliceColumn: false })],
+  ])("excludes a column when another step is %s", (_, secondColumn) => {
+    const columns = getCompatibleFunnelAutoSliceColumns({
+      steps,
+      getFactTable: getColumns(secondColumn),
+    });
+
+    expect(columns).toEqual([]);
+  });
 });
 
 const signupRowFilter: RowFilter = {
@@ -271,6 +391,125 @@ describe("expandDerivedMetricsInMap funnel expansion", () => {
 
   it("leaves the funnel itself untouched", () => {
     expect(expandFunnelMetric().get(funnelMetric.id)).toBe(funnelMetric);
+  });
+
+  it("only expands Auto Slices configured consistently across every step", () => {
+    const slicedFunnel = {
+      ...funnelMetric,
+      metricAutoSlices: ["country"],
+    };
+    const makeFactTable = (
+      id: string,
+      autoSlices: string[],
+    ): FactTableDefinition =>
+      ({
+        id,
+        columns: [
+          {
+            column: "country",
+            datatype: "string",
+            deleted: false,
+            isAutoSliceColumn: true,
+            autoSlices,
+          },
+        ],
+      }) as unknown as FactTableDefinition;
+    const expand = (signupAutoSlices: string[]) => {
+      const metricMap = new Map<string, ExperimentMetricInterface>([
+        [slicedFunnel.id, slicedFunnel],
+      ]);
+      expandDerivedMetricsInMap({
+        metricMap,
+        factTableMap: new Map([
+          ["ft_views", makeFactTable("ft_views", ["US", "CA"])],
+          ["ft_events", makeFactTable("ft_events", signupAutoSlices)],
+        ]),
+        experiment: { goalMetrics: [slicedFunnel.id] },
+      });
+      return metricMap;
+    };
+
+    expect(expand(["CA", "US"]).has(`${funnelMetric.id}?dim:country=US`)).toBe(
+      true,
+    );
+    expect(expand(["US", "GB"]).has(`${funnelMetric.id}?dim:country=US`)).toBe(
+      false,
+    );
+  });
+
+  // A custom slice compiles to a per-step predicate built from that step's own
+  // column metadata, so a column that disagrees across steps would filter two
+  // different ways — or, for an "other" level, not filter that step at all.
+  describe("custom slices across steps", () => {
+    const customSliceId = `${funnelMetric.id}?dim:country=US`;
+
+    const makeColumn = (
+      overrides: Partial<ColumnInterface> = {},
+    ): ColumnInterface =>
+      ({
+        column: "country",
+        datatype: "string",
+        deleted: false,
+        ...overrides,
+      }) as unknown as ColumnInterface;
+
+    const expand = (
+      signupColumn: ColumnInterface,
+      signupUserIdTypes: string[] = ["user_id"],
+    ) => {
+      const makeFactTable = (
+        id: string,
+        column: ColumnInterface,
+        userIdTypes: string[],
+      ): FactTableDefinition =>
+        ({
+          id,
+          columns: [column],
+          userIdTypes,
+          userIdColumns: {},
+        }) as unknown as FactTableDefinition;
+
+      const metricMap = new Map<string, ExperimentMetricInterface>([
+        [funnelMetric.id, funnelMetric],
+      ]);
+      expandDerivedMetricsInMap({
+        metricMap,
+        factTableMap: new Map([
+          ["ft_views", makeFactTable("ft_views", makeColumn(), ["user_id"])],
+          [
+            "ft_events",
+            makeFactTable("ft_events", signupColumn, signupUserIdTypes),
+          ],
+        ]),
+        experiment: {
+          goalMetrics: [funnelMetric.id],
+          customMetricSlices: [
+            { slices: [{ column: "country", levels: ["US"] }] },
+          ],
+        },
+      });
+      return metricMap;
+    };
+
+    it("expands a column that matches on every step", () => {
+      expect(expand(makeColumn()).has(customSliceId)).toBe(true);
+    });
+
+    it("skips a column whose datatype differs on a later step", () => {
+      expect(
+        expand(makeColumn({ datatype: "boolean" })).has(customSliceId),
+      ).toBe(false);
+    });
+
+    it("skips a column deleted on a later step", () => {
+      expect(expand(makeColumn({ deleted: true })).has(customSliceId)).toBe(
+        false,
+      );
+    });
+
+    it("skips a column that identifies units on a later step", () => {
+      expect(expand(makeColumn(), ["country"]).has(customSliceId)).toBe(false);
+    });
   });
 });
 

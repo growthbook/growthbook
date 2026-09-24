@@ -6,6 +6,7 @@ import {
 } from "shared/constants";
 import {
   getAggregateFilters,
+  getCompatibleFunnelAutoSliceColumns,
   getSelectedColumnDatatype,
   isFactFunnelMetric,
 } from "shared/experiments";
@@ -565,6 +566,21 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       return factTable;
     });
 
+    const compatibleAutoSliceColumns = new Set(
+      getCompatibleFunnelAutoSliceColumns({
+        steps,
+        getFactTable: (id) => factTableMap.get(id),
+      }).map((column) => column.column),
+    );
+    const invalidAutoSliceColumns = (data.metricAutoSlices ?? []).filter(
+      (column) => !compatibleAutoSliceColumns.has(column),
+    );
+    if (invalidAutoSliceColumns.length) {
+      throw new Error(
+        `Invalid funnel Auto Slice columns: ${invalidAutoSliceColumns.join(", ")}. Configure matching Auto Slice columns on every step's Fact Table.`,
+      );
+    }
+
     steps.forEach((step, i) => {
       validateSavedFilterIds({
         columnRef: {
@@ -588,9 +604,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     }
     if (data.quantileSettings) {
       throw new Error("Quantile settings are not supported for funnel metrics");
-    }
-    if (data.metricAutoSlices?.length) {
-      throw new Error("Slices are not supported for funnel metrics");
     }
 
     const previousSteps =

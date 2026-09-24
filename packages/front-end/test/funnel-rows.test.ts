@@ -1,5 +1,8 @@
 import { funnelStepMetricId } from "shared/experiments";
-import { FunnelFactMetricInterface } from "shared/types/fact-table";
+import {
+  FactTableDefinition,
+  FunnelFactMetricInterface,
+} from "shared/types/fact-table";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import { SnapshotVariation } from "shared/types/experiment-snapshot";
 import { generateRowsForMetric } from "@/hooks/useExperimentTableRows";
@@ -88,5 +91,82 @@ describe("generateRowsForMetric funnel parent", () => {
         );
       });
     });
+  });
+});
+
+describe("generateRowsForMetric funnel under a slice-tag filter", () => {
+  // A funnel's slices are per-step and shown in the drilldown, so this table has
+  // no slices for a filter to match — the funnel drops out the way any metric
+  // without slices does.
+  const factTable = {
+    id: "ft",
+    columns: [
+      {
+        column: "browser",
+        datatype: "string",
+        deleted: false,
+        isAutoSliceColumn: true,
+        autoSlices: ["Chrome", "Safari"],
+      },
+    ],
+    userIdTypes: [],
+    userIdColumns: {},
+  } as unknown as FactTableDefinition;
+
+  const slicedFunnel = {
+    ...funnelMetric,
+    metricAutoSlices: ["browser"],
+  } as unknown as FunnelFactMetricInterface;
+
+  const slicedProportion = {
+    ...slicedFunnel,
+    id: "fact__proportion",
+    metricType: "proportion",
+    numerator: { factTableId: "ft", column: "$$distinctUsers" },
+    funnelSettings: null,
+  } as unknown as FunnelFactMetricInterface;
+
+  const generate = (
+    metric: FunnelFactMetricInterface,
+    sliceTagsFilter?: string[],
+  ) =>
+    generateRowsForMetric({
+      metricId: metric.id,
+      resultGroup: "goal",
+      results,
+      metricOverrides: [],
+      shouldShowMetricSlices: true,
+      getExperimentMetricById: (id) => (id === metric.id ? metric : null),
+      getFactTableById: () => factTable,
+      expandedMetrics: { [`${metric.id}:goal`]: true },
+      sliceTagsFilter,
+    });
+
+  it("drops the funnel entirely while a slice filter is active", () => {
+    expect(generate(slicedFunnel, ["dim:browser=Chrome"])).toHaveLength(0);
+  });
+
+  it("still returns a non-funnel metric under the same filter", () => {
+    // Guards against the filter simply dropping everything.
+    expect(
+      generate(slicedProportion, ["dim:browser=Chrome"]).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("keeps the funnel and its steps when the filter includes overall", () => {
+    const filtered = generate(slicedFunnel, ["overall"]);
+    const [parent] = filtered;
+
+    expect(parent.metric.id).toBe(FUNNEL_METRIC_ID);
+    expect(parent.labelOnly).toBeFalsy();
+    expect(
+      filtered.filter((r) => r.childRowType === "funnelStep"),
+    ).toHaveLength(NUM_STEPS);
+  });
+
+  it("never marks a funnel parent label-only, unlike a sliced metric", () => {
+    expect(
+      generate(slicedProportion, ["dim:browser=Chrome"])[0].labelOnly,
+    ).toBe(true);
   });
 });

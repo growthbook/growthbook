@@ -1,5 +1,5 @@
 import { FC, Fragment, useState } from "react";
-import { IconButton } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
   ExperimentReportResultDimension,
@@ -328,7 +328,40 @@ const BreakDownResults: FC<{
               setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label, row }) => {
                 if (row?.childRowType === "funnelStep") {
-                  return <FunnelStepLabel label={label} row={row} />;
+                  return (
+                    <Flex justify="between" align="start" width="100%">
+                      <FunnelStepLabel label={label} row={row} />
+                      {drilldownContext && row && (
+                        <Link
+                          size="sm"
+                          style={{
+                            marginRight: 8,
+                            flexShrink: 0,
+                            whiteSpace: "nowrap",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rawValue =
+                              row.dimensionValue ??
+                              (typeof row.label === "string" ? row.label : "");
+                            const value =
+                              formatDimensionValueForDisplay(rawValue);
+                            drilldownContext.openDrilldown(row, {
+                              initialTab: "slices",
+                              dimensionInfo: {
+                                id: dimensionId,
+                                name: dimension,
+                                value,
+                                rawValue,
+                              },
+                            });
+                          }}
+                        >
+                          + View by slice
+                        </Link>
+                      )}
+                    </Flex>
+                  );
                 }
 
                 const hasSteps = !!row?.numChildren;

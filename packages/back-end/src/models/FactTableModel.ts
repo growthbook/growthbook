@@ -2,7 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
-  getFactMetricPrimaryFactTableId,
+  getMetricAutoSliceFactTableIds,
   sqlReferencesColumn,
 } from "shared/experiments";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
@@ -617,7 +617,11 @@ export async function cleanupMetricAutoSlices({
     return;
   }
   for (const metric of allFactMetrics) {
-    if (getFactMetricPrimaryFactTableId(metric) !== factTableId) continue;
+    // Scope by the tables that back this metric's auto slices — every step for
+    // a funnel, the numerator alone otherwise — so a later step's column change
+    // cleans up without a ratio metric's denominator table clobbering a slice
+    // its numerator still supports.
+    if (!getMetricAutoSliceFactTableIds(metric).includes(factTableId)) continue;
     if (!metric.metricAutoSlices?.some((c) => removedColumns.includes(c))) {
       continue;
     }
