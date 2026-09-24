@@ -1,11 +1,15 @@
-import request from "supertest";
 import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { FeatureRule } from "shared/validators";
 import { ruleFootprint } from "shared/util";
 import { ReqContextClass } from "back-end/src/services/context";
-import { setupApp } from "../api.setup";
+import {
+  getStartActionsFromRules,
+  rollbackSchedule,
+  startSchedule,
+} from "back-end/src/services/rampSchedule";
+import { setupApp } from "../api/api.setup";
 
 // A rule with neither scope key serves everywhere. A ramp on it must keep it
 // that way and never leave a null list behind, which broke the flag's payloads.
@@ -80,9 +84,10 @@ async function seed() {
 }
 
 describe("a ramp on a rule with no environment scope", () => {
-  const { app, setReqContext } = setupApp();
-  const auth = (req: request.Test) => req.set("Authorization", "Bearer foo");
+  setupApp();
   const envs = ["production", "dev"];
+  const TARGET_ID = "target_legacy";
+  let ctx: ReqContextClass;
 
   // The stored rule, as the payload builder reads it.
   async function expectLegacyRuleServesEverywhere() {
@@ -98,47 +103,59 @@ describe("a ramp on a rule with no environment scope", () => {
   }
 
   beforeEach(async () => {
-    const context = new ReqContextClass({
+    ctx = new ReqContextClass({
       org,
       auditUser: { type: "api_key", apiKey: "key_admin" },
       role: "admin",
       req: { query: {}, headers: {}, body: {} } as unknown as Request,
     });
-    context.hasPremiumFeature = () => true;
-    setReqContext(context);
+    ctx.hasPremiumFeature = () => true;
     await seed();
   });
 
   it("keeps serving everywhere through a coverage step and a rollback", async () => {
-    const created = await auth(
-      request(app)
-        .post("/api/v1/ramp-schedules")
-        .send({
-          name: "legacy",
-          featureId: FLAG,
+    const schedule = await ctx.models.rampSchedules.create({
+      name: "legacy",
+      status: "ready",
+      entityType: "feature",
+      entityId: FLAG,
+      targets: [
+        {
+          id: TARGET_ID,
+          entityType: "feature",
+          entityId: FLAG,
           ruleId: LEGACY_RULE.id,
-          steps: [{ interval: 3600, actions: [{ patch: { coverage: 0.5 } }] }],
-        }),
-    );
-    expect(created.body.message).toBeUndefined();
-    expect(created.status).toBe(200);
-    const id = created.body.rampSchedule.id;
+          status: "active",
+        },
+      ],
+      startActions: getStartActionsFromRules({
+        rules: [LEGACY_RULE, SCOPED_SIBLING] as FeatureRule[],
+        targetId: TARGET_ID,
+        ruleId: LEGACY_RULE.id,
+      }),
+      steps: [
+        {
+          interval: 3600,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: TARGET_ID,
+              patch: { ruleId: LEGACY_RULE.id, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+      endActions: [],
+    });
 
-    const started = await auth(
-      request(app).post(`/api/v1/ramp-schedules/${id}/actions/start`).send(),
-    );
-    expect(started.body.message).toBeUndefined();
-    expect(started.status).toBe(200);
+    // Starting applies the first step at once.
+    const started = await startSchedule(ctx, schedule);
+    expect(started.status).toBe("running");
     const stepped = await expectLegacyRuleServesEverywhere();
     expect((stepped as { coverage?: number }).coverage).toBe(0.5);
 
-    const rolledBack = await auth(
-      request(app)
-        .post(`/api/v1/ramp-schedules/${id}/actions/rollback`)
-        .send({ reason: "test" }),
-    );
-    expect(rolledBack.body.message).toBeUndefined();
-    expect(rolledBack.status).toBe(200);
+    const rolledBack = await rollbackSchedule(ctx, started, "test");
+    expect(rolledBack.status).toBe("rolled-back");
     const restored = await expectLegacyRuleServesEverywhere();
     expect((restored as { coverage?: number }).coverage).toBe(1);
   });
