@@ -23,7 +23,7 @@ export function BigQueryAdvancedSettings({
       mb="3"
       name="apiEndpoint"
       label="API endpoint (optional)"
-      placeholder="proxy.example.com"
+      placeholder="https://proxy.example.com/"
       value={params.apiEndpoint || ""}
       onChange={onParamChange}
       helpText="Default is https://bigquery.googleapis.com. '/bigquery/v2' is automatically appended to the URL."
