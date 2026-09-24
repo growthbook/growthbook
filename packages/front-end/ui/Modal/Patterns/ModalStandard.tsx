@@ -67,7 +67,7 @@ export type Props = TrackingEventModalProps & {
  * whose first control is an icon button. Prefer the first field a person would
  * type into, and otherwise the dialog itself.
  */
-const focusFirstField: NonNullable<
+export const focusFirstField: NonNullable<
   ComponentProps<typeof Modal.Root>["onOpenAutoFocus"]
 > = (e) => {
   const content = e.currentTarget as HTMLElement;

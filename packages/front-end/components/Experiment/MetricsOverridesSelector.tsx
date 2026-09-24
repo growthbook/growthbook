@@ -350,197 +350,201 @@ function OverrideCard({
   ].filter((a): a is { label: string; add: () => void } => !!a);
 
   return (
-    <Table variant="surface">
-      <TableHeader>
-        <TableRow>
-          <TableColumnHeader>
-            <Flex justify="between" align="center" gap="3">
-              <Text weight="semibold">
-                <MetricName id={metricDefinition?.id || ""} />
-              </Text>
-              <Link type="button" color="red" onClick={onRemove}>
-                Remove overrides
-              </Link>
-            </Flex>
-          </TableColumnHeader>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {windowOverridden ? (
-          <OverrideRow
-            label="Metric window"
-            onClear={clearWindow}
-            choice={
-              <Select
-                value={windowChoice}
-                setValue={(value) =>
-                  set({ windowType: value === "none" ? "" : value })
-                }
-              >
-                {[
-                  ["none", "None"],
-                  ["conversion", "Conversion"],
-                  ...(retention ? [] : [["lookback", "Lookback"]]),
-                ].map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {withDefault(label, value === metricWindowType)}
-                  </SelectItem>
-                ))}
-              </Select>
-            }
-          >
-            {windowChoice !== "none" || retention ? (
-              <>
-                {numberField(
-                  "delayHours",
-                  retention
-                    ? windowChoice === "lookback"
-                      ? "Retention window"
-                      : "Retention starts after"
-                    : "Delay",
-                  `Default ${defaultDelay}`,
-                  { unit: "hours" },
-                )}
-                {windowChoice !== "none"
-                  ? numberField(
-                      "windowHours",
-                      windowChoice === "lookback"
-                        ? "Lookback window"
-                        : "Conversion window",
-                      defaultWindow,
-                      {
-                        unit: "hours",
-                        min: minWindow,
-                        rules: { required: metricWindowType !== windowChoice },
-                      },
-                    )
-                  : null}
-              </>
-            ) : null}
-          </OverrideRow>
-        ) : null}
-
-        {priorOverridden ? (
-          <OverrideRow
-            label="Prior"
-            tooltip="Only used by the Bayesian stats engine."
-            onClear={clearPrior}
-            help={
-              bayesian
-                ? null
-                : "Not applied: this experiment uses the frequentist stats engine."
-            }
-            choice={
-              <Select
-                disabled={!bayesian || !hasRegressionAdjustmentFeature}
-                value={mo?.properPriorEnabled ? "proper" : "improper"}
-                setValue={(value) =>
-                  set({ properPriorEnabled: value === "proper" })
-                }
-              >
-                <SelectItem value="proper">
-                  {withDefault("Proper", !!defaultPrior.proper)}
-                </SelectItem>
-                <SelectItem value="improper">
-                  {withDefault("Improper", !defaultPrior.proper)}
-                </SelectItem>
-              </Select>
-            }
-          >
-            {mo?.properPriorEnabled ? (
-              <>
-                {numberField(
-                  "properPriorMean",
-                  "Mean",
-                  `Default ${defaultPrior.mean}`,
-                  { disabled: !bayesian },
-                )}
-                {numberField(
-                  "properPriorStdDev",
-                  "Standard deviation",
-                  `Default ${defaultPrior.stddev}`,
-                  {
-                    disabled: !bayesian,
-                    rules: { validate: (v) => !((v ?? 0) <= 0) },
-                  },
-                )}
-              </>
-            ) : null}
-          </OverrideRow>
-        ) : null}
-
-        {cupedOverridden ? (
-          <OverrideRow
-            label="CUPED"
-            onClear={clearCuped}
-            help={
-              !cupedUnavailable && mo?.regressionAdjustmentEnabled
-                ? daysWarning
-                : null
-            }
-            choice={
-              cupedUnavailable ? null : (
-                <Select
-                  disabled={!hasRegressionAdjustmentFeature}
-                  value={mo?.regressionAdjustmentEnabled ? "on" : "off"}
-                  setValue={(value) =>
-                    set({ regressionAdjustmentEnabled: value === "on" })
-                  }
-                >
-                  <SelectItem value="on">
-                    {withDefault("On", cupedDefault)}
-                  </SelectItem>
-                  <SelectItem value="off">
-                    {withDefault("Off", !cupedDefault)}
-                  </SelectItem>
-                </Select>
-              )
-            }
-          >
-            {cupedUnavailable ? (
-              <Text size="sm" color="text-low">
-                {cupedUnavailable}
-              </Text>
-            ) : mo?.regressionAdjustmentEnabled ? (
-              numberField(
-                "regressionAdjustmentDays",
-                "Pre-exposure lookback",
-                `Default ${cupedDefaultDays}`,
-                {
-                  unit: "days",
-                  min: 0,
-                  step: undefined,
-                  disabled: !hasRegressionAdjustmentFeature,
-                  rules: { validate: (v) => v === undefined || v > 0 },
-                },
-              )
-            ) : null}
-          </OverrideRow>
-        ) : null}
-
-        {addable.length > 0 ? (
+    <Box data-override-metric={metricDefinition?.id}>
+      <Table variant="surface">
+        <TableHeader>
           <TableRow>
-            <TableCell>
-              <Box width={`${SELECT_WIDTH}px`}>
+            <TableColumnHeader>
+              <Flex justify="between" align="center" gap="3">
+                <Text weight="semibold">
+                  <MetricName id={metricDefinition?.id || ""} />
+                </Text>
+                <Link type="button" color="red" onClick={onRemove}>
+                  Remove overrides
+                </Link>
+              </Flex>
+            </TableColumnHeader>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {windowOverridden ? (
+            <OverrideRow
+              label="Metric window"
+              onClear={clearWindow}
+              choice={
                 <Select
-                  value=""
-                  placeholder="Override a setting..."
+                  value={windowChoice}
                   setValue={(value) =>
-                    addable.find(({ label }) => label === value)?.add()
+                    set({ windowType: value === "none" ? "" : value })
                   }
                 >
-                  {addable.map(({ label }) => (
-                    <SelectItem key={label} value={label}>
-                      {label}
+                  {[
+                    ["none", "None"],
+                    ["conversion", "Conversion"],
+                    ...(retention ? [] : [["lookback", "Lookback"]]),
+                  ].map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {withDefault(label, value === metricWindowType)}
                     </SelectItem>
                   ))}
                 </Select>
-              </Box>
-            </TableCell>
-          </TableRow>
-        ) : null}
-      </TableBody>
-    </Table>
+              }
+            >
+              {windowChoice !== "none" || retention ? (
+                <>
+                  {numberField(
+                    "delayHours",
+                    retention
+                      ? windowChoice === "lookback"
+                        ? "Retention window"
+                        : "Retention starts after"
+                      : "Delay",
+                    `Default ${defaultDelay}`,
+                    { unit: "hours" },
+                  )}
+                  {windowChoice !== "none"
+                    ? numberField(
+                        "windowHours",
+                        windowChoice === "lookback"
+                          ? "Lookback window"
+                          : "Conversion window",
+                        defaultWindow,
+                        {
+                          unit: "hours",
+                          min: minWindow,
+                          rules: {
+                            required: metricWindowType !== windowChoice,
+                          },
+                        },
+                      )
+                    : null}
+                </>
+              ) : null}
+            </OverrideRow>
+          ) : null}
+
+          {priorOverridden ? (
+            <OverrideRow
+              label="Prior"
+              tooltip="Only used by the Bayesian stats engine."
+              onClear={clearPrior}
+              help={
+                bayesian
+                  ? null
+                  : "Not applied: this experiment uses the frequentist stats engine."
+              }
+              choice={
+                <Select
+                  disabled={!bayesian || !hasRegressionAdjustmentFeature}
+                  value={mo?.properPriorEnabled ? "proper" : "improper"}
+                  setValue={(value) =>
+                    set({ properPriorEnabled: value === "proper" })
+                  }
+                >
+                  <SelectItem value="proper">
+                    {withDefault("Proper", !!defaultPrior.proper)}
+                  </SelectItem>
+                  <SelectItem value="improper">
+                    {withDefault("Improper", !defaultPrior.proper)}
+                  </SelectItem>
+                </Select>
+              }
+            >
+              {mo?.properPriorEnabled ? (
+                <>
+                  {numberField(
+                    "properPriorMean",
+                    "Mean",
+                    `Default ${defaultPrior.mean}`,
+                    { disabled: !bayesian },
+                  )}
+                  {numberField(
+                    "properPriorStdDev",
+                    "Standard deviation",
+                    `Default ${defaultPrior.stddev}`,
+                    {
+                      disabled: !bayesian,
+                      rules: { validate: (v) => !((v ?? 0) <= 0) },
+                    },
+                  )}
+                </>
+              ) : null}
+            </OverrideRow>
+          ) : null}
+
+          {cupedOverridden ? (
+            <OverrideRow
+              label="CUPED"
+              onClear={clearCuped}
+              help={
+                !cupedUnavailable && mo?.regressionAdjustmentEnabled
+                  ? daysWarning
+                  : null
+              }
+              choice={
+                cupedUnavailable ? null : (
+                  <Select
+                    disabled={!hasRegressionAdjustmentFeature}
+                    value={mo?.regressionAdjustmentEnabled ? "on" : "off"}
+                    setValue={(value) =>
+                      set({ regressionAdjustmentEnabled: value === "on" })
+                    }
+                  >
+                    <SelectItem value="on">
+                      {withDefault("On", cupedDefault)}
+                    </SelectItem>
+                    <SelectItem value="off">
+                      {withDefault("Off", !cupedDefault)}
+                    </SelectItem>
+                  </Select>
+                )
+              }
+            >
+              {cupedUnavailable ? (
+                <Text size="sm" color="text-low">
+                  {cupedUnavailable}
+                </Text>
+              ) : mo?.regressionAdjustmentEnabled ? (
+                numberField(
+                  "regressionAdjustmentDays",
+                  "Pre-exposure lookback",
+                  `Default ${cupedDefaultDays}`,
+                  {
+                    unit: "days",
+                    min: 0,
+                    step: undefined,
+                    disabled: !hasRegressionAdjustmentFeature,
+                    rules: { validate: (v) => v === undefined || v > 0 },
+                  },
+                )
+              ) : null}
+            </OverrideRow>
+          ) : null}
+
+          {addable.length > 0 ? (
+            <TableRow>
+              <TableCell>
+                <Box width={`${SELECT_WIDTH}px`}>
+                  <Select
+                    value=""
+                    placeholder="Override a setting..."
+                    setValue={(value) =>
+                      addable.find(({ label }) => label === value)?.add()
+                    }
+                  >
+                    {addable.map(({ label }) => (
+                      <SelectItem key={label} value={label}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </Box>
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </Box>
   );
 }
 

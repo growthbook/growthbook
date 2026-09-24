@@ -2,7 +2,9 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MetricOverride } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import ModalStandard, {
+  focusFirstField,
+} from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -26,6 +28,7 @@ export default function MetricOverridesModal({
   statsEngine,
   metrics,
   overrides,
+  focusMetricIds,
   close,
   stageChanges,
 }: {
@@ -40,6 +43,11 @@ export default function MetricOverridesModal({
     "goalMetrics" | "secondaryMetrics" | "guardrailMetrics" | "activationMetric"
   >;
   overrides: MetricOverride[];
+  /**
+   * The metrics it was opened for: the first of them with a card starts
+   * focused, so the edit lands on the metric that was clicked.
+   */
+  focusMetricIds?: string[];
   close: () => void;
   stageChanges: (overrides: MetricOverride[]) => void;
 }) {
@@ -69,6 +77,25 @@ export default function MetricOverridesModal({
 
   return (
     <ModalStandard
+      onOpenAutoFocus={(e) => {
+        const content = e.currentTarget as HTMLElement;
+        const id = focusMetricIds?.find((mid) =>
+          form.getValues("metricOverrides")?.some((o) => o.id === mid),
+        );
+        const card = id
+          ? content.querySelector<HTMLElement>(
+              `[data-override-metric="${CSS.escape(id)}"]`,
+            )
+          : null;
+        // Its first setting, past the header's remove link.
+        const field = card?.querySelector<HTMLElement>(
+          "tbody button[role='combobox'], tbody input:not([type='hidden'])",
+        );
+        if (!field) return focusFirstField(e);
+        e.preventDefault();
+        field.focus();
+        card?.scrollIntoView({ block: "nearest" });
+      }}
       open={true}
       close={close}
       trackingEventModalType="edit-metric-overrides"

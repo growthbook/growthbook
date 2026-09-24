@@ -286,6 +286,7 @@ export default function AnalysisPlan({
               ? [...metricOverrides, { id: overridesFor[0] }]
               : metricOverrides
           }
+          focusMetricIds={overridesFor}
           close={() => setOverridesFor(null)}
           stageChanges={(next) => {
             // The same bounds the full settings modal stages through, so only
