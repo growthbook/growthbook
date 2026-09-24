@@ -219,7 +219,8 @@ describe("trackMcpRequestCompletion", () => {
     );
   });
 
-  it("uses the request-scoped client for OAuth (JWT) calls", () => {
+  it("attributes OAuth (JWT) calls to the user without using `req.gb`", () => {
+    // req.gb carries the resolved path and full URL; it must not be used here
     const scopedLogEvent = jest.fn();
     run(
       makeReq({
@@ -230,11 +231,18 @@ describe("trackMcpRequestCompletion", () => {
       }),
     );
 
-    expect(scopedLogEvent).toHaveBeenCalledWith(
+    expect(scopedLogEvent).not.toHaveBeenCalled();
+    expect(mockOrgClientLogEvent).toHaveBeenCalledWith(
       "MCP Request",
       expect.objectContaining({ authType: "oauth", apiKeyId: undefined }),
+      {
+        attributes: expect.not.objectContaining({
+          request_path: expect.anything(),
+          url: expect.anything(),
+        }),
+      },
     );
-    expect(mockOrgClientLogEvent).not.toHaveBeenCalled();
+    expect(mockOrgClientLogEvent.mock.calls[0][2].attributes.id).toBe("u_1");
   });
 
   it("caps client-controlled header values", () => {

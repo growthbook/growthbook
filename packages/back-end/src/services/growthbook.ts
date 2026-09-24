@@ -200,8 +200,9 @@ export function trackRequestCompletion(
 }
 
 // Sent by the GrowthBook MCP server (github.com/growthbook/growthbook-mcp) on
-// every REST API call a tool makes. Values are client-controlled, so they're
-// length-capped before being logged.
+// every REST API call a tool makes. Values are client-controlled (any API
+// caller could set them), so the resulting numbers are best-effort, and values
+// are length-capped before being logged.
 const MCP_TOOL_HEADER = "x-gb-mcp-tool";
 const MCP_VERSION_HEADER = "x-gb-mcp-version";
 const MCP_TRANSPORT_HEADER = "x-gb-mcp-transport";
@@ -219,12 +220,14 @@ export type McpAuthType = "oauth" | "pat" | "secret_key";
  * server. Mount after authenticateApiRequestMiddleware. Requests without the
  * MCP tool header pass through untouched.
  *
- * Identity follows the credential: OAuth (JWT) requests already have a scoped
- * `req.gb` with full user attributes; personal access tokens carry the user;
- * secret keys have no user, so they're counted per org and by key id.
+ * Identity follows the credential: OAuth (JWT) and personal access tokens carry
+ * the user; secret keys have no user, so they're counted per org and by key id.
+ * Deliberately doesn't log through `req.gb` (set for JWT requests): its
+ * attributes include the resolved request path and URL with query string,
+ * which would defeat logging only the route pattern.
  */
 export function trackMcpRequestCompletion(
-  req: Request & ApiRequestLocals & Pick<AuthRequest, "gb">,
+  req: Request & ApiRequestLocals,
   res: Response,
   next: NextFunction,
 ) {
@@ -254,11 +257,6 @@ export function trackMcpRequestCompletion(
         statusCode: res.statusCode,
         latencyMs: Date.now() - start,
       };
-
-      if (req.gb) {
-        req.gb.logEvent(EVENT_MCP_REQUEST, properties);
-        return;
-      }
 
       const client = getGrowthBookClient();
       if (!client || !req.organization) return;
