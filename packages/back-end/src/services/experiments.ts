@@ -188,6 +188,7 @@ import {
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
+import { getPastExperimentsModelByDatasource } from "back-end/src/models/PastExperimentsModel";
 import {
   APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -2597,26 +2598,34 @@ export function assertValidBucketVersions(
   }
 }
 
-// Assigns missing ids and keys, then checks both are unique. On an update
-// (`existing`), an omitted id keeps the stored one by key, else by position,
-// so linked feature rules keep pointing at the same variations.
-export function assertExperimentKeyFormat(
-  org: OrganizationInterface,
+export async function assertExperimentKeyFormat(
+  context: ReqContext | ApiReqContext,
   trackingKey: string | undefined,
+  datasourceId: string | undefined,
 ) {
-  const pattern = org.settings?.experimentKeyRegexValidator;
+  const { experimentKeyRegexValidator: pattern, experimentKeyExample } =
+    context.org.settings ?? {};
   if (!pattern) return;
   if (!trackingKey) {
     throw new Error(
       "Your organization requires an experiment tracking key to be entered.",
     );
   }
-  if (!new RegExp(pattern).test(trackingKey)) {
-    throw new Error(
-      `Experiment tracking key must match the regex validator. '${pattern}' Example: '${org.settings?.experimentKeyExample ?? ""}'`,
-    );
-  }
+  if (new RegExp(pattern).test(trackingKey)) return;
+  // Keys discovered in the Data Source can't be renamed, so they're exempt
+  const pastExperiments = datasourceId
+    ? await getPastExperimentsModelByDatasource(context.org.id, datasourceId)
+    : null;
+  if (pastExperiments?.experiments?.some((e) => e.trackingKey === trackingKey))
+    return;
+  throw new Error(
+    `Experiment tracking key must match the regex validator. '${pattern}' Example: '${experimentKeyExample ?? ""}'`,
+  );
 }
+
+// Assigns missing ids and keys, then checks both are unique. On an update
+// (`existing`), an omitted id keeps the stored one by key, else by position,
+// so linked feature rules keep pointing at the same variations.
 
 export function validateVariationIds(
   variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],

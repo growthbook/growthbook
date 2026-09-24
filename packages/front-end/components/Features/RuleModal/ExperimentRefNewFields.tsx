@@ -21,6 +21,7 @@ import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -281,6 +282,9 @@ export default function ExperimentRefNewFields({
   );
 
   const settings = useOrgSettings();
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+  );
   const { namespaces, statsEngine: orgStatsEngine } = useOrgSettings();
 
   const templateRequired =
@@ -360,11 +364,8 @@ export default function ExperimentRefNewFields({
             size="legacy"
             label="Tracking Key"
             {...form.register(`trackingKey`)}
-            placeholder={
-              settings.experimentKeyRegexValidator
-                ? settings.experimentKeyExample
-                : feature?.id || ""
-            }
+            placeholder={feature?.id || ""}
+            {...trackingKeyFormatProps}
             helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
           />
 

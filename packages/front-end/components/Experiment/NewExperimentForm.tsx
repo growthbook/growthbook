@@ -39,6 +39,7 @@ import {
   validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -744,6 +745,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     setValueAs: (s) => s?.trim(),
   });
   const trackingKeyFieldHandlers = form.register("trackingKey");
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+    isImport,
+  );
 
   const checkForSimilar = useCallback(async () => {
     if (!aiEnabled) return;
@@ -1008,8 +1013,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <Field
                 size="legacy"
                 {...trackingKeyFieldHandlers}
-                required={!!settings.experimentKeyRegexValidator && !isImport}
-                placeholder={settings.experimentKeyExample}
+                {...trackingKeyFormatProps}
                 onChange={(e) => {
                   trackingKeyFieldHandlers.onChange(e);
                   setLinkNameWithTrackingKey(false);

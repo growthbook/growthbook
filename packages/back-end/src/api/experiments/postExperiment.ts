@@ -165,7 +165,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
-    assertExperimentKeyFormat(req.organization, payload.trackingKey);
+    await assertExperimentKeyFormat(
+      req.context,
+      payload.trackingKey,
+      payload.datasourceId,
+    );
 
     // check if tracking key is unique (skip the lookup entirely if the caller
     // is bypassing the duplicate check and the org doesn't require uniqueness)

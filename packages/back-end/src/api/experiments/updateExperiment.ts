@@ -117,7 +117,11 @@ export const updateExperiment = createApiRequestHandler(
     req.body.trackingKey !== undefined &&
     req.body.trackingKey !== experiment.trackingKey
   ) {
-    assertExperimentKeyFormat(req.organization, req.body.trackingKey);
+    await assertExperimentKeyFormat(
+      req.context,
+      req.body.trackingKey,
+      datasourceId,
+    );
   }
 
   // check if tracking key is unique

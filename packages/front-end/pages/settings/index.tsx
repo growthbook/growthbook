@@ -503,6 +503,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
     const { experimentKeyExample, experimentKeyRegexValidator } =
       transformedOrgSettings;
+    if (experimentKeyRegexValidator && !experimentKeyExample) {
+      throw new Error(
+        "Experiment key example must not be empty when a regex validator is defined.",
+      );
+    }
     if (
       experimentKeyRegexValidator &&
       !new RegExp(experimentKeyRegexValidator).test(experimentKeyExample ?? "")

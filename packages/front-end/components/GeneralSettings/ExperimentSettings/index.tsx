@@ -33,6 +33,7 @@ export default function ExperimentSettings({
     () => queryParams.get("editCheckListModal") || false,
   );
 
+  const requireKeyExample = !!form.watch("experimentKeyRegexValidator");
   const srmThreshold = form.watch("srmThreshold");
   const srmHighlightColor =
     srmThreshold && (srmThreshold > 0.01 || srmThreshold < 0.001)
@@ -151,9 +152,8 @@ export default function ExperimentSettings({
               </Text>
               <Text as="p" mb="2" size="2">
                 When set, experimenters must enter a tracking key matching this
-                regex, in the app and via the API. Keys set automatically
-                (holdouts, experiments imported from a data source, etc.) are
-                exempt.
+                regex, in the app and via the API. Keys set automatically, like
+                holdouts, and keys discovered in a Data Source are exempt.
               </Text>
               <Field
                 id="experimentKeyRegexValidator"
@@ -169,6 +169,11 @@ export default function ExperimentSettings({
                 className="font-weight-semibold"
               >
                 Experiment key example
+                {requireKeyExample && (
+                  <Text color="red" ml="1">
+                    *
+                  </Text>
+                )}
               </Text>
               <Text as="p" mb="2" size="2">
                 Shown when creating a new experiment. Required when a regex
@@ -176,6 +181,7 @@ export default function ExperimentSettings({
               </Text>
               <Field
                 id="experimentKeyExample"
+                required={requireKeyExample}
                 {...form.register("experimentKeyExample")}
                 placeholder="exp-20260101-checkout-cta"
               />

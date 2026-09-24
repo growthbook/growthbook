@@ -1376,18 +1376,7 @@ export async function postExperiments(
       });
     }
 
-    // Keys discovered in the warehouse can't be renamed, so they're exempt
-    const pastExperiments =
-      org.settings?.experimentKeyRegexValidator && obj.datasource
-        ? await getPastExperimentsModelByDatasource(org.id, obj.datasource)
-        : null;
-    if (
-      !pastExperiments?.experiments?.some(
-        (e) => e.trackingKey === obj.trackingKey,
-      )
-    ) {
-      assertExperimentKeyFormat(org, obj.trackingKey);
-    }
+    await assertExperimentKeyFormat(context, obj.trackingKey, obj.datasource);
 
     // Make sure tracking key is unique
     if (
@@ -1778,7 +1767,11 @@ export async function postExperiment(
     data.trackingKey !== undefined &&
     data.trackingKey !== experiment.trackingKey
   ) {
-    assertExperimentKeyFormat(org, data.trackingKey);
+    await assertExperimentKeyFormat(
+      context,
+      data.trackingKey,
+      data.datasource ?? experiment.datasource,
+    );
   }
 
   // Check if tracking key is being changed and validate uniqueness if required
