@@ -3,6 +3,7 @@
  * Fail if MDX/MD YAML frontmatter uses an unquoted scalar that contains
  * `: ` (colon + space) or ` #`. YAML treats those as a nested mapping or
  * a comment, so titles like `AI Mode: Generate…` must be quoted.
+ * Also warns (without failing) on inert top-level `slug:` keys.
  */
 
 import { readdir, readFile } from "node:fs/promises";
@@ -15,6 +16,9 @@ const REPO_ROOT = path.resolve(
 );
 const DOCS_ROOT = path.join(REPO_ROOT, "docs");
 const LINE_RE = /^(\s*)([\w-]+):\s+(.*)$/;
+const SLUG_RE = /^slug\s*:/;
+const SLUG_MESSAGE =
+  "Mintlify ignores `slug:` frontmatter; the page's URL comes from its file path under docs/. Remove this line.";
 
 export function findUnquotedYamlIssues(lines) {
   const issues = [];
@@ -33,6 +37,14 @@ export function findUnquotedYamlIssues(lines) {
     });
   }
   return issues;
+}
+
+export function findSlugKeys(lines) {
+  const indexes = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (SLUG_RE.test(lines[i])) indexes.push(i);
+  }
+  return indexes;
 }
 
 function isQuotedOrStructured(value) {
@@ -85,6 +97,31 @@ function selfTest() {
       );
     }
   }
+  const slugCases = [
+    { lines: ["slug: /foo"], want: 1 },
+    { lines: ["slug:"], want: 1 },
+    { lines: ["  slug: /foo"], want: 0 },
+    { lines: ["slugs: /foo"], want: 0 },
+    { lines: ["title: slug: /foo"], want: 0 },
+  ];
+  for (const testCase of slugCases) {
+    const got = findSlugKeys(testCase.lines).length;
+    if (got !== testCase.want) {
+      throw new Error(
+        `slug self-test failed for ${JSON.stringify(testCase.lines)}: expected ${testCase.want}, got ${got}`,
+      );
+    }
+  }
+}
+
+function reportSlugWarning(rel, lineNo) {
+  if (process.env.GITHUB_ACTIONS === "true") {
+    process.stdout.write(
+      `::warning file=${rel},line=${lineNo},title=Inert slug frontmatter::${SLUG_MESSAGE}\n`,
+    );
+  } else {
+    process.stderr.write(`warning: ${rel}:${lineNo}: ${SLUG_MESSAGE}\n`);
+  }
 }
 
 async function main() {
@@ -95,8 +132,11 @@ async function main() {
     const source = await readFile(file, "utf8");
     const frontmatter = extractFrontmatter(source);
     if (!frontmatter) continue;
+    const rel = path.relative(REPO_ROOT, file);
+    for (const index of findSlugKeys(frontmatter.lines)) {
+      reportSlugWarning(rel, frontmatter.startLine + index);
+    }
     for (const issue of findUnquotedYamlIssues(frontmatter.lines)) {
-      const rel = path.relative(REPO_ROOT, file);
       const lineNo = frontmatter.startLine + issue.index;
       errors.push(
         `${rel}:${lineNo}: unquoted YAML value contains ": " or " #". Quote it.\n  ${issue.line}\n  ${issue.key}: "${issue.line.slice(issue.line.indexOf(":") + 1).trim()}"`,

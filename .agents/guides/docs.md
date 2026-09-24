@@ -18,4 +18,4 @@ title: "AI Mode: Generate A/B Test Variations With AI"
 
 Same rule for `description`, `sidebarTitle`, and any other scalar. URLs like `https://example.com` are fine unquoted (no space after the colon).
 
-CI enforces this with `node scripts/check-docs-frontmatter.mjs` in the Docs workflow.
+CI enforces this with `node scripts/check-docs-frontmatter.mjs` in the Docs workflow. It also warns (non-fatal) on `slug:` keys, which Mintlify ignores; a page's URL is its file path.
