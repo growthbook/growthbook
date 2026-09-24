@@ -15018,9 +15018,11 @@ paths:
                     effect when it is also enabled at the organization level.
                   type: boolean
                 bucketVersion:
-                  type: number
+                  type: integer
+                  minimum: 0
                 minBucketVersion:
-                  type: number
+                  type: integer
+                  minimum: 0
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -15719,9 +15721,11 @@ paths:
                 disableStickyBucketing:
                   type: boolean
                 bucketVersion:
-                  type: number
+                  type: integer
+                  minimum: 0
                 minBucketVersion:
-                  type: number
+                  type: integer
+                  minimum: 0
                 results:
                   description: >-
                     The result status of the experiment. Maps to
