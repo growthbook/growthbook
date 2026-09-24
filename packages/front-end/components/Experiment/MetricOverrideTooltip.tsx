@@ -100,6 +100,10 @@ export function MetricOverrideTooltipContent({
       subtitle={metric ? metricTypeLabel(metric) : undefined}
       titleColor="dark"
     >
+      {/* Clamped short, so it can sit with the name it describes. */}
+      {metric ? (
+        <OptionTooltipDescription description={metric.description} />
+      ) : null}
       {onManageOverrides ? (
         <Box>
           {/* Inline, not in a flex box: underline doesn't reach into one. */}
@@ -165,11 +169,7 @@ export function MetricOverrideTooltipContent({
           </Flex>
         </OptionTooltipSection>
       ) : (
-        <>
-          {/* Beside the link that manages them, ahead of the description. */}
-          <OverridesBlock rows={rowsFor(id)} />
-          <OptionTooltipDescription description={metric?.description} />
-        </>
+        <OverridesBlock rows={rowsFor(id)} />
       )}
     </OptionTooltipShell>
   );
