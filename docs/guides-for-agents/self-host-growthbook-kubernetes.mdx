@@ -1,10 +1,11 @@
 ---
+title: "Self-Host GrowthBook on Kubernetes"
 description: "Deploy and operate GrowthBook with an external MongoDB, hardened non-root workloads, durable uploads, a scalable feature-delivery proxy, observability, backups, upgrades, rollback tests, and explicit ownership."
 sidebarTitle: "Self-host on Kubernetes"
-last_verified: {}
+last_verified: "2026-08-12"
 last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
 last_verified_proxy_commit: "82422949849890a6d0e67a2f1bc403d633afa471"
-tested_with:
+tested_stack:
   - "GrowthBook Helm chart 5.0.0"
   - "GrowthBook application 5.0.0"
   - "GrowthBook Proxy 1.4.0"
@@ -20,11 +21,11 @@ _This guide is optimized for AI coding agents, and it is recommended that you ha
 
 ## Guide map
 
-| Phase | What the agent does | Receipt to return |
-| --- | --- | --- |
-| 0 — Design and render | Record owners and recovery targets, pin versions, define secrets and external state, and render manifests without writing to the cluster | Reviewed values, parsed manifests, security checks, and dependency reachability |
-| 1 — Deploy and smoke test | Apply in dependency order, connect one SDK, verify feature delivery, and test bounded failures | Healthy workloads, feature-fetch receipt, cached evaluation, and rollback proof |
-| 100 — Operate the service | Add alerts, backups, restore drills, upgrades, scaling rules, and incident ownership | Monitoring, recovery test, upgrade record, RTO/RPO evidence, and runbook handoff |
+| Phase                    | What the agent does                                                                                                                      | Receipt to return                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 0: Design and render     | Record owners and recovery targets, pin versions, define secrets and external state, and render manifests without writing to the cluster | Reviewed values, parsed manifests, security checks, and dependency reachability  |
+| 1: Deploy and smoke test | Apply in dependency order, connect one SDK, verify feature delivery, and test bounded failures                                           | Healthy workloads, feature-fetch receipt, cached evaluation, and rollback proof  |
+| 100: Operate the service | Add alerts, backups, restore drills, upgrades, scaling rules, and incident ownership                                                     | Monitoring, recovery test, upgrade record, RTO/RPO evidence, and runbook handoff |
 
 ## Give this guide to your coding agent
 
@@ -934,18 +935,18 @@ Avoid alerting only on `/healthcheck`. A process can be alive while SDK payload 
 
 Start from these rules, then encode them in the platform’s NetworkPolicy/firewall system:
 
-| Source | Destination | Purpose |
-| --- | --- | --- |
-| Employee/VPN ingress | Front end and API ingress | Administration |
-| Front end | Back end | UI API requests |
-| Back end | MongoDB | Configuration and application state |
-| Back end | Object storage | Uploaded images/screenshots |
-| Back end | Warehouse | Read-only analysis queries; optional dedicated write schema for Pipeline Mode |
-| Back end | Proxy | Feature-definition updates/webhooks |
-| Applications | Proxy ingress | Feature fetch, streaming, remote evaluation if enabled |
-| Proxy | Back end | SDK Connection metadata and payload refresh |
-| Proxy | Redis | Distributed cache/pub/sub |
-| Workloads | DNS and telemetry collector | Name resolution and telemetry |
+| Source               | Destination                 | Purpose                                                                       |
+| -------------------- | --------------------------- | ----------------------------------------------------------------------------- |
+| Employee/VPN ingress | Front end and API ingress   | Administration                                                                |
+| Front end            | Back end                    | UI API requests                                                               |
+| Back end             | MongoDB                     | Configuration and application state                                           |
+| Back end             | Object storage              | Uploaded images/screenshots                                                   |
+| Back end             | Warehouse                   | Read-only analysis queries; optional dedicated write schema for Pipeline Mode |
+| Back end             | Proxy                       | Feature-definition updates/webhooks                                           |
+| Applications         | Proxy ingress               | Feature fetch, streaming, remote evaluation if enabled                        |
+| Proxy                | Back end                    | SDK Connection metadata and payload refresh                                   |
+| Proxy                | Redis                       | Distributed cache/pub/sub                                                     |
+| Workloads            | DNS and telemetry collector | Name resolution and telemetry                                                 |
 
 Keep the main app and API behind a firewall or VPN when possible. If a CDN is used instead of the proxy, expose only `/api/features/*`; exposing the entire API defeats the boundary. The proxy has a smaller purpose-built surface but still requires normal WAF, rate-limiting, patching, and monitoring.
 
@@ -1063,19 +1064,19 @@ Do not weaken the production workload’s security context to gain a shell.
 
 ## Troubleshooting matrix
 
-| Symptom | Likely cause | Checks | Corrective action |
-| --- | --- | --- | --- |
-| Front end loads but login/API fails | Wrong `API_HOST`, CORS/same-site topology, TLS, or ingress routing | Browser network panel; rendered env; ingress events | Use sibling domains and correct front-end `API_HOST` |
-| Back end crash-loops at startup | Missing Mongo/JWT/encryption secret, incompatible chart/image, DB TLS | pod logs; Secret key names; rendered command | Restore secret refs; use paired chart/image |
-| Uploads fail with permission error | Local PVC ownership or missing object-storage identity | logs; pod mounts; workload identity | Prefer object storage; keep UID/fsGroup 1000 for local volume |
-| `exec sh` fails | Expected distroless behavior | image/version | Use logs or ephemeral debug container |
-| Proxy is healthy but feature is absent | Wrong client key, stale SDK Connection metadata, back-end auth/key mismatch | `/healthcheck/checks`; proxy logs; connection config | Align readonly key and refresh connection metadata |
-| Proxy replicas disagree | In-memory cache or Redis/pub-sub misconfiguration | env, Redis health, repeated requests by pod | Use Redis cache plus `PUBLISH_PAYLOAD_TO_CHANNEL=1` |
-| Feature delivery fails when API is down | Cache never warmed, entry expired, wrong refresh policy | proxy cache config and logs | Warm/check payloads; set an explicit stale/expiry policy matching outage budget |
-| Authentication redirects loop | App/API are cross-site or proxy hop trust is wrong | cookies, origin headers, `APP_ORIGIN`, `API_HOST` | Correct same-site domains and validated trust-proxy setting |
-| Data-source credentials fail after key change | `ENCRYPTION_KEY` rotated without migration | secret history and app logs | Restore prior key, then run documented migration |
-| Experiment results empty | Warehouse identity/join/identifier problem, not flag delivery | experiment query, exposure rows, identifier type | Fix source/identifier mapping; do not change assignment mid-phase |
-| Pods OOM during result updates | stats workload and web/API share resources | memory, job timing, experiment count | Increase capacity; evaluate a dedicated jobs server from current production docs |
+| Symptom                                       | Likely cause                                                                | Checks                                               | Corrective action                                                                |
+| --------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Front end loads but login/API fails           | Wrong `API_HOST`, CORS/same-site topology, TLS, or ingress routing          | Browser network panel; rendered env; ingress events  | Use sibling domains and correct front-end `API_HOST`                             |
+| Back end crash-loops at startup               | Missing Mongo/JWT/encryption secret, incompatible chart/image, DB TLS       | pod logs; Secret key names; rendered command         | Restore secret refs; use paired chart/image                                      |
+| Uploads fail with permission error            | Local PVC ownership or missing object-storage identity                      | logs; pod mounts; workload identity                  | Prefer object storage; keep UID/fsGroup 1000 for local volume                    |
+| `exec sh` fails                               | Expected distroless behavior                                                | image/version                                        | Use logs or ephemeral debug container                                            |
+| Proxy is healthy but feature is absent        | Wrong client key, stale SDK Connection metadata, back-end auth/key mismatch | `/healthcheck/checks`; proxy logs; connection config | Align readonly key and refresh connection metadata                               |
+| Proxy replicas disagree                       | In-memory cache or Redis/pub-sub misconfiguration                           | env, Redis health, repeated requests by pod          | Use Redis cache plus `PUBLISH_PAYLOAD_TO_CHANNEL=1`                              |
+| Feature delivery fails when API is down       | Cache never warmed, entry expired, wrong refresh policy                     | proxy cache config and logs                          | Warm/check payloads; set an explicit stale/expiry policy matching outage budget  |
+| Authentication redirects loop                 | App/API are cross-site or proxy hop trust is wrong                          | cookies, origin headers, `APP_ORIGIN`, `API_HOST`    | Correct same-site domains and validated trust-proxy setting                      |
+| Data-source credentials fail after key change | `ENCRYPTION_KEY` rotated without migration                                  | secret history and app logs                          | Restore prior key, then run documented migration                                 |
+| Experiment results empty                      | Warehouse identity/join/identifier problem, not flag delivery               | experiment query, exposure rows, identifier type     | Fix source/identifier mapping; do not change assignment mid-phase                |
+| Pods OOM during result updates                | stats workload and web/API share resources                                  | memory, job timing, experiment count                 | Increase capacity; evaluate a dedicated jobs server from current production docs |
 
 ## Scale beyond the baseline
 

@@ -1,9 +1,10 @@
 ---
+title: "Test an LLM Prompt or Model Change"
 description: "A complete, production-minded implementation for assigning an LLM treatment consistently, recording exposure at the moment of use, measuring quality and cost, and deciding whether to ship."
 sidebarTitle: "Test an LLM change"
-last_verified: {}
+last_verified: "2026-08-12"
 last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
-tested_with:
+tested_stack:
   - "@growthbook/growthbook 1.7.0"
   - "Node.js 22"
   - "TypeScript 5.7"
@@ -20,11 +21,11 @@ _This guide is optimized for AI coding agents, and it is recommended that you ha
 
 ## Guide map
 
-| Phase | What the agent does | Receipt to return |
-| --- | --- | --- |
-| 0 — Protect the control | Define the unit and experiment contract, version reviewed behavior in code, and prove control equivalence | Offline-evaluation results, control tests, privacy boundary, and disabled feature |
-| 1 — Prove the treatment | Run an internal canary, verify activation-time exposure, and inject config and provider failures | Stable assignment, bounded telemetry, fallback behavior, and kill-switch proof |
-| 100 — Experiment and decide | Ramp eligible traffic, monitor quality/cost guardrails, apply the stopping rule, and clean up | Health checks, decision record, production verification, and removal plan |
+| Phase                      | What the agent does                                                                                       | Receipt to return                                                                 |
+| -------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| 0: Protect the control     | Define the unit and experiment contract, version reviewed behavior in code, and prove control equivalence | Offline-evaluation results, control tests, privacy boundary, and disabled feature |
+| 1: Prove the treatment     | Run an internal canary, verify activation-time exposure, and inject config and provider failures          | Stable assignment, bounded telemetry, fallback behavior, and kill-switch proof    |
+| 100: Experiment and decide | Ramp eligible traffic, monitor quality/cost guardrails, apply the stopping rule, and clean up             | Health checks, decision record, production verification, and removal plan         |
 
 ## Give this guide to your coding agent
 
@@ -143,13 +144,13 @@ This distinction is important. A remote flag is an operational control plane. It
 
 Pick this before touching code. The identifier used for assignment, exposure, and metrics must describe the same unit.
 
-| Unit | Good fit | Common failure |
-| --- | --- | --- |
-| `user_id` | User-facing assistant where one person returns over time | Anonymous traffic cannot join after login without an identity plan |
-| `account_id` | B2B workflows where collaborators affect the same account outcome | Too few accounts; users within an account must not receive mixed behavior |
-| `conversation_id` | Independent conversations whose outcomes do not cross conversations | A user sees both variants and learns/adapts across conversations |
-| `session_id` | Short, anonymous, self-contained tasks | Repeat sessions contaminate longer-term metrics |
-| `request_id` | Almost never appropriate for product experiments | Every retry can switch variants; repeated measures are treated as independent |
+| Unit              | Good fit                                                            | Common failure                                                                |
+| ----------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `user_id`         | User-facing assistant where one person returns over time            | Anonymous traffic cannot join after login without an identity plan            |
+| `account_id`      | B2B workflows where collaborators affect the same account outcome   | Too few accounts; users within an account must not receive mixed behavior     |
+| `conversation_id` | Independent conversations whose outcomes do not cross conversations | A user sees both variants and learns/adapts across conversations              |
+| `session_id`      | Short, anonymous, self-contained tasks                              | Repeat sessions contaminate longer-term metrics                               |
+| `request_id`      | Almost never appropriate for product experiments                    | Every retry can switch variants; repeated measures are treated as independent |
 
 The reference implementation randomizes by `user_id`. For a multi-user B2B workflow, change both the SDK attribute and all outcome events to `account_id`, mark that attribute as an identifier in GrowthBook, and analyze at the account level.
 
@@ -184,7 +185,7 @@ Do not declare “tokens used” as the primary metric. Cost is a constraint. Th
 
 Before GrowthBook is involved:
 
-1. Capture at least 50–200 representative, redacted inputs from production or construct a reviewed evaluation set.
+1. Capture at least 50 to 200 representative, redacted inputs from production or construct a reviewed evaluation set.
 2. Record the current response, tool calls, structured output validity, latency, token counts, and human quality labels.
 3. Add adversarial and policy-sensitive cases.
 4. Define hard failures: invalid JSON, prohibited action, missing citation, fabricated identifier, timeout, or escalation omission.
@@ -679,13 +680,13 @@ Add adapter-specific tests for schema validation, provider timeouts, safety refu
 
 Create a string feature with:
 
-| Setting | Value |
-| --- | --- |
-| Feature key | `support-llm-treatment` |
-| Type | String |
-| Default value | `control` |
-| Production fallback | `control` |
-| Initial production rule | Forced `control` |
+| Setting                 | Value                   |
+| ----------------------- | ----------------------- |
+| Feature key             | `support-llm-treatment` |
+| Type                    | String                  |
+| Default value           | `control`               |
+| Production fallback     | `control`               |
+| Initial production rule | Forced `control`        |
 
 Publish this control-only feature first. Deploy the application code while every user remains on control. This separates “code deployed” from “experiment started” and proves the new plumbing without changing behavior.
 
@@ -724,15 +725,15 @@ ORDER BY experiment_id, variation_id
 
 Using the Managed Warehouse **Events** fact table, create:
 
-| Role | Metric | Suggested type | Event/filter | Direction |
-| --- | --- | --- | --- | --- |
-| Goal | Resolved without escalation | Proportion | `support_answer_resolved` | Increase |
-| Guardrail | Policy violation | Proportion | `support_answer_policy_violation` | Decrease |
-| Guardrail | Provider error or timeout | Proportion | completed status in `provider_error`, `timeout`, or a dedicated failure event | Decrease |
-| Guardrail | Escalated | Proportion | `support_answer_escalated` | Decrease or neutral |
-| Guardrail | Latency | Mean | `latency_ms` from `support_llm_completed` | Decrease |
-| Guardrail | Estimated cost | Mean | `estimated_cost_usd` from `support_llm_completed` | Decrease or bounded |
-| Secondary | Reopened | Proportion | `support_answer_reopened` | Decrease |
+| Role      | Metric                      | Suggested type | Event/filter                                                                  | Direction           |
+| --------- | --------------------------- | -------------- | ----------------------------------------------------------------------------- | ------------------- |
+| Goal      | Resolved without escalation | Proportion     | `support_answer_resolved`                                                     | Increase            |
+| Guardrail | Policy violation            | Proportion     | `support_answer_policy_violation`                                             | Decrease            |
+| Guardrail | Provider error or timeout   | Proportion     | completed status in `provider_error`, `timeout`, or a dedicated failure event | Decrease            |
+| Guardrail | Escalated                   | Proportion     | `support_answer_escalated`                                                    | Decrease or neutral |
+| Guardrail | Latency                     | Mean           | `latency_ms` from `support_llm_completed`                                     | Decrease            |
+| Guardrail | Estimated cost              | Mean           | `estimated_cost_usd` from `support_llm_completed`                             | Decrease or bounded |
+| Secondary | Reopened                    | Proportion     | `support_answer_reopened`                                                     | Decrease            |
 
 Set metric windows to reflect when the outcome can realistically occur. An immediate structured-output failure may use minutes; “ticket reopened” may need days. Do not close an experiment before late outcomes have had time to arrive.
 
@@ -768,7 +769,7 @@ Use a targeting rule above the experiment rule for employees or test accounts an
 
 Then start the randomized experiment at low overall coverage, for example 5%, while retaining a 50/50 split inside the experiment. Watch absolute error, timeout, policy, escalation, and cost counts. At low coverage, statistical outcome metrics will be noisy; operational guardrails are the decision signal.
 
-### 10–50: controlled ramp
+### 10 to 50: controlled ramp
 
 Increase overall exposure only after:
 
@@ -814,18 +815,18 @@ If a privacy review requires pseudonymous identifiers, ensure the exact same det
 
 ## Failure matrix
 
-| Failure | Required behavior | Verification |
-| --- | --- | --- |
-| GrowthBook init timeout | Use `control`; alert operationally | Block API host in staging and assert control |
-| Empty or unknown feature value | Use `control` | Unit test malformed payload |
-| Event ingestor unavailable | Continue user request; queue/retry according to SDK behavior; alert on missing-event rate | Block ingestor without blocking provider |
-| Provider timeout | Abort; emit timeout guardrail; follow product fallback policy | Fake provider waits beyond timeout |
-| Provider invalid JSON | Reject in adapter; emit `invalid_output` | Fixture with malformed response |
-| Treatment model unavailable | Fail or explicit fallback; count against treatment | Inject provider 5xx |
-| Missing stable ID | Reject experiment path or use an established anonymous ID | Contract test at request boundary |
-| Duplicate outcome webhook | Deduplicate by internal outcome ID before logging | Replay webhook |
-| User receives both variants | Investigate identifier churn, changed weights, multiple evaluations, or phase changes | GrowthBook multiple-exposure health check |
-| 50/50 expected but materially different | Investigate Sample Ratio Mismatch before reading effects | GrowthBook SRM health check |
+| Failure                                 | Required behavior                                                                         | Verification                                 |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
+| GrowthBook init timeout                 | Use `control`; alert operationally                                                        | Block API host in staging and assert control |
+| Empty or unknown feature value          | Use `control`                                                                             | Unit test malformed payload                  |
+| Event ingestor unavailable              | Continue user request; queue/retry according to SDK behavior; alert on missing-event rate | Block ingestor without blocking provider     |
+| Provider timeout                        | Abort; emit timeout guardrail; follow product fallback policy                             | Fake provider waits beyond timeout           |
+| Provider invalid JSON                   | Reject in adapter; emit `invalid_output`                                                  | Fixture with malformed response              |
+| Treatment model unavailable             | Fail or explicit fallback; count against treatment                                        | Inject provider 5xx                          |
+| Missing stable ID                       | Reject experiment path or use an established anonymous ID                                 | Contract test at request boundary            |
+| Duplicate outcome webhook               | Deduplicate by internal outcome ID before logging                                         | Replay webhook                               |
+| User receives both variants             | Investigate identifier churn, changed weights, multiple evaluations, or phase changes     | GrowthBook multiple-exposure health check    |
+| 50/50 expected but materially different | Investigate Sample Ratio Mismatch before reading effects                                  | GrowthBook SRM health check                  |
 
 ## Rollback
 

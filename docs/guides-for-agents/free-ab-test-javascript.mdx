@@ -1,7 +1,8 @@
 ---
+title: "Run a Free JavaScript A/B Test"
 description: "A complete React and TypeScript implementation for designing a valid experiment, assigning stable variations, proving the data path, reading trustworthy results, and removing the losing code."
 sidebarTitle: "Run a free JavaScript A/B test"
-last_verified: {}
+last_verified: "2026-08-12"
 last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
 tested_stack:
   - "@growthbook/growthbook 1.7.0"
@@ -23,11 +24,11 @@ _This guide is optimized for AI coding agents, and it is recommended that you ha
 
 ## Guide map
 
-| Phase | What the agent does | Receipt to return |
-| --- | --- | --- |
-| 0 — Design and instrument | Define the decision, unit, metric, detectable effect, event contract, and control fallback | Written experiment contract, feasibility check, and joinable test events |
-| 1 — Run one valid test | Configure the feature and experiment, verify stable assignment and exposure, and launch controlled traffic | Assignment, exposure, outcome, SRM, and multiple-exposure checks |
-| 100 — Decide and clean up | Interpret against the predeclared rule, ship or stop, preserve the result, and remove dead branches | Decision record, production verification, and cleanup receipt |
+| Phase                    | What the agent does                                                                                        | Receipt to return                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 0: Design and instrument | Define the decision, unit, metric, detectable effect, event contract, and control fallback                 | Written experiment contract, feasibility check, and joinable test events |
+| 1: Run one valid test    | Configure the feature and experiment, verify stable assignment and exposure, and launch controlled traffic | Assignment, exposure, outcome, SRM, and multiple-exposure checks         |
+| 100: Decide and clean up | Interpret against the predeclared rule, ship or stop, preserve the result, and remove dead branches        | Decision record, production verification, and cleanup receipt            |
 
 ## Give this guide to your coding agent
 
@@ -314,13 +315,13 @@ For the reference signup flow, the visitor is anonymous before conversion. A fir
 
 Choose a different unit when the treatment operates elsewhere:
 
-| Treatment boundary | Usually assign by | Why |
-| --- | --- | --- |
-| Anonymous signup page | `device_id` | Available before account creation and stable across page reloads |
-| Logged-in personal UI | `user_id` | One person should keep one experience across devices when identity joins support it |
-| Team collaboration workflow | `account_id` or `workspace_id` | Team members affect one another; mixed variants contaminate the workflow |
-| Session-specific ordering | `session_id` | A new treatment per session is intentional and the outcome is session-level |
-| Store- or region-wide operation | `store_id` or `region_id` | Treatment is applied to the cluster, not each customer |
+| Treatment boundary              | Usually assign by              | Why                                                                                 |
+| ------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------- |
+| Anonymous signup page           | `device_id`                    | Available before account creation and stable across page reloads                    |
+| Logged-in personal UI           | `user_id`                      | One person should keep one experience across devices when identity joins support it |
+| Team collaboration workflow     | `account_id` or `workspace_id` | Team members affect one another; mixed variants contaminate the workflow            |
+| Session-specific ordering       | `session_id`                   | A new treatment per session is intentional and the outcome is session-level         |
+| Store- or region-wide operation | `store_id` or `region_id`      | Treatment is applied to the cluster, not each customer                              |
 
 Never assign on a value that changes during the outcome window. Assigning anonymous visitors on `device_id`, then analyzing only `user_id` after signup, silently drops non-converters and biases the result. This guide keeps `device_id` on both pre- and post-signup events. The authenticated `user_id` is additive.
 
@@ -383,11 +384,11 @@ Do not reduce the target effect after launch because the dashboard is inconclusi
 
 GrowthBook analyzes experiment assignments and metrics in a data warehouse. Pick one path before writing event code:
 
-| Path | Use it when | Event implementation | Free-path note |
-| --- | --- | --- | --- |
-| Managed Warehouse | The project has no reliable warehouse pipeline, or you need the shortest validated path | `growthbookTrackingPlugin()` plus `gb.logEvent()` | Available on GrowthBook Cloud Starter; monthly event allowance is finite |
-| Bring Your Own Warehouse (BYOW) | Product events already reach a supported warehouse with stable identifiers | `trackingCallback` to the existing analytics client plus existing outcome tracking | Available on Starter; warehouse compute and storage remain yours |
-| Event Forwarder | You own a warehouse but want GrowthBook to manage event delivery | GrowthBook SDK event helpers | Pro or Enterprise; not the free path in this guide |
+| Path                            | Use it when                                                                             | Event implementation                                                               | Free-path note                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Managed Warehouse               | The project has no reliable warehouse pipeline, or you need the shortest validated path | `growthbookTrackingPlugin()` plus `gb.logEvent()`                                  | Available on GrowthBook Cloud Starter; monthly event allowance is finite |
+| Bring Your Own Warehouse (BYOW) | Product events already reach a supported warehouse with stable identifiers              | `trackingCallback` to the existing analytics client plus existing outcome tracking | Available on Starter; warehouse compute and storage remain yours         |
+| Event Forwarder                 | You own a warehouse but want GrowthBook to manage event delivery                        | GrowthBook SDK event helpers                                                       | Pro or Enterprise; not the free path in this guide                       |
 
 See [Choose Your Data Path](/app/choose-data-path) for the current architecture and plan comparison. Each experiment uses one data source. Do not send exposure to Managed Warehouse and outcomes only to a separate warehouse, then expect one analysis to join them.
 
@@ -1489,18 +1490,18 @@ Test the signup API separately for idempotency. A double click, retry, or back-b
 
 Plan packaging changes. Verify [current GrowthBook pricing](https://www.growthbook.io/pricing) immediately before publishing this guide or promising a capability. As verified on 2026-08-12, the relevant boundaries are:
 
-| Capability | Cloud Starter | Cloud Pro | Cloud Enterprise |
-| --- | --- | --- | --- |
-| Feature flags, feature-flag experiments, and traffic | Unlimited | Unlimited | Unlimited |
-| Members and projects | Up to 3 members, 1 project | Up to 50 members, 3 projects | Contract-specific |
-| Data path | Managed Warehouse or BYOW | Managed Warehouse, BYOW, or Event Forwarder | Managed Warehouse, BYOW, or Event Forwarder |
-| Core statistics | Bayesian, frequentist, SRM detection, multiple-testing corrections | Starter plus advanced methods | Pro plus enterprise methods and controls |
-| Metric types needed here | Proportion and mean available | Adds ratio, retention, and quantile | Adds enterprise metric management and slices |
-| Sequential testing | Not included | Included | Included |
-| CUPED variance reduction | Not included | Included | Included |
-| Power Calculator and Decision Framework | Not included | Included | Included |
-| Safe Rollouts | Not included | Included | Included |
-| Post-stratification, holdouts, custom experiment templates and checklists | Not included | Not included | Included according to the current comparison |
+| Capability                                                                | Cloud Starter                                                      | Cloud Pro                                   | Cloud Enterprise                             |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------- | -------------------------------------------- |
+| Feature flags, feature-flag experiments, and traffic                      | Unlimited                                                          | Unlimited                                   | Unlimited                                    |
+| Members and projects                                                      | Up to 3 members, 1 project                                         | Up to 50 members, 3 projects                | Contract-specific                            |
+| Data path                                                                 | Managed Warehouse or BYOW                                          | Managed Warehouse, BYOW, or Event Forwarder | Managed Warehouse, BYOW, or Event Forwarder  |
+| Core statistics                                                           | Bayesian, frequentist, SRM detection, multiple-testing corrections | Starter plus advanced methods               | Pro plus enterprise methods and controls     |
+| Metric types needed here                                                  | Proportion and mean available                                      | Adds ratio, retention, and quantile         | Adds enterprise metric management and slices |
+| Sequential testing                                                        | Not included                                                       | Included                                    | Included                                     |
+| CUPED variance reduction                                                  | Not included                                                       | Included                                    | Included                                     |
+| Power Calculator and Decision Framework                                   | Not included                                                       | Included                                    | Included                                     |
+| Safe Rollouts                                                             | Not included                                                       | Included                                    | Included                                     |
+| Post-stratification, holdouts, custom experiment templates and checklists | Not included                                                       | Not included                                | Included according to the current comparison |
 
 The canonical test needs only a string feature, feature-flag experiment, proportion metric, Bayesian or fixed-horizon frequentist analysis, and SRM detection. Those are on the Starter path.
 
@@ -1601,7 +1602,7 @@ GrowthBook runs experiment health checks. Open the experiment’s **Health** tab
 
 ### Sample ratio mismatch
 
-SRM means the observed allocation is implausibly different from the configured allocation. GrowthBook uses a chi-squared check and, by default, raises the warning at a very strict p-value threshold. It is evidence of an assignment, delivery, eligibility, or data problem—not evidence that one variant is popular.
+SRM means the observed allocation is implausibly different from the configured allocation. GrowthBook uses a chi-squared check and, by default, raises the warning at a very strict p-value threshold. It is evidence of an assignment, delivery, eligibility, or data problem, not evidence that one variant is popular.
 
 Investigate:
 
@@ -1626,18 +1627,18 @@ If a metric differs substantially before exposure, first rule out SRM and multip
 
 ### Failure matrix
 
-| Symptom | Likely cause | Evidence to collect | Safe action |
-| --- | --- | --- | --- |
-| Everyone sees control | Missing payload, disabled feature, wrong environment, or missing `device_id` | SDK init result, payload, feature diagnostics, attributes | Keep control; fix staging or connection before restarting |
-| No exposure rows | Wrong regional host, blocked request, no experiment rule, or feature never evaluated | Browser request, SQL receipt, payload rule | Do not launch analysis; fix delivery |
-| Exposures but no outcomes | Outcome event not sent, wrong data source, or identifier missing | Event query, network request, API completion logs | Stop or pause; restore outcome path before collecting more assignments |
-| Outcomes do not join | `device_id` absent after signup or analysis uses `user_id` | Identifier-coverage and join queries | Fix identity propagation; invalidate affected data |
-| SRM warning | Assignment, delivery, eligibility, or query asymmetry | Health tab, counts by browser/date, raw exposure sample | Do not interpret; fix and restart |
-| Multiple exposures | Identifier or allocation changed | Per-device variation query, cookie timeline | Revert config, fix identity, restart phase |
-| Huge immediate lift | Instrumentation bug, low counts, or denominator loss | Raw numerator/denominator, missing IDs, error logs | Apply Twyman’s Law: assume bug until disproved |
-| Dashboard goes flat after a win | Peeking, novelty, or winner’s curse | Original stopping rule, time series, shipped cohort | Do not rewrite history; run a confirmatory test if decision risk warrants it |
-| Free ingestion limit approaches | Event projection was low or unrelated events share the data source | Usage screen and event counts by name | Stop cleanly or move to an appropriate data path before events drop |
-| Ingestor outage | Network or service failure | Browser/server delivery errors, warehouse freshness | Keep signup working; do not treat the missing interval as valid experiment data |
+| Symptom                         | Likely cause                                                                         | Evidence to collect                                       | Safe action                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Everyone sees control           | Missing payload, disabled feature, wrong environment, or missing `device_id`         | SDK init result, payload, feature diagnostics, attributes | Keep control; fix staging or connection before restarting                       |
+| No exposure rows                | Wrong regional host, blocked request, no experiment rule, or feature never evaluated | Browser request, SQL receipt, payload rule                | Do not launch analysis; fix delivery                                            |
+| Exposures but no outcomes       | Outcome event not sent, wrong data source, or identifier missing                     | Event query, network request, API completion logs         | Stop or pause; restore outcome path before collecting more assignments          |
+| Outcomes do not join            | `device_id` absent after signup or analysis uses `user_id`                           | Identifier-coverage and join queries                      | Fix identity propagation; invalidate affected data                              |
+| SRM warning                     | Assignment, delivery, eligibility, or query asymmetry                                | Health tab, counts by browser/date, raw exposure sample   | Do not interpret; fix and restart                                               |
+| Multiple exposures              | Identifier or allocation changed                                                     | Per-device variation query, cookie timeline               | Revert config, fix identity, restart phase                                      |
+| Huge immediate lift             | Instrumentation bug, low counts, or denominator loss                                 | Raw numerator/denominator, missing IDs, error logs        | Apply Twyman’s Law: assume bug until disproved                                  |
+| Dashboard goes flat after a win | Peeking, novelty, or winner’s curse                                                  | Original stopping rule, time series, shipped cohort       | Do not rewrite history; run a confirmatory test if decision risk warrants it    |
+| Free ingestion limit approaches | Event projection was low or unrelated events share the data source                   | Usage screen and event counts by name                     | Stop cleanly or move to an appropriate data path before events drop             |
+| Ingestor outage                 | Network or service failure                                                           | Browser/server delivery errors, warehouse freshness       | Keep signup working; do not treat the missing interval as valid experiment data |
 
 The [experiment troubleshooting guide](/kb/experiments/troubleshooting-experiments) provides additional causes. Preserve screenshots, queries, timestamps, and config revisions with the incident record.
 
@@ -1645,7 +1646,7 @@ The [experiment troubleshooting guide](/kb/experiments/troubleshooting-experimen
 
 The canonical implementation evaluates the flag inside the signup page, so exposure is already close to treatment. It does not need activation filtering.
 
-Use an activation metric only when the application must assign earlier—for example, it downloads both modal implementations at page load but only some visitors become eligible to see the modal. The activation event must occur before the treatment can affect it or be independent of assignment.
+Use an activation metric only when the application must assign earlier. For example, it downloads both modal implementations at page load but only some visitors become eligible to see the modal. The activation event must occur before the treatment can affect it or be independent of assignment.
 
 Valid candidate:
 
@@ -1911,19 +1912,19 @@ This guide was verified against GrowthBook public source commit `e44a15af063860c
 
 ### Product and SDK dependencies
 
-| Guide claim or artifact | Source dependency |
-| --- | --- |
-| React initialization, hooks, provider, and tracking callback | `docs/docs/lib/react.mdx`, `packages/sdk-react/src/**` |
-| JavaScript initialization result and fallback behavior | `docs/docs/lib/js.mdx`, `packages/sdk-js/src/GrowthBook.ts`, `packages/sdk-js/src/types/growthbook.ts` |
+| Guide claim or artifact                                                                      | Source dependency                                                                                                |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| React initialization, hooks, provider, and tracking callback                                 | `docs/docs/lib/react.mdx`, `packages/sdk-react/src/**`                                                           |
+| JavaScript initialization result and fallback behavior                                       | `docs/docs/lib/js.mdx`, `packages/sdk-js/src/GrowthBook.ts`, `packages/sdk-js/src/types/growthbook.ts`           |
 | Tracking plug-in region, identifier promotion, batching, deduplication, and unload transport | `packages/sdk-js/src/plugins/growthbook-tracking.ts`, `packages/sdk-js/test/plugins/growthbook-tracking.test.ts` |
-| Experiment event properties and exposure callback timing | `packages/sdk-js/src/core.ts` |
-| Managed tables, identifiers, SQL Explorer, and event limits | `docs/docs/experimentation-analysis/managed-warehouse.mdx` |
-| Managed Warehouse, BYOW, and Event Forwarder choice | `docs/docs/experimentation-analysis/choose-your-data-path.mdx` |
-| Feature experiment seed, assignment attribute, coverage, and weights | `docs/docs/features/feature-flag-experiments.mdx`, `docs/docs/features/rules.mdx` |
-| Fact tables, proportion metrics, filters, and conversion windows | `docs/docs/metrics/metrics.mdx`, `docs/docs/metrics/metric-examples.mdx` |
-| Experiment creation and analysis settings | `docs/docs/experimentation-analysis/experiment-configuration.mdx` |
-| Bayesian, frequentist, SRM, pre-exposure, and multiple-exposure interpretation | `docs/docs/experimentation-analysis/experiment-results.mdx`, `docs/docs/using/experimenting.mdx` |
-| Plan boundaries and Managed Warehouse allowance | `https://www.growthbook.io/pricing`, `https://www.growthbook.io/get-started` |
+| Experiment event properties and exposure callback timing                                     | `packages/sdk-js/src/core.ts`                                                                                    |
+| Managed tables, identifiers, SQL Explorer, and event limits                                  | `docs/docs/experimentation-analysis/managed-warehouse.mdx`                                                       |
+| Managed Warehouse, BYOW, and Event Forwarder choice                                          | `docs/docs/experimentation-analysis/choose-your-data-path.mdx`                                                   |
+| Feature experiment seed, assignment attribute, coverage, and weights                         | `docs/docs/features/feature-flag-experiments.mdx`, `docs/docs/features/rules.mdx`                                |
+| Fact tables, proportion metrics, filters, and conversion windows                             | `docs/docs/metrics/metrics.mdx`, `docs/docs/metrics/metric-examples.mdx`                                         |
+| Experiment creation and analysis settings                                                    | `docs/docs/experimentation-analysis/experiment-configuration.mdx`                                                |
+| Bayesian, frequentist, SRM, pre-exposure, and multiple-exposure interpretation               | `docs/docs/experimentation-analysis/experiment-results.mdx`, `docs/docs/using/experimenting.mdx`                 |
+| Plan boundaries and Managed Warehouse allowance                                              | `https://www.growthbook.io/pricing`, `https://www.growthbook.io/get-started`                                     |
 
 ### Volatile details to reverify
 

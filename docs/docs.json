@@ -387,12 +387,12 @@
               {
                 "group": "Guides for Agents",
                 "pages": [
-                  "start-here",
-                  "untitled-page",
-                  "untitled-page-2",
-                  "untitled-page-3",
-                  "untitled-page-4",
-                  "untitled-page-5"
+                  "guides-for-agents/start-here",
+                  "guides-for-agents/nextjs-app-router-production-feature-flags",
+                  "guides-for-agents/free-ab-test-javascript",
+                  "guides-for-agents/migrate-diy-feature-flags",
+                  "guides-for-agents/test-llm-prompt-model-change",
+                  "guides-for-agents/self-host-growthbook-kubernetes"
                 ]
               }
             ]

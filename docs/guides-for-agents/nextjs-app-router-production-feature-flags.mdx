@@ -1,7 +1,8 @@
 ---
+title: "Production Feature Flags for Next.js"
 description: "Implement GrowthBook feature flags across Next.js Server Components, Client Components, and Route Handlers with stable identity, safe fallbacks, tests, observability, rollout controls, and a complete removal path."
 sidebarTitle: "Production feature flags for Next.js"
-last_verified: {}
+last_verified: "2026-08-12"
 last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
 tested_stack:
   next: "16.3.0"
@@ -23,11 +24,11 @@ _This guide is optimized for AI coding agents, and it is recommended that you ha
 
 ## Guide map
 
-| Phase | What the agent does | Receipt to return |
-| --- | --- | --- |
-| 0 — Make safe | Inspect runtime boundaries, choose identity and fallback behavior, add typed flags, and deploy with the feature disabled | Repository findings, passing tests, and legacy behavior in every surface |
-| 1 — Prove one path | Enable an internal cohort, compare page/API decisions, verify exposure semantics, and inject payload and identity failures | Matching decisions, bounded configuration behavior, and a tested kill switch |
-| 100 — Operate and remove | Ramp traffic, monitor outcomes, make the new checkout the default, and delete the temporary branch and flag | Rollout record, rollback proof, ownership, and cleanup diff |
+| Phase                   | What the agent does                                                                                                        | Receipt to return                                                            |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 0: Make safe            | Inspect runtime boundaries, choose identity and fallback behavior, add typed flags, and deploy with the feature disabled   | Repository findings, passing tests, and legacy behavior in every surface     |
+| 1: Prove one path       | Enable an internal cohort, compare page/API decisions, verify exposure semantics, and inject payload and identity failures | Matching decisions, bounded configuration behavior, and a tested kill switch |
+| 100: Operate and remove | Ramp traffic, monitor outcomes, make the new checkout the default, and delete the temporary branch and flag                | Rollout record, rollback proof, ownership, and cleanup diff                  |
 
 ## Give this guide to your coding agent
 
@@ -197,11 +198,11 @@ The default in this guide is the first server-side branch: `@flags-sdk/growthboo
 
 The packages overlap, but they solve different integration problems.
 
-| Path | Use it for | Where evaluation runs | Main tradeoff |
-| --- | --- | --- | --- |
-| `@flags-sdk/growthbook` | App Router backends and hybrid apps using the Flags SDK convention | Server by default | Adds the Flags SDK abstraction and uses a shared `GrowthBookClient` behind the adapter |
-| `@growthbook/growthbook` | Direct Server Component, Route Handler, Node.js, or custom payload integration | Wherever you instantiate it | You own request scoping, payload caching, hydration, and lifecycle |
-| `@growthbook/growthbook-react` | Client Components that must evaluate or react to changes in the browser | Browser; React context and hooks | The browser receives a payload unless you use remote evaluation; server/client identity and hydration require care |
+| Path                           | Use it for                                                                     | Where evaluation runs            | Main tradeoff                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `@flags-sdk/growthbook`        | App Router backends and hybrid apps using the Flags SDK convention             | Server by default                | Adds the Flags SDK abstraction and uses a shared `GrowthBookClient` behind the adapter                             |
+| `@growthbook/growthbook`       | Direct Server Component, Route Handler, Node.js, or custom payload integration | Wherever you instantiate it      | You own request scoping, payload caching, hydration, and lifecycle                                                 |
+| `@growthbook/growthbook-react` | Client Components that must evaluate or react to changes in the browser        | Browser; React context and hooks | The browser receives a payload unless you use remote evaluation; server/client identity and hydration require care |
 
 Use only 1 evaluation owner for a particular decision. If a Server Component evaluates `new-checkout-flow`, pass that Boolean into the Client Component. Do not evaluate it again in the browser just because the component contains `"use client"`. Re-evaluating can create a hydration mismatch, a different assignment, and a duplicate experiment exposure.
 
@@ -298,7 +299,8 @@ Treat the vulnerability line as a package-manager receipt, not a security guaran
 <Note>
   **Current adapter spelling**
 
-  `@flags-sdk/growthbook` 0.3.1 exports `createGrowthbookAdapter`, with a lowercase `b` in `book`. Older examples use `createGrowthBookAdapter`. Pin the package and use the spelling exported by that version. If the import fails, inspect the installed package declaration rather than guessing.
+`@flags-sdk/growthbook` 0.3.1 exports `createGrowthbookAdapter`, with a lowercase `b` in `book`. Older examples use `createGrowthBookAdapter`. Pin the package and use the spelling exported by that version. If the import fails, inspect the installed package declaration rather than guessing.
+
 </Note>
 
 ### Establish an anonymous identity before rendering
@@ -744,12 +746,12 @@ Deterministic hashing only produces stable assignments when the hash input is st
 
 The canonical code exposes 4 identifiers for different purposes:
 
-| Attribute | Meaning | Typical use | Known boundary |
-| --- | --- | --- | --- |
-| `anonymous_id` | Durable browser identity created before render | Pre-login journeys and anonymous rollouts | Changes when cookies are cleared or across devices |
-| `user_id` | Authenticated application user | User-level targeting and cross-device assignment | Empty before login |
-| `organization_id` | Account, workspace, or tenant | B2B rollouts that must keep a tenant together | Empty for users without a selected organization |
-| `id` | Canonical compatibility identifier | Simple rules after the team accepts its transition behavior | Changes from anonymous ID to user ID at login in this example |
+| Attribute         | Meaning                                        | Typical use                                                 | Known boundary                                                |
+| ----------------- | ---------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `anonymous_id`    | Durable browser identity created before render | Pre-login journeys and anonymous rollouts                   | Changes when cookies are cleared or across devices            |
+| `user_id`         | Authenticated application user                 | User-level targeting and cross-device assignment            | Empty before login                                            |
+| `organization_id` | Account, workspace, or tenant                  | B2B rollouts that must keep a tenant together               | Empty for users without a selected organization               |
+| `id`              | Canonical compatibility identifier             | Simple rules after the team accepts its transition behavior | Changes from anonymous ID to user ID at login in this example |
 
 Do not create an experiment rule until the team writes down its randomization unit. A checkout experiment that begins before authentication usually needs `anonymous_id`. A seat-management change should usually use `organization_id`. A personal settings change may use `user_id`.
 
@@ -1876,22 +1878,22 @@ A feature flag can select code. It cannot make an irreversible database write re
 
 Review these cases before production:
 
-| Failure | Expected behavior | Receipt | Response |
-| --- | --- | --- | --- |
-| `GROWTHBOOK_CLIENT_KEY` missing | Build/startup fails in the canonical implementation | Missing-variable error without key value | Fix deployment configuration; do not launch |
-| SDK endpoint times out on cold start | `new-checkout-flow` resolves `false` | Payload fallback or default-value event | Investigate delivery; keep legacy path |
-| Last valid payload is cached | Cached decision may continue until refresh | Payload source and `dateUpdated` | Compare staleness with operational objective |
-| Feature is disabled in the environment | Feature is omitted; code fallback resolves `false` | `unknownFeature` or fallback receipt | Expected kill-switch behavior |
-| Feature key is misspelled | Typecheck fails; untyped call falls back | CI type error or unknown-feature receipt | Correct key; never create a second flag to match typo |
-| Anonymous cookie is missing | Proxy creates one; first render receives matching header | `Set-Cookie` and parity test | Fix matcher if `identity_ready` remains false |
-| Cookie is blocked or cleared | User may receive a new anonymous assignment | New pseudonymous unit receipt | Use authenticated/account identity if continuity is required |
-| Page and API use different tenant context | Parity or tenant tests fail | Conflicting values/rule IDs | Fix authoritative organization resolution |
-| Client re-evaluates a server-owned flag | Hydration mismatch or duplicate exposure can occur | Browser warning or duplicate event key | Pass resolved primitive; remove second evaluation |
-| Webhook signature is invalid or stale | Route returns 401; cache remains unchanged | HTTP status and no invalidation log | Check raw body, secret, timestamp, and clock |
-| Webhook reaches only 1 self-hosted instance | Some instances retain stale payload | Region/instance payload timestamps differ | Coordinate cache tags through shared infrastructure |
-| Analytics callback fails | Feature remains usable; exposure may be missing | Tracking error counter | Retry or queue event; do not fabricate exposure later without identity |
-| Emergency override is active | Page and API always use legacy path | `feature_emergency_override` warning | Resolve incident, then remove override deliberately |
-| New path writes incompatible data | Rollback may be unsafe | Schema/data compatibility checks fail | Stop rollout; use expand-and-contract migration |
+| Failure                                     | Expected behavior                                        | Receipt                                   | Response                                                               |
+| ------------------------------------------- | -------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
+| `GROWTHBOOK_CLIENT_KEY` missing             | Build/startup fails in the canonical implementation      | Missing-variable error without key value  | Fix deployment configuration; do not launch                            |
+| SDK endpoint times out on cold start        | `new-checkout-flow` resolves `false`                     | Payload fallback or default-value event   | Investigate delivery; keep legacy path                                 |
+| Last valid payload is cached                | Cached decision may continue until refresh               | Payload source and `dateUpdated`          | Compare staleness with operational objective                           |
+| Feature is disabled in the environment      | Feature is omitted; code fallback resolves `false`       | `unknownFeature` or fallback receipt      | Expected kill-switch behavior                                          |
+| Feature key is misspelled                   | Typecheck fails; untyped call falls back                 | CI type error or unknown-feature receipt  | Correct key; never create a second flag to match typo                  |
+| Anonymous cookie is missing                 | Proxy creates one; first render receives matching header | `Set-Cookie` and parity test              | Fix matcher if `identity_ready` remains false                          |
+| Cookie is blocked or cleared                | User may receive a new anonymous assignment              | New pseudonymous unit receipt             | Use authenticated/account identity if continuity is required           |
+| Page and API use different tenant context   | Parity or tenant tests fail                              | Conflicting values/rule IDs               | Fix authoritative organization resolution                              |
+| Client re-evaluates a server-owned flag     | Hydration mismatch or duplicate exposure can occur       | Browser warning or duplicate event key    | Pass resolved primitive; remove second evaluation                      |
+| Webhook signature is invalid or stale       | Route returns 401; cache remains unchanged               | HTTP status and no invalidation log       | Check raw body, secret, timestamp, and clock                           |
+| Webhook reaches only 1 self-hosted instance | Some instances retain stale payload                      | Region/instance payload timestamps differ | Coordinate cache tags through shared infrastructure                    |
+| Analytics callback fails                    | Feature remains usable; exposure may be missing          | Tracking error counter                    | Retry or queue event; do not fabricate exposure later without identity |
+| Emergency override is active                | Page and API always use legacy path                      | `feature_emergency_override` warning      | Resolve incident, then remove override deliberately                    |
+| New path writes incompatible data           | Rollback may be unsafe                                   | Schema/data compatibility checks fail     | Stop rollout; use expand-and-contract migration                        |
 
 The failure state must be visible. “Falls back safely” without a counter or log turns a broken integration into a long-lived silent release failure.
 
@@ -1936,17 +1938,17 @@ GrowthBook's value in this task is not that it computes `if (enabled)`. The appl
 
 Use this decision record:
 
-| Requirement | Environment variable or small DIY layer | GrowthBook path |
-| --- | --- | --- |
-| Change without deployment | Requires a separate config service | Publish a feature revision |
-| Stable percentage rollout | Implement and test hashing semantics | Configure a percentage rule and identifier |
-| User/account targeting | Build rule storage and evaluator | Pass attributes and configure rules |
-| Server/client consistency | Still an application responsibility | Still an application responsibility; adapter helps centralize decisions |
-| Kill switch | Deployment or custom runtime control | Disable or force the safe value; delivery still needs verification |
-| Experiment assignment | Build tracking contract and analysis | SDK callback plus GrowthBook experiment workflow; event pipeline still required |
-| Audit and approvals | Build or use existing change management | Available controls vary by plan |
-| Flag cleanup | Search and ticket manually | Stale management and optional code references assist; engineering removes code |
-| Infrastructure ownership | Own every control-plane component | Use GrowthBook Cloud or operate Self-Hosted GrowthBook |
+| Requirement               | Environment variable or small DIY layer | GrowthBook path                                                                 |
+| ------------------------- | --------------------------------------- | ------------------------------------------------------------------------------- |
+| Change without deployment | Requires a separate config service      | Publish a feature revision                                                      |
+| Stable percentage rollout | Implement and test hashing semantics    | Configure a percentage rule and identifier                                      |
+| User/account targeting    | Build rule storage and evaluator        | Pass attributes and configure rules                                             |
+| Server/client consistency | Still an application responsibility     | Still an application responsibility; adapter helps centralize decisions         |
+| Kill switch               | Deployment or custom runtime control    | Disable or force the safe value; delivery still needs verification              |
+| Experiment assignment     | Build tracking contract and analysis    | SDK callback plus GrowthBook experiment workflow; event pipeline still required |
+| Audit and approvals       | Build or use existing change management | Available controls vary by plan                                                 |
+| Flag cleanup              | Search and ticket manually              | Stale management and optional code references assist; engineering removes code  |
+| Infrastructure ownership  | Own every control-plane component       | Use GrowthBook Cloud or operate Self-Hosted GrowthBook                          |
 
 Do not select GrowthBook only to avoid writing 1 conditional. Select it when the release and measurement lifecycle would otherwise become internal infrastructure.
 

@@ -1,7 +1,8 @@
 ---
+title: "Migrate DIY Feature Flags"
 description: "Inventory environment-variable, hard-coded, JSON, and database feature flags, then migrate them to GrowthBook through typed adapters, shadow evaluation, measured cutover, and reversible cleanup."
 sidebarTitle: "Migrate DIY feature flags"
-last_verified: {}
+last_verified: "2026-08-12"
 last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
 tested_stack:
   - "@growthbook/growthbook 1.7.0"
@@ -21,11 +22,11 @@ _This guide is optimized for AI coding agents, and it is recommended that you ha
 
 ## Guide map
 
-| Phase | What the agent does | Receipt to return |
-| --- | --- | --- |
-| 0 — Inventory and preserve behavior | Find every flag source, classify non-flags, snapshot legacy semantics, and add one typed boundary | Inventory, migration manifest, parity fixtures, and legacy-mode tests |
-| 1 — Shadow and cut over | Evaluate both providers, explain mismatches, and serve GrowthBook for one low-risk allowlisted key | Shadow metrics, decision receipts, fallback tests, and rollback proof |
-| 100 — Retire the old system | Move remaining flags, stop legacy mutations, remove fallback reads, and delete retained data safely | Zero unexplained mismatches, authoritative-provider evidence, and cleanup record |
+| Phase                              | What the agent does                                                                                 | Receipt to return                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 0: Inventory and preserve behavior | Find every flag source, classify non-flags, snapshot legacy semantics, and add one typed boundary   | Inventory, migration manifest, parity fixtures, and legacy-mode tests            |
+| 1: Shadow and cut over             | Evaluate both providers, explain mismatches, and serve GrowthBook for one low-risk allowlisted key  | Shadow metrics, decision receipts, fallback tests, and rollback proof            |
+| 100: Retire the old system         | Move remaining flags, stop legacy mutations, remove fallback reads, and delete retained data safely | Zero unexplained mismatches, authoritative-provider evidence, and cleanup record |
 
 ## Give this guide to your coding agent
 
@@ -173,16 +174,16 @@ That line may be the correct solution. The migration becomes worthwhile when the
 
 The decision is not “one Boolean versus a platform.” It is “the system you currently operate, including its undocumented behavior, versus a maintained control plane.” Do not erase working behavior just to make the architecture look cleaner.
 
-| Requirement | Keep the DIY implementation when | A shared feature flag system becomes useful when |
-| --- | --- | --- |
-| Change timing | A deploy is the intended review and release event | An operator must change behavior without rebuilding the app |
-| Scope | One process and one environment | Multiple services, clients, or environments must agree |
-| Targeting | One static condition in code | Rules depend on users, accounts, plans, geography, or saved groups |
-| Rollout | Everyone receives the same value | Exposure must expand gradually with stable assignment |
-| Measurement | No exposure or outcome analysis is needed | The same flag may become an experiment |
-| Operations | The code owner is always available | Support, product, data, and engineering need a visible state and history |
-| Failure behavior | A deployment rollback is fast enough | The application needs a remote kill switch plus a local fallback |
-| Lifecycle | The switch is permanent configuration | Temporary flags require owners, references, stale review, and removal |
+| Requirement      | Keep the DIY implementation when                  | A shared feature flag system becomes useful when                         |
+| ---------------- | ------------------------------------------------- | ------------------------------------------------------------------------ |
+| Change timing    | A deploy is the intended review and release event | An operator must change behavior without rebuilding the app              |
+| Scope            | One process and one environment                   | Multiple services, clients, or environments must agree                   |
+| Targeting        | One static condition in code                      | Rules depend on users, accounts, plans, geography, or saved groups       |
+| Rollout          | Everyone receives the same value                  | Exposure must expand gradually with stable assignment                    |
+| Measurement      | No exposure or outcome analysis is needed         | The same flag may become an experiment                                   |
+| Operations       | The code owner is always available                | Support, product, data, and engineering need a visible state and history |
+| Failure behavior | A deployment rollback is fast enough              | The application needs a remote kill switch plus a local fallback         |
+| Lifecycle        | The switch is permanent configuration             | Temporary flags require owners, references, stale review, and removal    |
 
 GrowthBook feature evaluation normally happens locally in the SDK after the feature payload has loaded. A flag check does not need a control-plane request every time. The migration still adds operational dependencies: payload delivery, SDK initialization, identity quality, and a publishing workflow. This guide makes those dependencies visible instead of treating them as magic.
 
@@ -392,15 +393,15 @@ Counts expose complexity without copying user or account identifiers into the mi
 
 Put each confirmed candidate into exactly one primary class. Record secondary concerns in notes rather than inventing overlapping categories.
 
-| Class | Examples | Default action |
-| --- | --- | --- |
-| Release flag | New checkout, redesigned search, new API implementation | Migrate if runtime rollout or rollback is useful; set a removal date |
-| Experiment flag | Control versus treatment behavior with exposure tracking | Migrate only with an identity and measurement contract |
-| Operational flag | Disable an expensive worker, stop a risky integration, enter read-only mode | Migrate cautiously; choose a fail-safe value and an incident owner |
-| Permission or entitlement | Admin access, paid-plan capability, data export permission | Keep authoritative enforcement outside flags; a flag may only stage UI or implementation |
-| Permanent configuration | Page size, timeout, provider allowlist, regional endpoint | Keep typed config unless runtime targeting and governance justify a feature value |
-| Build-time configuration | Tree-shaking, compile target, public asset prefix | Keep in the build system |
-| Dead code | Fully shipped branch, disabled abandoned feature, unused row | Delete through normal review; do not migrate it |
+| Class                     | Examples                                                                    | Default action                                                                           |
+| ------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Release flag              | New checkout, redesigned search, new API implementation                     | Migrate if runtime rollout or rollback is useful; set a removal date                     |
+| Experiment flag           | Control versus treatment behavior with exposure tracking                    | Migrate only with an identity and measurement contract                                   |
+| Operational flag          | Disable an expensive worker, stop a risky integration, enter read-only mode | Migrate cautiously; choose a fail-safe value and an incident owner                       |
+| Permission or entitlement | Admin access, paid-plan capability, data export permission                  | Keep authoritative enforcement outside flags; a flag may only stage UI or implementation |
+| Permanent configuration   | Page size, timeout, provider allowlist, regional endpoint                   | Keep typed config unless runtime targeting and governance justify a feature value        |
+| Build-time configuration  | Tree-shaking, compile target, public asset prefix                           | Keep in the build system                                                                 |
+| Dead code                 | Fully shipped branch, disabled abandoned feature, unused row                | Delete through normal review; do not migrate it                                          |
 
 ### Never migrate these as ordinary flags
 
@@ -857,15 +858,15 @@ Feature keys cannot be renamed after creation. Review spelling and casing before
 
 Use a table like this during review:
 
-| Legacy behavior | GrowthBook configuration | Verification context |
-| --- | --- | --- |
-| Global environment Boolean | Boolean feature default or forced rule in that environment | User with no optional attributes |
-| Account allowlist | `account_id` targeting rule or Saved Group above rollout rules | Included, excluded, and missing account IDs |
-| Account percentage rollout | Percentage rule hashed on `account_id` | Repeated users in the same account and multiple accounts |
-| User percentage rollout | Percentage rule hashed on `id` | Same user across requests and after service restart |
-| Ordered overrides | Ordered GrowthBook rules; first match wins | Context matching 2 rules at once |
-| Missing row uses false | Boolean default `false` plus code fallback `false` | Missing feature and fetch-failure tests |
-| JSON file | JSON feature only if runtime change is justified | Valid object, unexpected object, and fallback |
+| Legacy behavior            | GrowthBook configuration                                       | Verification context                                     |
+| -------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| Global environment Boolean | Boolean feature default or forced rule in that environment     | User with no optional attributes                         |
+| Account allowlist          | `account_id` targeting rule or Saved Group above rollout rules | Included, excluded, and missing account IDs              |
+| Account percentage rollout | Percentage rule hashed on `account_id`                         | Repeated users in the same account and multiple accounts |
+| User percentage rollout    | Percentage rule hashed on `id`                                 | Same user across requests and after service restart      |
+| Ordered overrides          | Ordered GrowthBook rules; first match wins                     | Context matching 2 rules at once                         |
+| Missing row uses false     | Boolean default `false` plus code fallback `false`             | Missing feature and fetch-failure tests                  |
+| JSON file                  | JSON feature only if runtime change is justified               | Valid object, unexpected object, and fallback            |
 
 Case matters. If the legacy system stores `country="us"` and GrowthBook targets `"US"`, either normalize the application attribute or configure the intended comparison. Do not “fix” casing only for some services.
 
@@ -1935,19 +1936,19 @@ Do not report “local evaluation adds no latency.” Measure your adapter. Norm
 
 ## Handle failures deliberately
 
-| Failure | Expected serving behavior | Required signal | Immediate response |
-| --- | --- | --- | --- |
-| SDK payload timeout in `shadow` | Serve legacy | Startup failure and comparison unavailable | Fix delivery; do not cut over |
-| SDK payload timeout in `growthbook-preferred` | Selected keys temporarily serve legacy | `servedBy=legacy` for selected key | Investigate and consider global rollback |
-| SDK payload timeout in `growthbook-only` | Serve code fallback | `servedBy=code-fallback` | Confirm fallback safety; restore payload delivery |
-| GrowthBook key absent | Treat result as unusable | `reason=unknownFeature` | Check state, environment, project scope, and spelling |
-| Wrong SDK client key | Payload contains wrong or no features | Startup/environment receipt and parity failures | Replace key; do not edit rules to compensate |
-| Missing hash attribute | Percentage rule falls through | Missing-attribute metric | Fix context; do not generate a request-time ID |
-| Malformed legacy config | Fail startup during migration | Startup exception | Restore the last valid snapshot or fix config |
-| Legacy database unavailable | Existing startup/fallback policy applies | Legacy load failure | Do not cut over in a partially initialized state |
-| Rule publication error | Existing published revision remains live | Publish failure and unchanged revision | Fix draft; do not mutate the application fallback |
-| Telemetry outage | Serving continues | Telemetry delivery alert | Pause cutover because parity evidence is incomplete |
-| Value type drift | Type generation or runtime validation fails | CI failure or invalid-value metric | Revert the feature revision or deploy compatible code first |
+| Failure                                       | Expected serving behavior                   | Required signal                                 | Immediate response                                          |
+| --------------------------------------------- | ------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
+| SDK payload timeout in `shadow`               | Serve legacy                                | Startup failure and comparison unavailable      | Fix delivery; do not cut over                               |
+| SDK payload timeout in `growthbook-preferred` | Selected keys temporarily serve legacy      | `servedBy=legacy` for selected key              | Investigate and consider global rollback                    |
+| SDK payload timeout in `growthbook-only`      | Serve code fallback                         | `servedBy=code-fallback`                        | Confirm fallback safety; restore payload delivery           |
+| GrowthBook key absent                         | Treat result as unusable                    | `reason=unknownFeature`                         | Check state, environment, project scope, and spelling       |
+| Wrong SDK client key                          | Payload contains wrong or no features       | Startup/environment receipt and parity failures | Replace key; do not edit rules to compensate                |
+| Missing hash attribute                        | Percentage rule falls through               | Missing-attribute metric                        | Fix context; do not generate a request-time ID              |
+| Malformed legacy config                       | Fail startup during migration               | Startup exception                               | Restore the last valid snapshot or fix config               |
+| Legacy database unavailable                   | Existing startup/fallback policy applies    | Legacy load failure                             | Do not cut over in a partially initialized state            |
+| Rule publication error                        | Existing published revision remains live    | Publish failure and unchanged revision          | Fix draft; do not mutate the application fallback           |
+| Telemetry outage                              | Serving continues                           | Telemetry delivery alert                        | Pause cutover because parity evidence is incomplete         |
+| Value type drift                              | Type generation or runtime validation fails | CI failure or invalid-value metric              | Revert the feature revision or deploy compatible code first |
 
 The code fallback must be safe before the incident occurs. During an outage, nobody should debate whether `false` disables the new checkout or disables checkout entirely.
 
@@ -2194,20 +2195,20 @@ The strongest reason to migrate is not that GrowthBook can return a Boolean. It 
 
 This guide was verified on 2026-08-12 against GrowthBook repository commit `e44a15af063860c7118f52508746356d55e5a91d` and these source areas:
 
-| Claim or artifact | Primary source | Recheck when |
-| --- | --- | --- |
-| JavaScript SDK initialization, fallback, caching, strict typing, and evaluation results | [JavaScript SDK](/lib/js) and `packages/sdk-js/src` | SDK major upgrade or payload-delivery change |
-| Multi-user server client and request-scoped evaluation | [Node.js SDK](/lib/node) and `packages/sdk-js/test/multi-user.test.ts` | Server runtime or SDK lifecycle change |
-| Feature types, defaults, and disabled-feature behavior | [Feature flag fundamentals](/features/basics) | Feature model change |
-| Ordered rules, percentage rollout, and Simulation | [Feature flag rules](/features/rules) | Rule editor or evaluation semantics change |
-| Attribute types and secure targeting | [Targeting conditions](/features/targeting) | Identity or privacy model change |
-| Environment-to-SDK mapping and plan note | [Environments](/features/environments) | Plan or environment model change |
-| Drafts, revisions, reverts, and optional approvals | [Publishing and approval flows](/features/publishing-and-approval-flows) | Governance or plan change |
-| Evaluation event diagnostics | [Feature Evaluation Diagnostics](/features/diagnostics) | Event schema or warehouse query change |
-| CLI authentication and type generation | [GrowthBook CLI](/tools/cli) and [official CLI repository](https://github.com/growthbook/cli) | CLI upgrade; pin and review major releases |
-| Code scanning | [Code References](/features/code-references) and [gb-find-code-refs](https://github.com/growthbook/gb-find-code-refs) | Scanner release or CI integration change |
-| Stale criteria | [Stale Feature Flag Detection](/features/stale-detection) | Before automating or changing cleanup policy |
-| Optional standard provider coverage | [OpenFeature providers](/lib/openfeature) | Before choosing a language/provider |
+| Claim or artifact                                                                       | Primary source                                                                                                        | Recheck when                                 |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| JavaScript SDK initialization, fallback, caching, strict typing, and evaluation results | [JavaScript SDK](/lib/js) and `packages/sdk-js/src`                                                                   | SDK major upgrade or payload-delivery change |
+| Multi-user server client and request-scoped evaluation                                  | [Node.js SDK](/lib/node) and `packages/sdk-js/test/multi-user.test.ts`                                                | Server runtime or SDK lifecycle change       |
+| Feature types, defaults, and disabled-feature behavior                                  | [Feature flag fundamentals](/features/basics)                                                                         | Feature model change                         |
+| Ordered rules, percentage rollout, and Simulation                                       | [Feature flag rules](/features/rules)                                                                                 | Rule editor or evaluation semantics change   |
+| Attribute types and secure targeting                                                    | [Targeting conditions](/features/targeting)                                                                           | Identity or privacy model change             |
+| Environment-to-SDK mapping and plan note                                                | [Environments](/features/environments)                                                                                | Plan or environment model change             |
+| Drafts, revisions, reverts, and optional approvals                                      | [Publishing and approval flows](/features/publishing-and-approval-flows)                                              | Governance or plan change                    |
+| Evaluation event diagnostics                                                            | [Feature Evaluation Diagnostics](/features/diagnostics)                                                               | Event schema or warehouse query change       |
+| CLI authentication and type generation                                                  | [GrowthBook CLI](/tools/cli) and [official CLI repository](https://github.com/growthbook/cli)                         | CLI upgrade; pin and review major releases   |
+| Code scanning                                                                           | [Code References](/features/code-references) and [gb-find-code-refs](https://github.com/growthbook/gb-find-code-refs) | Scanner release or CI integration change     |
+| Stale criteria                                                                          | [Stale Feature Flag Detection](/features/stale-detection)                                                             | Before automating or changing cleanup policy |
+| Optional standard provider coverage                                                     | [OpenFeature providers](/lib/openfeature)                                                                             | Before choosing a language/provider          |
 
 The highest-drift details are package versions, CLI commands, plan availability, environment limits, provider coverage, and stale-detection criteria. Recheck them before publishing this guide or using it as an automated migration instruction.
 
