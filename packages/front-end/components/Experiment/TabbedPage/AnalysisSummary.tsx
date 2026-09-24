@@ -26,7 +26,7 @@ function Rows({ rows }: { rows: Row[] }) {
   return (
     <Flex direction="column" gap="4">
       {rows.map(([label, value]) => (
-        <Metadata key={label} size="sm" stacked label={label} value={value} />
+        <Metadata key={label} size="sm" row label={label} value={value} />
       ))}
     </Flex>
   );

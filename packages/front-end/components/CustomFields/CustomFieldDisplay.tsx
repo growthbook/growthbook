@@ -37,8 +37,8 @@ const CustomFieldDisplay: FC<{
    * is always shown, so it can't be missed behind the button.
    */
   collapseWhenEmpty?: boolean;
-  /** Label above each value, to sit alongside other metadata in a narrow column. */
-  stacked?: boolean;
+  /** A metadata row per field, to sit alongside other metadata in a narrow column. */
+  rows?: boolean;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -49,7 +49,7 @@ const CustomFieldDisplay: FC<{
   mt,
   draftInfo,
   collapseWhenEmpty,
-  stacked,
+  rows,
 }) => {
   const [editModal, setEditModal] = useState(false);
 
@@ -78,10 +78,10 @@ const CustomFieldDisplay: FC<{
     const cValue = currentValueMap.get(v.id);
     return typeof cValue === "boolean" ? true : !!String(cValue ?? "").trim();
   });
-  // Stacked mode gives every field its own metadata row, edited from whatever
+  // Rows mode gives every field its own metadata row, edited from whatever
   // owns the column, so there is nothing to collapse behind a button.
   const showAddButton =
-    !stacked &&
+    !rows &&
     !!collapseWhenEmpty &&
     !hasAnyValue &&
     !customFields.some((v) => v.required);
@@ -188,7 +188,7 @@ const CustomFieldDisplay: FC<{
     />
   ) : null;
 
-  if (stacked) {
+  if (rows) {
     return (
       <>
         {editModalNode}
@@ -198,7 +198,7 @@ const CustomFieldDisplay: FC<{
             return (
               <Metadata
                 size="sm"
-                stacked
+                row
                 key={field.id}
                 label={field.name}
                 value={

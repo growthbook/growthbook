@@ -123,7 +123,7 @@ export default function ExperimentDetailsPanel({
           <Flex px="5" py="4" direction="column" gap="4">
             <Metadata
               size="sm"
-              stacked
+              row
               label="Status"
               value={
                 <Text size="sm" color="text-high">
@@ -200,7 +200,7 @@ export default function ExperimentDetailsPanel({
                   )}
                 >
                   <CustomFieldDisplay
-                    stacked
+                    rows
                     target={experiment}
                     canEdit={false}
                     mutate={mutate}

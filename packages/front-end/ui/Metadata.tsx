@@ -10,11 +10,18 @@ type Props = {
   size?: Size<"sm" | "md">;
   /** Label above the value, for a narrow column. Otherwise inline "Label: value". */
   stacked?: boolean;
-  /** A stacked row's own control, such as its edit button. */
+  /**
+   * Label beside the value, in a column of its own, so a list of rows lines
+   * up down the label side. For a narrow column that stacking would stretch.
+   */
+  row?: boolean;
+  /** A stacked or row layout's own control, such as its edit button. */
   action?: React.ReactNode;
   /** Straight after the label, or straight after the value. */
   actionPlacement?: "label" | "value";
 };
+
+const ROW_LABEL_WIDTH = "120px";
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
   {
@@ -23,21 +30,47 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
     style,
     size = "md",
     stacked,
+    row,
     action,
     actionPlacement = "label",
     ...props
   },
   ref,
 ) {
+  const valueNode =
+    typeof value === "string" ? (
+      <Text weight="regular" color="text-high" size={size}>
+        {value}
+      </Text>
+    ) : (
+      value
+    );
+
+  if (row) {
+    return (
+      <Flex
+        gap="3"
+        align="baseline"
+        style={style}
+        data-reveals-action={action ? "" : undefined}
+        {...props}
+        ref={ref}
+      >
+        <Flex align="center" gap="1" flexShrink="0" width={ROW_LABEL_WIDTH}>
+          <Text weight="regular" color="text-low" size={size}>
+            {label}
+          </Text>
+          {actionPlacement === "label" ? action : null}
+        </Flex>
+        <Flex align="center" gap="1" wrap="wrap" minWidth="0">
+          {valueNode}
+          {actionPlacement === "value" ? action : null}
+        </Flex>
+      </Flex>
+    );
+  }
+
   if (stacked) {
-    const valueNode =
-      typeof value === "string" ? (
-        <Text weight="regular" color="text-high" size={size}>
-          {value}
-        </Text>
-      ) : (
-        value
-      );
     return (
       <Flex
         direction="column"

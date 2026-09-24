@@ -281,7 +281,7 @@ export default function ProjectTagBar({
     return (projects.length > 0 || projectIsDeReferenced) && !holdout ? (
       <Metadata
         size="sm"
-        stacked={vertical}
+        row={vertical}
         label="Project"
         actionPlacement="value"
         action={fieldAction?.("project")}
@@ -290,7 +290,7 @@ export default function ProjectTagBar({
     ) : holdout ? (
       <Metadata
         size="sm"
-        stacked={vertical}
+        row={vertical}
         label="Projects"
         value={renderHoldoutProjectMetaDataValue()}
       />
@@ -333,7 +333,7 @@ export default function ProjectTagBar({
         {experiment.type !== "holdout" && (
           <Metadata
             size="sm"
-            stacked={vertical}
+            row={vertical}
             label="Implementation"
             value={
               implementationType ? (
@@ -354,7 +354,7 @@ export default function ProjectTagBar({
         {experiment.type !== "holdout" && (
           <Metadata
             size="sm"
-            stacked={vertical}
+            row={vertical}
             label="Experiment Key"
             actionPlacement="value"
             action={fieldAction?.("trackingKey")}
@@ -375,7 +375,7 @@ export default function ProjectTagBar({
         {experiment.holdoutId && (
           <Metadata
             size="sm"
-            stacked={vertical}
+            row={vertical}
             label="Holdout"
             value={
               <Link href={`/holdout/${experiment.holdoutId}`}>
@@ -386,7 +386,7 @@ export default function ProjectTagBar({
         )}
         <Metadata
           size="sm"
-          stacked={vertical}
+          row={vertical}
           label="Owner"
           actionPlacement="value"
           action={fieldAction?.("owner")}
@@ -394,14 +394,14 @@ export default function ProjectTagBar({
         />
         <Metadata
           size="sm"
-          stacked={vertical}
+          row={vertical}
           label="Created"
           value={createdDate}
         />
         {showRuntime && (
           <Metadata
             size="sm"
-            stacked={vertical}
+            row={vertical}
             label={
               hasMultiplePhases && experiment.type !== "holdout"
                 ? "Latest Phase"
@@ -419,7 +419,7 @@ export default function ProjectTagBar({
         {vertical && (
           <Metadata
             size="sm"
-            stacked={vertical}
+            row={vertical}
             label="Tags"
             actionPlacement="value"
             action={fieldAction?.("tags")}
@@ -432,7 +432,7 @@ export default function ProjectTagBar({
           <div className="col-auto">
             <Metadata
               size="sm"
-              stacked={vertical}
+              row={vertical}
               label="Tags"
               value={renderTagsValue()}
             />
