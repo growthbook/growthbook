@@ -20,12 +20,6 @@ const CORRECTION_LABELS: Record<Exclude<PValueCorrection, null>, string> = {
 
 type Row = [label: string, value: ReactNode];
 
-const empty = (text = "None") => (
-  <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
-    {text}
-  </Text>
-);
-
 const onOff = (on: boolean) => (on ? "On" : "Off");
 
 function Rows({ rows }: { rows: Row[] }) {
@@ -87,12 +81,13 @@ export default function AnalysisSummary({
     main.push(["P-value threshold", String(settings.pValueThreshold.value)]);
   }
 
+  // Advanced lists only what is actually set: an unused setting is noise here.
   const advanced: Row[] = [];
-  if (frequentist) {
-    const correction = settings.pValueCorrection.value;
+  const correction = settings.pValueCorrection.value;
+  if (frequentist && correction) {
     advanced.push([
       "Multiple testing correction",
-      correction ? CORRECTION_LABELS[correction] : empty(),
+      CORRECTION_LABELS[correction],
     ]);
   }
   if (sequentialOn) {
@@ -127,42 +122,48 @@ export default function AnalysisSummary({
     ],
   ]);
   const overrides = experiment.metricOverrides?.length ?? 0;
-  advanced.push([
-    "Metric overrides",
-    overrides
-      ? `${overrides} metric${overrides === 1 ? "" : "s"} overridden`
-      : empty(),
-  ]);
-  advanced.push([
-    "Custom SQL filter",
-    experiment.queryFilter ? (
-      <Text size="sm" color="text-high" mono overflowWrap="anywhere">
+  if (overrides) {
+    advanced.push([
+      "Metric overrides",
+      `${overrides} metric${overrides === 1 ? "" : "s"} overridden`,
+    ]);
+  }
+  if (experiment.queryFilter) {
+    advanced.push([
+      "Custom SQL filter",
+      <Text
+        key="filter"
+        size="sm"
+        color="text-high"
+        mono
+        overflowWrap="anywhere"
+      >
         {experiment.queryFilter}
-      </Text>
-    ) : (
-      empty()
-    ),
-  ]);
+      </Text>,
+    ]);
+  }
 
   return (
     <Flex direction="column" gap="4">
       <Rows rows={main} />
-      <Collapsible
-        trigger={
-          <Text size="sm" weight="medium" color="text-mid">
-            <PiCaretRight className="chevron" style={{ marginRight: 4 }} />
-            Advanced
-          </Text>
-        }
-        open={advancedOpen}
-        onTriggerOpening={() => setAdvancedOpen(true)}
-        onTriggerClosing={() => setAdvancedOpen(false)}
-        transitionTime={100}
-      >
-        <Box pt="4">
-          <Rows rows={advanced} />
-        </Box>
-      </Collapsible>
+      {advanced.length ? (
+        <Collapsible
+          trigger={
+            <Text size="sm" weight="medium" color="text-mid">
+              <PiCaretRight className="chevron" style={{ marginRight: 4 }} />
+              Advanced
+            </Text>
+          }
+          open={advancedOpen}
+          onTriggerOpening={() => setAdvancedOpen(true)}
+          onTriggerClosing={() => setAdvancedOpen(false)}
+          transitionTime={100}
+        >
+          <Box pt="4">
+            <Rows rows={advanced} />
+          </Box>
+        </Collapsible>
+      ) : null}
     </Flex>
   );
 }
