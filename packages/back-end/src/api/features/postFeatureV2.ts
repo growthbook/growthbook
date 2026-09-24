@@ -257,7 +257,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
     const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
       req.context,
-      { features: [feature], experiments: [...experimentMap.values()] },
+      { features: [feature], experiments: experimentMap.values() },
     );
     const revision = await getRevision({
       context: req.context,

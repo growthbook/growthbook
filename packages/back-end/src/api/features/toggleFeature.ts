@@ -102,7 +102,7 @@ export async function toggleFeatureCore(
       revision,
       ...(await getFeatureDefinitionLookups(context, {
         features: [feature],
-        experiments: [...experimentMap.values()],
+        experiments: experimentMap.values(),
       })),
       bypassedGates: [],
     };
@@ -254,7 +254,7 @@ export async function toggleFeatureCore(
     revision: latestRevision,
     ...(await getFeatureDefinitionLookups(context, {
       features: [updatedFeature],
-      experiments: [...updatedExperimentMap.values()],
+      experiments: updatedExperimentMap.values(),
     })),
     bypassedGates,
   };

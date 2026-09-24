@@ -14,8 +14,7 @@ export function readSavedGroupReferenceId(value: unknown): string | null {
 
 /**
  * Calls `fn` with every group id a parsed condition references, in any of the
- * operator forms and however deeply nested (including inside an object-valued
- * `$inGroup`, which `$savedGroups` expansion also reaches). Ids may repeat.
+ * operator forms and at any depth. Ids may repeat.
  */
 export function forEachSavedGroupIdInCondition(
   condition: unknown,

@@ -12,7 +12,7 @@ export type FeatureDefinitionSources = {
   // Revisions whose rules are compiled alongside the feature (`withRevisions`).
   revisions?: Pick<FeatureRevisionInterface, "rules">[];
   // `experiment-ref` rules take their targeting from the experiment's phase.
-  experiments?: Pick<ExperimentInterface, "phases">[];
+  experiments?: Iterable<Pick<ExperimentInterface, "phases">>;
 };
 
 // A rule's `savedGroups` entry spends one level before nested expansion starts
@@ -64,10 +64,8 @@ function addTargetingIds(
   }
 }
 
-// Every Saved Group id that building these features' definitions can look up
-// directly. Deliberately a superset (disabled rules, all phases, all listed
-// revisions, `$inGroup` targets): an extra id costs one row, a missing one
-// silently drops targeting from the definition.
+// Every Saved Group id these features' definitions can look up directly. A
+// superset on purpose: a missing id silently drops targeting.
 export function getSavedGroupIdsForFeatureDefinitions(
   sources: FeatureDefinitionSources,
 ): string[] {

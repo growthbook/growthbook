@@ -420,7 +420,7 @@ export async function revertFeatureCore(
     revision: latestRevision,
     ...(await getFeatureDefinitionLookups(context, {
       features: [updatedFeature],
-      experiments: [...experimentMap.values()],
+      experiments: experimentMap.values(),
     })),
     bypassedGates,
   };

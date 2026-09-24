@@ -616,7 +616,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   });
   const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
     req.context,
-    { features: [updatedFeature], experiments: [...experimentMap.values()] },
+    { features: [updatedFeature], experiments: experimentMap.values() },
   );
   return {
     feature: await resolveOwnerEmail(

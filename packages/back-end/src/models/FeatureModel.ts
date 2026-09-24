@@ -1116,7 +1116,7 @@ export const createFeatureEvent = async <
         )
           ? [eventData.data.object, eventData.data.previous_object]
           : [eventData.data.object],
-        experiments: [...experimentMap.values()],
+        experiments: experimentMap.values(),
       },
     );
 

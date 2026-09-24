@@ -53,7 +53,7 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
     {
       features: [feature],
       revisions,
-      experiments: [...experimentMap.values()],
+      experiments: experimentMap.values(),
     },
   );
   return {

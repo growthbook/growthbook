@@ -62,7 +62,7 @@ async function loadFeatureForApiV2(
   const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
     context,
     // v2 returns revisions as stored and compiles no definitions for them.
-    { features: [feature], experiments: [...experimentMap.values()] },
+    { features: [feature], experiments: experimentMap.values() },
   );
 
   return {
