@@ -231,6 +231,8 @@ function signalSummaryPart(
       return details["below-min-sample"] ?? "building minimum sample size";
     case "awaiting-data":
       return "monitoring recently started";
+    case "healthy":
+      return "all signals healthy";
     default:
       return signal;
   }
@@ -489,6 +491,8 @@ function signalToBadge(
           radius="full"
         />
       );
+    case "awaiting-data":
+    case "healthy":
     default:
       return null;
   }
