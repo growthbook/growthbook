@@ -1121,7 +1121,10 @@ export abstract class QueryRunner<
       }
     };
 
-    run(doc.query, setExternalId, { queryType: doc.queryType || "unknown" })
+    run(doc.query, setExternalId, {
+      queryType: doc.queryType || "unknown",
+      queryId: doc.id,
+    })
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
