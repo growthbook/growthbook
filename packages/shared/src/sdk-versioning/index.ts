@@ -36,6 +36,12 @@ type SDKData = {
 type SDKVersionData = {
   version: string;
   capabilities?: string[];
+  /**
+   * Not published yet. Left out of the version list, "latest" and the
+   * "requires vX" prompts, but a connection set to this version by hand still
+   * gets its capabilities, so the payload can be tested before the release.
+   */
+  prerelease?: boolean;
 };
 
 export const sdks: SDKRecords = {
@@ -104,19 +110,19 @@ const getSdkData = (language: SDKLanguage = "other"): SDKData => {
   return sdkData;
 };
 
+const getPublishedVersions = (
+  language: SDKLanguage = "other",
+): SDKVersionData[] =>
+  (getSdkData(language)?.versions || []).filter((v) => !v.prerelease);
+
 export const getSDKVersions = (language: SDKLanguage = "other"): string[] => {
-  const sdkData = getSdkData(language);
-  const versions = sdkData?.versions || [];
-  return versions.map((v) => v.version);
+  return getPublishedVersions(language).map((v) => v.version);
 };
 
 export const getLatestSDKVersion = (
   language: SDKLanguage = "other",
 ): string => {
-  const sdkData = getSdkData(language);
-  const versions = sdkData?.versions || [];
-  const current = versions?.[0];
-  return current?.version || "0.0.0";
+  return getPublishedVersions(language)[0]?.version || "0.0.0";
 };
 
 export const getDefaultSDKVersion = (
@@ -143,6 +149,7 @@ export const getSDKCapabilities = (
 
   version = version || getDefaultSDKVersion(language);
   const sdkData = getSdkData(language);
+  // Includes prerelease versions, so a version typed in by hand gets them
   const versions = sdkData?.versions || [];
   const matches = versions.filter(
     (data) => paddedVersionString(data.version) <= paddedVersionString(version),
@@ -236,8 +243,7 @@ export const getSDKCapabilityVersion = (
   language: SDKLanguage = "other",
   capability: SDKCapability,
 ): string | null => {
-  const sdkData = getSdkData(language);
-  const versions = sdkData?.versions || [];
+  const versions = getPublishedVersions(language);
   for (let i = versions.length - 1; i >= 0; i--) {
     const data = versions[i];
     if (data.capabilities?.includes(capability)) {
