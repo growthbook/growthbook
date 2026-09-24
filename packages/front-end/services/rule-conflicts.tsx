@@ -848,6 +848,12 @@ function rangeHardConflicts<T extends number | string>(
   };
 }
 
+// An insensitive `in` escapes a case-sensitive `notIn` via other casings.
+function notInExcludesAll(n: NotInAtom, i: InAtom): boolean {
+  if (i.insensitive && !n.insensitive) return false;
+  return [...i.values].every((v) => setHasValue(n, v));
+}
+
 // Can we *prove* two atoms target disjoint populations? Used for soft overlap:
 // when we can't prove they're disjoint, a rule above might consume some of this
 // rule's users. Unhandled combinations conservatively return false (might overlap).
@@ -855,12 +861,8 @@ function provablyDisjoint(a: Atom, b: Atom): boolean {
   if (a.op === "in" && b.op === "in") {
     return !inSetsOverlap(a, b);
   }
-  if (a.op === "in" && b.op === "notIn") {
-    return [...a.values].every((v) => setHasValue(b, v));
-  }
-  if (a.op === "notIn" && b.op === "in") {
-    return [...b.values].every((v) => setHasValue(a, v));
-  }
+  if (a.op === "in" && b.op === "notIn") return notInExcludesAll(b, a);
+  if (a.op === "notIn" && b.op === "in") return notInExcludesAll(a, b);
   if (a.op === "in") return ![...a.values].some((v) => atomMatchesValue(b, v));
   if (b.op === "in") return ![...b.values].some((v) => atomMatchesValue(a, v));
   if (a.op === "num" && b.op === "num") {

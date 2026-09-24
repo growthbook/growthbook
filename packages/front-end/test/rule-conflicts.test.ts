@@ -596,6 +596,19 @@ describe("getRuleReachability — soft conflicts (attribute overlap)", () => {
     });
   });
 
+  it("does not treat an `$ini` below a case-sensitive `$ne` as disjoint", () => {
+    // `browser = SAFARI` matches both rules.
+    const now = { $gt: "2026-01-01T00:00:00Z" };
+    const result = analyze([
+      force("r1", { condition: cond({ browser: { $ne: "safari" }, now }) }),
+      force("r2", { condition: cond({ browser: { $ini: ["safari"] }, now }) }),
+    ]);
+    expect(result.get("r2")?.softConflicts).toEqual([
+      { attr: "browser", consumingRuleIds: ["r1"] },
+      { attr: "now", consumingRuleIds: ["r1"] },
+    ]);
+  });
+
   it("still warns on an opaque shared attribute when the other attribute overlaps", () => {
     const now = { $gt: "2026-01-01T00:00:00Z" };
     const result = analyze([
