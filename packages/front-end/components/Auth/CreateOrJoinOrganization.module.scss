@@ -22,9 +22,7 @@
       font-size: var(--font-size-3);
       font-weight: 600;
       line-height: 1.3;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      overflow-wrap: break-word;
     }
     .recommendedOrgMembers {
       font-size: var(--font-size-2);
