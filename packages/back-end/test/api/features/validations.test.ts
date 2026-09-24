@@ -544,10 +544,26 @@ describe("validateRampPlanPatches", () => {
       { prerequisites: [{ id: "parent_flag", condition: "{" }] },
       /prerequisite/i,
     ],
+    [
+      "a null environments list",
+      { environments: null },
+      /environments cannot be null/,
+    ],
+    [
+      "a null environments list beside an explicit non-wildcard",
+      { allEnvironments: false, environments: null },
+      /environments cannot be null/,
+    ],
   ])("rejects %s", async (_label, patch, message) => {
     const result = run([patch]);
     await expect(result).rejects.toThrow(BadRequestError);
     await expect(result).rejects.toThrow(message);
+  });
+
+  it("accepts the anchor spelling of a rule with no list on a first write", async () => {
+    await expect(
+      run([{ allEnvironments: true, environments: null }]),
+    ).resolves.toBeUndefined();
   });
 
   it("ignores the environments list on a patch scoped to all environments", async () => {
@@ -640,12 +656,6 @@ describe("validateRampPlanPatches", () => {
       // (ruleAppliesToEnv), on the target rule and on the patch alike.
       await expect(
         run([prereqOnParent], feature, { allEnvironments: false }),
-      ).rejects.toThrow(/circular dependency/);
-      await expect(
-        run([{ ...prereqOnParent, environments: null }], feature, {
-          allEnvironments: false,
-          environments: ["qa"],
-        }),
       ).rejects.toThrow(/circular dependency/);
     });
   });

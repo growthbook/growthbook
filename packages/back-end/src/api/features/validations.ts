@@ -487,6 +487,19 @@ export async function validateRampPlanPatches(
   );
 
   try {
+    // Null is neither a list nor a wildcard, except beside `allEnvironments:
+    // true`, which is how anchors spell a rule with no list (and how a GET
+    // response replays them). An echo of a stored anchor is not a change.
+    if (
+      withChanges.some(
+        ({ changed }) =>
+          changed.environments === null && changed.allEnvironments !== true,
+      )
+    ) {
+      throw new BadRequestError(
+        "environments cannot be null; omit it to keep the rule's environments, or set allEnvironments",
+      );
+    }
     assertRampCoverageHashProvided(entries);
     // A hash attribute the anchor names gets the rule write's registration
     // check: a typo would bucket nobody once the rule is a rollout.
