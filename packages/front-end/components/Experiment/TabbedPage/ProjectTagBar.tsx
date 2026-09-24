@@ -15,6 +15,7 @@ import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { getHealthStateFromDetailedStatus } from "@/services/experiments";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -66,6 +67,7 @@ export default function ProjectTagBar({
   });
 
   const statusIndicator = useExperimentStatusIndicator()(experiment);
+  const { useStickyBucketing } = useOrgSettings();
   // A data problem shows as a health badge below, so the status leaves it out.
   const statusDetail = getHealthStateFromDetailedStatus(
     statusIndicator.detailedStatus,
@@ -93,6 +95,14 @@ export default function ProjectTagBar({
             }
           />
         )}
+        {!isHoldout && useStickyBucketing ? (
+          <Metadata
+            size="sm"
+            stacked
+            label="Sticky bucketing"
+            value={experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
+          />
+        ) : null}
         {!isHoldout && (
           <Metadata
             size="sm"

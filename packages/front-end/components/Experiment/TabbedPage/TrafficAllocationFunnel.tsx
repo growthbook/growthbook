@@ -63,7 +63,6 @@ import { useTargetingDefaults } from "@/components/Experiment/useExperimentTarge
 import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
 import { attributeOptionLabelFormatter } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
-import Switch from "@/ui/Switch";
 import {
   EDITS_BLOCKED_REASON,
   useRegisterExperimentEdit,
@@ -278,10 +277,6 @@ export default function TrafficAllocationFunnel({
     staged?.hashAttribute ?? experiment.hashAttribute ?? "id";
   const fallbackAttribute =
     staged?.fallbackAttribute ?? experiment.fallbackAttribute ?? "";
-  const disableStickyBucketing =
-    staged?.disableStickyBucketing ??
-    experiment.disableStickyBucketing ??
-    false;
 
   const [editingSplit, setEditingSplit] = useState<number | null>(null);
 
@@ -585,7 +580,6 @@ export default function TrafficAllocationFunnel({
               experiment={experiment}
               hashAttribute={hashAttribute}
               fallbackAttribute={fallbackAttribute}
-              disableStickyBucketing={disableStickyBucketing}
               editInline={editInline}
               stagePatch={stagePatch}
             />
@@ -800,19 +794,15 @@ function AssignmentAttribute({
   experiment,
   hashAttribute,
   fallbackAttribute,
-  disableStickyBucketing,
   editInline,
   stagePatch,
 }: {
   experiment: ExperimentInterfaceStringDates;
   hashAttribute: string;
   fallbackAttribute: string;
-  disableStickyBucketing: boolean;
   editInline: boolean;
   stagePatch: (patch: Partial<ExperimentTargetingData>) => void;
 }) {
-  const isHoldout = experiment.type === "holdout";
-  const { useStickyBucketing } = useOrgSettings();
   // The picker is too narrow for a popover above it.
   const formatAttributeOption = useMemo(
     () => attributeOptionLabelFormatter("right"),
@@ -826,53 +816,32 @@ function AssignmentAttribute({
   );
 
   return (
-    <>
-      <SetupFieldRow
-        label={`Assignment attribute${fallbackAttribute ? "s" : ""}`}
-        content={editInline ? "control" : "text"}
-        labelAlign="center"
-        fieldMaxWidth="100px"
-        tooltip="Hashed with the tracking key to decide which variation each user gets."
-      >
-        {editInline ? (
-          <SelectField
-            size="md"
-            value={hashAttribute}
-            options={attributeOptions}
-            sort={false}
-            formatOptionLabel={formatAttributeOption}
-            onChange={(v) => stagePatch({ hashAttribute: v })}
-          />
-        ) : (
-          <Box>
-            <AttributeBadge attributeId={hashAttribute} />
-            {fallbackAttribute ? (
-              <>
-                , <AttributeBadge attributeId={fallbackAttribute} />
-              </>
-            ) : null}
-          </Box>
-        )}
-      </SetupFieldRow>
-      {!isHoldout && useStickyBucketing ? (
-        <SetupFieldRow
-          label="Sticky bucketing"
-          content="text"
-          tooltip="Keeps users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
-        >
-          {editInline ? (
-            <Switch
-              value={!disableStickyBucketing}
-              onChange={(on) => stagePatch({ disableStickyBucketing: !on })}
-              label={disableStickyBucketing ? "Disabled" : "Enabled"}
-            />
-          ) : (
-            <Text color="text-mid">
-              {disableStickyBucketing ? "Disabled" : "Enabled"}
-            </Text>
-          )}
-        </SetupFieldRow>
-      ) : null}
-    </>
+    <SetupFieldRow
+      label={`Assignment attribute${fallbackAttribute ? "s" : ""}`}
+      content={editInline ? "control" : "text"}
+      labelAlign="center"
+      fieldMaxWidth="100px"
+      tooltip="Hashed with the tracking key to decide which variation each user gets."
+    >
+      {editInline ? (
+        <SelectField
+          size="md"
+          value={hashAttribute}
+          options={attributeOptions}
+          sort={false}
+          formatOptionLabel={formatAttributeOption}
+          onChange={(v) => stagePatch({ hashAttribute: v })}
+        />
+      ) : (
+        <Box>
+          <AttributeBadge attributeId={hashAttribute} />
+          {fallbackAttribute ? (
+            <>
+              , <AttributeBadge attributeId={fallbackAttribute} />
+            </>
+          ) : null}
+        </Box>
+      )}
+    </SetupFieldRow>
   );
 }
