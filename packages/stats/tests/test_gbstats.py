@@ -486,6 +486,19 @@ class TestCreateBanditStatisticsBinomial(TestCase):
             iid_variance = ProportionStatistic(n=row.users, sum=row.main_sum).variance
             self.assertGreater(stat.variance, iid_variance)
 
+    def test_keeps_folded_sum_squares_below_the_sum(self):
+        # Two equally weighted periods at 10% and 90% conversion: the period
+        # weighting removes the between-period spread, so the folded
+        # main_sum_squares (102.09) is below the sum (150) and must be kept.
+        rows = self.ROWS.copy()
+        rows.loc[0, ["main_sum", "main_sum_squares"]] = [150.0, 102.09]
+        stat = self._stats(rows)[0]
+        self.assertEqual(stat.sum_squares, 102.09)
+        self.assertLess(
+            stat.variance,
+            SampleMeanStatistic(n=300, sum=150.0, sum_squares=150.0).variance,
+        )
+
     def test_falls_back_to_binomial_variance_without_sum_squares(self):
         rows = self.ROWS.drop(columns=["main_sum_squares"])
         stats = self._stats(rows)

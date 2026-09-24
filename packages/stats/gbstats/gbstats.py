@@ -1233,9 +1233,11 @@ def create_bandit_statistics(
         # report the iid variance and understate the noise of the weighted mean.
         if isinstance(stat, ProportionStatistic):
             sum_squares = metric_data.get(f"{prefix}_main_sum_squares")
-            # Missing columns are filled with 0 upstream; a binomial sum of
-            # squares can never be below the sum, so fall back in that case.
-            if sum_squares is None or pd.isna(sum_squares) or sum_squares < stat.sum:
+            # Missing columns are filled with 0 upstream. The folded value is
+            # strictly positive whenever the sum is, so 0 means it is absent.
+            # It can legitimately be below the sum when periods differ, so
+            # don't bound it by the sum.
+            if sum_squares is None or pd.isna(sum_squares) or sum_squares <= 0:
                 sum_squares = stat.sum
             stat = SampleMeanStatistic(
                 n=stat.n,
