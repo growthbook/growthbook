@@ -117,6 +117,7 @@ src/
     provider.ts
     legacy-loader.ts
     legacy-provider.ts
+    feature-refresh.ts
     growthbook-provider.ts
     decision-telemetry.ts
     migrating-provider.ts
@@ -544,9 +545,37 @@ export const CODE_FALLBACKS = {
 export const FEATURE_KEYS = Object.freeze(
   Object.keys(CODE_FALLBACKS) as FeatureKey[],
 );
+
+const FEATURE_VALIDATORS: {
+  [K in FeatureKey]: (value: unknown) => value is AppFeatures[K];
+} = {
+  "checkout-v2": (value): value is boolean => typeof value === "boolean",
+  "invoice-preview": (value): value is boolean => typeof value === "boolean",
+  "search-page-size": (value): value is number =>
+    value === 25 || value === 50 || value === 100,
+  "recommendation-config": (value): value is RecommendationConfig => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const config = value as Record<string, unknown>;
+    return (
+      (config.algorithm === "baseline" || config.algorithm === "hybrid-v2") &&
+      typeof config.maxItems === "number" &&
+      Number.isSafeInteger(config.maxItems) &&
+      config.maxItems > 0
+    );
+  },
+};
+
+export function isFeatureValue<K extends FeatureKey>(
+  key: K,
+  value: unknown,
+): value is AppFeatures[K] {
+  return FEATURE_VALIDATORS[key](value);
+}
 ```
 
 Every key has a compile-time fallback. For release flags, default to the known production path. For an operational flag, ask what state is safest during a control-plane and cache failure. “Off” is not universally safe: a flag named `disable-payments` has inverted semantics. Prefer positive names such as `payments-enabled` and document the fallback.
+
+Remote payloads also need runtime validation. These validators preserve the legacy page-size choices and recommendation schema below; adapt them to your accepted semantic contract. Never coerce the string `"false"` into a Boolean or use a TypeScript cast as validation. Keep the validators when generating SDK types with the CLI.
 
 During initial migration, maintain this interface manually. After all intended keys exist in GrowthBook, replace it with CLI-generated `AppFeatures` types and retain `CODE_FALLBACKS` as a checked application policy.
 
@@ -872,6 +901,34 @@ Case matters. If the legacy system stores `country="us"` and GrowthBook targets 
 
 ## Implement the GrowthBook provider
 
+Create `src/feature-flags/feature-refresh.ts`. SDK `1.7.0` does not have the newer `init({ pollingInterval })` option, so this example uses its supported `refreshFeatures` method. Start one timer per long-lived client, not per request.
+
+```ts title="src/feature-flags/feature-refresh.ts"
+import type { GrowthBookClient } from "@growthbook/growthbook";
+
+export function startFeaturePolling(
+  client: Pick<GrowthBookClient, "refreshFeatures">,
+): () => void {
+  let refreshing = false;
+  const timer = setInterval(() => {
+    if (refreshing) return;
+    refreshing = true;
+    void client
+      .refreshFeatures({ skipCache: true, timeout: 2_000 })
+      .catch(() => {
+        console.error("Unexpected GrowthBook refresh error");
+      })
+      .finally(() => {
+        refreshing = false;
+      });
+  }, 60_000);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+```
+
+The timer bypasses the cache, skips overlapping refresh calls, and does not keep Node running by itself. Call its stop function before destroying the client. In this SDK version, `refreshFeatures()` resolves without a success receipt on ordinary network failures and retains the last payload; promise resolution is not proof of freshness. Monitor delivery and use a staging publish-to-evaluation check to prove propagation. Expect up to the polling interval plus delivery time while the endpoint is healthy, not an instantaneous kill switch. Define an operational staleness limit and escalation policy before production cutover.
+
 Create `src/feature-flags/growthbook-provider.ts`:
 
 ```ts
@@ -879,7 +936,8 @@ import {
   GrowthBookClient,
   type FeatureApiResponse,
 } from "@growthbook/growthbook";
-import type { AppFeatures, FeatureKey } from "./app-features.js";
+import { isFeatureValue, type AppFeatures, type FeatureKey } from "./app-features.js";
+import { startFeaturePolling } from "./feature-refresh.js";
 import { toGrowthBookAttributes, type FlagContext } from "./context.js";
 import type {
   FeatureProvider,
@@ -900,7 +958,10 @@ export interface GrowthBookStartupReceipt {
 }
 
 export class GrowthBookFlagProvider implements FeatureProvider {
-  private constructor(private readonly client: GrowthBookClient<AppFeatures>) {}
+  private constructor(
+    private readonly client: GrowthBookClient<AppFeatures>,
+    private readonly stopPolling: () => void = () => {},
+  ) {}
 
   public static async connect(options: GrowthBookConnectOptions): Promise<{
     provider: GrowthBookFlagProvider;
@@ -923,7 +984,7 @@ export class GrowthBookFlagProvider implements FeatureProvider {
     };
 
     return {
-      provider: new GrowthBookFlagProvider(client),
+      provider: new GrowthBookFlagProvider(client, startFeaturePolling(client)),
       receipt,
     };
   }
@@ -946,13 +1007,13 @@ export class GrowthBookFlagProvider implements FeatureProvider {
         fallback: AppFeatures[K],
       ): ProviderDecision<K> => {
         const result = scoped.evalFeature(key);
-        const usable = result.value !== null;
+        const usable = isFeatureValue(key, result.value);
 
         return {
           key,
           value: usable ? (result.value as AppFeatures[K]) : fallback,
           evaluatedBy: "growthbook",
-          reason: result.source,
+          reason: usable || result.value === null ? result.source : "invalid-value",
           ...(result.ruleId ? { ruleId: result.ruleId } : {}),
           usable,
           usedCodeFallback: !usable,
@@ -962,16 +1023,17 @@ export class GrowthBookFlagProvider implements FeatureProvider {
   }
 
   public close(): void {
+    this.stopPolling();
     this.client.destroy({ destroyAllStreams: true });
   }
 }
 ```
 
-The SDK's `init` method reports failures in its return value instead of throwing for normal network and timeout failures. Until a usable payload loads, feature evaluation returns `null`; this adapter converts that state to the explicit call-site fallback and marks it unusable.
+The SDK's `init` method reports failures in its return value instead of throwing for normal network and timeout failures. Until a usable payload loads, feature evaluation returns `null`; this adapter converts that state to the explicit call-site fallback and marks it unusable. A non-null value that fails its runtime contract is also unusable, with `reason: "invalid-value"`. In `growthbook-preferred` mode that allows the legacy fallback; in `growthbook-only` mode it uses the code fallback.
 
 `fromPayload` is for deterministic tests. It uses the same payload shape as the SDK connection endpoint without making a network request.
 
-For a long-running Node process, decide how feature definitions refresh. The [Node.js SDK documentation](/lib/node#refreshing-features) covers streaming and polling. If you use polling, do not create one timer per request. If you use streaming, configure the required `EventSource` support before constructing the client. Keep the initial migration on the simplest refresh mechanism already supported by your runtime, then test propagation separately.
+`connect` starts polling even if the first fetch fails, so later delivery can recover without restarting the service. `fromPayload` starts no timer. The [Node.js SDK documentation](/lib/node#refreshing-features) also covers streaming; if you need faster propagation, configure the required `EventSource` support and test it before replacing this polling implementation.
 
 ## Emit comparison evidence without leaking identities
 
@@ -1607,6 +1669,41 @@ describe("GrowthBookFlagProvider", () => {
     expect(
       provider.scope({ plan: "free" }).evaluate("checkout-v2", false).value,
     ).toBe(false);
+    provider.close();
+  });
+
+  test.each(["false", 0, {}, undefined])(
+    "rejects a non-Boolean payload value: %p",
+    (value) => {
+      const provider = GrowthBookFlagProvider.fromPayload({
+        features: { "checkout-v2": { defaultValue: value } },
+      });
+      expect(provider.scope({}).evaluate("checkout-v2", false)).toMatchObject({
+        value: false,
+        usable: false,
+        usedCodeFallback: true,
+      });
+      provider.close();
+    },
+  );
+
+  test("rejects invalid numeric and JSON values", () => {
+    const provider = GrowthBookFlagProvider.fromPayload({
+      features: {
+        "search-page-size": { defaultValue: "50" },
+        "recommendation-config": {
+          defaultValue: { algorithm: "hybrid-v2", maxItems: -1 },
+        },
+      },
+    });
+    expect(provider.scope({}).evaluate("search-page-size", 25)).toMatchObject({
+      value: 25, usable: false, reason: "invalid-value",
+    });
+    expect(
+      provider.scope({}).evaluate("recommendation-config", CODE_FALLBACKS["recommendation-config"]),
+    ).toMatchObject({
+      value: CODE_FALLBACKS["recommendation-config"], usable: false,
+    });
     provider.close();
   });
 });
