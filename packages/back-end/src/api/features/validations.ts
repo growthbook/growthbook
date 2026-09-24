@@ -851,7 +851,7 @@ export async function validatePrerequisiteReferences(
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   const savedGroupIds = new Set(
-    (await context.models.savedGroups.getAllWithoutValues()).map((sg) => sg.id),
+    (await getSavedGroupsForValidation(context)).keys(),
   );
   for (const prereq of prerequisites) {
     if (prereq.condition && prereq.condition !== "{}") {

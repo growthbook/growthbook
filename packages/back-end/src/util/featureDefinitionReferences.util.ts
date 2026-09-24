@@ -75,13 +75,13 @@ export function getSavedGroupIdsForFeatureDefinitions(
 
   for (const feature of sources.features) {
     for (const p of feature.prerequisites ?? []) {
-      addConditionIds(ids, p?.condition);
+      addConditionIds(ids, p.condition);
     }
   }
   for (const rule of rulesOf(sources)) {
     addTargetingIds(ids, rule);
-    for (const p of rule?.prerequisites ?? []) {
-      addConditionIds(ids, p?.condition);
+    for (const p of rule.prerequisites ?? []) {
+      addConditionIds(ids, p.condition);
     }
   }
   for (const experiment of sources.experiments ?? []) {
@@ -98,7 +98,7 @@ export function getSafeRolloutIdsForFeatureDefinitions(
 ): string[] {
   const ids = new Set<string>();
   for (const rule of rulesOf(sources)) {
-    if (rule?.type === "safe-rollout") addId(ids, rule.safeRolloutId);
+    if (rule.type === "safe-rollout") addId(ids, rule.safeRolloutId);
   }
   return [...ids];
 }

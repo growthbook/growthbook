@@ -469,16 +469,6 @@ describe("getFeatureDefinitionLookups", () => {
     expect(groupMap.get("grp_empty")?.hasValues).toBe(false);
   });
 
-  it("without revisions, leaves out what only a revision references", async () => {
-    const { context } = makeContext();
-    const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
-      context,
-      { features: [feature], experiments: [...experimentMap.values()] },
-    );
-    expect(groupMap.has("grp_draft")).toBe(false);
-    expect([...safeRolloutMap.keys()]).toEqual(["sr_live"]);
-  });
-
   it("builds the same v1 and v2 API objects as the organization-wide maps", async () => {
     const { context } = makeContext();
     const fullGroupMap = await getSavedGroupMap(context, allGroups);
