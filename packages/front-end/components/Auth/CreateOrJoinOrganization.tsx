@@ -53,6 +53,7 @@ const CreateOrJoinOrganization: FC<{
   const [error, setError] = useState(null);
   const [mode, setMode] = useState<"create" | "join">("create");
   function switchMode() {
+    setError(null);
     setMode(mode === "create" ? "join" : "create");
   }
 
@@ -207,10 +208,9 @@ const CreateOrJoinOrganization: FC<{
                       <Flex flexShrink="0">
                         <Button
                           size="md"
+                          loading={loading}
                           disabled={org.currentUserIsPending || false}
-                          onClick={() => {
-                            joinOrgFormSubmit(org);
-                          }}
+                          onClick={() => joinOrgFormSubmit(org)}
                         >
                           {org.currentUserIsPending ? "Pending" : "Join"}
                         </Button>
@@ -227,6 +227,11 @@ const CreateOrJoinOrganization: FC<{
                     )}
                   </div>
                 ))}
+                {error && (
+                  <Callout status="error" mt="2">
+                    {error}
+                  </Callout>
+                )}
                 {showCreate && (
                   <Button
                     variant="soft"
