@@ -103,6 +103,7 @@ export function ruleFootprint(
 ): string[] {
   if (rule.allEnvironments) return applicableEnvs;
   if (rule.environments === undefined) return applicableEnvs;
+  if (!Array.isArray(rule.environments)) return [];
   const applicableSet = new Set(applicableEnvs);
   return rule.environments.filter((e) => applicableSet.has(e));
 }

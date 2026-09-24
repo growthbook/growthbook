@@ -416,7 +416,7 @@ describe("applyPatchToRule", () => {
     expect(result.environments).toBeUndefined();
   });
 
-  it("a null environments patch leaves the rule's scope and writes no key", () => {
+  it("a null environments patch leaves the rule's scope alone", () => {
     const scoped: FeatureRule = {
       ...base,
       allEnvironments: false,
@@ -424,7 +424,23 @@ describe("applyPatchToRule", () => {
     };
     const result = applyPatchToRule(scoped, { environments: null });
     expect(result.allEnvironments).toBe(false);
-    expect("environments" in result).toBe(false);
+    expect(result.environments).toEqual(["dev"]);
+  });
+
+  it("an anchor taken from a rule with no list restores every environment", () => {
+    const everywhere = { ...base } as FeatureRule;
+    delete everywhere.environments;
+    delete everywhere.allEnvironments;
+    const anchor = getStartPatchForRule(everywhere);
+    expect(anchor.allEnvironments).toBe(true);
+    const narrowed: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["production"],
+    };
+    const restored = applyPatchToRule(narrowed, anchor);
+    expect(restored.allEnvironments).toBe(true);
+    expect("environments" in restored).toBe(false);
   });
 
   it("environments patch correctly resets allEnvironments to false", () => {

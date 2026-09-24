@@ -676,18 +676,17 @@ export function applyPatchToRule(
   // the same patch (e.g. from getStartPatchForRule on an allEnvironments rule),
   // the explicit `allEnvironments: true` always wins and is not silently reset
   // to false by the `environments` branch running afterwards.
-  // A list scopes the rule; null or undefined (an anchor taken from a rule with
-  // no list) leaves no key, since Mongo stores an undefined key as null.
+  // Only a list scopes the rule. A null or undefined list changes nothing:
+  // dropping the key would widen the rule to every environment, and an
+  // undefined key is stored by Mongo as null.
   if (Array.isArray(patch.environments)) {
     updated.allEnvironments = false;
     updated.environments = patch.environments;
-  } else if ("environments" in patch) {
-    delete updated.environments;
   }
   if ("allEnvironments" in patch) {
     updated.allEnvironments = patch.allEnvironments ?? false;
     if (patch.allEnvironments) {
-      updated.environments = undefined;
+      delete updated.environments;
     }
   }
   if ("force" in patch) {
@@ -752,7 +751,12 @@ export function getStartPatchForRule(
     condition: ruleState.condition ?? null,
     savedGroups: ruleState.savedGroups ?? null,
     prerequisites: ruleState.prerequisites ?? null,
-    allEnvironments: ruleState.allEnvironments ?? null,
+    // A rule with no list serves every environment; say so, since a null list
+    // in a patch no longer means anything.
+    allEnvironments:
+      ruleState.environments === undefined
+        ? true
+        : (ruleState.allEnvironments ?? null),
     environments: ruleState.environments ?? null,
     enabled: ruleState.enabled ?? null,
   };
