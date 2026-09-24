@@ -16,7 +16,6 @@ import {
 } from "@/services/metricOverrides";
 import {
   OptionTooltipDescription,
-  OptionTooltipRow,
   OptionTooltipSection,
   OptionTooltipShell,
 } from "@/components/Features/OptionTooltipShell";
@@ -34,9 +33,10 @@ export interface GroupMemberStatus {
 
 /**
  * A metric's overrides under a blue heading, the blue the chip is outlined in,
- * so the two read as the same signal. Nothing when it has none.
+ * so the two read as the same signal. Set in a step and lighter than the
+ * metric names, so those still lead down the card. Nothing when it has none;
+ * `spaced` where nothing else sets it apart from what's above.
  */
-/** A metric's overrides; `spaced` where nothing else sets it apart. */
 function OverridesBlock({
   rows,
   spaced = false,
@@ -46,16 +46,19 @@ function OverridesBlock({
 }) {
   if (!rows.length) return null;
   return (
-    <Box mt={spaced ? "2" : undefined}>
+    <Box mt={spaced ? "2" : undefined} pl="2">
       <Box style={{ color: METRIC_OVERRIDE_COLOR }}>
-        <Text size="sm" as="div" weight="semibold">
+        <Text size="sm" as="div" weight="medium">
           Overrides:
         </Text>
       </Box>
       {rows.map((row) => (
-        <OptionTooltipRow key={row.label} label={`${row.label}:`}>
+        <Text key={row.label} size="sm" as="div" color="text-high">
+          <Text size="sm" color="text-low">
+            {row.label}:
+          </Text>{" "}
           {row.value}
-        </OptionTooltipRow>
+        </Text>
       ))}
     </Box>
   );
