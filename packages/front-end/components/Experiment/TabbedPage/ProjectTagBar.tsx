@@ -31,6 +31,11 @@ export interface Props {
   editTags?: (() => void) | null;
   /** Stack the fields for the side panel instead of the header's wrapping row. */
   vertical?: boolean;
+  /**
+   * Just the fields that file the experiment (project and tags) or just the
+   * rest, for a side panel that shows them in separate places. Both otherwise.
+   */
+  fields?: "projectAndTags" | "details";
   /** The quick-edit button for one field's row, where that field is editable. */
   fieldAction?: (
     field: "project" | "trackingKey" | "owner" | "tags",
@@ -46,8 +51,11 @@ export default function ProjectTagBar({
   editTags,
   isManaged,
   vertical,
+  fields,
   fieldAction,
 }: Props) {
+  const showProjectAndTags = fields !== "details";
+  const showDetails = fields !== "projectAndTags";
   const {
     projects,
     project: currentProject,
@@ -330,8 +338,8 @@ export default function ProjectTagBar({
         mb={vertical ? "0" : "1"}
         wrap={vertical ? "nowrap" : "wrap"}
       >
-        {renderProject()}
-        {experiment.type !== "holdout" && (
+        {showProjectAndTags ? renderProject() : null}
+        {showDetails && experiment.type !== "holdout" && (
           <Metadata
             size="sm"
             row={vertical}
@@ -352,7 +360,7 @@ export default function ProjectTagBar({
             }
           />
         )}
-        {experiment.type !== "holdout" && (
+        {showDetails && experiment.type !== "holdout" && (
           <Metadata
             size="sm"
             row={vertical}
@@ -373,7 +381,7 @@ export default function ProjectTagBar({
             }
           />
         )}
-        {experiment.holdoutId && (
+        {showDetails && experiment.holdoutId && (
           <Metadata
             size="sm"
             row={vertical}
@@ -385,21 +393,25 @@ export default function ProjectTagBar({
             }
           />
         )}
-        <Metadata
-          size="sm"
-          row={vertical}
-          label="Owner"
-          actionPlacement="value"
-          action={fieldAction?.("owner")}
-          value={renderOwner()}
-        />
-        <Metadata
-          size="sm"
-          row={vertical}
-          label="Created"
-          value={createdDate}
-        />
-        {showRuntime && (
+        {showDetails ? (
+          <>
+            <Metadata
+              size="sm"
+              row={vertical}
+              label="Owner"
+              actionPlacement="value"
+              action={fieldAction?.("owner")}
+              value={renderOwner()}
+            />
+            <Metadata
+              size="sm"
+              row={vertical}
+              label="Created"
+              value={createdDate}
+            />
+          </>
+        ) : null}
+        {showDetails && showRuntime && (
           <Metadata
             size="sm"
             row={vertical}
@@ -417,7 +429,7 @@ export default function ProjectTagBar({
             }
           />
         )}
-        {vertical && (
+        {vertical && showProjectAndTags && (
           <Metadata
             size="sm"
             // Tags wrap, so they get the column's full width under the label.

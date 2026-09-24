@@ -149,6 +149,18 @@ export default function ExperimentDetailsPanel({
                   )}
                 />
               )}
+              <ProjectTagBar
+                fields="projectAndTags"
+                fieldAction={isHoldout ? undefined : fieldAction}
+                vertical
+                experiment={experiment}
+                holdout={holdout}
+                setShowEditInfoModal={setShowEditInfoModal}
+                setEditInfoFocusSelector={setFocusSelector}
+                editTags={editTags}
+                editsBlockedReason={editsBlocked}
+                isManaged={isManaged}
+              />
             </Flex>
             <Separator size="4" />
             <PanelSection
@@ -160,6 +172,7 @@ export default function ExperimentDetailsPanel({
               }
             >
               <ProjectTagBar
+                fields="details"
                 fieldAction={isHoldout ? undefined : fieldAction}
                 vertical
                 experiment={experiment}
