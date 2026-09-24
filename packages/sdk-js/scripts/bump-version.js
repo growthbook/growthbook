@@ -167,7 +167,7 @@ fs.writeFileSync(
 // Run prettier to format the JSON files properly
 exec(
   "pnpm prettier --write ../shared/src/sdk-versioning/sdk-versions/{javascript,nodejs,react}.json",
-  (err, stdout, stderr) => {
+  (err, stdout) => {
     console.log("Running prettier to format JSON files");
     if (err) {
       console.error(err);
@@ -178,7 +178,7 @@ exec(
 );
 
 // Generate a new SDK report
-exec("pnpm --filter shared generate-sdk-report", (err, stdout, stderr) => {
+exec("pnpm --filter shared generate-sdk-report", (err, stdout) => {
   console.log("Generating new SDK report");
   if (err) {
     console.error(err);
@@ -188,7 +188,7 @@ exec("pnpm --filter shared generate-sdk-report", (err, stdout, stderr) => {
 });
 
 // Update docs SDKInfo.ts
-exec("cd ../../docs && pnpm gen-sdk-resources", (err, stdout, stderr) => {
+exec("cd ../../docs && pnpm gen-sdk-resources", (err, stdout) => {
   console.log("Updating docs SDKInfo.ts");
   if (err) {
     console.error(err);
