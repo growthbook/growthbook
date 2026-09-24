@@ -96,6 +96,7 @@ describe("experiments API", () => {
         },
         savedGroups: {
           getAll: jest.fn().mockResolvedValue([]),
+          getAllWithoutValues: jest.fn().mockResolvedValue([]),
         },
         dataSources: {
           getById: jest.fn().mockResolvedValue({

@@ -133,6 +133,12 @@ import {
   getEnvsForRampTarget,
 } from "shared/util";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
+import {
+  FeatureDefinitionSources,
+  getSafeRolloutIdsForFeatureDefinitions,
+  getSavedGroupIdsForFeatureDefinitions,
+  loadSavedGroupsWithNested,
+} from "back-end/src/util/featureDefinitionReferences.util";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -707,6 +713,32 @@ export async function getSavedGroupMap(
   );
 
   return groupMap;
+}
+
+// The Saved Groups and Safe Rollouts that building these features' API
+// definitions can look up, instead of every one in the organization. Groups
+// come without their ID lists, which definitions outside of SDK payloads never
+// read.
+export async function getFeatureDefinitionLookups(
+  context: ReqContext | ApiReqContext,
+  sources: FeatureDefinitionSources,
+): Promise<{
+  groupMap: GroupMap;
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
+}> {
+  const [savedGroups, safeRollouts] = await Promise.all([
+    loadSavedGroupsWithNested(
+      getSavedGroupIdsForFeatureDefinitions(sources),
+      (ids) => context.models.savedGroups.getMetadata(ids),
+    ),
+    context.models.safeRollout.getByIds(
+      getSafeRolloutIdsForFeatureDefinitions(sources),
+    ),
+  ]);
+  return {
+    groupMap: new Map(savedGroups.map((group) => [group.id, group])),
+    safeRolloutMap: new Map(safeRollouts.map((r) => [r.id, r])),
+  };
 }
 
 /**
