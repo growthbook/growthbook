@@ -719,8 +719,10 @@ export async function validateRulesReferences(
 ): Promise<void> {
   if (!rules.length) return;
   const groupMap = await getSavedGroupMap(context);
+  const savedGroupIds = new Set(groupMap.keys());
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
+    assertPrerequisiteGroupIds(rule.prerequisites ?? [], savedGroupIds);
     validateRuleReferencesWithGroups(rule, groupMap);
   }
 }
@@ -729,9 +731,16 @@ export async function validateRulesReferences(
 // differ from the stored rule with the same id are checked, so resending a
 // stored rule unchanged never re-validates references the caller cannot read
 // (saved groups and features are read-filtered).
-export async function validateChangedRuleReferences(
-  inbound: FeatureRule[],
-  stored: FeatureRule[],
+type RuleReferenceFields = Pick<
+  FeatureRule,
+  "id" | "condition" | "savedGroups" | "prerequisites"
+> & { allEnvironments?: boolean; environments?: string[] };
+
+export async function validateChangedRuleReferences<
+  T extends RuleReferenceFields,
+>(
+  inbound: T[],
+  stored: T[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   await validateRulesReferences(
@@ -830,9 +839,16 @@ export async function validatePrerequisiteReferences(
   prerequisites: FeaturePrerequisite[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
-  const savedGroupIds = new Set(
-    (await context.models.savedGroups.getAll()).map((sg) => sg.id),
+  assertPrerequisiteGroupIds(
+    prerequisites,
+    new Set((await context.models.savedGroups.getAll()).map((sg) => sg.id)),
   );
+}
+
+function assertPrerequisiteGroupIds(
+  prerequisites: FeaturePrerequisite[],
+  savedGroupIds: Set<string>,
+): void {
   for (const prereq of prerequisites) {
     if (prereq.condition && prereq.condition !== "{}") {
       const inGroupError = findInvalidInGroupId(

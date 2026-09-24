@@ -36,6 +36,9 @@ import {
   updateVariationsContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
+import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   executeContextualBanditStart,
   executeContextualBanditStop,
@@ -347,6 +350,29 @@ export class ContextualBanditModel extends BaseClass {
         doc,
       );
     }
+
+    // Targeting reaches the SDK payload through the linked feature's rule, so it
+    // gets the rule write checks. Changed fields only, as on feature rules.
+    await validateChangedRuleReferences(
+      [doc],
+      previousDoc ? [previousDoc] : [],
+      this.context,
+    );
+    await assertValidExperimentPrerequisites(
+      this.context,
+      doc.prerequisites,
+      previousDoc?.prerequisites,
+    );
+    assertRegisteredAttributes(
+      this.context,
+      { hashAttribute: doc.hashAttribute, condition: doc.condition },
+      "contextual bandit",
+      previousDoc && {
+        hashAttribute: previousDoc.hashAttribute,
+        condition: previousDoc.condition,
+      },
+      doc.project || undefined,
+    );
   }
 
   public override async handleApiList(

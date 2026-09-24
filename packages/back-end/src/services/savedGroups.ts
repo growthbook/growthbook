@@ -1,6 +1,7 @@
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
+  targetingReferencesSavedGroup,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -44,6 +45,7 @@ export type SavedGroupReferences = {
     project?: string;
     projects?: string[];
   }[];
+  contextualBandits: { id: string; name: string; project?: string }[];
   savedGroups: { id: string; groupName: string; projects?: string[] }[];
 };
 
@@ -74,9 +76,10 @@ export async function loadSavedGroupReferences(
   // The lean loader: the reference scan reads only rules/env settings, and
   // this loader honors the bulk publisher's feature scan overlay so the scan
   // can evaluate a release's proposed end-state.
-  const [allFeatures, allExperiments] = await Promise.all([
+  const [allFeatures, allExperiments, allBandits] = await Promise.all([
     getAllFeaturesWithoutEditorFields(context, {}),
     getAllExperiments(context, {}),
+    context.models.contextualBandits.getAll(),
   ]);
 
   const featureRefMap = featuresReferencingSavedGroups({
@@ -113,9 +116,18 @@ export async function loadSavedGroupReferences(
     }
   }
 
+  // A bandit's targeting is served on its linked features' rules, archived or not.
+  const groupIds = savedGroupsToCheck.map((sg) => sg.id);
+  const contextualBandits = allBandits
+    .filter((cb) =>
+      groupIds.some((id) => targetingReferencesSavedGroup(cb, id)),
+    )
+    .map((cb) => ({ id: cb.id, name: cb.name, project: cb.project }));
+
   return {
     features: Array.from(featuresSet.values()),
     experiments: Array.from(experimentsSet.values()),
+    contextualBandits,
     savedGroups: savedGroupsReferencingTarget.map((sg) => ({
       id: sg.id,
       groupName: sg.groupName,
@@ -126,7 +138,10 @@ export async function loadSavedGroupReferences(
 
 export function totalSavedGroupReferences(refs: SavedGroupReferences): number {
   return (
-    refs.features.length + refs.experiments.length + refs.savedGroups.length
+    refs.features.length +
+    refs.experiments.length +
+    refs.contextualBandits.length +
+    refs.savedGroups.length
   );
 }
 
@@ -147,6 +162,9 @@ export async function assertSavedGroupDeletable(
   if (refs.features.length) parts.push(`${refs.features.length} feature(s)`);
   if (refs.experiments.length) {
     parts.push(`${refs.experiments.length} experiment(s)`);
+  }
+  if (refs.contextualBandits.length) {
+    parts.push(`${refs.contextualBandits.length} contextual bandit(s)`);
   }
   if (refs.savedGroups.length) {
     parts.push(`${refs.savedGroups.length} other Saved Group(s)`);

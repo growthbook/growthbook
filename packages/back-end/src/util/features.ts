@@ -895,6 +895,19 @@ export function applyNamespaceToPayload(
   rule.namespace = [namespace.name, start, end];
 }
 
+// Rule-level prerequisites become parentConditions; one that no longer parses is dropped.
+function prerequisiteParentConditions(
+  prerequisites: { id: string; condition: string }[],
+): ParentConditionInterface[] {
+  return prerequisites.flatMap((p) => {
+    try {
+      return [{ id: p.id, condition: JSON.parse(p.condition) }];
+    } catch {
+      return [];
+    }
+  });
+}
+
 export function getFeatureDefinition({
   feature,
   environment,
@@ -1104,6 +1117,14 @@ export function getFeatureDefinition({
     !!savedGroupsMap &&
     (savedGroupReferencesEnabled === false ||
       !capabilities.includes("savedGroupReferences"));
+  // Inline $inGroup/$notInGroup for SDKs without saved-group references, in
+  // the rule's own condition and its prerequisite gates alike.
+  const expandSavedGroups = (rule: FeatureDefinitionRule) => {
+    if (!shouldExpandSavedGroups || !savedGroupsMap || !organization) return;
+    const replace = replaceSavedGroups(savedGroupsMap, organization);
+    if (rule.condition) recursiveWalk(rule.condition, replace);
+    if (rule.parentConditions) recursiveWalk(rule.parentConditions, replace);
+  };
   // looseUnmarshalling => no capability-based strip. Connection settings still gate rule id, names, etc.
   const allowedKeys =
     capabilities !== undefined && !capabilities.includes("looseUnmarshalling")
@@ -1118,6 +1139,9 @@ export function getFeatureDefinition({
         const exp = experimentMap.get(r.experimentId);
         const phase = exp?.phases?.slice(-1)?.[0];
         return !!phase?.prerequisites?.length;
+      }
+      if (r.type === "contextual-bandit-ref") {
+        return !!cbMap?.get(r.contextualBanditId)?.prerequisites?.length;
       }
       return !!(r as { prerequisites?: unknown[] }).prerequisites?.length;
     });
@@ -1220,19 +1244,9 @@ export function getFeatureDefinition({
           }
 
           if (phase?.prerequisites?.length) {
-            rule.parentConditions = phase.prerequisites
-              .map((prerequisite) => {
-                try {
-                  return {
-                    id: prerequisite.id,
-                    condition: JSON.parse(prerequisite.condition),
-                  };
-                } catch (e) {
-                  // do nothing
-                }
-                return null;
-              })
-              .filter(Boolean) as ParentConditionInterface[];
+            rule.parentConditions = prerequisiteParentConditions(
+              phase.prerequisites,
+            );
           }
 
           rule.coverage = phase.coverage;
@@ -1303,18 +1317,7 @@ export function getFeatureDefinition({
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
           }
-          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-            if (rule.condition)
-              recursiveWalk(
-                rule.condition,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-            if (rule.parentConditions)
-              recursiveWalk(
-                rule.parentConditions,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-          }
+          expandSavedGroups(rule);
           if (metadataOptions) {
             const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1356,9 +1359,20 @@ export function getFeatureDefinition({
 
           if (cb.status === "draft") return null;
 
-          const phaseCondition = getParsedCondition(groupMap, cb.condition);
-          if (phaseCondition) {
-            rule.condition = phaseCondition;
+          if (!hasPrerequisites && cb.prerequisites?.length) return null;
+
+          const cbCondition = getParsedCondition(
+            groupMap,
+            cb.condition,
+            cb.savedGroups,
+          );
+          if (cbCondition) {
+            rule.condition = cbCondition;
+          }
+          if (cb.prerequisites?.length) {
+            rule.parentConditions = prerequisiteParentConditions(
+              cb.prerequisites,
+            );
           }
 
           rule.coverage = cb.coverage;
@@ -1420,13 +1434,7 @@ export function getFeatureDefinition({
           rule.phase = "0";
           if (includeExperimentNames) rule.name = cb.name;
 
-          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-            if (rule.condition)
-              recursiveWalk(
-                rule.condition,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-          }
+          expandSavedGroups(rule);
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1668,18 +1676,7 @@ export function getFeatureDefinition({
             }
           }
         }
-        if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-          if (rule.condition)
-            recursiveWalk(
-              rule.condition,
-              replaceSavedGroups(savedGroupsMap, organization!),
-            );
-          if (rule.parentConditions)
-            recursiveWalk(
-              rule.parentConditions,
-              replaceSavedGroups(savedGroupsMap, organization!),
-            );
-        }
+        expandSavedGroups(rule);
         if (metadataOptions) {
           applyRuleProjectMetadata(
             rule,

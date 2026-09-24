@@ -14,9 +14,16 @@ export type SavedGroupGroupRef = {
   projects?: string[];
 };
 
+export type ContextualBanditRef = {
+  id: string;
+  name: string;
+  project?: string;
+};
+
 export type SavedGroupReferences = {
   features: SavedGroupRef[];
   experiments: ExperimentRef[];
+  contextualBandits: ContextualBanditRef[];
   savedGroups: SavedGroupGroupRef[];
 };
 
