@@ -19,6 +19,7 @@ import {
 } from "back-end/src/services/experimentScheduling";
 import {
   applyVariationWeightsToLatestPhase,
+  assertValidBucketVersions,
   assertValidReleasedVariationId,
   createMetric,
   fillEmptyVariationKeys,
@@ -2327,6 +2328,73 @@ describe("updateExperimentBanditSettings", () => {
     ).toThrow("Bandit analysis failed: decision analysis failed");
     expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
     expect(experiment.phases[0].banditEvents).toBeUndefined();
+  });
+});
+
+describe("assertValidBucketVersions", () => {
+  describe("on create (no existing experiment)", () => {
+    it("accepts missing versions and a minimum at or below the current version", () => {
+      expect(() => assertValidBucketVersions({})).not.toThrow();
+      expect(() =>
+        assertValidBucketVersions({ bucketVersion: 2, minBucketVersion: 2 }),
+      ).not.toThrow();
+      expect(() =>
+        assertValidBucketVersions({ bucketVersion: 3, minBucketVersion: 1 }),
+      ).not.toThrow();
+    });
+
+    it("rejects a minimum above the current version", () => {
+      expect(() =>
+        assertValidBucketVersions({ bucketVersion: 1, minBucketVersion: 2 }),
+      ).toThrow(/minBucketVersion cannot be greater than bucketVersion/);
+      expect(() => assertValidBucketVersions({ minBucketVersion: 1 })).toThrow(
+        /invalid_bucket_version/,
+      );
+    });
+
+    it.each([
+      [{ bucketVersion: 1.5 }, "bucketVersion"],
+      [{ bucketVersion: 2, minBucketVersion: -1 }, "minBucketVersion"],
+    ])("rejects a fractional or negative version %p", (fields, name) => {
+      expect(() => assertValidBucketVersions(fields)).toThrow(
+        new RegExp(`${name} must be a non-negative integer`),
+      );
+    });
+  });
+
+  describe("on update", () => {
+    const stored = { bucketVersion: 1, minBucketVersion: 0 };
+
+    it("accepts bumping both versions together", () => {
+      expect(() =>
+        assertValidBucketVersions(
+          { bucketVersion: 2, minBucketVersion: 2 },
+          stored,
+        ),
+      ).not.toThrow();
+    });
+
+    it("rejects raising only the minimum above the stored version", () => {
+      expect(() =>
+        assertValidBucketVersions({ ...stored, minBucketVersion: 3 }, stored),
+      ).toThrow(/minBucketVersion cannot be greater than bucketVersion/);
+    });
+
+    it("rejects lowering the version below the stored minimum", () => {
+      expect(() =>
+        assertValidBucketVersions(
+          { bucketVersion: 1, minBucketVersion: 2 },
+          { bucketVersion: 2, minBucketVersion: 2 },
+        ),
+      ).toThrow(/invalid_bucket_version/);
+    });
+
+    it("leaves an already-inconsistent experiment alone when neither field changes", () => {
+      const inconsistent = { bucketVersion: 1, minBucketVersion: 4 };
+      expect(() =>
+        assertValidBucketVersions({ ...inconsistent }, inconsistent),
+      ).not.toThrow();
+    });
   });
 });
 

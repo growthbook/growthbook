@@ -390,6 +390,7 @@ export default defineConfig([
 
     ignores: [
       "./packages/back-end/src/util/http.util.ts",
+      "./packages/back-end/src/services/bigqueryClient.ts",
       "./packages/back-end/**/*.test.{ts,tsx,js,jsx}",
     ],
 
@@ -403,6 +404,13 @@ export default defineConfig([
               message:
                 'Use `import { fetch } from "back-end/src/util/http.util";` instead.',
               importNames: ["default"],
+            },
+            {
+              name: "@google-cloud/bigquery",
+              message:
+                'Use `createBigQueryClient` from "back-end/src/services/bigqueryClient".',
+              importNames: ["BigQuery"],
+              allowTypeImports: true,
             },
           ],
 

@@ -40,7 +40,6 @@ import {
   ProductAnalyticsResultRow,
   FunnelDataset,
 } from "../../validators/product-analytics";
-import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,
@@ -49,6 +48,7 @@ import {
   getFactTableTimestampColumn,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
+import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 
@@ -142,6 +142,8 @@ interface MetricData {
   unit: string | null;
   alias: string;
   percentileCapValueExpr: string | null;
+  /** Same column basis as `percentileCapValueExpr`; used for lower-tail percentile caps. */
+  percentileLowerCapValueExpr: string | null;
   eventValueExpr: string;
   unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
@@ -644,11 +646,11 @@ function getCappingSettings(
 ): MetricCappingSettings | null {
   if (metric.metricType === "proportion") return null;
 
-  if (
-    metric.cappingSettings?.type === "percentile" ||
-    metric.cappingSettings?.type === "absolute"
-  ) {
-    return metric.cappingSettings;
+  const cs = metric.cappingSettings;
+  if (!cs) return null;
+
+  if (getCappingTailState(cs).anyCap) {
+    return cs;
   }
 
   return null;
@@ -978,14 +980,22 @@ function getMetricData(
   }
 
   const cappingSettings = getCappingSettings(metric);
+  const rawPercentileValueExpr = getEventValueExpr(
+    columnRef,
+    factTable,
+    helpers,
+    alias,
+    null,
+  );
 
   return {
     unit: selectedUnit,
     alias,
     percentileCapValueExpr:
       cappingSettings && cappingSettings.type === "percentile"
-        ? getEventValueExpr(columnRef, factTable, helpers, alias, null)
+        ? rawPercentileValueExpr
         : null,
+    percentileLowerCapValueExpr: null,
     eventValueExpr: getEventValueExpr(
       columnRef,
       factTable,
@@ -1103,16 +1113,19 @@ function generatePercentileCapsCTE(
   const selects: string[] = [];
   factTableGroup.metrics.forEach((m) => {
     const cappingSettings = getCappingSettings(m.metric);
-    if (!cappingSettings || cappingSettings.type !== "percentile") return;
+    if (!cappingSettings) return;
 
     const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    const tails = getCappingTailState(cappingSettings);
 
-    selects.push(
-      `${helpers.percentileApprox(
-        metricData.percentileCapValueExpr || "NULL",
-        cappingSettings.value,
-      )} AS ${metricData.alias}_cap`,
-    );
+    if (tails.upperPercentileCapped) {
+      selects.push(
+        `${helpers.percentileApprox(
+          metricData.percentileCapValueExpr || "NULL",
+          cappingSettings.value!,
+        )} AS ${metricData.alias}_cap`,
+      );
+    }
   });
 
   if (!selects.length) return null;
