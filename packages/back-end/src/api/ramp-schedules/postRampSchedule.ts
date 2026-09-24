@@ -37,6 +37,7 @@ import {
   rampScheduleToApiInterface,
 } from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
+import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/datasource";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 // Strict: a rule field placed on the step or action instead of inside `patch`
@@ -441,6 +442,13 @@ export const postRampSchedule = createApiRequestHandler(
       endActions: normalizedPlan.endActions,
     } as unknown as RampScheduleInterface);
   }
+
+  await assertApiAssignmentQueryRefHasIdentifierType(req.context, {
+    datasourceId: body.monitoringConfig?.datasourceId,
+    ref: body.monitoringConfig?.exposureQuery,
+    field: "exposureQuery",
+    currentExposureQueryId: undefined,
+  });
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,

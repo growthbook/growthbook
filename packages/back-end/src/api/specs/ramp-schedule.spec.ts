@@ -5,7 +5,7 @@ import {
   experimentHealthAction,
   featureRulePatch,
   paginationQueryFields,
-  apiRampMonitoringConfig,
+  apiRampMonitoringConfigInput,
   rampStartPatch,
   stepHoldConditions,
 } from "shared/validators";
@@ -128,7 +128,7 @@ const createBodySchema = z
       .describe(
         "When mode is 'locked', blocks all feature edits while the ramp is actively running (not after completion or between end and cutoff).",
       ),
-    monitoringConfig: apiRampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfigInput.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     templateId: z
       .string()
@@ -205,7 +205,7 @@ const updateBodySchema = z.object({
   endActions: z.array(putBodyAction).optional(),
   startDate: z.string().datetime().optional().nullable(),
   cutoffDate: z.string().datetime().optional().nullable(),
-  monitoringConfig: apiRampMonitoringConfig.nullish(),
+  monitoringConfig: apiRampMonitoringConfigInput.nullish(),
   experimentHealthAction: experimentHealthAction.optional(),
   lockdownConfig: z
     .object({ mode: z.enum(["none", "locked"]) })

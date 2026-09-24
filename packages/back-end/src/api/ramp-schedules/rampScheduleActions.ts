@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { PermissionError, isRampScheduleServing } from "shared/util";
 import {
   apiRampScheduleInterface,
-  apiRampMonitoringConfig,
+  apiRampMonitoringConfigInput,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
   lockdownConfigSchema,
   stepHoldConditions,
@@ -19,6 +19,7 @@ import { getHealthSettings } from "shared/enterprise";
 import { expandMetricGroups } from "shared/experiments";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/datasource";
 import {
   advanceScheduleManually,
   approveAndPublishStep,
@@ -1370,7 +1371,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
 
 export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: apiRampMonitoringConfig.describe(
+  bodySchema: apiRampMonitoringConfigInput.describe(
     "Full replacement of the monitoring configuration. `datasourceId` and `exposureQuery` cannot be changed while a monitoring experiment is active — stop the schedule first.",
   ),
   responseSchema: apiRampScheduleInterface,
@@ -1387,6 +1388,12 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
+  await assertApiAssignmentQueryRefHasIdentifierType(req.context, {
+    datasourceId: req.body.datasourceId,
+    ref: req.body.exposureQuery,
+    field: "exposureQuery",
+    currentExposureQueryId: schedule.monitoringConfig?.exposureQueryId,
+  });
   const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,

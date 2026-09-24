@@ -26,6 +26,7 @@ import {
   assertFeatureValuesValid,
   toApiRevision,
 } from "back-end/src/services/features";
+import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/datasource";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -284,6 +285,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       // the stored ramp-up shape is larger.
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
+      await assertApiAssignmentQueryRefHasIdentifierType(req.context, {
+        datasourceId: validatableFields.datasourceId,
+        ref: validatableFields.exposureQuery,
+        field: "exposureQuery",
+        currentExposureQueryId: undefined,
+      });
       const validatedFields = await validateCreateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,

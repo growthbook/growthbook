@@ -247,7 +247,7 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
 // model stays flat.
 export function apiMonitoringConfigToInternal<
   T extends {
-    exposureQuery?: { id: string; identifierType: string };
+    exposureQuery?: { id: string; identifierType?: string };
     exposureQueryId?: string;
   },
 >(mc: T | null | undefined) {
@@ -863,6 +863,16 @@ export class RampScheduleModel extends BaseClass {
       updates.lockdownConfig = body.lockdownConfig;
     }
     if (body.monitoringConfig !== undefined) {
+      // Lazy: services/datasource's import graph loops back to this model.
+      const { assertApiAssignmentQueryRefHasIdentifierType } = await import(
+        "back-end/src/services/datasource"
+      );
+      await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
+        datasourceId: body.monitoringConfig?.datasourceId,
+        ref: body.monitoringConfig?.exposureQuery,
+        field: "exposureQuery",
+        currentExposureQueryId: schedule.monitoringConfig?.exposureQueryId,
+      });
       const monitoringConfig = apiMonitoringConfigToInternal(
         body.monitoringConfig,
       );

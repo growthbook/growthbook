@@ -2,6 +2,7 @@ import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   ApiRampMonitoringConfig,
+  ApiRampMonitoringConfigInput,
   ApiRampScheduleTemplateInterface,
   RampScheduleTemplateInterface,
   rampScheduleTemplateValidator,
@@ -115,6 +116,7 @@ export class RampScheduleTemplateModel extends BaseClass {
   protected async processApiCreateBody(
     rawBody: unknown,
   ): Promise<CreateProps<RampScheduleTemplateInterface>> {
+    await this.assertApiMonitoringIdentifierType(rawBody, null);
     const body = withInternalMonitoringConfig(
       rawBody as Omit<
         CreateProps<RampScheduleTemplateInterface>,
@@ -125,6 +127,38 @@ export class RampScheduleTemplateModel extends BaseClass {
       },
     ) as CreateProps<RampScheduleTemplateInterface> & { order?: number };
     return { ...body, order: body.order ?? (await this.getNextOrder()) };
+  }
+
+  // Overridden to read the stored query, which processApiUpdateBody can't see.
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ) {
+    const { id } = req.params as { id: string };
+    await this.assertApiMonitoringIdentifierType(
+      req.body,
+      await this.getById(id),
+    );
+    return super.handleApiUpdate(req);
+  }
+
+  private async assertApiMonitoringIdentifierType(
+    rawBody: unknown,
+    existing: RampScheduleTemplateInterface | null,
+  ) {
+    const mc = (
+      rawBody as { monitoringConfig?: ApiRampMonitoringConfigInput | null }
+    )?.monitoringConfig;
+    if (!mc) return;
+    // Lazy: services/datasource's import graph loops back to RampScheduleModel.
+    const { assertApiAssignmentQueryRefHasIdentifierType } = await import(
+      "back-end/src/services/datasource"
+    );
+    await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
+      datasourceId: mc.datasourceId,
+      ref: mc.exposureQuery,
+      field: "exposureQuery",
+      currentExposureQueryId: existing?.monitoringConfig?.exposureQueryId,
+    });
   }
 
   protected async processApiUpdateBody(

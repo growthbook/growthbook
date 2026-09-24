@@ -2,6 +2,7 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   assertValidAssignmentQuerySelection,
   getExposureQueryIdentifierTypes,
+  assertAssignmentQueryRefIdentifierType,
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
@@ -117,6 +118,12 @@ export const updateExperiment = createApiRequestHandler(
     const assignmentQueryId =
       req.body.assignmentQueryId ?? experiment.exposureQueryId;
     const exposureQueries = datasource.settings.queries?.exposure ?? [];
+    assertAssignmentQueryRefIdentifierType({
+      ref: req.body.assignmentQuery,
+      field: "assignmentQuery",
+      exposureQueries,
+      currentExposureQueryId: experiment.exposureQueryId,
+    });
     // Repointing to a different query without naming an identifier defaults to
     // the new query's first declared identifier.
     if (

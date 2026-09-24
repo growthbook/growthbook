@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   apiAssignmentQueryRef,
+  apiAssignmentQueryRefInput,
   featurePrerequisite,
   savedGroupTargeting,
 } from "./shared";
@@ -125,6 +126,17 @@ export const apiRampMonitoringConfig = rampMonitoringConfig
       .meta({ deprecated: true }),
   });
 export type ApiRampMonitoringConfig = z.infer<typeof apiRampMonitoringConfig>;
+
+export const apiRampMonitoringConfigInput = apiRampMonitoringConfig.extend({
+  exposureQuery: apiAssignmentQueryRefInput
+    .describe(
+      "The exposure query to use, grouping its ID with the identifier type to analyze on. Mutually exclusive with the deprecated exposureQueryId.",
+    )
+    .optional(),
+});
+export type ApiRampMonitoringConfigInput = z.infer<
+  typeof apiRampMonitoringConfigInput
+>;
 
 export const rampStepAction = z.object({
   targetType: z.literal("feature-rule"),

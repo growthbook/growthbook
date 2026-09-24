@@ -14,7 +14,12 @@ import {
   experimentTemplateApiSpec,
   bulkImportExperimentTemplatesEndpoint,
 } from "back-end/src/api/specs/experiment-template.spec";
-import { assertValidAssignmentQuerySelectionChange } from "back-end/src/services/datasource";
+import {
+  assertApiAssignmentQueryRefHasIdentifierType,
+  assertValidAssignmentQuerySelectionChange,
+} from "back-end/src/services/datasource";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import { MakeModelClass } from "./BaseModel";
 
 const ID_PREFIX = "tmplt__";
@@ -26,6 +31,23 @@ function normalizeTemplateExposureQueryBody(body: unknown): unknown {
   return flattenExposureQueryInput(
     body as Parameters<typeof flattenExposureQueryInput>[0],
   );
+}
+
+async function assertTemplateExposureQueryIdentifierType(
+  context: ReqContext | ApiReqContext,
+  rawBody: unknown,
+  existing: ExperimentTemplateInterface | null,
+) {
+  const body = rawBody as {
+    datasource?: string;
+    exposureQuery?: { id: string; identifierType?: string };
+  } | null;
+  await assertApiAssignmentQueryRefHasIdentifierType(context, {
+    datasourceId: body?.datasource ?? existing?.datasource,
+    ref: body?.exposureQuery,
+    field: "exposureQuery",
+    currentExposureQueryId: existing?.exposureQueryId,
+  });
 }
 
 // Both fields are optional in the API body, so creates must check for one.
@@ -78,6 +100,11 @@ const BaseClass = MakeModelClass({
               ? id
               : `${ID_PREFIX}${id}`;
             const existing = existingById.get(normalizedId);
+            await assertTemplateExposureQueryIdentifierType(
+              req.context,
+              data,
+              existing ?? null,
+            );
             const normalizedData = normalizeTemplateExposureQueryBody(
               data,
             ) as typeof data;
@@ -161,9 +188,27 @@ export class ExperimentTemplatesModel extends BaseClass {
   }
 
   protected override async processApiCreateBody(rawBody: unknown) {
+    await assertTemplateExposureQueryIdentifierType(
+      this.context,
+      rawBody,
+      null,
+    );
     const body = normalizeTemplateExposureQueryBody(rawBody);
     assertTemplateHasExposureQuery(body);
     return super.processApiCreateBody(body);
+  }
+
+  // Overridden to read the stored query, which processApiUpdateBody can't see.
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ) {
+    const { id } = req.params as { id: string };
+    await assertTemplateExposureQueryIdentifierType(
+      this.context,
+      req.body,
+      await this.getById(id),
+    );
+    return super.handleApiUpdate(req);
   }
 
   protected override async processApiUpdateBody(rawBody: unknown) {

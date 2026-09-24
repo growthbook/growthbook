@@ -12,6 +12,7 @@ import {
 } from "./owner-field";
 import {
   apiAssignmentQueryRef,
+  apiAssignmentQueryRefInput,
   booleanQueryField,
   savedGroupTargeting,
 } from "./shared";
@@ -339,7 +340,7 @@ export const apiCreateHoldoutBody = z.strictObject({
   savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
-  assignmentQuery: apiAssignmentQueryRef
+  assignmentQuery: apiAssignmentQueryRefInput
     .describe(
       "The assignment query to use, grouping its ID with the identifier type to analyze on. The identifier type must be one the query declares. Mutually exclusive with the deprecated assignmentQueryId.",
     )
@@ -389,7 +390,7 @@ export const apiUpdateHoldoutBody = z.strictObject({
   savedGroupTargeting: z.array(savedGroupTargeting).optional(),
 
   datasourceId: z.string().optional(),
-  assignmentQuery: apiAssignmentQueryRef
+  assignmentQuery: apiAssignmentQueryRefInput
     .describe(
       "The assignment query to use, grouping its ID with the identifier type to analyze on. The identifier type must be one the query declares. Mutually exclusive with the deprecated assignmentQueryId.",
     )

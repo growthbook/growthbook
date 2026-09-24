@@ -3,6 +3,7 @@ import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { customMetricSlice } from "./experiments";
 import {
   apiAssignmentQueryRef,
+  apiAssignmentQueryRefInput,
   featurePrerequisite,
   savedGroupTargeting,
 } from "./shared";
@@ -130,7 +131,7 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
   customFields: z.record(z.string(), z.string()).optional(),
 
   datasource: z.string(),
-  exposureQuery: apiAssignmentQueryRef
+  exposureQuery: apiAssignmentQueryRefInput
     .describe(
       "The exposure query to use, grouping its ID with the identifier type analyzed on. Mutually exclusive with the deprecated exposureQueryId.",
     )

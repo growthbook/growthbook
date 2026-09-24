@@ -14,6 +14,7 @@ import {
   assertValidAssignmentQuerySelection,
   getExposureQueryIdentifierTypes,
   isExposureQueryAvailableForProjects,
+  assertAssignmentQueryRefIdentifierType,
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
@@ -750,6 +751,12 @@ export async function updateHoldoutWithExperiment(
     });
 
     const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
+    assertAssignmentQueryRefIdentifierType({
+      ref: body.assignmentQuery,
+      field: "assignmentQuery",
+      exposureQueries: datasource?.settings?.queries?.exposure ?? [],
+      currentExposureQueryId: experiment.exposureQueryId,
+    });
     // Repointing without naming an identifier defaults to the new query's first.
     if (
       assignmentQueryIdentifierType === undefined &&

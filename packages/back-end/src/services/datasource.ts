@@ -31,6 +31,7 @@ import {
   mergeDataSourceParams,
   redactSecretParams,
   AssignmentQuerySelection,
+  assertAssignmentQueryRefIdentifierType,
   assertValidAssignmentQuerySelection,
   hasAssignmentQuerySelectionChanged,
 } from "shared/util";
@@ -571,6 +572,34 @@ export async function assertValidAssignmentQuerySelectionChange(
     identifierType: next.identifierType,
     datasourceProjects: loaded.projects,
     ...(await getScope()),
+  });
+}
+
+// For REST handlers that haven't loaded the data source's queries yet.
+export async function assertApiAssignmentQueryRefHasIdentifierType(
+  context: ReqContext | ApiReqContext,
+  {
+    datasourceId,
+    ref,
+    field,
+    currentExposureQueryId,
+  }: {
+    datasourceId: string | undefined;
+    ref: { id: string; identifierType?: string } | undefined;
+    field: "assignmentQuery" | "exposureQuery";
+    currentExposureQueryId: string | undefined;
+  },
+): Promise<void> {
+  if (!datasourceId || !ref || ref.identifierType) return;
+  if (ref.id === currentExposureQueryId) return;
+  assertAssignmentQueryRefIdentifierType({
+    ref,
+    field,
+    exposureQueries: await getExposureQueriesForDatasource(
+      context,
+      datasourceId,
+    ),
+    currentExposureQueryId,
   });
 }
 

@@ -5393,10 +5393,15 @@ paths:
                                 id:
                                   type: string
                                 identifierType:
+                                  description: >-
+                                    Required when selecting a different
+                                    assignment query that declares several
+                                    identifier types. Otherwise defaults to the
+                                    current identifier type, or the query's only
+                                    one.
                                   type: string
                               required:
                                 - id
-                                - identifierType
                               additionalProperties: false
                             exposureQueryId:
                               deprecated: true
@@ -14966,10 +14971,14 @@ paths:
                     id:
                       type: string
                     identifierType:
+                      description: >-
+                        Required when selecting a different assignment query
+                        that declares several identifier types. Otherwise
+                        defaults to the current identifier type, or the query's
+                        only one.
                       type: string
                   required:
                     - id
-                    - identifierType
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
@@ -15702,10 +15711,14 @@ paths:
                     id:
                       type: string
                     identifierType:
+                      description: >-
+                        Required when selecting a different assignment query
+                        that declares several identifier types. Otherwise
+                        defaults to the current identifier type, or the query's
+                        only one.
                       type: string
                   required:
                     - id
-                    - identifierType
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
@@ -35018,17 +35031,21 @@ paths:
                 exposureQuery:
                   description: >-
                     The exposure query to use, grouping its ID with the
-                    identifier type analyzed on. Mutually exclusive with the
+                    identifier type to analyze on. Mutually exclusive with the
                     deprecated exposureQueryId.
                   type: object
                   properties:
                     id:
                       type: string
                     identifierType:
+                      description: >-
+                        Required when selecting a different assignment query
+                        that declares several identifier types. Otherwise
+                        defaults to the current identifier type, or the query's
+                        only one.
                       type: string
                   required:
                     - id
-                    - identifierType
                   additionalProperties: false
                 exposureQueryId:
                   deprecated: true
@@ -49532,10 +49549,14 @@ paths:
                     id:
                       type: string
                     identifierType:
+                      description: >-
+                        Required when selecting a different assignment query
+                        that declares several identifier types. Otherwise
+                        defaults to the current identifier type, or the query's
+                        only one.
                       type: string
                   required:
                     - id
-                    - identifierType
                   additionalProperties: false
                 exposureQueryId:
                   deprecated: true
@@ -49715,10 +49736,14 @@ paths:
                     id:
                       type: string
                     identifierType:
+                      description: >-
+                        Required when selecting a different assignment query
+                        that declares several identifier types. Otherwise
+                        defaults to the current identifier type, or the query's
+                        only one.
                       type: string
                   required:
                     - id
-                    - identifierType
                   additionalProperties: false
                 exposureQueryId:
                   deprecated: true
@@ -49946,10 +49971,14 @@ paths:
                               id:
                                 type: string
                               identifierType:
+                                description: >-
+                                  Required when selecting a different assignment
+                                  query that declares several identifier types.
+                                  Otherwise defaults to the current identifier
+                                  type, or the query's only one.
                                 type: string
                             required:
                               - id
-                              - identifierType
                             additionalProperties: false
                           exposureQueryId:
                             deprecated: true
@@ -55523,17 +55552,21 @@ paths:
                         exposureQuery:
                           description: >-
                             The exposure query to use, grouping its ID with the
-                            identifier type analyzed on. Mutually exclusive with
-                            the deprecated exposureQueryId.
+                            identifier type to analyze on. Mutually exclusive
+                            with the deprecated exposureQueryId.
                           type: object
                           properties:
                             id:
                               type: string
                             identifierType:
+                              description: >-
+                                Required when selecting a different assignment
+                                query that declares several identifier types.
+                                Otherwise defaults to the current identifier
+                                type, or the query's only one.
                               type: string
                           required:
                             - id
-                            - identifierType
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
@@ -55843,17 +55876,21 @@ paths:
                         exposureQuery:
                           description: >-
                             The exposure query to use, grouping its ID with the
-                            identifier type analyzed on. Mutually exclusive with
-                            the deprecated exposureQueryId.
+                            identifier type to analyze on. Mutually exclusive
+                            with the deprecated exposureQueryId.
                           type: object
                           properties:
                             id:
                               type: string
                             identifierType:
+                              description: >-
+                                Required when selecting a different assignment
+                                query that declares several identifier types.
+                                Otherwise defaults to the current identifier
+                                type, or the query's only one.
                               type: string
                           required:
                             - id
-                            - identifierType
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
@@ -56487,17 +56524,21 @@ paths:
                         exposureQuery:
                           description: >-
                             The exposure query to use, grouping its ID with the
-                            identifier type analyzed on. Mutually exclusive with
-                            the deprecated exposureQueryId.
+                            identifier type to analyze on. Mutually exclusive
+                            with the deprecated exposureQueryId.
                           type: object
                           properties:
                             id:
                               type: string
                             identifierType:
+                              description: >-
+                                Required when selecting a different assignment
+                                query that declares several identifier types.
+                                Otherwise defaults to the current identifier
+                                type, or the query's only one.
                               type: string
                           required:
                             - id
-                            - identifierType
                           additionalProperties: false
                         exposureQueryId:
                           deprecated: true
@@ -56959,10 +57000,14 @@ paths:
                     id:
                       type: string
                     identifierType:
+                      description: >-
+                        Required when selecting a different assignment query
+                        that declares several identifier types. Otherwise
+                        defaults to the current identifier type, or the query's
+                        only one.
                       type: string
                   required:
                     - id
-                    - identifierType
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
@@ -57139,10 +57184,14 @@ paths:
                     id:
                       type: string
                     identifierType:
+                      description: >-
+                        Required when selecting a different assignment query
+                        that declares several identifier types. Otherwise
+                        defaults to the current identifier type, or the query's
+                        only one.
                       type: string
                   required:
                     - id
-                    - identifierType
                   additionalProperties: false
                 assignmentQueryId:
                   deprecated: true
@@ -62614,10 +62663,13 @@ components:
                 id:
                   type: string
                 identifierType:
+                  description: >-
+                    Required when selecting a different assignment query that
+                    declares several identifier types. Otherwise defaults to the
+                    current identifier type, or the query's only one.
                   type: string
               required:
                 - id
-                - identifierType
               additionalProperties: false
             exposureQueryId:
               deprecated: true

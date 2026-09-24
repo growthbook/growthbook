@@ -11,7 +11,7 @@ import {
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
   publishBypassedGatesField,
-  apiAssignmentQueryRef,
+  apiAssignmentQueryRefInput,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -270,7 +270,7 @@ const safeRolloutCreateInputV2 = namedSchema(
       safeRolloutFields: z
         .object({
           datasourceId: z.string(),
-          exposureQuery: apiAssignmentQueryRef
+          exposureQuery: apiAssignmentQueryRefInput
             .describe(
               "The exposure query to use, grouping its ID with the identifier type to analyze on. Mutually exclusive with the deprecated exposureQueryId.",
             )

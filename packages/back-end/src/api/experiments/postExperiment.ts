@@ -1,6 +1,7 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   assertValidAssignmentQuerySelection,
+  assertAssignmentQueryRefIdentifierType,
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
@@ -181,6 +182,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     if (datasource) {
       try {
+        assertAssignmentQueryRefIdentifierType({
+          ref: req.body.assignmentQuery,
+          field: "assignmentQuery",
+          exposureQueries: datasource.settings.queries?.exposure ?? [],
+          currentExposureQueryId: undefined,
+        });
         assertValidAssignmentQuerySelection({
           exposureQueries: datasource.settings.queries?.exposure ?? [],
           exposureQueryId: payload.assignmentQueryId,

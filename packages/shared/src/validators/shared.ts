@@ -41,6 +41,18 @@ export const apiAssignmentQueryRef = z.object({
   identifierType: z.string(),
 });
 
+// Request shape: the identifier type is only required when choosing a new
+// query that declares several.
+export const apiAssignmentQueryRefInput = z.object({
+  id: z.string(),
+  identifierType: z
+    .string()
+    .describe(
+      "Required when selecting a different assignment query that declares several identifier types. Otherwise defaults to the current identifier type, or the query's only one.",
+    )
+    .optional(),
+});
+
 export const savedGroupTargeting = z
   .object({
     match: z.enum(["all", "none", "any"]),

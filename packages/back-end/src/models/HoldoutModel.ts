@@ -69,7 +69,10 @@ import {
   resolveOwnerEmails,
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
-import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
+import {
+  assertApiAssignmentQueryRefHasIdentifierType,
+  getExposureQueriesForDatasource,
+} from "back-end/src/services/datasource";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 
@@ -463,6 +466,13 @@ export class HoldoutModel extends BaseClass {
         currentStage: "draft",
       });
     }
+
+    await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
+      datasourceId: body.datasourceId,
+      ref: body.assignmentQuery,
+      field: "assignmentQuery",
+      currentExposureQueryId: undefined,
+    });
 
     const owner = await resolveOwnerForCreate(body.owner, this.context);
 

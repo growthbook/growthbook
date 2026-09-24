@@ -1,4 +1,5 @@
 import {
+  assertAssignmentQueryRefIdentifierType,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
@@ -248,6 +249,57 @@ describe("parseAssignmentQueryInput", () => {
     ).toThrow(
       "Cannot set exposureQuery together with the deprecated exposureQueryId",
     );
+  });
+});
+
+describe("assertAssignmentQueryRefIdentifierType", () => {
+  const single = query({
+    id: "exq_single",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+  });
+  const multi = query({
+    id: "exq_multi",
+    name: "Main",
+    userIdType: "user_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const check =
+    (
+      ref: { id: string; identifierType?: string } | undefined,
+      currentExposureQueryId?: string,
+    ) =>
+    () =>
+      assertAssignmentQueryRefIdentifierType({
+        ref,
+        field: "assignmentQuery",
+        exposureQueries: [single, multi],
+        currentExposureQueryId,
+      });
+
+  it("allows omitting it for a query with one identifier type", () => {
+    expect(check({ id: "exq_single" })).not.toThrow();
+  });
+
+  it("rejects omitting it for a new query with several, naming them", () => {
+    expect(check({ id: "exq_multi" }, "exq_single")).toThrow(
+      'Assignment query "Main" declares several identifier types (user_id, anonymous_id). Set assignmentQuery.identifierType to choose one.',
+    );
+  });
+
+  it("allows omitting it when keeping the current query", () => {
+    expect(check({ id: "exq_multi" }, "exq_multi")).not.toThrow();
+  });
+
+  it("allows an explicit identifier type", () => {
+    expect(
+      check({ id: "exq_multi", identifierType: "anonymous_id" }),
+    ).not.toThrow();
+  });
+
+  it("ignores a missing ref or unknown query", () => {
+    expect(check(undefined)).not.toThrow();
+    expect(check({ id: "exq_missing" })).not.toThrow();
   });
 });
 

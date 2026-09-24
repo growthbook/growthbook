@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  apiRampMonitoringConfig,
+  apiRampMonitoringConfigInput,
   apiRampScheduleTemplateValidator,
   apiTemplateRampStep,
   lockdownConfigSchema,
@@ -19,7 +19,7 @@ export const rampScheduleTemplateApiSpec = {
       steps: z.array(apiTemplateRampStep),
       endPatch: templateEndPatchValidator.optional(),
       official: z.boolean().optional(),
-      monitoringConfig: apiRampMonitoringConfig.nullish(),
+      monitoringConfig: apiRampMonitoringConfigInput.nullish(),
       lockdownConfig: lockdownConfigSchema.optional(),
       order: z
         .number()
@@ -33,7 +33,7 @@ export const rampScheduleTemplateApiSpec = {
       steps: z.array(apiTemplateRampStep).optional(),
       endPatch: templateEndPatchValidator.optional(),
       official: z.boolean().optional(),
-      monitoringConfig: apiRampMonitoringConfig.nullish(),
+      monitoringConfig: apiRampMonitoringConfigInput.nullish(),
       lockdownConfig: lockdownConfigSchema.optional(),
       order: z
         .number()

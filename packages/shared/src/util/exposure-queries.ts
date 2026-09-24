@@ -43,7 +43,7 @@ export function getAnalysisIdentifierType(
  * `<field>Id`, which are mutually exclusive.
  */
 export function parseAssignmentQueryInput(
-  assignmentQuery: { id: string; identifierType: string } | undefined,
+  assignmentQuery: { id: string; identifierType?: string } | undefined,
   deprecatedId: string | undefined,
   field: "assignmentQuery" | "exposureQuery",
 ): { id: string | undefined; identifierType: string | undefined } {
@@ -65,7 +65,7 @@ export function parseAssignmentQueryInput(
  */
 export function flattenExposureQueryInput<
   T extends {
-    exposureQuery?: { id: string; identifierType: string };
+    exposureQuery?: { id: string; identifierType?: string };
     exposureQueryId?: string;
   },
 >(
@@ -85,6 +85,36 @@ export function flattenExposureQueryInput<
     ...(id !== undefined ? { exposureQueryId: id } : {}),
     ...(identifierType ? { exposureQueryIdentifierType: identifierType } : {}),
   };
+}
+
+/**
+ * A REST ref may omit `identifierType` unless it selects a different query that
+ * declares several, where the choice would be ambiguous. Keeping the current
+ * query keeps its identifier.
+ */
+export function assertAssignmentQueryRefIdentifierType({
+  ref,
+  field,
+  exposureQueries,
+  currentExposureQueryId,
+}: {
+  ref: { id: string; identifierType?: string } | undefined;
+  field: "assignmentQuery" | "exposureQuery";
+  exposureQueries: Pick<
+    ExposureQuery,
+    "id" | "name" | "userIdType" | "userIdTypes"
+  >[];
+  currentExposureQueryId: string | undefined;
+}): void {
+  if (!ref || ref.identifierType || ref.id === currentExposureQueryId) return;
+  const query = exposureQueries.find((q) => q.id === ref.id);
+  if (!query) return;
+  const identifierTypes = getExposureQueryIdentifierTypes(query);
+  if (identifierTypes.length > 1) {
+    throw new Error(
+      `Assignment query "${query.name || query.id}" declares several identifier types (${identifierTypes.join(", ")}). Set ${field}.identifierType to choose one.`,
+    );
+  }
 }
 
 /**

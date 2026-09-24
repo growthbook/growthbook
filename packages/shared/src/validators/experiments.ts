@@ -14,6 +14,7 @@ import {
   booleanQueryField,
   csvQueryField,
   apiAssignmentQueryRef,
+  apiAssignmentQueryRefInput,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -1427,7 +1428,7 @@ const postExperimentBody = z
         "ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided.",
       )
       .optional(),
-    assignmentQuery: apiAssignmentQueryRef
+    assignmentQuery: apiAssignmentQueryRefInput
       .describe(
         "The assignment query to use, grouping its ID with the identifier type to analyze on. The ID must be one of the assignment query objects associated with the datasource, and the identifier type must be one it declares. Can only be set if a templateId is not provided. Mutually exclusive with the deprecated assignmentQueryId.",
       )
@@ -1574,7 +1575,7 @@ const updateExperimentBody = z
         "Can only be set if existing experiment does not have a datasource",
       )
       .optional(),
-    assignmentQuery: apiAssignmentQueryRef
+    assignmentQuery: apiAssignmentQueryRefInput
       .describe(
         "The assignment query to use, grouping its ID with the identifier type to analyze on. Mutually exclusive with the deprecated assignmentQueryId.",
       )
