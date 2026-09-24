@@ -10,10 +10,8 @@ import {
   EventLogRecordsQueryResponse,
   EventLogSummaryQueryParams,
   EventLogSummaryQueryResponse,
-  ExperimentDiagnosticsRecordsQueryParams,
-  ExperimentDiagnosticsRecordsQueryResponse,
-  ExperimentDiagnosticsSummaryQueryParams,
-  ExperimentDiagnosticsSummaryQueryResponse,
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
   TestQueryResult,
@@ -404,42 +402,23 @@ export async function runEventLogRecordsQuery(
   return { rows, statistics, truncated, sql };
 }
 
-export async function runExperimentDiagnosticsSummaryQuery(
+export async function runExperimentExposuresQuery(
   integration: SourceIntegrationInterface,
-  params: ExperimentDiagnosticsSummaryQueryParams,
-): Promise<ExperimentDiagnosticsSummaryQueryResponse & { sql?: string }> {
+  params: ExperimentExposuresQueryParams,
+): Promise<ExperimentExposuresQueryResponse & { sql: string }> {
   if (
-    !integration.getExperimentDiagnosticsSummaryQuery ||
-    !integration.runExperimentDiagnosticsSummaryQuery
+    !integration.getExperimentExposuresQuery ||
+    !integration.runExperimentExposuresQuery
   ) {
     throw new Error(
-      "Datasource does not support experiment diagnostics queries.",
+      "Exposure logs are not supported for this data source type.",
     );
   }
 
-  const sql = integration.getExperimentDiagnosticsSummaryQuery(params);
+  const sql = integration.getExperimentExposuresQuery(params);
   const { rows, statistics } =
-    await integration.runExperimentDiagnosticsSummaryQuery(sql);
+    await integration.runExperimentExposuresQuery(sql);
   return { rows, statistics, sql };
-}
-
-export async function runExperimentDiagnosticsRecordsQuery(
-  integration: SourceIntegrationInterface,
-  params: ExperimentDiagnosticsRecordsQueryParams,
-): Promise<ExperimentDiagnosticsRecordsQueryResponse & { sql?: string }> {
-  if (
-    !integration.getExperimentDiagnosticsRecordsQuery ||
-    !integration.runExperimentDiagnosticsRecordsQuery
-  ) {
-    throw new Error(
-      "Datasource does not support experiment diagnostics queries.",
-    );
-  }
-
-  const sql = integration.getExperimentDiagnosticsRecordsQuery(params);
-  const { rows, statistics, truncated } =
-    await integration.runExperimentDiagnosticsRecordsQuery(sql);
-  return { rows, statistics, truncated, sql };
 }
 
 export async function testQuery(

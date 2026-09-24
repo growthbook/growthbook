@@ -126,9 +126,8 @@ export type QueryType =
   // Event log queries
   | "eventLogSummary"
   | "eventLogRecords"
-  // Experiment diagnostics queries
-  | "experimentDiagnosticsSummary"
-  | "experimentDiagnosticsRecords"
+  // Experiment exposure log
+  | "experimentExposures"
   // AI agent SQL queries (Ask Your Data)
   | "askDataAgentQuery"
 

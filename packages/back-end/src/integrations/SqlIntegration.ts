@@ -78,10 +78,8 @@ import {
   EventLogRecordsQueryResponse,
   EventLogSummaryQueryParams,
   EventLogSummaryQueryResponse,
-  ExperimentDiagnosticsRecordsQueryParams,
-  ExperimentDiagnosticsRecordsQueryResponse,
-  ExperimentDiagnosticsSummaryQueryParams,
-  ExperimentDiagnosticsSummaryQueryResponse,
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
@@ -175,8 +173,7 @@ import { getSnapshotMetricQuery as buildSnapshotMetricQuerySql } from "back-end/
 import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries/experiment-results-query";
 import { getExperimentUnitsQuery as buildExperimentUnitsQuerySql } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
-import { getExperimentDiagnosticsRecordsQuery as getExperimentDiagnosticsRecordsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-diagnostics-records-query";
-import { getExperimentDiagnosticsSummaryQuery as getExperimentDiagnosticsSummaryQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-diagnostics-summary-query";
+import { getExperimentExposuresQuery as getExperimentExposuresQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-exposures-query";
 import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
 import { getFreeFormQuery } from "back-end/src/integrations/sql/queries/free-form-query";
@@ -1183,58 +1180,19 @@ export default abstract class SqlIntegration
     };
   }
 
-  getExperimentDiagnosticsSummaryQuery(
-    params: ExperimentDiagnosticsSummaryQueryParams,
-  ): string {
-    return getExperimentDiagnosticsSummaryQueryFromSql(
-      this.getSqlDialect(),
-      params,
-    );
+  getExperimentExposuresQuery(params: ExperimentExposuresQueryParams): string {
+    return getExperimentExposuresQueryFromSql(this.getSqlDialect(), params);
   }
 
-  async runExperimentDiagnosticsSummaryQuery(
+  // Rows are returned raw. shapeExposureRows() owns coercion and the split
+  // between typed columns and the `extra` bag, so it stays unit-testable.
+  async runExperimentExposuresQuery(
     query: string,
-  ): Promise<ExperimentDiagnosticsSummaryQueryResponse> {
+  ): Promise<ExperimentExposuresQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, undefined, {
-      queryType: "experimentDiagnosticsSummary",
+      queryType: "experimentExposures",
     });
-    return {
-      rows: rows.map((row) => ({
-        day: String(row.day ?? ""),
-        variation_id: String(row.variation_id ?? ""),
-        exposure_count: String(row.exposure_count ?? "0"),
-        user_count: String(row.user_count ?? "0"),
-      })),
-      statistics,
-    };
-  }
-
-  getExperimentDiagnosticsRecordsQuery(
-    params: ExperimentDiagnosticsRecordsQueryParams,
-  ): string {
-    return getExperimentDiagnosticsRecordsQueryFromSql(
-      this.getSqlDialect(),
-      params,
-    );
-  }
-
-  async runExperimentDiagnosticsRecordsQuery(
-    query: string,
-  ): Promise<ExperimentDiagnosticsRecordsQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, undefined, {
-      queryType: "experimentDiagnosticsRecords",
-    });
-    const truncated = rows.length >= SQL_ROW_LIMIT;
-    return {
-      rows: rows.map((row) => ({
-        timestamp: String(row.timestamp ?? ""),
-        user_id: row.user_id != null ? String(row.user_id) : null,
-        variation_id: String(row.variation_id ?? ""),
-        ...row,
-      })),
-      statistics,
-      truncated,
-    };
+    return { rows, statistics };
   }
 
   getExperimentFactMetricsQuery(

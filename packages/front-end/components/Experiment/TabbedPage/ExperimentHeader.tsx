@@ -67,6 +67,7 @@ import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
+import { datasourcesWithoutHealthData } from "@/components/HealthTab/constants";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -102,8 +103,6 @@ export interface Props {
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
 }
-
-const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
 
 const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
   start: "Holdout starts ",
@@ -1321,17 +1320,6 @@ export default function ExperimentHeader({
                               {healthNotificationCount}
                             </Avatar>
                           ) : null}
-                        </TabsTrigger>
-                      )}
-                      {disableHealthTab ? (
-                        <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                          <TabsTrigger disabled value="diagnostics">
-                            Diagnostics
-                          </TabsTrigger>
-                        </DisabledHealthTabTooltip>
-                      ) : (
-                        <TabsTrigger value="diagnostics">
-                          Diagnostics
                         </TabsTrigger>
                       )}
                       {hasMultiplePhases ? (

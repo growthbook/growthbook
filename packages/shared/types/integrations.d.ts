@@ -981,47 +981,29 @@ export type EventLogRecordsQueryResponse =
     truncated?: boolean;
   };
 
-export type ExperimentDiagnosticsSummaryQueryParams = {
+export type ExperimentExposuresQueryParams = {
+  experimentId: string;
   experimentTrackingKey: string;
   exposureQuerySql: string;
   userIdType: string;
   startDate: Date;
   endDate: Date;
-  dimension?: string;
+  userId?: string;
+  variationId?: string;
+  dimensions: string[];
+  dimensionFilters?: Record<string, string>;
+  limit: number;
+  offset: number;
 };
 
-export type ExperimentDiagnosticsRecordsQueryParams =
-  ExperimentDiagnosticsSummaryQueryParams & {
-    userId?: string;
-    variationId?: string;
-    dimensions: string[];
-    dimensionFilters?: Record<string, string>;
-    limit: number;
-    offset: number;
-  };
+// The query selects every column the exposure query returns, so the shape is
+// only known at runtime. shapeExposureRows() in
+// back-end/src/services/experiment-exposures.ts splits it into typed fields
+// and the `extra` bag behind the expandable row.
+export type ExperimentExposuresQueryResponseRows = Record<string, unknown>[];
 
-export type ExperimentDiagnosticsSummaryQueryResponseRows = {
-  day: string;
-  variation_id: string;
-  dimension_value?: string;
-  exposure_count: string;
-  user_count: string;
-}[];
-
-export type ExperimentDiagnosticsSummaryQueryResponse =
-  QueryResponse<ExperimentDiagnosticsSummaryQueryResponseRows>;
-
-export type ExperimentDiagnosticsRecordsQueryResponseRows = {
-  timestamp: string;
-  user_id: string | null;
-  variation_id: string;
-  [key: string]: unknown;
-}[];
-
-export type ExperimentDiagnosticsRecordsQueryResponse =
-  QueryResponse<ExperimentDiagnosticsRecordsQueryResponseRows> & {
-    truncated?: boolean;
-  };
+export type ExperimentExposuresQueryResponse =
+  QueryResponse<ExperimentExposuresQueryResponseRows>;
 
 export interface TestQueryRow {
   [key: string]: unknown;

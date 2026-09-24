@@ -171,7 +171,7 @@ import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { eventLogsRouter } from "./routers/event-logs/event-logs.router";
-import { experimentDiagnosticsRouter } from "./routers/experiment-diagnostics/experiment-diagnostics.router";
+import { experimentExposuresRouter } from "./routers/experiment-exposures/experiment-exposures.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -742,7 +742,7 @@ app.use(metricGroupRouter);
 app.use(populationDataRouter);
 
 // Experiments
-app.use("/experiment", experimentDiagnosticsRouter);
+app.use("/experiment", experimentExposuresRouter);
 app.get("/experiments", experimentsController.getExperiments);
 app.post("/experiments", experimentsController.postExperiments);
 app.get(
