@@ -282,8 +282,11 @@ export default function LinkedChanges({
                   canEditExperiment={canEditExperiment ?? false}
                   mutate={mutate}
                   noMargin
+                  // Running, changes go through "Make Changes" alone.
                   onEditMetadata={
-                    canEditExperiment && setEditVariationIndex
+                    canEditExperiment &&
+                    experiment.status !== "running" &&
+                    setEditVariationIndex
                       ? (index) => setEditVariationIndex(index)
                       : undefined
                   }

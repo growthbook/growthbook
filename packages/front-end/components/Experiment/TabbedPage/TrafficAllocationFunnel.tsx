@@ -749,14 +749,18 @@ export default function TrafficAllocationFunnel({
               noMargin
               centered
               showSplit={false}
+              // A running experiment changes through "Make Changes" alone, so
+              // its variations offer no edits of their own.
               onEditMetadata={
-                canEditExperiment && setEditVariationIndex
+                canEditExperiment && !isRunning && setEditVariationIndex
                   ? (index) => setEditVariationIndex(index)
                   : undefined
               }
-              // Names and descriptions save at any status; values wherever there is a flag.
               onEditTraffic={
-                canEditExperiment && editTraffic && !trafficBlocked
+                canEditExperiment &&
+                !isRunning &&
+                editTraffic &&
+                !trafficBlocked
                   ? editTraffic
                   : undefined
               }
