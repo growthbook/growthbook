@@ -136,7 +136,11 @@ export function OptionTooltipDescription({
 }) {
   if (!description) return null;
   return (
-    <OptionTooltipSection label="Description:">
+    <div>
+      {/* Lighter than the text it labels, so the description reads first. */}
+      <Text size="sm" as="div" color="text-low">
+        Description:
+      </Text>
       <div
         style={{
           display: "-webkit-box",
@@ -147,7 +151,7 @@ export function OptionTooltipDescription({
       >
         <Markdown style={{ fontSize: 12 }}>{description}</Markdown>
       </div>
-    </OptionTooltipSection>
+    </div>
   );
 }
 
