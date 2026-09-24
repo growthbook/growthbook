@@ -857,6 +857,68 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
 }
 
 /**
+ * Returns the text of the outermost SELECT list - everything between the
+ * first top-level SELECT and its matching FROM. Identifiers used only in
+ * WHERE/JOIN/GROUP BY or inside a CTE are not columns the query returns.
+ */
+export function getFactTableSelectList(sql: string): string {
+  let depth = 0;
+  let selectStart = -1;
+  const lower = sql.toLowerCase();
+  let i = 0;
+  while (i < sql.length) {
+    const ch = sql[i];
+    // Skip quoted spans so their contents never count as keywords or parens.
+    if (ch === "'" || ch === '"' || ch === "`") {
+      i++;
+      while (i < sql.length) {
+        // A backslash escapes the next character in some dialects.
+        if (sql[i] === "\\") {
+          i += 2;
+          continue;
+        }
+        if (sql[i] === ch) {
+          // A doubled quote is an escaped quote inside the string.
+          if (sql[i + 1] === ch) {
+            i += 2;
+            continue;
+          }
+          break;
+        }
+        i++;
+      }
+      i++;
+      continue;
+    }
+    // Skip line and block comments for the same reason.
+    if (ch === "-" && sql[i + 1] === "-") {
+      const nl = sql.indexOf("\n", i + 2);
+      i = nl === -1 ? sql.length : nl + 1;
+      continue;
+    }
+    if (ch === "/" && sql[i + 1] === "*") {
+      const end = sql.indexOf("*/", i + 2);
+      i = end === -1 ? sql.length : end + 2;
+      continue;
+    }
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    else if (depth === 0 && (i === 0 || !/[a-z0-9_]/i.test(sql[i - 1]))) {
+      if (selectStart === -1 && /^select\s/i.test(lower.slice(i))) {
+        selectStart = i + sql.slice(i).match(/^select\s/i)![0].length;
+        i = selectStart;
+        continue;
+      }
+      if (selectStart !== -1 && /^from\s/i.test(lower.slice(i))) {
+        return sql.slice(selectStart, i);
+      }
+    }
+    i++;
+  }
+  return selectStart === -1 ? sql : sql.slice(selectStart);
+}
+
+/**
  * Returns the subset of a fact table's identifier types whose columns the SQL
  * actually returns. A fact table only needs a timestamp plus at least one
  * identifier, not every identifier type on the datasource.
@@ -868,8 +930,8 @@ export function getUserIdTypesInSql(
 ): string[] {
   // A bare `SELECT *` returns every column, so nothing can be missing.
   if (sql.match(/SELECT\s+\*/i)) return userIdTypes;
-  const loweredSql = sql.toLowerCase();
+  const selectList = getFactTableSelectList(sql).toLowerCase();
   return userIdTypes.filter((idType) =>
-    loweredSql.includes(getColumn(idType).split(".")[0].toLowerCase()),
+    selectList.includes(getColumn(idType).split(".")[0].toLowerCase()),
   );
 }
