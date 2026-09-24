@@ -17,7 +17,7 @@ import {
   buildFeatureRulesFromApiEnvSettings,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
-  getSavedGroupMap,
+  getSavedGroupMetadataMap,
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -222,7 +222,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     details: auditDetailsCreate(feature),
   });
 
-  const groupMap = await getSavedGroupMap(req.context);
+  const groupMap = await getSavedGroupMetadataMap(req.context);
 
   const experimentMap = await getExperimentMapForFeature(
     req.context,

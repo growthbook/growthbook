@@ -44,6 +44,7 @@ describe("getSavedGroupIdsForFeatureDefinitions", () => {
                   { $savedGroups: ["grp_d"] },
                   { id: { $inGroup: "grp_e" } },
                   { $not: { id: { $notInGroup: "grp_f" } } },
+                  { $not: { $savedGroup: { id: "grp_g" } } },
                 ],
               }),
             }),
@@ -58,6 +59,7 @@ describe("getSavedGroupIdsForFeatureDefinitions", () => {
       "grp_d",
       "grp_e",
       "grp_f",
+      "grp_g",
     ]);
   });
 

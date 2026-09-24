@@ -19,7 +19,7 @@ import {
   assertFeatureValuesValid,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObjV2,
-  getSavedGroupMap,
+  getSavedGroupMetadataMap,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { auditDetailsCreate } from "back-end/src/services/audit";
@@ -251,7 +251,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       details: auditDetailsCreate(feature),
     });
 
-    const groupMap = await getSavedGroupMap(req.context);
+    const groupMap = await getSavedGroupMetadataMap(req.context);
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       feature.id,

@@ -28,7 +28,7 @@ jest.mock("back-end/src/revisions/revertRampGuard", () => ({
 }));
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
-  getSavedGroupMap: jest.fn(),
+  getSavedGroupMetadataMap: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/audit", () => ({

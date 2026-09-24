@@ -29,7 +29,7 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   getApiFeatureObj,
-  getSavedGroupMap,
+  getSavedGroupMetadataMap,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
@@ -86,7 +86,7 @@ export async function toggleFeatureCore(
     }
   }
 
-  const groupMap = await getSavedGroupMap(context);
+  const groupMap = await getSavedGroupMetadataMap(context);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();

@@ -1,5 +1,7 @@
-import { recursiveWalk } from "shared/util";
-import { MAX_SAVED_GROUP_DEPTH } from "shared/sdk-versioning";
+import {
+  forEachSavedGroupIdInCondition,
+  MAX_SAVED_GROUP_DEPTH,
+} from "shared/sdk-versioning";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { ExperimentInterface } from "shared/types/experiment";
@@ -41,19 +43,11 @@ function addConditionIds(ids: Set<string>, condition: unknown) {
   let parsed: unknown;
   try {
     parsed = JSON.parse(condition);
-  } catch (e) {
+  } catch {
     // A malformed condition is skipped when the definition is built, too.
     return;
   }
-  // The same walk nested Saved Group expansion does, so every `$savedGroups` it
-  // can reach is seen here, whatever it is nested under.
-  recursiveWalk(parsed, ([key, value]) => {
-    if (key === "$savedGroups") {
-      (Array.isArray(value) ? value : [value]).forEach((id) => addId(ids, id));
-    } else if (key === "$inGroup" || key === "$notInGroup") {
-      addId(ids, value);
-    }
-  });
+  forEachSavedGroupIdInCondition(parsed, (id) => addId(ids, id));
 }
 
 function addTargetingIds(

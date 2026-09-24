@@ -30,7 +30,7 @@ function ctx(
     bulkPublishDeferredEvents: null,
     models: {
       savedGroups: {
-        getAll: async () => {
+        getMetadata: async () => {
           emitAttempted();
           throw new Error(EMIT_PROBE);
         },

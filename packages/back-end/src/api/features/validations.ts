@@ -20,10 +20,8 @@ import {
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
-  assertFeatureValuesValid,
-  getSavedGroupMap,
-} from "back-end/src/services/features";
+import type { GroupMap } from "shared/types/saved-group";
+import { assertFeatureValuesValid } from "back-end/src/services/features";
 import {
   applyPatchToRule,
   normalizeRampPlanForceValues,
@@ -712,7 +710,13 @@ export const validateCustomFields = async (
   });
 };
 
-type SavedGroupMap = Awaited<ReturnType<typeof getSavedGroupMap>>;
+// Reference checks read ids and conditions, never the ID lists.
+async function getSavedGroupsForValidation(
+  context: ReqContext | ApiReqContext,
+): Promise<GroupMap> {
+  const groups = await context.models.savedGroups.getAllWithoutValues();
+  return new Map(groups.map((group) => [group.id, group]));
+}
 
 // Verify the saved-group references in a rule exist. Call on the final rule —
 // saved groups are loaded once. Prerequisite parents are checked separately
@@ -721,7 +725,10 @@ export async function validateRuleReferences(
   rule: Pick<FeatureRule, "condition" | "savedGroups">,
   context: ApiReqContext,
 ): Promise<void> {
-  validateRuleReferencesWithGroups(rule, await getSavedGroupMap(context));
+  validateRuleReferencesWithGroups(
+    rule,
+    await getSavedGroupsForValidation(context),
+  );
 }
 
 // Bulk form for endpoints that take a whole rules array (feature create /
@@ -731,7 +738,7 @@ export async function validateRulesReferences(
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   if (!rules.length) return;
-  const groupMap = await getSavedGroupMap(context);
+  const groupMap = await getSavedGroupsForValidation(context);
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
     validateRuleReferencesWithGroups(rule, groupMap);
@@ -812,7 +819,7 @@ export async function validateChangedPhaseReferences(
 
 function validateRuleReferencesWithGroups(
   rule: Pick<FeatureRule, "condition" | "savedGroups">,
-  groupMap: SavedGroupMap,
+  groupMap: GroupMap,
 ): void {
   const savedGroupIds = new Set(groupMap.keys());
   for (const sg of rule.savedGroups ?? []) {
@@ -844,7 +851,7 @@ export async function validatePrerequisiteReferences(
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
   const savedGroupIds = new Set(
-    (await context.models.savedGroups.getAll()).map((sg) => sg.id),
+    (await context.models.savedGroups.getAllWithoutValues()).map((sg) => sg.id),
   );
   for (const prereq of prerequisites) {
     if (prereq.condition && prereq.condition !== "{}") {

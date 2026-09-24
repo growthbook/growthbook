@@ -67,6 +67,7 @@ import {
   SavedGroupPayloadMap,
   SavedGroupsValues,
   SavedGroupInterface,
+  SavedGroupMetadata,
 } from "shared/types/saved-group";
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -715,9 +716,19 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
-// The Saved Groups and Safe Rollouts that building these features' definitions
-// can look up, instead of every one in the organization (Saved Groups carry
-// their full ID lists).
+// For compiling definitions outside of SDK payloads (API responses, webhooks):
+// the same groups as `getSavedGroupMap`, without their ID lists.
+export async function getSavedGroupMetadataMap(
+  context: ReqContext | ApiReqContext,
+  savedGroups?: SavedGroupMetadata[],
+): Promise<GroupMap> {
+  const groups =
+    savedGroups ?? (await context.models.savedGroups.getMetadata());
+  return new Map(groups.map((group) => [group.id, group]));
+}
+
+// The Saved Groups and Safe Rollouts that building these features' API
+// definitions can look up, instead of every one in the organization.
 export async function getFeatureDefinitionLookups(
   context: ReqContext | ApiReqContext,
   sources: FeatureDefinitionSources,
@@ -725,15 +736,17 @@ export async function getFeatureDefinitionLookups(
   groupMap: GroupMap;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
 }> {
-  const savedGroups = await loadSavedGroupsWithNested(
-    getSavedGroupIdsForFeatureDefinitions(sources),
-    (ids) => context.models.savedGroups.getByIds(ids),
-  );
-  const safeRollouts = await context.models.safeRollout.getByIds(
-    getSafeRolloutIdsForFeatureDefinitions(sources),
-  );
+  const [savedGroups, safeRollouts] = await Promise.all([
+    loadSavedGroupsWithNested(
+      getSavedGroupIdsForFeatureDefinitions(sources),
+      (ids) => context.models.savedGroups.getMetadata(ids),
+    ),
+    context.models.safeRollout.getByIds(
+      getSafeRolloutIdsForFeatureDefinitions(sources),
+    ),
+  ]);
   return {
-    groupMap: await getSavedGroupMap(context, savedGroups),
+    groupMap: await getSavedGroupMetadataMap(context, savedGroups),
     safeRolloutMap: new Map(safeRollouts.map((r) => [r.id, r])),
   };
 }

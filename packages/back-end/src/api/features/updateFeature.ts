@@ -31,7 +31,7 @@ import {
   addIdsToRules,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
-  getSavedGroupMap,
+  getSavedGroupMetadataMap,
   inheritStoredRolloutSeeds,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -694,7 +694,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       details: auditDetailsUpdate(feature, updatedFeature),
     });
 
-    const groupMap = await getSavedGroupMap(req.context);
+    const groupMap = await getSavedGroupMetadataMap(req.context);
 
     const experimentMap = await getExperimentMapForFeature(
       req.context,

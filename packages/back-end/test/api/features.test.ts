@@ -11,7 +11,7 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import {
-  getSavedGroupMap,
+  getSavedGroupMetadataMap,
   getApiFeatureObj,
   createInterfaceEnvSettingsFromApiEnvSettings,
   addIdsToFlatRules,
@@ -45,7 +45,7 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
-  getSavedGroupMap: jest.fn().mockResolvedValue(new Map()),
+  getSavedGroupMetadataMap: jest.fn().mockResolvedValue(new Map()),
   addIdsToRules: jest.fn(),
   addIdsToFlatRules: jest.fn(),
   inheritStoredRolloutSeeds: jest.fn(),
@@ -114,6 +114,7 @@ describe("features API", () => {
   });
 
   const defaultModels = () => ({
+    savedGroups: { getAllWithoutValues: jest.fn().mockResolvedValue([]) },
     safeRollout: {
       getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
     },
@@ -150,7 +151,7 @@ describe("features API", () => {
 
   beforeEach(() => {
     (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
-    (getSavedGroupMap as jest.Mock).mockResolvedValue(savedGroupMap);
+    (getSavedGroupMetadataMap as jest.Mock).mockResolvedValue(savedGroupMap);
     (getExperimentMapForFeature as jest.Mock).mockResolvedValue(new Map());
 
     (getRevision as jest.Mock).mockImplementation(({ version }) =>

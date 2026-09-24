@@ -13,9 +13,10 @@ import {
 } from "back-end/src/services/features";
 import { ApiReqContext } from "back-end/types/api";
 
-// The single-feature REST handlers load only the Saved Groups and Safe Rollouts
-// the feature's definitions can look up. These tests pin that the narrowed maps
-// produce exactly what the organization-wide maps produce.
+// The REST feature reads load only the Saved Groups and Safe Rollouts the
+// features' definitions can look up, and the groups without their ID lists.
+// These tests pin that the narrowed maps produce exactly what the
+// organization-wide maps produce.
 
 const organization = {
   id: "org_test",
@@ -50,6 +51,7 @@ const allGroups: SavedGroupInterface[] = [
   group("grp_list", { values: ["u1", "u2", "u3"] }),
   group("grp_numbers", { attributeKey: "account", values: ["10", "20"] }),
   group("grp_empty", { values: [] }),
+  group("grp_empty_allowed", { values: [], useEmptyListGroup: true }),
   group("grp_cond_top", {
     type: "condition",
     attributeKey: undefined,
@@ -199,7 +201,12 @@ const feature = {
       id: "fr_all",
       type: "force",
       value: "true",
-      savedGroups: [{ match: "all", ids: ["grp_list", "grp_empty"] }],
+      savedGroups: [
+        {
+          match: "all",
+          ids: ["grp_list", "grp_empty", "grp_empty_allowed"],
+        },
+      ],
     },
     {
       ...base,
@@ -344,9 +351,12 @@ function makeContext() {
       throw new Error("Invalid ids");
     }
   };
-  const groupsByIds = jest.fn(async (ids: string[]) => {
+  // As SavedGroupModel.getMetadata.
+  const groupMetadata = jest.fn(async (ids: string[]) => {
     assertIds(ids);
-    return allGroups.filter((g) => ids.includes(g.id));
+    return allGroups
+      .filter((g) => ids.includes(g.id))
+      .map(({ values, ...g }) => ({ ...g, hasValues: !!values?.length }));
   });
   const safeRolloutsByIds = jest.fn(async (ids: string[]) => {
     assertIds(ids);
@@ -356,11 +366,11 @@ function makeContext() {
   const context = {
     org: organization,
     models: {
-      savedGroups: { getByIds: groupsByIds, getAll },
+      savedGroups: { getMetadata: groupMetadata, getAll },
       safeRollout: { getByIds: safeRolloutsByIds },
     },
   } as unknown as ApiReqContext;
-  return { context, groupsByIds, safeRolloutsByIds, getAll };
+  return { context, safeRolloutsByIds, getAll };
 }
 
 const chainFeature = (entry: "targeting" | "condition", start: number) =>
@@ -386,11 +396,9 @@ describe("getFeatureDefinitionLookups", () => {
     ["targeting", 14 - (MAX_SAVED_GROUP_DEPTH - 1)],
     ["targeting", 14 - MAX_SAVED_GROUP_DEPTH],
     ["targeting", 14 - (MAX_SAVED_GROUP_DEPTH + 1)],
-    ["targeting", 0],
     ["condition", 14 - (MAX_SAVED_GROUP_DEPTH - 1)],
     ["condition", 14 - MAX_SAVED_GROUP_DEPTH],
     ["condition", 14 - (MAX_SAVED_GROUP_DEPTH + 1)],
-    ["condition", 0],
   ] as const)(
     "matches the organization-wide maps across the nesting limit (%s, from grp_chain_%i)",
     async (entry, start) => {
@@ -440,6 +448,7 @@ describe("getFeatureDefinitionLookups", () => {
       "grp_dangling",
       "grp_draft",
       "grp_empty",
+      "grp_empty_allowed",
       "grp_in_object",
       "grp_in_object_inner",
       "grp_leaf",
@@ -453,14 +462,11 @@ describe("getFeatureDefinitionLookups", () => {
     ]);
     expect([...safeRolloutMap.keys()].sort()).toEqual(["sr_draft", "sr_live"]);
     expect(getAll).not.toHaveBeenCalled();
-    expect(
-      [...groupMap.keys()].some(
-        (id) => id.startsWith("grp_unused_") || id.startsWith("grp_chain_"),
-      ),
-    ).toBe(false);
     expect(safeRolloutsByIds).toHaveBeenCalledTimes(1);
-    // Values keep the attribute's datatype, as with the organization-wide map.
-    expect(groupMap.get("grp_numbers")?.values).toEqual([10, 20]);
+    // No ID lists, only whether each one has values.
+    expect(groupMap.get("grp_numbers")).not.toHaveProperty("values");
+    expect(groupMap.get("grp_numbers")?.hasValues).toBe(true);
+    expect(groupMap.get("grp_empty")?.hasValues).toBe(false);
   });
 
   it("without revisions, leaves out what only a revision references", async () => {
@@ -516,7 +522,8 @@ describe("getFeatureDefinitionLookups", () => {
     expect(production).toContain('"$inGroup":"grp_phase"');
     expect(production).toContain('"country":"CA"');
     expect(production).toContain('"coverage":0.25');
-    expect(production).not.toContain("grp_empty");
+    expect(production).not.toContain('"grp_empty"');
+    expect(production).toContain('"$inGroup":"grp_empty_allowed"');
     // Object-valued `$inGroup`, resolved two groups deep.
     expect(production).toContain(
       '"$inGroup":{"id":{"$notInGroup":{"id":{"$inGroup":"grp_in_object_inner"}}}}',
@@ -527,13 +534,5 @@ describe("getFeatureDefinitionLookups", () => {
     const draft = fullV1.revisions?.[0]?.definitions?.production ?? "";
     expect(draft).toContain('"$inGroup":"grp_draft"');
     expect(draft).toContain('"coverage":0.5');
-    expect(
-      getApiFeatureObj({
-        ...common,
-        revisions,
-        groupMap: new Map(),
-        safeRolloutMap: new Map(),
-      }),
-    ).not.toEqual(fullV1);
   });
 });

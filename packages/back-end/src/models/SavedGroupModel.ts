@@ -5,6 +5,7 @@ import {
   LegacySavedGroupInterface,
   SavedGroupWithoutValues,
   SavedGroupForDefinitions,
+  SavedGroupMetadata,
 } from "shared/types/saved-group";
 import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
@@ -57,6 +58,8 @@ const BaseClass = MakeModelClass({
   // collection. Mirrors FeatureModel's org-leading index.
   additionalIndexes: [{ fields: { organization: 1 } }],
 });
+
+const idsQuery = (ids?: string[]) => (ids ? { id: { $in: ids } } : {});
 
 export class SavedGroupModel extends BaseClass<WriteOptions> {
   // Substitutes proposed (unwritten) saved-group docs into full and metadata reads so a
@@ -226,13 +229,47 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     await touchDefinitionsVersion(this.context.org.id);
   }
 
-  public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
-    const groups = await this._find({}, { projection: { values: 0 } });
+  /** Everything but the ID lists, which can be enormous. All groups, or `ids`. */
+  public async getAllWithoutValues(
+    ids?: string[],
+  ): Promise<SavedGroupWithoutValues[]> {
+    if (ids && !ids.length) return [];
+    const groups = await this._find(idsQuery(ids), {
+      projection: { values: 0 },
+    });
+    const overlay =
+      ids && this.scanOverlay
+        ? new Map([...this.scanOverlay].filter(([id]) => ids.includes(id)))
+        : this.scanOverlay;
     return overlayDocsById(
       groups as SavedGroupWithoutValues[],
-      this.scanOverlay,
+      overlay,
       (group) => omit(group, "values"),
     );
+  }
+
+  /** As `getAllWithoutValues`, with whether each ID list is non-empty. */
+  public async getMetadata(ids?: string[]): Promise<SavedGroupMetadata[]> {
+    if (ids && !ids.length) return [];
+    const [groups, withValues] = await Promise.all([
+      this.getAllWithoutValues(ids),
+      this._find(
+        { ...idsQuery(ids), values: { $type: "array", $ne: [] } } as Parameters<
+          typeof this._find
+        >[0],
+        { projection: { values: 0, condition: 0 } },
+      ),
+    ]);
+    const nonEmpty = new Set(withValues.map((group) => group.id));
+    return groups.map((group) => {
+      const proposed = this.scanOverlay?.get(group.id);
+      return {
+        ...group,
+        hasValues: proposed
+          ? !!proposed.values?.length
+          : nonEmpty.has(group.id),
+      };
+    });
   }
 
   /**

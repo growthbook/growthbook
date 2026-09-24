@@ -75,6 +75,18 @@ export type SavedGroupForPayload = Pick<
   "type" | "condition" | "attributeKey" | "useEmptyListGroup"
 > & {
   values?: (string | number)[];
+  // Whether the ID list is non-empty, set in place of `values` when those were
+  // not loaded (see SavedGroupMetadata).
+  hasValues?: boolean;
+};
+
+/**
+ * A stored saved group without its ID list, and whether that list is
+ * non-empty: all that compiling a feature definition outside of an SDK payload
+ * needs from it.
+ */
+export type SavedGroupMetadata = SavedGroupWithoutValues & {
+  hasValues: boolean;
 };
 
 /**
