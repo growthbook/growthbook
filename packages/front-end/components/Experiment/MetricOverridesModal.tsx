@@ -69,7 +69,7 @@ export default function MetricOverridesModal({
       close={close}
       trackingEventModalType="edit-metric-overrides"
       header="Metric Overrides"
-      subheader="Change how individual metrics are analyzed in this experiment. Anything left on Default follows the metric's own settings."
+      subheader="Change how individual metrics are analyzed in this experiment. Anything you don't override follows the metric's own settings."
       cta="Confirm"
       ctaEnabled={canOverride}
       size="lg"

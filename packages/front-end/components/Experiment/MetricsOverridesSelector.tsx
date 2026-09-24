@@ -1,6 +1,6 @@
-import React, { useMemo } from "react";
-import { Card, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { PiInfo, PiXBold } from "react-icons/pi";
+import React, { ReactNode, useMemo } from "react";
+import { Box, Card, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { PiInfo, PiPlusBold, PiXBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import {
@@ -23,6 +23,8 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { metricTypeLabel } from "@/services/metrics";
 import MetricName from "@/components/Metrics/MetricName";
+import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import TextField, { TextFieldProps } from "@/ui/TextField";
 import Text from "@/ui/Text";
@@ -37,9 +39,6 @@ const defaultFieldMap = {
   activationMetric: "activationMetric",
   metricOverrides: "metricOverrides",
 };
-
-/** A select's own stand-in for "leave this to the metric". */
-const METRIC_DEFAULT = "__metric-default";
 
 export default function MetricsOverridesSelector({
   experiment,
@@ -168,7 +167,10 @@ export default function MetricsOverridesSelector({
   );
 }
 
-/** One overridden metric: its window, prior and CUPED, each defaulting to it. */
+/**
+ * One overridden metric. Each setting it overrides is a row, always open;
+ * the rest wait behind a link apiece until they're overridden too.
+ */
 function OverrideCard({
   path,
   form,
@@ -188,6 +190,10 @@ function OverrideCard({
   onRemove: () => void;
 }) {
   const field = (name: string) => `${path}.${name}`;
+  const set = (values: Record<string, unknown>) =>
+    Object.entries(values).forEach(([name, value]) =>
+      form.setValue(field(name), value),
+    );
   const mo = form.watch(path);
   const retention = !!metricDefinition && isRetentionMetric(metricDefinition);
   const minWindow =
@@ -196,15 +202,13 @@ function OverrideCard({
   // Window: the metric's own unless one is chosen here.
   const metricWindowType = metricDefinition?.windowSettings?.type || "none";
   const windowType: string | undefined = mo?.windowType;
-  const windowChoice =
-    windowType === undefined ? METRIC_DEFAULT : windowType || "none";
-  const effectiveWindowType =
-    windowChoice === METRIC_DEFAULT ? metricWindowType : windowChoice;
+  const windowOverridden = windowType !== undefined;
+  const windowChoice = windowType || "none";
   const defaultDelay = metricDefinition?.windowSettings
     ? getDelayWindowHours(metricDefinition.windowSettings)
     : 0;
-  const defaultWindow = (type: string) =>
-    metricWindowType === type && metricDefinition?.windowSettings
+  const defaultWindow =
+    metricWindowType === windowChoice && metricDefinition?.windowSettings
       ? `Default ${getMetricWindowHours(metricDefinition.windowSettings)}`
       : "Required";
 
@@ -217,11 +221,7 @@ function OverrideCard({
         mean: 0,
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       });
-  const priorChoice = !mo?.properPriorOverride
-    ? METRIC_DEFAULT
-    : mo?.properPriorEnabled
-      ? "proper"
-      : "improper";
+  const priorOverridden = !!mo?.properPriorOverride;
 
   // CUPED: some metrics can't take it at all.
   let cupedUnavailable: string | null = null;
@@ -244,47 +244,95 @@ function OverrideCard({
   ) {
     cupedUnavailable = "Not available for metrics with custom aggregations.";
   }
-  const cupedDefault = metricDefinition?.regressionAdjustmentOverride
+  const cupedDefault = !!(metricDefinition?.regressionAdjustmentOverride
     ? metricDefinition.regressionAdjustmentEnabled
-    : settings.regressionAdjustmentEnabled;
+    : settings.regressionAdjustmentEnabled);
   const cupedDefaultDays = metricDefinition?.regressionAdjustmentOverride
     ? metricDefinition.regressionAdjustmentDays
     : (settings.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS);
-  const cupedChoice = !mo?.regressionAdjustmentOverride
-    ? METRIC_DEFAULT
-    : mo?.regressionAdjustmentEnabled
-      ? "on"
-      : "off";
+  const cupedOverridden = !!mo?.regressionAdjustmentOverride;
   const days: number | undefined = mo?.regressionAdjustmentDays;
   const daysWarning =
     !isUndefined(days) && days > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
       : !isUndefined(days) && days < 7
         ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-        : undefined;
+        : null;
+
+  const clearWindow = () =>
+    set({
+      windowType: undefined,
+      windowHours: undefined,
+      delayHours: undefined,
+    });
+  const clearPrior = () =>
+    set({
+      properPriorOverride: false,
+      properPriorEnabled: false,
+      properPriorMean: undefined,
+      properPriorStdDev: undefined,
+    });
+  const clearCuped = () =>
+    set({
+      regressionAdjustmentOverride: false,
+      regressionAdjustmentEnabled: false,
+      regressionAdjustmentDays: undefined,
+    });
 
   const numberField = (
     name: string,
     label: string,
-    unit: string,
     placeholder: string,
-    options: Parameters<typeof form.register>[1] = {},
-    extra: Partial<TextFieldProps> = {},
+    {
+      unit,
+      rules = {},
+      ...extra
+    }: {
+      unit?: string;
+      rules?: Parameters<typeof form.register>[1];
+    } & Partial<TextFieldProps> = {},
   ) => (
-    <TextField
-      label={label}
-      type="number"
-      step="any"
-      placeholder={placeholder}
-      append={
-        <Text size="sm" color="text-low">
-          {unit}
-        </Text>
-      }
-      {...extra}
-      {...form.register(field(name), { valueAsNumber: true, ...options })}
-    />
+    <Box minWidth="0">
+      <TextField
+        type="number"
+        step="any"
+        label={label}
+        placeholder={placeholder}
+        append={unit ? <Text color="text-low">{unit}</Text> : undefined}
+        {...extra}
+        {...form.register(field(name), { valueAsNumber: true, ...rules })}
+      />
+    </Box>
   );
+
+  const addable = [
+    !windowOverridden && {
+      label: "Metric window",
+      add: () =>
+        set({
+          windowType: metricWindowType === "none" ? "" : metricWindowType,
+        }),
+    },
+    !priorOverridden &&
+      hasRegressionAdjustmentFeature && {
+        label: "Prior",
+        add: () =>
+          set({
+            properPriorOverride: true,
+            properPriorEnabled: !!defaultPrior.proper,
+          }),
+      },
+    !cupedOverridden &&
+      !cupedUnavailable &&
+      hasRegressionAdjustmentFeature && {
+        label: "CUPED",
+        add: () =>
+          set({
+            regressionAdjustmentOverride: true,
+            regressionAdjustmentEnabled: cupedDefault,
+          }),
+      },
+  ].filter((a): a is { label: string; add: () => void } => !!a);
 
   return (
     <Card>
@@ -299,189 +347,267 @@ function OverrideCard({
             </Text>
           ) : null}
         </Flex>
-        <Tooltip content="Remove override">
-          <IconButton
-            type="button"
-            color="gray"
-            variant="ghost"
-            radius="full"
-            size="1"
-            onClick={onRemove}
-          >
-            <PiXBold size={16} />
-          </IconButton>
-        </Tooltip>
+        <RemoveButton label="Remove metric" onClick={onRemove} />
       </Flex>
 
-      <Grid columns={{ initial: "1", sm: "3" }} gap="4">
-        <Flex direction="column" gap="3">
-          <Select
+      <Flex direction="column" gap="4">
+        {windowOverridden ? (
+          <OverrideRow
             label="Metric window"
-            value={windowChoice}
-            setValue={(value) => {
-              if (value === METRIC_DEFAULT) {
-                form.setValue(field("windowType"), undefined);
-                form.setValue(field("windowHours"), undefined);
-                form.setValue(field("delayHours"), undefined);
-              } else {
-                form.setValue(
-                  field("windowType"),
-                  value === "none" ? "" : value,
-                );
-              }
-            }}
-          >
-            <SelectItem value={METRIC_DEFAULT}>
-              Default ({metricWindowType})
-            </SelectItem>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="conversion">Conversion</SelectItem>
-            {retention ? null : (
-              <SelectItem value="lookback">Lookback</SelectItem>
-            )}
-          </Select>
-          {effectiveWindowType === "conversion" ||
-          effectiveWindowType === "lookback" ||
-          retention ? (
-            <>
-              {numberField(
-                "delayHours",
-                retention ? "Retention starts after" : "Metric delay",
-                "hours",
-                `Default ${defaultDelay}`,
-              )}
-              {effectiveWindowType === "lookback"
-                ? numberField(
-                    "windowHours",
-                    "Lookback window",
-                    "hours",
-                    defaultWindow("lookback"),
-                    { required: metricWindowType !== "lookback" },
-                    { min: minWindow },
-                  )
-                : numberField(
-                    "windowHours",
-                    "Conversion window",
-                    "hours",
-                    defaultWindow("conversion"),
-                    { required: metricWindowType !== "conversion" },
-                    {
-                      min: minWindow,
-                      disabled: effectiveWindowType !== "conversion",
-                    },
-                  )}
-            </>
-          ) : null}
-        </Flex>
-
-        <Flex direction="column" gap="3">
-          <Select
-            label={
-              <Flex align="center" gap="1">
-                <Text as="label" weight="semibold">
-                  Prior
-                </Text>
-                <Tooltip content="Only used by the Bayesian stats engine.">
-                  <Flex style={{ color: "var(--gray-10)" }}>
-                    <PiInfo size={14} />
-                  </Flex>
-                </Tooltip>
-              </Flex>
+            onClear={clearWindow}
+            choice={
+              <Select
+                value={windowChoice}
+                setValue={(value) =>
+                  set({ windowType: value === "none" ? "" : value })
+                }
+              >
+                {[
+                  ["none", "None"],
+                  ["conversion", "Conversion"],
+                  ...(retention ? [] : [["lookback", "Lookback"]]),
+                ].map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {withDefault(label, value === metricWindowType)}
+                  </SelectItem>
+                ))}
+              </Select>
             }
-            disabled={!hasRegressionAdjustmentFeature}
-            value={priorChoice}
-            setValue={(value) => {
-              form.setValue(
-                field("properPriorOverride"),
-                value !== METRIC_DEFAULT,
-              );
-              form.setValue(field("properPriorEnabled"), value === "proper");
-            }}
           >
-            <SelectItem value={METRIC_DEFAULT}>
-              Default ({defaultPrior.proper ? "proper" : "improper"})
-            </SelectItem>
-            <SelectItem value="proper">Proper</SelectItem>
-            <SelectItem value="improper">Improper</SelectItem>
-          </Select>
-          {priorChoice === "proper" ? (
-            <>
-              <TextField
-                label="Mean"
-                type="number"
-                step="any"
-                placeholder={`Default ${defaultPrior.mean}`}
-                {...form.register(field("properPriorMean"), {
-                  valueAsNumber: true,
-                })}
-              />
-              <TextField
-                label="Standard deviation"
-                type="number"
-                step="any"
-                placeholder={`Default ${defaultPrior.stddev}`}
-                {...form.register(field("properPriorStdDev"), {
-                  valueAsNumber: true,
-                  validate: (v) => !((v ?? 0) <= 0),
-                })}
-              />
-            </>
-          ) : null}
-        </Flex>
+            {windowChoice !== "none" || retention ? (
+              <>
+                {numberField(
+                  "delayHours",
+                  retention
+                    ? windowChoice === "lookback"
+                      ? "Retention window"
+                      : "Retention starts after"
+                    : "Delay",
+                  `Default ${defaultDelay}`,
+                  { unit: "hours" },
+                )}
+                {windowChoice !== "none"
+                  ? numberField(
+                      "windowHours",
+                      windowChoice === "lookback"
+                        ? "Lookback window"
+                        : "Conversion window",
+                      defaultWindow,
+                      {
+                        unit: "hours",
+                        min: minWindow,
+                        rules: { required: metricWindowType !== windowChoice },
+                      },
+                    )
+                  : null}
+              </>
+            ) : null}
+          </OverrideRow>
+        ) : null}
 
-        <Flex direction="column" gap="3">
-          {cupedUnavailable ? (
-            <Flex direction="column" gap="1">
-              <Text as="label" weight="semibold">
-                CUPED
-              </Text>
+        {priorOverridden ? (
+          <OverrideRow
+            label="Prior"
+            tooltip="Only used by the Bayesian stats engine."
+            onClear={clearPrior}
+            choice={
+              <Select
+                disabled={!hasRegressionAdjustmentFeature}
+                value={mo?.properPriorEnabled ? "proper" : "improper"}
+                setValue={(value) =>
+                  set({ properPriorEnabled: value === "proper" })
+                }
+              >
+                <SelectItem value="proper">
+                  {withDefault("Proper", !!defaultPrior.proper)}
+                </SelectItem>
+                <SelectItem value="improper">
+                  {withDefault("Improper", !defaultPrior.proper)}
+                </SelectItem>
+              </Select>
+            }
+          >
+            {mo?.properPriorEnabled ? (
+              <>
+                {numberField(
+                  "properPriorMean",
+                  "Mean",
+                  `Default ${defaultPrior.mean}`,
+                )}
+                {numberField(
+                  "properPriorStdDev",
+                  "Standard deviation",
+                  `Default ${defaultPrior.stddev}`,
+                  { rules: { validate: (v) => !((v ?? 0) <= 0) } },
+                )}
+              </>
+            ) : null}
+          </OverrideRow>
+        ) : null}
+
+        {cupedOverridden ? (
+          <OverrideRow
+            label="CUPED"
+            onClear={clearCuped}
+            help={
+              !cupedUnavailable && mo?.regressionAdjustmentEnabled
+                ? daysWarning
+                : null
+            }
+            choice={
+              cupedUnavailable ? null : (
+                <Select
+                  disabled={!hasRegressionAdjustmentFeature}
+                  value={mo?.regressionAdjustmentEnabled ? "on" : "off"}
+                  setValue={(value) =>
+                    set({ regressionAdjustmentEnabled: value === "on" })
+                  }
+                >
+                  <SelectItem value="on">
+                    {withDefault("On", cupedDefault)}
+                  </SelectItem>
+                  <SelectItem value="off">
+                    {withDefault("Off", !cupedDefault)}
+                  </SelectItem>
+                </Select>
+              )
+            }
+          >
+            {cupedUnavailable ? (
               <Text size="sm" color="text-low">
                 {cupedUnavailable}
               </Text>
-            </Flex>
-          ) : (
-            <>
-              <Select
-                label="CUPED"
-                disabled={!hasRegressionAdjustmentFeature}
-                value={cupedChoice}
-                setValue={(value) => {
-                  form.setValue(
-                    field("regressionAdjustmentOverride"),
-                    value !== METRIC_DEFAULT,
-                  );
-                  form.setValue(
-                    field("regressionAdjustmentEnabled"),
-                    value === "on",
-                  );
-                }}
-              >
-                <SelectItem value={METRIC_DEFAULT}>
-                  Default ({cupedDefault ? "on" : "off"})
-                </SelectItem>
-                <SelectItem value="on">On</SelectItem>
-                <SelectItem value="off">Off</SelectItem>
-              </Select>
-              {cupedChoice === "on"
-                ? numberField(
-                    "regressionAdjustmentDays",
-                    "Pre-exposure lookback",
-                    "days",
-                    `Default ${cupedDefaultDays}`,
-                    { validate: (v) => v === undefined || v > 0 },
-                    {
-                      min: 0,
-                      step: undefined,
-                      disabled: !hasRegressionAdjustmentFeature,
-                      error: daysWarning,
-                      errorLevel: "warning",
-                    },
-                  )
-                : null}
-            </>
-          )}
-        </Flex>
-      </Grid>
+            ) : mo?.regressionAdjustmentEnabled ? (
+              numberField(
+                "regressionAdjustmentDays",
+                "Pre-exposure lookback",
+                `Default ${cupedDefaultDays}`,
+                {
+                  unit: "days",
+                  min: 0,
+                  step: undefined,
+                  disabled: !hasRegressionAdjustmentFeature,
+                  rules: { validate: (v) => v === undefined || v > 0 },
+                },
+              )
+            ) : null}
+          </OverrideRow>
+        ) : null}
+
+        {addable.length > 0 ? (
+          <Flex align="center" gap="4" wrap="wrap">
+            <Text size="sm" color="text-low">
+              {windowOverridden || priorOverridden || cupedOverridden
+                ? "Also override"
+                : "Override"}
+            </Text>
+            {addable.map(({ label, add }) => (
+              <Link key={label} onClick={add}>
+                <PiPlusBold style={ICON_STYLE} />
+                {label}
+              </Link>
+            ))}
+          </Flex>
+        ) : null}
+      </Flex>
     </Card>
+  );
+}
+
+const SELECT_WIDTH = 190;
+/** Where a row's details start, past its choice and the gap after it. */
+const DETAILS_INDENT = `${SELECT_WIDTH + 12}px`;
+const ICON_STYLE = { verticalAlign: "-2px", marginRight: 4 };
+
+const withDefault = (label: string, isDefault: boolean) =>
+  isDefault ? `${label} (default)` : label;
+
+/**
+ * A setting a metric overrides: its choice, labelled with the setting, then
+ * its details and a reset. Details share two even slots, so they line up from
+ * one row to the next.
+ */
+function OverrideRow({
+  label,
+  tooltip,
+  choice,
+  onClear,
+  help,
+  children,
+}: {
+  label: string;
+  tooltip?: string;
+  /** Left out where the setting can't be chosen; its details take its place. */
+  choice: ReactNode;
+  onClear: () => void;
+  /** A warning about the details, under them. */
+  help?: string | null;
+  children?: ReactNode;
+}) {
+  const heading = (
+    <Flex align="center" gap="1">
+      <Text as="label" weight="semibold">
+        {label}
+      </Text>
+      {tooltip ? (
+        <Tooltip content={tooltip}>
+          <Flex style={{ color: "var(--gray-10)" }}>
+            <PiInfo size={14} />
+          </Flex>
+        </Tooltip>
+      ) : null}
+    </Flex>
+  );
+  return (
+    <Flex direction="column" gap="1">
+      <Flex align="end" gap="3">
+        <Flex
+          direction="column"
+          flexShrink="0"
+          width={choice ? `${SELECT_WIDTH}px` : undefined}
+          flexGrow={choice ? undefined : "1"}
+        >
+          {heading}
+          {choice ?? children}
+        </Flex>
+        {choice ? (
+          <Grid columns="2" gap="3" align="end" flexGrow="1" minWidth="0">
+            {children}
+          </Grid>
+        ) : null}
+        <Box pb="6px">
+          <RemoveButton label={`Stop overriding ${label}`} onClick={onClear} />
+        </Box>
+      </Flex>
+      {help ? (
+        <HelperText status="warning" size="sm" ml={DETAILS_INDENT}>
+          {help}
+        </HelperText>
+      ) : null}
+    </Flex>
+  );
+}
+
+function RemoveButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip content={label}>
+      <IconButton
+        type="button"
+        color="gray"
+        variant="ghost"
+        radius="full"
+        size="1"
+        aria-label={label}
+        onClick={onClick}
+      >
+        <PiXBold size={16} />
+      </IconButton>
+    </Tooltip>
   );
 }
