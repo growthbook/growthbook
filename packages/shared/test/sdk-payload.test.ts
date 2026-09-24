@@ -1,8 +1,17 @@
+import { OrganizationInterface } from "shared/types/organization";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import { SDKCapability } from "../src/sdk-versioning/types";
 import {
   conditionHasSavedGroupErrors,
-  expandNestedSavedGroups,
+  createV1SavedGroupsOperatorHandler,
   getPayloadAllowedKeys,
+  buildV2SavedGroupsPayload,
+  findAllReferencedSavedGroupIds,
+  resolveSavedGroupFormat,
+  savedGroupFormatFromConnection,
+  withLegacySavedGroupFlag,
+  getSavedGroupPayloadStrategy,
+  withoutUnsupportedSavedGroupCapabilities,
   SAVED_GROUP_ERROR_CYCLE,
   SAVED_GROUP_ERROR_INVALID,
   SAVED_GROUP_ERROR_MAX_DEPTH,
@@ -10,7 +19,7 @@ import {
 } from "../src/sdk-versioning";
 import { recursiveWalk } from "../util";
 
-describe("expandNestedSavedGroups", () => {
+describe("createV1SavedGroupsOperatorHandler", () => {
   it("allows valid nested saved groups", () => {
     const savedGroups: GroupMap = new Map(
       Object.entries({
@@ -35,7 +44,7 @@ describe("expandNestedSavedGroups", () => {
       $savedGroups: ["sg_2"],
     };
 
-    recursiveWalk(condition, expandNestedSavedGroups(savedGroups));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(savedGroups));
 
     expect(condition).toEqual({
       $and: [{ os: "ios" }, { browser: "chrome" }, { country: "US" }],
@@ -68,7 +77,7 @@ describe("expandNestedSavedGroups", () => {
     };
 
     const groupMap = new Map(Object.entries(savedGroups));
-    recursiveWalk(condition, expandNestedSavedGroups(groupMap));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(groupMap));
     expect(condition).toEqual({
       $and: [{ os: "ios" }, { [SAVED_GROUP_ERROR_CYCLE]: "sg_1" }],
     });
@@ -82,7 +91,7 @@ describe("expandNestedSavedGroups", () => {
       $savedGroups: ["sg_2"],
     };
 
-    recursiveWalk(condition, expandNestedSavedGroups(new Map()));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(new Map()));
     expect(condition).toEqual({
       $and: [{ os: "ios" }, { [SAVED_GROUP_ERROR_UNKNOWN]: "sg_2" }],
     });
@@ -117,7 +126,7 @@ describe("expandNestedSavedGroups", () => {
     };
 
     const groupMap = new Map(Object.entries(savedGroups));
-    recursiveWalk(condition, expandNestedSavedGroups(groupMap));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(groupMap));
     expect(condition).toEqual({
       $and: [
         { country: "GB" },
@@ -149,7 +158,7 @@ describe("expandNestedSavedGroups", () => {
       $savedGroups: ["sg_1"],
     };
     const groupMap = new Map(Object.entries(savedGroups));
-    recursiveWalk(condition, expandNestedSavedGroups(groupMap));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(groupMap));
     expect(condition).toEqual({
       $and: [
         { level1: true },
@@ -184,7 +193,7 @@ describe("expandNestedSavedGroups", () => {
     };
 
     const groupMap = new Map(Object.entries(savedGroups));
-    recursiveWalk(condition, expandNestedSavedGroups(groupMap));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(groupMap));
 
     expect(condition).toEqual({
       $and: [{ os: "ios" }, { [SAVED_GROUP_ERROR_INVALID]: "sg_1" }],
@@ -210,7 +219,7 @@ describe("expandNestedSavedGroups", () => {
       $savedGroups: ["sg_idlist1"],
     };
 
-    recursiveWalk(condition, expandNestedSavedGroups(savedGroups));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(savedGroups));
 
     expect(condition).toEqual({
       $and: [{ os: "ios" }, { id: { $inGroup: "sg_idlist1" } }],
@@ -250,7 +259,7 @@ describe("expandNestedSavedGroups", () => {
       $savedGroups: ["sg_3"],
     };
 
-    recursiveWalk(condition, expandNestedSavedGroups(savedGroups));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(savedGroups));
 
     expect(condition).toEqual({
       foo: "bar",
@@ -281,7 +290,7 @@ describe("expandNestedSavedGroups", () => {
       $and: [{ country: "US" }, { platform: "ios" }],
       $savedGroups: ["sg_2"],
     };
-    recursiveWalk(condition, expandNestedSavedGroups(savedGroups));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(savedGroups));
     expect(condition).toEqual({
       $and: [
         { country: "US" },
@@ -309,7 +318,7 @@ describe("expandNestedSavedGroups", () => {
       $and: { country: "US" },
       $savedGroups: ["sg_1"],
     };
-    recursiveWalk(condition, expandNestedSavedGroups(savedGroups));
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(savedGroups));
     expect(condition).toEqual({
       $and: [{ $and: { country: "US" } }, { foo: "bar" }],
     });
@@ -331,5 +340,904 @@ describe("getPayloadAllowedKeys (contextual bandits)", () => {
     expect(featureRuleKeys).not.toContain("contextualBanditRef");
     expect(featureRuleKeys).not.toContain("contextualVariations");
     expect(featureRuleKeys).toContain("weights");
+  });
+});
+
+describe("createV2SavedGroupsOperatorHandler", () => {
+  const groupMap: GroupMap = new Map([
+    ["list_1", { type: "list", attributeKey: "country", values: ["US"] }],
+    ["list_noattr", { type: "list", attributeKey: "", values: ["US"] }],
+    [
+      "cond_1",
+      { type: "condition", condition: JSON.stringify({ browser: "chrome" }) },
+    ],
+    [
+      "cond_2",
+      {
+        type: "condition",
+        condition: JSON.stringify({ $savedGroups: ["list_1"] }),
+      },
+    ],
+    ["cond_empty", { type: "condition", condition: "{}" }],
+    ["cond_bad", { type: "condition", condition: "{not json" }],
+  ]);
+
+  const rewrite = (condition: Record<string, unknown>) => {
+    const strategy = getSavedGroupPayloadStrategy({
+      capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+      savedGroupFormat: "referencesV2",
+      groupMap,
+    });
+    recursiveWalk(condition, strategy.createSavedGroupsOperatorHandler());
+    return condition;
+  };
+
+  it("turns a one-id array into a single $savedGroup", () => {
+    expect(rewrite({ $savedGroups: ["cond_1"] })).toEqual({
+      $savedGroup: { id: "cond_1" },
+    });
+  });
+
+  it("turns a multi-id array into an $and of $savedGroup", () => {
+    expect(rewrite({ $savedGroups: ["cond_1", "list_1"] })).toEqual({
+      $and: [
+        { $savedGroup: { id: "cond_1" } },
+        { $savedGroup: { id: "list_1" } },
+      ],
+    });
+  });
+
+  it("accepts a hand-written scalar", () => {
+    expect(rewrite({ $savedGroups: "cond_1" })).toEqual({
+      $savedGroup: { id: "cond_1" },
+    });
+  });
+
+  it("drops an empty array", () => {
+    expect(rewrite({ $savedGroups: [] })).toEqual({});
+  });
+
+  it("references list groups instead of using $inGroup", () => {
+    expect(rewrite({ $savedGroups: ["list_1"] })).toEqual({
+      $savedGroup: { id: "list_1" },
+    });
+  });
+
+  it("preserves negation as NOT(A AND B), not per-group", () => {
+    expect(rewrite({ $not: { $savedGroups: ["cond_1", "list_1"] } })).toEqual({
+      $not: {
+        $and: [
+          { $savedGroup: { id: "cond_1" } },
+          { $savedGroup: { id: "list_1" } },
+        ],
+      },
+    });
+  });
+
+  it("merges sibling keys into $and", () => {
+    expect(rewrite({ country: "US", $savedGroups: ["cond_1"] })).toEqual({
+      $and: [{ country: "US" }, { $savedGroup: { id: "cond_1" } }],
+    });
+  });
+
+  it("skips an empty condition group, so it still always passes", () => {
+    expect(rewrite({ $savedGroups: ["cond_empty"] })).toEqual({});
+  });
+
+  it("still flags unknown groups", () => {
+    const result = rewrite({ $savedGroups: ["nope"] });
+    expect(conditionHasSavedGroupErrors(result)).toBe(true);
+    expect(result).toEqual({ [SAVED_GROUP_ERROR_UNKNOWN]: "nope" });
+  });
+
+  it("still flags a list group with no attributeKey", () => {
+    expect(rewrite({ $savedGroups: ["list_noattr"] })).toEqual({
+      [SAVED_GROUP_ERROR_INVALID]: "list_noattr",
+    });
+  });
+
+  it("still flags an unparseable condition group", () => {
+    expect(rewrite({ $savedGroups: ["cond_bad"] })).toEqual({
+      [SAVED_GROUP_ERROR_INVALID]: "cond_bad",
+    });
+  });
+
+  it("does not go deeper, so nested references stay for the SDK", () => {
+    // cond_2 references list_1. That stays inside cond_2's own entry.
+    expect(rewrite({ $savedGroups: ["cond_2"] })).toEqual({
+      $savedGroup: { id: "cond_2" },
+    });
+  });
+
+  it("matches the v1 handler when the strategy is v1", () => {
+    const fixtures: Record<string, unknown>[] = [
+      { $savedGroups: ["cond_1"] },
+      { $savedGroups: ["cond_1", "list_1"] },
+      { $not: { $savedGroups: ["cond_1", "list_1"] } },
+      { country: "US", $savedGroups: ["cond_2"] },
+      { $savedGroups: ["cond_empty"] },
+      { $savedGroups: ["nope"] },
+    ];
+    const v1 = getSavedGroupPayloadStrategy({ groupMap });
+    fixtures.forEach((fixture) => {
+      const viaDefault = JSON.parse(JSON.stringify(fixture));
+      const viaStrategy = JSON.parse(JSON.stringify(fixture));
+      recursiveWalk(viaDefault, createV1SavedGroupsOperatorHandler(groupMap));
+      recursiveWalk(viaStrategy, v1.createSavedGroupsOperatorHandler());
+      expect(viaStrategy).toEqual(viaDefault);
+      // v1 must never emit $savedGroup
+      expect(JSON.stringify(viaDefault)).not.toContain('$savedGroup"');
+    });
+  });
+});
+
+describe("referencesV2 finalizeCondition", () => {
+  const groupMap: GroupMap = new Map([
+    ["list_country", { type: "list", attributeKey: "country", values: ["US"] }],
+    ["list_id", { type: "list", attributeKey: "id", values: ["u_1"] }],
+    [
+      "cond_1",
+      { type: "condition", condition: JSON.stringify({ browser: "chrome" }) },
+    ],
+  ]);
+
+  const finalize = (condition: Record<string, unknown>) => {
+    getSavedGroupPayloadStrategy({
+      capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+      savedGroupFormat: "referencesV2",
+      groupMap,
+    }).finalizeCondition(condition);
+    return condition;
+  };
+
+  it("rewrites a lone $inGroup into a $savedGroup reference", () => {
+    expect(finalize({ country: { $inGroup: "list_country" } })).toEqual({
+      $savedGroup: { id: "list_country" },
+    });
+  });
+
+  it("rewrites a lone $notInGroup into a negated reference", () => {
+    expect(finalize({ country: { $notInGroup: "list_country" } })).toEqual({
+      $not: { $savedGroup: { id: "list_country" } },
+    });
+  });
+
+  it("ANDs the reference with the rest of the attribute's operators", () => {
+    expect(
+      finalize({ country: { $inGroup: "list_country", $ne: "CA" } }),
+    ).toEqual({
+      $and: [
+        { country: { $ne: "CA" } },
+        { $savedGroup: { id: "list_country" } },
+      ],
+    });
+  });
+
+  it("ANDs the reference with sibling attribute targeting", () => {
+    expect(
+      finalize({ country: { $inGroup: "list_country" }, plan: "pro" }),
+    ).toEqual({
+      $and: [{ plan: "pro" }, { $savedGroup: { id: "list_country" } }],
+    });
+  });
+
+  it("merges into an existing $and", () => {
+    expect(
+      finalize({
+        $and: [{ plan: "pro" }],
+        country: { $inGroup: "list_country" },
+      }),
+    ).toEqual({
+      $and: [{ plan: "pro" }, { $savedGroup: { id: "list_country" } }],
+    });
+  });
+
+  it("ANDs several groups at the same level", () => {
+    expect(
+      finalize({
+        country: { $inGroup: "list_country" },
+        id: { $notInGroup: "list_id" },
+      }),
+    ).toEqual({
+      $and: [
+        { $savedGroup: { id: "list_country" } },
+        { $not: { $savedGroup: { id: "list_id" } } },
+      ],
+    });
+  });
+
+  it("rewrites inside $or and $not", () => {
+    expect(
+      finalize({
+        $or: [
+          { country: { $inGroup: "list_country" } },
+          { $not: { id: { $inGroup: "list_id" } } },
+        ],
+      }),
+    ).toEqual({
+      $or: [
+        { $savedGroup: { id: "list_country" } },
+        { $not: { $savedGroup: { id: "list_id" } } },
+      ],
+    });
+  });
+
+  it("still reaches a nested group after restructuring a sibling", () => {
+    // Rewriting `country` rebuilds the object, which must not strand the
+    // $inGroup inside the $or that follows it
+    expect(
+      finalize({
+        country: { $inGroup: "list_country" },
+        $or: [{ id: { $inGroup: "list_id" } }],
+      }),
+    ).toEqual({
+      $and: [
+        { $or: [{ $savedGroup: { id: "list_id" } }] },
+        { $savedGroup: { id: "list_country" } },
+      ],
+    });
+  });
+
+  it("omits the override when the attribute already matches", () => {
+    expect(finalize({ country: { $inGroup: "list_country" } })).toEqual({
+      $savedGroup: { id: "list_country" },
+    });
+  });
+
+  it("carries an override when the attribute differs from the entry's", () => {
+    // The condition asks about `id`; the entry's own attribute is `country`
+    expect(finalize({ id: { $inGroup: "list_country" } })).toEqual({
+      $savedGroup: { id: "list_country", attributeKey: "id" },
+    });
+  });
+
+  it("carries an override on a negated reference too", () => {
+    expect(finalize({ id: { $notInGroup: "list_country" } })).toEqual({
+      $not: { $savedGroup: { id: "list_country", attributeKey: "id" } },
+    });
+  });
+
+  it("marks a Condition Group, which has no values to compare", () => {
+    expect(finalize({ country: { $inGroup: "cond_1" } })).toEqual({
+      [SAVED_GROUP_ERROR_INVALID]: "cond_1",
+    });
+  });
+
+  it("marks an unknown group", () => {
+    expect(finalize({ country: { $inGroup: "nope" } })).toEqual({
+      [SAVED_GROUP_ERROR_UNKNOWN]: "nope",
+    });
+  });
+
+  // A bare marker would match nobody. v1 passes everyone for a reference it
+  // cannot resolve, so the negation has to survive.
+  it("negates the marker for $notInGroup, so it still passes everyone", () => {
+    expect(finalize({ country: { $notInGroup: "cond_1" } })).toEqual({
+      $not: { [SAVED_GROUP_ERROR_INVALID]: "cond_1" },
+    });
+    expect(finalize({ country: { $notInGroup: "nope" } })).toEqual({
+      $not: { [SAVED_GROUP_ERROR_UNKNOWN]: "nope" },
+    });
+  });
+
+  it("leaves a condition with no saved groups untouched", () => {
+    expect(finalize({ country: "US", age: { $gt: 18 } })).toEqual({
+      country: "US",
+      age: { $gt: 18 },
+    });
+  });
+
+  it("walks a parentConditions array without disturbing its entries", () => {
+    const parentConditions = [
+      {
+        id: "parent",
+        gate: true,
+        condition: { country: { $inGroup: "list_country" } },
+      },
+    ];
+    getSavedGroupPayloadStrategy({
+      capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+      savedGroupFormat: "referencesV2",
+      groupMap,
+    }).finalizeCondition(parentConditions);
+    expect(parentConditions).toEqual([
+      {
+        id: "parent",
+        gate: true,
+        condition: { $savedGroup: { id: "list_country" } },
+      },
+    ]);
+  });
+
+  it("does nothing under v1, which sends $inGroup as its own form", () => {
+    const condition = { country: { $inGroup: "list_country" } };
+    getSavedGroupPayloadStrategy({
+      capabilities: ["savedGroupReferences"],
+      savedGroupFormat: "referencesV2",
+      groupMap,
+    }).finalizeCondition(condition);
+    expect(condition).toEqual({ country: { $inGroup: "list_country" } });
+  });
+});
+
+describe("findAllReferencedSavedGroupIds", () => {
+  const groupMap: GroupMap = new Map([
+    ["list_1", { type: "list", attributeKey: "country", values: ["US"] }],
+    [
+      "a",
+      { type: "condition", condition: JSON.stringify({ $savedGroups: ["b"] }) },
+    ],
+    [
+      "b",
+      {
+        type: "condition",
+        condition: JSON.stringify({ $savedGroup: { id: "list_1" } }),
+      },
+    ],
+    [
+      "cycle_1",
+      {
+        type: "condition",
+        condition: JSON.stringify({ $savedGroups: ["cycle_2"] }),
+      },
+    ],
+    [
+      "cycle_2",
+      {
+        type: "condition",
+        condition: JSON.stringify({ $savedGroups: ["cycle_1"] }),
+      },
+    ],
+    [
+      "selfref",
+      {
+        type: "condition",
+        condition: JSON.stringify({ $savedGroups: ["selfref"] }),
+      },
+    ],
+  ]);
+
+  it("returns the seed when nothing is nested", () => {
+    expect(findAllReferencedSavedGroupIds(["list_1"], groupMap)).toEqual(
+      new Set(["list_1"]),
+    );
+  });
+
+  it("follows a multi-hop chain through both operator spellings", () => {
+    expect(findAllReferencedSavedGroupIds(["a"], groupMap)).toEqual(
+      new Set(["a", "b", "list_1"]),
+    );
+  });
+
+  it("terminates on a mutual cycle", () => {
+    expect(findAllReferencedSavedGroupIds(["cycle_1"], groupMap)).toEqual(
+      new Set(["cycle_1", "cycle_2"]),
+    );
+  });
+
+  it("terminates on a self-reference", () => {
+    expect(findAllReferencedSavedGroupIds(["selfref"], groupMap)).toEqual(
+      new Set(["selfref"]),
+    );
+  });
+
+  it("ignores ids that are not in the map", () => {
+    expect(findAllReferencedSavedGroupIds(["nope"], groupMap)).toEqual(
+      new Set(["nope"]),
+    );
+  });
+});
+
+describe("buildV2SavedGroupsPayload", () => {
+  const org: Pick<OrganizationInterface, "settings"> = { settings: {} };
+  const savedGroup = (
+    props: Pick<SavedGroupInterface, "id" | "type"> &
+      Partial<SavedGroupInterface>,
+  ): SavedGroupInterface => ({
+    organization: "org",
+    groupName: props.id,
+    owner: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    ...props,
+  });
+  const groups: SavedGroupInterface[] = [
+    savedGroup({
+      id: "list_1",
+      type: "list",
+      attributeKey: "country",
+      values: ["US", "GB"],
+    }),
+    savedGroup({
+      id: "list_noattr",
+      type: "list",
+      attributeKey: "",
+      values: ["US"],
+    }),
+    savedGroup({
+      id: "cond_1",
+      type: "condition",
+      condition: JSON.stringify({ browser: "chrome" }),
+    }),
+    savedGroup({
+      id: "cond_nested",
+      type: "condition",
+      condition: JSON.stringify({ $savedGroups: ["cond_1", "list_1"] }),
+    }),
+    savedGroup({
+      id: "cond_legacy",
+      type: "condition",
+      condition: JSON.stringify({ country: { $inGroup: "list_1" } }),
+    }),
+    savedGroup({ id: "cond_bad", type: "condition", condition: "{not json" }),
+  ];
+  const groupMap: GroupMap = new Map(groups.map((g) => [g.id, g]));
+
+  it("builds typed entries for both group types", () => {
+    const defs = buildV2SavedGroupsPayload(groups, org, groupMap);
+    expect(defs["list_1"]).toEqual({
+      type: "list",
+      attributeKey: "country",
+      values: ["US", "GB"],
+    });
+    expect(defs["cond_1"]).toEqual({
+      type: "condition",
+      condition: { browser: "chrome" },
+    });
+  });
+
+  it("rewrites a nested $savedGroups into $savedGroup", () => {
+    const defs = buildV2SavedGroupsPayload(groups, org, groupMap);
+    expect(defs["cond_nested"]).toEqual({
+      type: "condition",
+      condition: {
+        $and: [
+          { $savedGroup: { id: "cond_1" } },
+          { $savedGroup: { id: "list_1" } },
+        ],
+      },
+    });
+    // $savedGroups must never reach the payload
+    expect(JSON.stringify(defs)).not.toContain("$savedGroups");
+  });
+
+  it("rewrites a nested $inGroup into $savedGroup", () => {
+    const defs = buildV2SavedGroupsPayload(groups, org, groupMap);
+    expect(defs["cond_legacy"]).toEqual({
+      type: "condition",
+      condition: { $savedGroup: { id: "list_1" } },
+    });
+  });
+
+  it("omits a list group with no attributeKey", () => {
+    const defs = buildV2SavedGroupsPayload(groups, org, groupMap);
+    expect(defs["list_noattr"]).toBeUndefined();
+  });
+
+  it("omits an unparseable condition group rather than throwing", () => {
+    const defs = buildV2SavedGroupsPayload(groups, org, groupMap);
+    expect(defs["cond_bad"]).toBeUndefined();
+  });
+});
+
+describe("resolveSavedGroupFormat", () => {
+  const V1 = ["savedGroupReferences"] as const;
+  const V2 = ["savedGroupReferences", "savedGroupReferencesV2"] as const;
+
+  it("keeps reference operators when there is no SDK connection", () => {
+    // Previews and the in-app evaluators pass no capabilities. They pass the
+    // group values in separately when they evaluate.
+    expect(resolveSavedGroupFormat({ capabilities: undefined })).toBe(
+      "referencesV1",
+    );
+    expect(
+      resolveSavedGroupFormat({
+        capabilities: undefined,
+        savedGroupFormat: "inline",
+        canInline: true,
+      }),
+    ).toBe("referencesV1");
+  });
+
+  it("inlines when the connection asks for inline", () => {
+    expect(
+      resolveSavedGroupFormat({
+        capabilities: [...V2],
+        savedGroupFormat: "inline",
+        canInline: true,
+      }),
+    ).toBe("inline");
+  });
+
+  it("treats an absent setting as inline", () => {
+    expect(
+      resolveSavedGroupFormat({
+        capabilities: [...V1],
+        canInline: true,
+      }),
+    ).toBe("inline");
+  });
+
+  it("gives each format to an SDK that can read it", () => {
+    expect(
+      resolveSavedGroupFormat({
+        capabilities: [...V1],
+        savedGroupFormat: "referencesV1",
+        canInline: true,
+      }),
+    ).toBe("referencesV1");
+    expect(
+      resolveSavedGroupFormat({
+        capabilities: [...V2],
+        savedGroupFormat: "referencesV2",
+        canInline: true,
+      }),
+    ).toBe("referencesV2");
+  });
+
+  it("steps v2 down to v1 when the SDK cannot read v2", () => {
+    expect(
+      resolveSavedGroupFormat({
+        capabilities: [...V1],
+        savedGroupFormat: "referencesV2",
+        canInline: true,
+      }),
+    ).toBe("referencesV1");
+  });
+
+  it("steps references down to inline when the SDK cannot read any", () => {
+    expect(
+      resolveSavedGroupFormat({
+        capabilities: ["looseUnmarshalling"],
+        savedGroupFormat: "referencesV2",
+        canInline: true,
+      }),
+    ).toBe("inline");
+  });
+
+  it("falls back to v1 when it cannot inline", () => {
+    // With no organization there is nothing to inline from, so the operators
+    // are left for a later pass.
+    expect(
+      resolveSavedGroupFormat({
+        capabilities: ["looseUnmarshalling"],
+        savedGroupFormat: "referencesV2",
+        canInline: false,
+      }),
+    ).toBe("referencesV1");
+  });
+
+  it("does not use v2 without the v1 capability", () => {
+    // Cannot happen today, since v2 is newer than v1. Asking for both is what
+    // stops the conditions and the savedGroups map disagreeing.
+    expect(
+      resolveSavedGroupFormat({
+        capabilities: ["savedGroupReferencesV2"],
+        savedGroupFormat: "referencesV2",
+        canInline: true,
+      }),
+    ).toBe("inline");
+  });
+});
+
+describe("savedGroupFormatFromConnection", () => {
+  it("prefers the explicit format", () => {
+    expect(
+      savedGroupFormatFromConnection({
+        savedGroupFormat: "inline",
+        savedGroupReferencesEnabled: true,
+      }),
+    ).toBe("inline");
+  });
+
+  // Never picks v2: moving an existing connection onto the new payload shape
+  // has to be a deliberate choice.
+  it("migrates the old boolean, and never to v2", () => {
+    expect(
+      savedGroupFormatFromConnection({ savedGroupReferencesEnabled: true }),
+    ).toBe("referencesV1");
+    expect(
+      savedGroupFormatFromConnection({ savedGroupReferencesEnabled: false }),
+    ).toBe("inline");
+    expect(savedGroupFormatFromConnection({})).toBe("inline");
+  });
+});
+
+describe("withLegacySavedGroupFlag", () => {
+  // A rollback to a build that only reads the boolean must not strand the
+  // setting, so every write keeps the two in step.
+  it("derives the boolean from the format", () => {
+    expect(withLegacySavedGroupFlag({ savedGroupFormat: "inline" })).toEqual({
+      savedGroupFormat: "inline",
+      savedGroupReferencesEnabled: false,
+    });
+    expect(
+      withLegacySavedGroupFlag({ savedGroupFormat: "referencesV1" }),
+    ).toEqual({
+      savedGroupFormat: "referencesV1",
+      savedGroupReferencesEnabled: true,
+    });
+    expect(
+      withLegacySavedGroupFlag({ savedGroupFormat: "referencesV2" }),
+    ).toEqual({
+      savedGroupFormat: "referencesV2",
+      savedGroupReferencesEnabled: true,
+    });
+  });
+
+  it("leaves other fields alone", () => {
+    expect(
+      withLegacySavedGroupFlag({
+        savedGroupFormat: "referencesV1",
+        name: "conn",
+      }),
+    ).toEqual({
+      savedGroupFormat: "referencesV1",
+      savedGroupReferencesEnabled: true,
+      name: "conn",
+    });
+  });
+
+  // An edit that touches neither field must not touch either, or a partial
+  // update would overwrite one of them.
+  it("changes nothing when neither field is sent", () => {
+    expect(withLegacySavedGroupFlag({ name: "conn" })).toEqual({
+      name: "conn",
+    });
+  });
+
+  // A caller still sending only the boolean has to keep working, and reads
+  // prefer the format, so the boolean has to set it.
+  it("derives the format when only the boolean is sent", () => {
+    expect(
+      withLegacySavedGroupFlag({ savedGroupReferencesEnabled: false }),
+    ).toEqual({
+      savedGroupReferencesEnabled: false,
+      savedGroupFormat: "inline",
+    });
+    expect(
+      withLegacySavedGroupFlag({ savedGroupReferencesEnabled: true }),
+    ).toEqual({
+      savedGroupReferencesEnabled: true,
+      savedGroupFormat: "referencesV1",
+    });
+  });
+
+  it("turns references off for a connection already on v2", () => {
+    expect(
+      withLegacySavedGroupFlag(
+        { savedGroupReferencesEnabled: false },
+        { savedGroupFormat: "referencesV2" },
+      ).savedGroupFormat,
+    ).toBe("inline");
+  });
+
+  // The boolean cannot say which reference format was wanted, so turning it on
+  // for a connection already on one leaves it there rather than downgrading.
+  it("does not downgrade a v2 connection when the boolean is turned on", () => {
+    expect(
+      withLegacySavedGroupFlag(
+        { savedGroupReferencesEnabled: true },
+        { savedGroupFormat: "referencesV2" },
+      ).savedGroupFormat,
+    ).toBe("referencesV2");
+    expect(
+      withLegacySavedGroupFlag(
+        { savedGroupReferencesEnabled: true },
+        { savedGroupFormat: "inline" },
+      ).savedGroupFormat,
+    ).toBe("referencesV1");
+  });
+
+  it("lets the format win when both are sent", () => {
+    expect(
+      withLegacySavedGroupFlag(
+        { savedGroupFormat: "inline", savedGroupReferencesEnabled: true },
+        { savedGroupFormat: "referencesV2" },
+      ),
+    ).toEqual({
+      savedGroupFormat: "inline",
+      savedGroupReferencesEnabled: false,
+    });
+  });
+
+  it("round-trips with savedGroupFormatFromConnection", () => {
+    (["inline", "referencesV1", "referencesV2"] as const).forEach((format) => {
+      const written = withLegacySavedGroupFlag({ savedGroupFormat: format });
+      expect(savedGroupFormatFromConnection(written)).toBe(format);
+      // And a build that only knows the boolean reads back the same intent
+      expect(
+        savedGroupFormatFromConnection({
+          savedGroupReferencesEnabled: written.savedGroupReferencesEnabled,
+        }),
+      ).toBe(format === "inline" ? "inline" : "referencesV1");
+    });
+  });
+});
+
+describe("createInlineStrategy", () => {
+  const org = {
+    settings: {
+      attributeSchema: [
+        { property: "country", datatype: "string" },
+        { property: "age", datatype: "number" },
+      ],
+    },
+  } as OrganizationInterface;
+
+  const groupMap: GroupMap = new Map([
+    ["list_1", { type: "list", attributeKey: "country", values: ["US", "CA"] }],
+    ["list_num", { type: "list", attributeKey: "age", values: ["21", "30"] }],
+    [
+      "cond_1",
+      { type: "condition", condition: JSON.stringify({ browser: "chrome" }) },
+    ],
+  ]);
+
+  const strategy = () =>
+    getSavedGroupPayloadStrategy({
+      capabilities: ["looseUnmarshalling"],
+      groupMap,
+      organization: org,
+    });
+
+  it("is the strategy chosen when the SDK cannot resolve references", () => {
+    expect(strategy().format).toBe("inline");
+  });
+
+  it("swaps $inGroup for $in with the group's values", () => {
+    const condition = { country: { $inGroup: "list_1" } };
+    strategy().finalizeCondition(condition);
+    expect(condition).toEqual({ country: { $in: ["US", "CA"] } });
+  });
+
+  it("swaps $notInGroup for $nin", () => {
+    const condition = { country: { $notInGroup: "list_1" } };
+    strategy().finalizeCondition(condition);
+    expect(condition).toEqual({ country: { $nin: ["US", "CA"] } });
+  });
+
+  it("coerces values to the attribute's datatype", () => {
+    const condition = { age: { $inGroup: "list_num" } };
+    strategy().finalizeCondition(condition);
+    expect(condition).toEqual({ age: { $in: [21, 30] } });
+  });
+
+  it("inlines an unknown group to an empty list, so it matches nobody", () => {
+    const condition = { country: { $inGroup: "gone" } };
+    strategy().finalizeCondition(condition);
+    expect(condition).toEqual({ country: { $in: [] } });
+  });
+
+  it("inlines a group nested inside $and and $or", () => {
+    const condition = {
+      $or: [{ country: { $inGroup: "list_1" } }, { $not: { age: 5 } }],
+    };
+    strategy().finalizeCondition(condition);
+    expect(condition).toEqual({
+      $or: [{ country: { $in: ["US", "CA"] } }, { $not: { age: 5 } }],
+    });
+  });
+
+  it("builds no savedGroups field, since the values are already in place", () => {
+    expect(strategy().buildSavedGroupsPayload([])).toBeUndefined();
+  });
+
+  it("expands a condition group in place, then inlines what it produced", () => {
+    const condition = { $savedGroups: ["cond_1", "list_1"] };
+    recursiveWalk(condition, strategy().createSavedGroupsOperatorHandler());
+    strategy().finalizeCondition(condition);
+    expect(condition).toEqual({
+      $and: [{ browser: "chrome" }, { country: { $in: ["US", "CA"] } }],
+    });
+  });
+});
+
+describe("getSavedGroupPayloadStrategy", () => {
+  const org = { settings: {} } as OrganizationInterface;
+  const groupMap: GroupMap = new Map([
+    ["list_1", { type: "list", attributeKey: "country", values: ["US"] }],
+  ]);
+
+  it("exposes the group map it was built from", () => {
+    expect(getSavedGroupPayloadStrategy({ groupMap }).groupMap).toBe(groupMap);
+  });
+
+  it("cannot inline without an organization, so it keeps references", () => {
+    // No organization means no attribute types to coerce values with
+    const strategy = getSavedGroupPayloadStrategy({
+      capabilities: ["looseUnmarshalling"],
+      groupMap,
+    });
+    expect(strategy.format).toBe("referencesV1");
+    const condition = { country: { $inGroup: "list_1" } };
+    strategy.finalizeCondition(condition);
+    expect(condition).toEqual({ country: { $inGroup: "list_1" } });
+  });
+
+  it("builds conditions in the format it reports", () => {
+    const cases = [
+      {
+        strategy: getSavedGroupPayloadStrategy({
+          capabilities: ["looseUnmarshalling"],
+          groupMap,
+          organization: org,
+        }),
+        format: "inline",
+        expected: { country: { $inGroup: "list_1" } },
+      },
+      {
+        strategy: getSavedGroupPayloadStrategy({
+          capabilities: ["savedGroupReferences"],
+          savedGroupFormat: "referencesV2",
+          groupMap,
+          organization: org,
+        }),
+        format: "referencesV1",
+        expected: { country: { $inGroup: "list_1" } },
+      },
+      {
+        strategy: getSavedGroupPayloadStrategy({
+          capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+          savedGroupFormat: "referencesV2",
+          groupMap,
+          organization: org,
+        }),
+        format: "referencesV2",
+        expected: { $savedGroup: { id: "list_1" } },
+      },
+    ];
+    cases.forEach(({ strategy, format, expected }) => {
+      expect(strategy.format).toBe(format);
+      expect(
+        strategy.createCondition({ groupId: "list_1", include: true }),
+      ).toEqual(expected);
+    });
+  });
+
+  it("returns null for a group that is not in the map", () => {
+    expect(
+      getSavedGroupPayloadStrategy({ groupMap }).createCondition({
+        groupId: "gone",
+        include: true,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("withoutUnsupportedSavedGroupCapabilities", () => {
+  const caps: SDKCapability[] = [
+    "savedGroupReferences",
+    "savedGroupReferencesV2",
+    "prerequisites",
+  ];
+
+  it("leaves a normal connection alone", () => {
+    expect(
+      withoutUnsupportedSavedGroupCapabilities(caps, {
+        remoteEvalEnabled: false,
+      }),
+    ).toEqual(caps);
+  });
+
+  it("leaves a connection with no remoteEval setting alone", () => {
+    expect(withoutUnsupportedSavedGroupCapabilities(caps, {})).toEqual(caps);
+  });
+
+  it("drops only savedGroupReferencesV2 for a remote-eval connection", () => {
+    // proxy-eval does not know $savedGroup yet, so those payloads stay inlined
+    expect(
+      withoutUnsupportedSavedGroupCapabilities(caps, {
+        remoteEvalEnabled: true,
+      }),
+    ).toEqual(["savedGroupReferences", "prerequisites"]);
+  });
+
+  it("is a no-op when the capability was not there to begin with", () => {
+    expect(
+      withoutUnsupportedSavedGroupCapabilities(["prerequisites"], {
+        remoteEvalEnabled: true,
+      }),
+    ).toEqual(["prerequisites"]);
   });
 });
