@@ -500,6 +500,16 @@ export function computeEffectivePatch(
       for (const [k, v] of Object.entries(fields)) {
         (existing as Record<string, unknown>)[k] = v;
       }
+      // Environment scope is one setting spelled as two fields: a later list
+      // narrows an all-environments anchor, a later wildcard drops the list.
+      if (
+        Array.isArray(fields.environments) &&
+        !("allEnvironments" in fields)
+      ) {
+        existing.allEnvironments = false;
+      } else if (fields.allEnvironments && !("environments" in fields)) {
+        existing.environments = null;
+      }
     } else {
       byTarget.set(act.targetId, { ruleId, ...fields } as RampStartPatch);
     }
