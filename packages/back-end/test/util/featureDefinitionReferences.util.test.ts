@@ -123,12 +123,15 @@ describe("getSavedGroupIdsForFeatureDefinitions", () => {
             {
               condition: "{}",
               savedGroups: [{ match: "all", ids: ["grp_phase"] }],
+              prerequisites: [
+                { id: "parent", condition: '{"$savedGroups":["grp_prereq"]}' },
+              ],
             },
           ],
         } as unknown as Pick<ExperimentInterface, "phases">,
       ],
     });
-    expect([...ids].sort()).toEqual(["grp_old", "grp_phase"]);
+    expect([...ids].sort()).toEqual(["grp_old", "grp_phase", "grp_prereq"]);
   });
 
   it("finds $savedGroups wherever nested expansion can reach it", () => {

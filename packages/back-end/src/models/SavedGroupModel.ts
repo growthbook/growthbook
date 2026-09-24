@@ -249,8 +249,8 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
   }
 
   /** As `getAllWithoutValues`, with whether each ID list is non-empty. */
-  public async getMetadata(ids?: string[]): Promise<SavedGroupMetadata[]> {
-    if (ids && !ids.length) return [];
+  public async getMetadata(ids: string[]): Promise<SavedGroupMetadata[]> {
+    if (!ids.length) return [];
     const [groups, withValues] = await Promise.all([
       this.getAllWithoutValues(ids),
       this._find(

@@ -73,6 +73,12 @@ const allGroups: SavedGroupInterface[] = [
     condition: '{"country":"CA"}',
   }),
   group("grp_draft", { values: ["d1"] }),
+  group("grp_phase_prereq", {
+    type: "condition",
+    attributeKey: undefined,
+    values: undefined,
+    condition: '{"value":"on"}',
+  }),
   group("grp_prereq", {
     type: "condition",
     attributeKey: undefined,
@@ -169,6 +175,9 @@ const experiment = {
       variationWeights: [0.5, 0.5],
       condition: '{"$savedGroups":["grp_phase_cond"]}',
       savedGroups: [{ match: "any", ids: ["grp_phase"] }],
+      prerequisites: [
+        { id: "parent", condition: '{"$savedGroups":["grp_phase_prereq"]}' },
+      ],
       seed: "seed",
       namespace: { enabled: false, name: "", range: [0, 1] },
     },
@@ -457,6 +466,7 @@ describe("getFeatureDefinitionLookups", () => {
       "grp_old_phase",
       "grp_phase",
       "grp_phase_cond",
+      "grp_phase_prereq",
       "grp_prereq",
       "grp_rule_prereq",
     ]);
@@ -511,6 +521,7 @@ describe("getFeatureDefinitionLookups", () => {
     expect(production).toContain('"$inGroup":"grp_leaf"');
     expect(production).toContain('"$inGroup":"grp_phase"');
     expect(production).toContain('"country":"CA"');
+    expect(production).toContain('"value":"on"');
     expect(production).toContain('"coverage":0.25');
     expect(production).not.toContain('"grp_empty"');
     expect(production).toContain('"$inGroup":"grp_empty_allowed"');

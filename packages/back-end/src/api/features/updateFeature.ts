@@ -31,7 +31,7 @@ import {
   addIdsToRules,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
-  getSavedGroupMetadataMap,
+  getFeatureDefinitionLookups,
   inheritStoredRolloutSeeds,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -694,8 +694,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       details: auditDetailsUpdate(feature, updatedFeature),
     });
 
-    const groupMap = await getSavedGroupMetadataMap(req.context);
-
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       feature.id,
@@ -707,8 +705,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       feature: updatedFeature,
       version: updatedFeature.version,
     });
-    const safeRolloutMap =
-      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+      req.context,
+      { features: [updatedFeature], experiments: [...experimentMap.values()] },
+    );
     return {
       feature: await resolveOwnerEmail(
         getApiFeatureObj({

@@ -58,9 +58,7 @@ describe("features events", () => {
       org,
       models: {
         safeRollout: {
-          getAllPayloadSafeRollouts: jest
-            .fn()
-            .mockResolvedValue(new Map([["sr_123", safeRollout]])),
+          getByIds: jest.fn().mockResolvedValue([safeRollout]),
         },
         savedGroups: {
           getMetadata: jest.fn().mockResolvedValue([]),

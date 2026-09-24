@@ -87,6 +87,9 @@ export function getSavedGroupIdsForFeatureDefinitions(
   for (const experiment of sources.experiments ?? []) {
     for (const phase of experiment.phases ?? []) {
       addTargetingIds(ids, phase);
+      for (const p of phase?.prerequisites ?? []) {
+        addConditionIds(ids, p.condition);
+      }
     }
   }
 

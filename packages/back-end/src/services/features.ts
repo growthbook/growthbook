@@ -67,7 +67,6 @@ import {
   SavedGroupPayloadMap,
   SavedGroupsValues,
   SavedGroupInterface,
-  SavedGroupMetadata,
 } from "shared/types/saved-group";
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -716,19 +715,10 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
-// For compiling definitions outside of SDK payloads (API responses, webhooks):
-// the same groups as `getSavedGroupMap`, without their ID lists.
-export async function getSavedGroupMetadataMap(
-  context: ReqContext | ApiReqContext,
-  savedGroups?: SavedGroupMetadata[],
-): Promise<GroupMap> {
-  const groups =
-    savedGroups ?? (await context.models.savedGroups.getMetadata());
-  return new Map(groups.map((group) => [group.id, group]));
-}
-
 // The Saved Groups and Safe Rollouts that building these features' API
-// definitions can look up, instead of every one in the organization.
+// definitions can look up, instead of every one in the organization. Groups
+// come without their ID lists, which definitions outside of SDK payloads never
+// read.
 export async function getFeatureDefinitionLookups(
   context: ReqContext | ApiReqContext,
   sources: FeatureDefinitionSources,
@@ -746,7 +736,7 @@ export async function getFeatureDefinitionLookups(
     ),
   ]);
   return {
-    groupMap: await getSavedGroupMetadataMap(context, savedGroups),
+    groupMap: new Map(savedGroups.map((group) => [group.id, group])),
     safeRolloutMap: new Map(safeRollouts.map((r) => [r.id, r])),
   };
 }

@@ -17,7 +17,7 @@ import {
   buildFeatureRulesFromApiEnvSettings,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
-  getSavedGroupMetadataMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -222,14 +222,14 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     details: auditDetailsCreate(feature),
   });
 
-  const groupMap = await getSavedGroupMetadataMap(req.context);
-
   const experimentMap = await getExperimentMapForFeature(
     req.context,
     feature.id,
   );
-  const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    req.context,
+    { features: [feature], experiments: [...experimentMap.values()] },
+  );
   const revision = await getRevision({
     context: req.context,
     organization: feature.organization,
