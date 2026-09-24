@@ -110,10 +110,12 @@ src/
   analytics/
     llm-events.ts
   experimentation/
+    feature-refresh.ts
     growthbook.ts
   llm/
     prompt-variants.ts
     provider.ts
+    provider-deadline.ts
     run-support-answer.ts
 tests/
   run-support-answer.test.ts
@@ -308,17 +310,88 @@ export interface LlmProvider {
     signal?: AbortSignal;
   }): Promise<GenerateResult>;
 }
+
+export class InvalidLlmOutputError extends Error {
+  constructor() {
+    super("LLM response failed validation");
+    this.name = "InvalidLlmOutputError";
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isTokenCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+export function validateGenerateResult(value: unknown): GenerateResult {
+  if (!isRecord(value) || !isRecord(value.output) || !isRecord(value.usage)) {
+    throw new InvalidLlmOutputError();
+  }
+  const { output, usage } = value;
+  if (
+    typeof output.answer !== "string" ||
+    typeof output.needsEscalation !== "boolean" ||
+    !Array.isArray(output.citedSnippetIds) ||
+    !output.citedSnippetIds.every((id: unknown) => typeof id === "string") ||
+    !isTokenCount(usage.inputTokens) ||
+    !isTokenCount(usage.outputTokens) ||
+    (value.providerRequestId !== undefined && typeof value.providerRequestId !== "string")
+  ) {
+    throw new InvalidLlmOutputError();
+  }
+  return {
+    output: {
+      answer: output.answer,
+      needsEscalation: output.needsEscalation,
+      citedSnippetIds: output.citedSnippetIds,
+    },
+    usage: { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens },
+    ...(typeof value.providerRequestId === "string"
+      ? { providerRequestId: value.providerRequestId }
+      : {}),
+  };
+}
 ```
 
-Your real provider adapter must validate the structured response before returning it. Do not cast untrusted model text directly to `SupportAnswer`.
+Your real provider adapter must parse and validate the structured response before returning it. Throw `InvalidLlmOutputError` for malformed JSON or a schema failure; preserve ordinary transport/provider failures as other errors. Do not put raw prompts or responses in the error message. The workflow also validates the normalized result at its boundary, so a faulty adapter cannot silently record malformed output as a success. Shape validation does not establish factual accuracy or policy compliance; retain the separate evaluation and policy checks.
 
 ## Stage 4: initialize one multi-user GrowthBook client
 
 Create one long-lived `GrowthBookClient` per process, initialize it during startup, and create a user-scoped instance for each workflow. Do not create a new network-fetching client for every request.
 
+Create a polling helper for the pinned SDK. Version `1.7.0` supports `refreshFeatures`, but not the newer `init({ pollingInterval })` option.
+
+```ts title="src/experimentation/feature-refresh.ts"
+import type { GrowthBookClient } from "@growthbook/growthbook";
+
+export function startFeaturePolling(
+  client: Pick<GrowthBookClient, "refreshFeatures">,
+): () => void {
+  let refreshing = false;
+  const timer = setInterval(() => {
+    if (refreshing) return;
+    refreshing = true;
+    void client
+      .refreshFeatures({ skipCache: true, timeout: 2_000 })
+      .catch(() => {
+        console.error("Unexpected GrowthBook refresh error");
+      })
+      .finally(() => {
+        refreshing = false;
+      });
+  }, 60_000);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+```
+
 ```ts title="src/experimentation/growthbook.ts"
 import { GrowthBookClient } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
+import { startFeaturePolling } from "./feature-refresh";
 
 export type AppFeatures = {
   "support-llm-treatment": "control" | "prompt-v2";
@@ -341,6 +414,8 @@ export const growthbook = new GrowthBookClient<AppFeatures>({
   ],
 });
 
+let stopPolling: (() => void) | undefined;
+
 export async function initializeGrowthBook(): Promise<void> {
   const result = await growthbook.init({ timeout: 2_000 });
   if (!result.success) {
@@ -351,14 +426,20 @@ export async function initializeGrowthBook(): Promise<void> {
       error: result.error?.message,
     });
   }
+  stopPolling?.();
+  stopPolling = startFeaturePolling(growthbook);
 }
 
 export async function shutdownGrowthBook(): Promise<void> {
+  stopPolling?.();
+  stopPolling = undefined;
   growthbook.destroy();
 }
 ```
 
 Call `initializeGrowthBook()` once from the service startup path. The JavaScript SDK reports initialization failure in the returned result; a timeout does not need to throw. An unloaded feature evaluates to `null`, and `getFeatureValue(..., "control")` therefore supplies control.
+
+Polling continues after an initial fetch failure and is stopped on shutdown. Publish-to-evaluation latency is up to the 60-second interval plus delivery time when the endpoint is healthy. A failed refresh retains the last payload, which may still select treatment; it does not automatically switch an already-running service to control. SDK `1.7.0` does not return a success receipt from `refreshFeatures()`, so monitor delivery and prove rollback propagation in staging. If that window is too slow, use the [Node.js streaming setup](/lib/node#streaming-updates) and verify it before launch. Retain a deployment-level rollback to the known-good control for a delivery outage.
 
 If your GrowthBook Cloud data region is `eu-west-1`, use `https://eu-west-1.gb-ingest.com`. A wrong ingestor region can make evaluation work while event data silently lands in the wrong place or is dropped.
 
@@ -425,13 +506,63 @@ Use your pricing configuration to calculate `estimatedCostUsd`; do not hard-code
 
 This is the critical implementation. Evaluation happens after authorization and input validation, but before the provider call. The automatic experiment exposure therefore corresponds to an activated workflow, not a page view or a request that was rejected early.
 
+First add a deadline wrapper. Aborting requests cooperative cancellation; racing against a rejecting timer also bounds the caller's wait when an adapter ignores the signal. The elapsed-time check rejects a result that arrives after the deadline even if the timer callback was delayed.
+
+```ts title="src/llm/provider-deadline.ts"
+import { performance } from "node:perf_hooks";
+
+export class LlmTimeoutError extends Error {
+  constructor() {
+    super("LLM provider deadline exceeded");
+    this.name = "LlmTimeoutError";
+  }
+}
+
+export async function withProviderDeadline<T>(
+  generate: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647) {
+    throw new Error("timeoutMs must be a positive timer-safe integer");
+  }
+  const controller = new AbortController();
+  const deadline = performance.now() + timeoutMs;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new LlmTimeoutError());
+      controller.abort();
+    }, timeoutMs);
+  });
+  try {
+    const pending = Promise.resolve().then(() => generate(controller.signal));
+    const result = await Promise.race([pending, expired]);
+    if (performance.now() >= deadline) {
+      controller.abort();
+      throw new LlmTimeoutError();
+    }
+    return result;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+```
+
+This bounds the asynchronous caller's wait, not the provider's resource use. An adapter must still forward the signal and configure its provider-native timeout to stop work and charges. Late fulfillment is ignored, and late rejection is handled by the race; neither becomes a second completion event. JavaScript cannot preempt a provider adapter that blocks the event loop synchronously.
+
 ```ts title="src/llm/run-support-answer.ts"
 import { performance } from "node:perf_hooks";
 import type { UserScopedGrowthBook } from "@growthbook/growthbook";
 import { growthbook, type AppFeatures } from "../experimentation/growthbook";
 import { logAttempt, logCompletion } from "../analytics/llm-events";
 import { getPromptVariant, type LlmTreatment } from "./prompt-variants";
-import type { LlmProvider, SupportAnswer } from "./provider";
+import {
+  InvalidLlmOutputError,
+  validateGenerateResult,
+  type LlmProvider,
+  type SupportAnswer,
+} from "./provider";
+import { LlmTimeoutError, withProviderDeadline } from "./provider-deadline";
 
 export type RunSupportInput = Readonly<{
   userId: string;
@@ -477,11 +608,6 @@ export async function runSupportAnswer(
   const variant = getPromptVariant(selected);
   const treatment: LlmTreatment = variant.key;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    dependencies.timeoutMs ?? 15_000,
-  );
   const startedAt = performance.now();
 
   // Evaluation above triggers the canonical experiment-view event when the
@@ -489,12 +615,16 @@ export async function runSupportAnswer(
   logAttempt(gb, treatment);
 
   try {
-    const result = await dependencies.provider.generate({
-      variant,
-      userQuestion: input.userQuestion,
-      knowledgeSnippets: input.knowledgeSnippets,
-      signal: controller.signal,
-    });
+    const rawResult = await withProviderDeadline(
+      (signal) => dependencies.provider.generate({
+        variant,
+        userQuestion: input.userQuestion,
+        knowledgeSnippets: input.knowledgeSnippets,
+        signal,
+      }),
+      dependencies.timeoutMs ?? 15_000,
+    );
+    const result = validateGenerateResult(rawResult);
 
     const estimatedCostUsd = dependencies.estimateCostUsd(
       variant.model,
@@ -514,15 +644,16 @@ export async function runSupportAnswer(
 
     return result.output;
   } catch (error) {
-    const timedOut = controller.signal.aborted;
     logCompletion(gb, {
       treatment,
-      status: timedOut ? "timeout" : "provider_error",
+      status: error instanceof LlmTimeoutError
+        ? "timeout"
+        : error instanceof InvalidLlmOutputError
+          ? "invalid_output"
+          : "provider_error",
       latencyMs: performance.now() - startedAt,
     });
     throw error;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 ```
@@ -534,11 +665,21 @@ Do not automatically retry the treatment with the control model and then record 
 The test uses `initSync` with an explicit payload. It performs no network calls and proves both feature branches.
 
 ```ts title="tests/run-support-answer.test.ts"
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { GrowthBookClient } from "@growthbook/growthbook";
 import type { AppFeatures } from "../src/experimentation/growthbook";
 import { runSupportAnswer } from "../src/llm/run-support-answer";
-import type { LlmProvider } from "../src/llm/provider";
+import { InvalidLlmOutputError, type GenerateResult, type LlmProvider } from "../src/llm/provider";
+import { LlmTimeoutError } from "../src/llm/provider-deadline";
+
+vi.hoisted(() => {
+  process.env.GROWTHBOOK_CLIENT_KEY = "sdk-test-no-network";
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 function scopeFor(value: "control" | "prompt-v2") {
   const client = new GrowthBookClient<AppFeatures>();
@@ -648,6 +789,93 @@ describe("runSupportAnswer", () => {
       }),
     ).rejects.toThrow("provider unavailable");
   });
+
+  it("times out an adapter that ignores cancellation", async () => {
+    vi.useFakeTimers();
+    const scope = scopeFor("prompt-v2");
+    const events = vi.spyOn(scope, "logEvent").mockResolvedValue(undefined);
+    let signal: AbortSignal | undefined;
+    const pending = runSupportAnswer(baseInput, {
+      provider: { generate: (input) => {
+        signal = input.signal;
+        return new Promise<GenerateResult>(() => {});
+      } },
+      estimateCostUsd: () => 0,
+      createScope: () => scope,
+      timeoutMs: 25,
+    });
+    const failure = expect(pending).rejects.toBeInstanceOf(LlmTimeoutError);
+    await vi.advanceTimersByTimeAsync(25);
+    await failure;
+    expect(signal?.aborted).toBe(true);
+    expect(events).toHaveBeenCalledWith("support_llm_completed", expect.objectContaining({ status: "timeout" }));
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("does not record a late result as a successful completion", async () => {
+    vi.useFakeTimers();
+    const scope = scopeFor("prompt-v2");
+    const events = vi.spyOn(scope, "logEvent").mockResolvedValue(undefined);
+    let finish!: (value: GenerateResult) => void;
+    const pending = runSupportAnswer(baseInput, {
+      provider: { generate: () => new Promise((resolve) => { finish = resolve; }) },
+      estimateCostUsd: () => 0,
+      createScope: () => scope,
+      timeoutMs: 25,
+    });
+    const failure = expect(pending).rejects.toBeInstanceOf(LlmTimeoutError);
+    await vi.advanceTimersByTimeAsync(25);
+    await failure;
+    finish({
+      output: { answer: "late", needsEscalation: false, citedSnippetIds: [] },
+      usage: { inputTokens: 1, outputTokens: 1 },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const completions = events.mock.calls.filter(([name]) => name === "support_llm_completed");
+    expect(completions).toHaveLength(1);
+    expect(completions[0][1]).toMatchObject({ status: "timeout" });
+  });
+
+  it("handles a late rejection without a second terminal event", async () => {
+    vi.useFakeTimers();
+    const scope = scopeFor("control");
+    const events = vi.spyOn(scope, "logEvent").mockResolvedValue(undefined);
+    let fail!: (error: Error) => void;
+    const pending = runSupportAnswer(baseInput, {
+      provider: { generate: () => new Promise((resolve, reject) => { fail = reject; }) },
+      estimateCostUsd: () => 0,
+      createScope: () => scope,
+      timeoutMs: 25,
+    });
+    const failure = expect(pending).rejects.toBeInstanceOf(LlmTimeoutError);
+    await vi.advanceTimersByTimeAsync(25);
+    await failure;
+    fail(new Error("late provider failure"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(events.mock.calls.filter(([name]) => name === "support_llm_completed")).toHaveLength(1);
+  });
+
+  it("classifies malformed normalized output", async () => {
+    const scope = scopeFor("control");
+    const events = vi.spyOn(scope, "logEvent").mockResolvedValue(undefined);
+    await expect(runSupportAnswer(baseInput, {
+      provider: { generate: async () => ({ output: { answer: 42 } } as unknown as GenerateResult) },
+      estimateCostUsd: () => 0,
+      createScope: () => scope,
+    })).rejects.toBeInstanceOf(InvalidLlmOutputError);
+    expect(events).toHaveBeenCalledWith("support_llm_completed", expect.objectContaining({ status: "invalid_output" }));
+  });
+
+  it("classifies an adapter's JSON/schema rejection", async () => {
+    const scope = scopeFor("control");
+    const events = vi.spyOn(scope, "logEvent").mockResolvedValue(undefined);
+    await expect(runSupportAnswer(baseInput, {
+      provider: { generate: async () => { throw new InvalidLlmOutputError(); } },
+      estimateCostUsd: () => 0,
+      createScope: () => scope,
+    })).rejects.toBeInstanceOf(InvalidLlmOutputError);
+    expect(events).toHaveBeenCalledWith("support_llm_completed", expect.objectContaining({ status: "invalid_output" }));
+  });
 });
 ```
 
@@ -661,7 +889,7 @@ Expected receipt:
 
 ```text
 Test Files  1 passed (1)
-Tests       5 passed (5)
+Tests       10 passed (10)
 ```
 
 Add adapter-specific tests for schema validation, provider timeouts, safety refusal, and cost calculation. Mocking the GrowthBook assignment is appropriate in a unit test; a staging smoke test should exercise the actual SDK Connection.
@@ -729,7 +957,7 @@ Using the Managed Warehouse **Events** fact table, create:
 | --------- | --------------------------- | -------------- | ----------------------------------------------------------------------------- | ------------------- |
 | Goal      | Resolved without escalation | Proportion     | `support_answer_resolved`                                                     | Increase            |
 | Guardrail | Policy violation            | Proportion     | `support_answer_policy_violation`                                             | Decrease            |
-| Guardrail | Provider error or timeout   | Proportion     | completed status in `provider_error`, `timeout`, or a dedicated failure event | Decrease            |
+| Guardrail | Failed LLM attempt | Proportion | completed status in `provider_error`, `timeout`, `invalid_output`, or a dedicated failure event | Decrease |
 | Guardrail | Escalated                   | Proportion     | `support_answer_escalated`                                                    | Decrease or neutral |
 | Guardrail | Latency                     | Mean           | `latency_ms` from `support_llm_completed`                                     | Decrease            |
 | Guardrail | Estimated cost              | Mean           | `estimated_cost_usd` from `support_llm_completed`                             | Decrease or bounded |
@@ -820,7 +1048,7 @@ If a privacy review requires pseudonymous identifiers, ensure the exact same det
 | GrowthBook init timeout                 | Use `control`; alert operationally                                                        | Block API host in staging and assert control |
 | Empty or unknown feature value          | Use `control`                                                                             | Unit test malformed payload                  |
 | Event ingestor unavailable              | Continue user request; queue/retry according to SDK behavior; alert on missing-event rate | Block ingestor without blocking provider     |
-| Provider timeout                        | Abort; emit timeout guardrail; follow product fallback policy                             | Fake provider waits beyond timeout           |
+| Provider timeout | Reject at the deadline and request cancellation; emit one timeout guardrail; follow product fallback policy | Fake provider ignores cancellation and completes or rejects late |
 | Provider invalid JSON                   | Reject in adapter; emit `invalid_output`                                                  | Fixture with malformed response              |
 | Treatment model unavailable             | Fail or explicit fallback; count against treatment                                        | Inject provider 5xx                          |
 | Missing stable ID                       | Reject experiment path or use an established anonymous ID                                 | Contract test at request boundary            |
@@ -830,16 +1058,16 @@ If a privacy review requires pseudonymous identifiers, ensure the exact same det
 
 ## Rollback
 
-The fastest rollback does not require a deploy:
+With healthy feature delivery, roll back through GrowthBook without a deploy:
 
 1. Open `support-llm-treatment`.
 2. Stop or disable the experiment rule.
 3. Force production to `control`.
 4. Publish.
-5. Verify a fresh request receives `control` and the provider uses the control model/prompt.
+5. Allow for the 60-second polling interval plus fetch time. Verify fresh requests on each serving process receive `control` and the provider uses the control model/prompt; publishing alone is not a rollback receipt.
 6. Monitor until in-flight treatment calls drain.
 
-If the control path itself is unhealthy, disable the LLM capability at the product’s independent kill switch or route to the deterministic/human fallback. A feature experiment is not a substitute for a system-level safety control.
+If feature delivery is unavailable or a process keeps evaluating a stale treatment, use the deployment-level rollback to a known-good control implementation. Do not rely on another flag delivered through the same failing connection. If the control path itself is unhealthy, disable the LLM capability at the product’s independent kill switch or route to the deterministic/human fallback. A feature experiment is not a substitute for a system-level safety control.
 
 Rollback changes future evaluations. It cannot cancel requests already sent to the model. Provider cancellation and idempotency belong in the application boundary.
 
