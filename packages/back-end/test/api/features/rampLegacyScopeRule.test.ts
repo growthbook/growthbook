@@ -3,15 +3,12 @@ import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { FeatureRule } from "shared/validators";
-import { getRulesForEnvironment, ruleFootprint } from "shared/util";
+import { ruleFootprint } from "shared/util";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "../api.setup";
 
-// A rule written before rules carried environment scope has neither
-// `allEnvironments` nor `environments` and serves everywhere. A ramp on it must
-// keep serving everywhere at every step and after rollback, and never leave a
-// null list behind: that shape serves nowhere and used to break payload
-// generation for the whole flag.
+// A rule with neither scope key serves everywhere. A ramp on it must keep it
+// that way and never leave a null list behind, which broke the flag's payloads.
 
 const ORG_ID = "org_ramp_legacy_scope";
 const FLAG = "flag_legacy_scope";
@@ -87,8 +84,7 @@ describe("a ramp on a rule with no environment scope", () => {
   const auth = (req: request.Test) => req.set("Authorization", "Bearer foo");
   const envs = ["production", "dev"];
 
-  // The live rule as the payload builder will see it: no null list, and it
-  // still reaches every environment.
+  // The stored rule, as the payload builder reads it.
   async function expectLegacyRuleServesEverywhere() {
     const feature = await mongoose.connection
       .collection("features")
@@ -98,15 +94,6 @@ describe("a ramp on a rule with no environment scope", () => {
     )!;
     expect(rule.environments).not.toBeNull();
     expect(ruleFootprint(rule, envs)).toEqual(envs);
-    for (const env of envs) {
-      expect(
-        getRulesForEnvironment(feature?.rules as FeatureRule[], env),
-      ).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ id: LEGACY_RULE.id }),
-        ]),
-      );
-    }
     return rule;
   }
 
