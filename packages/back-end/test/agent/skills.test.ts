@@ -1,7 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
+  _enabledFor,
   _loadSkillsFromDirectory,
   _mergeCustomSkills,
   _parseDisabledBuiltIns,
@@ -191,6 +193,24 @@ describe("custom skills", () => {
     expect(names(_mergeCustomSkills(builtIn, custom, "all"))).toEqual(
       names(custom),
     );
+  });
+
+  it("tags custom skills so settings can badge them", () => {
+    const merged = _mergeCustomSkills(builtIn, custom, new Set());
+
+    expect(merged.skills.get("release-checklist")?.custom).toBe(true);
+    expect(merged.skills.get("experiments")?.custom).toBeUndefined();
+  });
+
+  it("filters out a domain and its workflows that the org turned off", () => {
+    const enabled = _enabledFor({
+      settings: { disabledAgentSkills: ["experiments"] },
+    } as OrganizationInterface);
+
+    expect(builtIn.summaries.filter(enabled).map((s) => s.name)).toEqual([
+      "feature-flags",
+      "feature-flags/references/flag-create",
+    ]);
   });
 
   it("parses AGENT_SKILLS_DISABLE_BUILTINS", () => {

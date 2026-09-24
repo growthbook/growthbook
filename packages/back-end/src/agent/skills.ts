@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
 import yaml from "js-yaml";
-import type { SkillSummary } from "shared/ai-chat";
+import type { OrgSkillSummary, SkillSummary } from "shared/ai-chat";
+import type { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import {
   AGENT_SKILLS_DIR,
@@ -270,10 +271,16 @@ function mergeCustomSkills(
     );
   };
   return {
-    summaries: [...builtIn.summaries.filter(keep), ...custom.summaries],
+    summaries: [
+      ...builtIn.summaries.filter(keep),
+      ...custom.summaries.map((s) => ({ ...s, custom: true })),
+    ],
     skills: new Map([
       ...[...builtIn.skills].filter(([, skill]) => keep(skill)),
-      ...custom.skills,
+      ...[...custom.skills].map(([name, skill]): [string, Skill] => [
+        name,
+        { ...skill, custom: true },
+      ]),
     ]),
   };
 }
@@ -338,22 +345,47 @@ function resolveSkill(
   return matches.length === 1 ? skills.get(matches[0]) : undefined;
 }
 
+/** Turning off a domain in org settings turns off its workflows too. */
+function enabledFor(org: OrganizationInterface) {
+  const disabled = new Set(org.settings?.disabledAgentSkills ?? []);
+  return ({ name, group }: SkillSummary) => !disabled.has(group ?? name);
+}
+
 // Exposed for unit tests — see test/agent/skills.test.ts
 export const _loadSkillsFromDirectory = loadSkillsFromDirectory;
 export const _resolveSkill = resolveSkill;
 export const _mergeCustomSkills = mergeCustomSkills;
 export const _parseDisabledBuiltIns = parseDisabledBuiltIns;
+export const _enabledFor = enabledFor;
 
 /** Domain routers only — the compact index inlined into the system prompt. */
-export function listDomainSkills(): readonly SkillSummary[] {
-  return getSkillRegistry().summaries.filter((s) => s.kind === "domain");
+export function listDomainSkills(
+  org: OrganizationInterface,
+): readonly SkillSummary[] {
+  const enabled = enabledFor(org);
+  return getSkillRegistry().summaries.filter(
+    (s) => s.kind === "domain" && enabled(s),
+  );
 }
 
-/** Domains and workflows — the composer's slash-command menu lists both. */
-export function listSkillSummaries(): readonly SkillSummary[] {
-  return getSkillRegistry().summaries;
+/** Domains and workflows, flagged for the org — for the slash-command menu and settings. */
+export function listSkillSummaries(
+  org: OrganizationInterface,
+): OrgSkillSummary[] {
+  const enabled = enabledFor(org);
+  return getSkillRegistry().summaries.map((s) => ({
+    ...s,
+    enabled: enabled(s),
+  }));
 }
 
-export function readSkill(name: string): Skill | undefined {
-  return resolveSkill(getSkillRegistry().skills, name);
+export function readSkill(
+  org: OrganizationInterface,
+  name: string,
+): Skill | undefined {
+  const enabled = enabledFor(org);
+  const skills = new Map(
+    [...getSkillRegistry().skills].filter(([, skill]) => enabled(skill)),
+  );
+  return resolveSkill(skills, name);
 }

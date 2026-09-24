@@ -325,6 +325,7 @@ describe("chat composer serialization", () => {
         title: "Feature flags",
         description: "Read and modify flags",
         group: "feature-flags",
+        enabled: true,
       },
       {
         id: "flag-targeting",
@@ -333,6 +334,7 @@ describe("chat composer serialization", () => {
         title: "Flag targeting",
         description: "Targeting rules",
         group: "feature-flags",
+        enabled: true,
       },
       {
         id: "experiments",
@@ -341,6 +343,7 @@ describe("chat composer serialization", () => {
         title: "Experiments",
         description: "Targeting an audience",
         group: "experiments",
+        enabled: true,
       },
     ];
 

@@ -13,6 +13,8 @@ export interface SkillItem {
   kind: SkillKind;
   /** Parent domain for leaf skills; same as `id` for domain routers. */
   group?: string;
+  /** Off in org settings: past tokens still resolve, but the `/` menu hides it. */
+  enabled: boolean;
 }
 
 /** `flag-default-value` → "Flag default value". Sentence case, per the copy guide. */
