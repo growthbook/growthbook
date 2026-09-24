@@ -1768,12 +1768,8 @@ export async function fetchBigQueryDatasets(
   }
 
   const client = createBigQueryClient({
-    projectId: connectionParams.projectId,
-    apiEndpoint: connectionParams.apiEndpoint,
-    credentials: {
-      client_email: connectionParams.clientEmail,
-      private_key: connectionParams.privateKey,
-    },
+    ...connectionParams,
+    authType: "json",
   });
   const [datasets] = await client.getDatasets();
   res.status(200).json({

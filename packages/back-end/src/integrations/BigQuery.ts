@@ -1,4 +1,9 @@
-import * as bq from "@google-cloud/bigquery";
+import {
+  BigQueryDate,
+  BigQueryDatetime,
+  BigQueryTimestamp,
+  type TableField,
+} from "@google-cloud/bigquery";
 import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
 import {
   bigQueryCreateTableOptions,
@@ -19,7 +24,6 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
@@ -47,19 +51,7 @@ export default class BigQuery extends SqlIntegration {
   }
 
   private getClient() {
-    // Pull credentials from the environment or metadata server.
-    if (!IS_CLOUD && this.params.authType === "auto") {
-      return createBigQueryClient({ apiEndpoint: this.params.apiEndpoint });
-    }
-
-    return createBigQueryClient({
-      apiEndpoint: this.params.apiEndpoint,
-      projectId: this.params.projectId,
-      credentials: {
-        client_email: this.params.clientEmail,
-        private_key: this.params.privateKey,
-      },
-    });
+    return createBigQueryClient(this.params);
   }
 
   async cancelQuery(
@@ -183,11 +175,11 @@ export default class BigQuery extends SqlIntegration {
     for (const row of rows) {
       for (const key in row) {
         const value = row[key];
-        if (value instanceof bq.BigQueryDatetime) {
+        if (value instanceof BigQueryDatetime) {
           row[key] = value.value + "Z"; // Convert to ISO date
         } else if (
-          value instanceof bq.BigQueryTimestamp ||
-          value instanceof bq.BigQueryDate
+          value instanceof BigQueryTimestamp ||
+          value instanceof BigQueryDate
         ) {
           row[key] = value.value; // Already in ISO format
         }
@@ -306,7 +298,7 @@ export default class BigQuery extends SqlIntegration {
   getQueryResultResponseColumns(
     bqQueryResultsResponse: QueryResultsResponse,
   ): QueryResponseColumnData[] | undefined {
-    const mapField = (field: bq.TableField): QueryResponseColumnData => {
+    const mapField = (field: TableField): QueryResponseColumnData => {
       let childFields: QueryResponseColumnData[] | undefined = undefined;
       if (field.type === "RECORD" || field.type === "STRUCT") {
         childFields = field.fields

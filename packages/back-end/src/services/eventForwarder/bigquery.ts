@@ -6,10 +6,12 @@ import {
 } from "shared/util";
 import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderTablePrefix,
+  getEventForwarderBigQueryConnectionParams,
 } from "back-end/src/services/eventForwarder/config";
 import { logger } from "back-end/src/util/logger";
 
@@ -58,12 +60,6 @@ const FEATURE_USAGE_SCHEMA: bq.TableField[] = [
   { name: "attributes", type: "JSON", mode: "NULLABLE" },
 ];
 
-type ServiceAccountKey = {
-  project_id?: string;
-  client_email?: string;
-  private_key?: string;
-};
-
 function validateBigQueryTableName(tableName: string): void {
   if (!tableName) {
     throw new Error("Missing BigQuery event forwarder table name");
@@ -74,41 +70,6 @@ function validateBigQueryTableName(tableName: string): void {
       "Event forwarder table name must be a valid BigQuery table name (letters, numbers, underscores; Unicode letters allowed).",
     );
   }
-}
-
-function parseServiceAccountKey(raw: string): ServiceAccountKey {
-  const trimmed = raw.trim();
-  if (!trimmed)
-    throw new Error("Missing service account key for BigQuery table creation");
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch {
-    throw new Error("Event forwarder service account key is not valid JSON");
-  }
-  if (!parsed || typeof parsed !== "object") {
-    throw new Error("Event forwarder service account key is not valid JSON");
-  }
-  return parsed as ServiceAccountKey;
-}
-
-function buildBigQueryClient(
-  projectId: string,
-  serviceAccountKeyJson: string | undefined,
-): bq.BigQuery {
-  if (!serviceAccountKeyJson?.trim()) {
-    return createBigQueryClient({ projectId });
-  }
-
-  const key = parseServiceAccountKey(serviceAccountKeyJson);
-  return createBigQueryClient({
-    projectId: key.project_id || projectId,
-    credentials: {
-      client_email: key.client_email,
-      private_key: key.private_key,
-    },
-  });
 }
 
 async function ensureTable(
@@ -168,6 +129,7 @@ export async function resolveBigQueryEventForwarderTablePrefix(
 }
 
 export type EnsureEventForwarderBigQueryTablesParams = {
+  datasourceParams: BigQueryConnectionParams;
   projectId: string;
   dataset: string;
   tablePrefix: string;
@@ -189,11 +151,13 @@ export type EnsureEventForwarderBigQueryTablesParams = {
 export async function ensureEventForwarderBigQueryTables(
   params: EnsureEventForwarderBigQueryTablesParams,
 ): Promise<void> {
-  const client = buildBigQueryClient(
-    params.projectId,
-    params.serviceAccountKey,
+  const client = createBigQueryClient(
+    getEventForwarderBigQueryConnectionParams(
+      params.datasourceParams,
+      params.serviceAccountKey,
+    ),
   );
-  const ds = client.dataset(params.dataset);
+  const ds = client.dataset(params.dataset, { projectId: params.projectId });
   const tableNames = resolveBigQueryEventForwarderTableNames(
     params.tablePrefix,
   );

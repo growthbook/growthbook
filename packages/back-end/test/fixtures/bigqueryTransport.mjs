@@ -109,11 +109,21 @@ async function main() {
       endpoints: { oauth2TokenUrl: `http://127.0.0.1:${tokenPort}/token` },
     });
     authClient.setCredentials({ refresh_token: "synthetic-refresh-token" });
+    // The factory only accepts connection params, so the harness swaps in a local
+    // OAuth client and fast failure at the SDK constructor. Everything else is the factory's.
+    const sdk = sdkRequire("./bigquery.js");
+    const { BigQuery } = sdk;
+    sdk.BigQuery = class extends BigQuery {
+      constructor(options) {
+        super({ ...options, authClient, autoRetry: false, timeout: 1000 });
+      }
+    };
     const client = createBigQueryClient({
+      authType: "json",
       apiEndpoint: "https://customer-proxy.invalid/tenant",
-      authClient,
-      autoRetry: false,
-      timeout: 1000,
+      projectId: "synthetic-project",
+      clientEmail: "synthetic@example.invalid",
+      privateKey: "unused",
     });
 
     // API requests reach the endpoint only through the proxy.
