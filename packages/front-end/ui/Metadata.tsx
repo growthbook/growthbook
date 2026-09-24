@@ -21,7 +21,11 @@ type Props = {
   actionPlacement?: "label" | "value";
 };
 
-const ROW_LABEL_WIDTH = "120px";
+// Gives way in a narrow column, so the value keeps room to read.
+const ROW_LABEL_WIDTH = "min(120px, 40%)";
+// Tall enough for an avatar, a tag or an edit button, so a row carrying one
+// keeps the same rhythm as a row of plain text.
+const ROW_MIN_HEIGHT = 22;
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
   {
@@ -51,7 +55,7 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
       <Flex
         gap="3"
         align="baseline"
-        style={style}
+        style={{ minHeight: ROW_MIN_HEIGHT, ...style }}
         data-reveals-action={action ? "" : undefined}
         {...props}
         ref={ref}
@@ -62,7 +66,7 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
           </Text>
           {actionPlacement === "label" ? action : null}
         </Flex>
-        <Flex align="center" gap="1" wrap="wrap" minWidth="0">
+        <Flex align="center" gap="1" flexGrow="1" minWidth="0">
           {valueNode}
           {actionPlacement === "value" ? action : null}
         </Flex>

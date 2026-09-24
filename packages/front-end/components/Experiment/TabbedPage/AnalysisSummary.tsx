@@ -24,7 +24,7 @@ const onOff = (on: boolean) => (on ? "On" : "Off");
 
 function Rows({ rows }: { rows: Row[] }) {
   return (
-    <Flex direction="column" gap="4">
+    <Flex direction="column" gap="2">
       {rows.map(([label, value]) => (
         <Metadata key={label} size="sm" row label={label} value={value} />
       ))}
@@ -137,7 +137,7 @@ export default function AnalysisSummary({
   }
 
   return (
-    <Flex direction="column" gap="4">
+    <Flex direction="column" gap="2">
       <Rows rows={main} />
       {advanced.length ? (
         <Collapsible

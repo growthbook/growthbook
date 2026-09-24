@@ -168,6 +168,7 @@ export default function ProjectTagBar({
         size="xs"
         textColor="text-mid"
         textSize="sm"
+        truncate
       />
     );
   };
@@ -324,7 +325,7 @@ export default function ProjectTagBar({
     <div className={vertical ? undefined : "pb-3"}>
       <Flex
         direction={vertical ? "column" : "row"}
-        gap={vertical ? "4" : "3"}
+        gap={vertical ? "2" : "3"}
         mt={vertical ? "0" : "2"}
         mb={vertical ? "0" : "1"}
         wrap={vertical ? "nowrap" : "wrap"}
@@ -419,7 +420,8 @@ export default function ProjectTagBar({
         {vertical && (
           <Metadata
             size="sm"
-            row={vertical}
+            // Tags wrap, so they get the column's full width under the label.
+            stacked
             label="Tags"
             actionPlacement="value"
             action={fieldAction?.("tags")}

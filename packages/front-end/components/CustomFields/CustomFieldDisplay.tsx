@@ -192,7 +192,7 @@ const CustomFieldDisplay: FC<{
     return (
       <>
         {editModalNode}
-        <Flex direction="column" gap="4">
+        <Flex direction="column" gap="2">
           {customFields.map((field) => {
             const value = currentValueMap.get(field.id) ?? "";
             return (

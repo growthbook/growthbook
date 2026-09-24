@@ -121,33 +121,35 @@ export default function ExperimentDetailsPanel({
         </Flex>
         <TabsContent value="details">
           <Flex px="5" py="4" direction="column" gap="4">
-            <Metadata
-              size="sm"
-              row
-              label="Status"
-              value={
-                <Text size="sm" color="text-high">
-                  {statusIndicator.status}
-                  {statusIndicator.detailedStatus ? (
-                    <Text color="text-mid">
-                      {" "}
-                      · {statusIndicator.detailedStatus}
-                    </Text>
-                  ) : null}
-                </Text>
-              }
-            />
-            {!isHoldout && (
-              <DescriptionField
-                stacked
-                experiment={experiment}
-                mutate={mutate}
-                editable={false}
-                labelAction={pencil("Edit description", () =>
-                  editSection("description"),
-                )}
+            <Flex direction="column" gap="2">
+              <Metadata
+                size="sm"
+                row
+                label="Status"
+                value={
+                  <Text size="sm" color="text-high">
+                    {statusIndicator.status}
+                    {statusIndicator.detailedStatus ? (
+                      <Text color="text-mid">
+                        {" "}
+                        · {statusIndicator.detailedStatus}
+                      </Text>
+                    ) : null}
+                  </Text>
+                }
               />
-            )}
+              {!isHoldout && (
+                <DescriptionField
+                  stacked
+                  experiment={experiment}
+                  mutate={mutate}
+                  editable={false}
+                  labelAction={pencil("Edit description", () =>
+                    editSection("description"),
+                  )}
+                />
+              )}
+            </Flex>
             <Separator size="4" />
             <PanelSection
               title="General"
@@ -267,7 +269,7 @@ function PanelSection({
   return (
     <Flex
       direction="column"
-      gap="4"
+      gap="3"
       className={action ? revealsQuickEdit : undefined}
     >
       <Flex align="center" gap="1">
