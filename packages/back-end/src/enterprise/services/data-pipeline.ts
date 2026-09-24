@@ -127,9 +127,9 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   }
 
   // Units tables built before queries had several identifiers used the query's
-  // first, so only hash a different one to keep those tables' hashes stable.
-  // Changing a query's first identifier re-keys experiments on the old or new
-  // first, costing them one full refresh.
+  // frozen legacy identifier, so only hash a different one to keep those
+  // tables' hashes stable. The legacy identifier never changes, so reordering a
+  // query's identifiers doesn't re-key anything.
   const identifierType = snapshotSettings.exposureQueryIdentifierType;
   const query = exposureQueries.find(
     (q) => q.id === snapshotSettings.exposureQueryId,

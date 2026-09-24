@@ -798,7 +798,8 @@ export function getExposureQuery(
 
   if (!exposureQueryId) {
     const identifierType = userIdType ?? "anonymous_id";
-    // Prefer a primary-type match; analysis runs on the query's first type.
+    // Prefer a legacy-identifier match; records without a stored identifier
+    // analyze on it.
     return (
       queries.find((q) => q.userIdType === identifierType) ??
       queries.find((q) => q.userIdTypes?.includes(identifierType)) ??

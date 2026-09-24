@@ -2,6 +2,7 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   assertValidAssignmentQuerySelection,
   assertAssignmentQueryRefIdentifierType,
+  getAnalysisIdentifierType,
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
@@ -181,6 +182,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
 
     if (datasource) {
+      // A template without a stored identifier analyzes on its query's legacy
+      // one, so its experiments must too, not the query's first.
+      if (templateId && !payload.assignmentQueryIdentifierType) {
+        payload.assignmentQueryIdentifierType = getAnalysisIdentifierType(
+          datasource.settings.queries?.exposure?.find(
+            (q) => q.id === payload.assignmentQueryId,
+          ),
+          undefined,
+        );
+      }
       try {
         assertAssignmentQueryRefIdentifierType({
           ref: req.body.assignmentQuery,

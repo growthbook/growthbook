@@ -6,7 +6,6 @@ import {
   DataRegion,
   findEventForwarderManagedViolation,
   getExposureQueriesOutsideProjectScope,
-  getExposureQueriesWithChangedBaseIdentifier,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
@@ -19,6 +18,7 @@ import {
   DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
+  ExposureQuery,
   GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
@@ -46,8 +46,6 @@ import { deleteClickhouseUser } from "back-end/src/services/licenseServerManaged
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
-import { pinLegacyExposureQueryIdentifierType } from "./ExperimentModel";
-import { pinLegacyReportExposureQueryIdentifierType } from "./ReportModel";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 import {
   definitionsScope,
@@ -528,6 +526,8 @@ export async function createDataSource(
     datasource,
     settings,
     "all",
+    false,
+    [],
   );
   datasource.settings = settings;
 
@@ -571,6 +571,8 @@ export async function validateExposureQueriesAndAddMissingIds(
   updates: Partial<DataSourceSettings>,
   validation: ExposureQueryValidation = "changed",
   skipEventForwarderManagedValidation: boolean = false,
+  storedExposureQueries: ExposureQuery[] = datasource.settings.queries
+    ?.exposure ?? [],
 ): Promise<Partial<DataSourceSettings>> {
   const updatesCopy = cloneDeep(updates);
   if (updatesCopy.queries?.exposure) {
@@ -582,8 +584,6 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.userIdTypes?.length) {
           exposure.userIdTypes = [exposure.userIdType].filter(Boolean);
         }
-        // Analysis relies on at least one identifier, with the deprecated scalar
-        // mirroring the first.
         if (!exposure.userIdTypes.length) {
           throw new Error(
             `Experiment assignment query "${
@@ -591,7 +591,11 @@ export async function validateExposureQueriesAndAddMissingIds(
             }" must declare at least one identifier type`,
           );
         }
-        exposure.userIdType = exposure.userIdTypes[0];
+        // The legacy identifier is frozen once the query exists, so ignore
+        // whatever the client echoes back. Before any comparison below.
+        exposure.userIdType =
+          storedExposureQueries.find((q) => q.id === exposure.id)?.userIdType ||
+          exposure.userIdTypes[0];
         // Skip live validation while the warehouse can't serve queries — never
         // provisioned OR mid-migration (tables being recreated). Otherwise a
         // concurrent settings save would test-run against unavailable tables and
@@ -779,32 +783,6 @@ export async function updateDataSource(
 
   if (!hasActualChanges(datasource, updates)) {
     return;
-  }
-
-  // Pin before saving: if the pin failed after the save, legacy experiments,
-  // reports and safe rollouts would silently repoint to the new first identifier.
-  if (updates.settings?.queries?.exposure) {
-    const repointed = getExposureQueriesWithChangedBaseIdentifier(
-      datasource.settings.queries?.exposure ?? [],
-      updates.settings.queries.exposure,
-    );
-    for (const { id, previousIdentifierType } of repointed) {
-      const pin = {
-        organization: context.org.id,
-        datasource: datasource.id,
-        exposureQueryId: id,
-        identifierType: previousIdentifierType,
-      };
-      await Promise.all([
-        pinLegacyExposureQueryIdentifierType(pin),
-        pinLegacyReportExposureQueryIdentifierType(pin),
-        context.models.safeRollout.pinLegacyExposureQueryIdentifierType({
-          datasourceId: datasource.id,
-          exposureQueryId: id,
-          identifierType: previousIdentifierType,
-        }),
-      ]);
-    }
   }
 
   // Several service callers mutate `settings` without stamping dateUpdated;

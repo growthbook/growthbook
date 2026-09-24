@@ -1013,7 +1013,7 @@ export default function RampScheduleSection({
       (q) => q.id === state.monitoring.exposureQueryId,
     );
   // Saved monitoring must not be rewritten on load; legacy configs without a
-  // stored identifier analyze on the query's first.
+  // stored identifier analyze on the query's legacy identifier.
   const hasSavedMonitoring = !!ruleRampSchedule?.monitoringConfig;
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource: selectedDatasource,

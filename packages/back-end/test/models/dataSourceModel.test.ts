@@ -172,7 +172,7 @@ describe("dataSourceModel", () => {
       ).rejects.toThrow("must declare at least one identifier type");
     });
 
-    it("normalizes multi-identifier exposure queries", async () => {
+    it("sets a new query's legacy identifier to its first, ignoring the client", async () => {
       const updates: Partial<DataSourceSettings> = {
         queries: {
           exposure: [
@@ -198,6 +198,65 @@ describe("dataSourceModel", () => {
       expect(normalized.queries?.exposure?.[0]).toMatchObject({
         userIdType: "user_id",
         userIdTypes: ["user_id", "anonymous_id"],
+      });
+    });
+
+    it("carries an existing query's legacy identifier forward through a reorder", async () => {
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "anonymous_id",
+              // The client echoes a stale or mirrored value; it's ignored.
+              userIdType: "user_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              name: "Anonymous Visitors",
+              query: "SELECT user_id, anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+
+      const normalized = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "skip",
+      );
+
+      expect(normalized.queries?.exposure?.[0]).toMatchObject({
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+      });
+    });
+
+    it("keeps an existing query's legacy identifier after it's removed from the list", async () => {
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "anonymous_id",
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
+              dimensions: [],
+              name: "Anonymous Visitors",
+              query: "SELECT user_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+
+      const normalized = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "skip",
+      );
+
+      expect(normalized.queries?.exposure?.[0]).toMatchObject({
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id"],
       });
     });
 

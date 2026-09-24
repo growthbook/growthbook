@@ -11,6 +11,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
+  getAnalysisIdentifierType,
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
@@ -189,13 +190,22 @@ export function getNewExperimentDatasourceDefaults({
       ) ?? null;
   }
 
+  // Copies (duplicate, from template) keep what the source analyzes on.
+  const initialIdentifierType =
+    exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
+      ? getAnalysisIdentifierType(
+          exposureQuery,
+          initialValue.exposureQueryIdentifierType,
+        )
+      : initialValue?.exposureQueryIdentifierType;
+
   return {
     datasource: initialDatasource.id,
     exposureQueryId: exposureQuery?.id || "",
     exposureQueryIdentifierType: exposureQuery
       ? getDefaultIdentifierTypeForQuery(
           exposureQuery,
-          initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
+          initialIdentifierType ?? initialUserIdType,
         )
       : undefined,
   };

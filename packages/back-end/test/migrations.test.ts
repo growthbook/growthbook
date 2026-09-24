@@ -11,6 +11,7 @@ import { LegacyMetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
@@ -47,6 +48,7 @@ import {
   normalizeJsonSchemaDef,
   pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
+  upgradeExposureQuery,
   upgradeExperimentDoc,
   upgradeFeatureRule,
   upgradeMetricDoc,
@@ -1257,10 +1259,57 @@ describe("Datasource Migration", () => {
       userIdType: "user_id",
       userIdTypes: ["user_id"],
     });
+    // The legacy identifier is frozen, so it doesn't follow userIdTypes[0].
     expect(exposureQueries?.[1]).toMatchObject({
-      userIdType: "user_id",
+      userIdType: "anonymous_id",
       userIdTypes: ["user_id", "anonymous_id"],
     });
+  });
+
+  it("fills a missing legacy identifier from userIdTypes and drops empty scalars", () => {
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      }),
+    ).toMatchObject({ userIdType: "user_id" });
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: [],
+        dimensions: [],
+        query: "",
+      }).userIdTypes,
+    ).toEqual([]);
+  });
+
+  it("upgrades exposure queries idempotently", () => {
+    const queries: ExposureQuery[] = [
+      {
+        id: "legacy",
+        name: "Legacy",
+        userIdType: "user_id",
+        dimensions: [],
+        query: "",
+      } as unknown as ExposureQuery,
+      {
+        id: "multi",
+        name: "Multi",
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      },
+    ];
+    const once = queries.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    const twice = once.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    expect(twice).toEqual(once);
   });
 
   it("migrates pipelineSettings: add mode if not existing", () => {

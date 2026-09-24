@@ -17,8 +17,9 @@ export function getExposureQueryIdentifierTypes(
 
 /**
  * The identifier a saved record analyzes on: the stored one, even if its query
- * no longer declares it (analysis then refuses to run), else the query's first.
- * For defaulting a new record, prefer an identifier the query declares.
+ * no longer declares it (analysis then refuses to run), else the query's frozen
+ * legacy identifier (`userIdType`). A new record defaults to `userIdTypes[0]`
+ * instead, so don't use this to pick one.
  */
 export function getAnalysisIdentifierType(
   query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
@@ -34,7 +35,7 @@ export function getAnalysisIdentifierType(
 ): string | undefined {
   if (storedIdentifierType) return storedIdentifierType;
   return query
-    ? (getExposureQueryIdentifierTypes(query)[0] ?? query.userIdType)
+    ? query.userIdType || getExposureQueryIdentifierTypes(query)[0]
     : undefined;
 }
 
@@ -199,7 +200,8 @@ export function assertValidAssignmentQuerySelection({
 
 /**
  * API shape of a stored assignment query selection. Legacy records (no stored
- * identifier) report their query's first; omitted when that can't be resolved.
+ * identifier) report their query's legacy identifier; omitted when that can't be
+ * resolved.
  */
 export function toApiAssignmentQueryRef(
   id: string | undefined,
@@ -222,7 +224,7 @@ export type AssignmentQuerySelection = {
 
 /**
  * Whether a saved assignment query selection changed. A missing identifier
- * means the query's first, so a client sending that resolved value back is not
+ * means the query's legacy identifier, so a client sending that resolved value back is not
  * a change. `loadExposureQueries` only runs when the raw identifiers differ.
  */
 export async function hasAssignmentQuerySelectionChanged(
@@ -242,48 +244,27 @@ export async function hasAssignmentQuerySelectionChanged(
   const query = (await loadExposureQueries()).find(
     (q) => q.id === next.exposureQueryId,
   );
-  const firstType = query
-    ? getExposureQueryIdentifierTypes(query)[0]
-    : undefined;
-  return (previousType ?? firstType) !== (nextType ?? firstType);
+  return (
+    getAnalysisIdentifierType(query, previousType) !==
+    getAnalysisIdentifierType(query, nextType)
+  );
 }
 
 /**
  * Throws rather than let analysis run on an identifier the query no longer
- * returns. A missing identifier type falls back to the query's first.
+ * returns, including a legacy record whose frozen identifier was removed.
  */
 export function assertExposureQueryDeclaresIdentifierType(
   query: ExposureQueryIdentity & Pick<ExposureQuery, "name">,
-  identifierType: string | undefined,
+  storedIdentifierType: string | undefined,
 ): void {
+  const identifierType = getAnalysisIdentifierType(query, storedIdentifierType);
   if (!identifierType) return;
   if (!getExposureQueryIdentifierTypes(query).includes(identifierType)) {
     throw new Error(
       `Assignment query "${query.name || query.id}" no longer declares the "${identifierType}" identifier type. Choose an assignment query that declares it, or a different identifier type, before running analysis.`,
     );
   }
-}
-
-/**
- * Queries whose first identifier changed. Legacy experiments analyze on the
- * first identifier, so callers pin them to `previousIdentifierType`.
- */
-export function getExposureQueriesWithChangedBaseIdentifier(
-  previous: ExposureQueryIdentity[],
-  next: ExposureQueryIdentity[],
-): { id: string; previousIdentifierType: string }[] {
-  const previousById = new Map(previous.map((q) => [q.id, q]));
-  const changed: { id: string; previousIdentifierType: string }[] = [];
-  for (const nextQuery of next) {
-    const previousQuery = previousById.get(nextQuery.id);
-    if (!previousQuery) continue;
-    const previousFirst = getAnalysisIdentifierType(previousQuery, undefined);
-    const nextFirst = getAnalysisIdentifierType(nextQuery, undefined);
-    if (previousFirst && nextFirst && previousFirst !== nextFirst) {
-      changed.push({ id: nextQuery.id, previousIdentifierType: previousFirst });
-    }
-  }
-  return changed;
 }
 
 /**

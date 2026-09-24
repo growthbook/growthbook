@@ -718,12 +718,21 @@ export default function AnalysisSettingsSummary({
     if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
       reasons.push(getExperimentOutdatedReasonLabel("exposureQueryId"));
     }
-    // A nullish stored type inherits the query default, matching the snapshot.
+    // Snapshots from before identifiers were stored resolve the same way.
     if (
-      exp.exposureQueryIdentifierType &&
       isDifferent(
-        exp.exposureQueryIdentifierType,
-        snapshotSettings.exposureQueryIdentifierType,
+        getAnalysisIdentifierType(
+          datasourceSettings?.queries?.exposure?.find(
+            (e) => e.id === exp.exposureQueryId,
+          ),
+          exp.exposureQueryIdentifierType,
+        ),
+        getAnalysisIdentifierType(
+          datasourceSettings?.queries?.exposure?.find(
+            (e) => e.id === snapshotSettings.exposureQueryId,
+          ),
+          snapshotSettings.exposureQueryIdentifierType,
+        ),
       )
     ) {
       reasons.push(

@@ -87,6 +87,10 @@ export const SelectStep = ({
           const exposureQuery = datasource?.settings?.queries?.exposure?.find(
             (e) => e.id === exp.exposureQueryId,
           );
+          const identifierType = getAnalysisIdentifierType(
+            exposureQuery,
+            exp.exposureQueryIdentifierType,
+          );
 
           return {
             ...exp,
@@ -94,14 +98,11 @@ export const SelectStep = ({
             // since their analysis can't run either.
             exposureQueryUserIdType:
               exposureQuery &&
-              (!exp.exposureQueryIdentifierType ||
-                getExposureQueryIdentifierTypes(exposureQuery).includes(
-                  exp.exposureQueryIdentifierType,
-                ))
-                ? getAnalysisIdentifierType(
-                    exposureQuery,
-                    exp.exposureQueryIdentifierType,
-                  )
+              identifierType &&
+              getExposureQueryIdentifierTypes(exposureQuery).includes(
+                identifierType,
+              )
+                ? identifierType
                 : undefined,
             allMetrics: getAllMetricIdsFromExperiment(exp, false, metricGroups),
           };

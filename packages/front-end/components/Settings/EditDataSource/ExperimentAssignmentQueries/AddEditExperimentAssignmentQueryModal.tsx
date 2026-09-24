@@ -90,8 +90,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    // Keep the deprecated scalar in sync with the first declared identifier.
-    value.userIdType = value.userIdTypes[0] ?? value.userIdType;
     await onSave(value);
 
     form.reset({
@@ -146,6 +144,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const removedIdentifierTypes = savedUserIdTypes.filter(
     (idType) => !userEnteredUserIdTypes.includes(idType),
   );
+  // Records saved before queries declared several identifiers store none and
+  // analyze on this one.
+  const removesLegacyIdentifierType =
+    !!exposureQuery?.userIdType &&
+    removedIdentifierTypes.includes(exposureQuery.userIdType);
 
   if (!exposureQuery && mode === "edit") {
     console.error(
@@ -331,7 +334,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                     .map((idType) => `"${idType}"`)
                     .join(
                       ", ",
-                    )} won't be able to update results until they're switched to another identifier.`}
+                    )} won't be able to update results until they're switched to another identifier.${
+                    removesLegacyIdentifierType
+                      ? ` This includes experiments, reports, and safe rollouts created before this query declared multiple identifiers, which analyze on "${exposureQuery?.userIdType}". Adding it back restores them.`
+                      : ""
+                  }`}
                 </Callout>
               )}
               {projects.length > 0 && (

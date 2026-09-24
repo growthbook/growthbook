@@ -118,6 +118,15 @@ export async function postReportFromSnapshot(
     // Not every caller sends a dimension
     dimension: reportArgs.dimension ?? snapshot.dimension ?? undefined,
   } as ExperimentReportAnalysisSettings;
+  // Legacy experiments store no identifier; keep the one the snapshot ran on.
+  if (
+    !_experimentAnalysisSettings.exposureQueryIdentifierType &&
+    snapshot.settings.exposureQueryId ===
+      _experimentAnalysisSettings.exposureQueryId
+  ) {
+    _experimentAnalysisSettings.exposureQueryIdentifierType =
+      snapshot.settings.exposureQueryIdentifierType;
+  }
   if (!_experimentAnalysisSettings.dateStarted) {
     _experimentAnalysisSettings.dateStarted =
       experiment.phases?.[phaseIndex]?.dateStarted ?? new Date();

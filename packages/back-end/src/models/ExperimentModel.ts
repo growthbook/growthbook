@@ -1360,39 +1360,6 @@ export async function deleteExperimentSegment(
   });
 }
 
-/**
- * Legacy experiments (no stored identifier type) analyze on their query's first
- * identifier. Pins them to `identifierType` so a change to that first identifier
- * doesn't silently repoint them. Returns the number pinned.
- */
-export async function pinLegacyExposureQueryIdentifierType({
-  organization,
-  datasource,
-  exposureQueryId,
-  identifierType,
-}: {
-  organization: string;
-  datasource: string;
-  exposureQueryId: string;
-  identifierType: string;
-}): Promise<number> {
-  if (!identifierType) return 0;
-  const res = await ExperimentModel.updateMany(
-    {
-      organization,
-      datasource,
-      exposureQueryId,
-      $or: [
-        { exposureQueryIdentifierType: { $exists: false } },
-        { exposureQueryIdentifierType: null },
-        { exposureQueryIdentifierType: "" },
-      ],
-    },
-    { $set: { exposureQueryIdentifierType: identifierType } },
-  );
-  return res.modifiedCount ?? 0;
-}
-
 export async function getExperimentsForActivityFeed(
   context: ReqContext | ApiReqContext,
   ids: string[],

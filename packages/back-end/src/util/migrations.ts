@@ -19,6 +19,7 @@ import { LegacyMetricInterface, MetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import {
   FeatureDraftChanges,
@@ -209,6 +210,22 @@ FROM
   }`;
 }
 
+/**
+ * `userIdType` is the identifier records without a stored one (everything saved
+ * before multi-identifier queries) analyze on. It is set once and never follows
+ * `userIdTypes`, so reordering or adding identifiers can't move those records.
+ * Idempotent.
+ */
+export function upgradeExposureQuery(query: ExposureQuery): ExposureQuery {
+  if (!query.userIdTypes?.length) {
+    query.userIdTypes = [query.userIdType].filter(Boolean);
+  }
+  if (!query.userIdType && query.userIdTypes[0]) {
+    query.userIdType = query.userIdTypes[0];
+  }
+  return query;
+}
+
 export function upgradeDatasourceObject(
   datasource: DataSourceInterface,
 ): DataSourceInterface {
@@ -274,12 +291,7 @@ export function upgradeDatasourceObject(
     }
   }
 
-  for (const query of settings.queries?.exposure ?? []) {
-    if (!query.userIdTypes?.length) {
-      query.userIdTypes = [query.userIdType].filter(Boolean);
-    }
-    query.userIdType = query.userIdTypes[0] ?? query.userIdType;
-  }
+  settings.queries?.exposure?.forEach(upgradeExposureQuery);
 
   // mode field was added later -- default to ephemeral if missing
   if (

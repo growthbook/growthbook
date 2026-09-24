@@ -4,7 +4,6 @@ import {
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
   getExposureQueriesOutsideProjectScope,
-  getExposureQueriesWithChangedBaseIdentifier,
   getAnalysisIdentifierType,
   assertValidAssignmentQuerySelection,
   isExposureQueryAvailableForProjects,
@@ -25,84 +24,6 @@ function query(
     ...partial,
   };
 }
-
-describe("getExposureQueriesWithChangedBaseIdentifier", () => {
-  it("flags a query whose first identifier was removed", () => {
-    const result = getExposureQueriesWithChangedBaseIdentifier(
-      [
-        query({
-          id: "q1",
-          userIdType: "user_id",
-          userIdTypes: ["user_id", "anonymous_id"],
-        }),
-      ],
-      [
-        query({
-          id: "q1",
-          userIdType: "anonymous_id",
-          userIdTypes: ["anonymous_id"],
-        }),
-      ],
-    );
-    expect(result).toEqual([{ id: "q1", previousIdentifierType: "user_id" }]);
-  });
-
-  it("flags a query whose identifiers were reordered", () => {
-    const result = getExposureQueriesWithChangedBaseIdentifier(
-      [
-        query({
-          id: "q1",
-          userIdType: "user_id",
-          userIdTypes: ["user_id", "anonymous_id"],
-        }),
-      ],
-      [
-        query({
-          id: "q1",
-          userIdType: "anonymous_id",
-          userIdTypes: ["anonymous_id", "user_id"],
-        }),
-      ],
-    );
-    expect(result).toEqual([{ id: "q1", previousIdentifierType: "user_id" }]);
-  });
-
-  it("ignores appending an identifier (first is unchanged)", () => {
-    const result = getExposureQueriesWithChangedBaseIdentifier(
-      [query({ id: "q1", userIdType: "user_id", userIdTypes: ["user_id"] })],
-      [
-        query({
-          id: "q1",
-          userIdType: "user_id",
-          userIdTypes: ["user_id", "anonymous_id"],
-        }),
-      ],
-    );
-    expect(result).toEqual([]);
-  });
-
-  it("ignores newly added and deleted queries", () => {
-    const result = getExposureQueriesWithChangedBaseIdentifier(
-      [query({ id: "gone", userIdType: "user_id", userIdTypes: ["user_id"] })],
-      [
-        query({
-          id: "new",
-          userIdType: "anonymous_id",
-          userIdTypes: ["anonymous_id"],
-        }),
-      ],
-    );
-    expect(result).toEqual([]);
-  });
-
-  it("falls back to the deprecated scalar for legacy queries", () => {
-    const result = getExposureQueriesWithChangedBaseIdentifier(
-      [query({ id: "q1", userIdType: "user_id", userIdTypes: [] })],
-      [query({ id: "q1", userIdType: "anonymous_id", userIdTypes: [] })],
-    );
-    expect(result).toEqual([{ id: "q1", previousIdentifierType: "user_id" }]);
-  });
-});
 
 describe("getExposureQueriesOutsideProjectScope", () => {
   it("flags a query scoped to a project the data source is not", () => {
@@ -165,6 +86,20 @@ describe("assertExposureQueryDeclaresIdentifierType", () => {
     expect(() =>
       assertExposureQueryDeclaresIdentifierType(multi, ""),
     ).not.toThrow();
+  });
+
+  it("throws for a legacy record whose legacy identifier was removed", () => {
+    const removed = query({
+      id: "exq_multi",
+      name: "Multi",
+      userIdType: "anonymous_id",
+      userIdTypes: ["user_id"],
+    });
+    expect(() =>
+      assertExposureQueryDeclaresIdentifierType(removed, undefined),
+    ).toThrow(
+      'Assignment query "Multi" no longer declares the "anonymous_id" identifier type',
+    );
   });
 
   it("throws for an identifier the query does not declare", () => {
@@ -315,8 +250,28 @@ describe("getAnalysisIdentifierType", () => {
     expect(getAnalysisIdentifierType(multi, "company_id")).toBe("company_id");
   });
 
-  it("falls back to the query's first identifier when none is stored", () => {
+  it("falls back to the query's legacy identifier when none is stored", () => {
     expect(getAnalysisIdentifierType(multi, undefined)).toBe("anonymous_id");
+  });
+
+  it("keeps the legacy identifier after the query's identifiers are reordered", () => {
+    const reordered = query({
+      id: "eq_1",
+      userIdType: "anonymous_id",
+      userIdTypes: ["user_id", "anonymous_id"],
+    });
+    expect(getAnalysisIdentifierType(reordered, undefined)).toBe(
+      "anonymous_id",
+    );
+  });
+
+  it("uses the first identifier for a query without a legacy one", () => {
+    const noLegacy = query({
+      id: "eq_1",
+      userIdType: "",
+      userIdTypes: ["user_id", "anonymous_id"],
+    });
+    expect(getAnalysisIdentifierType(noLegacy, undefined)).toBe("user_id");
   });
 
   it("is undefined with neither a stored identifier nor a query", () => {
@@ -463,6 +418,28 @@ describe("hasAssignmentQuerySelectionChanged", () => {
     ).resolves.toBe(true);
   });
 
+  it("compares a legacy record against the legacy identifier, not the first", async () => {
+    const reordered = query({
+      id: "eq_1",
+      userIdType: "anonymous_id",
+      userIdTypes: ["user_id", "anonymous_id"],
+    });
+    await expect(
+      hasAssignmentQuerySelectionChanged(
+        legacy,
+        { ...legacy, identifierType: "anonymous_id" },
+        async () => [reordered],
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      hasAssignmentQuerySelectionChanged(
+        legacy,
+        { ...legacy, identifierType: "user_id" },
+        async () => [reordered],
+      ),
+    ).resolves.toBe(true);
+  });
+
   it("detects a query change without loading queries", async () => {
     const load = jest.fn(async () => [multi]);
     await expect(
@@ -483,8 +460,17 @@ describe("toApiAssignmentQueryRef", () => {
     userIdTypes: ["anonymous_id", "user_id"],
   });
 
-  it("resolves a legacy record to its query's first identifier", () => {
+  it("resolves a legacy record to its query's legacy identifier", () => {
     expect(toApiAssignmentQueryRef("eq_1", undefined, [multi])).toEqual({
+      id: "eq_1",
+      identifierType: "anonymous_id",
+    });
+    const reordered = query({
+      id: "eq_1",
+      userIdType: "anonymous_id",
+      userIdTypes: ["user_id", "anonymous_id"],
+    });
+    expect(toApiAssignmentQueryRef("eq_1", undefined, [reordered])).toEqual({
       id: "eq_1",
       identifierType: "anonymous_id",
     });

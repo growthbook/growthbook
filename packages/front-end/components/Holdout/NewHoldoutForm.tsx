@@ -7,6 +7,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import {
   coverageToHoldoutSize,
+  getAnalysisIdentifierType,
   holdoutSizeToCoverage,
   isProjectListValidForProject,
   MAX_HOLDOUT_SIZE,
@@ -83,7 +84,10 @@ export function getNewExperimentDatasourceDefaults(
   settings: OrganizationSettings,
   project?: string,
   initialValue?: Partial<ExperimentInterfaceStringDates>,
-): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
+): Pick<
+  ExperimentInterfaceStringDates,
+  "datasource" | "exposureQueryId" | "exposureQueryIdentifierType"
+> {
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
@@ -98,14 +102,23 @@ export function getNewExperimentDatasourceDefaults(
     (initialId && validDatasources.find((d) => d.id === initialId)) ||
     validDatasources[0];
 
+  const exposureQuery = getExposureQuery(
+    initialDatasource.settings,
+    initialValue?.exposureQueryId,
+    initialValue?.userIdType,
+  );
   return {
     datasource: initialDatasource.id,
-    exposureQueryId:
-      getExposureQuery(
-        initialDatasource.settings,
-        initialValue?.exposureQueryId,
-        initialValue?.userIdType,
-      )?.id || "",
+    exposureQueryId: exposureQuery?.id || "",
+    // Copy what the source analyzes on; left unset, a legacy source's copy
+    // would default differently.
+    exposureQueryIdentifierType:
+      exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
+        ? getAnalysisIdentifierType(
+            exposureQuery,
+            initialValue.exposureQueryIdentifierType,
+          )
+        : initialValue?.exposureQueryIdentifierType,
   };
 }
 
@@ -196,8 +209,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         initialExperiment,
       ),
       hashAttribute: initialExperiment?.hashAttribute || hashAttribute,
-      exposureQueryIdentifierType:
-        initialExperiment?.exposureQueryIdentifierType,
       goalMetrics: initialExperiment?.goalMetrics || [],
       secondaryMetrics: initialExperiment?.secondaryMetrics || [],
       tags: initialExperiment?.tags || [],

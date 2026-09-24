@@ -444,7 +444,7 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
     },
   ];
 
-  it("keeps the pinned md5 when the identifier is the query's first", () => {
+  it("keeps the pinned md5 when the identifier is the query's legacy default", () => {
     expect(
       getExperimentSettingsHashForIncrementalRefresh(
         { ...GOLDEN_INPUT, exposureQueryIdentifierType: "user_id" },
@@ -453,7 +453,22 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
     ).toBe("1c14c7b3c695413e66101563d2b606ab");
   });
 
-  it("changes the hash when the identifier isn't the query's first", () => {
+  it("keeps the pinned md5 after the query's identifiers are reordered", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, exposureQueryIdentifierType: "user_id" },
+        [
+          {
+            id: "exposure_1",
+            userIdType: "user_id",
+            userIdTypes: ["anonymous_id", "user_id"],
+          },
+        ],
+      ),
+    ).toBe("1c14c7b3c695413e66101563d2b606ab");
+  });
+
+  it("changes the hash when the identifier isn't the query's legacy default", () => {
     expect(
       getExperimentSettingsHashForIncrementalRefresh(
         { ...GOLDEN_INPUT, exposureQueryIdentifierType: "anonymous_id" },

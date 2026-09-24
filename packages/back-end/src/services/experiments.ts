@@ -43,6 +43,7 @@ import {
   assertExposureQueryDeclaresIdentifierType,
   toApiAssignmentQueryRef,
   getAnalysisIdentifierType,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -4713,10 +4714,12 @@ export function postExperimentApiPayloadToInterface(
       payload.assignmentQueryId ||
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
-    exposureQueryIdentifierType: getAnalysisIdentifierType(
-      assignmentQuery,
-      payload.assignmentQueryIdentifierType,
-    ),
+    // A new record defaults to the query's first, not its legacy identifier.
+    exposureQueryIdentifierType:
+      payload.assignmentQueryIdentifierType ||
+      (assignmentQuery
+        ? getExposureQueryIdentifierTypes(assignmentQuery)[0]
+        : undefined),
     name: payload.name || "",
     type: payload.type || "standard",
     phases,

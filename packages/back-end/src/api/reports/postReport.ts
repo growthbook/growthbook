@@ -84,6 +84,14 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     ...pick(experiment, Object.keys(experimentAnalysisSettings.shape)),
     trackingKey: experiment.trackingKey || experiment.id,
   } as ExperimentReportAnalysisSettings;
+  // Legacy experiments store no identifier; keep the one the snapshot ran on.
+  if (
+    !analysisSettings.exposureQueryIdentifierType &&
+    latestSnapshot.settings.exposureQueryId === analysisSettings.exposureQueryId
+  ) {
+    analysisSettings.exposureQueryIdentifierType =
+      latestSnapshot.settings.exposureQueryIdentifierType;
+  }
 
   if (statsEngine) {
     analysisSettings.statsEngine = statsEngine;

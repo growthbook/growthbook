@@ -750,7 +750,12 @@ export default function ExperimentHeader({
       {showTemplateForm && (
         <TemplateForm
           onClose={() => setShowTemplateForm(false)}
-          initialValue={convertExperimentToTemplate(experiment)}
+          initialValue={convertExperimentToTemplate(
+            experiment,
+            datasourceSettings?.queries?.exposure?.find(
+              (e) => e.id === experiment.exposureQueryId,
+            ),
+          )}
           isNewTemplate
           source="experiment"
         />
