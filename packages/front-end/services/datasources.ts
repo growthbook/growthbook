@@ -855,3 +855,21 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
     );
   }
 }
+
+/**
+ * Returns the subset of a fact table's identifier types whose columns the SQL
+ * actually returns. A fact table only needs a timestamp plus at least one
+ * identifier, not every identifier type on the datasource.
+ */
+export function getUserIdTypesInSql(
+  sql: string,
+  userIdTypes: string[],
+  getColumn: (idType: string) => string,
+): string[] {
+  // A bare `SELECT *` returns every column, so nothing can be missing.
+  if (sql.match(/SELECT\s+\*/i)) return userIdTypes;
+  const loweredSql = sql.toLowerCase();
+  return userIdTypes.filter((idType) =>
+    loweredSql.includes(getColumn(idType).split(".")[0].toLowerCase()),
+  );
+}

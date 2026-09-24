@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateSQL } from "@/services/datasources";
+import { getUserIdTypesInSql, validateSQL } from "@/services/datasources";
 
 describe("validateSQL", () => {
   describe("empty SQL", () => {
@@ -145,5 +145,50 @@ describe("validateSQL", () => {
         ),
       ).not.toThrow();
     });
+  });
+});
+
+describe("getUserIdTypesInSql", () => {
+  const idTypes = ["user_id", "anonymous_id", "device_id", "account_id"];
+  const getColumn = (idType: string) => idType;
+
+  it("keeps only the identifier types whose columns the SQL returns", () => {
+    const sql = "SELECT user_id, device_id, ts FROM events";
+    expect(getUserIdTypesInSql(sql, idTypes, getColumn)).toEqual([
+      "user_id",
+      "device_id",
+    ]);
+  });
+
+  it("matches column names case-insensitively", () => {
+    expect(
+      getUserIdTypesInSql(
+        "SELECT USER_ID, ts FROM events",
+        ["user_id"],
+        getColumn,
+      ),
+    ).toEqual(["user_id"]);
+  });
+
+  it("keeps every selected identifier type for SELECT *", () => {
+    expect(
+      getUserIdTypesInSql("SELECT * FROM events", idTypes, getColumn),
+    ).toEqual(idTypes);
+  });
+
+  it("matches a JSON field path mapping on its root column", () => {
+    expect(
+      getUserIdTypesInSql(
+        "SELECT props, ts FROM events",
+        ["user_id"],
+        () => "props.user_id",
+      ),
+    ).toEqual(["user_id"]);
+  });
+
+  it("returns an empty list when the SQL returns no identifier columns", () => {
+    expect(
+      getUserIdTypesInSql("SELECT ts, value FROM events", idTypes, getColumn),
+    ).toEqual([]);
   });
 });
