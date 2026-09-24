@@ -22,7 +22,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricName from "@/components/Metrics/MetricName";
-import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -349,15 +348,9 @@ function OverrideCard({
           <Text weight="semibold">
             <MetricName id={metricDefinition?.id || ""} />
           </Text>
-          <Button
-            variant="ghost"
-            color="red"
-            size="sm"
-            icon={<PiXBold />}
-            onClick={onRemove}
-          >
+          <Link type="button" color="red" onClick={onRemove}>
             Remove overrides
-          </Button>
+          </Link>
         </Flex>
       </Inset>
 
