@@ -1,5 +1,5 @@
 import React, { ReactNode, useMemo } from "react";
-import { Box, Card, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Card, Flex, Grid, IconButton, Inset } from "@radix-ui/themes";
 import { PiInfo, PiPlusBold, PiXBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
@@ -22,6 +22,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricName from "@/components/Metrics/MetricName";
+import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -336,12 +337,29 @@ function OverrideCard({
 
   return (
     <Card>
-      <Flex justify="between" align="center" gap="3" mb="3">
-        <Text weight="semibold">
-          <MetricName id={metricDefinition?.id || ""} />
-        </Text>
-        <RemoveButton label="Remove metric" onClick={onRemove} />
-      </Flex>
+      <Inset side="top" pb="current">
+        <Flex
+          justify="between"
+          align="center"
+          gap="3"
+          px="3"
+          py="2"
+          style={{ borderBottom: "1px solid var(--gray-a5)" }}
+        >
+          <Text weight="semibold">
+            <MetricName id={metricDefinition?.id || ""} />
+          </Text>
+          <Button
+            variant="ghost"
+            color="red"
+            size="sm"
+            icon={<PiXBold />}
+            onClick={onRemove}
+          >
+            Remove overrides
+          </Button>
+        </Flex>
+      </Inset>
 
       <Flex direction="column" gap="4">
         {windowOverridden ? (
