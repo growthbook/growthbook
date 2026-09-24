@@ -80,6 +80,16 @@ export const jsonColumnFieldsInputValidator = z.record(
   }),
 );
 
+/**
+ * For an `alwaysInlineFilter` column: value -> extra column to also prompt for
+ * when a metric filters this column to that value. The extra column may be a
+ * JSON field path, e.g. { "Page View": "path", "Modal Open": "properties.modalType" }.
+ */
+export const conditionalInlineFiltersValidator = z.record(
+  z.string(),
+  z.string(),
+);
+
 export const createColumnPropsValidator = z
   .object({
     column: z.string(),
@@ -91,6 +101,7 @@ export const createColumnPropsValidator = z
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    conditionalInlineFilters: conditionalInlineFiltersValidator.optional(),
     topValues: z.array(z.string()).optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
@@ -127,6 +138,7 @@ export const updateColumnPropsValidator = z
     datatype: factTableColumnTypeValidator.optional(),
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
+    conditionalInlineFilters: conditionalInlineFiltersValidator.optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
     isAutoSliceColumn: z.boolean().optional(),
@@ -599,6 +611,11 @@ export const apiFactTableColumnValidator = namedSchema(
         )
         .optional()
         .meta({ default: false }),
+      conditionalInlineFilters: conditionalInlineFiltersValidator
+        .describe(
+          'Value -> additional column to prompt for when a metric filters this column to that value, e.g. {"Page View": "path", "Modal Open": "properties.modalType"}. Requires alwaysInlineFilter.',
+        )
+        .optional(),
       deleted: z.boolean().optional().meta({ default: false }),
       isAutoSliceColumn: z
         .boolean()

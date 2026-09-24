@@ -11,6 +11,7 @@ const MIMETYPES: Record<string, string> = {
   "image/jpeg": "jpeg",
   "image/gif": "gif",
   "image/webp": "webp",
+  "image/svg+xml": "svg",
 };
 
 const SIGNED_EXPIRY_MINUTES = 15;
@@ -21,7 +22,16 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 const bodySchema = z
   .object({
-    contentType: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
+    // SVG is accepted: the Visual Editor is operated by trusted org members
+    // against their own sites. The asset is stored and referenced as an
+    // <img src>, which does not execute scripts.
+    contentType: z.enum([
+      "image/png",
+      "image/jpeg",
+      "image/gif",
+      "image/webp",
+      "image/svg+xml",
+    ]),
     visualChangesetId: z.string(),
   })
   .strict();
@@ -65,23 +75,30 @@ export const postUploadSignedUrl = createApiRequestHandler(validation)(async (
   const ext = MIMETYPES[contentType];
   const filePath = `${org.id}/visual-editor/img_${uuidv4()}.${ext}`;
 
-  const { signedUrl, fileUrl, fields, cacheControl, maxBytes } =
-    await getSignedUploadUrl(
-      filePath,
-      contentType,
-      SIGNED_EXPIRY_MINUTES,
-      "visual-editor-assets",
-      MAX_UPLOAD_BYTES,
-    );
+  const {
+    signedUrl,
+    fileUrl,
+    fields,
+    cacheControl,
+    contentDisposition,
+    maxBytes,
+  } = await getSignedUploadUrl(
+    filePath,
+    contentType,
+    SIGNED_EXPIRY_MINUTES,
+    "visual-editor-assets",
+    MAX_UPLOAD_BYTES,
+  );
 
   return {
     signedUrl,
     fileUrl,
     filePath,
     fields: fields ?? null,
-    // S3 embeds Cache-Control in `fields`; GCS clients must send it on the
-    // PUT themselves, so we surface the value here.
+    // S3 embeds these in `fields`; GCS signs them into the URL, so the
+    // client must send them on the PUT.
     cacheControl: cacheControl ?? null,
+    contentDisposition: contentDisposition ?? null,
     // Lets the client show "file too large" before attempting the upload.
     maxBytes: maxBytes ?? null,
     expiresAt: new Date(

@@ -111,6 +111,7 @@ import {
 } from "back-end/src/services/clickhouse";
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 
@@ -1607,7 +1608,7 @@ export async function cancelDataSourceQuery(
   const updated = await updateQueryIfRunning(context, query, {
     status: "failed",
     finishedAt: new Date(),
-    error: `Query cancelled by user (${cancelledBy})`,
+    error: `${QUERY_CANCELLED_BY_USER_ERROR} (${cancelledBy})`,
   });
   if (!updated) {
     throw new Error(

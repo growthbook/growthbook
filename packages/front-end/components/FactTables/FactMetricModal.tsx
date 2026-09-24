@@ -30,6 +30,7 @@ import {
   getAggregateFilters,
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
+  reconcileInlineFilterPrompts,
 } from "shared/experiments";
 import { createLikeStringMatchFn } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
@@ -605,7 +606,11 @@ function ColumnRefSelector({
             setValue={(rowFilters) =>
               setValue({
                 ...value,
-                rowFilters,
+                rowFilters: reconcileInlineFilterPrompts(
+                  factTable,
+                  value.rowFilters || [],
+                  rowFilters,
+                ),
               })
             }
           />
