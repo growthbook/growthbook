@@ -416,6 +416,17 @@ describe("applyPatchToRule", () => {
     expect(result.environments).toBeUndefined();
   });
 
+  it("a null environments patch leaves the rule's scope and writes no key", () => {
+    const scoped: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["dev"],
+    };
+    const result = applyPatchToRule(scoped, { environments: null });
+    expect(result.allEnvironments).toBe(false);
+    expect("environments" in result).toBe(false);
+  });
+
   it("environments patch correctly resets allEnvironments to false", () => {
     const allEnvRule: FeatureRule = {
       ...base,

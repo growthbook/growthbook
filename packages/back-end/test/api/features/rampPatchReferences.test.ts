@@ -558,6 +558,17 @@ describe("ramp schedule patch references", () => {
     expect(targeted.body.message).toMatch(/grp_missing/);
     expect(targeted.status).toBe(404);
 
+    // A null list would be stored as a rule that serves nowhere and breaks
+    // payload generation for the flag; only a list or allEnvironments scopes.
+    const nulled = await create({
+      name: "nulled",
+      featureId: FLAG,
+      ruleId: RULE.id,
+      steps: [step({ environments: null, coverage: 0.5 })],
+    });
+    expect(nulled.body.message).toMatch(/environments cannot be null/);
+    expect(nulled.status).toBe(400);
+
     expect(
       await mongoose.connection
         .collection("rampschedules")

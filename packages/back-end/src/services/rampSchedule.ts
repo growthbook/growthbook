@@ -676,9 +676,13 @@ export function applyPatchToRule(
   // the same patch (e.g. from getStartPatchForRule on an allEnvironments rule),
   // the explicit `allEnvironments: true` always wins and is not silently reset
   // to false by the `environments` branch running afterwards.
-  if ("environments" in patch) {
+  // A list scopes the rule; null or undefined (an anchor taken from a rule with
+  // no list) leaves no key, since Mongo stores an undefined key as null.
+  if (Array.isArray(patch.environments)) {
     updated.allEnvironments = false;
-    updated.environments = patch.environments ?? undefined;
+    updated.environments = patch.environments;
+  } else if ("environments" in patch) {
+    delete updated.environments;
   }
   if ("allEnvironments" in patch) {
     updated.allEnvironments = patch.allEnvironments ?? false;
