@@ -266,6 +266,7 @@ function buildNormalizedSinkPayload(
         datasourceParams as SnowflakeConnectionParams | undefined,
         existingModel,
       );
+    case "databricks":
     default:
       throw new Error(
         `Unsupported event forwarder sink type: ${String((draft as EventForwarderConfigDraft).sinkType)}`,
@@ -368,6 +369,7 @@ export function toEventForwarderConfigDraft(
         },
       };
     }
+    case "databricks":
     default:
       throw new Error(
         `Unsupported event forwarder sink type: ${String(config.sinkType)}`,
@@ -385,16 +387,14 @@ export function stripEventForwarderConfigMetadata(
   if (draft === undefined || draft === null) {
     return draft;
   }
-  if (draft.sinkType === "bigquery") {
-    return {
-      sinkType: "bigquery",
-      config: draft.config,
-    };
+  switch (draft.sinkType) {
+    case "bigquery":
+      return { sinkType: "bigquery", config: draft.config };
+    case "snowflake":
+      return { sinkType: "snowflake", config: draft.config };
+    case "databricks":
+      return { sinkType: "databricks", config: draft.config };
   }
-  return {
-    sinkType: draft.sinkType,
-    config: draft.config,
-  };
 }
 
 /**
