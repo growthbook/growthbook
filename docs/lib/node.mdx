@@ -113,7 +113,7 @@ await gbClient.init();
 
 app.post("/chat", async (req, res) => {
   const scoped = gbClient.createScopedInstance({
-    attributes: { id: req.user.id },
+    attributes: { user_id: req.user.id },
   });
 
   // Evaluate flags first so the tags exist before the trace starts

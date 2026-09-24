@@ -47,7 +47,7 @@ Two rules follow from that:
 
 GrowthBook joins exposures to metrics on an identifier, so the id your tracing SDK records must be exactly the value GrowthBook hashed on:
 
-- The tracer's user id (Langfuse `userId`, OpenInference `user.id`) must equal the value of the experiment's hash attribute (labelled **Assign variation by attribute** on a feature rule, or **Hashing attribute** on the experiment page). If GrowthBook hashes on `attributes.id`, pass that same value as the user id.
+- The tracer's user id (Langfuse `userId`, OpenInference `user.id`) must equal the value of the experiment's hash attribute (labelled **Assign variation by attribute** on a feature rule, or **Hashing attribute** on the experiment page). Hash on a `user_id` attribute so its name matches the `user_id` identifier type in the generated queries, and pass that same value as the user id.
 - The tracer's session id (Langfuse `sessionId`, OpenInference `session.id`) must likewise equal the GrowthBook attribute you hash on when you experiment per session.
 
 ### Choosing the unit of randomization
@@ -110,7 +110,7 @@ import { startActiveObservation, propagateAttributes } from "@langfuse/tracing";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  attributes: { id: userId },
+  attributes: { user_id: userId },
   plugins: [tracingPlugin()],
 });
 await gb.init();
@@ -141,7 +141,7 @@ import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  attributes: { id: userId },
+  attributes: { user_id: userId },
   plugins: [tracingPlugin()],
 });
 await gb.init();
@@ -201,7 +201,7 @@ const gbClient = new GrowthBookClient({
 await gbClient.init();
 
 app.post("/chat", async (req, res) => {
-  const scoped = gbClient.createScopedInstance({ attributes: { id: req.user.id } });
+  const scoped = gbClient.createScopedInstance({ attributes: { user_id: req.user.id } });
   const promptLabel = scoped.getFeatureValue("support-prompt", "production");
 
   await startActiveObservation("support-reply", async () => {
@@ -232,7 +232,7 @@ def on_experiment_viewed(experiment, result, user_context):
 gb = GrowthBook(
     api_host="https://cdn.growthbook.io",
     client_key="sdk-abc123",
-    attributes={"id": user_id},
+    attributes={"user_id": user_id},
     on_experiment_viewed=on_experiment_viewed,
 )
 gb.load_features()
@@ -319,6 +319,8 @@ The six starter metrics:
 - **p95 LLM latency** — 95th percentile of `latency_ms` across model calls (event-level quantile).
 - **Tokens per LLM call** — ratio of `total_tokens` to model calls.
 
+Cost, error rate, latency, and tokens are set so that lower is better.
+
 Every generated metric and fact table is ordinary SQL you can edit. See [Metrics and Fact Tables](/app/metrics) for how they work.
 
 ### Adding eval-score metrics
@@ -326,8 +328,8 @@ Every generated metric and fact table is ordinary SQL you can edit. See [Metrics
 Score and annotation names are defined by you (`helpfulness`, `toxicity`, `thumbs_up`, ...), so GrowthBook cannot generate metrics for them in advance. Instead, `score_name` (Langfuse) and `annotation_name` (Phoenix) are set up as inline-filter columns, which makes a new score metric a two-minute job:
 
 1. Go to **Metrics** and create a new fact metric on the `Langfuse Scores` or `Phoenix Annotations` fact table.
-2. Choose the metric type. For an average score use a **Mean** metric on `score_value` (Langfuse) or `annotation_score` (Phoenix). For a "share of traces marked good" use a **Proportion** metric.
-3. Add a row filter on `score_name` (or `annotation_name`) equal to the score you want, for example `helpfulness`.
+2. Choose the metric type. For an average score use a **Ratio** metric: the numerator sums `score_value` (Langfuse) or `annotation_score` (Phoenix), and the denominator counts rows. A **Mean** metric would instead average each unit's summed score across all units, counting units with no scores as zero, so it rewards how many requests were scored rather than how well they scored. For the share of units with at least one matching score, use a **Proportion** metric.
+3. Add a row filter on `score_name` (or `annotation_name`) equal to the score you want, for example `helpfulness`. For a ratio, apply it to both the numerator and the denominator.
 
 Repeat for each score. A metric on user feedback (thumbs up/down) is built the same way, since Langfuse stores feedback as scores and Phoenix as annotations with a `HUMAN` annotator kind.
 
@@ -335,7 +337,7 @@ Repeat for each score. A metric on user feedback (thumbs up/down) is built the s
 
 From here it is a normal GrowthBook experiment:
 
-1. Create a feature flag (string flag for Pattern A, JSON flag for Pattern B) and add an **Experiment** rule with your variations. Set **Assign variation by attribute** to the attribute that matches the id you send to the tracer.
+1. Create a feature flag (string flag for Pattern A, JSON flag for Pattern B) and add an **Experiment** rule with your variations. Set **Assign variation by attribute** to the attribute that matches the id you send to the tracer, typically a `user_id` attribute marked as a unique identifier.
 2. Open the linked experiment, pick the data source you just created, and choose the assignment query whose identifier matches the attribute (`user_id`, `session_id`, or `trace_id`).
 3. Add goal metrics (an eval score, thumbs-up rate) and guardrails (**LLM cost per user**, **p95 LLM latency**, **LLM error rate**).
 4. Start the experiment. Results update on the usual schedule.

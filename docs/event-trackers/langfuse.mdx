@@ -32,7 +32,7 @@ import { startActiveObservation, propagateAttributes } from "@langfuse/tracing";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  attributes: { id: userId },
+  attributes: { user_id: userId },
   plugins: [tracingPlugin()],
 });
 await gb.init();
@@ -65,7 +65,7 @@ When you connect, GrowthBook generates:
 - Identifier types `user_id`, `session_id`, and `trace_id`, with an exposure query for each and an identifier join between `user_id` and `session_id`. Exposure queries expose `trace_name`, `release`, and `version` as experiment dimensions.
 - Fact table `Langfuse Traces` (one row per trace) with the metric **Traces per user**.
 - Fact table `Langfuse Observations` (one row per generation, span, or event, with `latency_ms`, `time_to_first_token_ms`, token counts, `total_cost`, `model`, `prompt_name`, and `prompt_version`). Filters **LLM Generations** and **Errors**. Metrics **LLM calls per user**, **LLM cost per user**, **LLM error rate**, **p95 LLM latency**, and **Tokens per LLM call**.
-- Fact table `Langfuse Scores` (one row per eval score, annotation, or piece of user feedback). `score_name` is an inline-filter column, so create a mean metric on `score_value` filtered by the score name to get, for example, average helpfulness. No score metrics are generated because score names are user-defined.
+- Fact table `Langfuse Scores` (one row per eval score, annotation, or piece of user feedback). `score_name` is an inline-filter column, so create a ratio metric (sum of `score_value` over a count of rows, both filtered by the score name) to get, for example, average helpfulness. See [Adding eval-score metrics](/integrations/llm-tracing#adding-eval-score-metrics). No score metrics are generated because score names are user-defined.
 
 Caveats specific to Langfuse:
 

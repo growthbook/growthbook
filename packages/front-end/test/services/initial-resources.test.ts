@@ -162,4 +162,28 @@ describe("getInitialDatasourceResources", () => {
       }
     });
   });
+
+  it.each([
+    { tracker: "langfuse", datasource: langfuseDatasource() },
+    { tracker: "phoenix", datasource: phoenixDatasource("default") },
+  ])(
+    "sets metric direction and cost sample size for $tracker",
+    ({ datasource }) => {
+      const { factTables } = getInitialDatasourceResources({ datasource });
+      const llmMetrics = factTables[1].metrics;
+
+      expect(
+        Object.fromEntries(llmMetrics.map((m) => [m.name, m.inverse ?? false])),
+      ).toEqual({
+        "LLM calls per user": false,
+        "LLM cost per user": true,
+        "LLM error rate": true,
+        "p95 LLM latency": true,
+        "Tokens per LLM call": true,
+      });
+      expect(
+        llmMetrics.find((m) => m.name === "LLM cost per user")?.minSampleSize,
+      ).toBe(0);
+    },
+  );
 });

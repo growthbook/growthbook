@@ -64,6 +64,8 @@ export interface InitialDatasourceResources {
         | "metricType"
         | "quantileSettings"
         | "windowSettings"
+        | "inverse"
+        | "minSampleSize"
       >
     >[];
   }[];
@@ -684,6 +686,9 @@ function getLlmCallMetrics(
     {
       name: "LLM cost per user",
       metricType: "mean",
+      inverse: true,
+      // The min-sample check sums metric values, and per-user cost is fractions of a cent.
+      minSampleSize: 0,
       numerator: {
         factTableId: "",
         column: "total_cost",
@@ -693,6 +698,7 @@ function getLlmCallMetrics(
     {
       name: "LLM error rate",
       metricType: "ratio",
+      inverse: true,
       numerator: {
         factTableId: "",
         column: "$$count",
@@ -710,6 +716,7 @@ function getLlmCallMetrics(
     {
       name: "p95 LLM latency",
       metricType: "quantile",
+      inverse: true,
       quantileSettings: { type: "event", quantile: 0.95, ignoreZeros: false },
       numerator: {
         factTableId: "",
@@ -720,6 +727,7 @@ function getLlmCallMetrics(
     {
       name: "Tokens per LLM call",
       metricType: "ratio",
+      inverse: true,
       numerator: {
         factTableId: "",
         column: "total_tokens",

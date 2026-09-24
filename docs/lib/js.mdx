@@ -128,7 +128,7 @@ import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  attributes: { id: userId },
+  attributes: { user_id: userId },
   plugins: [
     tracingPlugin({
       // Optional: also stamp the active OpenTelemetry span
