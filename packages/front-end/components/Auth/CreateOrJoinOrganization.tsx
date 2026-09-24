@@ -24,6 +24,8 @@ import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import Avatar from "@/ui/Avatar";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -171,7 +173,7 @@ const CreateOrJoinOrganization: FC<{
       className={`d-flex justify-content-center align-items-center ${style.container}`}
       style={{ height: "100%" }}
     >
-      <div style={{ maxWidth: "800px" }}>
+      <div className={style.panel}>
         {showCreate || showJoin ? (
           <>
             {mode === "join" && showJoin ? (
@@ -181,13 +183,11 @@ const CreateOrJoinOrganization: FC<{
                   <p className="text-muted">{subtitleCopy(orgs)}</p>
                 </div>
                 {orgs.map((org) => (
-                  <div key={org.id} className={`${style.recommendedOrgBox}`}>
-                    <div className={`${style.recommendedOrgRow}`}>
-                      <div className={style.recommendedOrgLogo}>
-                        <div className={style.recommendedOrgLogoText}>
-                          {org.name.slice(0, 1)?.toUpperCase()}
-                        </div>
-                      </div>
+                  <div key={org.id} className={style.recommendedOrgBox}>
+                    <div className={style.recommendedOrgRow}>
+                      <Avatar size="lg" color="green" variant="soft">
+                        {org.name.slice(0, 1)?.toUpperCase()}
+                      </Avatar>
                       <div className={style.recommendedOrgInfo}>
                         <div className={style.recommendedOrgName}>
                           {org.name}
@@ -198,16 +198,16 @@ const CreateOrJoinOrganization: FC<{
                             : `${org.members} members`}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-lg btn-primary"
+                      <Button
+                        size="md"
+                        style={{ flexShrink: 0 }}
+                        disabled={org.currentUserIsPending || false}
                         onClick={() => {
                           joinOrgFormSubmit(org);
                         }}
-                        disabled={org.currentUserIsPending || false}
                       >
                         {org.currentUserIsPending ? "Pending" : "Join"}
-                      </button>
+                      </Button>
                     </div>
                     {org.currentUserIsPending && (
                       <Callout status="success" mt="2" mb="0">
