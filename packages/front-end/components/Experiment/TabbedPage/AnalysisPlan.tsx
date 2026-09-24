@@ -8,7 +8,10 @@ import {
 import isEqual from "lodash/isEqual";
 import { getMetricLink } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentAnalysisSettingsDraft } from "shared/validators";
+import {
+  ExperimentAnalysisSettingsDraft,
+  experimentAnalysisSettingsDraft,
+} from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -21,6 +24,7 @@ import {
 } from "@/components/Experiment/SimpleNewExperimentForm";
 import { getExposureQueriesForAttribute } from "@/services/datasources";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -87,6 +91,14 @@ export default function AnalysisPlan({
   const [advanced, setAdvanced] =
     useState<ExperimentAnalysisSettingsDraft | null>(null);
   const editable = canEdit && (!started || unlocked);
+
+  // The overrides as the page holds them: a staged edit reads before the save.
+  const metricOverrides =
+    (advanced && "metricOverrides" in advanced
+      ? advanced.metricOverrides
+      : experiment.metricOverrides) ?? [];
+  // Which metrics the overrides editor opened for, or null while it is shut.
+  const [overridesFor, setOverridesFor] = useState<string[] | null>(null);
 
   const suggestedDatasource = useMemo(
     () =>
@@ -253,6 +265,8 @@ export default function AnalysisPlan({
           project={experiment.project}
           includeFacts
           includeGroups
+          metricOverrides={metricOverrides}
+          onManageOverrides={setOverridesFor}
         />
       ) : (
         metricList(selected)
@@ -262,6 +276,38 @@ export default function AnalysisPlan({
 
   return (
     <>
+      {overridesFor ? (
+        <MetricOverridesModal
+          experiment={experiment}
+          datasource={datasource}
+          metrics={{
+            goalMetrics,
+            secondaryMetrics,
+            guardrailMetrics,
+            activationMetric: activationMetric || "",
+          }}
+          // A single metric without an override yet opens ready to add one.
+          overrides={
+            overridesFor.length === 1 &&
+            !metricOverrides.some((o) => o.id === overridesFor[0])
+              ? [...metricOverrides, { id: overridesFor[0] }]
+              : metricOverrides
+          }
+          close={() => setOverridesFor(null)}
+          stageChanges={(next) => {
+            // The same bounds the full settings modal stages through, so only
+            // well-formed overrides reach the draft.
+            const { metricOverrides: parsed } =
+              experimentAnalysisSettingsDraft.parse({ metricOverrides: next });
+            setTouched(true);
+            setAdvanced((prev) => ({
+              ...(prev ?? {}),
+              metricOverrides: parsed,
+            }));
+            setOverridesFor(null);
+          }}
+        />
+      ) : null}
       {advancedOpen ? (
         <AnalysisForm
           cancel={() => setAdvancedOpen(false)}

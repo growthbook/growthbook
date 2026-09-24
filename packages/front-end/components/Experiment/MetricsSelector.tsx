@@ -12,13 +12,18 @@ import {
 import { Flex } from "@radix-ui/themes";
 import { FactMetricType } from "shared/types/fact-table";
 import { PiInfo, PiTag } from "react-icons/pi";
+import { MetricOverride } from "shared/validators";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
+  ReactSelectProps,
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
+import { OptionPopover } from "@/components/Features/OptionTooltipShell";
+import { MetricOverrideTooltipContent } from "@/components/Experiment/MetricOverrideTooltip";
+import { getOverriddenMetricIds } from "@/services/metricOverrides";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadixTooltip from "@/ui/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
@@ -175,6 +180,14 @@ const MetricsSelector: FC<{
     reason?: string;
   };
   requireDatasource?: boolean;
+  /**
+   * The experiment's metric overrides. Given, each selected metric gets a hover
+   * card listing its own, and an overridden one (or a group holding one) is
+   * outlined.
+   */
+  metricOverrides?: MetricOverride[];
+  /** Opens an override editor on the metrics a card was opened for. */
+  onManageOverrides?: (metricIds: string[]) => void;
 }> = ({
   datasource,
   project,
@@ -195,6 +208,8 @@ const MetricsSelector: FC<{
   groupOptions = true,
   getMetricDisabledInfo,
   requireDatasource = false,
+  metricOverrides,
+  onManageOverrides,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -204,8 +219,21 @@ const MetricsSelector: FC<{
     getExperimentMetricById,
     getFactTableById,
     getDatasourceById,
+    getMetricGroupById,
     mutateDefinitions,
   } = useDefinitions();
+
+  // A chip is outlined when it, or any metric in its group, is overridden.
+  const overriddenChips = useMemo(() => {
+    const overridden = getOverriddenMetricIds(metricOverrides);
+    return new Set(
+      selected.filter((id) =>
+        (getMetricGroupById(id)?.metrics ?? [id]).some((mid) =>
+          overridden.has(mid),
+        ),
+      ),
+    );
+  }, [metricOverrides, selected, getMetricGroupById]);
   const { hasCommercialFeature } = useUser();
 
   const metricListContainsGroup = selected.some((metric) =>
@@ -513,7 +541,7 @@ const MetricsSelector: FC<{
       const metricsWithJoinableStatus = isGroup
         ? groupMetricsJoinableMap.get(value) || []
         : [];
-      return (
+      const name = (
         <MetricName
           id={value}
           showDescription={context !== "value"}
@@ -526,11 +554,30 @@ const MetricsSelector: FC<{
           officialBadgePosition="left"
         />
       );
+      // Only a chosen metric has overrides to show; the menu stays as it was.
+      if (context !== "value" || !metricOverrides) return name;
+      return (
+        <OptionPopover
+          context="value"
+          side="bottom"
+          content={
+            <MetricOverrideTooltipContent
+              id={value}
+              overrides={metricOverrides}
+              onManageOverrides={onManageOverrides}
+            />
+          }
+        >
+          {name}
+        </OptionPopover>
+      );
     },
     [
       filteredOptionsMap,
       groupMetricsJoinableMap,
       filterConversionWindowMetrics,
+      metricOverrides,
+      onManageOverrides,
     ],
   );
 
@@ -572,6 +619,18 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
+      customStyles={
+        overriddenChips.size
+          ? {
+              multiValue: (base, state) => ({
+                ...ReactSelectProps.styles.multiValue(base),
+                ...(overriddenChips.has(state.data.value)
+                  ? { boxShadow: "inset 0 0 0 1px var(--blue-9)" }
+                  : {}),
+              }),
+            }
+          : undefined
+      }
       disabled={selectorDisabled}
       helpText={
         <>

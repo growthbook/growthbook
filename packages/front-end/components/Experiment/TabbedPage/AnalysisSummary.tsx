@@ -121,13 +121,6 @@ export default function AnalysisSummary({
       experiment.skipPartialData ? "strict" : "loose"
     ],
   ]);
-  const overrides = experiment.metricOverrides?.length ?? 0;
-  if (overrides) {
-    advanced.push([
-      "Metric overrides",
-      `${overrides} metric${overrides === 1 ? "" : "s"} overridden`,
-    ]);
-  }
   if (experiment.queryFilter) {
     advanced.push([
       "Custom SQL filter",
