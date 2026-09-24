@@ -53,7 +53,10 @@ const CreateOrJoinOrganization: FC<{
   const [joiningOrgId, setJoiningOrgId] = useState<string | null>(null);
   const [error, setError] = useState(null);
   const [mode, setMode] = useState<"create" | "join">("create");
+  const orgActionPending = loading || joiningOrgId !== null;
+
   function switchMode() {
+    if (orgActionPending) return;
     setError(null);
     setMode(mode === "create" ? "join" : "create");
   }
@@ -98,9 +101,9 @@ const CreateOrJoinOrganization: FC<{
       });
       track("Join Organization");
       updateUser();
-      setJoiningOrgId(null);
       if (resp?.isPending) {
         org.currentUserIsPending = true;
+        setJoiningOrgId(null);
       } else {
         if (setOrgId) {
           setOrgId(org.id);
@@ -215,6 +218,7 @@ const CreateOrJoinOrganization: FC<{
                           loading={joiningOrgId === org.id}
                           disabled={
                             org.currentUserIsPending ||
+                            loading ||
                             (joiningOrgId !== null && joiningOrgId !== org.id)
                           }
                           onClick={() => joinOrgFormSubmit(org)}
@@ -246,6 +250,7 @@ const CreateOrJoinOrganization: FC<{
                     mt="4"
                     style={{ width: "100%" }}
                     icon={<PiPlusBold />}
+                    disabled={orgActionPending}
                     onClick={switchMode}
                   >
                     Create a new organization instead
@@ -256,7 +261,7 @@ const CreateOrJoinOrganization: FC<{
               <>
                 <form
                   onSubmit={newOrgForm.handleSubmit(async (value) => {
-                    if (loading) return;
+                    if (loading || joiningOrgId) return;
                     setError(null);
                     setLoading(true);
                     try {
@@ -307,7 +312,6 @@ const CreateOrJoinOrganization: FC<{
                       } catch (e) {
                         console.warn("Cannot set gb-last-picked-org");
                       }
-                      setLoading(false);
                       router.push("/");
                     } catch (e) {
                       setError(e.message);
@@ -407,6 +411,7 @@ const CreateOrJoinOrganization: FC<{
                     type="submit"
                     size="lg"
                     loading={loading}
+                    disabled={joiningOrgId !== null}
                     style={{ width: "100%" }}
                   >
                     Create organization
@@ -425,6 +430,7 @@ const CreateOrJoinOrganization: FC<{
                     mt="8"
                     style={{ width: "100%" }}
                     icon={<PiPlusBold />}
+                    disabled={orgActionPending}
                     onClick={switchMode}
                   >
                     Join an organization instead
