@@ -110,7 +110,9 @@ export async function putUser(
     isActive,
   );
 
-  if (growthbookRole) {
+  // Return the role only when it is still the member's stored role. Deactivation
+  // removes the member, so a role sent in that same PUT was not applied.
+  if (isActive && growthbookRole) {
     responseObj.growthbookRole = growthbookRole;
   }
 
