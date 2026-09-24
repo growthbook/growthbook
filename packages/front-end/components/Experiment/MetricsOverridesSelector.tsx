@@ -21,8 +21,8 @@ import { OrganizationSettings } from "shared/types/organization";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { metricTypeLabel } from "@/services/metrics";
 import MetricName from "@/components/Metrics/MetricName";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
@@ -142,7 +142,7 @@ export default function MetricsOverridesSelector({
           value=""
           // Picking a metric is the whole gesture: it lands as a new card.
           onChange={(m) => m && addOverride(m)}
-          initialOption="Override another metric..."
+          placeholder="Override another metric..."
           disabled={disabled}
           onPaste={(e) => {
             try {
@@ -337,16 +337,9 @@ function OverrideCard({
   return (
     <Card>
       <Flex justify="between" align="center" gap="3" mb="3">
-        <Flex align="baseline" gap="2" minWidth="0">
-          <Text weight="semibold">
-            <MetricName id={metricDefinition?.id || ""} />
-          </Text>
-          {metricDefinition ? (
-            <Text size="sm" color="text-low">
-              {metricTypeLabel(metricDefinition)}
-            </Text>
-          ) : null}
-        </Flex>
+        <Text weight="semibold">
+          <MetricName id={metricDefinition?.id || ""} />
+        </Text>
         <RemoveButton label="Remove metric" onClick={onRemove} />
       </Flex>
 
@@ -495,19 +488,24 @@ function OverrideCard({
         ) : null}
 
         {addable.length > 0 ? (
-          <Flex align="center" gap="4" wrap="wrap">
-            <Text size="sm" color="text-low">
-              {windowOverridden || priorOverridden || cupedOverridden
-                ? "Also override"
-                : "Override"}
-            </Text>
-            {addable.map(({ label, add }) => (
-              <Link key={label} onClick={add}>
-                <PiPlusBold style={ICON_STYLE} />
-                {label}
-              </Link>
-            ))}
-          </Flex>
+          <Box>
+            <DropdownMenu
+              trigger={
+                <Link type="button">
+                  <PiPlusBold style={ICON_STYLE} />
+                  Add override
+                </Link>
+              }
+              menuPlacement="start"
+              variant="soft"
+            >
+              {addable.map(({ label, add }) => (
+                <DropdownMenuItem key={label} onClick={add}>
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenu>
+          </Box>
         ) : null}
       </Flex>
     </Card>
@@ -545,8 +543,8 @@ function OverrideRow({
   children?: ReactNode;
 }) {
   const heading = (
-    <Flex align="center" gap="1">
-      <Text as="label" weight="semibold">
+    <Flex align="center" gap="1" mb="2">
+      <Text as="label" weight="semibold" mb="0">
         {label}
       </Text>
       {tooltip ? (
