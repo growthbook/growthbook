@@ -2570,6 +2570,9 @@ function StandardFactMetricModal({
                       >
                         Choose metric breakdowns to automatically analyze in
                         your experiments.{" "}
+                        {type === "funnel"
+                          ? "A funnel slices every step at once, so only columns enabled as Auto Slices with the same levels on every step's Fact Table can be used. "
+                          : ""}
                         <DocLink useRadix={false} docSection="autoSlices">
                           Learn More <PiArrowSquareOut />
                         </DocLink>
@@ -2601,8 +2604,9 @@ function StandardFactMetricModal({
                               }}
                               size="1"
                             >
-                              No slices available. Configure your fact table to
-                              enable auto slices.
+                              {type === "funnel"
+                                ? "No slices available. Enable the same Auto Slice columns, with the same levels, on every step's Fact Table."
+                                : "No slices available. Configure your fact table to enable auto slices."}
                             </Text>
                           )}
                         </div>

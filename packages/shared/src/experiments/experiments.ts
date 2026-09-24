@@ -1279,6 +1279,22 @@ export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
 }
 
 /**
+ * Fact tables whose columns back the metric's auto slices, for cascading a
+ * column change. A funnel slices on every step (the column has to be an Auto
+ * Slice column with the same levels on all of them), so any step's table can
+ * invalidate a slice. Everything else slices on the numerator's table alone —
+ * a ratio metric's denominator table has no say, even when it happens to have
+ * a column of the same name.
+ */
+export function getMetricAutoSliceFactTableIds(
+  m: FactMetricInterface,
+): string[] {
+  return isFactFunnelMetric(m)
+    ? getFactMetricFactTableIds(m)
+    : [getFactMetricPrimaryFactTableId(m)].filter((id) => !!id);
+}
+
+/**
  * Every ColumnRef the metric reads from, for dependency scans over fact table
  * columns and filters. Funnel steps have no column of their own, so they are
  * surfaced as column-less refs that still carry their row filters.

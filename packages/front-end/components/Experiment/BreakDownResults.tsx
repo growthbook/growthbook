@@ -1,5 +1,5 @@
 import { FC, Fragment, useState } from "react";
-import { IconButton } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
   ExperimentReportResultDimension,
@@ -329,12 +329,16 @@ const BreakDownResults: FC<{
               renderLabelColumn={({ label, row }) => {
                 if (row?.childRowType === "funnelStep") {
                   return (
-                    <div className="d-flex align-items-start justify-content-between w-100">
+                    <Flex justify="between" align="start" width="100%">
                       <FunnelStepLabel label={label} row={row} />
                       {drilldownContext && row && (
                         <Link
-                          className="text-nowrap small"
-                          style={{ marginRight: 8, flexShrink: 0 }}
+                          size="sm"
+                          style={{
+                            marginRight: 8,
+                            flexShrink: 0,
+                            whiteSpace: "nowrap",
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             const rawValue =
@@ -356,7 +360,7 @@ const BreakDownResults: FC<{
                           + View by slice
                         </Link>
                       )}
-                    </div>
+                    </Flex>
                   );
                 }
 

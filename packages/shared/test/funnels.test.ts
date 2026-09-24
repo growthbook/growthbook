@@ -20,6 +20,7 @@ import {
   getCompatibleFunnelAutoSliceColumns,
   getFunnelStepMetric,
   getFunnelStepMetrics,
+  getMetricAutoSliceFactTableIds,
   getMetricSnapshotSettings,
   parseFunnelStepMetricId,
 } from "shared/experiments";
@@ -29,6 +30,7 @@ import {
 } from "shared/validators";
 import {
   ColumnInterface,
+  FactMetricInterface,
   FactTableDefinition,
   FactTableInterface,
   FunnelFactMetricInterface,
@@ -200,6 +202,31 @@ describe("funnel step metric ids", () => {
       baseMetricId: "fact__abc?dim:country=US",
       stepIndex: 2,
     });
+  });
+});
+
+describe("getMetricAutoSliceFactTableIds", () => {
+  const ratioMetric = {
+    id: "fact__ratio",
+    metricType: "ratio",
+    numerator: { factTableId: "ft_numerator", column: "$$distinctUsers" },
+    denominator: { factTableId: "ft_denominator", column: "$$distinctUsers" },
+    funnelSettings: null,
+  } as unknown as FactMetricInterface;
+
+  it("uses the numerator's table only for a cross-table ratio metric", () => {
+    // Auto slices come from the numerator, so a same-named column on the
+    // denominator's table must not invalidate them.
+    expect(getMetricAutoSliceFactTableIds(ratioMetric)).toEqual([
+      "ft_numerator",
+    ]);
+  });
+
+  it("uses every step's table for a funnel", () => {
+    expect(getMetricAutoSliceFactTableIds(funnelMetric)).toEqual([
+      "ft_views",
+      "ft_events",
+    ]);
   });
 });
 
