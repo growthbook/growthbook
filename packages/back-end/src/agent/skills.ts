@@ -1,7 +1,12 @@
 import fs from "fs";
 import path from "path";
+import yaml from "js-yaml";
 import type { SkillSummary } from "shared/ai-chat";
 import { logger } from "back-end/src/util/logger";
+import {
+  AGENT_SKILLS_DIR,
+  AGENT_SKILLS_DISABLE_BUILTINS,
+} from "back-end/src/util/secrets";
 
 /**
  * Agent skills teach the generic agent how to use slices of the GrowthBook
@@ -25,6 +30,9 @@ import { logger } from "back-end/src/util/logger";
  * Domain routers appear in the system-prompt index and the composer's
  * slash-command menu; workflows load on demand once the model has read the
  * router's workflow table.
+ *
+ * Self-hosted installs can add skills in the same layout from
+ * `AGENT_SKILLS_DIR` and drop built-ins with `AGENT_SKILLS_DISABLE_BUILTINS`.
  */
 
 /** A skill's index entry plus the prompt body only the agent reads. */
@@ -50,6 +58,19 @@ function parseFrontmatter(raw: string): {
   }
   const yamlish = match[1];
   const body = raw.slice(match[0].length);
+
+  try {
+    const parsed: unknown = yaml.load(yamlish);
+    if (parsed && typeof parsed === "object") {
+      const data: Record<string, string> = {};
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value === "string") data[key] = value.trim();
+      }
+      return { data, body };
+    }
+  } catch {
+    // Hand-written frontmatter often isn't valid YAML; fall back to one key per line.
+  }
 
   const data: Record<string, string> = {};
   for (const line of yamlish.split("\n")) {
@@ -211,10 +232,86 @@ function loadSkillsFromDirectory(dir: string | null): SkillRegistry {
   return { summaries, skills };
 }
 
-function getSkillRegistry(): SkillRegistry {
-  if (!cachedRegistry) {
-    cachedRegistry = loadSkillsFromDirectory(resolveSkillsDir());
+/**
+ * Layers a self-hosted install's own skills over the built-ins. A custom domain
+ * replaces the built-in of the same name, workflows included, and `disabled`
+ * ("all" or domain names) drops built-ins outright.
+ */
+function mergeCustomSkills(
+  builtIn: SkillRegistry,
+  custom: SkillRegistry,
+  disabled: "all" | ReadonlySet<string>,
+): SkillRegistry {
+  const customDomains = new Set(
+    custom.summaries.filter((s) => s.kind === "domain").map((s) => s.name),
+  );
+  const builtInDomains = builtIn.summaries.filter((s) => s.kind === "domain");
+  for (const { name } of builtInDomains) {
+    if (customDomains.has(name)) {
+      logger.info(`Custom agent skill "${name}" overrides the built-in one.`);
+    }
   }
+  if (disabled !== "all") {
+    for (const name of disabled) {
+      if (!builtInDomains.some((s) => s.name === name)) {
+        logger.warn(
+          `AGENT_SKILLS_DISABLE_BUILTINS names "${name}", which is not a built-in skill.`,
+        );
+      }
+    }
+  }
+
+  const keep = ({ name, group }: SkillSummary) => {
+    const domain = group ?? name;
+    return !(
+      disabled === "all" ||
+      disabled.has(domain) ||
+      customDomains.has(domain)
+    );
+  };
+  return {
+    summaries: [...builtIn.summaries.filter(keep), ...custom.summaries],
+    skills: new Map([
+      ...[...builtIn.skills].filter(([, skill]) => keep(skill)),
+      ...custom.skills,
+    ]),
+  };
+}
+
+function parseDisabledBuiltIns(value: string): "all" | Set<string> {
+  if (value.trim().toLowerCase() === "true") return "all";
+  return new Set(
+    value
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean),
+  );
+}
+
+function getSkillRegistry(): SkillRegistry {
+  if (cachedRegistry) return cachedRegistry;
+
+  const builtIn = loadSkillsFromDirectory(resolveSkillsDir());
+  if (!AGENT_SKILLS_DIR && !AGENT_SKILLS_DISABLE_BUILTINS) {
+    cachedRegistry = builtIn;
+    return cachedRegistry;
+  }
+
+  let custom: SkillRegistry = { summaries: [], skills: new Map() };
+  if (AGENT_SKILLS_DIR) {
+    if (skillsDirHasContent(AGENT_SKILLS_DIR)) {
+      custom = loadSkillsFromDirectory(AGENT_SKILLS_DIR);
+    } else {
+      logger.warn(
+        `AGENT_SKILLS_DIR is ${AGENT_SKILLS_DIR}, which has no <skill>/SKILL.md directories; no custom skills loaded.`,
+      );
+    }
+  }
+  cachedRegistry = mergeCustomSkills(
+    builtIn,
+    custom,
+    parseDisabledBuiltIns(AGENT_SKILLS_DISABLE_BUILTINS),
+  );
   return cachedRegistry;
 }
 
@@ -244,6 +341,8 @@ function resolveSkill(
 // Exposed for unit tests — see test/agent/skills.test.ts
 export const _loadSkillsFromDirectory = loadSkillsFromDirectory;
 export const _resolveSkill = resolveSkill;
+export const _mergeCustomSkills = mergeCustomSkills;
+export const _parseDisabledBuiltIns = parseDisabledBuiltIns;
 
 /** Domain routers only — the compact index inlined into the system prompt. */
 export function listDomainSkills(): readonly SkillSummary[] {

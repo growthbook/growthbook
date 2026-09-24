@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   _loadSkillsFromDirectory,
+  _mergeCustomSkills,
+  _parseDisabledBuiltIns,
   _resolveSkill,
 } from "back-end/src/agent/skills";
 
@@ -120,6 +122,81 @@ describe("agent skills loader", () => {
     );
     expect(skills.get("growthbook-docs")?.body).toContain(
       "GrowthBook documentation",
+    );
+  });
+
+  it("reads multi-line YAML descriptions and tolerates invalid YAML", () => {
+    const root = mkdtempSync(join(tmpdir(), "agent-skills-"));
+    writeFixtureFile(
+      join(root, "folded", "SKILL.md"),
+      `---\nname: folded\ndescription: >\n  Spans\n  two lines\n---\n\n# Folded\n`,
+    );
+    writeFixtureFile(
+      join(root, "loose", "SKILL.md"),
+      `---\nname: loose\ndescription: Use when: the YAML is invalid\n---\n\n# Loose\n`,
+    );
+    try {
+      const { skills } = _loadSkillsFromDirectory(root);
+
+      expect(skills.get("folded")?.description).toBe("Spans two lines");
+      expect(skills.get("loose")?.description).toBe(
+        "Use when: the YAML is invalid",
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("custom skills", () => {
+  const builtInRoot = createWorkflowFixture({
+    "feature-flags": ["flag-create"],
+    experiments: ["experiment-stop"],
+  });
+  const customRoot = createWorkflowFixture({
+    "feature-flags": ["flag-custom"],
+    "release-checklist": [],
+  });
+  const builtIn = _loadSkillsFromDirectory(builtInRoot);
+  const custom = _loadSkillsFromDirectory(customRoot);
+  const names = ({ summaries }: { summaries: { name: string }[] }) =>
+    summaries.map((s) => s.name);
+
+  afterAll(() => {
+    rmSync(builtInRoot, { recursive: true, force: true });
+    rmSync(customRoot, { recursive: true, force: true });
+  });
+
+  it("adds custom domains and replaces a same-named built-in wholesale", () => {
+    const merged = _mergeCustomSkills(builtIn, custom, new Set());
+
+    expect(names(merged)).toEqual([
+      "experiments",
+      "experiments/references/experiment-stop",
+      "feature-flags",
+      "feature-flags/references/flag-custom",
+      "release-checklist",
+    ]);
+    expect(merged.skills.has("feature-flags/references/flag-create")).toBe(
+      false,
+    );
+  });
+
+  it("drops the named built-ins, or all of them", () => {
+    const empty = { summaries: [], skills: new Map() };
+
+    expect(
+      names(_mergeCustomSkills(builtIn, empty, new Set(["experiments"]))),
+    ).toEqual(["feature-flags", "feature-flags/references/flag-create"]);
+    expect(names(_mergeCustomSkills(builtIn, custom, "all"))).toEqual(
+      names(custom),
+    );
+  });
+
+  it("parses AGENT_SKILLS_DISABLE_BUILTINS", () => {
+    expect(_parseDisabledBuiltIns("TRUE")).toBe("all");
+    expect(_parseDisabledBuiltIns(" experiments, ,analytics ")).toEqual(
+      new Set(["experiments", "analytics"]),
     );
   });
 });

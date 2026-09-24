@@ -367,6 +367,14 @@ export const SECRET_API_KEY = secretAPIKey;
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 export const XAI_API_KEY = process.env.XAI_API_KEY || "";
+
+// Self-hosted only: extra AI Assistant skills, and built-ins to drop ("true" or a comma-separated list).
+export const AGENT_SKILLS_DIR = IS_CLOUD
+  ? ""
+  : process.env.AGENT_SKILLS_DIR || "";
+export const AGENT_SKILLS_DISABLE_BUILTINS = IS_CLOUD
+  ? ""
+  : process.env.AGENT_SKILLS_DISABLE_BUILTINS || "";
 export const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY || "";
 export const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || "";
 // Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
