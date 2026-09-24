@@ -1,5 +1,8 @@
 import { ExperimentInterface } from "shared/types/experiment";
-import { hasActualChanges } from "back-end/src/models/ExperimentModel";
+import {
+  ExperimentModel,
+  hasActualChanges,
+} from "back-end/src/models/ExperimentModel";
 
 describe("ExperimentModel", () => {
   const experiment: ExperimentInterface = {
@@ -90,5 +93,18 @@ describe("ExperimentModel", () => {
       };
       expect(hasActualChanges(experiment, updates)).toEqual(true);
     });
+  });
+
+  // The Mongoose schema drops fields it does not declare, so a stamp the
+  // validator allows must also be declared here or the job falls back to the owner.
+  it("persists who staged a scheduled status change", () => {
+    const cast = ExperimentModel.castObject({
+      nextScheduledStatusUpdate: {
+        type: "stop",
+        date: new Date(),
+        scheduledBy: "u_1",
+      },
+    });
+    expect(cast.nextScheduledStatusUpdate?.scheduledBy).toBe("u_1");
   });
 });

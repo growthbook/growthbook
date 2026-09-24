@@ -232,7 +232,7 @@ Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook inst
 
 #### Synchronous Init
 
-There is a alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
+There is an alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
@@ -485,7 +485,7 @@ Sticky bucketing ensures that users see the same experiment variant, even when u
 - `LocalStorageStickyBucketService` —
   For simple bucket persistence using the browser's LocalStorage (can be polyfilled for other environments).
 
-- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `expires: {days}` into the constructor's `cookieAttributes`.
+- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `expires: {days}` into the constructor's `cookieAttributes`. If your site sits behind a Web Application Firewall, see [Sticky Bucket Cookies and WAF False Positives](/kb/sdks/sticky-bucket-cookie-encoding).
 
 - Build your own — Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations (ex: read/write to both cookies and Redis).
 
@@ -547,7 +547,7 @@ const gb = new GrowthBook<AppFeatures>({
 Now, all feature flag methods will be strictly typed.
 
 ```ts
-// feature.value will by type `number`
+// feature.value will be type `number`
 const feature = gb.evalFeature("font-size");
 console.log(feature.value);
 
@@ -1278,7 +1278,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 
 ## Examples
 
-- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+- [TypeScript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
 
 ## Supported Features
 

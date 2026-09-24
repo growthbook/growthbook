@@ -137,7 +137,7 @@ export default function getVariation<T>({
   variations,
   featureFlagKey,
 }: Props<T>): T | null {
-  // Evaluate the featue flag
+  // Evaluate the feature flag
   const result = gb.getFeatureValue<number | null>(featureFlagKey, null);
 
   // If the feature flag is off or variations are empty, return null

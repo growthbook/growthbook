@@ -34,7 +34,9 @@ JSON encoded and then set to the environment variable `SSO_CONFIG`.
 - `id_token_signing_alg_values_supported` (array of strings)
 - `token_endpoint` (string)
 - `code_challenge_methods_supported` (array of strings)
-- `logout_endpoint` (string, optional)
+- `logout_endpoint` (string, optional) - Only set this if you want logging out of GrowthBook to
+  also end the user's session with your identity provider. By default, "Log out" only clears the
+  GrowthBook session and the user stays signed in to your IdP.
 - `extraQueryParams` (object, optional) - Dictionary of extra query params to be passed along with the `/authorize` OAuth call
 - `additionalScope` (string, optional) - Additional scopes to include, along with the default value: `openid profile email`
 
@@ -155,7 +157,6 @@ With all the SSO providers listed below, replace the all caps values with values
     "metadata": {
         "issuer": "https://TENANT.auth0.com/",
         "authorization_endpoint": "https://TENANT.auth0.com/authorize",
-        "logout_endpoint": "https://TENANT.auth0.com/v2/logout?client_id=CLIENT_ID",
         "id_token_signing_alg_values_supported": [
             "HS256",
             "RS256"
@@ -192,8 +193,7 @@ When setting up Auth0, please ensure that you've enabled offline access, and che
     "id_token_signing_alg_values_supported": ["RS256"],
     "code_challenge_methods_supported": ["S256"],
     "issuer": "https://login.microsoftonline.com/TENANT_ID/v2.0",
-    "authorization_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/authorize",
-    "logout_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/logout"
+    "authorization_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/authorize"
   }
 }
 ```
@@ -267,8 +267,7 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
     "jwks_uri": "https://[ONELOGIN_DOMAIN]/oidc/2/certs",
     "code_challenge_methods_supported": [
       "S256"
-    ],
-    "logout_endpoint": "https://[ONELOGIN_DOMAIN]/oidc/2/logout"
+    ]
   }
 }
 ```
@@ -333,7 +332,6 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
     ],
     "issuer": "https://oauth.id.jumpcloud.com/",
     "authorization_endpoint": "https://oauth.id.jumpcloud.com/oauth2/auth",
-    "logout_endpoint": "https://oauth.id.jumpcloud.com/oauth2/sessions/logout",
     "audience": ""
   }
 }

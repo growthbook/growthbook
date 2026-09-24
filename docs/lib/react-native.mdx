@@ -199,7 +199,7 @@ Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook inst
 
 #### Synchronous Init
 
-There is a alternate synchronous version of init named `initSync`, which can be especially useful in SSR to prevent hydration mismatches. There are some restrictions/differences:
+There is an alternate synchronous version of init named `initSync`, which can be especially useful in SSR to prevent hydration mismatches. There are some restrictions/differences:
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
@@ -456,7 +456,7 @@ const salt = "f09jq3fij"; // Your organization's secure attribute salt (see Orga
 // hashing a secureString attribute
 const userEmail = sha256(salt + user.email);
 
-// hashing an secureString[] attribute
+// hashing a secureString[] attribute
 const userTags = user.tags.map(tag => sha256(salt + tag));
 
 gb.setAttributes({
@@ -617,7 +617,7 @@ const isDarkModeOn = useFeatureIsOn("dark_mode");
 ## Examples
 
 - [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)
-- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+- [TypeScript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
 
 ## Supported Features
 

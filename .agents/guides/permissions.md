@@ -224,6 +224,14 @@ context.permissions.canTargetFeatureProjects(addedProjects);
 // Environment-scoped permissions
 context.permissions.canPublishFeature(feature, environments);
 context.permissions.canRunExperiment(experiment, environments);
+// For an experiment, resolve `environments` with getExperimentAffectedEnvs
+// (services/experiments): live linked rules, changesets, AND the drafts a start
+// will publish. A draft experiment is live nowhere, so live-only reach skipped
+// the check at launch. assertCanRunExperimentInAffectedEnvironments wraps it.
+// Deferred actions run as the user who staged them, never as the job: scheduled
+// publishes rebuild the arming user's context (autoPublishOnApproval), scheduled
+// experiment status changes the scheduler's (`nextScheduledStatusUpdate.scheduledBy`,
+// getScheduledStatusContext) and re-run the check at fire time.
 
 // Throw error if permission denied
 context.permissions.throwPermissionError();

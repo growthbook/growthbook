@@ -189,7 +189,7 @@ In the targeting attributes, make sure you set `employee: false`. That will ensu
 The GrowthBook SDK uses deterministic hashing to figure out whether or not
 someone is included in a rollout (or A/B test). The SDKs hash together the
 selected targeting attribute (id) and the feature key (welcome-message) and
-coverts it to a float between 0 and 1. If that float is less than or equal to
+converts it to a float between 0 and 1. If that float is less than or equal to
 the rollout percent, the user is included. This ensures a consistent UX and
 prevents one user from constantly switching between ON and OFF as they
 navigate your app.
