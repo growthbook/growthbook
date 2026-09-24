@@ -28,6 +28,7 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import { DocLink, DocSection } from "@/components/DocLink";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 
 // Per-hook-type example section in the Custom Hooks docs.
 const EXAMPLE_DOC_SECTIONS: Record<CustomHookType, DocSection> = {
@@ -746,7 +747,7 @@ export default function CustomHookModal({
               <strong>Warnings:</strong>
               {testResult.warnings.map((w, i) => (
                 <Callout key={i} status="warning" mt="2">
-                  {w}
+                  <MarkdownLinks text={w} />
                 </Callout>
               ))}
             </div>
@@ -761,7 +762,7 @@ export default function CustomHookModal({
                 ...(testResult.suppressed.warnings ?? []),
               ].map((m, i) => (
                 <Callout key={i} status="info" mt="2">
-                  {m}
+                  <MarkdownLinks text={m} />
                 </Callout>
               ))}
             </Box>
