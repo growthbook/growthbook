@@ -3024,12 +3024,23 @@ export function expandDerivedMetricsInMap({
         metricMap.set(stepMetric.id, stepMetric);
       });
 
-      // Check whether a slice column exists on every step's fact table
-      const sliceColumnValidForAllSteps = (column: string): boolean =>
+      // A slice column has to mean the same thing on every step's fact table.
+      // The SQL layer picks each step's predicate from that step's own column
+      // metadata, so a column that is a string here and a boolean there would
+      // filter two different ways — or, for an "other" level, not filter that
+      // step at all.
+      const sliceColumnValidForAllSteps = (
+        column: string,
+        datatype: ColumnInterface["datatype"],
+      ): boolean =>
         metric.funnelSettings.steps.every((step) => {
           const ft = factTableMap.get(step.factTableId);
-          return ft?.columns.some(
-            (col) => col.column === column && !col.deleted,
+          if (!ft) return false;
+          const col = ft.columns.find((c) => c.column === column && !c.deleted);
+          return (
+            !!col &&
+            col.datatype === datatype &&
+            !getFactTableIdColumns(ft).includes(column)
           );
         });
 
@@ -3079,10 +3090,7 @@ export function expandDerivedMetricsInMap({
               column &&
               !column.deleted &&
               (column.datatype === "string" || column.datatype === "boolean") &&
-              !getFactTableIdColumns(primaryFactTable).includes(
-                column.column,
-              ) &&
-              sliceColumnValidForAllSteps(slice.column)
+              sliceColumnValidForAllSteps(slice.column, column.datatype)
             );
           });
 

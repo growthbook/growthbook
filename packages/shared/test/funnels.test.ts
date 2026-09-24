@@ -409,6 +409,81 @@ describe("expandDerivedMetricsInMap funnel expansion", () => {
       false,
     );
   });
+
+  // A custom slice compiles to a per-step predicate built from that step's own
+  // column metadata, so a column that disagrees across steps would filter two
+  // different ways — or, for an "other" level, not filter that step at all.
+  describe("custom slices across steps", () => {
+    const customSliceId = `${funnelMetric.id}?dim:country=US`;
+
+    const makeColumn = (
+      overrides: Partial<ColumnInterface> = {},
+    ): ColumnInterface =>
+      ({
+        column: "country",
+        datatype: "string",
+        deleted: false,
+        ...overrides,
+      }) as unknown as ColumnInterface;
+
+    const expand = (
+      signupColumn: ColumnInterface,
+      signupUserIdTypes: string[] = ["user_id"],
+    ) => {
+      const makeFactTable = (
+        id: string,
+        column: ColumnInterface,
+        userIdTypes: string[],
+      ): FactTableDefinition =>
+        ({
+          id,
+          columns: [column],
+          userIdTypes,
+          userIdColumns: {},
+        }) as unknown as FactTableDefinition;
+
+      const metricMap = new Map<string, ExperimentMetricInterface>([
+        [funnelMetric.id, funnelMetric],
+      ]);
+      expandDerivedMetricsInMap({
+        metricMap,
+        factTableMap: new Map([
+          ["ft_views", makeFactTable("ft_views", makeColumn(), ["user_id"])],
+          [
+            "ft_events",
+            makeFactTable("ft_events", signupColumn, signupUserIdTypes),
+          ],
+        ]),
+        experiment: {
+          goalMetrics: [funnelMetric.id],
+          customMetricSlices: [
+            { slices: [{ column: "country", levels: ["US"] }] },
+          ],
+        },
+      });
+      return metricMap;
+    };
+
+    it("expands a column that matches on every step", () => {
+      expect(expand(makeColumn()).has(customSliceId)).toBe(true);
+    });
+
+    it("skips a column whose datatype differs on a later step", () => {
+      expect(
+        expand(makeColumn({ datatype: "boolean" })).has(customSliceId),
+      ).toBe(false);
+    });
+
+    it("skips a column deleted on a later step", () => {
+      expect(expand(makeColumn({ deleted: true })).has(customSliceId)).toBe(
+        false,
+      );
+    });
+
+    it("skips a column that identifies units on a later step", () => {
+      expect(expand(makeColumn(), ["country"]).has(customSliceId)).toBe(false);
+    });
+  });
 });
 
 describe("getAllExpandedMetricIdsFromExperiment funnel expansion", () => {

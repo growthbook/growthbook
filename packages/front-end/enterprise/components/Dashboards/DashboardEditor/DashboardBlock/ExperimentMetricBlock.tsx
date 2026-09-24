@@ -11,7 +11,6 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
-  isFactFunnelMetric,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -20,6 +19,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { excludeFunnelSliceRows } from "@/services/experiments";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -152,16 +152,14 @@ export default function ExperimentMetricBlock({
   const hasSliceFilter =
     blockSliceTagsFilter && blockSliceTagsFilter.length > 0;
   const filteredRows = useMemo(() => {
+    const visibleRows = excludeFunnelSliceRows(rows);
     if (hasSliceFilter) {
       // When filter is active, use isHiddenByFilter from the hook
-      return rows;
+      return visibleRows;
     }
     // When no filter, filter out slice rows that aren't expanded
-    return rows.filter((row) => {
+    return visibleRows.filter((row) => {
       if (!row.isChildRow) return true; // Always include parent rows
-      // A funnel expands into its steps only; its slices are per-step and live
-      // in the metric drilldown's Slices tab.
-      if (row.isSliceRow && isFactFunnelMetric(row.metric)) return false;
       // For slice rows, check if parent metric is expanded
       if (row.parentRowId) {
         const expandedKey = `${row.parentRowId}:${row.resultGroup}`;

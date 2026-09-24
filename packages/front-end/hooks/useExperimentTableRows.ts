@@ -585,11 +585,15 @@ export function generateRowsForMetric({
 
   numSlices = sliceData.length;
 
+  // A funnel expands into its steps in a results table and slices each step in
+  // the drilldown, so it has no slices a slice filter could match here.
+  const hasDisplayableSlices = numSlices > 0 && !isFactFunnelMetric(metric);
+
   // If slice filter is active and metric has no slices, don't show parent row (unless "overall" filter is set)
   if (
     sliceTagsFilter &&
     sliceTagsFilter.length > 0 &&
-    numSlices === 0 &&
+    !hasDisplayableSlices &&
     !sliceTagsFilter.includes("overall")
   ) {
     return [];
@@ -599,7 +603,7 @@ export function generateRowsForMetric({
   const isLabelOnly =
     sliceTagsFilter &&
     sliceTagsFilter.length > 0 &&
-    numSlices > 0 &&
+    hasDisplayableSlices &&
     !sliceTagsFilter.includes("overall");
 
   const funnelSteps = isFactFunnelMetric(metric)

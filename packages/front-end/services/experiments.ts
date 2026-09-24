@@ -238,6 +238,19 @@ export type ExperimentTableRow = {
   labelOnly?: boolean;
 };
 
+/**
+ * A funnel expands into its steps in a results table; its slices are per-step
+ * and shown in the metric drilldown's Slices tab instead. The rows are still
+ * generated for the drilldown, so every table drops them on the way in.
+ */
+export function excludeFunnelSliceRows(
+  rows: ExperimentTableRow[],
+): ExperimentTableRow[] {
+  return rows.filter(
+    (row) => !(row.isSliceRow && isFactFunnelMetric(row.metric)),
+  );
+}
+
 export function useDomain(
   variations: ExperimentReportVariation[], // must be ordered, baseline first
   rows: ExperimentTableRow[],
