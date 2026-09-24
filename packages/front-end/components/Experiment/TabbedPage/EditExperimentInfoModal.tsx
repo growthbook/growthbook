@@ -53,6 +53,8 @@ interface Props {
   mutate: () => void;
   focusSelector?: FocusSelector;
   section?: InfoSection;
+  /** With the customFields section, just this one field. */
+  customFieldId?: string;
 }
 
 export default function EditExperimentInfoModal({
@@ -61,6 +63,7 @@ export default function EditExperimentInfoModal({
   mutate,
   focusSelector = "name",
   section = "all",
+  customFieldId,
 }: Props) {
   const shows = (part: Exclude<InfoSection, "all">) =>
     section === "all" || section === part;
@@ -78,6 +81,10 @@ export default function EditExperimentInfoModal({
       "experiment",
       experiment.project,
     ) ?? [];
+
+  const shownCustomFields = customFieldId
+    ? customFields.filter((f) => f.id === customFieldId)
+    : customFields;
 
   const projectOptions = useProjectOptions(
     (project) => canUpdateExperimentProject(project),
@@ -107,7 +114,11 @@ export default function EditExperimentInfoModal({
       trackingEventModalType="edit-experiment-info"
       size={section === "all" || section === "description" ? "lg" : "md"}
       trackingEventModalSource="experiment-more-menu"
-      header={SECTION_HEADERS[section]}
+      header={
+        customFieldId && shownCustomFields.length
+          ? `Edit ${shownCustomFields[0].name}`
+          : SECTION_HEADERS[section]
+      }
       submit={form.handleSubmit(async (data) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
@@ -198,10 +209,10 @@ export default function EditExperimentInfoModal({
           />
         </Box>
       ) : null}
-      {shows("customFields") && customFields.length > 0 ? (
+      {shows("customFields") && shownCustomFields.length > 0 ? (
         <Box mt={section === "customFields" ? "0" : "4"}>
           <CustomFieldInput
-            fields={customFields}
+            fields={shownCustomFields}
             value={form.watch("customFields")}
             onChange={(value) => form.setValue("customFields", value)}
           />

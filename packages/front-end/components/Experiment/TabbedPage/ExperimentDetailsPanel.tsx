@@ -12,8 +12,6 @@ import EditExperimentInfoModal, {
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useUser } from "@/services/UserContext";
-import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
-import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldoutInfoModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
@@ -22,13 +20,14 @@ import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperime
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import AnalysisSummary from "./AnalysisSummary";
+import ExpandableBlock from "./ExpandableBlock";
+import ExperimentHealthBadges from "./ExperimentHealthBadges";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
   isManaged?: boolean;
   mutate: () => void;
-  editTags?: (() => void) | null;
   disableEditing?: boolean;
   /** Opens the analysis plan's settings modal, which stages into the page. */
   editAnalysis?: () => void;
@@ -40,7 +39,6 @@ export default function ExperimentDetailsPanel({
   holdout,
   isManaged,
   mutate,
-  editTags,
   disableEditing,
   editAnalysis,
 }: Props) {
@@ -50,13 +48,18 @@ export default function ExperimentDetailsPanel({
   const editsBlocked = useEditsBlockedReason();
   const [focusSelector, setFocusSelector] = useState<FocusSelector>("name");
   const [infoSection, setInfoSection] = useState<InfoSection>("all");
+  const [customFieldId, setCustomFieldId] = useState<string | undefined>();
   const editSection = (section: InfoSection) => {
     setInfoSection(section);
     setFocusSelector("name");
+    setCustomFieldId(undefined);
     setShowEditInfoModal(true);
   };
+  const editCustomField = (id: string) => {
+    editSection("customFields");
+    setCustomFieldId(id);
+  };
 
-  const statusIndicator = useExperimentStatusIndicator()(experiment);
   const { hasCommercialFeature } = useUser();
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -82,23 +85,38 @@ export default function ExperimentDetailsPanel({
     return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
   };
   const isHoldout = experiment.type === "holdout";
-  // The panel shows these fields in two places: what files the experiment,
-  // with its description, and the rest of its details further down.
-  const tagBar = (fields: "projectAndTags" | "details") => (
+  // The panel shows these fields in two places: who and what the experiment
+  // is, with its description, and how it is set up further down.
+  const tagBar = (panel: "about" | "details") => (
     <ProjectTagBar
-      fields={fields}
+      panel={panel}
       fieldAction={isHoldout ? undefined : fieldAction}
-      vertical
       experiment={experiment}
       holdout={holdout}
-      setShowEditInfoModal={setShowEditInfoModal}
-      setEditInfoFocusSelector={setFocusSelector}
-      editTags={editTags}
-      editsBlockedReason={editsBlocked}
       isManaged={isManaged}
     />
   );
   const { canEdit } = useExperimentEditing(experiment, disableEditing);
+
+  const details = (
+    <Flex direction="column" gap="2">
+      {tagBar("details")}
+      {hasCustomFields ? (
+        <ExpandableBlock>
+          <CustomFieldDisplay
+            rows
+            rowAction={(field) =>
+              pencil(`Edit ${field.name}`, () => editCustomField(field.id))
+            }
+            target={experiment}
+            canEdit={false}
+            mutate={mutate}
+            section="experiment"
+          />
+        </ExpandableBlock>
+      ) : null}
+    </Flex>
+  );
 
   return (
     <>
@@ -109,6 +127,7 @@ export default function ExperimentDetailsPanel({
           mutate={mutate}
           focusSelector={focusSelector}
           section={infoSection}
+          customFieldId={customFieldId}
         />
       ) : null}
       {showEditInfoModal && isHoldout && holdout ? (
@@ -138,22 +157,6 @@ export default function ExperimentDetailsPanel({
         <TabsContent value="details">
           <Flex px="5" py="4" direction="column" gap="4">
             <Flex direction="column" gap="3">
-              <Metadata
-                size="sm"
-                stacked
-                label="Status"
-                value={
-                  <Text size="sm" color="text-high">
-                    {statusIndicator.status}
-                    {statusIndicator.detailedStatus ? (
-                      <Text color="text-mid">
-                        {" "}
-                        · {statusIndicator.detailedStatus}
-                      </Text>
-                    ) : null}
-                  </Text>
-                }
-              />
               {!isHoldout && (
                 <DescriptionField
                   stacked
@@ -165,7 +168,8 @@ export default function ExperimentDetailsPanel({
                   )}
                 />
               )}
-              {tagBar("projectAndTags")}
+              {tagBar("about")}
+              <ExperimentHealthBadges experiment={experiment} />
             </Flex>
             <Separator size="4" />
             {/* Holdouts edit all of this at once, so they keep a heading
@@ -177,10 +181,10 @@ export default function ExperimentDetailsPanel({
                   setShowEditInfoModal(true),
                 )}
               >
-                {tagBar("details")}
+                {details}
               </PanelSection>
             ) : (
-              tagBar("details")
+              details
             )}
             {/* Bandits and holdouts show their analysis on the page itself. */}
             {!isHoldout && experiment.type !== "multi-armed-bandit" ? (
@@ -200,25 +204,6 @@ export default function ExperimentDetailsPanel({
                   }
                 >
                   <AnalysisSummary experiment={experiment} />
-                </PanelSection>
-              </>
-            ) : null}
-            {hasCustomFields ? (
-              <>
-                <Separator size="4" />
-                <PanelSection
-                  title="Additional fields"
-                  action={pencil("Edit additional fields", () =>
-                    editSection("customFields"),
-                  )}
-                >
-                  <CustomFieldDisplay
-                    rows
-                    target={experiment}
-                    canEdit={false}
-                    mutate={mutate}
-                    section="experiment"
-                  />
                 </PanelSection>
               </>
             ) : null}

@@ -93,7 +93,6 @@ export interface Props {
   holdoutExperiments?: ExperimentInterfaceStringDates[];
   mutate: () => void;
   duplicate?: (() => void) | null;
-  editTags?: (() => void) | null;
   envs: string[];
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
@@ -132,7 +131,6 @@ function TabbedPageContents({
   holdoutExperiments,
   mutate,
   duplicate,
-  editTags,
   editVariations,
   visualChangesets,
   envs,
@@ -665,7 +663,6 @@ function TabbedPageContents({
                 experiment={experiment}
                 holdout={holdout}
                 mutate={mutate}
-                editTags={editTags}
                 disableEditing={viewingOldPhase}
                 editAnalysis={() => setAnalysisSettingsOpen(true)}
                 isManaged={linkedFeatures.some((f) =>

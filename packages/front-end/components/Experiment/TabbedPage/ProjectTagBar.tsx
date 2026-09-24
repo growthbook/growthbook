@@ -14,52 +14,42 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import { getHealthStateFromDetailedStatus } from "@/services/experiments";
 import ProjectBadges from "@/components/ProjectBadges";
-import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
   /** The experiment owns a managed Feature Flag. */
   isManaged?: boolean;
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
-  setShowEditInfoModal: (value: boolean) => void;
-  setEditInfoFocusSelector: (value: FocusSelector) => void;
-  /** Set while the page holds unsaved edits: the add links say so instead. */
-  editsBlockedReason?: string | null;
-  editTags?: (() => void) | null;
-  /** Stack the fields for the side panel instead of the header's wrapping row. */
-  vertical?: boolean;
   /**
-   * Just the fields that file the experiment (project and tags) or just the
-   * rest, for a side panel that shows them in separate places. Both otherwise.
+   * Which of the side panel's blocks to render: who and what the experiment
+   * is and when it ran, stacked; or how it is set up, as rows.
    */
-  fields?: "projectAndTags" | "details";
+  panel: "about" | "details";
   /** The quick-edit button for one field's row, where that field is editable. */
   fieldAction?: (
     field: "project" | "trackingKey" | "owner" | "tags",
   ) => ReactNode;
 }
 
+const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
+
+const empty = (label = "None") => (
+  <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
+    {label}
+  </Text>
+);
+
 export default function ProjectTagBar({
   experiment,
   holdout,
-  setShowEditInfoModal,
-  setEditInfoFocusSelector,
-  editsBlockedReason,
-  editTags,
   isManaged,
-  vertical,
-  fields,
+  panel,
   fieldAction,
 }: Props) {
-  const showProjectAndTags = fields !== "details";
-  const showDetails = fields !== "projectAndTags";
-  // Shown on their own, project and tags stack like the description above
-  // them; among the details, the project lines up with the rest as a row.
-  const projectRow = vertical && fields !== "projectAndTags";
-  const projectStacked = vertical && fields === "projectAndTags";
   const {
     projects,
     project: currentProject,
@@ -67,8 +57,7 @@ export default function ProjectTagBar({
   } = useDefinitions();
 
   const projectId = experiment.project;
-  const project = getProjectById(experiment.project || "");
-  const projectName = project?.name || null;
+  const projectName = getProjectById(experiment.project || "")?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
   // Only needed to name the holdout this experiment belongs to.
@@ -76,321 +65,48 @@ export default function ProjectTagBar({
     enabled: !!experiment.holdoutId,
   });
 
-  const permissionsUtil = usePermissionsUtil();
-  const canUpdateExperimentProject = (project) =>
-    permissionsUtil.canUpdateExperiment({ project }, {});
+  const statusIndicator = useExperimentStatusIndicator()(experiment);
+  // A data problem shows as a health badge below, so the status leaves it out.
+  const statusDetail = getHealthStateFromDetailedStatus(
+    statusIndicator.detailedStatus,
+  )
+    ? null
+    : statusIndicator.detailedStatus;
+  const isHoldout = experiment.type === "holdout";
   // Experiments adopted before the type was stored only carry the flag's marker.
   const implementationType = isManaged
     ? "values"
     : getImplementationType(experiment);
 
-  const canUpdateHoldoutProjects = (projects) =>
-    permissionsUtil.canUpdateHoldout({ projects }, { projects: [] });
-
-  const trackingKey = experiment.trackingKey;
-
-  const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
-
-  const createdDate = toUTCDate(experiment.dateCreated);
-
-  const isHoldout = experiment.type === "holdout";
-
-  const hasMultiplePhases = (experiment.phases?.length ?? 0) > 1;
-
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
-
-  const showRuntime =
-    experiment.phases?.length > 0 &&
-    experiment.status !== "draft" &&
-    latestPhase?.dateStarted;
-
-  const renderRuntime = () => {
-    const phases = experiment.phases || [];
-    const numPhases = phases.length;
-
-    // If no phases: If experiment start date ? `experiment start date - now` : "not started"
-    if (numPhases === 0) {
-      return "not started";
-    }
-
-    // If holdout, total runtime from first phase to latest phase
-    // If not holdout, latest phase runtime
-    const firstPhase = phases[0];
-    const lastPhase = phases[phases.length - 1];
-    const startDate = isHoldout
-      ? toUTCDate(firstPhase?.dateStarted ?? "")
-      : toUTCDate(lastPhase?.dateStarted ?? "");
-    const endDate = lastPhase?.dateEnded
-      ? toUTCDate(lastPhase.dateEnded)
-      : "now";
-
-    if (!startDate) {
-      return "not started";
-    }
-
-    return `${startDate} - ${endDate}`;
-  };
-
-  const renderTotalRuntimeTooltip = (): JSX.Element | string => {
-    const phases = experiment.phases || [];
-    const numPhases = phases.length;
-
-    if (numPhases === 0) {
-      return "";
-    }
-
-    const firstPhase = phases[0];
-    const lastPhase = phases[phases.length - 1];
-
-    // Get the actual start date (not formatted)
-    const startDateStr = isHoldout
-      ? firstPhase.dateStarted
-      : lastPhase.dateStarted;
-
-    if (!startDateStr) {
-      return "";
-    }
-
-    // Get the end date (or use now)
-    const endDateStr = lastPhase?.dateEnded || new Date().toISOString();
-
-    const days = daysBetween(startDateStr, endDateStr);
-
-    // Format the date range
-    const startDateFormatted = toUTCDate(startDateStr);
-    const endDateFormatted = lastPhase?.dateEnded
-      ? toUTCDate(lastPhase.dateEnded)
-      : "now";
-
+  if (panel === "details") {
     return (
-      <>
-        <strong>Total runtime</strong>
-        <br />
-        {startDateFormatted} - {endDateFormatted} ({days}{" "}
-        {days === 1 ? "day" : "days"})
-      </>
-    );
-  };
-
-  const renderOwner = () => {
-    return (
-      <Owner
-        ownerId={experiment.owner}
-        gap="1"
-        size="xs"
-        textColor="text-mid"
-        textSize="sm"
-        truncate
-      />
-    );
-  };
-
-  const RenderToolTipsAndValue = () => {
-    if (projectIsDeReferenced) {
-      return (
-        <Tooltip
-          body={
-            <>
-              Project <code>{projectId}</code> not found
-            </>
-          }
-        >
-          <span className="text-danger">
-            <PiWarning /> Invalid project
-          </span>
-        </Tooltip>
-      );
-    } else if (currentProject && currentProject !== experiment.project) {
-      return (
-        <Tooltip body={<>This experiment is not in your current project.</>}>
-          {projectId && <strong>{projectName}</strong>}{" "}
-          <PiWarning className="text-warning" />
-        </Tooltip>
-      );
-    } else {
-      return (
-        projectId && (
-          <Text weight="regular" color="text-mid" size="sm">
-            {projectName}
-          </Text>
-        )
-      );
-    }
-  };
-  const showAddLinks = !vertical;
-
-  const addLink = (focus: FocusSelector) =>
-    editsBlockedReason ? (
-      <Tooltip body={editsBlockedReason}>
-        <Text color="text-disabled" size="sm">
-          +Add
-        </Text>
-      </Tooltip>
-    ) : (
-      <Link
-        onClick={(e) => {
-          e.preventDefault();
-          setEditInfoFocusSelector(focus);
-          setShowEditInfoModal(true);
-        }}
-      >
-        +Add
-      </Link>
-    );
-
-  const renderProjectMetaDataValue = () => {
-    return (
-      <Flex gap="1">
-        {RenderToolTipsAndValue()}
-        {showAddLinks &&
-          canUpdateExperimentProject(project) &&
-          !projectId &&
-          addLink("project")}
-        {(!showAddLinks || !canUpdateExperimentProject(project)) &&
-          !projectId && (
-            <Text
-              weight="regular"
-              color="text-mid"
-              size="sm"
-              fontStyle="italic"
-            >
-              None
-            </Text>
-          )}
-      </Flex>
-    );
-  };
-
-  const renderHoldoutProjectMetaDataValue = () => {
-    if (!holdout) {
-      return null;
-    }
-
-    return (
-      <Flex gap="1">
-        {holdout.projects.length > 0 && (
-          <ProjectBadges resourceType="holdout" projectIds={holdout.projects} />
-        )}
-        {showAddLinks &&
-          canUpdateHoldoutProjects(holdout.projects) &&
-          holdout.projects.length === 0 &&
-          addLink("projects")}
-        {(!showAddLinks || !canUpdateHoldoutProjects(holdout.projects)) &&
-          holdout.projects.length === 0 && (
-            <Text
-              weight="regular"
-              color="text-mid"
-              size="sm"
-              fontStyle="italic"
-            >
-              None
-            </Text>
-          )}
-      </Flex>
-    );
-  };
-
-  const renderProject = () => {
-    return (projects.length > 0 || projectIsDeReferenced) && !holdout ? (
-      <Metadata
-        size="sm"
-        row={projectRow}
-        stacked={projectStacked}
-        label="Project"
-        actionPlacement="value"
-        action={fieldAction?.("project")}
-        value={renderProjectMetaDataValue()}
-      />
-    ) : holdout ? (
-      <Metadata
-        size="sm"
-        row={projectRow}
-        stacked={projectStacked}
-        label="Projects"
-        value={renderHoldoutProjectMetaDataValue()}
-      />
-    ) : null;
-  };
-  const renderTagsValue = () => {
-    return (
-      <Flex gap="1">
-        {experiment.tags?.length > 0 && (
-          <SortedTags
-            tags={experiment.tags}
-            size="xs"
-            useFlex
-            shouldShowEllipsis={false}
-            {...tagLinkProps("experiments")}
-          />
-        )}
-        {showAddLinks &&
-          editTags &&
-          experiment.tags?.length === 0 &&
-          addLink("tags")}
-        {(!showAddLinks || !editTags) && experiment.tags?.length === 0 && (
-          <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
-            None
-          </Text>
-        )}
-      </Flex>
-    );
-  };
-  return (
-    <div className={vertical ? undefined : "pb-3"}>
-      <Flex
-        direction={vertical ? "column" : "row"}
-        gap={vertical && !projectStacked ? "2" : "3"}
-        mt={vertical ? "0" : "2"}
-        mb={vertical ? "0" : "1"}
-        wrap={vertical ? "nowrap" : "wrap"}
-      >
-        {showProjectAndTags ? renderProject() : null}
-        {showDetails && experiment.type !== "holdout" && (
+      <Flex direction="column" gap="2">
+        {!isHoldout && (
           <Metadata
             size="sm"
-            row={vertical}
+            row
             label="Implementation"
             value={
-              implementationType ? (
-                IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
-              ) : (
-                <Text
-                  weight="regular"
-                  color="text-mid"
-                  size="sm"
-                  fontStyle="italic"
-                >
-                  Not set
-                </Text>
-              )
+              implementationType
+                ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
+                : empty("Not set")
             }
           />
         )}
-        {showDetails && experiment.type !== "holdout" && (
+        {!isHoldout && (
           <Metadata
             size="sm"
-            row={vertical}
+            row
             label="Experiment Key"
             actionPlacement="value"
             action={fieldAction?.("trackingKey")}
-            value={
-              trackingKey || (
-                <Text
-                  weight="regular"
-                  color="text-mid"
-                  size="sm"
-                  fontStyle="italic"
-                >
-                  None
-                </Text>
-              )
-            }
+            value={experiment.trackingKey || empty()}
           />
         )}
-        {showDetails && experiment.holdoutId && (
+        {experiment.holdoutId && (
           <Metadata
             size="sm"
-            row={vertical}
+            row
             label="Holdout"
             value={
               <Link href={`/holdout/${experiment.holdoutId}`}>
@@ -399,66 +115,185 @@ export default function ProjectTagBar({
             }
           />
         )}
-        {showDetails ? (
-          <>
-            <Metadata
-              size="sm"
-              row={vertical}
-              label="Owner"
-              actionPlacement="value"
-              action={fieldAction?.("owner")}
-              value={renderOwner()}
-            />
-            <Metadata
-              size="sm"
-              row={vertical}
-              label="Created"
-              value={createdDate}
-            />
-          </>
-        ) : null}
-        {showDetails && showRuntime && (
-          <Metadata
-            size="sm"
-            row={vertical}
-            label={
-              hasMultiplePhases && experiment.type !== "holdout"
-                ? "Latest Phase"
-                : "Runtime"
-            }
-            value={
-              <Tooltip body={renderTotalRuntimeTooltip()}>
-                <Text weight="regular" color="text-mid" size="sm">
-                  {renderRuntime()}
-                </Text>
-              </Tooltip>
-            }
-          />
-        )}
-        {vertical && showProjectAndTags && (
-          <Metadata
-            size="sm"
-            // Tags wrap, so they get the column's full width under the label.
-            stacked
-            label="Tags"
-            actionPlacement="value"
-            action={fieldAction?.("tags")}
-            value={renderTagsValue()}
-          />
-        )}
+        <Metadata
+          size="sm"
+          row
+          label="Assignment attribute"
+          value={
+            experiment.fallbackAttribute
+              ? `${experiment.hashAttribute}, falling back to ${experiment.fallbackAttribute}`
+              : experiment.hashAttribute || "id"
+          }
+        />
       </Flex>
-      {!vertical && (
-        <div className="row mt-2">
-          <div className="col-auto">
-            <Metadata
-              size="sm"
-              row={vertical}
-              label="Tags"
-              value={renderTagsValue()}
+    );
+  }
+
+  const projectValue = projectIsDeReferenced ? (
+    <Tooltip
+      body={
+        <>
+          Project <code>{projectId}</code> not found
+        </>
+      }
+    >
+      <span className="text-danger">
+        <PiWarning /> Invalid project
+      </span>
+    </Tooltip>
+  ) : !projectId ? (
+    empty()
+  ) : currentProject && currentProject !== experiment.project ? (
+    <Tooltip body={<>This experiment is not in your current project.</>}>
+      <strong>{projectName}</strong> <PiWarning className="text-warning" />
+    </Tooltip>
+  ) : (
+    <Text weight="regular" color="text-mid" size="sm">
+      {projectName}
+    </Text>
+  );
+
+  return (
+    <Flex direction="column" gap="3">
+      <Metadata
+        size="sm"
+        stacked
+        label="Owner"
+        actionPlacement="value"
+        action={fieldAction?.("owner")}
+        value={
+          <Owner
+            ownerId={experiment.owner}
+            gap="1"
+            size="xs"
+            textColor="text-mid"
+            textSize="sm"
+            truncate
+          />
+        }
+      />
+      {holdout ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Projects"
+          value={
+            holdout.projects.length > 0 ? (
+              <ProjectBadges
+                resourceType="holdout"
+                projectIds={holdout.projects}
+              />
+            ) : (
+              empty()
+            )
+          }
+        />
+      ) : projects.length > 0 || projectIsDeReferenced ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Project"
+          actionPlacement="value"
+          action={fieldAction?.("project")}
+          value={projectValue}
+        />
+      ) : null}
+      <Metadata
+        size="sm"
+        stacked
+        label="Tags"
+        actionPlacement="value"
+        action={fieldAction?.("tags")}
+        value={
+          experiment.tags?.length > 0 ? (
+            <SortedTags
+              tags={experiment.tags}
+              size="xs"
+              useFlex
+              shouldShowEllipsis={false}
+              {...tagLinkProps("experiments")}
             />
-          </div>
-        </div>
-      )}
-    </div>
+          ) : (
+            empty()
+          )
+        }
+      />
+      <Metadata
+        size="sm"
+        stacked
+        label="Status"
+        value={
+          <Text size="sm" color="text-high">
+            {statusIndicator.status}
+            {statusDetail ? (
+              <Text size="sm" color="text-mid">
+                {" "}
+                · {statusDetail}
+              </Text>
+            ) : null}
+          </Text>
+        }
+      />
+      <ExperimentDates experiment={experiment} />
+    </Flex>
+  );
+}
+
+/**
+ * When the experiment ran, as far as it has: created while a draft, started
+ * while running, and the whole span once stopped (or just the start, where an
+ * old stopped experiment never recorded its end). A holdout counts from its
+ * first phase; anything else from its latest, and says so when it has had
+ * more than one.
+ */
+function ExperimentDates({
+  experiment,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+}) {
+  const phases = experiment.phases || [];
+  const lastPhase = phases[phases.length - 1];
+  const started =
+    experiment.type === "holdout"
+      ? phases[0]?.dateStarted
+      : lastPhase?.dateStarted;
+  const created = toUTCDate(experiment.dateCreated);
+
+  if (experiment.status === "draft" || !started) {
+    return <Metadata size="sm" stacked label="Created" value={created} />;
+  }
+
+  const running = experiment.status === "running";
+  // Stopped experiments usually have an end date; older ones may not.
+  const ended = running ? null : lastPhase?.dateEnded;
+  const days = daysBetween(started, ended || new Date());
+  const duration =
+    days < 1 ? "under a day" : `${days} ${days === 1 ? "day" : "days"}`;
+  const latest = phases.length > 1 && experiment.type !== "holdout";
+  return (
+    <Metadata
+      size="sm"
+      stacked
+      label={
+        ended
+          ? latest
+            ? "Latest phase ran"
+            : "Ran"
+          : latest
+            ? "Latest phase started"
+            : "Started"
+      }
+      value={
+        <Tooltip body={`Created ${created}`}>
+          <Text weight="regular" color="text-high" size="sm">
+            {ended
+              ? `${toUTCDate(started)} – ${toUTCDate(ended)} · ${duration}`
+              : running
+                ? `${toUTCDate(started)} · ${duration} so far`
+                : toUTCDate(started)}
+          </Text>
+        </Tooltip>
+      }
+    />
   );
 }

@@ -11,6 +11,7 @@ import Callout from "@/ui/Callout";
 import { useRegisterExperimentEdit } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Metadata from "@/ui/Metadata";
+import ExpandableBlock from "./ExpandableBlock";
 
 export interface Props {
   label: string;
@@ -131,10 +132,13 @@ export default function InlineMarkdownField({
       );
     } else {
       body = stacked ? (
-        // Beside the page rather than on it, so it reads at the column's size.
-        <Box style={{ fontSize: "var(--font-size-1)" }}>
-          <Markdown>{savedValue}</Markdown>
-        </Box>
+        // Beside the page rather than on it, so it reads at the column's size,
+        // and a long one doesn't push the rest of the column away.
+        <ExpandableBlock>
+          <Box style={{ fontSize: "var(--font-size-1)" }}>
+            <Markdown>{savedValue}</Markdown>
+          </Box>
+        </ExpandableBlock>
       ) : (
         <Markdown>{savedValue}</Markdown>
       );

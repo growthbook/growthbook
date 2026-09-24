@@ -78,7 +78,8 @@ const SortableMultiValueLabel = (
   const { title: showTitle, ...style } = useContext(
     MultiValueLabelStyleContext,
   );
-  const tooltip = props.data?.tooltip;
+  // Off, a chip leaves hovering to whatever its label renders, such as a card.
+  const tooltip = showTitle ? props.data?.tooltip : undefined;
   const innerProps =
     showTitle && !tooltip
       ? { ...props.innerProps, title: props.data?.label || "" }
@@ -300,6 +301,7 @@ export type MultiSelectFieldProps = Omit<
   size?: MultiSelectFieldSize;
   /** Preserve the pre-design-system 36px control height. */
   legacyHeight?: boolean;
+  /** Hover text on each chosen value: its tooltip, or else its name. */
   valueTitles?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;

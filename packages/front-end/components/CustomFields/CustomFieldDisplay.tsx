@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
@@ -39,6 +39,8 @@ const CustomFieldDisplay: FC<{
   collapseWhenEmpty?: boolean;
   /** A metadata row per field, to sit alongside other metadata in a narrow column. */
   rows?: boolean;
+  /** In rows mode, the edit button a field's row reveals on hover. */
+  rowAction?: (field: CustomField) => ReactNode;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -50,6 +52,7 @@ const CustomFieldDisplay: FC<{
   draftInfo,
   collapseWhenEmpty,
   rows,
+  rowAction,
 }) => {
   const [editModal, setEditModal] = useState(false);
 
@@ -201,6 +204,8 @@ const CustomFieldDisplay: FC<{
                 row
                 key={field.id}
                 label={field.name}
+                actionPlacement="value"
+                action={rowAction?.(field)}
                 value={
                   value === "" ? (
                     <Text

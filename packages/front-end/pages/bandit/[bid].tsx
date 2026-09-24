@@ -16,9 +16,7 @@ import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
-import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
@@ -40,7 +38,6 @@ const BanditExperimentPage = (): ReactElement => {
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
@@ -64,8 +61,6 @@ const BanditExperimentPage = (): ReactElement => {
   }>(`/experiment/${bid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
-
-  const { apiCall } = useAuth();
 
   useEffect(() => {
     if (!data?.experiment) return;
@@ -116,7 +111,6 @@ const BanditExperimentPage = (): ReactElement => {
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
     : null;
-  const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
@@ -207,20 +201,6 @@ const BanditExperimentPage = (): ReactElement => {
           }}
           duplicate={true}
           source="duplicate-bid"
-        />
-      )}
-      {tagsModalOpen && (
-        <EditTagsForm
-          tags={experiment.tags}
-          save={async (tags) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ tags }),
-            });
-          }}
-          cancel={() => setTagsModalOpen(false)}
-          mutate={mutate}
-          source="bid"
         />
       )}
       {projectModalOpen && (
@@ -332,7 +312,6 @@ const BanditExperimentPage = (): ReactElement => {
           editResult={editResult}
           editVariations={editVariations}
           duplicate={duplicate}
-          editTags={editTags}
           newPhase={newPhase}
           editPhases={editPhases}
           editPhase={editPhase}

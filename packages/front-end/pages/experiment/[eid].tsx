@@ -17,8 +17,6 @@ import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
-import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
@@ -42,7 +40,6 @@ const ExperimentPage = (): ReactElement => {
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
@@ -78,8 +75,6 @@ const ExperimentPage = (): ReactElement => {
   );
 
   useSwitchOrg(data?.experiment?.organization ?? null);
-
-  const { apiCall } = useAuth();
 
   const { experimentToHoldoutsMap } = useHoldouts();
 
@@ -139,7 +134,6 @@ const ExperimentPage = (): ReactElement => {
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
     : null;
-  const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
@@ -220,20 +214,6 @@ const ExperimentPage = (): ReactElement => {
           }}
           source="duplicate-eid"
           duplicate={true}
-        />
-      )}
-      {tagsModalOpen && (
-        <EditTagsForm
-          tags={experiment.tags}
-          save={async (tags) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ tags }),
-            });
-          }}
-          cancel={() => setTagsModalOpen(false)}
-          mutate={mutate}
-          source="eid"
         />
       )}
       {phaseModalOpen && (
@@ -332,7 +312,6 @@ const ExperimentPage = (): ReactElement => {
           editResult={editResult}
           editVariations={editVariations}
           duplicate={duplicate}
-          editTags={editTags}
           newPhase={newPhase}
           editPhases={editPhases}
           editPhase={editPhase}
