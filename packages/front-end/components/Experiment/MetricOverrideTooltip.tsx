@@ -5,13 +5,10 @@ import {
   PiPlusBold,
   PiSlidersHorizontal,
 } from "react-icons/pi";
-import {
-  ExperimentMetricDefinition,
-  getMetricLink,
-  isFactMetric,
-} from "shared/experiments";
+import { ExperimentMetricDefinition, getMetricLink } from "shared/experiments";
 import { MetricOverride } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { metricTypeLabel } from "@/services/metrics";
 import {
   describeMetricOverride,
   METRIC_OVERRIDE_COLOR,
@@ -33,13 +30,6 @@ const ICON_STYLE = { verticalAlign: "-2px", marginRight: 4 };
 export interface GroupMemberStatus {
   metric: ExperimentMetricDefinition | null;
   joinable: boolean;
-}
-
-/** "dailyParticipation" → "Daily participation". */
-function metricTypeLabel(metric: ExperimentMetricDefinition): string {
-  const type = isFactMetric(metric) ? metric.metricType : metric.type;
-  const words = type.replace(/([A-Z])/g, " $1").toLowerCase();
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 /**
