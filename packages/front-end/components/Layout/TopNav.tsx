@@ -33,6 +33,7 @@ import {
   showMultiOrgSelfSelector,
   usingSSO,
 } from "@/services/env";
+import { getOrgSwitchRedirectPath } from "@/services/orgSwitchRedirect";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "@/components/Modal";
 import UserAvatar from "@/components/Avatar/UserAvatar";
@@ -348,7 +349,18 @@ const TopNav: FC<{
             <DropdownMenuItem
               key={o.id}
               onClick={() => {
-                if (setOrgId) {
+                if (setOrgId && o.id !== orgId) {
+                  // If the user is on a resource-scoped page (e.g.
+                  // /experiment/[eid]), redirect them to the corresponding
+                  // list view first. Otherwise the page would try to load a
+                  // resource that does not exist in the new org.
+                  const redirectPath = getOrgSwitchRedirectPath(
+                    router.pathname,
+                  );
+                  if (redirectPath) {
+                    router.push(redirectPath);
+                  }
+
                   setOrgId(o.id);
 
                   try {
