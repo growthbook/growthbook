@@ -607,7 +607,7 @@ export const getMetricExperimentResults = async (
     dateUpdated: e.dateUpdated.toISOString(),
     phases: e.phases.map((p) => ({
       ...p,
-      dateStarted: p.dateStarted.toISOString(),
+      dateStarted: p.dateStarted?.toISOString(),
       dateEnded: p.dateEnded?.toISOString(),
     })),
     nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
@@ -707,7 +707,7 @@ export const getMetricNorthstarData = async (
     dateUpdated: e.dateUpdated.toISOString(),
     phases: e.phases.map((p) => ({
       ...p,
-      dateStarted: p.dateStarted.toISOString(),
+      dateStarted: p.dateStarted?.toISOString(),
       dateEnded: p.dateEnded?.toISOString(),
     })),
     nextScheduledStatusUpdate: e.nextScheduledStatusUpdate

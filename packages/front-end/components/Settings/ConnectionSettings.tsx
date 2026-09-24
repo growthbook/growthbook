@@ -1,7 +1,9 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ChangeEventHandler, ReactNode } from "react";
+import { ChangeEventHandler, ReactNode, useState } from "react";
+import { PiCaretRightFill } from "react-icons/pi";
+import Collapsible from "react-collapsible";
 import AthenaForm from "./AthenaForm";
-import BigQueryForm from "./BigQueryForm";
+import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
 import GoogleAnalyticsForm from "./GoogleAnalyticsForm";
 import MixpanelForm from "./MixpanelForm";
@@ -11,6 +13,7 @@ import PrestoForm from "./PrestoForm";
 import SnowflakeForm from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
+import AdobeExperiencePlatformQueryServiceForm from "./AdobeExperiencePlatformQueryServiceForm";
 import SharedConnectionSettings from "./SharedConnectionSettings";
 
 export interface Props {
@@ -30,6 +33,12 @@ export default function ConnectionSettings({
   hasError,
   beforeAdvancedSettings,
 }: Props) {
+  const [advancedOpen, setAdvancedOpen] = useState(
+    !!datasource.settings?.maxConcurrentQueries ||
+      !!datasource.settings?.queryCacheTTLMins ||
+      (datasource.type === "bigquery" && !!datasource.params?.apiEndpoint),
+  );
+
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
     params: { [key: string]: string | boolean },
@@ -190,6 +199,7 @@ export default function ConnectionSettings({
         <BigQueryForm
           existing={storedCredentials}
           datasourceId={storedCredentials ? datasource.id : undefined}
+          projects={datasource.projects}
           setParams={setParams}
           params={datasource?.params || {}}
           onParamChange={onParamChange}
@@ -206,6 +216,15 @@ export default function ConnectionSettings({
         />
       );
       break;
+    case "adobe_experience_platform_query_service":
+      datasourceComponent = (
+        <AdobeExperiencePlatformQueryServiceForm
+          existing={storedCredentials}
+          onParamChange={onParamChange}
+          params={datasource?.params || {}}
+        />
+      );
+      break;
     default:
       invalidType = datasource.type;
       throw `Invalid type: ${invalidType}`;
@@ -214,10 +233,33 @@ export default function ConnectionSettings({
     <>
       {datasourceComponent}
       {beforeAdvancedSettings}
-      <SharedConnectionSettings
-        onSettingChange={onSettingChange}
-        settings={datasource?.settings || {}}
-      />
+      <div className="mb-3">
+        <Collapsible
+          trigger={
+            <div className="link-purple font-weight-bold mb-2">
+              <PiCaretRightFill className="chevron mr-1" />
+              Advanced Settings
+            </div>
+          }
+          open={advancedOpen}
+          onClose={() => setAdvancedOpen(false)}
+          transitionTime={100}
+        >
+          <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+            {datasource.type === "bigquery" && (
+              <BigQueryAdvancedSettings
+                params={datasource.params || {}}
+                onParamChange={onParamChange}
+              />
+            )}
+            <SharedConnectionSettings
+              type={datasource.type}
+              onSettingChange={onSettingChange}
+              settings={datasource?.settings || {}}
+            />
+          </div>
+        </Collapsible>
+      </div>
     </>
   );
 }

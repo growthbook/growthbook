@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "3.1.1"
+    },
+    {
+      "version": "3.1.0",
+      "capabilities": ["contextualBandits"]
+    },
+    {
+      "version": "3.0.0"
+    },
+    {
+      "version": "2.4.0"
+    },
+    {
       "version": "2.3.1"
     },
     {
@@ -14,7 +27,8 @@
       "version": "2.2.1"
     },
     {
-      "version": "2.2.0"
+      "version": "2.2.0",
+      "capabilities": ["trackingPlugin"]
     },
     {
       "version": "2.1.5"

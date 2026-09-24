@@ -1,37 +1,39 @@
 import isEqual from "lodash/isEqual";
+import { ConditionInterface } from "@growthbook/growthbook";
 import {
-  ConditionInterface,
-  ParentConditionInterface,
-} from "@growthbook/growthbook";
-import {
+  ExperimentDependencyIndex,
+  NamespaceValue,
+  ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  buildReverseDependencyIndex,
+  deepMergePatch,
+  ensureConfigBacking,
+  filterEnvironmentsByFeature,
+  getApplicableEnvIds,
+  getFeatureBaseConfigKey,
+  getNamespaceHashAttribute,
+  getNamespaceRanges,
   getRulesForEnvironment,
+  getTargetingProjectIds,
   includeExperimentInPayload,
   isDefined,
   isMultiRangeNamespaceFormat,
   namespacesToMap,
-  recursiveWalk,
-  ruleServedToConnection,
-  ruleProjectScope,
-  ruleFootprint,
-  stemRuleId,
-  getNamespaceRanges,
-  getNamespaceHashAttribute,
-  NamespaceValue,
-  buildReverseDependencyIndex,
-  ReverseDependencyIndex,
-  buildExperimentDependencyIndex,
-  ExperimentDependencyIndex,
   parsePlainJSONObject,
-  getFeatureBaseConfigKey,
-  ensureConfigBacking,
+  recursiveWalk,
+  ruleFootprint,
+  ruleProjectScope,
+  ruleServedToConnection,
+  stemRuleId,
   stripConfigExtends,
-  deepMergePatch,
-  getTargetingProjectIds,
-  filterEnvironmentsByFeature,
 } from "shared/util";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getActiveVariations,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
-import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import { GroupMap } from "shared/types/saved-group";
+import { SavedGroupFormat } from "shared/types/sdk-connection";
 import { cloneDeep, isNil, pick } from "lodash";
 import md5 from "md5";
 import {
@@ -47,12 +49,12 @@ import {
   VariationWeightPair,
 } from "shared/validators";
 import {
-  expandNestedSavedGroups,
   getJSONValue,
   getPayloadAllowedKeys,
-  replaceSavedGroups,
+  getSavedGroupPayloadStrategy,
   resolveConstantRefs,
   ConstantValueMap,
+  SavedGroupPayloadStrategy,
   SDKCapability,
 } from "shared/sdk-versioning";
 import { OrganizationInterface, Environment } from "shared/types/organization";
@@ -71,7 +73,6 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
-import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function pairedWeightsToPositional(
@@ -236,34 +237,34 @@ export function buildPayloadMetadata<
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
-function getSavedGroupCondition(
-  groupId: string,
-  groupMap: GroupMap,
-  include: boolean,
-): null | ConditionInterface {
-  const group = groupMap.get(groupId);
-  if (!group) return null;
-  if (group.type === "condition" && group.condition) {
-    try {
-      const cond = JSON.parse(group.condition);
-      return include ? cond : { $not: cond };
-    } catch (e) {
-      return null;
-    }
-  }
+/**
+ * Merges a rule's `condition` and its `savedGroups` targeting into the one
+ * condition an SDK evaluates. Returns undefined if the rule targets nothing.
+ *
+ * A rule targeting `country = US` and the "Beta users" ID list group:
+ *
+ *   condition:   {"country": "US"}
+ *   savedGroups: [{ match: "all", ids: ["grp_beta"] }]
+ *
+ * becomes
+ *
+ *   {"$and": [{"country": "US"}, {"id": {"$inGroup": "grp_beta"}}]}
+ *
+ * The strategy decides how the group itself is written, not this function.
+ */
+export function mergeConditionAndSavedGroups({
+  savedGroupStrategy,
+  condition,
+  savedGroups,
+}: {
+  // Holds the group map and the format together, so what this builds always
+  // matches the `savedGroups` field the same strategy writes.
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+  condition?: string;
+  savedGroups?: SavedGroupTargeting[];
+}) {
+  const { groupMap } = savedGroupStrategy;
 
-  if (!group.attributeKey) return null;
-
-  return {
-    [group.attributeKey]: { [include ? "$inGroup" : "$notInGroup"]: groupId },
-  };
-}
-
-export function getParsedCondition(
-  groupMap: GroupMap,
-  condition?: string,
-  savedGroups?: SavedGroupTargeting[],
-) {
   const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
     try {
@@ -283,10 +284,11 @@ export function getParsedCondition(
           // Condition groups must be non-empty
           if (!group.condition || group.condition === "{}") return false;
         } else {
-          // Legacy list groups must be non-empty
-          if (!group.useEmptyListGroup && !group.values?.length) return false;
+          const hasValues = group.hasValues ?? group.values?.length;
           // List groups must have defined values
-          if (typeof group.values === "undefined") return false;
+          if (hasValues === undefined) return false;
+          // Legacy list groups must be non-empty
+          if (!group.useEmptyListGroup && !hasValues) return false;
         }
         return true;
       });
@@ -295,7 +297,10 @@ export function getParsedCondition(
       // Add each group as a separate top-level AND
       if (match === "all") {
         groupIds.forEach((groupId) => {
-          const cond = getSavedGroupCondition(groupId, groupMap, true);
+          const cond = savedGroupStrategy.createCondition({
+            groupId,
+            include: true,
+          });
           if (cond) conditions.push(cond);
         });
       }
@@ -303,7 +308,10 @@ export function getParsedCondition(
       else if (match === "any") {
         const ors: ConditionInterface[] = [];
         groupIds.forEach((groupId) => {
-          const cond = getSavedGroupCondition(groupId, groupMap, true);
+          const cond = savedGroupStrategy.createCondition({
+            groupId,
+            include: true,
+          });
           if (cond) ors.push(cond);
         });
 
@@ -319,7 +327,10 @@ export function getParsedCondition(
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
         groupIds.forEach((groupId) => {
-          const cond = getSavedGroupCondition(groupId, groupMap, false);
+          const cond = savedGroupStrategy.createCondition({
+            groupId,
+            include: false,
+          });
           if (cond) conditions.push(cond);
         });
       }
@@ -329,9 +340,9 @@ export function getParsedCondition(
   // No conditions
   if (!conditions.length) return undefined;
 
-  // Expand nested saved groups in conditions
+  // Rewrite any `$savedGroups` operators the stored conditions still hold
   conditions.forEach((cond) => {
-    recursiveWalk(cond, expandNestedSavedGroups(groupMap));
+    recursiveWalk(cond, savedGroupStrategy.createSavedGroupsOperatorHandler());
   });
 
   // Exactly one condition, return it
@@ -592,6 +603,202 @@ export function getSDKPayloadKeysByDiff(
   return getSDKPayloadKeys(environments, projects);
 }
 
+type RefRuleType = "experiment-ref" | "contextual-bandit-ref";
+
+const REF_ID: Record<RefRuleType, (rule: FeatureRule) => string | undefined> = {
+  "experiment-ref": (r) =>
+    r?.type === "experiment-ref" ? r.experimentId : undefined,
+  "contextual-bandit-ref": (r) =>
+    r?.type === "contextual-bandit-ref" ? r.contextualBanditId : undefined,
+};
+
+export function getReferenceIdsInRules(
+  rules: FeatureRule[] | undefined,
+  type: RefRuleType,
+  { skipDisabled = false }: { skipDisabled?: boolean } = {},
+): string[] {
+  const ids = new Set<string>();
+  (rules ?? []).forEach((rule) => {
+    if (skipDisabled && rule?.enabled === false) return;
+    const id = REF_ID[type](rule);
+    if (id) ids.add(id);
+  });
+  return [...ids];
+}
+
+// Disabled rules never render, so what they reference is not needed.
+export function getReferenceIdsInFeatures(
+  features: FeatureInterface[],
+  type: RefRuleType,
+): string[] {
+  return [
+    ...new Set(
+      features.flatMap((f) =>
+        getReferenceIdsInRules(f.rules, type, { skipDisabled: true }),
+      ),
+    ),
+  ];
+}
+
+// An experiment a delivered feature references belongs in that feature's payload
+// even when the experiment itself lives in another project.
+export function experimentMapForFeatures(
+  experimentMap: Map<string, ExperimentInterface>,
+  features: FeatureInterface[],
+  projects: string[],
+): Map<string, ExperimentInterface> {
+  if (!projects.length) return experimentMap;
+  const referenced = new Set(
+    getReferenceIdsInFeatures(features, "experiment-ref"),
+  );
+  return new Map(
+    [...experimentMap.entries()].filter(
+      ([id, exp]) => projects.includes(exp.project || "") || referenced.has(id),
+    ),
+  );
+}
+
+// Gates live in three places — the feature, its rules, and the phases of any
+// experiment those rules reference — and all three become `parentConditions`.
+export function getPrerequisiteIdsInFeatures(
+  features: FeatureInterface[],
+  experimentMap?: Map<string, ExperimentInterface>,
+): string[] {
+  const ids = new Set<string>();
+
+  features.forEach((feature) => {
+    (feature.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
+
+    (feature.rules ?? []).forEach((rule) => {
+      if (!rule || typeof rule !== "object") return;
+      if (rule.enabled === false) return;
+
+      (rule.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
+
+      if (!experimentMap || rule.type !== "experiment-ref") return;
+      const phase = experimentMap
+        .get(rule.experimentId)
+        ?.phases?.slice(-1)?.[0];
+      (phase?.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
+    });
+  });
+
+  return [...ids];
+}
+
+// A gate whose parent is absent from the payload can never pass, so a delivered
+// feature's prerequisites travel with it even when they target other projects.
+export function featuresWithPrerequisiteClosure(
+  features: FeatureInterface[],
+  featuresMap: Map<string, FeatureInterface>,
+  experimentMap?: Map<string, ExperimentInterface>,
+): { features: FeatureInterface[]; carried: Set<string> } {
+  const carried = new Set<string>();
+  const present = new Set(features.map((f) => f.id));
+
+  let frontier = features;
+  while (frontier.length) {
+    const next: FeatureInterface[] = [];
+    for (const id of getPrerequisiteIdsInFeatures(frontier, experimentMap)) {
+      if (present.has(id)) continue;
+      const parent = featuresMap.get(id);
+      if (!parent) continue;
+      present.add(id);
+      carried.add(id);
+      next.push(parent);
+    }
+    frontier = next;
+  }
+
+  return {
+    features: carried.size
+      ? [...features, ...[...carried].map((id) => featuresMap.get(id)!)]
+      : features,
+    carried,
+  };
+}
+
+// Closure delivers a parent into payloads its own projects don't name, so a
+// change to it produces keys that miss them. Maps a project to the projects
+// whose payloads may carry a feature from it, so keys can be widened without
+// knowing which feature changed.
+export function buildPrerequisiteProjectReach(
+  features: FeatureInterface[],
+  allProjectIds: string[] = [],
+  experimentMap?: Map<string, ExperimentInterface>,
+): Map<string, Set<string>> {
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+  const reach = new Map<string, Set<string>>();
+
+  const link = (from: string, to: string) => {
+    if (!from || !to || from === to) return;
+    const set = reach.get(from) ?? new Set<string>();
+    set.add(to);
+    reach.set(from, set);
+  };
+
+  for (const dependent of features) {
+    // An all-projects dependent carries its prerequisites everywhere. The ""
+    // key doesn't cover that — it only reaches connections with no project
+    // filter unless treatEmptyProjectAsGlobal.
+    const dependentProjects =
+      getTargetingProjectIds(dependent) ?? allProjectIds;
+
+    for (const parentId of getPrerequisiteIdsInFeatures(
+      [dependent],
+      experimentMap,
+    )) {
+      const parent = featuresMap.get(parentId);
+      if (!parent) continue;
+      const parentProjects = getTargetingProjectIds(parent);
+      if (parentProjects === null) continue;
+      parentProjects.forEach((from) =>
+        dependentProjects.forEach((to) => link(from, to)),
+      );
+    }
+  }
+
+  // A grandparent reaches wherever its parent reaches.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [from, tos] of reach) {
+      for (const to of [...tos]) {
+        for (const onward of reach.get(to) ?? []) {
+          if (onward !== from && !tos.has(onward)) {
+            tos.add(onward);
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  return reach;
+}
+
+export function expandPayloadKeysForPrerequisites(
+  payloadKeys: SDKPayloadKey[],
+  reach: Map<string, Set<string>>,
+): SDKPayloadKey[] {
+  if (!reach.size) return payloadKeys;
+
+  const out = [...payloadKeys];
+  const seen = new Set(payloadKeys.map((k) => JSON.stringify(k)));
+
+  payloadKeys.forEach(({ environment, project }) => {
+    (reach.get(project) ?? []).forEach((p) => {
+      const key = { environment, project: p };
+      const s = JSON.stringify(key);
+      if (seen.has(s)) return;
+      seen.add(s);
+      out.push(key);
+    });
+  });
+
+  return out;
+}
+
 export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
   allowedEnvs: string[],
@@ -706,9 +913,9 @@ export function getFeatureDefinition({
   safeRolloutMap,
   holdoutsMap,
   capabilities,
-  savedGroupReferencesEnabled,
+  savedGroupFormat,
   organization,
-  savedGroupsMap,
+  savedGroupStrategy: providedSavedGroupStrategy,
   includeRuleIds,
   includeExperimentNames,
   includeDraftExperimentRefs,
@@ -733,9 +940,10 @@ export function getFeatureDefinition({
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
   capabilities?: SDKCapability[];
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupFormat?: SavedGroupFormat;
   organization?: OrganizationInterface;
-  savedGroupsMap?: Record<string, SavedGroupInterface>;
+  // Built once per payload build; omit on paths that have no SDK connection.
+  savedGroupStrategy?: SavedGroupPayloadStrategy;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   includeDraftExperimentRefs?: boolean;
@@ -900,11 +1108,17 @@ export function getFeatureDefinition({
   // undefined = all capabilities; compute build-time constraints when capabilities is set
   const hasPrerequisites =
     capabilities === undefined || capabilities.includes("prerequisites");
-  const shouldExpandSavedGroups =
-    capabilities !== undefined &&
-    !!savedGroupsMap &&
-    (savedGroupReferencesEnabled === false ||
-      !capabilities.includes("savedGroupReferences"));
+  // The payload build passes a strategy in. Callers with no connection, like
+  // previews and the in-app evaluators, get one built here.
+  const savedGroupStrategy =
+    providedSavedGroupStrategy ??
+    getSavedGroupPayloadStrategy({
+      capabilities,
+      savedGroupFormat,
+      groupMap,
+      organization,
+    });
+
   // looseUnmarshalling => no capability-based strip. Connection settings still gate rule id, names, etc.
   const allowedKeys =
     capabilities !== undefined && !capabilities.includes("looseUnmarshalling")
@@ -957,8 +1171,14 @@ export function getFeatureDefinition({
   const prerequisiteRules = hasPrerequisites
     ? (feature.prerequisites ?? [])
         ?.map((p) => {
-          const condition = getParsedCondition(groupMap, p.condition);
+          const condition = mergeConditionAndSavedGroups({
+            savedGroupStrategy,
+            condition: p.condition,
+          });
           if (!condition) return null;
+          // These rules are built outside the map below, so they miss its
+          // finalize pass and have to run their own.
+          savedGroupStrategy.finalizeCondition(condition);
           return {
             parentConditions: [
               {
@@ -996,9 +1216,14 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          if (!includeExperimentInPayload(exp)) return null;
-
           if (exp.status === "draft" && !includeDraftExperimentRefs)
+            return null;
+
+          if (
+            !includeExperimentInPayload(exp, [], {
+              includeDrafts: includeDraftExperimentRefs,
+            })
+          )
             return null;
 
           // Get current experiment phase and use it to set rule properties
@@ -1006,11 +1231,11 @@ export function getFeatureDefinition({
           if (!phase) return null;
           if (!hasPrerequisites && phase?.prerequisites?.length) return null;
 
-          const condition = getParsedCondition(
-            groupMap,
-            phase.condition,
-            phase.savedGroups,
-          );
+          const condition = mergeConditionAndSavedGroups({
+            savedGroupStrategy,
+            condition: phase.condition,
+            savedGroups: phase.savedGroups,
+          });
           if (condition) {
             rule.condition = condition;
           }
@@ -1018,17 +1243,14 @@ export function getFeatureDefinition({
           if (phase?.prerequisites?.length) {
             rule.parentConditions = phase.prerequisites
               .map((prerequisite) => {
-                try {
-                  return {
-                    id: prerequisite.id,
-                    condition: JSON.parse(prerequisite.condition),
-                  };
-                } catch (e) {
-                  // do nothing
-                }
-                return null;
+                const condition = mergeConditionAndSavedGroups({
+                  savedGroupStrategy,
+                  condition: prerequisite.condition,
+                });
+                if (!condition) return null;
+                return { id: prerequisite.id, condition };
               })
-              .filter(Boolean) as ParentConditionInterface[];
+              .filter(isDefined);
           }
 
           rule.coverage = phase.coverage;
@@ -1099,18 +1321,10 @@ export function getFeatureDefinition({
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
           }
-          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-            if (rule.condition)
-              recursiveWalk(
-                rule.condition,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-            if (rule.parentConditions)
-              recursiveWalk(
-                rule.parentConditions,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-          }
+          if (rule.condition)
+            savedGroupStrategy.finalizeCondition(rule.condition);
+          if (rule.parentConditions)
+            savedGroupStrategy.finalizeCondition(rule.parentConditions);
           if (metadataOptions) {
             const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1152,7 +1366,10 @@ export function getFeatureDefinition({
 
           if (cb.status === "draft") return null;
 
-          const phaseCondition = getParsedCondition(groupMap, cb.condition);
+          const phaseCondition = mergeConditionAndSavedGroups({
+            savedGroupStrategy,
+            condition: cb.condition,
+          });
           if (phaseCondition) {
             rule.condition = phaseCondition;
           }
@@ -1162,9 +1379,7 @@ export function getFeatureDefinition({
           if (cb.hashAttribute) {
             rule.hashAttribute = cb.hashAttribute;
           }
-          if (cb.seed) {
-            rule.seed = cb.seed;
-          }
+          rule.seed = cb.seed;
           rule.hashVersion = 2;
           // contextual bandits do not currently use sticky bucketing
           rule.disableStickyBucketing = true;
@@ -1173,12 +1388,19 @@ export function getFeatureDefinition({
             return null;
           }
 
+          // MUST match filterUsedContextualBandits so leaf-weight positions align.
+          const cbActiveVariations = getActiveVariations(cb.variations);
+          // No active arms left: drop the rule instead of serving an empty experiment.
+          if (cbActiveVariations.length === 0) {
+            return null;
+          }
+
           // Store variations under `contextualVariations` (a CB-capability
           // gated key) rather than `variations`. Older SDKs drop this key and,
           // finding no `variations`, skip the rule instead of bucketing users
           // into a plain experiment split. CB-capable SDKs read it back into
           // the experiment during evaluation.
-          rule.contextualVariations = cb.variations.map((v) => {
+          rule.contextualVariations = cbActiveVariations.map((v) => {
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
             );
@@ -1193,7 +1415,7 @@ export function getFeatureDefinition({
               : null;
           });
           rule.weights = cb.variationWeights
-            ? pairedWeightsToPositional(cb.variationWeights, cb.variations)
+            ? pairedWeightsToPositional(cb.variationWeights, cbActiveVariations)
             : undefined;
 
           const cbCapable =
@@ -1206,18 +1428,13 @@ export function getFeatureDefinition({
 
           rule.key = cb.trackingKey;
           rule.meta = includeExperimentNames
-            ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
-            : cb.variations.map((v) => ({ key: v.key }));
+            ? cbActiveVariations.map((v) => ({ key: v.key, name: v.name }))
+            : cbActiveVariations.map((v) => ({ key: v.key }));
           rule.phase = "0";
           if (includeExperimentNames) rule.name = cb.name;
 
-          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-            if (rule.condition)
-              recursiveWalk(
-                rule.condition,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-          }
+          if (rule.condition)
+            savedGroupStrategy.finalizeCondition(rule.condition);
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1250,18 +1467,21 @@ export function getFeatureDefinition({
           return rule;
         }
 
-        const condition = getParsedCondition(
-          groupMap,
-          r.condition,
-          r.savedGroups,
-        );
+        const condition = mergeConditionAndSavedGroups({
+          savedGroupStrategy,
+          condition: r.condition,
+          savedGroups: r.savedGroups,
+        });
         if (condition) {
           rule.condition = condition;
         }
 
         const prerequisites = (r?.prerequisites ?? [])
           ?.map((p) => {
-            const condition = getParsedCondition(groupMap, p.condition);
+            const condition = mergeConditionAndSavedGroups({
+              savedGroupStrategy,
+              condition: p.condition,
+            });
             if (!condition) return null;
             return {
               id: p.id,
@@ -1459,18 +1679,10 @@ export function getFeatureDefinition({
             }
           }
         }
-        if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-          if (rule.condition)
-            recursiveWalk(
-              rule.condition,
-              replaceSavedGroups(savedGroupsMap, organization!),
-            );
-          if (rule.parentConditions)
-            recursiveWalk(
-              rule.parentConditions,
-              replaceSavedGroups(savedGroupsMap, organization!),
-            );
-        }
+        if (rule.condition)
+          savedGroupStrategy.finalizeCondition(rule.condition);
+        if (rule.parentConditions)
+          savedGroupStrategy.finalizeCondition(rule.parentConditions);
         if (metadataOptions) {
           applyRuleProjectMetadata(
             rule,

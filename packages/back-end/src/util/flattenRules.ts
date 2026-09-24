@@ -1,13 +1,16 @@
 // `resolveRampTargets` moved to `shared/util` so the Publish control resolves ramp
 // targets the same way the gate and the executor do; re-exported here because every
 // caller looks for it in this module.
-export { resolveRampTargets } from "shared/util";
+export { resolveRampTargets, ruleFootprint } from "shared/util";
 export type { RampTargetQuery } from "shared/util";
 
-import { resolveRampTargets, type RampTargetQuery } from "shared/util";
+import {
+  resolveRampTargets,
+  ruleFootprint,
+  type RampTargetQuery,
+} from "shared/util";
 import isEqual from "lodash/isEqual";
 import { FeatureRule, V1FeatureRule } from "shared/validators";
-import { Environment } from "shared/types/organization";
 import { parseRuleId, stemRuleId, suffixRuleId } from "shared/util";
 
 // Re-exported for back-end callers; new code should import from shared/validators.
@@ -90,51 +93,6 @@ export function ensureUniqueRuleIds(
   }
 
   return { rules: out, collisions };
-}
-
-export function getApplicableEnvIds(
-  orgEnvs: Environment[],
-  // A single project id (legacy) or a feature's targeting scope; applicability is
-  // the union of primary + targeting projects (all envs when targeting all projects).
-  feature?:
-    | string
-    | {
-        project?: string;
-        targetingProjects?: string[];
-        targetingAllProjects?: boolean;
-      },
-): string[] {
-  const scope =
-    typeof feature === "string" || feature == null
-      ? { project: feature ?? undefined }
-      : feature;
-  if (scope.targetingAllProjects) return orgEnvs.map((env) => env.id);
-  const projects = [scope.project, ...(scope.targetingProjects ?? [])].filter(
-    (p): p is string => !!p,
-  );
-  return orgEnvs
-    .filter((env) => {
-      if (!projects.length) return true;
-      if (!env.projects?.length) return true;
-      return projects.some((p) => env.projects?.includes(p));
-    })
-    .map((env) => env.id);
-}
-
-// Footprint of a v2 rule, intersected with `applicableEnvs`. Must stay in sync
-// with shared `ruleAppliesToEnv`.
-//   allEnvironments:true            → every applicable env
-//   environments:[list]             → list ∩ applicable
-//   environments:[]                 → [] (pending)
-//   neither field declared (legacy) → every applicable env
-export function ruleFootprint(
-  rule: FeatureRule,
-  applicableEnvs: string[],
-): string[] {
-  if (rule.allEnvironments) return applicableEnvs;
-  if (rule.environments === undefined) return applicableEnvs;
-  const applicableSet = new Set(applicableEnvs);
-  return rule.environments.filter((e) => applicableSet.has(e));
 }
 
 // Tolerate sparse/legacy storage. `rules` is Mongoose `Mixed`, and pre-v2 docs

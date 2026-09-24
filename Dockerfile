@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
 #
 # ============================================================================
 # GrowthBook on Docker Hardened Images (DHI)
@@ -12,6 +12,11 @@
 # Pinned to debian-12 (bookworm) to match the glibc of node:24-slim, keeping the
 # gbstats venv and the kerberos native addon ABI-compatible. Do NOT move to
 # debian-13 without re-validating both.
+#
+# Building this file requires `docker login dhi.io` — that registry rejects
+# unauthenticated requests (even metadata reads) with a 401 that doesn't name
+# DHI. Any free Docker account works; see docs.growthbook.io/self-host#building-from-source.
+# Pulling the published growthbook/growthbook image needs no credentials.
 # ============================================================================
 
 ARG PYTHON_MAJOR=3.11
@@ -110,30 +115,25 @@ COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 # Install dependencies using cached store
 RUN pnpm install --frozen-lockfile --offline
-RUN pnpm postinstall
+
+# Compile kerberos from source (its prebuilt binary crashes at require time on
+# the distroless runtime); before COPY packages so the layer caches per-lockfile.
+RUN pnpm rebuild kerberos
+
 COPY packages ./packages
+COPY skills-src ./skills-src
+# Prod-only tree in place: install --prod re-links the workspace projects (CI=true
+# auto-confirms the no-TTY purge; .pnpm is kept), prune then drops dev deps from
+# .pnpm. prune alone empties the workspace projects' node_modules (pnpm 10).
 RUN \
   pnpm build \
   && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
-  && rm -rf node_modules \
-  && rm -rf packages/back-end/node_modules \
-  && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \
-  && rm -rf packages/shared/node_modules \
-  && rm -rf packages/stats-ts/node_modules \
-  && rm -rf packages/sdk-js/node_modules \
-  && rm -rf packages/sdk-react/node_modules \
-  && pnpm install --frozen-lockfile --prod --no-optional \
-  && pnpm store prune \
-  && find node_modules -type f -name "*.md" -delete \
-  && find node_modules -type f -name "*.ts" ! -name "*.d.ts" -delete \
-  && find node_modules -type f -name "*.map" -delete \
-  && find node_modules -type f -name "CHANGELOG*" -delete \
-  && find node_modules -type f -name "LICENSE*" -delete \
-  && find node_modules -type f -name "README*" -delete \
+  && CI=true pnpm install --frozen-lockfile --offline --prod --no-optional \
+  && CI=true pnpm prune --prod --no-optional \
+  && find node_modules \( -name "*.md" -o -name "*.map" -o -name "CHANGELOG*" -o -name "LICENSE*" -o -name "README*" -o \( -name "*.ts" ! -name "*.d.ts" \) \) -type f -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
   && rm -f packages/stats/poetry.lock
-RUN pnpm postinstall
 
 # Drop front-end TS source + tsconfig so `next start` never tries to enable
 # TypeScript at runtime. The stock image did this in a final-stage RUN; the
@@ -142,29 +142,23 @@ RUN rm -f packages/front-end/tsconfig.json && \
     find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
     find packages/front-end -maxdepth 1 -name "*.tsx" -delete
 
-# Force kerberos to compile from source. Its prebuilt binary is selected by
-# node-gyp-build's runtime libc detection, which fails on the distroless runtime
-# (no ldd, sparse /etc) and crashes at require time; a from-source
-# build/Release/kerberos.node is resolved by path, no detection needed.
-RUN pnpm rebuild kerberos && \
-    find node_modules/.pnpm -path '*/kerberos/build/Release/kerberos.node' -type f | grep -q . \
-      || (echo "ERROR: kerberos.node was not produced by the source build" && exit 1)
+# Assert the from-source kerberos.node survived the prod re-link and prune.
+RUN find node_modules/.pnpm -path '*/kerberos/build/Release/kerberos.node' -type f | grep -q . \
+  || (echo "ERROR: kerberos.node missing from the prod node_modules tree" && exit 1)
 
-# Assert the pm2-runtime entrypoint (the CMD and chart command) exists before this
-# node_modules tree is copied into the shell-less final image. Replaces the deleted
-# final-stage guard for the node-side artifacts.
-RUN test -f node_modules/pm2/bin/pm2-runtime \
-  || (echo "ERROR: pm2/bin/pm2-runtime missing from node_modules" && exit 1)
-
-# Repoint the node_modules/.bin/pm2-runtime shim (a #!/bin/sh script that can't exec
-# in the shell-less runtime) at pm2's real #!/usr/bin/env node entry. This keeps the
-# PREVIOUS launch command — `node_modules/.bin/pm2-runtime …`, still baked into any
-# already-published Helm chart and into ECS task defs that pin it — working on this
-# image. Without it, an old chart (or a deploy pinning a floating image tag) crashes
-# on boot; with it, it boots and serves (degraded only where the old config lacks
-# fsGroup/writable mounts). The current chart/CMD invoke pm2 via `node …` directly
-# and don't depend on this shim.
-RUN ln -sf ../pm2/bin/pm2-runtime node_modules/.bin/pm2-runtime
+# pm2-runtime compatibility shims. Both paths are baked into already-published Helm
+# charts and into ECS task defs that pin them, so an old config deploying a new image
+# must still boot. Each is a plain-Node file (not the #!/bin/sh shim pm2 installed,
+# which can't exec in the shell-less runtime) that re-executes our supervisor; it
+# accepts the same `start ecosystem.config.js [--only <app>]` argv. The current
+# chart/CMD call scripts/run-apps.js directly and don't depend on these.
+RUN mkdir -p node_modules/pm2/bin node_modules/.bin && \
+    printf '#!/usr/bin/env node\nrequire("../../../scripts/run-apps.js");\n' \
+      > node_modules/pm2/bin/pm2-runtime && \
+    chmod +x node_modules/pm2/bin/pm2-runtime && \
+    printf '#!/usr/bin/env node\nrequire("../../scripts/run-apps.js");\n' \
+      > node_modules/.bin/pm2-runtime && \
+    chmod +x node_modules/.bin/pm2-runtime
 
 # Stage an empty uploads dir OUTSIDE the packages tree so the broad `COPY packages`
 # in the final stage doesn't create (root-owned) uploads first; the final stage then
@@ -225,13 +219,11 @@ ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:/opt/python/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin"
 ENV LD_LIBRARY_PATH="/opt/python/lib:/opt/pydeps:/opt/krb5deps:/usr/lib/x86_64-linux-gnu:/usr/lib/aarch64-linux-gnu"
 # Read-only-rootfs friendly defaults: don't write venv .pyc into the read-only
-# /opt/venv, skip Next's telemetry write, and point PM2_HOME at /tmp (pm2 writes
-# its pid/socket/log files there; the default $HOME/.pm2 isn't writable under a
-# read-only rootfs). The remaining writable paths (/tmp, uploads) are declared
-# as mounts by the deployer (emptyDir or PVC in k8s — see the chart).
+# /opt/venv, and skip Next's telemetry write. The remaining writable paths
+# (/tmp, uploads) are declared as mounts by the deployer (emptyDir or PVC in
+# k8s — see the chart). The supervisor itself writes nothing to disk.
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PM2_HOME=/tmp/.pm2
 
 # App code from the node build stage.
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
@@ -245,9 +237,10 @@ COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
 # the previous root image still need a one-time chown to 1000.
 COPY --from=nodebuild --chown=1000:1000 /uploads ./packages/back-end/uploads
 
-# pm2 process config (the CMD below runs it). bin/yarn is omitted: it's a bash
-# shim that can't run in a shell-less runtime, and the CMD invokes pm2 directly.
+# Process config and the supervisor that runs it (see the CMD below). bin/yarn is
+# omitted: it's a bash shim that can't run in a shell-less runtime.
 COPY ecosystem.config.js ./ecosystem.config.js
+COPY scripts/run-apps.js ./scripts/run-apps.js
 COPY buildinfo* ./buildinfo
 
 # Build metadata.
@@ -260,8 +253,6 @@ ENV DD_GIT_COMMIT_SHA=$DD_GIT_COMMIT_SHA \
 
 EXPOSE 3000
 EXPOSE 3100
-# Launch pm2-runtime via node directly: the node_modules/.bin/pm2-runtime shim is
-# a `#!/bin/sh` script that can't exec in a shell-less runtime, but pm2's real
-# entry is plain Node. pm2's only shell-out (pidusage's `getconf` for CPU metrics)
-# fails gracefully to a default, so it's not fatal here.
-CMD ["/usr/local/bin/node", "node_modules/pm2/bin/pm2-runtime", "start", "ecosystem.config.js"]
+# Launch the supervisor via node directly — the runtime has no shell to resolve a
+# shebang. It shells out for nothing, so it runs as-is on the distroless image.
+CMD ["/usr/local/bin/node", "scripts/run-apps.js", "start", "ecosystem.config.js"]

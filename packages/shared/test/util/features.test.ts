@@ -7,6 +7,10 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
+  rampPlanLacksHashAttribute,
+  rampPlanControlledFields,
+  getDefaultHashAttribute,
+  stringifyFeatureValue,
   validateFeatureValue,
   assertSchemaMatchesValueType,
   getValidation,
@@ -15,6 +19,7 @@ import {
   getLiveChangesSinceBase,
   evaluatePublishGovernance,
   isScheduledPublishPending,
+  pendingScheduleWarning,
   isScheduledPublishDue,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
@@ -29,7 +34,6 @@ import {
   rampControlFootprint,
   getEnvsFromRampSchedule,
   liveRevisionFromFeature,
-  resetReviewOnChange,
   simpleToJSONSchema,
   inferSchemaField,
   inferSchemaFields,
@@ -52,8 +56,11 @@ import {
   stripDefaultsForSparse,
   expandSparseToFull,
   draftHasChangesOutsideTargetRef,
+  evaluatePrerequisiteState,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
+
+const toEnvs = (ids: string[]) => ids.map((id) => ({ id, description: "" }));
 
 const feature: FeatureInterface = {
   dateCreated: new Date("2020-04-20"),
@@ -1052,6 +1059,85 @@ describe("scheduled / deferred publish helpers", () => {
     ...over,
   });
 
+  describe("rampPlanControlledFields", () => {
+    it("maps each field a step or the end state sets on the target to where it is first set", () => {
+      const plan = {
+        steps: [
+          {
+            actions: [
+              { targetId: "t1", patch: { ruleId: "r1", coverage: 0.25 } },
+              { targetId: "t2", patch: { ruleId: "r2", condition: "{}" } },
+            ],
+          },
+          {
+            actions: [
+              {
+                targetId: "t1",
+                patch: { ruleId: "r1", coverage: 0.5, force: "b" },
+              },
+            ],
+          },
+        ],
+        endActions: [
+          {
+            targetId: "t1",
+            patch: { ruleId: "r1", coverage: 1, savedGroups: [] },
+          },
+        ],
+      };
+      expect([...rampPlanControlledFields(plan, "t1")]).toEqual([
+        ["coverage", "step 1"],
+        ["value", "step 2"],
+        ["savedGroups", "end state"],
+      ]);
+      expect([...rampPlanControlledFields(plan, "t3")]).toEqual([]);
+    });
+  });
+
+  describe("rampPlanLacksHashAttribute", () => {
+    it("is true when a patch for the rule sets partial coverage and none names a hash attribute", () => {
+      const plan = (patches: Record<string, unknown>[]) => ({
+        steps: patches.map((patch) => ({ actions: [{ patch }] })),
+      });
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 0.5 }]), "r1")).toBe(
+        true,
+      );
+      expect(
+        rampPlanLacksHashAttribute(
+          {
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            ...plan([{ coverage: 0.5 }]),
+          },
+          "r1",
+        ),
+      ).toBe(false);
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 1 }]), "r1")).toBe(
+        false,
+      );
+      expect(
+        rampPlanLacksHashAttribute(
+          plan([{ ruleId: "r2", coverage: 0.5 }]),
+          "r1",
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("getDefaultHashAttribute", () => {
+    it("prefers a marked id, then the first marked attribute, then id", () => {
+      const attr = (property: string, hashAttribute?: boolean) =>
+        ({ property, datatype: "string", hashAttribute }) as never;
+      expect(
+        getDefaultHashAttribute([attr("device", true), attr("id", true)]),
+      ).toBe("id");
+      expect(getDefaultHashAttribute([attr("device", true), attr("id")])).toBe(
+        "device",
+      );
+      expect(getDefaultHashAttribute([attr("id")])).toBe("id");
+      expect(getDefaultHashAttribute(undefined)).toBe("id");
+    });
+  });
+
   describe("isScheduledPublishPending", () => {
     it("true for an armed, dated, active draft", () => {
       expect(isScheduledPublishPending(rev())).toBe(true);
@@ -1065,6 +1151,15 @@ describe("scheduled / deferred publish helpers", () => {
       expect(isScheduledPublishPending(rev({ scheduledPublishAt: null }))).toBe(
         false,
       );
+    });
+    it("warns about a pending schedule, naming its date", () => {
+      expect(pendingScheduleWarning(rev())).toMatch(
+        new RegExp(`scheduled to publish on ${future.toUTCString()}`),
+      );
+      expect(pendingScheduleWarning(rev({ status: "published" }))).toBeNull();
+      expect(
+        pendingScheduleWarning(rev({ autoPublishOnApproval: false })),
+      ).toBeNull();
     });
     it("false once published or discarded", () => {
       expect(isScheduledPublishPending(rev({ status: "published" }))).toBe(
@@ -2070,20 +2165,35 @@ describe("validateJSONFeatureValue", () => {
   });
 });
 
+describe("stringifyFeatureValue", () => {
+  it("leaves strings alone and JSON-encodes everything else", () => {
+    expect(stringifyFeatureValue('{"limit": 5}')).toBe('{"limit": 5}');
+    expect(stringifyFeatureValue(false)).toBe("false");
+    expect(stringifyFeatureValue(10)).toBe("10");
+    expect(stringifyFeatureValue(null)).toBe("null");
+    expect(stringifyFeatureValue({ limit: 5 })).toBe('{"limit":5}');
+  });
+});
+
 describe("validateFeatureValue", () => {
   beforeAll(() => {
     feature.valueType = "boolean";
   });
   describe("boolean values", () => {
-    it('returns "true" if value is truthy', () => {
+    it('returns "true" and "false" unchanged', () => {
       expect(validateFeatureValue(feature, "true", "testVal")).toEqual("true");
-      expect(validateFeatureValue(feature, "0", "testVal")).toEqual("true");
-    });
-    it('returns "false" if value is "false"', () => {
       expect(validateFeatureValue(feature, "false", "testVal")).toEqual(
         "false",
       );
     });
+    it.each(["False", "TRUE", "0", "1", "", "yes"])(
+      "throws for a non-canonical boolean string %j",
+      (value) => {
+        expect(() => validateFeatureValue(feature, value, "testVal")).toThrow(
+          'testVal: Must be "true" or "false"',
+        );
+      },
+    );
   });
 
   describe("number values", () => {
@@ -2797,7 +2907,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2818,7 +2928,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -2852,7 +2962,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2885,7 +2995,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -2951,7 +3061,7 @@ describe("check revision needs review", () => {
         feature: newFeature,
         baseRevision: filledLive,
         revision: effectiveRevision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toEqual(false);
@@ -2965,7 +3075,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2975,7 +3085,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -3000,7 +3110,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -3010,7 +3120,7 @@ describe("check revision needs review", () => {
         feature: { ...feature, targetingAllProjects: true },
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -3020,167 +3130,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision: { ...revision, metadata: { targetingAllProjects: true } },
-        allEnvironments: ["prod", "dev", "staging"],
-        settings,
-      }),
-    ).toEqual(true);
-  });
-});
-
-describe("reset review on change", () => {
-  it("require reset with single rule", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: ["prod"],
-          projects: [],
-        },
-      ],
-    };
-    const settingsOff: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: false,
-          environments: ["prod"],
-          projects: [],
-        },
-      ],
-    };
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(true);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-  });
-
-  it("require reset with multiple rules", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: ["prod"],
-          projects: [],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    const settingsOff: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: false,
-          environments: ["prod"],
-          projects: [],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(true);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-  });
-  it("turn off for first project", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: false,
-          resetReviewOnChange: false,
-          environments: [],
-          projects: ["a"],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    feature.project = "a";
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["env"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    feature.project = "b";
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -3382,6 +3332,15 @@ describe("ruleFootprint", () => {
       allEnvironments: false,
       environments: [],
     } as FeatureRule;
+    expect(ruleFootprint(rule, applicable)).toEqual([]);
+  });
+
+  it("a stored null list applies nowhere rather than throwing", () => {
+    const rule = {
+      ...baseRule,
+      allEnvironments: false,
+      environments: null,
+    } as unknown as FeatureRule;
     expect(ruleFootprint(rule, applicable)).toEqual([]);
   });
 
@@ -4169,7 +4128,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -4202,7 +4161,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(false);
@@ -4259,7 +4218,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -4306,7 +4265,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftRemovesProd,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
         liveRampScheduleEnvs,
       }),
@@ -4353,7 +4312,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftRemovesProd,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
         // no liveRampScheduleEnvs
       }),
@@ -4386,7 +4345,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftDetach,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -4398,7 +4357,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: { ...baseRev },
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: noReviewSettings,
       }),
     ).toBe(false);
@@ -4650,6 +4609,88 @@ describe("sparse JSON rule helpers", () => {
         JSON.parse(full),
       );
     });
+  });
+});
+
+describe("evaluatePrerequisiteState", () => {
+  const makeFeature = (
+    id: string,
+    prerequisites: string[] = [],
+    overrides: Partial<FeatureInterface> = {},
+  ): FeatureInterface => ({
+    ...feature,
+    id,
+    environmentSettings: { production: { enabled: true } },
+    rules: [],
+    prerequisites: prerequisites.map((id) => ({
+      id,
+      condition: '{"value": true}',
+    })),
+    ...overrides,
+  });
+
+  const evaluate = (features: FeatureInterface[]) =>
+    evaluatePrerequisiteState(
+      features[0],
+      new Map(features.map((f) => [f.id, f])),
+      "production",
+      false,
+      true,
+    );
+
+  it("allows a prerequisite shared by separate branches", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["b", "c"]),
+        makeFeature("b", ["d"]),
+        makeFeature("c", ["d"]),
+        makeFeature("d"),
+      ]),
+    ).toEqual({ state: "deterministic", value: true });
+  });
+
+  it("allows repeated references to the same prerequisite", () => {
+    expect(evaluate([makeFeature("a", ["b", "b"]), makeFeature("b")])).toEqual({
+      state: "deterministic",
+      value: true,
+    });
+  });
+
+  it("propagates a cycle to a feature outside the cycle", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["b"]),
+        makeFeature("b", ["c"]),
+        makeFeature("c", ["b"]),
+      ]),
+    ).toEqual({ state: "cyclic", value: null });
+  });
+
+  it("stops at a disabled prerequisite before following its cycle", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["b"]),
+        makeFeature("b", ["a"], {
+          environmentSettings: { production: { enabled: false } },
+        }),
+      ]),
+    ).toEqual({ state: "deterministic", value: null });
+  });
+
+  it("stops at a missing prerequisite before following a later cycle", () => {
+    expect(
+      evaluate([makeFeature("a", ["missing", "b"]), makeFeature("b", ["a"])]),
+    ).toEqual({ state: "deterministic", value: null });
+  });
+
+  it("stops at a failed condition before following a later cycle", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["off", "b"]),
+        makeFeature("off", [], { defaultValue: "false" }),
+        makeFeature("b", ["a"]),
+      ]),
+    ).toEqual({ state: "deterministic", value: null });
   });
 });
 

@@ -1,9 +1,12 @@
 // Specific files, not the package barrels: this module is imported by both apps
 // and a barrel round-trip risks a runtime cycle.
 import { isEqual } from "lodash";
-import type { RevisionRampAction } from "shared/validators";
+import type {
+  RampScheduleInterface,
+  RevisionRampAction,
+} from "shared/validators";
 import type { FeatureRule } from "shared/types/feature";
-import { resolveRampTargets } from "../util/ruleId";
+import { rampTargetsDetachedBy, resolveRampTargets } from "../util/ruleId";
 import { getRulesForEnvironment } from "../util/index";
 import type { MergeResultChanges } from "../util/features";
 
@@ -110,7 +113,11 @@ export function featurePublishFootprint({
   if (holdoutEnvs === HOLDOUT_ENVS_UNRESOLVED) return [...environmentIds];
 
   const changedRules = changes.rules;
-  const changedRuleEnvs =
+  // A rule change is only observable where the flag serves, so intersect with
+  // `serving` — an `allEnvironments` rule otherwise demands authority over disabled
+  // environments it can never reach. An env this draft ENABLES stays covered by the
+  // unnarrowed `environmentsEnabled` contribution below.
+  const changedRuleEnvsAll =
     changedRules === undefined
       ? []
       : environmentIds.filter(
@@ -120,6 +127,14 @@ export function featurePublishFootprint({
               getRulesForEnvironment(changedRules, env),
             ),
         );
+  const servingRuleEnvs = changedRuleEnvsAll.filter((env) =>
+    serving.includes(env),
+  );
+  // Never let the narrowing empty the set: the fallback below would then claim
+  // everything the flag serves, which a disabled-env-only edit never touched.
+  const changedRuleEnvs = servingRuleEnvs.length
+    ? servingRuleEnvs
+    : changedRuleEnvsAll;
 
   const envScoped = new Set([
     ...changedRuleEnvs,
@@ -226,18 +241,33 @@ export function rampActionFootprint({
   rampActions,
   liveRules,
   environmentIds,
+  schedules,
 }: {
   rampActions?: RevisionRampAction[];
   liveRules: FeatureRule[];
   environmentIds: string[];
+  // The schedules detaches act on. A detach removes whole targets, and a legacy
+  // target can reach more rules than the one the action names.
+  schedules?: Pick<RampScheduleInterface, "id" | "targets">[];
 }): string[] | "all" {
   if (!rampActions?.length) return [];
   const envs = new Set<string>();
   for (const action of rampActions) {
     if (action.mode === "detach") {
       // Detaching stops the schedule acting on the rule, which is felt wherever
-      // that rule serves.
-      const targets = resolveRampTargets({ ruleId: action.ruleId }, liveRules);
+      // each target it removes serves.
+      const schedule = schedules?.find((s) => s.id === action.rampScheduleId);
+      const detached = schedule
+        ? rampTargetsDetachedBy(schedule.targets, action.ruleId)
+        : [];
+      const targets = detached.length
+        ? detached.flatMap((t) =>
+            resolveRampTargets(
+              { ruleId: t.ruleId, environment: t.environment ?? null },
+              liveRules,
+            ),
+          )
+        : resolveRampTargets({ ruleId: action.ruleId }, liveRules);
       if (!targets.length || targets.some((r) => r.allEnvironments))
         return "all";
       for (const r of targets)

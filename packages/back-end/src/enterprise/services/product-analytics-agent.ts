@@ -1,13 +1,17 @@
+import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
 import {
   tryParseToolResultJson,
   toolResultSnapshotId,
+  type AIChatMention,
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
+  datasetHasValues,
   dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
+  ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
@@ -36,7 +40,8 @@ import {
   getAllFactTablesForOrganization,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { runColumnsTopValuesQuery } from "back-end/src/jobs/refreshFactTableColumns";
+import { getMetricById } from "back-end/src/models/MetricModel";
+import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 
 // =============================================================================
 // Constants & system prompt
@@ -116,7 +121,8 @@ For fact_table values:
 
 <row_filter_rules>
 rowFilters shape: { operator, column, values }
-Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts_with", "ends_with", "is_null", "not_null".
+Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts_with", "ends_with", "matches_pattern", "not_matches_pattern", "is_null", "not_null".
+"matches_pattern" / "not_matches_pattern" take a glob where * matches any run of characters and ? matches one character (e.g. "/checkout/*").
 For date columns only, "between" and "not_between" take exactly two values (a lower and an upper bound); "!=" and "is_null" are not offered for date columns.
 CRITICAL — never guess column values for filters. Always call getColumnValues first. Pass a searchTerm for partial matches (e.g. 'US' to find 'United States').
 getColumnValues only works on string-typed columns.
@@ -189,6 +195,14 @@ async function buildProductAnalyticsSystemPrompt(
       : "") +
     `There are ${metrics.length} metrics and ${allFactTables.length} fact tables available. ` +
     "Use the search tool to discover them — pass an empty query to browse, or a search term to filter.\n\n" +
+    "A user message may begin with an auto-injected line of the form\n" +
+    "  [Referenced by the user: Revenue (factMetric: fact__xyz)]\n" +
+    "The chat UI adds it when the user @-mentioned entities in the composer — it is " +
+    "not something they typed, so do not echo it. It maps each `@Name` already in " +
+    "their text to the exact id they picked, so use those ids directly rather than " +
+    "calling search to re-resolve the name. An entry marked STALE was picked under a " +
+    "different datasource and is not usable here — say so, name it, and ask the user " +
+    "to re-pick it rather than searching for a replacement.\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
     PA_SYSTEM_INSTRUCTIONS
@@ -229,7 +243,7 @@ function buildConfigSchemaSummary(): string {
     "  static: { dimensionType: 'static', column: string, values: string[] (1-20) }",
     'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters }] }',
     'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
-    'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"is_null"|"not_null", column: string, values: string[] }]',
+    'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"matches_pattern"|"not_matches_pattern"|"is_null"|"not_null", column: string, values: string[] }]',
     'showAs (optional): "total" | "per_unit" — chart-level toggle between raw totals and per-unit averages for mean metrics. Omit to use the smart default (see show_as_rules).',
     "Always pass a complete config object to runExploration.",
     "</config_schema>",
@@ -251,11 +265,9 @@ function buildSnapshotSummary(
       if (stepNames?.length) {
         parts.push(`steps: ${stepNames.join(", ")}`);
       }
-    } else {
-      const valueNames = curr.dataset?.values
-        ?.map((v) => v.name)
-        .filter(Boolean);
-      if (valueNames?.length) {
+    } else if (datasetHasValues(curr.dataset)) {
+      const valueNames = curr.dataset.values.map((v) => v.name).filter(Boolean);
+      if (valueNames.length) {
         parts.push(`values: ${valueNames.join(", ")}`);
       }
     }
@@ -274,8 +286,7 @@ function buildSnapshotSummary(
     );
   }
 
-  // Funnels carry "steps"; everything else carries "values". Diff whichever
-  // shape applies; treat shape change as a coarse "dataset changed".
+  // Funnels carry "steps"; journeys have neither; everything else carries "values".
   if (prev.dataset?.type === "funnel" && curr.dataset?.type === "funnel") {
     const prevSteps = prev.dataset.steps.map((s) => s.name);
     const currSteps = curr.dataset.steps.map((s) => s.name);
@@ -283,12 +294,9 @@ function buildSnapshotSummary(
     const removed = prevSteps.filter((n) => !currSteps.includes(n));
     if (added.length) parts.push(`added steps: ${added.join(", ")}`);
     if (removed.length) parts.push(`removed steps: ${removed.join(", ")}`);
-  } else if (
-    prev.dataset?.type !== "funnel" &&
-    curr.dataset?.type !== "funnel"
-  ) {
-    const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
-    const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
+  } else if (datasetHasValues(prev.dataset) && datasetHasValues(curr.dataset)) {
+    const prevNames = prev.dataset.values.map((v) => v.name);
+    const currNames = curr.dataset.values.map((v) => v.name);
     const added = currNames.filter((n) => !prevNames.includes(n));
     const removed = prevNames.filter((n) => !currNames.includes(n));
     if (added.length) parts.push(`added: ${added.join(", ")}`);
@@ -712,11 +720,8 @@ async function normalizeConfigForExplorer(
     );
   }
 
-  // Funnel datasets have a different structure (steps instead of values)
-  // and the AI agent isn't equipped to produce them. The bigNumber / value
-  // count constraints below assume a `values` array, so we skip them for
-  // funnels — the front-end already enforces funnel-specific limits.
-  if (dataset.type !== "funnel") {
+  // The bigNumber / value count constraints below assume a `values` array.
+  if (datasetHasValues(dataset)) {
     // bigNumber: no dimensions, single value
     if (config.chartType === "bigNumber") {
       if (dims.length > 0) {
@@ -839,22 +844,81 @@ async function normalizeConfigForExplorer(
   };
 }
 
+// Match the frontend's polling cadence and ~10-minute cutoff.
+function explorationPollDelayMs(elapsedMs: number): number {
+  if (elapsedMs < 10_000) return 2_000;
+  if (elapsedMs < 30_000) return 3_000;
+  if (elapsedMs < 60_000) return 5_000;
+  if (elapsedMs < 300_000) return 10_000;
+  if (elapsedMs < 600_000) return 20_000;
+  return 0;
+}
+
+async function pollExplorationUntilFinished(
+  ctx: ReqContext,
+  exploration: ProductAnalyticsExploration,
+  startedAt: number,
+  abortSignal?: AbortSignal,
+): Promise<ProductAnalyticsExploration> {
+  let latest = exploration;
+  while (latest.status === "running") {
+    const pollDelay = explorationPollDelayMs(Date.now() - startedAt);
+    if (pollDelay === 0) break;
+
+    await delay(pollDelay, undefined, {
+      signal: abortSignal,
+      ref: false,
+    });
+
+    const polled = await ctx.models.analyticsExplorations.getById(latest.id);
+    if (!polled) {
+      throw new Error("Product analytics exploration not found");
+    }
+    latest = polled;
+  }
+  return latest;
+}
+
 async function executeRunExploration(
   ctx: ReqContext,
   buffer: ConversationBuffer,
   rawConfig: ExplorationConfig,
+  abortSignal?: AbortSignal,
 ): Promise<RunExplorationToolResult> {
   try {
     const { config, warnings, getFactMetricById } =
       await normalizeConfigForExplorer(ctx, rawConfig);
-    const exploration = await runProductAnalyticsExploration(ctx, config, {
-      cache: "preferred",
-    });
+
+    const startedAt = Date.now();
+    const initialExploration = await runProductAnalyticsExploration(
+      ctx,
+      config,
+      {
+        cache: "preferred",
+      },
+    );
+    const exploration =
+      initialExploration?.status === "running"
+        ? await pollExplorationUntilFinished(
+            ctx,
+            initialExploration,
+            startedAt,
+            abortSignal,
+          )
+        : initialExploration;
 
     if (exploration?.status === "error") {
       return {
         status: "error",
         message: exploration.error ?? "The query failed with an unknown error",
+      };
+    }
+
+    if (exploration?.status === "running") {
+      return {
+        status: "error",
+        message:
+          "The warehouse query is still running after waiting. Do NOT assume there is no data or that the fact table, filters, or date range are wrong. Tell the user the query is taking longer than expected and they can retry shortly.",
       };
     }
 
@@ -1040,6 +1104,7 @@ async function executeGetColumnValues(
   type RawCol = { column: string; datatype: string };
   let factTableSql: string;
   let factTableEventName: string;
+  let factTableTimestampColumn: string | undefined;
   let datasourceId: string;
   let availableColumns: RawCol[];
 
@@ -1051,6 +1116,7 @@ async function executeGetColumnValues(
       if (!ft) return `Fact table "${factTableId}" not found.`;
       factTableSql = ft.sql;
       factTableEventName = ft.eventName ?? "";
+      factTableTimestampColumn = ft.timestampColumn;
       datasourceId = ft.datasource;
       availableColumns = (ft.columns ?? [])
         .filter((c) => !c.deleted)
@@ -1070,6 +1136,7 @@ async function executeGetColumnValues(
       if (!ft) return `Fact table not found.`;
       factTableSql = ft.sql;
       factTableEventName = ft.eventName ?? "";
+      factTableTimestampColumn = ft.timestampColumn;
       datasourceId = ft.datasource;
       availableColumns = (ft.columns ?? [])
         .filter((c) => !c.deleted)
@@ -1125,7 +1192,11 @@ async function executeGetColumnValues(
     rawValues = await runColumnsTopValuesQuery(
       ctx,
       datasource,
-      { sql: factTableSql, eventName: factTableEventName },
+      {
+        sql: factTableSql,
+        eventName: factTableEventName,
+        timestampColumn: factTableTimestampColumn,
+      },
       colsToQuery,
     );
   } catch (err) {
@@ -1271,6 +1342,7 @@ const GET_COLUMN_VALUES_DESCRIPTION =
 const RUN_EXPLORATION_DESCRIPTION =
   "Execute a product analytics exploration with the given config. " +
   "Use this when the user asks to build, change, or rerun a chart. " +
+  "Waits for the warehouse query to finish before returning. " +
   "The chart will be automatically displayed to the user after execution. " +
   "Returns config (the normalized config used), resultCsv (CSV of the results for analysis), rowCount, snapshotId, and summary. " +
   "Use config and resultCsv for analysis and follow-up modifications. Ignore the exploration field (internal use). " +
@@ -1285,6 +1357,36 @@ interface PAParams {
   datasourceId: string;
 }
 
+async function mentionDatasource(
+  ctx: ReqContext,
+  mention: AIChatMention,
+): Promise<string | undefined> {
+  if (mention.type === "factMetric") {
+    return (await ctx.models.factMetrics.getById(mention.id))?.datasource;
+  }
+  if (mention.type === "metricGroup") {
+    return (await ctx.models.metricGroups.getById(mention.id))?.datasource;
+  }
+  return (await getMetricById(ctx, mention.id))?.datasource;
+}
+
+async function resolveProductAnalyticsMentions(
+  ctx: ReqContext,
+  mentions: AIChatMention[],
+  datasourceId: string,
+): Promise<AIChatMention[]> {
+  if (!datasourceId) return mentions;
+
+  return Promise.all(
+    mentions.map(async (mention) => {
+      const datasource = await mentionDatasource(ctx, mention);
+      return datasource === datasourceId
+        ? mention
+        : { ...mention, stale: true };
+    }),
+  );
+}
+
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   agentType: "product-analytics",
   promptType: "product-analytics-chat",
@@ -1295,6 +1397,9 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
 
   buildSystemPrompt: (ctx, { datasourceId }) =>
     buildProductAnalyticsSystemPrompt(ctx, datasourceId),
+
+  resolveMentions: (ctx, mentions, { datasourceId }) =>
+    resolveProductAnalyticsMentions(ctx, mentions, datasourceId),
 
   buildTools: (ctx, buffer, { datasourceId }) => {
     let metricsCache: FactMetricInterface[] | null = null;
@@ -1338,7 +1443,8 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       runExploration: aiTool({
         description: RUN_EXPLORATION_DESCRIPTION,
         inputSchema: runExplorationInputSchema,
-        execute: ({ config }) => executeRunExploration(ctx, buffer, config),
+        execute: ({ config }, { abortSignal }) =>
+          executeRunExploration(ctx, buffer, config, abortSignal),
       }),
 
       getSnapshot: aiTool({

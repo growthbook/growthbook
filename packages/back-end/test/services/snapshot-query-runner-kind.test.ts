@@ -98,6 +98,7 @@ describe("resolveSnapshotRunner", () => {
       runnerFamily: "results",
       incrementalFallbackReason:
         "No materialized units table yet for Overall Results.",
+      dimensionBlockedOnOverallResults: true,
     });
   });
 

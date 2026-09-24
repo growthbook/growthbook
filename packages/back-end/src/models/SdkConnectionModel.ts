@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { isEqual, omit } from "lodash";
+import { isEqual, isUndefined, omit, omitBy } from "lodash";
 import {
   managedByValidator,
   ManagedBy,
   ApiSdkConnection,
+  savedGroupFormatValidator,
 } from "shared/validators";
 import {
   CreateSDKConnectionParams,
@@ -16,6 +17,10 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
+import {
+  savedGroupFormatFromConnection,
+  withLegacySavedGroupFlag,
+} from "shared/sdk-versioning";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
@@ -73,9 +78,11 @@ const sdkConnectionSchema = new mongoose.Schema({
   allowedCustomFieldsInMetadata: [String],
   includeTagsInMetadata: Boolean,
   includeExperimentScheduleInMetadata: Boolean,
+  includeReferencedPrerequisites: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
+  savedGroupFormat: String,
   eventTracker: String,
   managedBy: {},
   key: {
@@ -128,6 +135,14 @@ function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
     (conn as SDKConnectionDocument & { project?: string }).project = "";
   }
 
+  // Migrate the old on/off reference setting to the three-way format.
+  // Deliberately never picks referencesV2: moving an existing connection onto
+  // the new payload shape has to be someone's decision, not a side effect of
+  // deploying.
+  if (!conn.savedGroupFormat) {
+    conn.savedGroupFormat = savedGroupFormatFromConnection(conn);
+  }
+
   return omit(conn, ["__v", "_id"]);
 }
 
@@ -159,6 +174,18 @@ export async function findSDKConnectionsByOrganization(
   return connections.filter((conn) =>
     context.permissions.canReadMultiProjectResource(conn.projects),
   );
+}
+
+// Not filtered by the caller's project read access: used as a referential
+// integrity check before an environment is removed.
+export async function countSDKConnectionsByEnvironment(
+  context: ReqContext | ApiReqContext,
+  environment: string,
+) {
+  return await SDKConnectionModel.countDocuments({
+    organization: context.org.id,
+    environment,
+  });
 }
 
 export async function findAllSDKConnectionsAcrossAllOrgs() {
@@ -215,6 +242,8 @@ export const createSDKConnectionValidator = z
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
+    includeReferencedPrerequisites: z.boolean().optional(),
     managedBy: managedByValidator.optional(),
   })
   .strict();
@@ -229,12 +258,20 @@ export async function createSDKConnection(
   context: ReqContext | ApiReqContext,
   params: CreateSDKConnectionParams,
 ) {
-  const { proxyEnabled, proxyHost, languages, ...otherParams } =
-    createSDKConnectionValidator.parse(params);
+  const {
+    proxyEnabled,
+    proxyHost,
+    languages,
+    // Written explicitly so "absent" keeps one meaning: off, for the
+    // connections that predate the setting.
+    includeReferencedPrerequisites = true,
+    ...otherParams
+  } = createSDKConnectionValidator.parse(params);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
-    ...otherParams,
+    ...withLegacySavedGroupFlag(otherParams),
+    includeReferencedPrerequisites,
     organization: context.org.id,
     languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),
@@ -323,6 +360,8 @@ export const editSDKConnectionValidator = z
     includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
+    includeReferencedPrerequisites: z.boolean().optional(),
     eventTracker: z.string().optional(),
   })
   .strict();
@@ -335,10 +374,16 @@ export async function editSDKConnection(
   const { proxyEnabled, proxyHost, languages, ...rest } =
     editSDKConnectionValidator.parse(updates);
 
-  const otherChanges = {
-    ...rest,
-    languages: languages as SDKLanguage[],
-  };
+  // Keep only the fields that were sent. A field that was left out comes
+  // through as `undefined`, and the payload rebuild below would use that
+  // instead of the saved value.
+  const otherChanges = omitBy(
+    {
+      ...withLegacySavedGroupFlag(rest, connection),
+      languages: languages as SDKLanguage[] | undefined,
+    },
+    isUndefined,
+  );
 
   let newProxy = {
     ...connection.proxy,
@@ -394,6 +439,8 @@ export async function editSDKConnection(
     "includeTagsInMetadata",
     "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
+    "savedGroupFormat",
+    "includeReferencedPrerequisites",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
     if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {
@@ -656,5 +703,7 @@ export function toApiSDKConnectionInterface(
     proxySigningKey: connection.proxy.signingKey,
     remoteEvalEnabled: connection.remoteEvalEnabled,
     savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+    savedGroupFormat: savedGroupFormatFromConnection(connection),
+    includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
   };
 }

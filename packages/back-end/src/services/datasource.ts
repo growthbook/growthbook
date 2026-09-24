@@ -1,9 +1,14 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
-import { SqlIdentifierQuote, TemplateVariables } from "shared/types/sql";
+import {
+  SqlDialect,
+  SqlIdentifierQuote,
+  TemplateVariables,
+} from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
+  TestQueryResult,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
@@ -14,7 +19,10 @@ import {
   ExposureQuery,
   FeatureUsageQuery,
 } from "shared/types/datasource";
-import { FactTableColumnType } from "shared/types/fact-table";
+import {
+  DetectedFactTableColumn,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import { FeatureInterface } from "shared/types/feature";
 import { QueryStatistics, QueryType } from "shared/types/query";
 import {
@@ -23,7 +31,8 @@ import {
   mergeDataSourceParams,
   redactSecretParams,
 } from "shared/util";
-import { determineColumnTypes } from "back-end/src/util/sql";
+import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
+import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -33,6 +42,7 @@ import Redshift from "back-end/src/integrations/Redshift";
 import Snowflake from "back-end/src/integrations/Snowflake";
 import Postgres from "back-end/src/integrations/Postgres";
 import Vertica from "back-end/src/integrations/Vertica";
+import AdobeExperiencePlatformQueryService from "back-end/src/integrations/AdobeExperiencePlatformQueryService";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
@@ -94,6 +104,8 @@ function getIntegrationObj(
       return new Postgres(context, datasource);
     case "vertica":
       return new Vertica(context, datasource);
+    case "adobe_experience_platform_query_service":
+      return new AdobeExperiencePlatformQueryService(context, datasource);
     case "mysql":
       return new Mysql(context, datasource);
     case "mssql":
@@ -162,9 +174,23 @@ export function getSourceIntegrationObject(
 export function getIntegrationIdentifierQuote(
   integration: SourceIntegrationInterface,
 ): SqlIdentifierQuote {
+  return getIntegrationSqlDialect(integration)?.identifierQuote ?? '"';
+}
+
+// The SQL dialect backing an integration, or null for non-SQL sources
+// (e.g. Mixpanel), which have no dialect to generate SQL with.
+export function getIntegrationSqlDialect(
+  integration: SourceIntegrationInterface,
+): SqlDialect | null {
   return integration instanceof SqlIntegration
-    ? integration.getSqlDialect().identifierQuote
-    : '"';
+    ? integration.getSqlDialect()
+    : null;
+}
+
+// Wraps a SQL identifier (column, alias) in the dialect's quote character,
+// escaping any embedded quotes by doubling them (ANSI SQL convention).
+export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
+  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
 }
 
 export async function testDataSourceConnection(
@@ -344,11 +370,14 @@ export async function testQuery(
   templateVariables?: TemplateVariables,
   limit?: number,
   timestampColumn?: string,
+  // Return detected output columns along with sampled rows.
+  detectColumns?: boolean,
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
   error?: string;
   sql?: string;
+  columns?: DetectedFactTableColumn[];
 }> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     throw new Error("Permission denied");
@@ -361,6 +390,8 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
+  const timestampCols = timestampColumn ? [timestampColumn] : ["timestamp"];
+
   const sql = integration.getTestQuery({
     query,
     templateVariables,
@@ -369,15 +400,19 @@ export async function testQuery(
     timestampColumn,
   });
   try {
-    const { results, duration } = await integration.runTestQuery(
+    const result = await integration.runTestQuery(
       sql,
-      timestampColumn ? [timestampColumn] : ["timestamp"],
+      timestampCols,
       "testQuery",
     );
+
     return {
-      results,
-      duration,
+      results: result.results,
+      duration: result.duration,
       sql,
+      ...(detectColumns
+        ? { columns: detectColumnsFromQueryResult(result) }
+        : {}),
     };
   } catch (e) {
     return {
@@ -385,6 +420,39 @@ export async function testQuery(
       sql,
     };
   }
+}
+
+function findMissingRequiredColumns(
+  results: TestQueryResult,
+  requiredColumns: Set<string>,
+  caseSensitive: boolean,
+): string | undefined {
+  let present: string[];
+
+  // For datasources where the result includes columns, use column metadata
+  if (results.columns) {
+    present = results.columns.map((c) => c.name);
+    if (present.length === 0) {
+      return "Unable to determine columns from query";
+    }
+  } else {
+    // For other datasources, extract from first row (requires LIMIT 1+)
+    if (results.results.length === 0) {
+      return "No rows returned";
+    }
+    present = Object.keys(results.results[0]);
+  }
+
+  const missingColumns = [...requiredColumns].filter(
+    (col) =>
+      !present.some((name) => columnNamesMatch(name, col, caseSensitive)),
+  );
+
+  if (missingColumns.length > 0) {
+    return `Missing required columns in response: ${missingColumns.join(", ")}`;
+  }
+
+  return undefined;
 }
 
 // Return any errors that result when running the query otherwise return undefined
@@ -415,38 +483,11 @@ export async function testQueryValidity(
   );
   try {
     const results = await integration.runTestQuery(sql, undefined, "testQuery");
-
-    let columns: Set<string>;
-
-    // For datasources where the result includes columns, use column metadata
-    if (results.columns) {
-      const columnNames = results.columns.map((c) => c.name);
-      if (columnNames.length === 0) {
-        return "Unable to determine columns from query";
-      }
-      columns = new Set(columnNames);
-    } else {
-      // For other datasources, extract from first row (requires LIMIT 1+)
-      if (results.results.length === 0) {
-        return "No rows returned";
-      }
-      columns = new Set(Object.keys(results.results[0]));
-    }
-
-    const missingColumns: string[] = [];
-    for (const col of requiredColumns) {
-      if (!columns.has(col)) {
-        missingColumns.push(col);
-      }
-    }
-
-    if (missingColumns.length > 0) {
-      return `Missing required columns in response: ${missingColumns.join(
-        ", ",
-      )}`;
-    }
-
-    return undefined;
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive,
+    );
   } catch (e) {
     return e.message;
   }
@@ -471,36 +512,11 @@ export async function testFeatureUsageQueryValidity(
   );
   try {
     const results = await integration.runTestQuery(sql, undefined, "testQuery");
-
-    let columns: Set<string>;
-
-    if (results.columns) {
-      const columnNames = results.columns.map((c) => c.name);
-      if (columnNames.length === 0) {
-        return "Unable to determine columns from query";
-      }
-      columns = new Set(columnNames);
-    } else {
-      if (results.results.length === 0) {
-        return "No rows returned";
-      }
-      columns = new Set(Object.keys(results.results[0]));
-    }
-
-    const missingColumns: string[] = [];
-    for (const col of requiredColumns) {
-      if (!columns.has(col)) {
-        missingColumns.push(col);
-      }
-    }
-
-    if (missingColumns.length > 0) {
-      return `Missing required columns in response: ${missingColumns.join(
-        ", ",
-      )}`;
-    }
-
-    return undefined;
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive,
+    );
   } catch (e) {
     return e.message;
   }

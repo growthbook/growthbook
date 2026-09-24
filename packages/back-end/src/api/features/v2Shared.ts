@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { postFeatureRuleV2 } from "shared/validators";
+import { resolveSavedGroupsInput } from "shared/validators";
 import {
   validateScheduleRules,
   setConfigBacking,
@@ -9,11 +10,20 @@ import {
   isScopedConfig,
   valueHasConfigExtends,
   parsePlainJSONObject,
+  isScheduledRule,
+  findStoredRuleCounterpart,
 } from "shared/util";
+import isEqual from "lodash/isEqual";
+import { getLatestPhaseVariations } from "shared/experiments";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  getExperimentById,
+  getExperimentsByIds,
+} from "back-end/src/models/ExperimentModel";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
 // A flag can't carry its own JSON schema while it's a config-backed ("Config
@@ -263,10 +273,14 @@ export function mapV2ApiRuleToFeatureRule(
     description: ruleInput.description ?? "",
     enabled: ruleInput.enabled ?? true,
     condition: ruleInput.condition ?? "",
-    savedGroups: ruleInput.savedGroupTargeting?.map((s) => ({
-      match: s.matchType,
-      ids: s.savedGroups,
-    })),
+    savedGroups: resolveSavedGroupsInput(ruleInput),
+    // Emitted on GET; dropping them broke the fetch → edit → send-back loop.
+    ...(ruleInput.prerequisites !== undefined && {
+      prerequisites: ruleInput.prerequisites,
+    }),
+    ...(ruleInput.scheduleRules !== undefined && {
+      scheduleRules: ruleInput.scheduleRules,
+    }),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
     allProjects: resolvedAllProjects,
@@ -403,7 +417,9 @@ export async function assertValidProjectIds(
   label = "targeting",
 ): Promise<void> {
   if (!projectIds?.length) return;
-  const valid = new Set((await context.getProjects()).map((p) => p.id));
+  // Existence only, unfiltered by read access: authorization ran before this,
+  // and a targeting project already on the flag may be one the caller cannot read.
+  const valid = new Set(await context.getAllProjectIds());
   const missing = projectIds.filter((id) => id && !valid.has(id));
   if (missing.length) {
     throw new Error(
@@ -423,6 +439,192 @@ export async function assertValidRuleProjectIds(
   await assertValidProjectIds(ids, context, "rule");
 }
 
+type ExperimentRefRuleInput = {
+  experimentId: string;
+  // Absent on some malformed legacy rules; treated as empty.
+  variations?: { variationId?: string }[];
+};
+
+// An experiment-ref rule's variations must be exactly the experiment's
+// latest-phase variations, matched by id: the payload serves null for any arm
+// it cannot match, so a stray or missing id is a silent outage for that arm.
+export function assertRuleVariationsMatchExperiment(
+  rule: ExperimentRefRuleInput,
+  experiment: ExperimentInterface,
+): void {
+  const expected = new Set(
+    getLatestPhaseVariations(experiment).map((v) => v.id),
+  );
+  const seen = new Set<string>();
+  const variations = rule.variations ?? [];
+  for (const { variationId = "" } of variations) {
+    if (!expected.has(variationId)) {
+      throw new BadRequestError(
+        `Variation "${variationId}" is not a variation of experiment "${rule.experimentId}"`,
+      );
+    }
+    if (seen.has(variationId)) {
+      throw new BadRequestError(`Duplicate variationId "${variationId}"`);
+    }
+    seen.add(variationId);
+  }
+  if (seen.size !== expected.size) {
+    throw new BadRequestError(
+      `Experiment "${rule.experimentId}" has ${expected.size} variation(s) but ${variations.length} were specified`,
+    );
+  }
+}
+
+// Single-rule form for the per-rule endpoints.
+export async function assertValidExperimentRefRule(
+  context: ReqContext | ApiReqContext,
+  rule: ExperimentRefRuleInput,
+): Promise<void> {
+  const experiment = await getExperimentById(context, rule.experimentId);
+  if (!experiment) {
+    throw new NotFoundError(`Could not find experiment "${rule.experimentId}"`);
+  }
+  assertRuleVariationsMatchExperiment(rule, experiment);
+}
+
+// Experiment-ref rules must point at an experiment the caller can read, and
+// their variations must match it. Each referenced experiment is loaded once.
+export async function assertValidRuleExperimentIds(
+  rules: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const refs = rules.filter(
+    (r): r is Extract<FeatureRule, { type: "experiment-ref" }> =>
+      r.type === "experiment-ref",
+  );
+  if (!refs.length) return;
+  const experiments = new Map(
+    (
+      await getExperimentsByIds(context, [
+        ...new Set(refs.map((r) => r.experimentId)),
+      ])
+    ).map((e) => [e.id, e]),
+  );
+  for (const rule of refs) {
+    const experiment = experiments.get(rule.experimentId);
+    if (!experiment) {
+      throw new NotFoundError(
+        `Could not find experiment "${rule.experimentId}"`,
+      );
+    }
+    assertRuleVariationsMatchExperiment(rule, experiment);
+  }
+}
+
+// Whether a write changes which experiment a rule points at or which variation
+// ids it carries — the only changes that can introduce a mismatch.
+export function experimentRefChanged(
+  rule: ExperimentRefRuleInput,
+  prior: FeatureRule | undefined,
+): boolean {
+  const variationIds = (r: ExperimentRefRuleInput) =>
+    (r.variations ?? []).map((v) => v.variationId ?? "").sort();
+  return (
+    !prior ||
+    prior.type !== "experiment-ref" ||
+    prior.experimentId !== rule.experimentId ||
+    !isEqual(variationIds(prior), variationIds(rule))
+  );
+}
+
+// Update form: a rule whose experiment and variation ids are unchanged is not
+// re-checked, so a rule pointing at a since-deleted or since-edited experiment
+// can be posted back unchanged.
+export async function assertValidChangedRuleExperimentIds(
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  await assertValidRuleExperimentIds(
+    inbound.filter(
+      (rule) =>
+        rule.type === "experiment-ref" &&
+        experimentRefChanged(rule, findStoredRuleCounterpart(stored, rule)),
+    ),
+    context,
+  );
+}
+
+// Rule ids must be unique within one rules array (the v2 flat list, or one v1
+// environment); a repeated id makes update-by-id ambiguous.
+export function assertUniqueRuleIds(
+  rules: { id?: string }[],
+  environment?: string,
+): void {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const rule of rules) {
+    if (!rule.id) continue;
+    if (seen.has(rule.id)) duplicates.add(rule.id);
+    seen.add(rule.id);
+  }
+  if (duplicates.size) {
+    const where = environment ? ` in environment "${environment}"` : "";
+    throw new BadRequestError(
+      `Duplicate rule ID(s)${where}: ${[...duplicates].join(", ")}.`,
+    );
+  }
+}
+
+export function assertUniqueRuleIdsByEnv(
+  envBody: ApiFeatureEnvSettings | undefined,
+): void {
+  for (const [environment, settings] of Object.entries(envBody ?? {})) {
+    if (settings.rules) assertUniqueRuleIds(settings.rules, environment);
+  }
+}
+
+// Plan gate for scheduling. A simple schedule is a one-step ramp on the same
+// engine, so `schedule`, legacy inline `scheduleRules`, and an inline
+// `rampSchedule` are all the Pro `schedule-feature-flag` feature — the gate the
+// dashboard and `createRampSchedulesForRevision` (the engine chokepoint) apply.
+// Only newly introduced scheduling is gated: callers skip this for a rule that
+// is already scheduled, so an org that has dropped below Pro can still edit or
+// remove what it has. See .agents/guides/backend/api-patterns.md "Plan gating
+// for scheduling and ramps".
+export function assertCanUseRuleScheduling(
+  context: ApiReqContext,
+  input: {
+    schedule?: { startDate?: string | null; endDate?: string | null } | null;
+    scheduleRules?: unknown[] | null;
+    rampSchedule?: unknown;
+  },
+): void {
+  const scheduled =
+    input.schedule?.startDate ||
+    input.schedule?.endDate ||
+    input.scheduleRules?.length ||
+    input.rampSchedule;
+  if (scheduled && !context.hasPremiumFeature("schedule-feature-flag")) {
+    context.throwPlanDoesNotAllowError(
+      "Rule scheduling requires a Pro plan or above.",
+    );
+  }
+}
+
+// Update form: a rule whose project scope is unchanged from the stored rule
+// with the same id is not re-checked, so a rule still scoped to a since-deleted
+// project can be posted back unchanged while a new unknown id is rejected.
+export async function assertValidChangedRuleProjectIds(
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const scope = (r: FeatureRule) => [...(r.projects ?? [])].sort().join("\0");
+  await assertValidRuleProjectIds(
+    inbound.filter((rule) => {
+      const prior = findStoredRuleCounterpart(stored, rule);
+      return !prior || scope(prior) !== scope(rule);
+    }),
+    context,
+  );
+}
+
 // `null` (explicit removal) and `undefined` (no change) are both no-ops.
 // Validates both read access and the Holdout's Project scope.
 export async function assertValidHoldout(
@@ -438,18 +640,68 @@ export async function assertValidHoldout(
   });
 }
 
-// Pro/Enterprise gated. Validates scheduleRules on v1-shape env rules.
+// v2 counterpart on the flat rules array, keyed by rule index. Empty arrays
+// pass, and the plan gate applies only to rules not already scheduled in
+// `stored`, so a downgraded org can still echo, edit, or clear an existing
+// schedule.
+export function validateRulesScheduleRules(
+  rules: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+  stored: FeatureRule[] = [],
+): void {
+  rules.forEach((rule, i) => {
+    if (!rule.scheduleRules?.length) return;
+    const prior = findStoredRuleCounterpart(stored, rule);
+    if (
+      !isScheduledRule(prior) &&
+      !context.hasPremiumFeature("schedule-feature-flag")
+    ) {
+      context.throwPlanDoesNotAllowError(
+        "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
+      );
+    }
+    if (isEqual(prior?.scheduleRules, rule.scheduleRules)) return;
+    try {
+      validateScheduleRules(rule.scheduleRules);
+    } catch (error) {
+      throw new BadRequestError(
+        `Invalid scheduleRules on rule ${i + 1}: ${error.message}`,
+      );
+    }
+  });
+}
+
+// v1-shape counterpart of validateRulesScheduleRules; the stored counterpart
+// of an env rule is looked up as if the rule were scoped to that environment.
 export function validateEnvRulesScheduleRules(
   envBody: ApiFeatureEnvSettings | undefined,
   context: ApiReqContext,
+  stored: FeatureRule[] = [],
 ): void {
   if (!envBody) return;
   for (const [envName, envSettings] of Object.entries(envBody)) {
     if (!envSettings.rules) continue;
     envSettings.rules.forEach((rule, ruleIndex) => {
-      if (!rule.scheduleRules) return;
-      if (!context.hasPremiumFeature("schedule-feature-flag")) {
-        throw new Error(
+      if (!rule.scheduleRules?.length) return;
+      const prior = findStoredRuleCounterpart<
+        Pick<
+          FeatureRule,
+          | "id"
+          | "allEnvironments"
+          | "environments"
+          | "scheduleRules"
+          | "scheduleType"
+        >
+      >(stored, {
+        id: rule.id ?? "",
+        allEnvironments: false,
+        environments: [envName],
+      });
+      if (
+        !isScheduledRule(prior) &&
+        !context.hasPremiumFeature("schedule-feature-flag")
+      ) {
+        context.throwPlanDoesNotAllowError(
           "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
         );
       }

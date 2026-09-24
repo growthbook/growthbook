@@ -1,13 +1,19 @@
 import {
-  validateFeatureValue,
+  assertTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
+import {
+  getApplicableEnvIds,
   getRulesForEnvironment,
-  stemRuleId,
   normalizeTargetingInUpdates,
+  stemRuleId,
+  validateFeatureValue,
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import {
@@ -16,7 +22,6 @@ import {
 } from "back-end/src/services/owner";
 import {
   getFeature,
-  updateFeature as updateFeatureToDb,
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -26,8 +31,7 @@ import {
   addIdsToRules,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
-  getNextScheduledUpdate,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
   inheritStoredRolloutSeeds,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -46,7 +50,6 @@ import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
   dispatchFeatureRevisionEvent,
@@ -54,8 +57,12 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validations";
+import {
+  validateChangedRuleReferences,
+  validateCustomFields,
+} from "./validations";
 import {
   canBypassReviewChecks,
   canUseRestApiBypassSetting,
@@ -64,7 +71,9 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
+  assertValidChangedRuleProjectIds,
+  assertUniqueRuleIdsByEnv,
+  assertValidChangedRuleExperimentIds,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
   extractRevisionMetadata,
@@ -126,6 +135,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     await assertValidProjectId(project, req.context);
+    assertTargetingDestination({
+      permissions: req.context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, {
+        project,
+        targetingAllProjects,
+        targetingProjects,
+      }),
+      optedOut: await req.context.getTargetingOptOutProjectIds(),
+    });
     await assertValidProjectIds(targetingProjects, req.context);
 
     // check if the custom fields are valid
@@ -140,6 +159,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         customFields ?? feature.customFields,
         req.context,
         effectiveProject,
+        // A project change must re-validate all values against the new
+        // project's fields, so only grandfather unchanged values in place
+        projectChanged ? undefined : feature.customFields,
       );
     }
 
@@ -148,12 +170,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
     }
 
-    validateEnvRulesScheduleRules(req.body.environments, req.context);
+    validateEnvRulesScheduleRules(
+      req.body.environments,
+      req.context,
+      feature.rules ?? [],
+    );
+    assertUniqueRuleIdsByEnv(req.body.environments);
 
     // ensure default value matches value type
     let defaultValue;
     if (req.body.defaultValue != null) {
-      defaultValue = validateFeatureValue(feature, req.body.defaultValue);
+      defaultValue = validateFeatureValue(
+        feature,
+        req.body.defaultValue,
+        "Default value",
+      );
     }
 
     const environmentSettings =
@@ -290,15 +321,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 
-    // Recompute next-scheduled-update whenever top-level `rules` OR
-    // `environmentSettings` change (the latter for REST callers still posting
-    // v1-shape env rules, which adapters normalize upstream).
-    if (updates.rules !== undefined || updates.environmentSettings) {
-      updates.nextScheduledUpdate = getNextScheduledUpdate(
-        updates.rules ?? feature.rules,
-      );
-    }
-
     // JWT-backed REST calls should behave like dashboard actions: the org-level
     // REST bypass setting only applies to API keys/PATs.
     const canBypass = canBypassReviewChecks(req, feature);
@@ -319,11 +341,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           settings.enabled !== feature.environmentSettings?.[env]?.enabled
         ) {
           changedEnvEnabled[env] = settings.enabled;
-          // Exclude enabled from the direct-write path to avoid applying it twice.
-          updates.environmentSettings[env] = {
-            ...updates.environmentSettings[env],
-            enabled: feature.environmentSettings?.[env]?.enabled ?? false,
-          };
         }
       }
     }
@@ -345,6 +362,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         feature,
         envSettings.rules,
         feature.rules ?? [],
+        {
+          project: project ?? feature.project,
+          targetingAllProjects:
+            targetingAllProjects ?? feature.targetingAllProjects,
+          targetingProjects: targetingProjects ?? feature.targetingProjects,
+        },
       );
       // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
       inheritStoredRolloutSeeds(converted, feature.rules ?? []);
@@ -361,7 +384,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             featureProject: effectiveProject,
           })
         : [];
-    await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    await assertValidChangedRuleProjectIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await assertValidChangedRuleExperimentIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await validateChangedRuleReferences(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
     // Envs whose rule lists the caller is replacing. Envs present in the
     // payload with only `enabled` (no `rules` key) keep their current rules.
     const rulesTouchedEnvs = new Set(Object.keys(inboundRulesByEnv));
@@ -497,6 +534,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     updates = updatesAfterMetadata;
 
     // 4. prerequisites
+    await assertValidPrerequisiteParents(
+      req.context,
+      {
+        ...feature,
+        rules: revisedRulesFlat,
+        prerequisites: updates.prerequisites ?? feature.prerequisites,
+      },
+      feature,
+    );
     const newPrerequisites = updates.prerequisites ?? null;
     if (newPrerequisites !== null) {
       delete updates.prerequisites;
@@ -541,7 +587,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       hasArchivedChange ||
       hasHoldoutChange;
 
+    // The landing inside createAndPublishRevision is this handler's only write
+    // to the feature document. A second write would not refuse to land over a
+    // newer revision and could put this request's value back over a rival's.
+    let updatedFeature: FeatureInterface = feature;
+
     if (hasRevisionChanges) {
+      if (hasMetadataChanges) {
+        await assertFeatureMoveDependentsGuard(
+          req.context,
+          feature,
+          metadataChanges,
+        );
+      }
       const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }
@@ -571,12 +629,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         user: req.eventAudit,
         org: req.organization,
         changes: revisionChanges,
-        comment: "Created via REST API",
+        comment: req.body.comment ?? "Created via REST API",
         canBypassApprovalChecks: canBypass,
       });
 
-      Object.assign(feature, updatedFeatureFromRevision);
-      updates.version = revision.version;
+      updatedFeature = updatedFeatureFromRevision;
 
       // This path creates AND publishes a live revision, so it owes the same
       // `revision.published` webhook the dedicated publish endpoints emit. Without it
@@ -585,7 +642,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
       // Dispatched HERE, immediately after the revision commits — not at the end of
       // the handler. The publish is already live at this point; everything between
-      // (the metadata write, the tags diff, the audit entry, and four reads for the
+      // (the tags diff, the audit entry, and four reads for the
       // response payload) can throw, and every one of them turned a live publish into
       // a 500 with no lifecycle event at all. Those later steps are not part of the
       // publish, so their failure does not make this event untrue.
@@ -594,8 +651,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       try {
         await dispatchFeatureRevisionEvent(
           req.context,
-          feature,
-          await getPublishedRevisionForEvents(req.context, feature, revision),
+          updatedFeature,
+          await getPublishedRevisionForEvents(
+            req.context,
+            updatedFeature,
+            revision,
+          ),
           "revision.published",
           {},
         );
@@ -616,28 +677,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             : "bypassApprovalPermission",
         });
       }
-
-      // The enabled flips were excluded from the direct-write `updates` above
-      // (frozen to their pre-update values) so they apply exactly once, via
-      // the revision publish. The direct write below runs after the publish,
-      // so re-sync the frozen values from the published feature state.
-      if (updates.environmentSettings) {
-        for (const env of Object.keys(changedEnvEnabled)) {
-          updates.environmentSettings[env] = {
-            ...updates.environmentSettings[env],
-            enabled:
-              feature.environmentSettings?.[env]?.enabled ??
-              changedEnvEnabled[env],
-          };
-        }
-      }
     }
-
-    const updatedFeature = await updateFeatureToDb(
-      req.context,
-      feature,
-      updates,
-    );
 
     await addTagsDiff(
       req.context.org.id,
@@ -654,8 +694,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       details: auditDetailsUpdate(feature, updatedFeature),
     });
 
-    const groupMap = await getSavedGroupMap(req.context);
-
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       feature.id,
@@ -667,8 +705,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       feature: updatedFeature,
       version: updatedFeature.version,
     });
-    const safeRolloutMap =
-      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+      req.context,
+      { features: [updatedFeature], experiments: experimentMap.values() },
+    );
     return {
       feature: await resolveOwnerEmail(
         getApiFeatureObj({

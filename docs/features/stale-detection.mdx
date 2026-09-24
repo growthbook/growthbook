@@ -1,0 +1,58 @@
+---
+title: Stale Feature Flag Detection
+description: Find feature flags that are fully rolled out, unused, or inactive so you can archive or remove them.
+sidebarTitle: Stale Feature Detection
+slug: /features/stale-detection
+---
+
+Over time, some feature flags become "stale" — they're no longer actively used or relevant, but they remain in your system. Stale flags add clutter to your dashboard and make it harder to understand which flags actually matter. GrowthBook can automatically detect these flags so you can clean them up.
+
+## Viewing Stale Flags
+
+Stale flags are surfaced in the main feature flag table. Look for the **Stale** column, which indicates whether a flag has been marked stale.
+
+<Frame>
+  <img src="/static/images/features/stale-ff-overview.png" alt="Stale Flag Column" width="800" />
+</Frame>
+
+You can also see the stale indicator on individual feature pages, next to the feature name.
+
+<Frame>
+  <img src="/static/images/features/stale-ff-page-view.png" alt="Stale Flag Indicator" width="800" />
+</Frame>
+
+## How GrowthBook Determines Stale Status
+
+Hover over the verdict in the **Stale** column to see the reason for each environment. A flag that is stale in some environments but not others shows as **Not stale** with an asterisk.
+
+A flag is considered stale if it hasn't been updated in two weeks **and** meets at least one of these criteria:
+
+- No active environments (the flag is disabled everywhere)
+- One-sided rules that send 100% of traffic to a single variation
+- The only thing an environment serves is the released variation of an experiment that stopped more than 30 days ago
+
+A temporary rollout from an experiment stopped less than 30 days ago keeps the flag out of the stale list. Cleanup signals that do not make a flag stale on their own, such as a lingering temporary rollout on a flag that still has other rules, appear in the separate **Health** column.
+
+You can filter the features table with `is:stale`, `is:partially-stale`, and `is:stale-detection-off`. See [Search Syntax](/using/growthbook-best-practices#features-syntax-fields) for the full list.
+
+## Toggling Stale Detection
+
+You can disable stale detection for a specific flag from the feature details page or from the features table.
+
+<Frame>
+<video autoPlay loop muted style={{width: '100%', height: "auto", marginBlockEnd: "1.5rem", border: "1px solid var(--color-border)"}} controls allowFullScreen>
+    <source src="/static/videos/stale-ff-overview-never-stale.mp4" type="video/mp4" />
+</video>
+</Frame>
+
+To re-enable stale detection, navigate to the menu in the top right of the feature details page.
+
+<Frame>
+<video autoPlay loop muted style={{width: '100%', height: "auto", marginBlockEnd: "1.5rem", border: "1px solid var(--color-border)"}} controls allowFullScreen>
+    <source src="/static/videos/stale-ff-never-stale-page.mp4" type="video/mp4" />
+</video>
+</Frame>
+
+<Tip>
+Use [Code References](/features/code-references) alongside stale detection to see exactly where a stale flag is used in your codebase, making cleanup faster and safer.
+</Tip>

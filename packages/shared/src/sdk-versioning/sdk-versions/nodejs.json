@@ -1,6 +1,11 @@
 {
   "versions": [
     {
+      "version": "1.8.0",
+      "prerelease": true,
+      "capabilities": ["savedGroupReferencesV2"]
+    },
+    {
       "version": "1.7.0",
       "capabilities": ["contextualBandits"]
     },
@@ -34,7 +39,8 @@
       "version": "1.4.1"
     },
     {
-      "version": "1.4.0"
+      "version": "1.4.0",
+      "capabilities": ["trackingPlugin"]
     },
     {
       "version": "1.3.1"

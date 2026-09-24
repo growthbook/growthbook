@@ -1,5 +1,6 @@
 import {
   canEnableEnvironmentOnCreate,
+  targetingRefusal,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
@@ -38,11 +39,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
-import { useUser } from "@/services/UserContext";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -103,13 +100,11 @@ const genFormDefaultValues = ({
   permissions: permissionsUtil,
   featureToDuplicate,
   project,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Pick<
   FeatureInterface,
   | "valueType"
@@ -132,14 +127,7 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [
-          field.id,
-          featureToDuplicate?.customFields?.[field.id] ?? field.defaultValue,
-        ]),
-      )
-    : {};
+  const customFieldValues = featureToDuplicate?.customFields ?? {};
 
   return featureToDuplicate
     ? {
@@ -179,6 +167,8 @@ const genFormDefaultValues = ({
       };
 };
 
+const NOTHING_TARGETED_YET = { allProjects: false, targetingProjects: [] };
+
 export default function FeatureModal({
   close,
   onSuccess,
@@ -187,28 +177,22 @@ export default function FeatureModal({
   secondaryCTA,
   featureToDuplicate,
 }: Props) {
-  const { project, refreshTags, configs } = useDefinitions();
+  const {
+    project,
+    refreshTags,
+    configs,
+    targetingOptOutProjectIds: targetingOptOut,
+  } = useDefinitions();
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
-
-  const allCustomFields = useCustomFields();
-  const initialCustomFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    project,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     featureToDuplicate,
     project,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? initialCustomFields
-      : undefined,
   });
 
   const [showDescription, setShowDescription] = useState(
@@ -227,11 +211,13 @@ export default function FeatureModal({
   const canCreateWithoutProject =
     !requireProjectForFeatures && permissionsUtil.canViewFeatureModal();
   const selectedProject = form.watch("project");
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
   const { projectId: demoProjectId } = useDemoDataSourceProject();
   const creatingInDemoProject =
     !!demoProjectId && selectedProject === demoProjectId;
@@ -325,11 +311,30 @@ export default function FeatureModal({
       !selectedProject && projectOptions.length > 0
         ? "Select a project to continue."
         : "You don't have permission to create Feature Flags.";
+  } else {
+    // A new flag's whole targeting set is an addition, duplicated or not.
+    const proposedTargeting = {
+      project: form.watch("project") ?? selectedProject,
+      targetingAllProjects: form.watch("targetingAllProjects"),
+      targetingProjects: form.watch("targetingProjects"),
+    };
+    const refusal = targetingRefusal({
+      permissions: permissionsUtil,
+      existing: {},
+      proposed: proposedTargeting,
+      optedOut: targetingOptOut,
+    });
+    if (refusal) {
+      ctaEnabled = false;
+      disabledMessage =
+        refusal.cause === "opted-out"
+          ? "One or more of the selected Projects don't allow targeting from other Projects' Feature Flags."
+          : "You don't have permission to target one or more of the selected Projects.";
+    }
   }
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open
       size="lg"
@@ -395,6 +400,7 @@ export default function FeatureModal({
 
         const body = {
           ...feature,
+          duplicateOf: featureToDuplicate?.id,
           baseConfig: configKey,
           defaultValue: storedDefault,
           holdout: {
@@ -448,8 +454,9 @@ export default function FeatureModal({
         )}
 
         <TargetingProjectsField
-          mb="3"
+          mb="5"
           primaryProject={selectedProject}
+          baseline={NOTHING_TARGETED_YET}
           allProjects={!!form.watch("targetingAllProjects")}
           setAllProjects={(v) => form.setValue("targetingAllProjects", v)}
           targetingProjects={form.watch("targetingProjects") ?? []}
@@ -647,21 +654,15 @@ export default function FeatureModal({
           />
         </Box>
 
-        {hasCommercialFeature("custom-metadata") &&
-          customFields &&
-          customFields?.length > 0 && (
-            <div>
-              <CustomFieldInput
-                customFields={customFields}
-                setCustomFields={(value) => {
-                  form.setValue("customFields", value);
-                }}
-                currentCustomFields={form.watch("customFields") || {}}
-                section={"feature"}
-                project={selectedProject}
-              />
-            </div>
-          )}
+        {customFields.length > 0 && (
+          <div>
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues}
+              onChange={(value) => form.setValue("customFields", value)}
+            />
+          </div>
+        )}
 
         <Flex direction="column" mt="3">
           {showTags && (

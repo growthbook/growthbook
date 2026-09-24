@@ -10,6 +10,7 @@ export const POLICIES = [
   "FlagsPublish",
   "FlagsRevert",
   "FlagsDelete",
+  "FlagsTarget",
   "FlagsBypassApprovals",
   "ArchetypesFullAccess",
   // Deprecated — see DEPRECATED_POLICIES.
@@ -112,10 +113,11 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "revertFeatures",
     "revertConfigs",
     "revertConstants",
+    "targetFeatures",
   ],
   // The lifecycle, one policy per action. Each bundles the three flag
   // entities, so an admin grants "may publish flags" without choosing between
-  // Features, Configs and Constants — the split exists for the checks.
+  // Features, Configs, and Constants — the split exists for the checks.
   FlagsCreate: [
     "readData",
     "createFeatures",
@@ -146,6 +148,9 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "publishConfigs",
     "publishConstants",
   ],
+  // Deliver other projects' Feature Flags into this one via Targeting Projects.
+  // Features only: Configs and Constants have no targeting projects.
+  FlagsTarget: ["readData", "targetFeatures"],
   FlagsRevert: [
     "readData",
     "revertFeatures",
@@ -174,6 +179,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "editFeatureDrafts",
     "reviewFeatures",
     "manageArchetype",
+    "targetFeatures",
   ],
   // Grants EVERY entity's bypass atom: the pre-split `bypassApprovalChecks` was
   // org-wide — main's config/constant adapters consult it directly — so dropping
@@ -345,6 +351,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "FlagsPublish",
       "FlagsRevert",
       "FlagsDelete",
+      "FlagsTarget",
       "FlagsBypassApprovals",
       "ArchetypesFullAccess",
     ],
@@ -483,6 +490,11 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Archive & delete",
     description:
       "Archive (environment-scoped) or delete Feature Flags, Constants, and Configs. Deleting is not environment-scoped — an archived entity already serves nowhere.",
+  },
+  FlagsTarget: {
+    displayName: "Target",
+    description:
+      'Allowed to include this role\'s project in any Feature Flag\'s "Targeting Projects". When the role is granted globally, also allowed to set "Targeting Projects" to All Projects.',
   },
   FlagsBypassApprovals: {
     displayName: "Bypass draft approvals",
@@ -662,14 +674,14 @@ export const POLICY_METADATA_MAP: Record<
   ProjectsFullAccess: {
     displayName: "Projects Full Access",
     description:
-      "Create, edit, and delete projects and change project roles for other members. Can be applied at the global or project level.",
+      "Create, edit, and delete projects, change project roles for other members, and manage project-scoped teams. Can be applied at the global or project level.",
     warning:
       "Can be used to create new project admins and adjust project roles for other members",
   },
   ProjectAdminAccess: {
     displayName: "Project Admin Access",
     description:
-      "Manage project settings and change project roles for other members.",
+      "Manage project settings, change project roles for other members, and manage project-scoped teams.",
     warning:
       "Can be used to create new project admins and adjust project roles for other members",
   },
@@ -762,6 +774,7 @@ export const POLICY_PARTS: Partial<Record<Policy, Policy[]>> = {
     "FlagsPublish",
     "FlagsRevert",
     "FlagsDelete",
+    "FlagsTarget",
   ],
   SavedGroupsFullAccess: [
     "SavedGroupsCreate",
@@ -965,19 +978,22 @@ export const ENV_SCOPED_PERMISSIONS = [
   "manageSDKConnections",
   "manageSDKWebhooks",
   "runExperiments",
+  // Review is env-scoped exactly where publish is: you may not approve what you
+  // could not publish. Saved groups are absent because none of their atoms are.
+  "reviewFeatures",
+  "reviewConfigs",
+  "reviewConstants",
 ] as const;
 
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
   "editFeatureDrafts",
-  "reviewFeatures",
   "bypassApprovalFeatures",
+  "targetFeatures",
   "editConfigDrafts",
-  "reviewConfigs",
   "bypassApprovalConfigs",
   "editConstantDrafts",
-  "reviewConstants",
   "bypassApprovalConstants",
   "manageArchetype",
   "manageProjects",

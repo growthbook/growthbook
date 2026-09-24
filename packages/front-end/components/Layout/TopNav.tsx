@@ -419,7 +419,6 @@ const TopNav: FC<{
       </Head>
       {editUserOpen && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
@@ -534,6 +533,14 @@ const TopNav: FC<{
             <DropdownMenuSeparator />
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}
+            <DropdownMenuItem
+              onClick={() => {
+                setDropdownOpen(false);
+                router.push("/account/slack");
+              }}
+            >
+              My Slack links
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             {renderChangePassword()}
             {renderLogoutDropDown()}

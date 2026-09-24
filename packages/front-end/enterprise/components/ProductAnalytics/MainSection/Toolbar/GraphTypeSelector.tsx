@@ -8,6 +8,7 @@ import {
   PiChartBarHorizontalDuotone,
   PiChartLine,
   PiHash,
+  PiListBullets,
   PiTable,
 } from "react-icons/pi";
 import {
@@ -18,10 +19,16 @@ import {
   SelectSeparator,
 } from "@/ui/Select";
 import { AreaChartIcon } from "@/components/Icons";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import {
+  isTimelessSqlExploration,
+  isTimeSeriesChart,
+} from "@/enterprise/components/ProductAnalytics/util";
 
 const chartTypes: {
   groupLabel: string;
+  sqlOnly?: boolean;
   items: {
     value: (typeof chartTypeValues)[number];
     label: string;
@@ -55,10 +62,19 @@ const chartTypes: {
       { value: "bigNumber", label: "Big Numbers", icon: PiHash },
     ],
   },
+  {
+    groupLabel: "No Aggregation",
+    sqlOnly: true,
+    items: [{ value: "rawTable", label: "Table", icon: PiListBullets }],
+  },
 ];
 
 export default function GraphTypeSelector() {
   const { draftExploreState, changeChartType } = useExplorerContext();
+  const timelessSql = isTimelessSqlExploration(draftExploreState);
+  const groups = chartTypes.filter(
+    (group) => !group.sqlOnly || draftExploreState.dataset.type === "sql",
+  );
 
   return (
     <Select
@@ -67,18 +83,32 @@ export default function GraphTypeSelector() {
       placeholder="Select value"
       setValue={(v) => changeChartType(v as (typeof chartTypeValues)[number])}
     >
-      {chartTypes.map((group, groupIndex) => (
+      {groups.map((group, groupIndex) => (
         <div key={group.groupLabel}>
           {groupIndex > 0 && <SelectSeparator />}
           <SelectGroup>
             <SelectLabel>{group.groupLabel}</SelectLabel>
-            {group.items.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                <Flex align="center" gap="2">
-                  <item.icon size={15} /> {item.label}
-                </Flex>
-              </SelectItem>
-            ))}
+            {group.items.map((item) => {
+              const disabled = timelessSql && isTimeSeriesChart(item.value);
+              const selectItem = (
+                <SelectItem value={item.value} disabled={disabled}>
+                  <Flex align="center" gap="2">
+                    <item.icon size={15} /> {item.label}
+                  </Flex>
+                </SelectItem>
+              );
+
+              return disabled ? (
+                <Tooltip
+                  key={item.value}
+                  body="Update your SQL query to return a date or timestamp column to use time-series charts."
+                >
+                  {selectItem}
+                </Tooltip>
+              ) : (
+                <React.Fragment key={item.value}>{selectItem}</React.Fragment>
+              );
+            })}
           </SelectGroup>
         </div>
       ))}

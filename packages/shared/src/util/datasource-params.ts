@@ -117,6 +117,7 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
 
   bigquery: {
     authType: "public",
+    apiEndpoint: "public",
     projectId: "public",
     clientEmail: "public",
     privateKey: "secret",
@@ -204,6 +205,15 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
     refreshToken: "secret",
     viewId: "public",
     delimiter: "public",
+  },
+
+  adobe_experience_platform_query_service: {
+    host: "public",
+    port: "public",
+    database: "public",
+    username: "public",
+    technicalAccountId: "public",
+    credential: "secret",
   },
 } satisfies {
   [T in DataSourceType]: ParamClassification<DataSourceParamsForType<T>>;

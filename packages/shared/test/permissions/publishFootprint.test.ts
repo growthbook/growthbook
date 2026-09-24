@@ -1,5 +1,6 @@
 import {
   featurePublishFootprint,
+  rampActionFootprint,
   holdoutEnvsForChange,
   revertFootprint,
   servingEnvironments,
@@ -94,6 +95,50 @@ describe("featurePublishFootprint", () => {
       "dev",
       "staging",
     ]);
+  });
+
+  // A rule marked `allEnvironments` structurally touches every applicable
+  // environment, including ones the flag is disabled in. The footprint must stay
+  // the serving set — demanding authority over a disabled environment the change
+  // can never reach blocked a feature owner from publishing their own draft.
+  it("counts an allEnvironments rule only where the flag actually serves", () => {
+    const allEnvRule = {
+      ...rule("r1"),
+      allEnvironments: true,
+    } as unknown as FeatureRule;
+    expect(footprint({ rules: [allEnvRule] }, { liveRules: [] })).toEqual([
+      "dev",
+      "staging",
+    ]);
+  });
+
+  // Every changed env is disabled, so the narrowing above would empty the set and
+  // fall through to the whole serving list — demanding authority in dev/staging,
+  // which this draft never touched. It stays the environment that was edited.
+  it("keeps the edited environment when the narrowing would empty the set", () => {
+    expect(footprint({ rules: [rule("r1", "production")] })).toEqual([
+      "production",
+    ]);
+  });
+
+  // The `environmentsEnabled` contribution is deliberately not narrowed, so an env
+  // this same draft switches on stays in the footprint.
+  it("counts an environment the draft enables while editing its rules", () => {
+    expect(
+      footprint({
+        rules: [rule("r1", "production")],
+        environmentsEnabled: { production: true },
+      }),
+    ).toEqual(["production"]);
+  });
+
+  it("unions an enabled environment with the serving envs whose rules changed", () => {
+    expect(
+      footprint({
+        rules: [rule("r2", "dev")],
+        environmentsEnabled: { production: true },
+      }),
+    ).toEqual(["dev", "production"]);
   });
 
   // A global field is felt everywhere, so the footprint is everything the change
@@ -268,5 +313,58 @@ describe("revertFootprint", () => {
         changedEnvs: ["retired"],
       }).sort(),
     ).toEqual(["dev", "staging"]);
+  });
+});
+
+describe("rampActionFootprint detach reach", () => {
+  const sibling = (env: string) =>
+    ({
+      id: `r1__${env}`,
+      type: "force",
+      value: "true",
+      description: "",
+      enabled: true,
+      allEnvironments: false,
+      environments: [env],
+    }) as FeatureRule;
+  const liveRules = [sibling("dev"), sibling("production")];
+  const detach = {
+    mode: "detach" as const,
+    rampScheduleId: "rs_1",
+    ruleId: "r1__dev",
+    deleteScheduleWhenEmpty: true,
+  };
+  const withTarget = (ruleId: string) => [
+    {
+      id: "rs_1",
+      targets: [
+        {
+          id: "t1",
+          entityType: "feature" as const,
+          entityId: "f1",
+          ruleId,
+          environment: null,
+          status: "active" as const,
+        },
+      ],
+    },
+  ];
+  const reach = (schedules?: ReturnType<typeof withTarget>) =>
+    rampActionFootprint({
+      rampActions: [detach],
+      liveRules,
+      environmentIds: ["dev", "production"],
+      schedules,
+    });
+
+  it("sizes a detach by every rule the removed target reaches", () => {
+    // A legacy bare target drives both migrated siblings; removing it from the
+    // dev copy takes the ramp off production too.
+    expect(reach(withTarget("r1"))).toEqual(["dev", "production"]);
+  });
+
+  it("stays on the named rule for an exact target, or with no schedule known", () => {
+    expect(reach(withTarget("r1__dev"))).toEqual(["dev"]);
+    expect(reach()).toEqual(["dev"]);
   });
 });

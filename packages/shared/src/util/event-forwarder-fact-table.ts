@@ -4,14 +4,23 @@ import type {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "shared/types/organization";
+import type { UserIdType } from "shared/types/datasource";
 import {
   attributeMatchesDatasourceProjects,
-  getEventForwarderManagedIdentifierSourceAttribute,
+  getEventForwarderUserIdTypeSourceAttribute,
+  isEventForwarderManaged,
 } from "./event-forwarder-datasource";
 import {
+  quoteDatabricksIdentifier,
   resolveBigQueryEventForwarderTableNames,
+  resolveDatabricksEventForwarderTableNames,
   resolveSnowflakeEventForwarderTableNames,
 } from "./event-forwarder-destination";
+
+export type EventForwarderQuerySinkType =
+  | "bigquery"
+  | "snowflake"
+  | "databricks";
 
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
@@ -76,15 +85,12 @@ export function resolveEventForwarderAttributeLookupKeys(
   return [sanitizeEventForwarderAvroFieldName(property)];
 }
 
-/**
- * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after connector ready or
- * attribute metadata changes before refreshing fact table columns. Increase
- * here if warehouse tables need longer to materialize (currently 1 min).
- */
 export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 1 * 60 * 1000;
 
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX = "_events";
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_NAME_SUFFIX = " Events";
+export const EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION =
+  "This fact table was auto-generated when the Event Forwarder was enabled. As you make changes to attributes, we'll automatically update the Fact Table's SQL to reflect the changes.";
 
 export function getEventForwarderEventsFactTableId(
   datasourceId: string,
@@ -103,7 +109,7 @@ export function isEventForwarderEventsFactTable(
   datasourceId: string,
 ): boolean {
   return (
-    factTable.managedBy === "api" &&
+    isEventForwarderManaged(factTable) &&
     factTable.id === getEventForwarderEventsFactTableId(datasourceId)
   );
 }
@@ -126,6 +132,16 @@ export function buildSnowflakeEventForwarderTableReference(
   return `${database.trim()}.${schema.trim()}.${tableName.trim()}`;
 }
 
+export function buildDatabricksEventForwarderTableReference(
+  catalog: string,
+  schema: string,
+  tableName: string,
+): string {
+  return [catalog, schema, tableName]
+    .map((identifier) => quoteDatabricksIdentifier(identifier.trim()))
+    .join(".");
+}
+
 export function quoteBigQueryIdentifier(identifier: string): string {
   return `\`${identifier}\``;
 }
@@ -145,6 +161,32 @@ function escapeBigQueryJsonPathKey(key: string): string {
 
 function quoteSnowflakeVariantFieldName(fieldName: string): string {
   return `"${fieldName.replace(/"/g, '""')}"`;
+}
+
+// Keys are sanitized Avro field names, so only the SQL string literal needs escaping.
+function buildDatabricksVariantPath(key: string): string {
+  return `'$.${key.replace(/'/g, "''")}'`;
+}
+
+function buildDatabricksFlatMapAttributeValueSql(
+  fieldName: string,
+  valueDatatype: EventForwarderAttributeValueDatatype,
+): string {
+  const path = buildDatabricksVariantPath(fieldName);
+  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD;
+
+  switch (valueDatatype) {
+    case "number":
+      return `variant_get(${attributesCol}, ${path}, 'DOUBLE')`;
+    case "boolean":
+      return `variant_get(${attributesCol}, ${path}, 'BOOLEAN')`;
+    case "json":
+      // Untyped variant_get keeps VARIANT so the column refresh infers "json".
+      return `variant_get(${attributesCol}, ${path})`;
+    case "string":
+    default:
+      return `variant_get(${attributesCol}, ${path}, 'STRING')`;
+  }
 }
 
 /** Warehouse value type used when casting flat map<string, string> entries. */
@@ -259,7 +301,7 @@ export function buildEventForwarderNestedAttributeValueSql({
   valueDatatype,
   castToString = false,
 }: {
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   attributeName: string;
   /** SDK attribute datatype (fact tables derive effective casts from this). */
   attributeDatatype?: SDKAttributeType;
@@ -287,6 +329,18 @@ export function buildEventForwarderNestedAttributeValueSql({
     return valueSql;
   }
 
+  if (sinkType === "databricks") {
+    // variant_get(..., 'STRING') already yields STRING; no extra cast needed.
+    return coalesceSqlExpressions(
+      lookupKeys.map((fieldName) =>
+        buildDatabricksFlatMapAttributeValueSql(
+          fieldName,
+          resolvedValueDatatype,
+        ),
+      ),
+    );
+  }
+
   return coalesceSqlExpressions(
     lookupKeys.map((fieldName) =>
       buildSnowflakeFlatMapAttributeValueSqlForKey({
@@ -308,7 +362,7 @@ export function buildEventForwarderPropertyValueSql({
   sinkType,
   propertyKey,
 }: {
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   propertyKey: string;
 }): string {
   if (sinkType === "bigquery") {
@@ -318,6 +372,10 @@ export function buildEventForwarderPropertyValueSql({
     return `JSON_VALUE(${propertiesCol}, '$."${escapeBigQueryJsonPathKey(
       propertyKey,
     )}"')`;
+  }
+
+  if (sinkType === "databricks") {
+    return `variant_get(${EVENT_FORWARDER_AVRO_PROPERTIES_FIELD}, ${buildDatabricksVariantPath(propertyKey)}, 'STRING')`;
   }
 
   const propertiesCol = EVENT_FORWARDER_AVRO_PROPERTIES_FIELD.toUpperCase();
@@ -370,15 +428,15 @@ function buildEventForwarderEventsFactTableSelect({
   datasourceProjects,
   userIdTypes = [],
 }: {
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   attributeSchema?: SDKAttributeSchema;
   datasourceProjects?: string[];
-  userIdTypes?: string[];
+  userIdTypes?: UserIdType[];
 }): string {
   const baseColumns =
-    sinkType === "bigquery"
-      ? ["  timestamp", "  event_name"]
-      : ["  TIMESTAMP AS timestamp", "  EVENT_NAME AS event_name"];
+    sinkType === "snowflake"
+      ? ["  TIMESTAMP AS timestamp", "  EVENT_NAME AS event_name"]
+      : ["  timestamp", "  event_name"];
   const attributes = getEventForwarderEventsFactTableAttributes(
     attributeSchema,
     datasourceProjects,
@@ -388,17 +446,16 @@ function buildEventForwarderEventsFactTableSelect({
   const attributeColumns: string[] = [];
 
   for (const userIdType of userIdTypes) {
-    // The projected column (alias / join key) keeps the managed identifier id
-    // (e.g. "ef_user_id"), but the value is extracted from the real source
-    // attribute ("user_id"). Non-managed identifier types resolve to themselves.
-    const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
+    const fieldName = sanitizeEventForwarderAvroFieldName(
+      userIdType.userIdType,
+    );
     const key = fieldName.toLowerCase();
     if (projectedFieldKeys.has(key)) {
       continue;
     }
     projectedFieldKeys.add(key);
     const sourceAttribute =
-      getEventForwarderManagedIdentifierSourceAttribute(userIdType);
+      getEventForwarderUserIdTypeSourceAttribute(userIdType);
     const matchingAttribute = findEventForwarderEventsFactTableAttribute(
       attributes,
       sourceAttribute,
@@ -446,7 +503,7 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       tablePrefix: string;
       attributeSchema?: SDKAttributeSchema;
       datasourceProjects?: string[];
-      userIdTypes?: string[];
+      userIdTypes?: UserIdType[];
     }
   | {
       sinkType: "snowflake";
@@ -455,7 +512,16 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       tablePrefix: string;
       attributeSchema?: SDKAttributeSchema;
       datasourceProjects?: string[];
-      userIdTypes?: string[];
+      userIdTypes?: UserIdType[];
+    }
+  | {
+      sinkType: "databricks";
+      catalog: string;
+      schema: string;
+      tablePrefix: string;
+      attributeSchema?: SDKAttributeSchema;
+      datasourceProjects?: string[];
+      userIdTypes?: UserIdType[];
     };
 
 export function buildEventForwarderEventsFactTableSql(
@@ -473,6 +539,20 @@ export function buildEventForwarderEventsFactTableSql(
       tableNames.events,
     );
     const select = buildEventForwarderEventsFactTableSelect(params);
+    return `${select}\nFROM ${tableRef}\nWHERE ${partitionFilter}`;
+  }
+
+  if (params.sinkType === "databricks") {
+    const tableNames = resolveDatabricksEventForwarderTableNames(
+      params.tablePrefix,
+    );
+    const tableRef = buildDatabricksEventForwarderTableReference(
+      params.catalog,
+      params.schema,
+      tableNames.events,
+    );
+    const select = buildEventForwarderEventsFactTableSelect(params);
+    // Tables are liquid-clustered on received_at, so the filter prunes files.
     return `${select}\nFROM ${tableRef}\nWHERE ${partitionFilter}`;
   }
 
@@ -496,7 +576,7 @@ function getEventForwarderFactTableColumnDatatype(
 }
 
 export function buildEventForwarderEventsFactTableColumns(
-  userIdTypes: string[],
+  userIdTypes: UserIdType[],
   attributeSchema: SDKAttributeSchema = [],
   datasourceProjects?: string[],
 ): CreateColumnProps[] {
@@ -524,16 +604,16 @@ export function buildEventForwarderEventsFactTableColumns(
   }
 
   for (const userIdType of userIdTypes) {
-    const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
+    const fieldName = sanitizeEventForwarderAvroFieldName(
+      userIdType.userIdType,
+    );
     const key = fieldName.toLowerCase();
     if (seen.has(key)) {
       continue;
     }
     seen.add(key);
-    // Keep the column datatype aligned with the SELECT: a managed identifier id
-    // (e.g. "ef_user_id") inherits the datatype of its source attribute.
     const sourceAttribute =
-      getEventForwarderManagedIdentifierSourceAttribute(userIdType);
+      getEventForwarderUserIdTypeSourceAttribute(userIdType);
     const matchingAttribute = findEventForwarderEventsFactTableAttribute(
       attributes,
       sourceAttribute,

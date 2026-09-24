@@ -70,7 +70,11 @@ const feature = {
 const applicableIds = serveFootprint(environments, feature);
 
 describe("control footprint === endpoint footprint", () => {
-  it("feature publish, rules-only draft: the environments whose rules differ", () => {
+  // staging's rule differs too, but staging is disabled, so dropping its rule
+  // reaches no payload and needs no authority there. A disabled environment enters
+  // the footprint only via a toggle, never via a rule change, the same as qa above
+  // and a feature archive.
+  it("feature publish, rules-only draft: the serving environments whose rules differ", () => {
     expect(
       [
         ...getRevisionPublishEnvs({
@@ -80,7 +84,7 @@ describe("control footprint === endpoint footprint", () => {
           holdoutsMap: new Map(),
         }),
       ].sort(),
-    ).toEqual(["production", "staging"]);
+    ).toEqual(["production"]);
   });
 
   it("feature publish, a global change: everywhere it serves", () => {

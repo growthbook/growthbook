@@ -83,13 +83,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Markdown from "@/components/Markdown/Markdown";
 import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
-import CustomFieldDisplay, {
-  CustomFieldDraftInfo,
-} from "@/components/CustomFields/CustomFieldDisplay";
-import {
-  useCustomFields,
-  filterCustomFieldsForSectionAndProject,
-} from "@/hooks/useCustomFields";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
+import { CustomFieldDraftInfo } from "@/components/CustomFields/CustomFieldEditModal";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";

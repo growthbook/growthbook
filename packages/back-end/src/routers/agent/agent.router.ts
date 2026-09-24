@@ -1,6 +1,10 @@
 import express from "express";
 import { z } from "zod";
-import { aiChatFeedbackRatingValidator } from "shared/validators";
+import {
+  aiChatFeedbackRatingValidator,
+  aiChatMentionValidator,
+  aiChatSkillsValidator,
+} from "shared/validators";
 import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -23,9 +27,9 @@ router.post(
         // the LLM as a `[Page context: …]` prefix; not displayed in the
         // chat UI. Skills document the URL → entity mapping.
         currentPage: z.string().max(2048).optional(),
-        // Optional preselected product analytics datasource. The eval runner
-        // uses this to keep generic-agent PA cases deterministic.
         datasourceId: z.string().min(1).optional(),
+        mentions: aiChatMentionValidator.array().optional(),
+        skills: aiChatSkillsValidator.optional(),
         // Deterministic mutation-confirmation gate: when the user responds to
         // a parked mutation, the UI sends the action id and their decision so
         // the harness can replay or discard the exact stored call.
@@ -38,6 +42,8 @@ router.post(
 );
 
 router.get("/chat", agentController.listChats);
+
+router.get("/skills", agentController.listSkills);
 
 router.get(
   "/chat/:conversationId",

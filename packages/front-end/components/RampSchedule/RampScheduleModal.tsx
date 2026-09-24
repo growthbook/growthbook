@@ -9,9 +9,11 @@
 
 import { useState } from "react";
 import type { FeatureInterface } from "shared/types/feature";
+import { getAttributeScopeProjectIds } from "shared/util";
 import type { Environment } from "shared/types/organization";
 import type { RampScheduleInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import { useLocalAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import RampScheduleSection, {
@@ -136,6 +138,11 @@ export default function RampScheduleModal({
   onClose,
 }: Props) {
   const { apiCall } = useAuth();
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useLocalAttributeScopePicker(
+      feature.project,
+      getAttributeScopeProjectIds(feature),
+    );
   const isEdit = !!rs;
   const noImplementations = isEdit && (rs.targets.length ?? 0) === 0;
   const multiTarget = isEdit && rs.targets.length > 1;
@@ -249,6 +256,8 @@ export default function RampScheduleModal({
         boxStepGrid
         hideNameField
         feature={feature}
+        attributeProjects={effectiveAttributeProjects}
+        attributeSelectIndicator={attributeScopeToggle}
         environments={environments.map((e) => e.id)}
       />
     </ModalStandard>

@@ -66,6 +66,7 @@ export function getRelevantFactTableIds(
 
   switch (dataset.type) {
     case "fact_table":
+    case "journey":
       if (dataset.factTableId) ids.add(dataset.factTableId);
       break;
     case "metric":
@@ -86,6 +87,7 @@ export function getRelevantFactTableIds(
       break;
     }
     case "data_source":
+    case "sql":
       break;
     default: {
       const _exhaustive: never = dataset;
@@ -155,11 +157,21 @@ export function getAvailableDimensionColumns(
       }
       break;
     }
-    case "data_source": {
+    case "data_source":
+    case "sql": {
       if (!dataset.values.length) return [];
       candidates = Object.entries(dataset.columnTypes)
-        .filter(([, datatype]) => datatype === "string")
+        .filter(([, datatype]) =>
+          dataset.type === "sql" ? datatype !== "other" : datatype === "string",
+        )
         .map(([name]) => ({ column: name, name }));
+      break;
+    }
+    case "journey": {
+      const ft = getFactTableById(dataset.factTableId || "");
+      if (!ft) return [];
+      ft.userIdTypes?.forEach((u) => userIdTypes.add(u));
+      candidates = expandFactTableColumns(ft);
       break;
     }
     case "funnel": {

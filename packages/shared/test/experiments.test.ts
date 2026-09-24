@@ -1,13 +1,17 @@
 import normal from "@stdlib/stats/base/dists/normal";
 import {
   FactTableInterface,
+  FactMetricInterface,
   ColumnInterface,
   FactFilterInterface,
 } from "shared/types/fact-table";
 import { IndexedPValue } from "shared/types/stats";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
+  getInlineFilterPromptColumns,
+  reconcileInlineFilterPrompts,
   getAggregateFilters,
   getColumnExpression,
   expandVirtualColumnsInSql,
@@ -22,6 +26,12 @@ import {
   getRowFilterSQL,
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
+  isFactMetricJoinable,
+  parseSliceQueryString,
+  parseSliceMetricId,
+  generateSliceString,
+  getAllExpandedMetricIdsFromExperiment,
+  ExperimentMetricInterface,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -1403,6 +1413,27 @@ describe("Experiments", () => {
             }),
           ).toStrictEqual(`(${column.column} LIKE '%f\\_o''o\\%%')`);
         });
+        it.each(["matches_pattern", "not_matches_pattern"] as const)(
+          "supports %s row filters",
+          (operator) => {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: column.column,
+                  operator,
+                  values: ["/items/*/detail?"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+              }),
+            ).toBe(
+              `(${column.column} ${operator === "matches_pattern" ? "LIKE" : "NOT LIKE"} '/items/%/detail_')`,
+            );
+          },
+        );
         // Dialects like BigQuery/Snowflake treat backslash as a string-literal
         // escape character. The wildcard-escaping backslash must be inserted
         // before escapeStringLiteral runs so it gets doubled into a valid
@@ -2302,6 +2333,107 @@ describe("getIntersectionBaseMetricIds", () => {
   });
 });
 
+describe("parseSliceQueryString", () => {
+  it("parses a simple slice query string", () => {
+    expect(parseSliceQueryString("dim:browser=Chrome&dim:country=AU")).toEqual([
+      { column: "browser", datatype: "string", levels: ["Chrome"] },
+      { column: "country", datatype: "string", levels: ["AU"] },
+    ]);
+  });
+
+  it("treats an empty value as no levels", () => {
+    expect(parseSliceQueryString("dim:browser=")).toEqual([
+      { column: "browser", datatype: "string", levels: [] },
+    ]);
+  });
+
+  it("round-trips values containing % and other special characters", () => {
+    const slices = {
+      promo: "50% off",
+      pattern: "%foo%",
+      "col%name": "a&b=c",
+    };
+    expect(parseSliceQueryString(generateSliceString(slices))).toEqual([
+      { column: "col%name", datatype: "string", levels: ["a&b=c"] },
+      { column: "pattern", datatype: "string", levels: ["%foo%"] },
+      { column: "promo", datatype: "string", levels: ["50% off"] },
+    ]);
+  });
+
+  it("parses slice metric ids with % in the level without throwing", () => {
+    const sliceString = generateSliceString({ query: "LIKE '%checkout%'" });
+    expect(parseSliceMetricId(`m_goal?${sliceString}`)).toEqual({
+      isSliceMetric: true,
+      baseMetricId: "m_goal",
+      sliceLevels: [
+        {
+          column: "query",
+          datatype: "string",
+          levels: ["LIKE '%checkout%'"],
+        },
+      ],
+    });
+  });
+});
+
+describe("getAllExpandedMetricIdsFromExperiment", () => {
+  // The collector only inspects ids, so the map values can be placeholders.
+  const mapOf = (...ids: string[]) =>
+    new Map(
+      ids.map((id) => [id, { id } as unknown as ExperimentMetricInterface]),
+    );
+
+  it("includes derived metrics of the metrics being analyzed", () => {
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: ["m_a"], guardrailMetrics: ["f_b"] },
+      expandedMetricMap: mapOf(
+        "m_a",
+        "m_a?dim:country=us",
+        "m_a?dim:country=",
+        "m_a?dim:a=1&dim:b=2",
+        "f_b",
+        "f_b?step=0",
+      ),
+    });
+    expect(ids.sort()).toEqual(
+      [
+        "m_a",
+        "m_a?dim:country=us",
+        "m_a?dim:country=",
+        "m_a?dim:a=1&dim:b=2",
+        "f_b",
+        "f_b?step=0",
+      ].sort(),
+    );
+  });
+
+  it("ignores derived metrics whose parent is not being analyzed", () => {
+    // e.g. the map was expanded before an unjoinable metric was scrubbed
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: ["m_a"] },
+      expandedMetricMap: mapOf(
+        "m_a",
+        "m_a?dim:country=us",
+        "m_orphan",
+        "m_orphan?dim:country=us",
+        "f_orphan?step=0",
+      ),
+    });
+    expect(ids.sort()).toEqual(["m_a", "m_a?dim:country=us"].sort());
+  });
+
+  it("resolves parents through metric groups", () => {
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: ["mg_1"] },
+      expandedMetricMap: mapOf("m_a", "m_a?dim:x=1"),
+      metricGroups: [
+        { id: "mg_1", metrics: ["m_a"] } as unknown as MetricGroupInterface,
+      ],
+    });
+    expect(ids.sort()).toEqual(["m_a", "m_a?dim:x=1"].sort());
+  });
+});
+
 describe("Virtual Columns", () => {
   const jsonExtract = (jsonCol: string, path: string, isNumeric: boolean) =>
     `${jsonCol}:'${path}'${isNumeric ? "::float" : ""}`;
@@ -2656,6 +2788,223 @@ describe("Virtual Columns", () => {
       expect(getColumnExpression("doubled_vc", ft, jsonExtract, "m")).toBe(
         '(m."price" * 2)',
       );
+    });
+  });
+});
+
+describe("isFactMetricJoinable", () => {
+  const factTables = new Map<string, Pick<FactTableInterface, "userIdTypes">>([
+    ["ft_users", { userIdTypes: ["user_id"] }],
+    ["ft_anon", { userIdTypes: ["anonymous_id"] }],
+    ["ft_both", { userIdTypes: ["user_id", "anonymous_id"] }],
+  ]);
+  const getFactTable = (id: string) => factTables.get(id);
+
+  const funnelOnTables = (factTableIds: string[]) =>
+    ({
+      metricType: "funnel",
+      numerator: null,
+      denominator: null,
+      funnelSettings: {
+        steps: factTableIds.map((factTableId, i) => ({
+          name: `Step ${i + 1}`,
+          factTableId,
+          rowFilters: [],
+          optional: false,
+          conversionWindow: null,
+        })),
+      },
+    }) as unknown as FactMetricInterface;
+
+  const ratioOnTables = (numerator: string, denominator: string) =>
+    ({
+      metricType: "ratio",
+      numerator: { factTableId: numerator, column: "$$count" },
+      denominator: { factTableId: denominator, column: "$$count" },
+    }) as unknown as FactMetricInterface;
+
+  it("is joinable when every step's fact table reaches the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_both"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(true);
+  });
+
+  it("is not joinable when a later step's fact table cannot reach the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_anon"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("is not joinable when a cross-table ratio's denominator cannot reach the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        ratioOnTables("ft_users", "ft_anon"),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a missing fact table as not joinable", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_deleted"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a metric with no resolvable fact tables as not joinable", () => {
+    expect(
+      isFactMetricJoinable(funnelOnTables(["", ""]), "user_id", getFactTable),
+    ).toBe(false);
+  });
+
+  it("honors identity joins from datasource settings", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_anon"]),
+        "user_id",
+        getFactTable,
+        {
+          queries: {
+            identityJoins: [
+              { ids: ["user_id", "anonymous_id"], query: "SELECT 1" },
+            ],
+          },
+        },
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("conditional inline filter prompts", () => {
+  const col = (column: string, extra: Partial<ColumnInterface> = {}) => ({
+    column,
+    name: column,
+    datatype: "string" as const,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    description: "",
+    numberFormat: "" as const,
+    deleted: false,
+    ...extra,
+  });
+  const factTable = {
+    userIdTypes: ["user_id"],
+    columns: [
+      col("user_id"),
+      col("event_name", {
+        alwaysInlineFilter: true,
+        conditionalInlineFilters: {
+          "Page View": "path",
+          "Modal Open": "properties.modalType",
+        },
+      }),
+      col("path"),
+      col("properties", { datatype: "json" }),
+    ],
+  };
+  const pageView = {
+    column: "event_name",
+    operator: "=" as const,
+    values: ["Page View"],
+  };
+
+  describe("getInlineFilterPromptColumns", () => {
+    it("prompts for the base columns only until a mapped value is chosen", () => {
+      expect(getInlineFilterPromptColumns(factTable, [])).toEqual([
+        "event_name",
+      ]);
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "=", values: ["Purchase"] },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+    it("adds the mapped column (including JSON paths) for a single pinned value", () => {
+      expect(getInlineFilterPromptColumns(factTable, [pageView])).toEqual([
+        "event_name",
+        "path",
+      ]);
+      // `in` with one value is equivalent to `=`
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "in", values: ["Modal Open"] },
+        ]),
+      ).toEqual(["event_name", "properties.modalType"]);
+    });
+    it("does not prompt for a multi-value in: the mapped column would exclude the other events", () => {
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          {
+            column: "event_name",
+            operator: "in",
+            values: ["Page View", "Order"],
+          },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+    it("ignores other operators and blank placeholders", () => {
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "!=", values: ["Page View"] },
+          { column: "event_name", operator: "=", values: [""] },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+  });
+
+  describe("reconcileInlineFilterPrompts", () => {
+    it("appends a placeholder when a mapped value is chosen", () => {
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [{ column: "event_name", operator: "=", values: [""] }],
+          [pageView],
+        ),
+      ).toEqual([pageView, { column: "path", operator: "=", values: [""] }]);
+    });
+    it("drops the still-empty placeholder when the value changes", () => {
+      const order = {
+        column: "event_name",
+        operator: "=" as const,
+        values: ["Order"],
+      };
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [pageView, { column: "path", operator: "=", values: [""] }],
+          [order, { column: "path", operator: "=", values: [""] }],
+        ),
+      ).toEqual([order]);
+    });
+    it("keeps a filled-in filter and does not re-add a removed prompt", () => {
+      const path = { column: "path", operator: "=" as const, values: ["/x"] };
+      const order = {
+        column: "event_name",
+        operator: "=" as const,
+        values: ["Order"],
+      };
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [pageView, path],
+          [order, path],
+        ),
+      ).toEqual([order, path]);
+      expect(
+        reconcileInlineFilterPrompts(factTable, [pageView], [pageView]),
+      ).toEqual([pageView]);
     });
   });
 });

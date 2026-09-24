@@ -4,6 +4,7 @@ import {
   constantPublishEnvironments as constantPublishEnvs,
 } from "shared/util";
 import { serveFootprint } from "shared/permissions";
+import type { PublishFootprint } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 
@@ -21,14 +22,7 @@ export function constantPublishEnvironments(
   return constantPublishEnvs(changedEnvironments);
 }
 
-/**
- * Distinguishes unscoped changes from changes affecting every served
- * environment; both would otherwise collapse to a permission-skipping empty list.
- */
-export type PublishFootprint =
-  | { scope: "environments"; environments: string[] }
-  | { scope: "unscoped" }
-  | { scope: "everywhere" };
+export type { PublishFootprint } from "shared/enterprise";
 
 /** Resolves the environments used for publish authorization. */
 export function resolvePublishFootprint(

@@ -6,7 +6,7 @@ import {
   ExperimentResultStatusData,
   VariationWithIndex,
 } from "shared/types/experiment";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { BsLightningFill } from "react-icons/bs";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
@@ -139,12 +139,12 @@ export default function RunningExperimentDecisionBanner({
                   {decisionContent}
                   <Flex direction="row" align="center" gap="1" ml="2">
                     {decidedVariations.map((v, i) => (
-                      <>
-                        <Box key={v.id}>{variationNames[v.id]}</Box>
+                      <Fragment key={v.id}>
+                        <Box>{variationNames[v.id]}</Box>
                         {i !== decidedVariations.length - 1 ? (
                           <Text mx="1">,</Text>
                         ) : null}
-                      </>
+                      </Fragment>
                     ))}
                   </Flex>
                 </Flex>

@@ -4,7 +4,7 @@ import { CustomHookEntityType, CustomHookInterface } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
+import { runCustomHookTest } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { revertCustomHookToVersion } from "back-end/src/services/customHookHistory";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -138,6 +138,7 @@ export const testCustomHook = async (
     {
       functionBody: string;
       functionArgs: Record<string, unknown>;
+      originalFunctionArgs?: Record<string, unknown>;
       entityType?: CustomHookEntityType;
       entityId?: string;
     },
@@ -150,6 +151,7 @@ export const testCustomHook = async (
     error?: string;
     warnings?: string[];
     log?: string;
+    suppressed?: { error?: string; warnings?: string[] };
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -179,28 +181,15 @@ export const testCustomHook = async (
     context.permissions.throwPermissionError();
   }
 
-  const result = await runInSandbox(
-    req.body.functionBody,
-    req.body.functionArgs,
+  const { functionBody, functionArgs, originalFunctionArgs } = req.body;
+  const result = await runCustomHookTest(
+    functionBody,
+    functionArgs,
+    originalFunctionArgs,
   );
 
-  if (result.ok) {
-    res.status(200).json({
-      status: 200,
-      success: true,
-      returnVal: result.returnVal
-        ? JSON.stringify(result.returnVal, null, 2)
-        : undefined,
-      warnings: result.warnings,
-      log: result.log,
-    });
-  } else {
-    res.status(200).json({
-      status: 200,
-      success: false,
-      error: result.error || "Unknown error",
-      warnings: result.warnings,
-      log: result.log,
-    });
-  }
+  res.status(200).json({
+    status: 200,
+    ...result,
+  });
 };

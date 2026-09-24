@@ -435,6 +435,7 @@ export default function TabbedPage({
       experiment={experiment}
       linkedFeatures={linkedFeatures}
       visualChangesets={visualChangesets}
+      urlRedirects={urlRedirects}
       connections={connections}
       mutateExperiment={mutate}
       editTargeting={editTargeting}
@@ -448,7 +449,6 @@ export default function TabbedPage({
       )}
       {watchersModal && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Experiment Watchers"

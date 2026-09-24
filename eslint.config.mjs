@@ -1,7 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, globalIgnores } from "eslint/config";
-import { fixupConfigRules, fixupPluginRules } from "@eslint/compat";
+import { defineConfig } from "eslint/config";
+import {
+  fixupConfigRules,
+  fixupPluginRules,
+  includeIgnoreFile,
+} from "@eslint/compat";
 import react from "eslint-plugin-react";
 import typescriptEslint from "@typescript-eslint/eslint-plugin";
 import nextEslintPluginNext from "@next/eslint-plugin-next";
@@ -25,22 +29,7 @@ const { name: _nextName, ...nextRecommendedConfig } =
   nextEslintPluginNext.configs.recommended;
 
 export default defineConfig([
-  globalIgnores([
-    // Claude Code parks agent worktrees (full checkouts) here; linting them
-    // rewrites another branch's files.
-    ".claude/",
-    "**/.next",
-    "**/dist",
-    "**/coverage",
-    "**/.venv",
-    "**/node_modules",
-    "docs/.docusaurus",
-    "docs/docusaurus.config.js",
-    "docs/build",
-    "packages/sdk-js/scripts",
-    "**/*.tsbuildinfo",
-    "packages/shared/types/*.js",
-  ]),
+  includeIgnoreFile(path.join(__dirname, ".gitignore")),
   nextRecommendedConfig,
   {
     extends: fixupConfigRules(
@@ -151,6 +140,15 @@ export default defineConfig([
         },
       ],
 
+      "react/jsx-key": [
+        "error",
+        {
+          checkFragmentShorthand: true,
+          checkKeyMustBeforeSpread: true,
+          warnOnDuplicates: true,
+        },
+      ],
+
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
 
@@ -186,9 +184,14 @@ export default defineConfig([
     },
   },
   {
-    // Standalone CommonJS runtime script (no build step): require() is correct
+    // Standalone runtime/tooling scripts (no build step): require() is correct
     // and console is the intended logging channel.
-    files: ["./preview/idle-monitor.js"],
+    files: [
+      "./preview/idle-monitor.js",
+      "./scripts/*.js",
+      "./scripts/*.mjs",
+      "./packages/sdk-js/scripts/*.js",
+    ],
 
     rules: {
       "@typescript-eslint/no-require-imports": "off",
@@ -380,6 +383,7 @@ export default defineConfig([
 
     ignores: [
       "./packages/back-end/src/util/http.util.ts",
+      "./packages/back-end/src/services/bigqueryClient.ts",
       "./packages/back-end/**/*.test.{ts,tsx,js,jsx}",
     ],
 
@@ -393,6 +397,13 @@ export default defineConfig([
               message:
                 'Use `import { fetch } from "back-end/src/util/http.util";` instead.',
               importNames: ["default"],
+            },
+            {
+              name: "@google-cloud/bigquery",
+              message:
+                'Use `createBigQueryClient` from "back-end/src/services/bigqueryClient".',
+              importNames: ["BigQuery"],
+              allowTypeImports: true,
             },
           ],
 

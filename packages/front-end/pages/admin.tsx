@@ -163,7 +163,6 @@ function OrganizationRow({
       )}
       {clickhouseModalOpen && (
         <Modal
-          useRadixButton={false}
           open={true}
           header="Create Clickhouse Data Source"
           close={() => setClickhouseModalOpen(false)}
@@ -265,10 +264,7 @@ function OrganizationRow({
         <tr>
           <td colSpan={8} className="bg-light">
             <h3>Summary</h3>
-            <div
-              className="mb-3 bg-white border p-3"
-              style={{ border: "1px solid var(--border-color-200)" }}
-            >
+            <div className="appbox mb-3 p-3">
               <div className="row">
                 <div className="col-2 text-right">Name:</div>
                 <div className="col-auto font-weight-bold">
@@ -299,7 +295,9 @@ function OrganizationRow({
                   {ssoInfo
                     ? `yes (${
                         ssoInfo.id
-                      } for domains: ${ssoInfo.emailDomains?.join(", ")})`
+                      } for domains: ${ssoInfo.emailDomains?.join(", ")})${
+                        ssoInfo.disabled ? " — DISABLED" : ""
+                      }`
                     : "no"}
                 </div>
                 {isCloud() && (
@@ -553,7 +551,7 @@ function MemberRow({
                 )}
                 {memberOrgs.map((o) => (
                   <div className="mb-2 col-3" key={o.id + member.id}>
-                    <div className="mx-2  border bg-white p-3 rounded-lg">
+                    <div className="appbox mx-2 mb-0 p-3">
                       <div>
                         <span className="font-weight-bold">Name:</span> {o.name}
                       </div>
@@ -698,10 +696,7 @@ const Admin: FC = () => {
       <h1>GrowthBook Admin</h1>
       {!isCloud() && (
         <>
-          <div
-            className="p-3 bg-white"
-            style={{ border: "1px solid var(--border-color-200)" }}
-          >
+          <div className="appbox p-3">
             <ShowLicenseInfo showInput={false} />{" "}
           </div>
           <div className="divider border-bottom mb-3 mt-3" />
@@ -943,7 +938,6 @@ const EditMember: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}
@@ -993,6 +987,9 @@ function generateSSOConnection(
   };
 
   // Generate additionalScope, extraQueryParams, metadata based on idP type
+  // Note: no `logout_endpoint` on purpose. Setting it redirects "Log out" to the
+  // IdP's logout URL, which ends the user's IdP session too (and leaves them on
+  // the IdP). Logging out of GrowthBook should only log them out of GrowthBook.
   if (data.idpType === "okta") {
     if (data.baseURL) {
       // Remove trailing slash
@@ -1030,7 +1027,6 @@ function generateSSOConnection(
       res.metadata = {
         issuer: `https://${data.tenantId}.auth0.com/`,
         authorization_endpoint: `https://${data.tenantId}.auth0.com/authorize`,
-        logout_endpoint: `https://${data.tenantId}.auth0.com/v2/logout?client_id=CLIENT_ID`,
         id_token_signing_alg_values_supported: ["HS256", "RS256"],
         jwks_uri: `https://${data.tenantId}.auth0.com/.well-known/jwks.json`,
         token_endpoint: `https://${data.tenantId}.auth0.com/oauth/token`,
@@ -1049,7 +1045,6 @@ function generateSSOConnection(
         code_challenge_methods_supported: ["S256"],
         issuer: `https://login.microsoftonline.com/${data.tenantId}/v2.0`,
         authorization_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/authorize`,
-        logout_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/logout`,
       };
     }
   } else if (data.idpType === "onelogin") {
@@ -1065,7 +1060,6 @@ function generateSSOConnection(
         id_token_signing_alg_values_supported: ["RS256", "HS256", "PS256"],
         jwks_uri: `${baseURL}/oidc/2/certs`,
         code_challenge_methods_supported: ["S256"],
-        logout_endpoint: `${baseURL}/oidc/2/logout`,
       };
     }
   } else if (data.idpType === "jumpcloud") {
@@ -1078,7 +1072,6 @@ function generateSSOConnection(
       code_challenge_methods_supported: ["S256"],
       issuer: "https://oauth.id.jumpcloud.com/",
       authorization_endpoint: "https://oauth.id.jumpcloud.com/oauth2/auth",
-      logout_endpoint: "https://oauth.id.jumpcloud.com/oauth2/sessions/logout",
       audience: "",
     };
   }
@@ -1158,7 +1151,6 @@ function EditSSOModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       submit={form.handleSubmit(async (data) => {
         const payload = generateSSOConnection({

@@ -9,7 +9,12 @@ import {
 export const listMembers = createApiRequestHandler(listMembersValidator)(async (
   req,
 ) => {
-  if (!req.context.permissions.canManageTeam()) {
+  // Project Admins see the member list on the project page, so the same
+  // authority reads it here (member ids are needed to fill project teams).
+  if (
+    !req.context.permissions.canManageTeam() &&
+    !req.context.permissions.canManageSomeProjects()
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -38,6 +43,7 @@ export const listMembers = createApiRequestHandler(listMembersValidator)(async (
         teams: member.teams,
         environments: member.environments,
         limitAccessByEnvironment: member.limitAccessByEnvironment,
+        additionalRoles: member.additionalRoles,
         projectRoles: member.projectRoles,
         lastLoginDate: member.lastLoginDate?.toISOString(),
         dateCreated: member.dateCreated?.toISOString(),

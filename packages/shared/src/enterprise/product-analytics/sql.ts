@@ -1,5 +1,10 @@
 import { getValidDate } from "shared/dates";
-import { buildMinimalOrCondition, format } from "shared/sql";
+import {
+  buildMinimalOrCondition,
+  format,
+  SQL_ROW_LIMIT,
+  stripTrailingSemicolon,
+} from "shared/sql";
 import {
   buildPrevResolvedExpr,
   conversionWindowToSeconds,
@@ -30,23 +35,66 @@ import {
   FactTableDataset,
   ExplorationConfig,
   DataSourceDataset,
+  SqlDataset,
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
 } from "../../validators/product-analytics";
-import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,
+  getFactTableIdColumnExpression,
   getAggregateFilters,
+  getFactTableTimestampColumn,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
+import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
+import { hasTimestampColumn } from "./utils";
+import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
   FactTableInterface,
-  "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
->;
+  "sql" | "columns" | "filters" | "userIdTypes" | "userIdColumns"
+> & {
+  // SQL explorations may omit a timestamp (non-time-series). Fact tables
+  // still default missing columns to "timestamp" in toMinimalFactTable.
+  timestampColumn: string | null;
+  quoteTimestampColumn: boolean;
+};
+
+function toMinimalFactTable(factTable: FactTableInterface): MinimalFactTable {
+  return {
+    ...factTable,
+    timestampColumn: getFactTableTimestampColumn(factTable),
+    quoteTimestampColumn: false,
+  };
+}
+
+function getTimestampColumnExpression(
+  factTable: MinimalFactTable,
+  helpers: SqlDialect,
+): string | null {
+  if (!hasTimestampColumn(factTable.timestampColumn)) {
+    return factTable.quoteTimestampColumn ? null : "timestamp";
+  }
+  if (!factTable.quoteTimestampColumn) return factTable.timestampColumn;
+
+  return quoteSqlIdentifier(factTable.timestampColumn, helpers);
+}
+
+function quoteSqlIdentifier(name: string, helpers: SqlDialect): string {
+  const quote = helpers.identifierQuote;
+  const folded =
+    helpers.unquotedIdentifierFold === "upper"
+      ? name.toUpperCase()
+      : helpers.unquotedIdentifierFold === "lower"
+        ? name.toLowerCase()
+        : name;
+  const escaped = folded.split(quote).join(`${quote}${quote}`);
+  return `${quote}${escaped}${quote}`;
+}
+
 // Funnel fact metrics are excluded: product-analytics explorations describe
 // their own funnels through the funnel dataset, and a funnel fact metric has no
 // numerator column to roll up.
@@ -94,6 +142,8 @@ interface MetricData {
   unit: string | null;
   alias: string;
   percentileCapValueExpr: string | null;
+  /** Same column basis as `percentileCapValueExpr`; used for lower-tail percentile caps. */
+  percentileLowerCapValueExpr: string | null;
   eventValueExpr: string;
   unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
@@ -126,7 +176,10 @@ function getMetricAliases(index: number) {
 
 // Helpers to convert to internal types
 function getMetricsAndUnitsFromValues(
-  values: FactTableDataset["values"] | DataSourceDataset["values"],
+  values:
+    | FactTableDataset["values"]
+    | DataSourceDataset["values"]
+    | SqlDataset["values"],
 ): { metrics: MetricWithMetadata[]; units: string[] } {
   const units = new Set<string>();
 
@@ -170,6 +223,9 @@ function getFactTableGroups({
 
   switch (config.dataset.type) {
     case "data_source": {
+      if (!hasTimestampColumn(config.dataset.timestampColumn)) {
+        throw new Error("Timestamp column is required");
+      }
       // For a migrated managed warehouse, re-expose former materialized columns as
       // top-level aliases (same as the fact table) so bare references in a raw
       // `data_source` exploration keep resolving. No-op for legacy/other datasources.
@@ -191,6 +247,19 @@ function getFactTableGroups({
         },
       ];
     }
+    case "sql":
+      return [
+        {
+          index: 0,
+          factTable: createStubFactTable(
+            stripTrailingSemicolon(config.dataset.sql),
+            config.dataset.timestampColumn,
+            config.dataset.columnTypes,
+            datasourceSettings,
+          ),
+          ...getMetricsAndUnitsFromValues(config.dataset.values),
+        },
+      ];
     case "fact_table":
       return (() => {
         if (!config.dataset.factTableId) {
@@ -203,16 +272,18 @@ function getFactTableGroups({
         return [
           {
             index: 0,
-            factTable,
+            factTable: toMinimalFactTable(factTable),
             ...getMetricsAndUnitsFromValues(config.dataset.values),
           },
         ];
       })();
     case "funnel":
-      // Funnels are dispatched away from this code path in
-      // generateProductAnalyticsSQL; this branch exists only so the switch
-      // is exhaustive over the dataset type union.
-      throw new Error("Funnel datasets are not handled by getFactTableGroups");
+    case "journey":
+      // Dispatched away from this code path in generateProductAnalyticsSQL;
+      // these branches exist so the switch is exhaustive over the dataset union.
+      throw new Error(
+        `${config.dataset.type} datasets are not handled by getFactTableGroups`,
+      );
     case "metric":
       return (() => {
         const groups: Record<string, FactTableGroup> = {};
@@ -262,7 +333,7 @@ function getFactTableGroups({
           if (!groups[factTable.id]) {
             groups[factTable.id] = {
               index: Object.keys(groups).length,
-              factTable,
+              factTable: toMinimalFactTable(factTable),
               metrics: [],
               units: [],
             };
@@ -289,7 +360,7 @@ function getFactTableGroups({
             if (!groups[denominatorFactTable.id]) {
               groups[denominatorFactTable.id] = {
                 index: Object.keys(groups).length,
-                factTable: denominatorFactTable,
+                factTable: toMinimalFactTable(denominatorFactTable),
                 metrics: [],
                 units: [],
               };
@@ -448,7 +519,7 @@ export function getDateGranularity(
 }
 
 // Generate row filter SQL
-function generateRowFilterSQL(
+export function generateRowFilterSQL(
   rowFilters: RowFilter[],
   factTable: MinimalFactTable,
   helpers: SqlDialect,
@@ -474,6 +545,23 @@ function generateRowFilterSQL(
     .filter((sql): sql is string => sql !== null);
 }
 
+/**
+ * Scan-level WHERE for several row-filter groups (metrics, funnel steps)
+ * reading the same fact table: the minimal OR of the groups. "" means no
+ * pushdown (some group is unfiltered, so every row is needed).
+ */
+export function generatePushdownFilterSQL(
+  rowFilterGroups: RowFilter[][],
+  factTable: MinimalFactTable,
+  helpers: SqlDialect,
+): string {
+  return buildMinimalOrCondition(
+    rowFilterGroups.map((filters) =>
+      generateRowFilterSQL(filters, factTable, helpers),
+    ),
+  );
+}
+
 // True if `column` resolves to a real underlying column on `factTable` —
 // either a top-level column, or (for a dotted path) a JSON field defined on
 // a JSON-typed top-level column. A ratio metric's denominator can live on a
@@ -491,6 +579,28 @@ export function factTableHasResolvableColumn(
   if (!col) return false;
   if (rest.length === 0) return true;
   return col.datatype === "json" && !!col.jsonFields?.[rest.join(".")];
+}
+
+// Dimension values are compared against string literals — the 'other' fallback
+// and pinned values — so a non-string column has to be cast to match. String
+// columns are left alone so existing SQL, and the predicate pushdown a bare
+// column still allows, are unchanged.
+function castDimensionValueToString(
+  columnExpr: string,
+  column: string,
+  factTable: MinimalFactTable,
+  helpers: SqlDialect,
+): string {
+  const [head, ...rest] = column.split(".");
+  const col = factTable.columns.find((c) => c.column === head);
+  const datatype =
+    rest.length > 0 && col?.datatype === "json"
+      ? col.jsonFields?.[rest.join(".")]?.datatype
+      : col?.datatype;
+  // An unresolved column keeps today's behaviour rather than guessing.
+  return datatype && datatype !== "string"
+    ? helpers.castToString(columnExpr)
+    : columnExpr;
 }
 
 // Build `column IN (...)` clauses for every static (pinned-values) dimension,
@@ -522,7 +632,12 @@ function getStaticDimensionFilters(
     const valueList = d.values
       .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
       .join(", ");
-    return `${columnExpr} IN (${valueList})`;
+    return `${castDimensionValueToString(
+      columnExpr,
+      d.column,
+      factTable,
+      helpers,
+    )} IN (${valueList})`;
   });
 }
 
@@ -531,11 +646,11 @@ function getCappingSettings(
 ): MetricCappingSettings | null {
   if (metric.metricType === "proportion") return null;
 
-  if (
-    metric.cappingSettings?.type === "percentile" ||
-    metric.cappingSettings?.type === "absolute"
-  ) {
-    return metric.cappingSettings;
+  const cs = metric.cappingSettings;
+  if (!cs) return null;
+
+  if (getCappingTailState(cs).anyCap) {
+    return cs;
   }
 
   return null;
@@ -552,23 +667,29 @@ export function generateDimensionExpression(
   const factTable = factTableGroup.factTable;
   switch (dimension.dimensionType) {
     case "date": {
+      const timestampColumn = getTimestampColumnExpression(factTable, helpers);
+      if (!timestampColumn) {
+        throw new Error("Date dimensions require a timestamp column");
+      }
       const granularity = getDateGranularity(
         dimension.dateGranularity,
         dateRange,
       );
-      return `${helpers.dateTrunc(
-        factTable.timestampColumn || "timestamp",
-        granularity,
-      )}`;
+      return `${helpers.dateTrunc(timestampColumn, granularity)}`;
     }
     case "dynamic": {
       const topCTE = `_dimension${dimensionIndex}_top`;
-      const columnExpr = getColumnExpression(
+      const columnExpr = castDimensionValueToString(
+        getColumnExpression(
+          dimension.column || "",
+          factTable,
+          helpers.jsonExtract,
+          "",
+          helpers.identifierQuote,
+        ),
         dimension.column || "",
         factTable,
-        helpers.jsonExtract,
-        "",
-        helpers.identifierQuote,
+        helpers,
       );
       return `CASE 
         WHEN ${columnExpr} IN (SELECT value FROM ${topCTE}) THEN ${columnExpr}
@@ -676,10 +797,11 @@ function getEventValueExpr(
   } else if (columnRef.column === "$$count") {
     rawValue = "1";
   } else if (columnRef.column === "$$distinctDates") {
-    rawValue = helpers.dateTrunc(
-      factTable.timestampColumn || "timestamp",
-      "day",
-    );
+    const timestampColumn = getTimestampColumnExpression(factTable, helpers);
+    if (!timestampColumn) {
+      throw new Error("Distinct date values require a timestamp column");
+    }
+    rawValue = helpers.dateTrunc(timestampColumn, "day");
   } else {
     // Expand virtual (computed) columns into their SQL expression, and resolve
     // JSON columns. A plain column just returns its own name here.
@@ -858,14 +980,22 @@ function getMetricData(
   }
 
   const cappingSettings = getCappingSettings(metric);
+  const rawPercentileValueExpr = getEventValueExpr(
+    columnRef,
+    factTable,
+    helpers,
+    alias,
+    null,
+  );
 
   return {
     unit: selectedUnit,
     alias,
     percentileCapValueExpr:
       cappingSettings && cappingSettings.type === "percentile"
-        ? getEventValueExpr(columnRef, factTable, helpers, alias, null)
+        ? rawPercentileValueExpr
         : null,
+    percentileLowerCapValueExpr: null,
     eventValueExpr: getEventValueExpr(
       columnRef,
       factTable,
@@ -890,7 +1020,7 @@ function getMetricData(
 // Create a stub fact table from SQL dataset column types
 function createStubFactTable(
   sql: string,
-  timestampColumn: string,
+  timestampColumn: string | null,
   columnTypes: Record<
     string,
     "string" | "number" | "date" | "boolean" | "other"
@@ -931,13 +1061,16 @@ function createStubFactTable(
     sql,
     columns,
     userIdTypes,
-    timestampColumn,
+    timestampColumn: hasTimestampColumn(timestampColumn)
+      ? timestampColumn
+      : null,
+    quoteTimestampColumn: true,
     filters: [],
   };
 }
 
 // Generate dynamic dimension CTE
-function generateDynamicDimensionCTE(
+export function generateDynamicDimensionCTE(
   factTableGroup: FactTableGroup,
   dimension: ProductAnalyticsDynamicDimension,
   dimensionIndex: number,
@@ -946,12 +1079,18 @@ function generateDynamicDimensionCTE(
 ): CTE {
   const cteName = `_dimension${dimensionIndex}_top`;
 
-  const columnExpr = getColumnExpression(
+  // Must match generateDimensionExpression's cast, or the IN never hits.
+  const columnExpr = castDimensionValueToString(
+    getColumnExpression(
+      dimension.column || "",
+      factTableGroup.factTable,
+      helpers.jsonExtract,
+      "",
+      helpers.identifierQuote,
+    ),
     dimension.column || "",
     factTableGroup.factTable,
-    helpers.jsonExtract,
-    "",
-    helpers.identifierQuote,
+    helpers,
   );
 
   return {
@@ -974,16 +1113,19 @@ function generatePercentileCapsCTE(
   const selects: string[] = [];
   factTableGroup.metrics.forEach((m) => {
     const cappingSettings = getCappingSettings(m.metric);
-    if (!cappingSettings || cappingSettings.type !== "percentile") return;
+    if (!cappingSettings) return;
 
     const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    const tails = getCappingTailState(cappingSettings);
 
-    selects.push(
-      `${helpers.percentileApprox(
-        metricData.percentileCapValueExpr || "NULL",
-        cappingSettings.value,
-      )} AS ${metricData.alias}_cap`,
-    );
+    if (tails.upperPercentileCapped) {
+      selects.push(
+        `${helpers.percentileApprox(
+          metricData.percentileCapValueExpr || "NULL",
+          cappingSettings.value!,
+        )} AS ${metricData.alias}_cap`,
+      );
+    }
   });
 
   if (!selects.length) return null;
@@ -1004,8 +1146,6 @@ function generateFactTableCTE(
   staticDimensionFilters: string[],
 ): CTE {
   const factTable = factTableGroup.factTable;
-
-  const timestampColumn = factTable.timestampColumn || "timestamp";
 
   const baseSql = factTable.sql;
 
@@ -1029,10 +1169,12 @@ function generateFactTableCTE(
 
   const whereClauses: string[] = [];
 
-  // Date range filter
-  whereClauses.push(
-    `${timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
-  );
+  const timestampColumn = getTimestampColumnExpression(factTable, helpers);
+  if (timestampColumn) {
+    whereClauses.push(
+      `${timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
+    );
+  }
 
   const metricsFilter = buildMinimalOrCondition(allMetricFilters);
   if (metricsFilter) {
@@ -1047,9 +1189,13 @@ function generateFactTableCTE(
     SELECT * FROM (
       -- Raw fact table SQL
       ${baseSql}
-    ) t
-    WHERE 
-      ${whereClauses.join("\n  AND ")}
+    ) t${
+      whereClauses.length
+        ? `
+    WHERE
+      ${whereClauses.join("\n  AND ")}`
+        : ""
+    }
   `,
   };
 }
@@ -1070,7 +1216,12 @@ function generateFactTableRowsCTE(
 
   // Select all units
   factTableGroup.units.forEach((unit, i) => {
-    selectCols.push(`${unit} AS unit${i}`);
+    const unitColumn = getFactTableIdColumnExpression(
+      factTableGroup.factTable,
+      unit,
+      helpers,
+    );
+    selectCols.push(`${unitColumn} AS unit${i}`);
   });
 
   // Select all metric event values
@@ -1314,7 +1465,7 @@ function groupFunnelStepsByFactTable(
     }
     groups.set(step.factTableId, {
       index: groups.size,
-      factTable,
+      factTable: toMinimalFactTable(factTable),
       stepIndexes: [idx + 1],
     });
   });
@@ -1411,7 +1562,7 @@ export function buildFunnelSql(
   }
   const initialFactTableGroup: FactTableGroup = {
     index: 0,
-    factTable: initialFactTable,
+    factTable: toMinimalFactTable(initialFactTable),
     metrics: [],
     units: [],
   };
@@ -1426,13 +1577,28 @@ export function buildFunnelSql(
     : null;
   const ctes: CTE[] = [];
 
+  const requireTimestampColumn = (ft: MinimalFactTable): string => {
+    const timestampColumn = getTimestampColumnExpression(ft, dialect);
+    if (!timestampColumn) {
+      throw new Error("Funnel steps require a timestamp column");
+    }
+    return timestampColumn;
+  };
+
   // 1a. Per-fact-table "raw" CTE — wraps the fact table SQL with the date
   // filter and preserves all raw columns so the optional top-N dimension
   // CTE can read the un-classified column.
   ftGroups.forEach((group) => {
     const ft = group.factTable;
-    const timestampColumn = ft.timestampColumn || "timestamp";
+    const timestampColumn = requireTimestampColumn(ft);
     const dateFilter = `${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`;
+    // Rows no step on this table can match are dropped at the scan, the same
+    // way multi-metric fact table explorations push their filters down.
+    const stepsFilter = generatePushdownFilterSQL(
+      group.stepIndexes.map((stepN) => steps[stepN - 1].rowFilters),
+      ft,
+      dialect,
+    );
     ctes.push({
       name: `__funnel_ft${group.index}_raw`,
       sql: `
@@ -1440,7 +1606,7 @@ export function buildFunnelSql(
           -- Raw fact table SQL
           ${ft.sql}
         ) t
-        WHERE ${dateFilter}
+        WHERE ${dateFilter}${stepsFilter ? `\n          AND ${stepsFilter}` : ""}
       `,
     });
   });
@@ -1467,9 +1633,10 @@ export function buildFunnelSql(
   // source that step).
   ftGroups.forEach((group) => {
     const ft = group.factTable;
-    const timestampColumn = ft.timestampColumn || "timestamp";
+    const timestampColumn = requireTimestampColumn(ft);
+    const unitColumn = getFactTableIdColumnExpression(ft, unit, dialect);
     const selectCols: string[] = [
-      `${unit} AS user_id`,
+      `${unitColumn} AS user_id`,
       `${timestampColumn} AS ts`,
       // Funnel dimensions are first-touch from the funnel's start, so only
       // the initial fact table contributes a real dimension value. Cast to a
@@ -1746,6 +1913,16 @@ export function generateProductAnalyticsSQL(
     const { sql } = buildFunnelSql(config, factTableMap, dialect);
     return { sql, orderedMetricIds: [] };
   }
+  if (config.dataset.type === "journey") {
+    const { sql } = buildJourneySql(config, factTableMap, dialect);
+    return { sql, orderedMetricIds: [] };
+  }
+  if (config.chartType === "rawTable") {
+    return {
+      sql: generateProductAnalyticsRawTableSQL(config, dialect),
+      orderedMetricIds: [],
+    };
+  }
 
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
@@ -1963,6 +2140,32 @@ export function generateProductAnalyticsSQL(
   };
 }
 
+function generateProductAnalyticsRawTableSQL(
+  config: ExplorationConfig,
+  dialect: SqlDialect,
+): string {
+  if (config.dataset.type !== "sql") {
+    throw new Error("Raw tables require a SQL dataset");
+  }
+
+  const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+  const timestampColumn = hasTimestampColumn(config.dataset.timestampColumn)
+    ? quoteSqlIdentifier(config.dataset.timestampColumn, dialect)
+    : null;
+  const whereClause = timestampColumn
+    ? `WHERE ${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`
+    : "";
+
+  return format(
+    dialect.selectStarLimit(
+      `(\n${stripTrailingSemicolon(config.dataset.sql)}\n) t`,
+      SQL_ROW_LIMIT + 1,
+      whereClause,
+    ),
+    dialect.formatDialect,
+  );
+}
+
 function parseStringValue(value: unknown): string | null {
   if (value == null) return null;
   if (typeof value === "string") return value;
@@ -1990,6 +2193,9 @@ export function transformProductAnalyticsRowsToResult(
   // funnel-specific parser.
   if (config.dataset.type === "funnel") {
     return transformFunnelRowsToResult(config, rows);
+  }
+  if (config.dataset.type === "journey") {
+    return transformJourneyRowsToResult(config, rows);
   }
 
   // Raw rows should look like this:

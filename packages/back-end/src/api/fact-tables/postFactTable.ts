@@ -5,6 +5,7 @@ import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTable
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createFactTable,
+  mergeUpsertColumns,
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
 import { addTags } from "back-end/src/models/TagModel";
@@ -15,7 +16,10 @@ import {
 } from "back-end/src/services/owner";
 import {
   columnsHaveAutoSlices,
+  columnsNeedDetection,
   validateAggregatedFactTableSettings,
+  validateColumnMappingTargets,
+  validateNewUserIdColumnKeys,
   validateVirtualColumnProps,
 } from "back-end/src/util/factTable";
 
@@ -93,6 +97,19 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       }
     }
 
+    if (req.body.userIdColumns) {
+      validateNewUserIdColumnKeys({
+        datasource,
+        userIdColumns: req.body.userIdColumns,
+      });
+    }
+
+    validateColumnMappingTargets({
+      columns: mergeUpsertColumns([], data.columns ?? []).columns,
+      timestampColumn: req.body.timestampColumn,
+      userIdColumns: req.body.userIdColumns,
+    });
+
     if (req.body.aggregatedFactTableSettings) {
       if (!req.context.hasPremiumFeature("pipeline-mode")) {
         throw new Error(
@@ -107,6 +124,9 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
         req.body.userIdTypes,
       );
     }
+
+    data.columnRefreshPending =
+      !data.columns?.length || columnsNeedDetection(data.columns);
 
     const factTable = await createFactTable(req.context, data);
     await queueFactTableColumnsRefresh(factTable);

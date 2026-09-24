@@ -3,6 +3,7 @@ import {
   getAvailableDimensionColumns,
   getRelevantFactTableIds,
 } from "shared/enterprise";
+import { ExplorationDataset } from "shared/validators/product-analytics";
 import {
   ColumnInterface,
   FactTableInterface,
@@ -321,6 +322,85 @@ describe("getAvailableDimensionColumns", () => {
     );
 
     expect(result.map((c) => c.column)).toEqual(["country"]);
+  });
+
+  it("offers SQL scalar columns without requiring fact tables", () => {
+    const dataset: ExplorationDataset = {
+      type: "sql",
+      sql: "SELECT * FROM events",
+      timestampColumn: "ts",
+      columnTypes: {
+        country: "string",
+        amount: "number",
+        ts: "date",
+        active: "boolean",
+        properties: "other",
+      },
+      values: [
+        {
+          type: "sql",
+          name: "v",
+          valueType: "count",
+          valueColumn: null,
+          unit: null,
+          rowFilters: [],
+        },
+      ],
+    };
+    expect(getRelevantFactTableIds(dataset, () => null)).toEqual([]);
+    expect(
+      getAvailableDimensionColumns(
+        dataset,
+        () => null,
+        () => null,
+      ),
+    ).toEqual([
+      { column: "active", name: "active" },
+      { column: "amount", name: "amount" },
+      { column: "country", name: "country" },
+      { column: "ts", name: "ts" },
+    ]);
+    expect(
+      getAvailableDimensionColumns(
+        { ...dataset, values: [] },
+        () => null,
+        () => null,
+      ),
+    ).toEqual([]);
+  });
+
+  it("resolves journey dimensions from its fact table", () => {
+    const dataset: ExplorationDataset = {
+      type: "journey",
+      factTableId: "numerator_ft",
+      unit: "user_id",
+      stepColumns: ["country"],
+      anchorStepValues: null,
+      direction: "forward",
+      rowFilters: [],
+      path: [],
+      lookaheadDepth: 1,
+      optionsPerStep: [5],
+    };
+    expect(getRelevantFactTableIds(dataset, () => null)).toEqual([
+      "numerator_ft",
+    ]);
+    expect(
+      getAvailableDimensionColumns(
+        dataset,
+        () => numeratorFt,
+        () => null,
+      )
+        .map((c) => c.column)
+        .sort(),
+    ).toEqual(["country", "props.plan"]);
+    expect(
+      getAvailableDimensionColumns(
+        dataset,
+        () => null,
+        () => null,
+      ),
+    ).toEqual([]);
   });
 
   it("uses the initial step's fact table for a funnel dataset", () => {

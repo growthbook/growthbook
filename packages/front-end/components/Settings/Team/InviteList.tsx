@@ -1,18 +1,22 @@
 import React, { FC, useState, ReactElement } from "react";
 import { Invite, MemberRoleInfo } from "shared/types/organization";
-import { PiCheckBold, PiX, PiXBold } from "react-icons/pi";
+import { PiX } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date, datetime } from "shared/dates";
-import { getRoleDisplayName } from "shared/permissions";
 import { Box, IconButton } from "@radix-ui/themes";
-import { memberEnvAccess, useAuth } from "@/services/auth";
+import { useAuth } from "@/services/auth";
+import {
+  CollapsedRuleRows,
+  projectRuleRows,
+  ruleRows,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { useEnvironments } from "@/services/features";
-import ProjectBadges from "@/components/ProjectBadges";
+import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Table, {
   TableHeader,
   TableBody,
@@ -46,9 +50,7 @@ const InviteList: FC<{
 
   const { organization } = useUser();
 
-  const { projects } = useDefinitions();
-  const environments = useEnvironments();
-  const forceScroll = environments.length > 3;
+  const { getProjectById } = useDefinitions();
 
   const onResend = async (key: string, email: string) => {
     if (resending) return;
@@ -112,7 +114,9 @@ const InviteList: FC<{
 
   return (
     <Box>
-      <h5>Pending Invites{` (${invites.length})`}</h5>
+      <Heading as="h5" size="sm" mb="1">
+        Pending Invites{` (${invites.length})`}
+      </Heading>
       <Text as="p" color="text-mid" mb="2">
         Invites that have been sent but have not yet been accepted.{" "}
         <strong>Invited users count towards plan seat limits.</strong>
@@ -134,22 +138,25 @@ const InviteList: FC<{
       )}
       {resending && <LoadingOverlay />}
       {resendMessage}
-      <Table
-        variant="surface"
-        style={forceScroll ? { whiteSpace: "nowrap" } : undefined}
-      >
+      <Table variant="surface" layout="fixed">
         <TableHeader>
           <TableRow>
-            <TableColumnHeader>Email</TableColumnHeader>
-            <TableColumnHeader>Date Invited</TableColumnHeader>
-            <TableColumnHeader>
-              {project ? "Project Role" : "Global Role"}
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.emailNoName}>
+              Email
             </TableColumnHeader>
-            {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
-            {environments.map((env) => (
-              <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
-            ))}
-            <TableColumnHeader style={{ width: 50 }} />
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.dateOnly}>
+              Date Invited
+            </TableColumnHeader>
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
+              {project ? "Project Role" : "Role"}
+            </TableColumnHeader>
+            {!project && (
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.projectRoles}>
+                Project Roles
+              </TableColumnHeader>
+            )}
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teams} />
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -165,47 +172,21 @@ const InviteList: FC<{
                   {date(dateCreated)}
                 </TableCell>
                 <TableCell>
-                  {getRoleDisplayName(roleInfo.role, organization)}
+                  <CollapsedRuleRows rows={ruleRows(roleInfo, organization)} />
                 </TableCell>
                 {!project && (
                   <TableCell>
-                    {member.projectRoles?.map((pr) => {
-                      const p = projects.find((p) => p.id === pr.project);
-                      if (p?.name) {
-                        return (
-                          <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
-                              resourceType="member"
-                              projectIds={[p.id]}
-                            />{" "}
-                            — {getRoleDisplayName(pr.role, organization)}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
+                    <CollapsedRuleRows
+                      rows={projectRuleRows(
+                        member.projectRoles ?? [],
+                        getProjectById,
+                        organization,
+                      )}
+                    />
                   </TableCell>
                 )}
-                {environments.map((env) => {
-                  const access = memberEnvAccess(
-                    member,
-                    env,
-                    organization,
-                    project,
-                  );
-                  return (
-                    <TableCell key={env.id}>
-                      {access === "N/A" ? (
-                        <Text color="text-low">N/A</Text>
-                      ) : access === "yes" ? (
-                        <PiCheckBold color="var(--green-11)" />
-                      ) : (
-                        <PiXBold color="var(--red-11)" />
-                      )}
-                    </TableCell>
-                  );
-                })}
-                <TableCell>
+                <TableCell />
+                <TableCell justify="end">
                   <DropdownMenu
                     trigger={
                       <IconButton

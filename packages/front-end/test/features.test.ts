@@ -237,6 +237,32 @@ describe("json <-> conds", () => {
     expect(jsonToConds(json, attributeMap)).toEqual(conds);
     expect(condToJson(conds, attributeMap)).toEqual(simplifiedJson);
   });
+  // A boolean literal under any operator other than $eq has no simple-editor
+  // equivalent, so the simple editor must opt out rather than rewrite it.
+  it("bool - $ne true requires advanced mode", () => {
+    const json = stringify({ bool: { $ne: true } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("bool - $ne false requires advanced mode", () => {
+    const json = stringify({ bool: { $ne: false } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("$ne boolean on a non-boolean attribute requires advanced mode", () => {
+    const json = stringify({ str: { $ne: true } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("$ne boolean inside $or requires advanced mode", () => {
+    const json = stringify({ $or: [{ bool: { $ne: true } }, { str: "a" }] });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("boolean literal under a comparison operator requires advanced mode", () => {
+    expect(
+      jsonToConds(stringify({ num: { $lt: true } }), attributeMap),
+    ).toEqual(null);
+    expect(
+      jsonToConds(stringify({ str: { $gt: false } }), attributeMap),
+    ).toEqual(null);
+  });
 
   // Array operators
   it("str_arr - $includes", () => {
