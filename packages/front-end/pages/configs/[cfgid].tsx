@@ -1413,7 +1413,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         </Flex>
         {composeError && (
           <HelperText status="error" size="sm" mt="1">
-            {composeError}
+            <MarkdownLinks text={composeError} />
           </HelperText>
         )}
       </Box>
@@ -1425,7 +1425,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         </Link>
         {composeError && (
           <HelperText status="error" size="sm" mt="1">
-            {composeError}
+            <MarkdownLinks text={composeError} />
           </HelperText>
         )}
       </Box>
