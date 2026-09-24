@@ -6,6 +6,7 @@ import {
   ResponseJSON,
 } from "@clickhouse/client";
 import {
+  ExternalIdCallback,
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
@@ -20,6 +21,7 @@ import {
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
 import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";
@@ -93,7 +95,11 @@ export default class ClickHouse extends SqlIntegration {
     return super.testConnection();
   }
 
-  async runQuery(sql: string): Promise<QueryResponse> {
+  async runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+    metadata?: RunQueryMetadata,
+  ): Promise<QueryResponse> {
     // Block queries while never-provisioned OR mid-migration (tables being recreated).
     // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
     // the callout distinguishes the migrating case for honest "upgrading" copy.
@@ -162,7 +168,15 @@ export default class ClickHouse extends SqlIntegration {
       if (isManagedWarehouse(this.datasource)) {
         const code = e instanceof ClickHouseError ? e.code : "unknown";
         try {
-          logger.error(e, `Managed Warehouse query failed (code ${code})`);
+          logger.error(
+            {
+              err: e,
+              orgId: this.datasource.organization,
+              datasourceId: this.datasource.id,
+              queryId: metadata?.queryId,
+            },
+            `Managed Warehouse query failed (code ${code})`,
+          );
           metrics
             .getCounter("clickhouse.managed_warehouse_errors")
             .increment({ code });
