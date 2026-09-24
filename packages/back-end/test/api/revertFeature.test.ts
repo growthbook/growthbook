@@ -20,6 +20,12 @@ jest.mock("back-end/src/services/moveDependentsGuard", () => ({
 jest.mock("back-end/src/services/archiveDependentsGuard", () => ({
   assertFeatureArchiveDependentsGuard: jest.fn(),
 }));
+jest.mock("back-end/src/revisions/revertRampGuard", () => ({
+  assertRevertRampStopsAcknowledged: jest.fn(),
+  resolveRevertRampStops: jest
+    .fn()
+    .mockResolvedValue({ detaches: [], warning: null }),
+}));
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
   getSavedGroupMap: jest.fn(),

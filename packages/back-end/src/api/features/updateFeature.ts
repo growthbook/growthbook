@@ -22,7 +22,6 @@ import {
 } from "back-end/src/services/owner";
 import {
   getFeature,
-  updateFeature as updateFeatureToDb,
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -32,7 +31,6 @@ import {
   addIdsToRules,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
-  getNextScheduledUpdate,
   getSavedGroupMap,
   inheritStoredRolloutSeeds,
   updateInterfaceEnvSettingsFromApiEnvSettings,
@@ -323,15 +321,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 
-    // Recompute next-scheduled-update whenever top-level `rules` OR
-    // `environmentSettings` change (the latter for REST callers still posting
-    // v1-shape env rules, which adapters normalize upstream).
-    if (updates.rules !== undefined || updates.environmentSettings) {
-      updates.nextScheduledUpdate = getNextScheduledUpdate(
-        updates.rules ?? feature.rules,
-      );
-    }
-
     // JWT-backed REST calls should behave like dashboard actions: the org-level
     // REST bypass setting only applies to API keys/PATs.
     const canBypass = canBypassReviewChecks(req, feature);
@@ -352,11 +341,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           settings.enabled !== feature.environmentSettings?.[env]?.enabled
         ) {
           changedEnvEnabled[env] = settings.enabled;
-          // Exclude enabled from the direct-write path to avoid applying it twice.
-          updates.environmentSettings[env] = {
-            ...updates.environmentSettings[env],
-            enabled: feature.environmentSettings?.[env]?.enabled ?? false,
-          };
         }
       }
     }
@@ -603,6 +587,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       hasArchivedChange ||
       hasHoldoutChange;
 
+    // The landing inside createAndPublishRevision is this handler's only write
+    // to the feature document. A second write would not refuse to land over a
+    // newer revision and could put this request's value back over a rival's.
+    let updatedFeature: FeatureInterface = feature;
+
     if (hasRevisionChanges) {
       if (hasMetadataChanges) {
         await assertFeatureMoveDependentsGuard(
@@ -644,8 +633,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         canBypassApprovalChecks: canBypass,
       });
 
-      Object.assign(feature, updatedFeatureFromRevision);
-      updates.version = revision.version;
+      updatedFeature = updatedFeatureFromRevision;
 
       // This path creates AND publishes a live revision, so it owes the same
       // `revision.published` webhook the dedicated publish endpoints emit. Without it
@@ -654,7 +642,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
       // Dispatched HERE, immediately after the revision commits — not at the end of
       // the handler. The publish is already live at this point; everything between
-      // (the metadata write, the tags diff, the audit entry, and four reads for the
+      // (the tags diff, the audit entry, and four reads for the
       // response payload) can throw, and every one of them turned a live publish into
       // a 500 with no lifecycle event at all. Those later steps are not part of the
       // publish, so their failure does not make this event untrue.
@@ -663,8 +651,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       try {
         await dispatchFeatureRevisionEvent(
           req.context,
-          feature,
-          await getPublishedRevisionForEvents(req.context, feature, revision),
+          updatedFeature,
+          await getPublishedRevisionForEvents(
+            req.context,
+            updatedFeature,
+            revision,
+          ),
           "revision.published",
           {},
         );
@@ -685,28 +677,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             : "bypassApprovalPermission",
         });
       }
-
-      // The enabled flips were excluded from the direct-write `updates` above
-      // (frozen to their pre-update values) so they apply exactly once, via
-      // the revision publish. The direct write below runs after the publish,
-      // so re-sync the frozen values from the published feature state.
-      if (updates.environmentSettings) {
-        for (const env of Object.keys(changedEnvEnabled)) {
-          updates.environmentSettings[env] = {
-            ...updates.environmentSettings[env],
-            enabled:
-              feature.environmentSettings?.[env]?.enabled ??
-              changedEnvEnabled[env],
-          };
-        }
-      }
     }
-
-    const updatedFeature = await updateFeatureToDb(
-      req.context,
-      feature,
-      updates,
-    );
 
     await addTagsDiff(
       req.context.org.id,
