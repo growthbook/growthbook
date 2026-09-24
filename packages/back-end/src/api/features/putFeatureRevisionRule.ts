@@ -41,6 +41,11 @@ import {
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  stagedFeature,
+  validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import {
   assertCanUseRuleScheduling,
@@ -210,6 +215,22 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
   const patch = req.body.rule;
+  const staged = await stagedFeature(req.context, feature, req.params.version);
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      staged,
+      {
+        ...(staged.rules ?? []).find((r) => r.id === req.params.ruleId),
+        ...patch,
+        id: req.params.ruleId,
+        environments: [environment],
+      },
+    ),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -318,9 +339,12 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
-      rules: [updatedRule as FeatureRule],
-    });
+    assertFeatureValuesValid(
+      req.context,
+      feature,
+      { rules: [updatedRule as FeatureRule] },
+      { rules: [oldRule] },
+    );
 
     // Only validate fields in the patch, so edits don't break on stale refs
     // elsewhere in the rule (e.g. since-deleted saved groups).
@@ -380,7 +404,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
+      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id, feature)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       const hasLegacySchedule =

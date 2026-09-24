@@ -1,4 +1,5 @@
 import uniqid from "uniqid";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
@@ -46,6 +47,7 @@ import {
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
 import {
+  needsPercentileCapSubquery,
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
@@ -71,6 +73,8 @@ import {
   getLatestPhaseVariations,
   getPhaseVariations,
   isVariationWeightsSumValid,
+  scheduleWriteNeedsRunPermission,
+  withScheduledBy,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -128,6 +132,7 @@ import {
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
+  StagedRefDraft,
   Variation,
 } from "shared/types/experiment";
 import {
@@ -204,10 +209,12 @@ import {
 } from "back-end/src/models/FactTableModel";
 import {
   getFeatureProjectsByIds,
+  getFeature,
   getFeaturesByIds,
 } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
+  getRevision,
   getActiveDraftMetadataByFeatureIds,
   getFeatureRevisionsByFeatureIds,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -1067,10 +1074,10 @@ export function resetExperimentBanditSettings({
     changes.goalMetrics = [];
   }
 
-  // No quantile metrics allowed (only need to check for endpoints that change metrics)
+  // Percentile caps on either tail are incompatible with Bandits.
   if (goalMetric && metricMap) {
     const metric = metricMap.get(goalMetric);
-    if (metric && metric?.cappingSettings?.type === "percentile") {
+    if (metric && needsPercentileCapSubquery(metric)) {
       changes.goalMetrics = [];
     }
   }
@@ -2431,10 +2438,30 @@ export async function assertCanRunExperimentChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
 ): Promise<void> {
+  // A schedule that will start, stop or ship is a deferred status change;
+  // so is re-timing or clearing one that is still pending.
   const needsRunExperimentsPermission =
-    PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.some((key) => key in changes);
+    PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.some((key) => key in changes) ||
+    ("statusUpdateSchedule" in changes &&
+      scheduleWriteNeedsRunPermission(
+        experiment,
+        changes.statusUpdateSchedule,
+      ));
   if (!needsRunExperimentsPermission) return;
 
+  await assertCanRunExperimentInAffectedEnvironments(
+    context,
+    experiment,
+    "project" in changes ? [changes.project || undefined] : [],
+  );
+}
+
+// The environments the experiment serves now plus those its pending drafts
+// reach once it starts, so a launch is gated like the live change it makes.
+export async function getExperimentAffectedEnvs(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<string[]> {
   const linkedFeatureIds = experiment.linkedFeatures || [];
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
 
@@ -2450,17 +2477,49 @@ export async function assertCanRunExperimentChanges(
     hasUnreadableFeature = existingFeatures.size > linkedFeatures.length;
   }
 
-  const envs = getAffectedEnvsForExperiment({
+  const pendingDrafts: {
+    feature: FeatureInterface;
+    revision: FeatureRevisionInterface;
+  }[] = [];
+  for (const {
+    featureId,
+    revisionVersion,
+  } of experiment.pendingFeatureDrafts ?? []) {
+    const feature =
+      linkedFeatures.find((f) => f.id === featureId) ??
+      (await getFeature(context, featureId));
+    if (!feature) continue;
+    const revision = await getRevision({
+      context,
+      organization: context.org.id,
+      featureId,
+      feature,
+      version: revisionVersion,
+    });
+    if (revision && !["published", "discarded"].includes(revision.status)) {
+      pendingDrafts.push({ feature, revision });
+    }
+  }
+
+  return getAffectedEnvsForExperiment({
     experiment,
     orgEnvironments: context.org.settings?.environments || [],
     // Passing undefined here makes it return __ALL__ envs.
     linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
+    pendingDrafts,
   });
+}
+
+// Run-experiments permission over the affected environments, on the
+// experiment's project and on any additional (e.g. destination) project.
+export async function assertCanRunExperimentInAffectedEnvironments(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  additionalProjects: (string | undefined)[] = [],
+): Promise<void> {
+  const envs = await getExperimentAffectedEnvs(context, experiment);
   if (envs.length > 0) {
-    const projects = [experiment.project || undefined];
-    if ("project" in changes) {
-      projects.push(changes.project || undefined);
-    }
+    const projects = [experiment.project || undefined, ...additionalProjects];
     // check user's permission on existing experiment project and the updated project, if changed
     for (const project of projects) {
       if (!context.permissions.canRunExperiment({ project }, envs)) {
@@ -2496,6 +2555,45 @@ export function assertValidReleasedVariationId(
   if (idChanged || wasValid) {
     throw new BadRequestError(
       "invalid_released_variation_id: releasedVariationId must match one of the experiment's variation ids",
+    );
+  }
+}
+
+type BucketVersionFields = Pick<
+  ExperimentInterface,
+  "bucketVersion" | "minBucketVersion"
+>;
+
+// A minBucketVersion above bucketVersion blocks every sticky-bucketed user after
+// their first exposure. Only a write that introduces a bad pair is rejected; a
+// pre-existing one is left alone.
+export function assertValidBucketVersions(
+  updated: Partial<BucketVersionFields>,
+  existing?: Partial<BucketVersionFields>,
+): void {
+  const bucketVersion = updated.bucketVersion ?? 0;
+  const minBucketVersion = updated.minBucketVersion ?? 0;
+  if (
+    existing &&
+    (existing.bucketVersion ?? 0) === bucketVersion &&
+    (existing.minBucketVersion ?? 0) === minBucketVersion
+  ) {
+    return;
+  }
+
+  for (const [field, value] of [
+    ["bucketVersion", bucketVersion],
+    ["minBucketVersion", minBucketVersion],
+  ] as const) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new BadRequestError(
+        `invalid_bucket_version: ${field} must be a non-negative integer`,
+      );
+    }
+  }
+  if (minBucketVersion > bucketVersion) {
+    throw new BadRequestError(
+      "invalid_bucket_version: minBucketVersion cannot be greater than bucketVersion",
     );
   }
 }
@@ -3943,13 +4041,11 @@ export function postMetricApiPayloadToMetricInterface(
   // Assign all undefined behavior fields to the metric
   if (behavior) {
     if (typeof behavior.cappingSettings !== "undefined") {
+      const cs = behavior.cappingSettings;
       metric.cappingSettings = {
-        type:
-          behavior.cappingSettings.type === "none"
-            ? ""
-            : (behavior.cappingSettings.type ?? ""),
-        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
-        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+        type: cs.type === "none" ? "" : (cs.type ?? ""),
+        value: cs.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: cs.ignoreZeros,
       };
       // handle old post requests
     } else if (typeof behavior.capping !== "undefined") {
@@ -4097,14 +4193,11 @@ export function putMetricApiPayloadToMetricInterface(
     }
 
     if (typeof behavior.cappingSettings !== "undefined") {
+      const cs = behavior.cappingSettings;
       metric.cappingSettings = {
-        ...behavior.cappingSettings,
-        type:
-          behavior.cappingSettings.type === "none"
-            ? ""
-            : (behavior.cappingSettings.type ?? ""),
-        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
-        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+        type: cs.type === "none" ? "" : (cs.type ?? ""),
+        value: cs.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: cs.ignoreZeros,
       };
     } else if (typeof behavior.capping !== "undefined") {
       metric.cappingSettings = {
@@ -4859,6 +4952,7 @@ function resolveExperimentUpdateVariationsAndPhases(
 export function normalizeStatusUpdateScheduleChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
+  scheduledBy?: string,
 ): void {
   if ("statusUpdateSchedule" in changes) {
     const incoming = changes.statusUpdateSchedule;
@@ -4903,7 +4997,10 @@ export function normalizeStatusUpdateScheduleChanges(
       // Re-stage the single pending action from the new schedule:
       //  - running experiment: (re)stage the stop from the resolved stopAt
       //  - otherwise (draft): clear any staged start; it must be re-approved
-      changes.nextScheduledStatusUpdate = stagedStop;
+      changes.nextScheduledStatusUpdate = withScheduledBy(
+        stagedStop,
+        scheduledBy,
+      );
     }
   } else if (
     changes.status &&
@@ -5258,27 +5355,32 @@ export async function getRefLinkedFeatureInfo({
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
 
-      let matchedDraftRevision: (typeof revisions)[0] | undefined;
-      let draftMatches: MatchingRule[] = [];
-      let draftDiffersFromLive = false;
+      type DraftMatch = {
+        revision: (typeof revisions)[0];
+        matches: MatchingRule[];
+      };
+      const differingDrafts: DraftMatch[] = [];
+      let unchangedDraft: DraftMatch | undefined;
 
       for (const r of activeDrafts) {
         const m = getMatchingRules(feature, matchRule, environments, r);
         if (m.length === 0) continue;
         const draftRefRules = refRulesForEntity(r.rules);
         if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
-          matchedDraftRevision = r;
-          draftMatches = m;
-          draftDiffersFromLive = true;
-          break;
+          differingDrafts.push({ revision: r, matches: m });
+          continue;
         }
         // Remember the first draft with matches as a fallback if no draft
         // actually modifies the rule.
-        if (!matchedDraftRevision) {
-          matchedDraftRevision = r;
-          draftMatches = m;
+        if (!unchangedDraft) {
+          unchangedDraft = { revision: r, matches: m };
         }
       }
+
+      const primaryDraft = differingDrafts[0] ?? unchangedDraft;
+      const matchedDraftRevision = primaryDraft?.revision;
+      const draftMatches: MatchingRule[] = primaryDraft?.matches ?? [];
+      const draftDiffersFromLive = differingDrafts.length > 0;
 
       const lockedMatches =
         revisions
@@ -5328,40 +5430,49 @@ export async function getRefLinkedFeatureInfo({
         }
       }
 
-      let hasMergeConflict: boolean | undefined;
-      let hasUnrelatedDraftChanges: boolean | undefined;
-      if (state === "draft" && matchedDraftRevision) {
+      const checkDraftCleanliness = async (
+        revision: (typeof revisions)[0],
+      ): Promise<{
+        hasMergeConflict?: boolean;
+        hasUnrelatedDraftChanges?: boolean;
+      }> => {
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
             context,
             feature,
-            revision: matchedDraftRevision,
+            revision,
           });
           const filledLive = liveRevisionFromFeature(live, feature);
           const mergeResult = autoMerge(
             filledLive,
             fillRevisionFromFeature(base, feature),
-            matchedDraftRevision,
+            revision,
             environments,
             {},
           );
           if (!mergeResult.success) {
-            hasMergeConflict = true;
-          } else if (
-            draftHasChangesOutsideTargetRef(
-              matchedDraftRevision,
-              filledLive,
-              matchRule,
-            )
-          ) {
-            hasUnrelatedDraftChanges = true;
+            return { hasMergeConflict: true };
           }
+          if (
+            draftHasChangesOutsideTargetRef(revision, filledLive, matchRule)
+          ) {
+            return { hasUnrelatedDraftChanges: true };
+          }
+          return {};
         } catch (e) {
           logger.warn(
             { featureId: feature.id, err: e },
             "[getRefLinkedFeatureInfo] draft cleanliness check failed",
           );
+          return {};
         }
+      };
+
+      let hasMergeConflict: boolean | undefined;
+      let hasUnrelatedDraftChanges: boolean | undefined;
+      if (state === "draft" && matchedDraftRevision) {
+        ({ hasMergeConflict, hasUnrelatedDraftChanges } =
+          await checkDraftCleanliness(matchedDraftRevision));
       }
 
       const refRuleValues = (rule: FeatureRule | undefined) =>
@@ -5398,6 +5509,21 @@ export async function getRefLinkedFeatureInfo({
           environmentStates[match.environmentId] = "active";
         }
       });
+
+      const stagedDrafts: StagedRefDraft[] =
+        state === "live"
+          ? differingDrafts.map((d) => ({
+              version: d.revision.version,
+              status: d.revision.status,
+              values: refRuleValues(d.matches[0]?.rule),
+            }))
+          : [];
+      if (stagedDrafts.length > 0) {
+        Object.assign(
+          stagedDrafts[0],
+          await checkDraftCleanliness(differingDrafts[0].revision),
+        );
+      }
 
       // Envs the pending draft will turn on when it's auto-published on start.
       let environmentsToEnable: string[] | undefined;
@@ -5442,6 +5568,9 @@ export async function getRefLinkedFeatureInfo({
             draftRevisionVersion: matchedDraftRevision.version,
             draftRevisionStatus: matchedDraftRevision.status,
           }),
+        // `state` is "live" whenever the live revision has the rule, even if a
+        // draft is changing it, so report that draft separately.
+        ...(stagedDrafts.length > 0 && { stagedDrafts }),
         ...(hasMergeConflict !== undefined && { hasMergeConflict }),
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
@@ -5623,7 +5752,7 @@ export async function getChangesToStartExperiment(
     if (!metric) {
       throw new Error("Invalid metric: " + experiment.goalMetrics[0]);
     }
-    if (metric.cappingSettings.type === "percentile") {
+    if (needsPercentileCapSubquery(metric)) {
       throw new Error("Goal metric must not use percentile capping");
     }
   }

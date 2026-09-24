@@ -1197,11 +1197,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Metrics/MetricForm/MetricCappingSettingsForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Metrics/MetricForm/MetricDelaySettings.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -1747,11 +1742,6 @@
     },
     "no-restricted-syntax": {
       "count": 5
-    }
-  },
-  "packages/front-end/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/components/SqlExplorer/BigValueChart.tsx": {

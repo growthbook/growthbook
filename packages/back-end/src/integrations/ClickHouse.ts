@@ -8,6 +8,7 @@ import {
 import {
   EventLogRecordsQueryParams,
   EventLogSummaryQueryParams,
+  ExternalIdCallback,
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
@@ -22,10 +23,12 @@ import {
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
 import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
+import { metrics } from "back-end/src/util/metrics";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
 import { getEventLogSummaryQuery as getEventLogSummaryQueryFromSql } from "./sql/queries/event-log-summary-query";
@@ -96,7 +99,11 @@ export default class ClickHouse extends SqlIntegration {
     return super.testConnection();
   }
 
-  async runQuery(sql: string): Promise<QueryResponse> {
+  async runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+    metadata?: RunQueryMetadata,
+  ): Promise<QueryResponse> {
     // Block queries while never-provisioned OR mid-migration (tables being recreated).
     // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
     // the callout distinguishes the migrating case for honest "upgrading" copy.
@@ -160,14 +167,34 @@ export default class ClickHouse extends SqlIntegration {
           : undefined,
       };
     } catch (e) {
-      if (
-        isManagedWarehouse(this.datasource) &&
-        e instanceof ClickHouseError &&
-        e.code === CLICKHOUSE_MEMORY_LIMIT_EXCEEDED_CODE
-      ) {
-        // The raw text is server internals (RSS, OvercommitTracker); keep it in logs, not the UI.
-        logger.error(e, "Managed warehouse query exceeded ClickHouse memory");
-        throw new ManagedWarehouseOutOfMemoryError();
+      // QueryRunner only logs failures at debug level (suppressed in prod), so this is
+      // the only place Managed Warehouse failure rate/detail is visible in prod logs.
+      if (isManagedWarehouse(this.datasource)) {
+        const code = e instanceof ClickHouseError ? e.code : "unknown";
+        try {
+          logger.error(
+            {
+              err: e,
+              orgId: this.datasource.organization,
+              datasourceId: this.datasource.id,
+              queryId: metadata?.queryId,
+            },
+            `Managed Warehouse query failed (code ${code})`,
+          );
+          metrics
+            .getCounter("clickhouse.managed_warehouse_errors")
+            .increment({ code });
+        } catch (telemetryError) {
+          // Don't let a metrics/logging failure replace the query error below.
+          logger.warn(
+            telemetryError,
+            "Failed to record Managed Warehouse query failure telemetry",
+          );
+        }
+
+        if (code === CLICKHOUSE_MEMORY_LIMIT_EXCEEDED_CODE) {
+          throw new ManagedWarehouseOutOfMemoryError();
+        }
       }
       throw e;
     } finally {

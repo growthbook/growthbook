@@ -646,19 +646,21 @@ export async function assertValidHoldout(
 // schedule.
 export function validateRulesScheduleRules(
   rules: FeatureRule[],
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
   stored: FeatureRule[] = [],
 ): void {
   rules.forEach((rule, i) => {
     if (!rule.scheduleRules?.length) return;
+    const prior = findStoredRuleCounterpart(stored, rule);
     if (
-      !isScheduledRule(findStoredRuleCounterpart(stored, rule)) &&
+      !isScheduledRule(prior) &&
       !context.hasPremiumFeature("schedule-feature-flag")
     ) {
       context.throwPlanDoesNotAllowError(
         "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
       );
     }
+    if (isEqual(prior?.scheduleRules, rule.scheduleRules)) return;
     try {
       validateScheduleRules(rule.scheduleRules);
     } catch (error) {

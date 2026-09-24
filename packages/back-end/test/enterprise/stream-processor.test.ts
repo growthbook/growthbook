@@ -54,3 +54,44 @@ describe("StreamProcessor Product Analytics results", () => {
     expect(completed[0]?.data).toMatchObject({ output });
   });
 });
+
+describe("StreamProcessor terminal tools", () => {
+  it("aborts the model loop after persisting an askUser result", () => {
+    const buffer = new LocalConversationBuffer("conversation-1", {
+      messages: [],
+      isStreaming: true,
+      lastStreamedAt: 0,
+      title: "Test",
+      agentType: "general",
+    });
+    const abortController = new AbortController();
+    const processor = new StreamProcessor(
+      buffer,
+      () => {},
+      abortController,
+      undefined,
+      undefined,
+      new Set(["askUser"]),
+    );
+
+    processor.handleToolCall({
+      type: "tool-call",
+      toolCallId: "ask-1",
+      toolName: "askUser",
+      input: {
+        question: "Which project?",
+        options: [],
+      },
+    } as never);
+    processor.handleToolResult({
+      type: "tool-result",
+      toolCallId: "ask-1",
+      toolName: "askUser",
+      output: { status: "asked" },
+    } as never);
+
+    expect(processor.isAborted).toBe(true);
+    expect(abortController.signal.aborted).toBe(true);
+    expect(buffer.getMessages()).toHaveLength(2);
+  });
+});

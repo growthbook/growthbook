@@ -51,6 +51,8 @@ import {
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import {
+  assertCanRunExperimentInAffectedEnvironments,
+  getExperimentAffectedEnvs,
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
   assertCanRunExperimentChanges,
@@ -104,7 +106,6 @@ import {
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import {
-  deleteSnapshotById,
   findSnapshotById,
   getLatestSuccessfulSnapshot,
   getLatestSnapshotStatus,
@@ -130,6 +131,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
+import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
@@ -137,7 +139,6 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
@@ -172,6 +173,7 @@ import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
+import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
   ExperimentLinkedFeatureValueUpdate,
   updateExperimentRefVariations,
@@ -808,15 +810,7 @@ export async function getExperiment(
 
   const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment);
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
+  const envs = await getExperimentAffectedEnvs(context, experiment);
 
   const { visualChangesetEnvStates, urlRedirectEnvStates } =
     visualChangesets.length > 0 || urlRedirects.length > 0
@@ -1228,6 +1222,7 @@ export async function postExperiments(
     undefined,
     attributeScope,
   );
+  await validateChangedPhaseReferences(data.phases ?? [], [], context);
   for (const phase of data.phases ?? []) {
     await assertRegisteredAttributesScoped(
       context,
@@ -1600,6 +1595,11 @@ export async function postExperiment(
   const persistedConditions = new Set(
     (experiment.phases ?? []).map((p) => p.condition),
   );
+  await validateChangedPhaseReferences(
+    data.phases ?? [],
+    experiment.phases,
+    context,
+  );
   for (const phase of data.phases ?? []) {
     await assertRegisteredAttributesScoped(
       context,
@@ -1947,7 +1947,11 @@ export async function postExperiment(
     }
   });
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes);
+  normalizeStatusUpdateScheduleChanges(
+    experiment,
+    changes,
+    context.userId || undefined,
+  );
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.
@@ -2351,27 +2355,12 @@ export async function postExperimentStatus(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
   const { settings } = getScopedSettings({
     organization: org,
     experiment,
   });
 
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...experiment.phases];
@@ -2677,22 +2666,7 @@ export async function deleteExperimentPhase(
     });
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   if (phaseIndex < 0 || phaseIndex >= experiment.phases?.length) {
     throw new Error("Invalid phase id");
@@ -2805,22 +2779,11 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
+  const linkedFeatures = await getFeaturesByIds(
+    context,
+    experiment.linkedFeatures || [],
+  );
 
   await assertRegisteredAttributesScoped(
     context,
@@ -2838,6 +2801,11 @@ export async function putExperimentPhase(
     ? getValidDate(phase.dateEnded + ":00Z")
     : undefined;
 
+  await validateChangedPhaseReferences(
+    [phase],
+    [experiment.phases[i]],
+    context,
+  );
   const phases = [...experiment.phases];
   phases[i] = {
     ...phases[i],
@@ -2932,22 +2900,11 @@ export async function postExperimentTargeting(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
+  const linkedFeatures = await getFeaturesByIds(
+    context,
+    experiment.linkedFeatures || [],
+  );
 
   const activePhase = getActivePhase(experiment);
   await assertRegisteredAttributesScoped(
@@ -2974,6 +2931,11 @@ export async function postExperimentTargeting(
       ),
   );
 
+  await validateChangedPhaseReferences(
+    [{ condition, savedGroups }],
+    experiment.phases.slice(-1),
+    context,
+  );
   const phases = [...experiment.phases];
   await assertValidExperimentPrerequisites(
     context,
@@ -3112,22 +3074,11 @@ export async function postExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
+  const linkedFeatures = await getFeaturesByIds(
+    context,
+    experiment.linkedFeatures || [],
+  );
 
   // Intentionally loose: a condition carried forward from the previous phase
   // is never re-validated, even if its attributes are now out of scope.
@@ -3142,6 +3093,11 @@ export async function postExperimentPhase(
       getExperimentAttributeScopeProjects(context, experiment, linkedFeatures),
   );
 
+  await validateChangedPhaseReferences(
+    [data],
+    experiment.phases.slice(-1),
+    context,
+  );
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
   const phases = [...experiment.phases];
@@ -3258,22 +3214,7 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   const promises = [
     // note: we might want to change this to change the status to
@@ -3333,27 +3274,9 @@ export async function cancelSnapshot(
     });
   }
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    snapshot.settings.datasourceId,
-  );
+  const { outcome } = await cancelExperimentSnapshot(context, snapshot);
 
-  const queryRunner = new ExperimentResultsQueryRunner(
-    context,
-    snapshot,
-    integration,
-  );
-  await queryRunner.cancelQueries();
-  await deleteSnapshotById(context, snapshot.id);
-
-  // Release the incremental refresh lock if this snapshot held it.
-  await context.models.incrementalRefresh
-    .releaseLock(experiment.id, snapshot.id)
-    .catch((e) =>
-      logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
-    );
-
-  res.status(200).json({ status: 200 });
+  res.status(200).json({ status: 200, outcome });
 }
 
 export async function postSnapshot(
@@ -4038,22 +3961,7 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   const visualChangeset = await createVisualChangeset({
     experiment,

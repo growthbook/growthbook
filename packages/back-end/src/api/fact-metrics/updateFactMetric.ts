@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { updateFactMetricValidator } from "shared/validators";
+import {
+  updateFactMetricValidator,
+  resolveCappingSettingsPatch,
+  validateFactMetricCapping,
+} from "shared/validators";
 import {
   FactMetricInterface,
   FactMetricType,
@@ -35,6 +39,7 @@ export async function getUpdateFactMetricPropsFromBody(
     denominator,
     funnelSettings,
     cappingSettings,
+    lowerCappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
     riskThresholdSuccess,
@@ -59,7 +64,6 @@ export async function getUpdateFactMetricPropsFromBody(
     updates.funnelSettings = nextFunnelSettings;
     updates.numerator = null;
     updates.denominator = null;
-    updates.cappingSettings = { type: "", value: 0 };
     updates.quantileSettings = null;
     updates.metricAutoSlices = [];
   } else {
@@ -121,14 +125,15 @@ export async function getUpdateFactMetricPropsFromBody(
       throw new Error("Could not find denominator fact table");
     }
   }
-  if (cappingSettings && metricType !== "funnel") {
-    updates.cappingSettings = {
-      type: cappingSettings.type === "none" ? "" : cappingSettings.type,
-      value: cappingSettings.value ?? factMetric.cappingSettings.value,
-      ignoreZeros:
-        cappingSettings.ignoreZeros ?? factMetric.cappingSettings.ignoreZeros,
-    };
-  }
+  Object.assign(
+    updates,
+    resolveCappingSettingsPatch(
+      { cappingSettings, lowerCappingSettings },
+      factMetric,
+    ),
+  );
+  validateFactMetricCapping({ ...factMetric, ...updates }, factMetric);
+
   if (windowSettings) {
     updates.windowSettings = {
       type: windowSettings.type === "none" ? "" : windowSettings.type,
