@@ -736,6 +736,18 @@ export function applyPatchToRule(
   return updated;
 }
 
+// A rule with no list serves every environment; say so, since a null list in
+// a patch no longer means anything.
+function ruleScopeAsStartPatch(
+  rule: FeatureRule,
+): Pick<RampStartPatch, "allEnvironments" | "environments"> {
+  return {
+    allEnvironments:
+      rule.environments === undefined ? true : (rule.allEnvironments ?? null),
+    environments: rule.environments ?? null,
+  };
+}
+
 export function getStartPatchForRule(
   rule: FeatureRule,
 ): Omit<RampStartPatch, "ruleId"> {
@@ -751,13 +763,7 @@ export function getStartPatchForRule(
     condition: ruleState.condition ?? null,
     savedGroups: ruleState.savedGroups ?? null,
     prerequisites: ruleState.prerequisites ?? null,
-    // A rule with no list serves every environment; say so, since a null list
-    // in a patch no longer means anything.
-    allEnvironments:
-      ruleState.environments === undefined
-        ? true
-        : (ruleState.allEnvironments ?? null),
-    environments: ruleState.environments ?? null,
+    ...ruleScopeAsStartPatch(rule),
     enabled: ruleState.enabled ?? null,
   };
 
@@ -894,8 +900,7 @@ function ruleFieldsAsStartPatch(
     if (f === "value") {
       if ("value" in r) patch.force = r.value;
     } else if (f === "environments") {
-      patch.allEnvironments = r.allEnvironments ?? null;
-      patch.environments = r.environments ?? null;
+      Object.assign(patch, ruleScopeAsStartPatch(rule));
     } else {
       patch[f] = r[f] ?? null;
     }
@@ -1274,6 +1279,9 @@ export const featureEntityHandler: EntityHandler = {
       const entries = actions.flatMap((action) => {
         if (action.targetType !== "feature-rule") return [];
         const { ruleId, ...patch } = action.patch;
+        // A null list stored before it was refused at write time changes
+        // nothing when applied, so it is not judged either.
+        if (patch.environments === null) delete patch.environments;
         return resolveRampTargets(
           { ruleId, environment: environment ?? null },
           updatedRules,

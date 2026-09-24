@@ -1194,6 +1194,19 @@ describe("ruleFootprint (back-end util)", () => {
   it("permissive fallback: neither field declared expands to applicable envs", () => {
     expect(ruleFootprint(base, applicable)).toEqual(applicable);
   });
+
+  it("a stored null list applies nowhere rather than throwing", () => {
+    expect(
+      ruleFootprint(
+        {
+          ...base,
+          allEnvironments: false,
+          environments: null,
+        } as unknown as FeatureRule,
+        applicable,
+      ),
+    ).toEqual([]);
+  });
 });
 
 // ================= narrowRuleForEnvRemoval =================
