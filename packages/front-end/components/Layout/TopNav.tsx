@@ -385,7 +385,7 @@ const TopNav: FC<{
             >
               <Flex align="center" gap="1">
                 <PiPlusBold />
-                Add Organization
+                Add organization
               </Flex>
             </DropdownMenuItem>
           </>
