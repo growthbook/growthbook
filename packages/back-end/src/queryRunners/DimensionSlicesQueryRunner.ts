@@ -53,6 +53,10 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
           exposureQuery: {
             query: exposureQuery?.query ?? "",
             userIdType: exposureQuery?.userIdType ?? "",
+            userIdColumns: exposureQuery?.userIdColumns,
+            timestampColumn: exposureQuery?.timestampColumn,
+            experimentIdColumn: exposureQuery?.experimentIdColumn,
+            variationIdColumn: exposureQuery?.variationIdColumn,
           },
           dimensions: dimensions,
           lookbackDays: params.lookbackDays,

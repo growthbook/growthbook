@@ -226,11 +226,11 @@ export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 
 /**
- * Columns detected by running a Fact Table's SQL, before anything is persisted.
- * Returned by the test-query endpoint so the create flow can show the columns
- * and their types, and post them back with the new Fact Table.
+ * Columns detected by running a SQL query (e.g. a Fact Table or Experiment
+ * Assignment Query), before anything is persisted. Returned by the test-query
+ * endpoint so create flows can show the columns and their types.
  */
-export type DetectedFactTableColumn = {
+export type DetectedColumn = {
   column: string;
   datatype: FactTableColumnType;
   jsonFields?: JSONColumnFields;

@@ -1,9 +1,15 @@
 import { subDays } from "date-fns";
 import { format, SQL_ROW_LIMIT } from "shared/sql";
-import { getExposureQueryIdentifierTypes } from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { UserExperimentExposuresQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryIdentifierTypes,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+} from "shared/util";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 export function getUserExperimentExposuresQuery(
@@ -30,6 +36,13 @@ export function getUserExperimentExposuresQuery(
           .map((exposureQuery, i) => {
             const availableDimensions = exposureQuery.dimensions || [];
             const tableAlias = `t${i}`;
+            const tsCol = getExposureQueryTimestampColumn(exposureQuery);
+            const expIdCol = getExposureQueryExperimentIdColumn(exposureQuery);
+            const varIdCol = getExposureQueryVariationIdColumn(exposureQuery);
+            const idCol = getExposureQueryIdentifierColumn(
+              exposureQuery,
+              userIdType,
+            );
 
             const dimensionSelects = allDimensionNames.map((dim) => {
               if (availableDimensions.includes(dim)) {
@@ -42,7 +55,7 @@ export function getUserExperimentExposuresQuery(
             const dimensionSelectString = dimensionSelects.join(", ");
 
             return `
-              SELECT timestamp, experiment_id, variation_id, ${dimensionSelectString} FROM (
+              SELECT ${tsCol} as timestamp, ${expIdCol} as experiment_id, ${varIdCol} as variation_id, ${dimensionSelectString} FROM (
                 ${compileSqlTemplate(
                   exposureQuery.query,
                   {
@@ -51,7 +64,7 @@ export function getUserExperimentExposuresQuery(
                   dialect,
                 )}
               ) ${tableAlias}
-              WHERE ${dialect.castToString(userIdType)} = '${params.unitId}' AND timestamp >= ${dialect.toTimestamp(startDate)}
+              WHERE ${dialect.castToString(idCol)} = '${params.unitId}' AND ${tsCol} >= ${dialect.toTimestamp(startDate)}
             `;
           })
           .join("\nUNION ALL\n")}

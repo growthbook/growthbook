@@ -1,9 +1,7 @@
-import { DetectedFactTableColumn } from "shared/types/fact-table";
+import { DetectedColumn } from "shared/types/fact-table";
 import { getColumnMappingError } from "@/services/factTables";
 
-const cols = (
-  ...datatypes: DetectedFactTableColumn["datatype"][]
-): DetectedFactTableColumn[] =>
+const cols = (...datatypes: DetectedColumn["datatype"][]): DetectedColumn[] =>
   datatypes.map((datatype, i) => ({ column: `c${i}`, datatype }));
 
 describe("getColumnMappingError", () => {

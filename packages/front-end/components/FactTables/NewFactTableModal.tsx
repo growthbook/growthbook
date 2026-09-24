@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiArrowLeft, PiPlus, PiX } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowLeft } from "react-icons/pi";
 import {
   CreateFactTableProps,
-  DetectedFactTableColumn,
+  DetectedColumn,
   FactTableInterface,
   FactTableType,
 } from "shared/types/fact-table";
+import { isProjectListValidForProject } from "shared/util";
 import { DocLink } from "@/components/DocLink";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
-import NewFactTableSqlStep from "@/components/FactTables/NewFactTableSqlStep";
+import SqlColumnDetectionStep from "@/components/SchemaBrowser/SqlColumnDetectionStep";
+import ColumnMappingRow, {
+  validColumn,
+} from "@/components/SchemaBrowser/ColumnMappingRow";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getInitialFactTableQuery } from "@/services/datasources";
 import {
+  getColumnMappingError,
   getNewFactTableProjects,
   isIdentifierCandidate,
   isTimestampCandidate,
@@ -24,12 +29,11 @@ import {
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/ui/Button";
 import TextField from "@/ui/TextField";
 import Callout from "@/ui/Callout";
 import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
-import Table, { TableBody, TableCell, TableRow } from "@/ui/Table";
+import Table, { TableBody } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Link from "@/ui/Link";
@@ -45,85 +49,6 @@ const INLINE_FILTER_CANDIDATES = [
   "event",
   "se_action",
 ];
-
-const validColumn = (options: DetectedFactTableColumn[], column: string) =>
-  options.some((c) => c.column === column) ? column : "";
-
-function MappingRow({
-  label,
-  value,
-  options,
-  setValue,
-  onRemove,
-}: {
-  label: string;
-  value: string;
-  options: DetectedFactTableColumn[];
-  setValue: (column: string) => void;
-  onRemove?: () => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const selected = validColumn(options, value);
-
-  return (
-    <TableRow align="center">
-      <TableCell style={{ width: "50%" }}>
-        <Text size="sm" weight="medium">
-          {label}
-        </Text>
-      </TableCell>
-      {selected || adding || !onRemove ? (
-        <>
-          <TableCell>
-            <Select
-              size="sm"
-              mb="0"
-              autoFocus={adding}
-              value={selected || undefined}
-              setValue={setValue}
-              placeholder="Select a column..."
-            >
-              {options.map((c) => (
-                <SelectItem key={c.column} value={c.column}>
-                  {c.column}
-                </SelectItem>
-              ))}
-            </Select>
-          </TableCell>
-          <TableCell style={{ width: "40px" }}>
-            {onRemove ? (
-              <Flex align="center">
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  size="1"
-                  onClick={() => {
-                    setAdding(false);
-                    onRemove();
-                  }}
-                  aria-label={`Remove ${label}`}
-                >
-                  <PiX />
-                </IconButton>
-              </Flex>
-            ) : null}
-          </TableCell>
-        </>
-      ) : (
-        <TableCell colSpan={2}>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<PiPlus />}
-            onClick={() => setAdding(true)}
-          >
-            Add column
-          </Button>
-        </TableCell>
-      )}
-    </TableRow>
-  );
-}
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
@@ -143,9 +68,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   );
   const [sql, setSql] = useState("");
 
-  const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
-    null,
-  );
+  const [detected, setDetected] = useState<DetectedColumn[] | null>(null);
   const [detectedSql, setDetectedSql] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [timestampColumn, setTimestampColumn] = useState("");
@@ -166,6 +89,10 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     seededDatasource.current = datasourceId;
     setSql(getInitialFactTableQuery(datasource).sql);
   }, [datasourceId, getDatasourceById]);
+
+  const validDatasources = datasources
+    .filter((d) => isProjectListValidForProject(d.projects, project))
+    .filter((d) => d.properties?.queryLanguage === "sql");
 
   const datasource = getDatasourceById(datasourceId);
   const identifierTypes = (datasource?.settings?.userIdTypes || []).map(
@@ -193,7 +120,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     });
 
   const handleColumnsDetected = useCallback(
-    (columns: DetectedFactTableColumn[]) => {
+    (columns: DetectedColumn[]) => {
       setDetectedSql(sql);
       setDetected(columns);
 
@@ -346,15 +273,31 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           </Text>
         </Box>
         <Box p="2" style={{ height: BODY_HEIGHT }}>
-          <NewFactTableSqlStep
+          <SqlColumnDetectionStep
             datasourceId={datasourceId}
-            setDatasourceId={setDatasourceId}
+            datasourceHeader={
+              <Select
+                label="Data Source"
+                labelSize="sm"
+                value={datasourceId}
+                setValue={setDatasourceId}
+                placeholder="Select..."
+              >
+                {validDatasources.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </Select>
+            }
             sql={sql}
             setSql={setSql}
             detected={detected}
             detectedSql={detectedSql}
             onColumnsDetected={handleColumnsDetected}
             validateRef={validateSql}
+            getColumnMappingError={getColumnMappingError}
+            placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
           />
         </Box>
       </Page>
@@ -443,14 +386,15 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
               </Text>
               <Table size="sm" variant="surface" layout="fixed" mb="2">
                 <TableBody>
-                  <MappingRow
+                  <ColumnMappingRow
                     label="timestamp"
+                    kind="timestamp"
                     value={timestampColumn}
                     options={timestampOptions}
                     setValue={setTimestampColumn}
                   />
                   {tableType === "event" ? (
-                    <MappingRow
+                    <ColumnMappingRow
                       label="event_name"
                       value={inlineFilterColumn}
                       options={inlineFilterOptions}
@@ -459,9 +403,10 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
                     />
                   ) : null}
                   {identifierTypes.map((idType) => (
-                    <MappingRow
+                    <ColumnMappingRow
                       key={idType}
                       label={idType}
+                      kind="identifier"
                       value={userIdColumns[idType] || ""}
                       options={identifierOptions}
                       setValue={(v) => {

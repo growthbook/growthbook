@@ -5,7 +5,7 @@ import {
   AggregatedFactTableSettings,
   ColumnInterface,
   CreateColumnProps,
-  DetectedFactTableColumn,
+  DetectedColumn,
   FactTableColumnType,
   FactTableInterface,
   JSONColumnFields,
@@ -433,7 +433,7 @@ export function buildColumnTypeMaps(
 
 export function detectColumnsFromQueryResult(
   result: Pick<TestQueryResult, "results" | "columns">,
-): DetectedFactTableColumn[] {
+): DetectedColumn[] {
   const { jsonMap, datatypes } = buildColumnTypeMaps(result);
 
   return [...datatypes].map(([column, datatype]) => {

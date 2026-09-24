@@ -15,6 +15,42 @@ export function getExposureQueryIdentifierTypes(
     : [query.userIdType].filter(Boolean);
 }
 
+type ExposureQueryColumnMapping = Pick<
+  ExposureQuery,
+  | "userIdColumns"
+  | "timestampColumn"
+  | "experimentIdColumn"
+  | "variationIdColumn"
+>;
+
+// Resolve which physical column holds each role. An unset mapping falls back to
+// the canonical name (the pre-mapping behavior), so SQL that already aliases its
+// columns to the canonical names needs no mapping.
+export function getExposureQueryExperimentIdColumn(
+  query: ExposureQueryColumnMapping,
+): string {
+  return query.experimentIdColumn || "experiment_id";
+}
+
+export function getExposureQueryVariationIdColumn(
+  query: ExposureQueryColumnMapping,
+): string {
+  return query.variationIdColumn || "variation_id";
+}
+
+export function getExposureQueryTimestampColumn(
+  query: ExposureQueryColumnMapping,
+): string {
+  return query.timestampColumn || "timestamp";
+}
+
+export function getExposureQueryIdentifierColumn(
+  query: ExposureQueryColumnMapping,
+  identifierType: string,
+): string {
+  return query.userIdColumns?.[identifierType] || identifierType;
+}
+
 /**
  * The identifier a saved record analyzes on: the stored one, even if its query
  * no longer declares it (analysis then refuses to run), else the query's first.

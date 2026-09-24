@@ -1554,14 +1554,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries.tsx": {
     "no-restricted-imports": {
       "count": 1

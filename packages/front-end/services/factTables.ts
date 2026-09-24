@@ -1,5 +1,5 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { DetectedFactTableColumn } from "shared/types/fact-table";
+import { DetectedColumn } from "shared/types/fact-table";
 import { Permissions } from "shared/permissions";
 
 /**
@@ -36,14 +36,14 @@ export function getNewFactTableProjects({
  * the SQL is still on screen. An undetected type ("") is unknown, not wrong,
  * so it stays a candidate for both.
  */
-export const isTimestampCandidate = (c: DetectedFactTableColumn) =>
+export const isTimestampCandidate = (c: DetectedColumn) =>
   ["date", "other", ""].includes(c.datatype);
 
-export const isIdentifierCandidate = (c: DetectedFactTableColumn) =>
+export const isIdentifierCandidate = (c: DetectedColumn) =>
   ["string", "number", "other", ""].includes(c.datatype);
 
 export function getColumnMappingError(
-  columns: DetectedFactTableColumn[],
+  columns: DetectedColumn[],
 ): string | null {
   if (!columns.some(isTimestampCandidate)) {
     return "Your query must return a date column to use as the timestamp.";

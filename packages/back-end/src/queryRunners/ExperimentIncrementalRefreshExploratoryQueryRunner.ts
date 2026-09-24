@@ -109,6 +109,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       exposureQuery,
       snapshotSettings.exposureQueryIdentifierType,
     ),
+    userIdColumns: exposureQuery.userIdColumns,
+    timestampColumn: exposureQuery.timestampColumn,
+    experimentIdColumn: exposureQuery.experimentIdColumn,
+    variationIdColumn: exposureQuery.variationIdColumn,
   };
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
