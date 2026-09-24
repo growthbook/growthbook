@@ -1303,17 +1303,9 @@ export async function importConfig(
           }
           const existing = await getDataSourceById(context, k);
           if (existing) {
-            if (ds.type && ds.type !== existing.type) {
-              context.throwBadRequestError(
-                "Cannot change the type of an existing Data Source. Create a new one instead.",
-              );
-            }
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
-              if (!context.permissions.canUpdateDataSourceParams(existing)) {
-                context.permissions.throwPermissionError();
-              }
               const integration = getSourceIntegrationObject(context, existing);
               mergeParams(integration, ds.params);
               await integration.testConnection();
