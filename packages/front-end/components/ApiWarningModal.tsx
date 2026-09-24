@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
-import WarningText from "@/components/WarningText";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 
 // Global dialog for API soft warnings (HTTP 422) — acknowledge to proceed, or cancel.
 export default function ApiWarningModal({
@@ -38,7 +38,7 @@ export default function ApiWarningModal({
         {warnings.map((warning, i) => (
           <Callout key={i} status="warning">
             {hookWarnings.has(warning) ? (
-              <WarningText text={warning} />
+              <MarkdownLinks text={warning} />
             ) : (
               warning
             )}
