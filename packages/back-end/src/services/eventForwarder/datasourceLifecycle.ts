@@ -125,6 +125,7 @@ async function deleteEventForwarderAndTeardown({
       }
       break;
     }
+    case "databricks":
     default: {
       logger.info(
         {

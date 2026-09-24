@@ -5,6 +5,7 @@ import {
 import {
   BigQueryEventForwarderStoredConfig,
   EventForwarderConfigDraft,
+  EventForwarderSinkType,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import {
@@ -294,7 +295,7 @@ export function buildEventForwarderAccessTestDatasource({
   projects,
 }: {
   context: ReqContext;
-  type: "bigquery" | "snowflake";
+  type: EventForwarderSinkType;
   params: DataSourceParams;
   projects?: string[];
 }): DataSourceInterface {
@@ -338,6 +339,7 @@ async function testEventForwarderWriteAccessForSink(
         params: args.datasourceParams as SnowflakeConnectionParams,
         config: args.normalized as SnowflakeEventForwarderStoredConfig,
       });
+    case "databricks":
     default:
       throw new Error(
         `Unsupported event forwarder sink type for access test: ${String(args.sinkType)}`,

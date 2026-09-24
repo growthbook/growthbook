@@ -26,8 +26,10 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-import { promiseAllChunks } from "back-end/src/util/promise";
-import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
+import {
+  cancelExternalJobsForQueries,
+  cancelQueryAndConfirm,
+} from "back-end/src/services/queryCancellation";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -956,74 +958,12 @@ export abstract class QueryRunner<
         "Marked queries as cancelled in Mongo",
       );
 
-      const queryDocs = await getQueriesByIds(this.context, pendingIds, false);
-
-      // Cached copies (createNewQueryFromCached) share their upstream's
-      // externalId via cachedQueryUsed; chase one hop to find it.
-      const cachedSourceIds = Array.from(
-        new Set(
-          queryDocs
-            .map((q) => q.cachedQueryUsed)
-            .filter((id): id is string => Boolean(id)),
-        ),
+      await cancelExternalJobsForQueries(
+        this.context,
+        this.integration,
+        pendingIds,
+        { modelId: this.model.id },
       );
-      const cachedSourceDocs = cachedSourceIds.length
-        ? await getQueriesByIds(this.context, cachedSourceIds, false)
-        : [];
-      const cachedSourceById = new Map(cachedSourceDocs.map((q) => [q.id, q]));
-
-      // Dedupe by externalId so cached copies don't trigger duplicate cancels.
-      type ExternalJob = { id: string; metadata?: Record<string, string> };
-      const externalJobsById = new Map<string, ExternalJob>();
-      for (const q of queryDocs) {
-        if (q.externalId) {
-          if (!externalJobsById.has(q.externalId)) {
-            externalJobsById.set(q.externalId, {
-              id: q.externalId,
-              metadata: q.externalIdMetadata,
-            });
-          }
-          continue;
-        }
-        if (q.cachedQueryUsed) {
-          const source = cachedSourceById.get(q.cachedQueryUsed);
-          if (source?.externalId && !externalJobsById.has(source.externalId)) {
-            externalJobsById.set(source.externalId, {
-              id: source.externalId,
-              metadata: source.externalIdMetadata,
-            });
-          }
-        }
-      }
-      const externalJobs = [...externalJobsById.values()];
-      logger.debug(
-        {
-          datasourceId: this.integration.datasource.id,
-          modelId: this.model.id,
-          externalJobs: externalJobs.map((j) => ({
-            id: j.id,
-            metadataKeys: j.metadata ? Object.keys(j.metadata) : [],
-          })),
-        },
-        `Cancelling ${externalJobs.length} external jobs`,
-      );
-
-      if (externalJobs.length) {
-        await promiseAllChunks(
-          externalJobs.map(({ id, metadata }) => {
-            return () =>
-              cancelQueryAndConfirm(
-                this.integration,
-                { externalId: id, metadata },
-                {
-                  datasourceId: this.integration.datasource.id,
-                  modelId: this.model.id,
-                },
-              );
-          }),
-          5,
-        );
-      }
     }
 
     this.clearAllTimers();

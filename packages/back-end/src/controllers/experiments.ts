@@ -106,7 +106,6 @@ import {
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import {
-  deleteSnapshotById,
   findSnapshotById,
   getLatestSuccessfulSnapshot,
   getLatestSnapshotStatus,
@@ -132,6 +131,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
+import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
@@ -139,7 +139,6 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
@@ -1948,7 +1947,11 @@ export async function postExperiment(
     }
   });
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes);
+  normalizeStatusUpdateScheduleChanges(
+    experiment,
+    changes,
+    context.userId || undefined,
+  );
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.
@@ -3271,27 +3274,9 @@ export async function cancelSnapshot(
     });
   }
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    snapshot.settings.datasourceId,
-  );
+  const { outcome } = await cancelExperimentSnapshot(context, snapshot);
 
-  const queryRunner = new ExperimentResultsQueryRunner(
-    context,
-    snapshot,
-    integration,
-  );
-  await queryRunner.cancelQueries();
-  await deleteSnapshotById(context, snapshot.id);
-
-  // Release the incremental refresh lock if this snapshot held it.
-  await context.models.incrementalRefresh
-    .releaseLock(experiment.id, snapshot.id)
-    .catch((e) =>
-      logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
-    );
-
-  res.status(200).json({ status: 200 });
+  res.status(200).json({ status: 200, outcome });
 }
 
 export async function postSnapshot(
