@@ -14,6 +14,7 @@ import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
+import type { ApiRequestLocals } from "back-end/types/api";
 import {
   GB_SDK_ID,
   IS_CLOUD,
@@ -128,6 +129,7 @@ export function getGrowthBookTrackingAttributes(
 
 const EVENT_REQUEST_COMPLETED = "Request Completed";
 const EVENT_AI_USAGE = "AI Usage";
+const EVENT_MCP_REQUEST = "MCP Request";
 
 export function parseContentLength(
   value: string | undefined,
@@ -191,6 +193,86 @@ export function trackRequestCompletion(
       reqContentSize: parseContentLength(req.headers["content-length"]),
       resContentSize,
     });
+  };
+  res.on("finish", onComplete);
+  res.on("close", onComplete);
+  next();
+}
+
+// Sent by the GrowthBook MCP server (github.com/growthbook/growthbook-mcp) on
+// every REST API call a tool makes. Values are client-controlled, so they're
+// length-capped before being logged.
+const MCP_TOOL_HEADER = "x-gb-mcp-tool";
+const MCP_VERSION_HEADER = "x-gb-mcp-version";
+const MCP_TRANSPORT_HEADER = "x-gb-mcp-transport";
+const MCP_CLIENT_HEADER = "x-gb-mcp-client";
+const MAX_MCP_HEADER_LENGTH = 200;
+
+function getMcpHeader(req: Request, name: string): string | undefined {
+  return req.get(name)?.slice(0, MAX_MCP_HEADER_LENGTH) || undefined;
+}
+
+export type McpAuthType = "oauth" | "pat" | "secret_key";
+
+/**
+ * Logs an "MCP Request" event for REST API calls made by the GrowthBook MCP
+ * server. Mount after authenticateApiRequestMiddleware. Requests without the
+ * MCP tool header pass through untouched.
+ *
+ * Identity follows the credential: OAuth (JWT) requests already have a scoped
+ * `req.gb` with full user attributes; personal access tokens carry the user;
+ * secret keys have no user, so they're counted per org and by key id.
+ */
+export function trackMcpRequestCompletion(
+  req: Request & ApiRequestLocals & Pick<AuthRequest, "gb">,
+  res: Response,
+  next: NextFunction,
+) {
+  const tool = getMcpHeader(req, MCP_TOOL_HEADER);
+  if (!tool) return next();
+
+  const start = Date.now();
+  const authType: McpAuthType = req.isJwtAuth
+    ? "oauth"
+    : req.user
+      ? "pat"
+      : "secret_key";
+
+  const onComplete = () => {
+    res.removeListener("finish", onComplete);
+    res.removeListener("close", onComplete);
+    try {
+      const properties: EventProperties = {
+        tool,
+        mcpVersion: getMcpHeader(req, MCP_VERSION_HEADER),
+        transport: getMcpHeader(req, MCP_TRANSPORT_HEADER),
+        client: getMcpHeader(req, MCP_CLIENT_HEADER),
+        authType,
+        apiKeyId: req.apiKey || undefined,
+        path: getRoutePath(req),
+        method: req.method,
+        statusCode: res.statusCode,
+        latencyMs: Date.now() - start,
+      };
+
+      if (req.gb) {
+        req.gb.logEvent(EVENT_MCP_REQUEST, properties);
+        return;
+      }
+
+      const client = getGrowthBookClient();
+      if (!client || !req.organization) return;
+      const userId = req.user?.id || "";
+      client.logEvent(EVENT_MCP_REQUEST, properties, {
+        attributes: {
+          ...getTrustedOrgAttributes(req.organization),
+          id: userId,
+          user_id: userId,
+        },
+      });
+    } catch (e) {
+      logger.warn(e, "Failed to log MCP request event");
+    }
   };
   res.on("finish", onComplete);
   res.on("close", onComplete);
