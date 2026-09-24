@@ -576,6 +576,25 @@ describe("ramp schedule patch references", () => {
     ).toBe(0);
   });
 
+  it("accepts the engine's own start-anchor spelling on REST create", async () => {
+    // A GET-then-POST clone replays anchors as `allEnvironments: true` with a
+    // null list; that pairing is a wildcard, not a null scope.
+    const res = await request(app)
+      .post("/api/v1/ramp-schedules")
+      .send({
+        name: "cloned",
+        featureId: FLAG,
+        ruleId: RULE.id,
+        startActions: [
+          { patch: { allEnvironments: true, environments: null, coverage: 0 } },
+        ],
+        steps: [step({ coverage: 0.5 })],
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.body.message).toBeUndefined();
+    expect(res.status).toBe(200);
+  });
+
   it("checks a changed patch on the generated update but lets an echo of the stored plan through", async () => {
     const auth = { Authorization: "Bearer foo" };
     const created = await request(app)
