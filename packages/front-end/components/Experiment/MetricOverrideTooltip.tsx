@@ -1,4 +1,10 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Fragment } from "react";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import {
+  PiArrowSquareOut,
+  PiPlusBold,
+  PiSlidersHorizontal,
+} from "react-icons/pi";
 import {
   ExperimentMetricDefinition,
   getMetricLink,
@@ -8,19 +14,20 @@ import { MetricOverride } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   describeMetricOverride,
+  METRIC_OVERRIDE_COLOR,
   OverrideRow,
 } from "@/services/metricOverrides";
 import {
-  OptionPopover,
   OptionTooltipDescription,
   OptionTooltipRow,
   OptionTooltipSection,
   OptionTooltipShell,
-  OptionTooltipTags,
 } from "@/components/Features/OptionTooltipShell";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+
+const ICON_STYLE = { verticalAlign: "-2px", marginRight: 4 };
 
 /** A group member as the selector sees it: whether it can join the query. */
 export interface GroupMemberStatus {
@@ -35,35 +42,32 @@ function metricTypeLabel(metric: ExperimentMetricDefinition): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** A metric's basic facts, for a metric named inside another card. */
-function MetricInfoContent({ metric }: { metric: ExperimentMetricDefinition }) {
+/**
+ * A metric's overrides under a blue heading, the blue the chip is outlined in,
+ * so the two read as the same signal. Nothing when it has none.
+ */
+function OverridesBlock({ rows }: { rows: OverrideRow[] }) {
+  if (!rows.length) return null;
   return (
-    <OptionTooltipShell href={getMetricLink(metric.id)} title={metric.name}>
-      <OptionTooltipRow label="Type:">
-        {metricTypeLabel(metric)}
-      </OptionTooltipRow>
-      <OptionTooltipTags tags={metric.tags} />
-      <OptionTooltipDescription description={metric.description} />
-    </OptionTooltipShell>
-  );
-}
-
-function OverrideRows({ rows }: { rows: OverrideRow[] }) {
-  return (
-    <>
+    <Box mt="2">
+      <Box style={{ color: METRIC_OVERRIDE_COLOR }}>
+        <Text size="sm" as="div" weight="semibold">
+          Overrides:
+        </Text>
+      </Box>
       {rows.map((row) => (
         <OptionTooltipRow key={row.label} label={`${row.label}:`}>
           {row.value}
         </OptionTooltipRow>
       ))}
-    </>
+    </Box>
   );
 }
 
 /**
  * A selected metric's hover card: where it lives, and what this experiment
  * changes about it. A group lists every metric in it, each with its own
- * overrides and a card of its own on hover.
+ * type and overrides, linked to its own page.
  */
 export function MetricOverrideTooltipContent({
   id,
@@ -93,11 +97,26 @@ export function MetricOverrideTooltipContent({
     <OptionTooltipShell
       href={group ? `/metric-groups/${id}` : getMetricLink(id)}
       title={group?.name ?? metric?.name ?? id}
+      subtitle={metric ? metricTypeLabel(metric) : undefined}
+      titleColor="dark"
     >
+      {onManageOverrides ? (
+        <Box>
+          {/* Inline, not in a flex box: underline doesn't reach into one. */}
+          <Link onClick={() => onManageOverrides(memberIds)}>
+            {hasOverrides ? (
+              <PiSlidersHorizontal style={ICON_STYLE} />
+            ) : (
+              <PiPlusBold style={ICON_STYLE} />
+            )}
+            {hasOverrides ? "Manage overrides" : "Add overrides"}
+          </Link>
+        </Box>
+      ) : null}
       {group ? (
         <OptionTooltipSection label="Metrics:">
           <Flex direction="column" gap="2" mt="1">
-            {memberIds.map((mid) => {
+            {memberIds.map((mid, i) => {
               const member = getExperimentMetricById(mid);
               const status = members?.find((m) => m.metric?.id === mid);
               const notJoinable = status ? !status.joinable : false;
@@ -106,31 +125,41 @@ export function MetricOverrideTooltipContent({
                 member?.windowSettings?.type === "conversion";
               const rows = rowsFor(mid);
               return (
-                <Box key={mid}>
-                  {member ? (
-                    <OptionPopover
-                      content={<MetricInfoContent metric={member} />}
-                    >
+                <Fragment key={mid}>
+                  {i > 0 ? <Separator size="4" /> : null}
+                  <Box>
+                    {member ? (
+                      <>
+                        <Link
+                          href={getMetricLink(mid)}
+                          target="_blank"
+                          color="dark"
+                          weight="medium"
+                          size="sm"
+                        >
+                          {member.name} <PiArrowSquareOut />
+                        </Link>
+                        <Text size="sm" as="div" color="text-low">
+                          {metricTypeLabel(member)}
+                        </Text>
+                      </>
+                    ) : (
                       <Text size="sm" weight="medium">
-                        {member.name}
+                        {mid}
                       </Text>
-                    </OptionPopover>
-                  ) : (
-                    <Text size="sm" weight="medium">
-                      {mid}
-                    </Text>
-                  )}
-                  {notJoinable ? (
-                    <HelperText status="error" size="sm">
-                      Not joinable with this assignment query
-                    </HelperText>
-                  ) : conversionWindow ? (
-                    <HelperText status="warning" size="sm">
-                      Uses a conversion window
-                    </HelperText>
-                  ) : null}
-                  <OverrideRows rows={rows} />
-                </Box>
+                    )}
+                    {notJoinable ? (
+                      <HelperText status="error" size="sm">
+                        Not joinable with this assignment query
+                      </HelperText>
+                    ) : conversionWindow ? (
+                      <HelperText status="warning" size="sm">
+                        Uses a conversion window
+                      </HelperText>
+                    ) : null}
+                    <OverridesBlock rows={rows} />
+                  </Box>
+                </Fragment>
               );
             })}
           </Flex>
@@ -138,22 +167,9 @@ export function MetricOverrideTooltipContent({
       ) : (
         <>
           <OptionTooltipDescription description={metric?.description} />
-          {hasOverrides ? (
-            <OptionTooltipSection label="Overrides in this experiment:">
-              <Box mt="1">
-                <OverrideRows rows={rowsFor(id)} />
-              </Box>
-            </OptionTooltipSection>
-          ) : null}
+          <OverridesBlock rows={rowsFor(id)} />
         </>
       )}
-      {onManageOverrides ? (
-        <Box>
-          <Link onClick={() => onManageOverrides(memberIds)}>
-            {hasOverrides ? "Manage overrides" : "Add overrides"}
-          </Link>
-        </Box>
-      ) : null}
     </OptionTooltipShell>
   );
 }

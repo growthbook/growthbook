@@ -22,24 +22,48 @@ export function useProjectNames(ids?: string[]): string[] {
 export function OptionTooltipShell({
   href,
   title,
+  subtitle,
+  titleColor,
   children,
 }: {
   href: string;
   title: string;
+  /** "dark" for a card with links of its own, so the title isn't one more. */
+  titleColor?: "dark";
+  /** A line held close under the title, such as what kind of thing it is. */
+  subtitle?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const link = (
+    <Link
+      href={href}
+      target="_blank"
+      weight="bold"
+      size="md"
+      color={titleColor}
+    >
+      <span style={{ overflowWrap: "anywhere" }} className="mr-1">
+        {title}
+      </span>
+      <PiArrowSquareOut />
+    </Link>
+  );
   return (
     <Flex
       direction="column"
       gap="2"
       style={{ minWidth: 0, maxWidth: TOOLTIP_MAX_WIDTH }}
     >
-      <Link href={href} target="_blank" weight="bold" size="md">
-        <span style={{ overflowWrap: "anywhere" }} className="mr-1">
-          {title}
-        </span>
-        <PiArrowSquareOut />
-      </Link>
+      {subtitle ? (
+        <div>
+          {link}
+          <Text size="sm" as="div" color="text-low">
+            {subtitle}
+          </Text>
+        </div>
+      ) : (
+        link
+      )}
       {children}
     </Flex>
   );

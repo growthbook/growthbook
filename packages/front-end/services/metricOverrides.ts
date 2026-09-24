@@ -1,5 +1,8 @@
 import { MetricOverride } from "shared/validators";
 
+/** The blue that marks an overridden metric, on its chip and in its card. */
+export const METRIC_OVERRIDE_COLOR = "var(--blue-9)";
+
 export interface OverrideRow {
   label: string;
   value: string;

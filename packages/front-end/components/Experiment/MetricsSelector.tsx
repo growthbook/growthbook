@@ -23,7 +23,10 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import { OptionPopover } from "@/components/Features/OptionTooltipShell";
 import { MetricOverrideTooltipContent } from "@/components/Experiment/MetricOverrideTooltip";
-import { getOverriddenMetricIds } from "@/services/metricOverrides";
+import {
+  getOverriddenMetricIds,
+  METRIC_OVERRIDE_COLOR,
+} from "@/services/metricOverrides";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadixTooltip from "@/ui/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
@@ -632,7 +635,7 @@ const MetricsSelector: FC<{
               multiValue: (base, state) => ({
                 ...ReactSelectProps.styles.multiValue(base),
                 ...(overriddenChips.has(state.data.value)
-                  ? { boxShadow: "inset 0 0 0 1px var(--blue-9)" }
+                  ? { boxShadow: `inset 0 0 0 1px ${METRIC_OVERRIDE_COLOR}` }
                   : {}),
               }),
             }
