@@ -877,6 +877,17 @@ function provablyDisjoint(a: Atom, b: Atom): boolean {
   return false; // notIn/notIn, mismatched range types, … → can't prove disjoint
 }
 
+// Two rules can't share a user when any pair of their top-level AND atoms is disjoint.
+function rulesProvablyDisjoint(
+  a: ParsedTargeting,
+  b: ParsedTargeting,
+): boolean {
+  return a.constraints.some((ac) => {
+    const bc = b.constraints.find((c) => c.attr === ac.attr);
+    return !!bc && provablyDisjoint(ac.atom, bc.atom);
+  });
+}
+
 // Intersect two atoms on the same attribute into a single atom meaning "matches
 // both". Returns null when the result can't be expressed as one atom of our
 // types (not-in ∩ range, numeric ∩ version) — the caller then treats that
@@ -1250,6 +1261,7 @@ export function getRuleReachability(
         // Only traffic-serving rules above that also reference this attribute
         // can overlap — every other rule is irrelevant, so we never scan them.
         for (const r of trafficByAttr.get(attr) ?? []) {
+          if (rulesProvablyDisjoint(target, r.parsed)) continue;
           const consumerOpaque = !r.parsed.modeledAttrs.has(attr);
           // Can't prove this rule above leaves our targeted users alone?
           let overlaps = targetOpaque || consumerOpaque;

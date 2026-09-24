@@ -568,6 +568,32 @@ describe("getRuleReachability — soft conflicts (attribute overlap)", () => {
     });
   });
 
+  it("does not warn on an opaque shared attribute when another ANDed attribute is disjoint", () => {
+    // Date-string ranges are opaque, but `language` already rules out overlap.
+    const now = { $gt: "2026-01-01T00:00:00Z" };
+    const result = analyze([
+      force("r1", { condition: cond({ language: "en", now }) }),
+      force("r2", { condition: cond({ language: "fr", now }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("still warns on an opaque shared attribute when the other attribute overlaps", () => {
+    const now = { $gt: "2026-01-01T00:00:00Z" };
+    const result = analyze([
+      force("r1", { condition: cond({ language: "en", now }) }),
+      force("r2", { condition: cond({ language: "en", now }) }),
+    ]);
+    expect(result.get("r2")?.softConflicts).toEqual([
+      { attr: "language", consumingRuleIds: ["r1"] },
+      { attr: "now", consumingRuleIds: ["r1"] },
+    ]);
+  });
+
   it("does not warn when an opaque rule above targets a different attribute", () => {
     const result = analyze([
       force("r1", { condition: cond({ country: "US" }) }),
