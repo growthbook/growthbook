@@ -3,6 +3,7 @@ import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
@@ -58,6 +59,11 @@ const BigQueryForm: FC<{
     datasetOptions: string[];
   } | null>(null);
   const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+  // Without a saved Data Source, testing requires permission to create one in these projects.
+  const canTestConnection =
+    !!datasourceId ||
+    permissionsUtil.canCreateDataSource({ projects, type: "bigquery" });
   const connectionTest = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -236,6 +242,7 @@ const BigQueryForm: FC<{
             )}
             <Button
               disabled={
+                !canTestConnection ||
                 !params.projectId ||
                 !params.clientEmail ||
                 (!params.privateKey && !datasourceId)

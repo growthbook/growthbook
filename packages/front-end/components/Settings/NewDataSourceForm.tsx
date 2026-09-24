@@ -214,6 +214,13 @@ const NewDataSourceForm: FC<{
     ctaEnabled = false;
     disabledMessage = "You don't have permission to create data sources.";
   }
+  // An empty selection means All Projects, which needs a global role.
+  const projectPermissionError = permissionsUtil.canCreateDataSource({
+    projects: connectionInfo.projects,
+    type: connectionInfo.type,
+  })
+    ? undefined
+    : "Select a Project where you can create Data Sources.";
 
   const saveConnectionInfo =
     async (): Promise<DataSourceInterfaceWithParams> => {
@@ -636,6 +643,8 @@ const NewDataSourceForm: FC<{
               onChange={(v) => onManualChange("projects", v)}
               customClassName="label-overflow-ellipsis"
               helpText="Assign this data source to specific projects"
+              error={projectPermissionError}
+              errorLevel="warning"
             />
           </div>
         )}
@@ -746,6 +755,11 @@ const NewDataSourceForm: FC<{
 
   if (step === "initial" && !connectionInfo.type) {
     ctaEnabled = false;
+  }
+
+  if (step === "connection" && projectPermissionError) {
+    ctaEnabled = false;
+    disabledMessage ??= projectPermissionError;
   }
 
   if (managedWarehouseOpen) {
