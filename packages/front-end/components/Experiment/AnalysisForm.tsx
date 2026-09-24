@@ -65,12 +65,6 @@ import MetricSelector from "./MetricSelector";
 import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
-/** How `skipPartialData` reads: strict leaves out users still inside a window. */
-export const IN_PROGRESS_CONVERSION_LABELS = {
-  loose: "Include In-Progress Conversions",
-  strict: "Exclude In-Progress Conversions",
-} as const;
-
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
@@ -1183,11 +1177,11 @@ const AnalysisForm: FC<{
                             }
                             options={[
                               {
-                                label: IN_PROGRESS_CONVERSION_LABELS.loose,
+                                label: "Include In-Progress Conversions",
                                 value: "loose",
                               },
                               {
-                                label: IN_PROGRESS_CONVERSION_LABELS.strict,
+                                label: "Exclude In-Progress Conversions",
                                 value: "strict",
                               },
                             ]}

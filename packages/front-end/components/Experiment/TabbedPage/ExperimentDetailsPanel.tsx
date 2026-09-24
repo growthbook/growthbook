@@ -19,7 +19,6 @@ import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionFiel
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
-import AnalysisSummary from "./AnalysisSummary";
 import ExpandableBlock from "./ExpandableBlock";
 import ExperimentHealthBadges from "./ExperimentHealthBadges";
 
@@ -29,8 +28,6 @@ export interface Props {
   isManaged?: boolean;
   mutate: () => void;
   disableEditing?: boolean;
-  /** Opens the analysis plan's settings modal, which stages into the page. */
-  editAnalysis?: () => void;
 }
 
 /** The experiment's metadata and discussion, beside the page rather than above it. */
@@ -40,7 +37,6 @@ export default function ExperimentDetailsPanel({
   isManaged,
   mutate,
   disableEditing,
-  editAnalysis,
 }: Props) {
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   // Another editing surface cannot open over the page's own unsaved edits, so
@@ -98,25 +94,20 @@ export default function ExperimentDetailsPanel({
   );
   const { canEdit } = useExperimentEditing(experiment, disableEditing);
 
-  const details = (
-    <Flex direction="column" gap="2">
-      {tagBar("details")}
-      {hasCustomFields ? (
-        <ExpandableBlock>
-          <CustomFieldDisplay
-            rows
-            rowAction={(field) =>
-              pencil(`Edit ${field.name}`, () => editCustomField(field.id))
-            }
-            target={experiment}
-            canEdit={false}
-            mutate={mutate}
-            section="experiment"
-          />
-        </ExpandableBlock>
-      ) : null}
-    </Flex>
-  );
+  const customFieldRows = hasCustomFields ? (
+    <ExpandableBlock>
+      <CustomFieldDisplay
+        rows
+        rowAction={(field) =>
+          pencil(`Edit ${field.name}`, () => editCustomField(field.id))
+        }
+        target={experiment}
+        canEdit={false}
+        mutate={mutate}
+        section="experiment"
+      />
+    </ExpandableBlock>
+  ) : null;
 
   return (
     <>
@@ -170,6 +161,7 @@ export default function ExperimentDetailsPanel({
               )}
               {tagBar("about")}
               <ExperimentHealthBadges experiment={experiment} />
+              {customFieldRows}
             </Flex>
             <Separator size="4" />
             {/* Holdouts edit all of this at once, so they keep a heading
@@ -181,32 +173,11 @@ export default function ExperimentDetailsPanel({
                   setShowEditInfoModal(true),
                 )}
               >
-                {details}
+                {tagBar("details")}
               </PanelSection>
             ) : (
-              details
+              tagBar("details")
             )}
-            {/* Bandits and holdouts show their analysis on the page itself. */}
-            {!isHoldout && experiment.type !== "multi-armed-bandit" ? (
-              <>
-                <Separator size="4" />
-                <PanelSection
-                  title="Analysis"
-                  action={
-                    canEdit && editAnalysis ? (
-                      // Stages into the page's draft, so pending edits don't
-                      // block it the way they block the modals that write.
-                      <QuickEditButton
-                        label="Edit analysis settings"
-                        onClick={editAnalysis}
-                      />
-                    ) : null
-                  }
-                >
-                  <AnalysisSummary experiment={experiment} />
-                </PanelSection>
-              </>
-            ) : null}
           </Flex>
         </TabsContent>
         <TabsContent

@@ -664,7 +664,6 @@ function TabbedPageContents({
                 holdout={holdout}
                 mutate={mutate}
                 disableEditing={viewingOldPhase}
-                editAnalysis={() => setAnalysisSettingsOpen(true)}
                 isManaged={linkedFeatures.some((f) =>
                   isManagedByExperiment(f.feature, experiment.id),
                 )}

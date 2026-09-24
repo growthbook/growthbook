@@ -26,7 +26,7 @@ export interface Props {
   holdout?: HoldoutInterfaceStringDates;
   /**
    * Which of the side panel's blocks to render: who and what the experiment
-   * is and when it ran, stacked; or how it is set up, as rows.
+   * is and when it ran, or how it is set up.
    */
   panel: "about" | "details";
   /** The quick-edit button for one field's row, where that field is editable. */
@@ -80,11 +80,11 @@ export default function ProjectTagBar({
 
   if (panel === "details") {
     return (
-      <Flex direction="column" gap="2">
+      <Flex direction="column" gap="3">
         {!isHoldout && (
           <Metadata
             size="sm"
-            row
+            stacked
             label="Implementation"
             value={
               implementationType
@@ -96,7 +96,7 @@ export default function ProjectTagBar({
         {!isHoldout && (
           <Metadata
             size="sm"
-            row
+            stacked
             label="Experiment Key"
             actionPlacement="value"
             action={fieldAction?.("trackingKey")}
@@ -106,7 +106,7 @@ export default function ProjectTagBar({
         {experiment.holdoutId && (
           <Metadata
             size="sm"
-            row
+            stacked
             label="Holdout"
             value={
               <Link href={`/holdout/${experiment.holdoutId}`}>
@@ -117,7 +117,7 @@ export default function ProjectTagBar({
         )}
         <Metadata
           size="sm"
-          row
+          stacked
           label="Assignment attribute"
           value={
             experiment.fallbackAttribute
