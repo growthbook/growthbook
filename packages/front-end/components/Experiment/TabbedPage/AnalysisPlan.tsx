@@ -102,6 +102,11 @@ export default function AnalysisPlan({
         ? { ...experiment, statsEngine: advanced.statsEngine }
         : experiment,
   }).settings.statsEngine.value;
+  // What a metric's card resolves its settings against: the page's draft.
+  const settingsScope = useMemo(
+    () => ({ experiment: { ...experiment, ...advanced }, statsEngine }),
+    [experiment, advanced, statsEngine],
+  );
   // Which metrics the overrides editor opened for, or null while it is shut.
   const [overridesFor, setOverridesFor] = useState<string[] | null>(null);
 
@@ -255,6 +260,7 @@ export default function AnalysisPlan({
         includeGroups
         metricOverrides={metricOverrides}
         onManageOverrides={canEdit ? setOverridesFor : undefined}
+        settingsScope={settingsScope}
         disabled={!canEdit}
       />
     </SetupFieldRow>

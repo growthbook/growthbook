@@ -22,7 +22,10 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import { OptionPopover } from "@/components/Features/OptionTooltipShell";
-import { MetricOverrideTooltipContent } from "@/components/Experiment/MetricOverrideTooltip";
+import {
+  MetricOverrideTooltipContent,
+  MetricSettingsScope,
+} from "@/components/Experiment/MetricOverrideTooltip";
 import {
   getOverriddenMetricIds,
   METRIC_OVERRIDE_COLOR,
@@ -191,6 +194,8 @@ const MetricsSelector: FC<{
   metricOverrides?: MetricOverride[];
   /** Opens an override editor on the metrics a card was opened for. */
   onManageOverrides?: (metricIds: string[]) => void;
+  /** Lets a chosen metric's card list the settings it's analysed with. */
+  settingsScope?: MetricSettingsScope;
 }> = ({
   datasource,
   project,
@@ -213,6 +218,7 @@ const MetricsSelector: FC<{
   requireDatasource = false,
   metricOverrides,
   onManageOverrides,
+  settingsScope,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -571,6 +577,7 @@ const MetricsSelector: FC<{
               id={value}
               overrides={metricOverrides}
               onManageOverrides={onManageOverrides}
+              settingsScope={settingsScope}
               members={metricsWithJoinableStatus}
               filterConversionWindowMetrics={filterConversionWindowMetrics}
             />
@@ -586,6 +593,7 @@ const MetricsSelector: FC<{
       filterConversionWindowMetrics,
       metricOverrides,
       onManageOverrides,
+      settingsScope,
     ],
   );
 

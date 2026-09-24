@@ -5,15 +5,26 @@ import {
   PiPlusBold,
   PiSlidersHorizontal,
 } from "react-icons/pi";
-import { ExperimentMetricDefinition, getMetricLink } from "shared/experiments";
+import {
+  ExperimentMetricDefinition,
+  getMetricLink,
+  isFactMetric,
+} from "shared/experiments";
 import { MetricOverride } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { StatsEngine } from "shared/types/stats";
+import { getScopedSettings } from "shared/settings";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { metricTypeLabel } from "@/services/metrics";
 import {
   describeMetricOverride,
+  describeMetricSettings,
   METRIC_OVERRIDE_COLOR,
   OverrideRow,
 } from "@/services/metricOverrides";
+import { useUser } from "@/services/UserContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   OptionTooltipDescription,
   OptionTooltipSection,
@@ -24,6 +35,12 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 
+/** What a metric's settings are resolved against in its hover card. */
+export interface MetricSettingsScope {
+  experiment: ExperimentInterfaceStringDates;
+  statsEngine: StatsEngine;
+}
+
 /** A group member as the selector sees it: whether it can join the query. */
 export interface GroupMemberStatus {
   metric: ExperimentMetricDefinition | null;
@@ -31,28 +48,32 @@ export interface GroupMemberStatus {
 }
 
 /**
- * A metric's overrides under a blue heading, the blue the chip is outlined in,
- * so the two read as the same signal, and lighter than the metric names.
- * Nothing when it has none. `nested` under a group's member, set in a step so
- * the members' names still lead down the card.
+ * Settings as rows under a heading, lighter than the metric names. Nothing
+ * when there are none. `nested` under a group's member, set in a step so the
+ * members' names still lead down the card.
  */
-function OverridesBlock({
+function RowsBlock({
+  heading,
+  color,
   rows,
   nested = false,
 }: {
+  heading: string;
+  /** A metric's overrides take the blue the chip is outlined in. */
+  color?: string;
   rows: OverrideRow[];
   nested?: boolean;
 }) {
   if (!rows.length) return null;
   return (
     <Box mt={nested ? "2" : undefined} pl={nested ? "2" : undefined}>
-      <Box style={{ color: METRIC_OVERRIDE_COLOR }}>
+      <Box style={{ color: color ?? "var(--color-text-mid)" }}>
         <Text size="sm" as="div" weight="medium">
-          Overrides:
+          {heading}
         </Text>
       </Box>
       {rows.map((row) => (
-        <Text key={row.label} size="sm" as="div" color="text-high">
+        <Text key={row.key} size="sm" as="div" color="text-high">
           <Text size="sm" color="text-low">
             {row.label}:
           </Text>{" "}
@@ -74,6 +95,7 @@ export function MetricOverrideTooltipContent({
   onManageOverrides,
   members,
   filterConversionWindowMetrics,
+  settingsScope,
 }: {
   id: string;
   overrides: MetricOverride[];
@@ -83,14 +105,73 @@ export function MetricOverrideTooltipContent({
   members?: GroupMemberStatus[];
   /** Whether a conversion window counts against a metric here. */
   filterConversionWindowMetrics?: boolean;
+  /**
+   * The experiment as it's being edited, and its engine: with them, a metric
+   * also lists the settings it's analysed with that aren't overridden.
+   */
+  settingsScope?: MetricSettingsScope;
 }) {
-  const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    getMetricGroupById,
+    getMetricById,
+    getProjectById,
+  } = useDefinitions();
+  const { organization, hasCommercialFeature } = useUser();
+  const orgSettings = useOrgSettings();
   const group = getMetricGroupById(id);
   const metric = group ? null : getExperimentMetricById(id);
   const memberIds = group ? group.metrics : [id];
   const rowsFor = (mid: string) =>
     describeMetricOverride(overrides.find((o) => o.id === mid) ?? { id: mid });
   const hasOverrides = memberIds.some((mid) => rowsFor(mid).length > 0);
+
+  const settingRows = (() => {
+    if (!settingsScope || !metric) return [];
+    const { experiment, statsEngine } = settingsScope;
+    const denominator =
+      !isFactMetric(metric) && metric.denominator
+        ? (getMetricById(metric.denominator) ?? undefined)
+        : undefined;
+    // Resolved as if nothing were overridden: the overrides list themselves.
+    const { settings } = getScopedSettings({
+      organization,
+      project: getProjectById(experiment.project || "") ?? undefined,
+      experiment: { ...experiment, metricOverrides: [] },
+      metric,
+      denominatorMetric: denominator,
+    });
+    const priorSettings = metric.priorSettings?.override
+      ? metric.priorSettings
+      : orgSettings.metricDefaults?.priorSettings;
+    return describeMetricSettings(
+      {
+        windowType: settings.windowType.value,
+        windowHours: settings.windowHours.value,
+        delayHours: settings.delayHours.value,
+        // The analysis runs to the experiment's end (or its own lookback)
+        // instead of each metric's conversion window.
+        conversionWindowsIgnored:
+          experiment.attributionModel === "experimentDuration" ||
+          experiment.attributionModel === "lookbackOverride",
+        winRisk: settings.winRisk.value,
+        loseRisk: settings.loseRisk.value,
+        cuped: hasCommercialFeature("regression-adjustment")
+          ? {
+              enabled: settings.regressionAdjustmentEnabled.value,
+              days: settings.regressionAdjustmentDays.value,
+            }
+          : null,
+        prior: {
+          proper: !!priorSettings?.proper,
+          mean: priorSettings?.mean ?? 0,
+          stddev: priorSettings?.stddev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+        },
+      },
+      statsEngine,
+      overrides.find((o) => o.id === id),
+    );
+  })();
 
   return (
     <OptionTooltipShell
@@ -159,7 +240,12 @@ export function MetricOverrideTooltipContent({
                         Uses a conversion window
                       </HelperText>
                     ) : null}
-                    <OverridesBlock rows={rows} nested />
+                    <RowsBlock
+                      heading="Overrides:"
+                      color={METRIC_OVERRIDE_COLOR}
+                      rows={rows}
+                      nested
+                    />
                   </Box>
                 </Fragment>
               );
@@ -167,7 +253,14 @@ export function MetricOverrideTooltipContent({
           </Flex>
         </OptionTooltipSection>
       ) : (
-        <OverridesBlock rows={rowsFor(id)} />
+        <>
+          <RowsBlock heading="Settings:" rows={settingRows} />
+          <RowsBlock
+            heading="Overrides:"
+            color={METRIC_OVERRIDE_COLOR}
+            rows={rowsFor(id)}
+          />
+        </>
       )}
     </OptionTooltipShell>
   );
