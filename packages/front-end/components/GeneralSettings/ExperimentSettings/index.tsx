@@ -139,6 +139,48 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
+            {/* Experiment key format */}
+            <Box mb="6" width="100%">
+              <Text
+                as="label"
+                htmlFor="experimentKeyRegexValidator"
+                size="3"
+                className="font-weight-semibold"
+              >
+                Experiment key regex validator
+              </Text>
+              <Text as="p" mb="2" size="2">
+                When set, experimenters must enter a tracking key matching this
+                regex, in the app and via the API. Keys set automatically
+                (holdouts, experiments imported from a data source, etc.) are
+                exempt.
+              </Text>
+              <Field
+                id="experimentKeyRegexValidator"
+                {...form.register("experimentKeyRegexValidator")}
+                placeholder="^exp-\d{8}-.+$"
+              />
+            </Box>
+            <Box mb="6" width="100%">
+              <Text
+                as="label"
+                htmlFor="experimentKeyExample"
+                size="3"
+                className="font-weight-semibold"
+              >
+                Experiment key example
+              </Text>
+              <Text as="p" mb="2" size="2">
+                Shown when creating a new experiment. Required when a regex
+                validator is set, and must match it.
+              </Text>
+              <Field
+                id="experimentKeyExample"
+                {...form.register("experimentKeyExample")}
+                placeholder="exp-20260101-checkout-cta"
+              />
+            </Box>
+
             {/* import length */}
             <Box mb="6">
               <Flex mb="2">

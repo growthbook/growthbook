@@ -1176,6 +1176,35 @@ describe("experiments API", () => {
       );
     });
 
+    it("rejects a trackingKey that doesn't match experimentKeyRegexValidator", async () => {
+      const orgWithSetting = {
+        ...org,
+        settings: { experimentKeyRegexValidator: "^exp-" },
+      };
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        permissions: { canCreateExperiment: () => true },
+      });
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_123",
+          name: "Bad key",
+          assignmentQueryId: "user_id",
+          variations: [
+            { key: "control", name: "Control" },
+            { key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain("must match the regex validator");
+      expect(createExperiment).not.toHaveBeenCalled();
+    });
+
     it("validates datasource exists", async () => {
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
       (getDataSourceById as jest.Mock).mockResolvedValue(null); // Mock datasource not found
@@ -2050,6 +2079,30 @@ describe("experiments API", () => {
       expect(res.body.message).toContain(
         "requires unique experiment tracking keys",
       );
+    });
+
+    it("rejects a changed trackingKey that doesn't match experimentKeyRegexValidator", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        trackingKey: "original_key",
+      });
+      const orgWithSetting = {
+        ...org,
+        settings: { experimentKeyRegexValidator: "^exp-" },
+      };
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        permissions: { canUpdateExperiment: () => true },
+      });
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({ trackingKey: "bad_key" })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain("must match the regex validator");
     });
 
     it("updates experiment variations with signed URLs", async () => {

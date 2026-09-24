@@ -56,6 +56,7 @@ import {
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
   assertCanRunExperimentChanges,
+  assertExperimentKeyFormat,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
@@ -1158,6 +1159,7 @@ export async function postExperiments(
       originalId?: string;
       autoRefreshResults?: boolean;
       allowSameSeedAsOriginal?: boolean;
+      isImport?: boolean;
     }
   >,
   res: Response<
@@ -1374,6 +1376,9 @@ export async function postExperiments(
         dimensionIds: data.precomputedUnitDimensionIds,
       });
     }
+
+    // Imported keys come from the warehouse and can't be renamed
+    if (!req.query.isImport) assertExperimentKeyFormat(org, obj.trackingKey);
 
     // Make sure tracking key is unique
     if (
@@ -1758,6 +1763,13 @@ export async function postExperiment(
       });
       return;
     }
+  }
+
+  if (
+    data.trackingKey !== undefined &&
+    data.trackingKey !== experiment.trackingKey
+  ) {
+    assertExperimentKeyFormat(org, data.trackingKey);
   }
 
   // Check if tracking key is being changed and validate uniqueness if required

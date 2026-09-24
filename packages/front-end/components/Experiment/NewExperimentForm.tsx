@@ -615,6 +615,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (autoRefreshResults && isImport) {
       params.autoRefreshResults = true;
     }
+    if (isImport) {
+      params.isImport = true;
+    }
 
     const res = await apiCall<
       | { experiment: ExperimentInterfaceStringDates }
@@ -728,7 +731,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   }, [form, exposureQueries, exposureQueryId]);
 
-  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
+  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(
+    !settings.experimentKeyRegexValidator,
+  );
 
   let header = isNewExperiment
     ? `Add New ${isBandit ? "Bandit" : "Experiment"}`
@@ -1006,6 +1011,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <Field
                 size="legacy"
                 {...trackingKeyFieldHandlers}
+                required={!!settings.experimentKeyRegexValidator && !isImport}
+                placeholder={settings.experimentKeyExample}
                 onChange={(e) => {
                   trackingKeyFieldHandlers.onChange(e);
                   setLinkNameWithTrackingKey(false);

@@ -169,7 +169,11 @@ export default function BanditRefNewFields({
             size="legacy"
             label="Tracking Key"
             {...form.register(`trackingKey`)}
-            placeholder={feature?.id || ""}
+            placeholder={
+              settings.experimentKeyRegexValidator
+                ? settings.experimentKeyExample
+                : feature?.id || ""
+            }
             helpText="Unique identifier for this Bandit, used to track impressions and analyze results"
           />
 
