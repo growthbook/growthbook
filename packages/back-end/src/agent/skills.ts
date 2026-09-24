@@ -295,13 +295,50 @@ function parseDisabledBuiltIns(value: string): "all" | Set<string> {
   );
 }
 
-function getSkillRegistry(): SkillRegistry {
-  if (cachedRegistry) return cachedRegistry;
+const CUSTOM_SKILLS_RECHECK_MS = 30_000;
+let builtInRegistry: SkillRegistry | null = null;
+let customSkillsSignature = "";
+let customSkillsCheckedAt = 0;
 
-  const builtIn = loadSkillsFromDirectory(resolveSkillsDir());
+/** Path, mtime and size of every file under `dir`, so any edit, add or delete changes it. */
+function dirSignature(dir: string): string {
+  try {
+    return fs
+      .readdirSync(dir, { recursive: true, encoding: "utf8" })
+      .filter((file) => !file.split(path.sep).some((p) => p.startsWith(".")))
+      .sort()
+      .map((file) => {
+        const stat = fs.statSync(path.join(dir, file));
+        return `${file}:${stat.mtimeMs}:${stat.size}`;
+      })
+      .join("\n");
+  } catch {
+    return "";
+  }
+}
+
+/** Rate-limited so reads stay cheap; stat is used over fs.watch, which misses ConfigMap swaps. */
+function customSkillsChanged(): boolean {
+  if (!AGENT_SKILLS_DIR) return false;
+  const now = Date.now();
+  if (now - customSkillsCheckedAt < CUSTOM_SKILLS_RECHECK_MS) return false;
+  customSkillsCheckedAt = now;
+  return dirSignature(AGENT_SKILLS_DIR) !== customSkillsSignature;
+}
+
+function getSkillRegistry(): SkillRegistry {
+  if (cachedRegistry && !customSkillsChanged()) return cachedRegistry;
+
+  builtInRegistry ??= loadSkillsFromDirectory(resolveSkillsDir());
+  const builtIn = builtInRegistry;
   if (!AGENT_SKILLS_DIR && !AGENT_SKILLS_DISABLE_BUILTINS) {
     cachedRegistry = builtIn;
     return cachedRegistry;
+  }
+
+  if (AGENT_SKILLS_DIR) {
+    customSkillsSignature = dirSignature(AGENT_SKILLS_DIR);
+    customSkillsCheckedAt = Date.now();
   }
 
   let custom: SkillRegistry = { summaries: [], skills: new Map() };
@@ -357,6 +394,7 @@ export const _resolveSkill = resolveSkill;
 export const _mergeCustomSkills = mergeCustomSkills;
 export const _parseDisabledBuiltIns = parseDisabledBuiltIns;
 export const _enabledFor = enabledFor;
+export const _dirSignature = dirSignature;
 
 /** Domain routers only — the compact index inlined into the system prompt. */
 export function listDomainSkills(

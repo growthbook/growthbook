@@ -1,8 +1,15 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
+  _dirSignature,
   _enabledFor,
   _loadSkillsFromDirectory,
   _mergeCustomSkills,
@@ -211,6 +218,54 @@ describe("custom skills", () => {
       "feature-flags",
       "feature-flags/references/flag-create",
     ]);
+  });
+
+  it("changes the directory signature on an edit or a new file", () => {
+    const root = createWorkflowFixture({ "release-checklist": [] });
+    try {
+      const skillFile = join(root, "release-checklist", "SKILL.md");
+      const before = _dirSignature(root);
+      expect(_dirSignature(root)).toBe(before);
+
+      utimesSync(skillFile, new Date(), new Date(Date.now() + 5000));
+      const edited = _dirSignature(root);
+      expect(edited).not.toBe(before);
+
+      writeFixtureFile(
+        join(root, "release-checklist", "references", "a.md"),
+        "",
+      );
+      expect(_dirSignature(root)).not.toBe(edited);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("picks up new custom skills once the recheck window passes", async () => {
+    const root = createWorkflowFixture({ "release-checklist": [] });
+    const now = jest.spyOn(Date, "now").mockReturnValue(1_000_000);
+    const org = { settings: {} } as OrganizationInterface;
+    process.env.AGENT_SKILLS_DIR = root;
+    try {
+      await jest.isolateModulesAsync(async () => {
+        const { listDomainSkills } = await import("back-end/src/agent/skills");
+        const names = () => listDomainSkills(org).map((s) => s.name);
+
+        expect(names()).toContain("release-checklist");
+        writeFixtureFile(
+          join(root, "rollout", "SKILL.md"),
+          "---\nname: rollout\ndescription: Roll out\n---\n",
+        );
+        expect(names()).not.toContain("rollout");
+
+        now.mockReturnValue(1_031_000);
+        expect(names()).toContain("rollout");
+      });
+    } finally {
+      delete process.env.AGENT_SKILLS_DIR;
+      now.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("parses AGENT_SKILLS_DISABLE_BUILTINS", () => {
