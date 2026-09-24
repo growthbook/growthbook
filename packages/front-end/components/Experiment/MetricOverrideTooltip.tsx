@@ -36,10 +36,17 @@ export interface GroupMemberStatus {
  * A metric's overrides under a blue heading, the blue the chip is outlined in,
  * so the two read as the same signal. Nothing when it has none.
  */
-function OverridesBlock({ rows }: { rows: OverrideRow[] }) {
+/** A metric's overrides; `spaced` where nothing else sets it apart. */
+function OverridesBlock({
+  rows,
+  spaced = false,
+}: {
+  rows: OverrideRow[];
+  spaced?: boolean;
+}) {
   if (!rows.length) return null;
   return (
-    <Box mt="2">
+    <Box mt={spaced ? "2" : undefined}>
       <Box style={{ color: METRIC_OVERRIDE_COLOR }}>
         <Text size="sm" as="div" weight="semibold">
           Overrides:
@@ -147,7 +154,7 @@ export function MetricOverrideTooltipContent({
                         Uses a conversion window
                       </HelperText>
                     ) : null}
-                    <OverridesBlock rows={rows} />
+                    <OverridesBlock rows={rows} spaced />
                   </Box>
                 </Fragment>
               );

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import Markdown from "@/components/Markdown/Markdown";
@@ -125,19 +125,42 @@ export function OptionTooltipTags({ tags }: { tags?: string[] }) {
   );
 }
 
+const DESCRIPTION_MAX_HEIGHT = 120;
+
 export function OptionTooltipDescription({
   description,
 }: {
   description?: string;
 }) {
+  // Only a description that runs past the cap fades out, and only it needs
+  // the room the fade takes; a short one would just gain a blank line.
+  const content = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
+  useEffect(() => {
+    const el = content.current;
+    if (!el) return;
+    const check = () =>
+      setOverflows(el.scrollHeight > DESCRIPTION_MAX_HEIGHT + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [description]);
+
   if (!description) return null;
   return (
     <OptionTooltipSection label="Description:">
       <div
-        className="fade-mask-bottom-1rem"
-        style={{ maxHeight: 120, overflow: "hidden", paddingBottom: "1rem" }}
+        className={overflows ? "fade-mask-bottom-1rem" : undefined}
+        style={{
+          maxHeight: DESCRIPTION_MAX_HEIGHT,
+          overflow: "hidden",
+          paddingBottom: overflows ? "1rem" : undefined,
+        }}
       >
-        <Markdown style={{ fontSize: 12 }}>{description}</Markdown>
+        <div ref={content}>
+          <Markdown style={{ fontSize: 12 }}>{description}</Markdown>
+        </div>
       </div>
     </OptionTooltipSection>
   );
