@@ -1004,6 +1004,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <div className="form-group">
               <Text as="label" weight="semibold" mb="1">
                 Tracking Key
+                {trackingKeyFormatProps.markRequired ? (
+                  <span
+                    style={{
+                      color: "var(--red-11)",
+                      marginLeft: "var(--space-1)",
+                    }}
+                  >
+                    *
+                  </span>
+                ) : null}
               </Text>
               <Text as="div" color="text-mid" mb="2">
                 {`Unique identifier for this ${
