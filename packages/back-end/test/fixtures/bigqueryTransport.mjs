@@ -33,6 +33,7 @@ async function main() {
   let tokenRequests = 0;
   let targetRequests = 0;
   let proxyConnections = 0;
+  const deniedTunnels = [];
   let deny = false;
   let redirect = null;
   const sockets = new Set();
@@ -87,9 +88,10 @@ async function main() {
     const endpointPort = await listen(endpoint);
     proxy.on("connect", (req, socket, head) => {
       proxyConnections++;
-      assert.equal(req.url, "approved-proxy.invalid:443");
       assert.equal(req.headers.authorization, undefined);
-      if (deny) {
+      // Like the egress proxy, tunnel only to the approved public endpoint.
+      if (deny || req.url !== "approved-proxy.invalid:443") {
+        deniedTunnels.push(req.url);
         socket.end("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n");
         return;
       }
@@ -150,9 +152,11 @@ async function main() {
       status: 307,
       location: `http://127.0.0.1:${targetPort}/datasets`,
     };
-    await assert.rejects(client.getDatasets(), /redirect/i);
+    // Redirects reuse the request's proxy agent, so the egress proxy still filters them.
+    await assert.rejects(client.getDatasets(), /403|Forbidden/i);
     assert.equal(endpointRequests, 2);
     assert.equal(targetRequests, 0);
+    assert.deepEqual(deniedTunnels, [`127.0.0.1:${targetPort}`]);
 
     deny = true;
     const before = endpointRequests;

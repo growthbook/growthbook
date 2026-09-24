@@ -42,7 +42,6 @@ export function createBigQueryClient(options: BigQueryOptions): BigQuery {
           ...request,
           uri,
           proxy: WEBHOOK_PROXY,
-          followRedirect: false,
         };
       },
     });

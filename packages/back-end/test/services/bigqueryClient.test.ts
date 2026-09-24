@@ -66,7 +66,6 @@ describe("Cloud BigQuery endpoints", () => {
       uri,
       method: "GET",
       proxy: secrets.WEBHOOK_PROXY,
-      followRedirect: false,
     });
   });
 

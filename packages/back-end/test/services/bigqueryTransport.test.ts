@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
-it("the real BigQuery client requires its proxy, rejects redirects, and authenticates separately", () => {
+it("the real BigQuery client requires its proxy, keeps redirects on it, and authenticates separately", () => {
   // A subprocess loads the real SDK and its ESM HTTP transport, which Jest stubs.
   execFileSync(
     process.execPath,
