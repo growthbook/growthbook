@@ -1,5 +1,5 @@
 import { isStrandedLiveRevision, type MergeResultChanges } from "shared/util";
-import { draftRevertedFromVersion } from "shared/util";
+import { draftRevertedFromVersion, publishRampDetaches } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import {
   bypassApprovalPermission,
@@ -7,7 +7,10 @@ import {
   DEFAULT_PERMISSION_ERROR_MESSAGE,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import type { SafeRolloutInterface } from "shared/validators";
+import type {
+  RevisionRampDetachAction,
+  SafeRolloutInterface,
+} from "shared/validators";
 import { featurePublishRefusal } from "back-end/src/revisions/featureDraftAuthority";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -82,6 +85,7 @@ import {
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
+import { resolveRevertRampStopsForRevision } from "back-end/src/revisions/revertRampGuard";
 import {
   LandingConflictError,
   runGuardedWrite,
@@ -103,10 +107,17 @@ import type {
  * The apply phase stashes runtime state here (created ramp schedule ids, the
  * post-apply feature) for restorePreImage/emitPublished to read.
  */
+const detachKey = (d: RevisionRampDetachAction) =>
+  `${d.rampScheduleId}:${d.ruleId}`;
+
 type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
   plan: FeatureMergePlan;
   createdRampScheduleIds?: string[];
+  revertRampDetaches?: RevisionRampDetachAction[];
+  // The (schedule, rule) detaches the gate-time revert warning covered; the
+  // apply refuses any other.
+  warnedRevertRampDetaches?: string[];
   // Ramp anchors the apply rewrote, captured as each write lands.
   rampBaseStatePreImages?: RampBaseStatePreImage[];
   // Schedules the gate-time plan authorized; the apply refuses any newcomer.
@@ -233,11 +244,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const { plan } = desired;
     const gates: PublishGate[] = [];
 
+    const revertRampDetaches = (
+      await resolveRevertRampStopsForRevision(callerContext, feature, raw)
+    ).detaches;
+    desired.warnedRevertRampDetaches = revertRampDetaches.map(detachKey);
     const rampBaseState = await planRampBaseStateSyncForPublish(
       overlayContext,
       feature,
       plan.mergeResult,
-      callerContext.isApiRequest,
+      {
+        apiRequest: callerContext.isApiRequest,
+        detaching: publishRampDetaches(raw.rampActions, revertRampDetaches),
+      },
     );
     desired.anchoredScheduleIds = rampBaseState.updates.map(
       (u) => u.schedule.id,
@@ -250,7 +268,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       result: plan.mergeResult,
       environmentIds: plan.environmentIds,
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
-      rampActions: raw.rampActions,
+      rampActions: [...(raw.rampActions ?? []), ...revertRampDetaches],
       anchoredUpdates: rampBaseState.updates,
     });
     const refusal = await featurePublishRefusal({
@@ -337,11 +355,14 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
                   method: "POST",
                   path: `/ramp-schedules/${refusal.scheduleId}/actions/pause`,
                 }
-              : {
-                  action: "edit-plan",
-                  method: "PUT",
-                  path: `/ramp-schedules/${refusal.scheduleId}`,
-                },
+              : refusal.kind === "ramp-controlled-field"
+                ? {
+                    action: "edit-plan",
+                    method: "PUT",
+                    path: `/ramp-schedules/${refusal.scheduleId}`,
+                  }
+                : // The message carries the remove-then-reattach steps.
+                  null,
         }),
       );
     }
@@ -468,12 +489,30 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
     }
 
+    desired.revertRampDetaches = (
+      await resolveRevertRampStopsForRevision(context, feature, raw)
+    ).detaches;
+    // The gates warned about and authorized a set of ramps; one attached since
+    // must go back through them rather than be detached unannounced.
+    const warned = new Set(desired.warnedRevertRampDetaches ?? []);
+    if (desired.revertRampDetaches.some((d) => !warned.has(detachKey(d)))) {
+      throw new ConflictError(
+        "A ramp schedule was attached to this feature while publishing; retry the publish",
+      );
+    }
+
     // Re-planned here: a ramp may have started since the gates ran. Refusals
     // are gates above; a live one now is a 400 like the single-entity path.
     const rampBaseState = await planRampBaseStateSyncForPublish(
       context,
       feature,
       mergeResult,
+      {
+        detaching: publishRampDetaches(
+          raw.rampActions,
+          desired.revertRampDetaches,
+        ),
+      },
     );
     if (rampBaseState.refusals.length) {
       throw new BadRequestError(
@@ -907,6 +946,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           updated,
           raw,
           desired.mergeResult,
+          desired.revertRampDetaches ?? [],
         ),
       );
     }

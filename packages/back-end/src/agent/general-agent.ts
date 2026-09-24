@@ -4,10 +4,13 @@ import { z } from "zod";
 import type { AIChatMessage } from "shared/ai-chat";
 import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { AIAgentPendingAction } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
+import type { ConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
   createAgentHandler,
   type AgentConfig,
+  type AgentEmit,
   type SkillLoadResult,
 } from "back-end/src/enterprise/services/agent-handler";
 import { AWAITING_CONFIRMATION_RESULT } from "back-end/src/enterprise/services/stream-processor";
@@ -23,7 +26,7 @@ import { listDomainSkills, readSkill } from "back-end/src/agent/skills";
 // System prompt
 // =============================================================================
 
-const GENERIC_PREAMBLE = `
+const AGENT_API_GUIDANCE = `
 You are GrowthBook's AI assistant. You can read and modify the user's GrowthBook
 data by calling the GrowthBook REST API through the \`callApi\` tool. You are
 running inside the user's logged-in GrowthBook session, so the same permissions
@@ -53,7 +56,10 @@ How to use the \`callApi\` tool:
   update, describe the delta rather than the end state: what is added, removed,
   or changed. "Create dashboard 'Growth KPIs' with 6 blocks: revenue KPI,
   signup trend, …" is useful and "Create a dashboard" is not.
+`.trim();
 
+export const WEB_ASK_USER_GUIDANCE = {
+  tool: `
 How to use the \`askUser\` tool:
 - Use it ONLY when the request is genuinely ambiguous and you can't pick a
   sensible default — e.g. several plausible datasources/projects/environments
@@ -63,14 +69,21 @@ How to use the \`askUser\` tool:
   instead of spending the user's turn to arrive there.
 - After calling it, stop and emit no further tool calls or text; the reply
   arrives as the next chat message.
+`.trim(),
+  endTurn: `
+- Calling \`askUser\` is the alternative way to end a turn (the question is the
+  user-visible content — emit no plain text after it).
+`.trim(),
+};
 
+const AGENT_END_TURN_GUIDANCE = `
 How to end a turn:
 - End with ONE short plain-text markdown message. Keep it to 1–4 sentences (or
   a short bulleted list), reference specific numbers from the API responses,
   and don't restate the question, recap steps, or paste raw JSON.
-- Calling \`askUser\` is the alternative way to end a turn (the question is the
-  user-visible content — emit no plain text after it).
+`.trim();
 
+const AGENT_SKILLS_GUIDANCE = `
 How to use skills:
 - The "Available skills" section lists **domain routers** only. Full
   instructions are NOT inlined — load them with \`loadSkill\`.
@@ -104,7 +117,15 @@ How to use skills:
 - When several arrive together, the user is chaining a multi-step request.
   Work through them in the order given, carrying results forward, and answer
   once at the end rather than per skill.
+`.trim();
 
+export const AGENT_CORE_GUIDANCE = [
+  AGENT_API_GUIDANCE,
+  AGENT_END_TURN_GUIDANCE,
+  AGENT_SKILLS_GUIDANCE,
+].join("\n\n");
+
+export const WEB_PAGE_CONTEXT_GUIDANCE = `
 # Page context
 
 User messages may begin with a single line of the form:
@@ -163,7 +184,9 @@ It appears when the user @-mentioned entities in the composer, and it maps each
 ids directly — do not search or list to re-resolve a mentioned name, and do not
 substitute a different entity that happens to have a similar name. Keep using
 the readable name in your reply.
+`.trim();
 
+export const WEB_LINKING_GUIDANCE = `
 # Linking to pages
 
 You run inside the user's GrowthBook session as a sidebar assistant, so you
@@ -202,7 +225,9 @@ Path patterns (the same URL ↔ entity mappings the skills document):
 
 If you're unsure of the exact path for an entity type, fall back to the
 human-readable identifier in prose and skip the link rather than guessing.
+`.trim();
 
+export const GROWTHBOOK_CONCEPTS_GUIDANCE = `
 # GrowthBook concepts
 
 A short orientation so you can reason about cross-cutting questions
@@ -251,10 +276,11 @@ keys, experiment names) over internal IDs in your replies. Use internal
 IDs only for API calls or when constructing URLs.
 `.trim();
 
-function buildGeneralAgentSystemPrompt(): string {
+export function buildAgentSystemPrompt(sections: string[]): string {
+  const preamble = sections.join("\n\n");
   const domains = listDomainSkills();
   if (!domains.length) {
-    return GENERIC_PREAMBLE;
+    return preamble;
   }
   const skillsIndex = domains
     .map(
@@ -263,7 +289,7 @@ function buildGeneralAgentSystemPrompt(): string {
     )
     .join("\n");
   return [
-    GENERIC_PREAMBLE,
+    preamble,
     "",
     "# Available skills",
     "",
@@ -271,6 +297,18 @@ function buildGeneralAgentSystemPrompt(): string {
     "",
     skillsIndex,
   ].join("\n");
+}
+
+function buildGeneralAgentSystemPrompt(): string {
+  return buildAgentSystemPrompt([
+    AGENT_API_GUIDANCE,
+    WEB_ASK_USER_GUIDANCE.tool,
+    `${AGENT_END_TURN_GUIDANCE}\n${WEB_ASK_USER_GUIDANCE.endTurn}`,
+    AGENT_SKILLS_GUIDANCE,
+    WEB_PAGE_CONTEXT_GUIDANCE,
+    WEB_LINKING_GUIDANCE,
+    GROWTHBOOK_CONCEPTS_GUIDANCE,
+  ]);
 }
 
 // =============================================================================
@@ -427,6 +465,16 @@ const callApiInputSchema = z.object({
         "directly — do NOT wrap it in a JSON-encoded string. Example: " +
         '`{"foo": "bar"}`, not `"{\\"foo\\":\\"bar\\"}"`.',
     ),
+  title: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "A few words naming the change for a mutating call, verb first, in " +
+        "sentence case with no trailing punctuation: " +
+        '"Launch experiment checkout-redesign", "Archive Feature Flag new-nav". ' +
+        "Shown as the confirmation heading. Ignored for reads.",
+    ),
   summary: z
     .string()
     .min(1)
@@ -565,24 +613,29 @@ function stripQueryStrings(
 
 type GeneralAgentParams = Record<string, never>;
 
-const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
-  agentType: "general",
+export const sharedAgentSettings = {
   promptType: "general-chat",
-
-  // No per-request params shape the system prompt — it's fully static so the
-  // LLM provider can cache it across conversations. A preselected datasource
-  // rides along as a soft per-message hint instead (see `injectDatasourceHint`
-  // and the `[Active product-analytics datasource: …]` prefix).
   parseParams: () => ({}),
-
-  injectDatasourceHint: true,
-
-  buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
-
-  // No skill restriction, and needed for a `/` menu pick to survive.
   resolveSkill: loadSkillResult,
+  temperature: 0.1,
+  maxSteps: 30,
+  maxConsecutiveToolErrors: 5,
+} satisfies Pick<
+  AgentConfig<GeneralAgentParams>,
+  | "promptType"
+  | "parseParams"
+  | "resolveSkill"
+  | "temperature"
+  | "maxSteps"
+  | "maxConsecutiveToolErrors"
+>;
 
-  buildTools: (ctx, buffer, _params, emit) => ({
+export function buildCoreAgentTools(
+  ctx: ReqContext,
+  buffer: ConversationBuffer,
+  emit?: AgentEmit,
+) {
+  return {
     loadSkill: aiTool({
       description: LOAD_SKILL_DESCRIPTION,
       inputSchema: loadSkillInputSchema,
@@ -629,6 +682,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
             ...(dispatchInput.body !== undefined
               ? { body: dispatchInput.body }
               : {}),
+            ...(input.title?.trim() ? { title: input.title.trim() } : {}),
             // The model's own summary when it supplied one — the confirmation
             // card hides a summary equal to `method path`, so without this a
             // multi-block write shows nothing but the endpoint.
@@ -681,6 +735,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
             path: dispatchInput.path,
             ...(query ? { query } : {}),
             body: confirmedBody,
+            title: "Run SQL query",
             summary: costMessage ?? "Execute SQL query",
             createdAt: Date.now(),
           };
@@ -715,7 +770,16 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
         };
       },
     }),
+  };
+}
 
+export const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
+  ...sharedAgentSettings,
+  agentType: "general",
+  injectDatasourceHint: true,
+  buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
+  buildTools: (ctx, buffer, ...[, emit]) => ({
+    ...buildCoreAgentTools(ctx, buffer, emit),
     askUser: aiTool({
       description: ASK_USER_DESCRIPTION,
       inputSchema: askUserInputSchema,
@@ -737,10 +801,6 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
       },
     }),
   }),
-
-  temperature: 0.1,
-  maxSteps: 30,
-  maxConsecutiveToolErrors: 5,
   terminalToolNames: ["askUser"],
 };
 

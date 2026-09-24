@@ -4174,10 +4174,20 @@ export async function getMergeResultPublishEnvs({
     ),
   });
 
+  const detachScheduleIds = [
+    ...new Set(
+      (rampActions ?? []).flatMap((a) =>
+        a.mode === "detach" ? [a.rampScheduleId] : [],
+      ),
+    ),
+  ];
   const rampEnvs = rampActionFootprint({
     rampActions,
     liveRules: filledLiveRules,
     environmentIds: effectiveEnvironmentIds,
+    schedules: detachScheduleIds.length
+      ? await context.models.rampSchedules.getByIds(detachScheduleIds)
+      : [],
   });
   if (rampEnvs === "all") return [...effectiveEnvironmentIds];
   const reached = new Set<string>();

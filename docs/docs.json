@@ -367,6 +367,10 @@
                     "group": "Metrics",
                     "pages": ["kb/metrics/fact-metric-optimization"]
                   },
+                  {
+                    "group": "SDKs",
+                    "pages": ["kb/sdks/sticky-bucket-cookie-encoding"]
+                  },
                   "kb/glossary"
                 ]
               },
@@ -1318,6 +1322,322 @@
     {
       "source": "/integrations/ai-agents/agent-skills/experiments",
       "destination": "/integrations/ai-agents/agent-skills"
+    },
+    {
+      "source": "/docs",
+      "destination": "/"
+    },
+    {
+      "source": "/docs/api",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/api-reference",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/rest-api",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/api-reference",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/api-reference",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/rest",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/api/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/docs/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/docs/auth",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/docs/api-keys",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/api-keys",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/keys",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/en/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/en-us/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/en-us/api-keys",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/reference/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/docs/api/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/error-handling",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/api/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/en/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/en-us/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/reference/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/versioning",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/docs/version",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/docs/versions",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/en/docs/versioning",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/en/rest/about-the-rest-api/api-versions",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/docs/api/rate-limits",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/rate-limiting",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/en-us/rate-limits",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/reference/rate-limits",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/webhooks",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/webhooks",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/en/webhooks",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/en-us/webhooks",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/docs/sdks",
+      "destination": "/lib"
+    },
+    {
+      "source": "/docs/libraries",
+      "destination": "/lib"
+    },
+    {
+      "source": "/libraries",
+      "destination": "/lib"
+    },
+    {
+      "source": "/guide/rudder",
+      "destination": "/guide/rudderstack"
+    },
+    {
+      "source": "/guide/sanity/schemaTypes",
+      "destination": "/guide/sanity"
+    },
+    {
+      "source": "/cloud/jira/platform/oauth-2-3lo-apps",
+      "destination": "/integrations/jira"
+    },
+    {
+      "source": "/v1/product-analytics/columns",
+      "destination": "/api/AnalyticsExplorations/operation/getProductAnalyticsColumns"
+    },
+    {
+      "source": "/v1/projects/{id}",
+      "destination": "/api/projects/operation/getProject"
+    },
+    {
+      "source": "/v1/code-refs",
+      "destination": "/api/code-references/operation/listCodeRefs"
+    },
+    {
+      "source": "/v1/constants-revisions/{key}",
+      "destination": "/api/constant-revisions/operation/getConstantRevision"
+    },
+    {
+      "source": "/v1/fact-tables/{id}",
+      "destination": "/api/fact-tables/operation/getFactTable"
+    },
+    {
+      "source": "/v1/saved-groups-revisions/{savedGroupId}/{version}",
+      "destination": "/api/saved-group-revisions/operation/getSavedGroupRevision"
+    },
+    {
+      "source": "/v1/saved-groups-revisions/{savedGroupId}/{version}/reopen",
+      "destination": "/api/saved-group-revisions/operation/postSavedGroupRevisionReopen"
+    },
+    {
+      "source": "/api/v1/bulk-import/facts",
+      "destination": "/api/fact-tables/operation/postBulkImportFacts"
+    },
+    {
+      "source": "/openapi.json",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/api/export",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/reference/export",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/export",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/data-export",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/idempotency",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/idempotent-requests",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/reference/idempotency",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/idempotency",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en-us/idempotency",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/retries",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/sandbox",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/sandbox",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en-us/sandbox",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/testing",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/test-mode",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/notifications",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/changelog",
+      "destination": "/"
+    },
+    {
+      "source": "/docs/changelog",
+      "destination": "/"
+    },
+    {
+      "source": "/docs/whats-new",
+      "destination": "/"
+    },
+    {
+      "source": "/docs/release-notes",
+      "destination": "/"
+    },
+    {
+      "source": "/updates",
+      "destination": "/"
+    },
+    {
+      "source": "/contextual-bandits",
+      "destination": "/bandits/contextual"
+    },
+    {
+      "source": "/contextual-bandits/overview",
+      "destination": "/bandits/contextual"
+    },
+    {
+      "source": "/contextual-bandits/config",
+      "destination": "/bandits/contextual-config"
+    },
+    {
+      "source": "/contextual-bandits/contextual-bandit-via-api",
+      "destination": "/bandits/contextual-via-api"
+    },
+    {
+      "source": "/bandits/contextual-bandit-via-api",
+      "destination": "/bandits/contextual-via-api"
     }
   ]
 }

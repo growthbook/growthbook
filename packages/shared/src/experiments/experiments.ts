@@ -3063,6 +3063,14 @@ export function scheduleStagesStatusChange(
   return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
 }
 
+// Stamps who staged a status update so the job can run it on their authority.
+export function withScheduledBy<T extends object>(
+  staged: T | null,
+  userId: string | undefined,
+): (T & { scheduledBy?: string }) | null {
+  return staged && userId ? { ...staged, scheduledBy: userId } : staged;
+}
+
 // True when the incoming schedule stages a status change, or a staged one is
 // still pending (a fired or abandoned one leaves no pointer and can be cleared).
 export function scheduleWriteNeedsRunPermission(

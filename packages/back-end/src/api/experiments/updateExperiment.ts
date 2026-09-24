@@ -346,7 +346,11 @@ export const updateExperiment = createApiRequestHandler(
     req.organization,
   );
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes);
+  normalizeStatusUpdateScheduleChanges(
+    experiment,
+    changes,
+    req.context.userId || undefined,
+  );
 
   // canUpdateExperiment (above) is the analysis-level check. Fields that reach
   // SDK payloads additionally need run-experiments permission in the
