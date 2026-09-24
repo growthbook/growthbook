@@ -33,20 +33,20 @@ export interface GroupMemberStatus {
 
 /**
  * A metric's overrides under a blue heading, the blue the chip is outlined in,
- * so the two read as the same signal. Set in a step and lighter than the
- * metric names, so those still lead down the card. Nothing when it has none;
- * `spaced` where nothing else sets it apart from what's above.
+ * so the two read as the same signal, and lighter than the metric names.
+ * Nothing when it has none. `nested` under a group's member, set in a step so
+ * the members' names still lead down the card.
  */
 function OverridesBlock({
   rows,
-  spaced = false,
+  nested = false,
 }: {
   rows: OverrideRow[];
-  spaced?: boolean;
+  nested?: boolean;
 }) {
   if (!rows.length) return null;
   return (
-    <Box mt={spaced ? "2" : undefined} pl="2">
+    <Box mt={nested ? "2" : undefined} pl={nested ? "2" : undefined}>
       <Box style={{ color: METRIC_OVERRIDE_COLOR }}>
         <Text size="sm" as="div" weight="medium">
           Overrides:
@@ -157,7 +157,7 @@ export function MetricOverrideTooltipContent({
                         Uses a conversion window
                       </HelperText>
                     ) : null}
-                    <OverridesBlock rows={rows} spaced />
+                    <OverridesBlock rows={rows} nested />
                   </Box>
                 </Fragment>
               );
@@ -166,8 +166,9 @@ export function MetricOverrideTooltipContent({
         </OptionTooltipSection>
       ) : (
         <>
-          <OptionTooltipDescription description={metric?.description} />
+          {/* Beside the link that manages them, ahead of the description. */}
           <OverridesBlock rows={rowsFor(id)} />
+          <OptionTooltipDescription description={metric?.description} />
         </>
       )}
     </OptionTooltipShell>
