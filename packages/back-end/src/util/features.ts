@@ -284,10 +284,11 @@ export function mergeConditionAndSavedGroups({
           // Condition groups must be non-empty
           if (!group.condition || group.condition === "{}") return false;
         } else {
-          // Legacy list groups must be non-empty
-          if (!group.useEmptyListGroup && !group.values?.length) return false;
+          const hasValues = group.hasValues ?? group.values?.length;
           // List groups must have defined values
-          if (typeof group.values === "undefined") return false;
+          if (hasValues === undefined) return false;
+          // Legacy list groups must be non-empty
+          if (!group.useEmptyListGroup && !hasValues) return false;
         }
         return true;
       });

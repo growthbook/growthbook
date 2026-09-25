@@ -290,6 +290,30 @@ describe("mergeConditionAndSavedGroups", () => {
     groupMap.clear();
   });
 
+  it("reads hasValues for groups loaded without their values", () => {
+    const metadataMap: GroupMap = new Map([
+      ["full", { type: "list", attributeKey: "id", hasValues: true }],
+      ["empty", { type: "list", attributeKey: "id", hasValues: false }],
+      [
+        "allowed",
+        {
+          type: "list",
+          attributeKey: "id",
+          hasValues: false,
+          useEmptyListGroup: true,
+        },
+      ],
+    ]);
+    expect(
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(metadataMap),
+        savedGroups: [{ match: "all", ids: ["full", "empty", "allowed"] }],
+      }),
+    ).toEqual({
+      $and: [{ id: { $inGroup: "full" } }, { id: { $inGroup: "allowed" } }],
+    });
+  });
+
   it("ignores empty condition groups", () => {
     groupMap.clear();
     groupMap.set("a", {
