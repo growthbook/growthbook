@@ -18,7 +18,11 @@ import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { getInitialFactTableQuery, validateSQL } from "@/services/datasources";
+import {
+  getInitialFactTableQuery,
+  getUserIdTypesInSql,
+  validateSQL,
+} from "@/services/datasources";
 import { getNewFactTableProjects } from "@/services/factTables";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
@@ -161,6 +165,19 @@ export default function FactTableModal({
 
           if (!value.sql) {
             throw new Error("Must add a SQL query");
+          }
+
+          // A fact table only needs a subset of the datasource's identifier
+          // types. Keep the ones the SQL returns and require at least one.
+          value.userIdTypes = getUserIdTypesInSql(
+            value.sql,
+            value.userIdTypes,
+            (idType) => getFactTableIdColumn(value, idType),
+          );
+          if (!value.userIdTypes.length) {
+            throw new Error(
+              "SQL must return a column for at least one of the selected identifier types",
+            );
           }
 
           validateSQL(value.sql, [

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { validateSQL } from "@/services/datasources";
+import {
+  getFactTableSelectList,
+  getUserIdTypesInSql,
+  validateSQL,
+} from "@/services/datasources";
 
 describe("validateSQL", () => {
   describe("empty SQL", () => {
@@ -145,5 +149,171 @@ describe("validateSQL", () => {
         ),
       ).not.toThrow();
     });
+  });
+});
+
+describe("getUserIdTypesInSql", () => {
+  const idTypes = ["user_id", "anonymous_id", "device_id", "account_id"];
+  const getColumn = (idType: string) => idType;
+
+  it("keeps only the identifier types whose columns the SQL returns", () => {
+    const sql = "SELECT user_id, device_id, ts FROM events";
+    expect(getUserIdTypesInSql(sql, idTypes, getColumn)).toEqual([
+      "user_id",
+      "device_id",
+    ]);
+  });
+
+  it("matches column names case-insensitively", () => {
+    expect(
+      getUserIdTypesInSql(
+        "SELECT USER_ID, ts FROM events",
+        ["user_id"],
+        getColumn,
+      ),
+    ).toEqual(["user_id"]);
+  });
+
+  it("keeps every selected identifier type for SELECT *", () => {
+    expect(
+      getUserIdTypesInSql("SELECT * FROM events", idTypes, getColumn),
+    ).toEqual(idTypes);
+  });
+
+  it("matches a JSON field path mapping on its root column", () => {
+    expect(
+      getUserIdTypesInSql(
+        "SELECT props, ts FROM events",
+        ["user_id"],
+        () => "props.user_id",
+      ),
+    ).toEqual(["user_id"]);
+  });
+
+  it("returns an empty list when the SQL returns no identifier columns", () => {
+    expect(
+      getUserIdTypesInSql("SELECT ts, value FROM events", idTypes, getColumn),
+    ).toEqual([]);
+  });
+
+  it("ignores identifiers referenced only in the WHERE clause", () => {
+    const sql =
+      "SELECT timestamp, user_id FROM events WHERE device_id IS NOT NULL";
+    expect(getUserIdTypesInSql(sql, idTypes, getColumn)).toEqual(["user_id"]);
+  });
+
+  it("ignores identifiers referenced only in GROUP BY or JOIN clauses", () => {
+    const sql = `SELECT user_id, ts FROM events e
+      JOIN devices d ON d.device_id = e.device_id
+      GROUP BY user_id, anonymous_id`;
+    expect(getUserIdTypesInSql(sql, idTypes, getColumn)).toEqual(["user_id"]);
+  });
+
+  it("only looks at the outermost SELECT list when CTEs are present", () => {
+    const sql = `WITH ids AS (
+        SELECT device_id, anonymous_id FROM raw_events
+      )
+      SELECT user_id, ts FROM ids`;
+    expect(getUserIdTypesInSql(sql, idTypes, getColumn)).toEqual(["user_id"]);
+  });
+
+  it("ignores from keywords inside quoted strings", () => {
+    expect(
+      getUserIdTypesInSql(
+        "SELECT 'from web' AS src, user_id FROM events",
+        idTypes,
+        getColumn,
+      ),
+    ).toEqual(["user_id"]);
+    expect(
+      getUserIdTypesInSql(
+        "SELECT user_id, 'from app' AS src, device_id FROM events",
+        idTypes,
+        getColumn,
+      ),
+    ).toEqual(["user_id", "device_id"]);
+  });
+
+  it("handles backslash-escaped quotes inside strings", () => {
+    expect(
+      getUserIdTypesInSql(
+        "SELECT 'it\\'s from web' AS s, user_id, device_id FROM events",
+        idTypes,
+        getColumn,
+      ),
+    ).toEqual(["user_id", "device_id"]);
+  });
+
+  it("ignores from keywords inside line and block comments", () => {
+    expect(
+      getUserIdTypesInSql(
+        "SELECT -- copied from raw\n user_id FROM events",
+        idTypes,
+        getColumn,
+      ),
+    ).toEqual(["user_id"]);
+    expect(
+      getUserIdTypesInSql(
+        "SELECT /* ids from crm */ user_id, device_id FROM events",
+        idTypes,
+        getColumn,
+      ),
+    ).toEqual(["user_id", "device_id"]);
+  });
+
+  it("ignores parens inside comments and strings", () => {
+    expect(
+      getUserIdTypesInSql(
+        "SELECT user_id /* ( */ FROM events WHERE device_id IS NOT NULL",
+        idTypes,
+        getColumn,
+      ),
+    ).toEqual(["user_id"]);
+    expect(
+      getUserIdTypesInSql(
+        "SELECT user_id FROM events WHERE note = '(' AND device_id IS NOT NULL",
+        idTypes,
+        getColumn,
+      ),
+    ).toEqual(["user_id"]);
+  });
+});
+
+describe("getFactTableSelectList", () => {
+  it("returns the text between the outermost SELECT and FROM", () => {
+    expect(getFactTableSelectList("SELECT user_id, ts FROM events")).toEqual(
+      "user_id, ts ",
+    );
+  });
+
+  it("skips SELECT ... FROM pairs nested in CTEs and subqueries", () => {
+    const sql = `WITH x AS (SELECT a, b FROM t1)
+      SELECT (SELECT max(ts) FROM t2) AS m, user_id FROM x`;
+    expect(getFactTableSelectList(sql)).toEqual(
+      "(SELECT max(ts) FROM t2) AS m, user_id ",
+    );
+  });
+
+  it("handles newlines and mixed case keywords", () => {
+    expect(
+      getFactTableSelectList("select\n  user_id,\n  ts\nfrom events"),
+    ).toEqual("  user_id,\n  ts\n");
+  });
+
+  it("skips quoted spans, including doubled-quote escapes", () => {
+    expect(
+      getFactTableSelectList(
+        "SELECT 'it''s from here' AS x, user_id FROM events",
+      ),
+    ).toEqual("'it''s from here' AS x, user_id ");
+  });
+
+  it("skips line and block comments", () => {
+    expect(
+      getFactTableSelectList("SELECT -- copied from raw\n user_id FROM events"),
+    ).toEqual("-- copied from raw\n user_id ");
+    expect(
+      getFactTableSelectList("SELECT /* ids from crm */ user_id FROM events"),
+    ).toEqual("/* ids from crm */ user_id ");
   });
 });
