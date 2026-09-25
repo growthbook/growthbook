@@ -355,7 +355,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           </>
         ),
         align: "center",
-        defaultWidth: 90,
+        defaultWidth: 110,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) => (
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>

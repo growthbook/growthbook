@@ -212,6 +212,13 @@
     &[data-sticky-header="true"] :global(.rt-TableHeader) {
       top: 0;
     }
+
+    // Widths are authoritative here, so content clips at the column edge rather
+    // than spilling into its neighbour. The pinned last column keeps its shadow.
+    :global(.rt-TableRow > :not(:last-child)) {
+      overflow: hidden !important;
+      text-overflow: ellipsis;
+    }
   }
 
   // Pins the row-actions column while the rest scrolls under it. The colspan
@@ -259,6 +266,19 @@
       // dark mode, where black leaves no cue and neutral grey doesn't blend.
       background: linear-gradient(to right, transparent, var(--slate-a3));
     }
+
+    // The pinned column's own edge, drawn like a resize handle's line.
+    :global(.rt-TableHeader .rt-TableRow > *:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 20%;
+      left: 0;
+      width: 2px;
+      height: 60%;
+      border-radius: 1px;
+      background-color: var(--gray-a5);
+      pointer-events: none;
+    }
   }
 
   // No-op until a caller sets the var. Applied to the table rather than the
@@ -285,7 +305,8 @@
   right: 0;
   width: 8px;
   height: 100%;
-  cursor: col-resize;
+  // !important: Bootstrap's `button:not(:disabled)` pointer cursor outranks a class.
+  cursor: col-resize !important;
   touch-action: none;
   z-index: 1;
   background: none;
@@ -297,11 +318,17 @@
     content: "";
     position: absolute;
     top: 20%;
-    right: 2px;
+    right: 0;
     width: 2px;
     height: 60%;
     border-radius: 1px;
     background-color: var(--gray-a5);
+  }
+
+  // The last handle borders the slack column, not a neighbour, so it only shows on hover.
+  :global(.rt-TableColumnHeaderCell):not(:has(~ * > .resizeHandle))
+    > &:not(:hover, :focus-visible, [data-active="true"])::after {
+    background-color: transparent;
   }
 
   &:hover::after,
