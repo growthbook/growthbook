@@ -183,7 +183,7 @@ export function getQueryTimeoutErrorMessage(isFunnel: boolean): string {
 }
 
 export function isQueryTimeoutError(error: string | null): boolean {
-  return error != null && error.startsWith(QUERY_TIMEOUT_ERROR_PREFIX);
+  return error !== null && error.startsWith(QUERY_TIMEOUT_ERROR_PREFIX);
 }
 
 export const VALUE_TYPE_OPTIONS: {
