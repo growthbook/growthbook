@@ -13,6 +13,7 @@ import {
   isDashboardBlockRef,
   DashboardBlockRef,
   apiCreateDashboardBody,
+  apiCreateDashboardBodyV2,
   DashboardBlockWithAnalysisId,
   ApiDashboardInterface,
   ApiGetDashboardsForExperimentReturn,
@@ -48,6 +49,7 @@ import {
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   dashboardApiSpec,
+  createDashboardV2Endpoint,
   getDashboardsForExperimentEndpoint,
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
@@ -58,7 +60,12 @@ import {
   updateDashboardExplorations,
 } from "back-end/src/enterprise/services/dashboards";
 import { BadRequestError } from "back-end/src/util/errors";
-import { resolveOwnerEmail } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+  resolveOwnerForCreate,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -94,15 +101,28 @@ const BaseClass = MakeModelClass({
     openApiSpec: dashboardApiSpec,
     customHandlers: [
       defineCustomApiHandler({
+        ...createDashboardV2Endpoint,
+        reqHandler: async (
+          req,
+        ): Promise<{ dashboard: ApiDashboardInterface }> => ({
+          dashboard: await req.context.models.dashboards.createFromApiV2(
+            req.body,
+          ),
+        }),
+      }),
+      defineCustomApiHandler({
         ...getDashboardsForExperimentEndpoint,
         reqHandler: async (
           req,
         ): Promise<ApiGetDashboardsForExperimentReturn> => ({
-          dashboards: (
-            await req.context.models.dashboards.findByExperiment(
-              req.params.experimentId,
-            )
-          ).map(req.context.models.dashboards.toApiInterface),
+          dashboards: await resolveOwnerEmails(
+            (
+              await req.context.models.dashboards.findByExperiment(
+                req.params.experimentId,
+              )
+            ).map(req.context.models.dashboards.toApiInterface),
+            req.context,
+          ),
         }),
       }),
     ],
@@ -448,10 +468,55 @@ export class DashboardModel extends BaseClass {
       dateUpdated: dashboard.dateUpdated.toISOString(),
       nextUpdate: dashboard.nextUpdate?.toISOString(),
       lastUpdated: dashboard.lastUpdated?.toISOString(),
+      owner: dashboard.userId,
     };
   }
 
+  // On v2 create, body `owner` wins over the caller. Create with none falls
+  // back to the PAT user; a secret key with neither is rejected. An update
+  // that omits it leaves the stored owner alone.
+  private async resolveDashboardOwner(
+    owner: string | undefined,
+    options: { required: true },
+  ): Promise<string>;
+  private async resolveDashboardOwner(
+    owner: string | undefined,
+    options: { required: false },
+  ): Promise<string | undefined>;
+  private async resolveDashboardOwner(
+    owner: string | undefined,
+    { required }: { required: boolean },
+  ): Promise<string | undefined> {
+    if (owner === "") {
+      throw new Error(
+        "Owner must be the user id or email of an organization member.",
+      );
+    }
+    if (required) {
+      return resolveOwnerForCreate(owner, this.context, { strict: true });
+    }
+    if (owner === undefined) return undefined;
+    return resolveOwnerToUserId(owner, this.context, { strict: true });
+  }
+
   protected async processApiCreateBody(rawBody: unknown) {
+    return this.processApiCreateBodyForUser(rawBody, this.context.userId);
+  }
+
+  public async createFromApiV2(
+    rawBody: unknown,
+  ): Promise<ApiDashboardInterface> {
+    const { owner, ...body } = apiCreateDashboardBodyV2.parse(rawBody);
+    const userId = await this.resolveDashboardOwner(owner, { required: true });
+    return resolveOwnerEmail(
+      this.toApiInterface(
+        await this.create(await this.processApiCreateBodyForUser(body, userId)),
+      ),
+      this.context,
+    );
+  }
+
+  private async processApiCreateBodyForUser(rawBody: unknown, userId: string) {
     const {
       editLevel,
       shareLevel,
@@ -468,7 +533,7 @@ export class DashboardModel extends BaseClass {
       uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
       isDefault: false,
       isDeleted: false,
-      userId: this.context.userId,
+      userId,
       editLevel,
       shareLevel,
       enableAutoUpdates,
@@ -546,11 +611,16 @@ export class DashboardModel extends BaseClass {
 
     // Same reason as the create path: processApiUpdateBody runs the caller's
     // chart blocks, and updateById would only refuse afterwards. The block
-    // list plays no part in canUpdate, so the cheap fields are enough.
-    const nonBlockUpdates = omit(
-      apiUpdateDashboardBody.parse(req.body),
-      "blocks",
-    );
+    // list plays no part in canUpdate. `owner` is resolved first because that
+    // check keys off the stored userId.
+    const parsed = apiUpdateDashboardBody.parse(req.body);
+    const userId = await this.resolveDashboardOwner(parsed.owner, {
+      required: false,
+    });
+    const nonBlockUpdates: UpdateProps<DashboardInterface> = {
+      ...omit(parsed, "blocks", "owner"),
+      ...(userId !== undefined ? { userId } : {}),
+    };
     await this.assertApiWriteAllowed("update", dashboard, (existing) =>
       this.canUpdate(existing, nonBlockUpdates),
     );
@@ -574,9 +644,14 @@ export class DashboardModel extends BaseClass {
     rawBody: unknown,
     existingDashboard?: DashboardInterface,
   ) {
-    const { blocks: blockUpdates, ...otherUpdates } =
-      apiUpdateDashboardBody.parse(rawBody);
+    const {
+      blocks: blockUpdates,
+      owner,
+      ...otherUpdates
+    } = apiUpdateDashboardBody.parse(rawBody);
     const updates: UpdateProps<DashboardInterface> = otherUpdates;
+    const userId = await this.resolveDashboardOwner(owner, { required: false });
+    if (userId !== undefined) updates.userId = userId;
     // Absent controls mean the saved ones still apply, so a partial update
     // queries the window the tiles render under.
     const nextControls = {

@@ -96,6 +96,7 @@ export type OpenApiEndpointSpec = {
   zodReturnObject: z.ZodTypeAny;
   summary: string;
   description?: string;
+  version?: "v1" | "v2";
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
 };
@@ -301,6 +302,7 @@ export function getOpenApiRoutesForApiConfig(
       description,
       zodReturnObject,
       possibleErrors,
+      version,
     }) => {
       const route = createApiRequestHandler({
         ...validator,
@@ -312,6 +314,7 @@ export function getOpenApiRoutesForApiConfig(
         tags: [tag],
         responseSchema: zodReturnObject,
         possibleErrors,
+        version,
       })(reqHandler);
       routes.push(route);
     },

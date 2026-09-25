@@ -4,6 +4,12 @@ import {
   baseExplorationConfigValidator,
 } from "../../validators/product-analytics";
 import { namedSchema } from "../../validators/openapi-helpers";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  requiredUnlessPatOwnerInputField,
+} from "../../validators/owner-field";
 
 import {
   apiCreateDashboardBlockInterface,
@@ -107,6 +113,8 @@ export const apiDashboardInterface = namedSchema(
       dateCreated: z.iso.datetime(),
       dateUpdated: z.iso.datetime(),
       blocks: z.array(apiDashboardBlockInterface),
+      owner: ownerField,
+      ownerEmail: ownerEmailField,
     }),
 );
 
@@ -233,21 +241,52 @@ const READ_ONLY_DASHBOARD_FIELDS = Object.keys(dashboardInterface.shape).filter(
   (key) => !(key in apiCreateDashboardFields.shape),
 );
 
+/** On the response, not the stored doc, so the read-only derivation above misses it. */
+const V1_RESPONSE_ONLY_FIELDS = ["owner", "ownerEmail"] as const;
+const V2_RESPONSE_ONLY_FIELDS = ["ownerEmail"] as const;
+
 export const apiCreateDashboardBody = z.preprocess(
-  (raw) => withoutKeys(raw, READ_ONLY_DASHBOARD_FIELDS),
+  (raw) =>
+    withoutKeys(raw, [
+      ...READ_ONLY_DASHBOARD_FIELDS,
+      ...V1_RESPONSE_ONLY_FIELDS,
+    ]),
   apiCreateDashboardFields,
+);
+
+export const apiCreateDashboardBodyV2 = z.preprocess(
+  (raw) =>
+    withoutKeys(raw, [
+      ...READ_ONLY_DASHBOARD_FIELDS,
+      ...V2_RESPONSE_ONLY_FIELDS,
+    ]),
+  apiCreateDashboardFields.extend({
+    owner: requiredUnlessPatOwnerInputField.describe(
+      "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. Optional when authenticating with a Personal Access Token (PAT): when omitted, the owner defaults to the PAT's user. Required when authenticating with an organization secret API key (which has no associated user): omitting it fails with a 400. A private dashboard created with an organization secret API key can only be retrieved or updated using its owner's Personal Access Token (PAT).",
+    ),
+  }),
 );
 
 const apiUpdateDashboardFields = apiCreateDashboardFields
   .omit({ experimentId: true, blocks: true })
   .extend({
     blocks: z.array(apiUpdateDashboardBlock),
+    owner: ownerInputField
+      .optional()
+      .describe(
+        "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. Omit to leave the current owner unchanged.",
+      ),
   })
   .partial();
 
 /** `experimentId` too: an update cannot reparent a dashboard, but a GET still returns it. */
 export const apiUpdateDashboardBody = z.preprocess(
-  (raw) => withoutKeys(raw, [...READ_ONLY_DASHBOARD_FIELDS, "experimentId"]),
+  (raw) =>
+    withoutKeys(raw, [
+      ...READ_ONLY_DASHBOARD_FIELDS,
+      ...V2_RESPONSE_ONLY_FIELDS,
+      "experimentId",
+    ]),
   apiUpdateDashboardFields,
 );
 

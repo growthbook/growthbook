@@ -1,5 +1,7 @@
+import { z } from "zod";
 import {
   apiCreateDashboardBody,
+  apiCreateDashboardBodyV2,
   apiDashboardInterface,
   apiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentValidator,
@@ -16,6 +18,20 @@ export const getDashboardsForExperimentEndpoint = {
   summary: "Get all dashboards for an experiment",
 };
 
+export const createDashboardV2Endpoint = {
+  pathFragment: "/",
+  verb: "post" as const,
+  operationId: "createDashboardV2",
+  validator: {
+    bodySchema: apiCreateDashboardBodyV2,
+    querySchema: z.never(),
+    paramsSchema: z.never(),
+  },
+  zodReturnObject: z.object({ dashboard: apiDashboardInterface }),
+  summary: "Create a single dashboard",
+  version: "v2" as const,
+};
+
 export const dashboardApiSpec = {
   modelSingular: "dashboard",
   modelPlural: "dashboards",
@@ -26,6 +42,9 @@ export const dashboardApiSpec = {
     updateBody: apiUpdateDashboardBody,
   },
   includeDefaultCrud: true,
-  customEndpoints: [getDashboardsForExperimentEndpoint],
+  customEndpoints: [
+    getDashboardsForExperimentEndpoint,
+    createDashboardV2Endpoint,
+  ],
 } satisfies OpenApiModelSpec;
 export default dashboardApiSpec;
