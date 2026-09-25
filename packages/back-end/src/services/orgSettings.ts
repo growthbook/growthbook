@@ -144,9 +144,15 @@ export function validateOrgSettingsUpdate(
     );
   }
 
-  const keyExample = settings.featureKeyExample ?? current.featureKeyExample;
+  // `in`, not `??`: a reset arrives as an explicit undefined.
+  const keyExample =
+    "featureKeyExample" in settings
+      ? settings.featureKeyExample
+      : current.featureKeyExample;
   const keyRegex =
-    settings.featureRegexValidator ?? current.featureRegexValidator;
+    "featureRegexValidator" in settings
+      ? settings.featureRegexValidator
+      : current.featureRegexValidator;
   // Stored values predate these checks; only a save that changes them re-checks.
   if (
     keyExample !== current.featureKeyExample ||
