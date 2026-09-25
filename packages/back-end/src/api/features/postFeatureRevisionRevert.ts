@@ -1,6 +1,8 @@
 import {
   metadataTouchesPayload,
   holdsMoveDestination,
+  assertTargetingDestination,
+  withStagedTargeting,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -10,13 +12,18 @@ import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   checkIfRevisionNeedsReview,
+  getRevertTargetArchived,
   getRevertTargetHoldout,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
-import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
+import {
+  assertCanRevertArchived,
+  assertRevertLandingGuards,
+  assertRevertValuesReadable,
+} from "back-end/src/services/revertGuards";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
@@ -43,7 +50,6 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -171,29 +177,14 @@ export async function revertFeatureRevision(
     changes.prerequisites = targetRevision.prerequisites;
   }
 
-  // Sparse: only revert archived if this revision explicitly changed it.
-  if (
-    targetRevision.archived !== undefined &&
-    targetRevision.archived !== (feature.archived ?? false)
-  ) {
+  // A revision that predates archived snapshots restores an active flag rather
+  // than leaving a later archive in place.
+  const targetArchived = getRevertTargetArchived(targetRevision);
+  if (targetArchived !== (feature.archived ?? false)) {
     if (isPublish) {
-      if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
-        context.permissions.throwPermissionError();
-      }
-      // Restoring an archived state still takes the flag out of service, so it
-      // carries the same delete-class gate as archiving it any other way.
-      // Revert authority covers the restoration, not the elevation.
-      if (
-        isArchiveTransition({
-          proposed: targetRevision.archived,
-          current: feature.archived,
-        }) &&
-        !context.permissions.canDeleteFeature(feature, allEnabledEnvs)
-      ) {
-        context.permissions.throwPermissionError();
-      }
+      assertCanRevertArchived(context, feature, targetArchived, allEnabledEnvs);
     }
-    changes.archived = targetRevision.archived;
+    changes.archived = targetArchived;
   }
 
   if (targetRevision.metadata) {
@@ -256,6 +247,13 @@ export async function revertFeatureRevision(
       metadataChanges.targetingProjects = m.targetingProjects;
       hasMetaChange = true;
     }
+    // Restoring a wider targeting set delivers into those projects again.
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, metadataChanges),
+      optedOut: await context.getTargetingOptOutProjectIds(),
+    });
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;
@@ -337,8 +335,12 @@ export async function revertFeatureRevision(
   if (targetRevision.prerequisites !== undefined) {
     revisionChanges.prerequisites = targetRevision.prerequisites;
   }
-  if (targetRevision.archived !== undefined) {
-    revisionChanges.archived = targetRevision.archived;
+  // Only when the revert changes it: `createRevision` snapshots the live value
+  // otherwise, and the approval check below reads this against the raw live
+  // revision, where an explicit `false` beside a legacy revision's absent value
+  // would count as an `archived` change.
+  if (changes.archived !== undefined) {
+    revisionChanges.archived = changes.archived;
   }
   if (targetRevision.metadata !== undefined) {
     revisionChanges.metadata = targetRevision.metadata;
@@ -382,6 +384,8 @@ export async function revertFeatureRevision(
   if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
     context.permissions.throwPermissionError();
   }
+
+  assertRevertValuesReadable(context, feature, changes);
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
   // calls should behave like dashboard actions), FlagsBypassApprovals, or the
@@ -442,7 +446,7 @@ export async function revertFeatureRevision(
         ]
       : [];
 
-  await assertFeatureMoveDependentsGuard(context, feature, changes.metadata);
+  await assertRevertLandingGuards(context, feature, changes, targetRevision);
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
       context,

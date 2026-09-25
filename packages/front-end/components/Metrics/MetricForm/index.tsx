@@ -1,3 +1,5 @@
+import { validateCappingSettingsValueEntered } from "shared/validators";
+import isEqual from "lodash/isEqual";
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -516,6 +518,9 @@ const MetricForm: FC<MetricFormProps> = ({
   };
 
   const onSubmit = form.handleSubmit(async (value) => {
+    if (!edit || !isEqual(value.cappingSettings, current.cappingSettings)) {
+      validateCappingSettingsValueEntered(value.cappingSettings, false);
+    }
     const {
       winRisk,
       loseRisk,

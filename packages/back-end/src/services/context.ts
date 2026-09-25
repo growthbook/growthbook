@@ -95,6 +95,8 @@ import { PresentationThemeModel } from "back-end/src/models/PresentationThemeMod
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
+import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
+import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
@@ -151,6 +153,8 @@ export type ModelName =
   | "watch"
   | "figmaConnections"
   | "slackWorkspaceConnections"
+  | "slackUserLinks"
+  | "slackTaskClaims"
   | "apiKeys"
   | "oauthAuthCodes"
   | "oauthGrants"
@@ -209,6 +213,8 @@ export const modelClasses = {
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
   slackWorkspaceConnections: SlackWorkspaceConnectionModel,
+  slackUserLinks: SlackUserLinkModel,
+  slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   oauthGrants: OAuthGrantModel,
@@ -237,6 +243,12 @@ export type ModelClass = Extract<
 type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
+
+/**
+ * Where a request's override flags (ignoreWarnings, skipSchemaValidation,
+ * skipHooks) are read from.
+ */
+type OverrideSource = { body?: unknown; query?: Record<string, unknown> };
 
 export class ReqContextClass {
   // When set, guard evaluators use this as their org-wide scan context instead
@@ -325,6 +337,14 @@ export class ReqContextClass {
   // gates, so they must run with guards active — hence a separate flag.
   public bulkPublishApplying?: boolean;
 
+  /**
+   * The request whose ignoreWarnings/skip* flags apply, when it isn't `req`.
+   * Set by the agent while it replays a confirmed call: the flags belong to
+   * that call, not to the chat request (web) or to its absence (Slack, which
+   * would otherwise read as a background job that ignores every warning).
+   */
+  public dispatchedRequest: OverrideSource | null = null;
+
   // Models
   public models!: ModelInstances;
   private initModels() {
@@ -370,6 +390,8 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
       slackWorkspaceConnections: new SlackWorkspaceConnectionModel(this),
+      slackUserLinks: new SlackUserLinkModel(this),
+      slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       oauthGrants: new OAuthGrantModel(this),
@@ -494,15 +516,20 @@ export class ReqContextClass {
   // declare the field, but not fully: `z.never()` bodies and internal routes
   // skip body validation, so this getter can still see the raw flag there.
   public get ignoreWarnings(): boolean {
-    if (!this.req) return true;
+    const req = this.overrideSource;
+    if (!req) return true;
     if (this.bodyFlag("ignoreWarnings")) return true;
-    const v = this.req.query?.ignoreWarnings;
+    const v = req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
   }
 
+  private get overrideSource(): OverrideSource | undefined {
+    return this.dispatchedRequest ?? this.req;
+  }
+
   private bodyFlag(field: string): boolean {
-    const body = this.req?.body;
+    const body = this.overrideSource?.body;
     return (
       !!body &&
       typeof body === "object" &&
@@ -543,8 +570,9 @@ export class ReqContextClass {
   }
 
   private skipRequested(flag: "skipSchemaValidation" | "skipHooks"): boolean {
-    if (!this.req) return false;
-    const queryValue = this.req.query?.[flag];
+    const req = this.overrideSource;
+    if (!req) return false;
+    const queryValue = req.query?.[flag];
     return (
       this.bodyFlag(flag) ||
       (typeof queryValue === "string" && stringToBoolean(queryValue))
@@ -747,6 +775,15 @@ export class ReqContextClass {
       this._allProjectIds = await this.models.projects.getAllIdsForOrg();
     }
     return this._allProjectIds;
+  }
+
+  private _targetingOptOutProjectIds: string[] | null = null;
+  public async getTargetingOptOutProjectIds(): Promise<string[]> {
+    if (this._targetingOptOutProjectIds === null) {
+      this._targetingOptOutProjectIds =
+        await this.models.projects.getTargetingOptOutIds();
+    }
+    return this._targetingOptOutProjectIds;
   }
 
   // Tags can be created on the fly, so we cache which ones already exist

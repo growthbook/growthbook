@@ -77,6 +77,7 @@ export class StreamProcessor {
     private readonly abortController: AbortController,
     private readonly maxConsecutiveToolErrors: number = DEFAULT_CONSECUTIVE_TOOL_ERROR_LIMIT,
     onStepPersist?: () => void,
+    private readonly terminalToolNames: ReadonlySet<string> = new Set(),
   ) {
     this.onStepPersist = onStepPersist;
   }
@@ -261,6 +262,11 @@ export class StreamProcessor {
 
     this.flushToolMessage();
     this.onStepPersist?.();
+
+    if (this.terminalToolNames.has(part.toolName)) {
+      this.aborted = true;
+      this.abortController.abort();
+    }
   }
 
   handleToolError(part: ToolErrorPart): void {

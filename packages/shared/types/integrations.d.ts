@@ -138,7 +138,10 @@ export type FactMetricData = {
   regressionAdjusted: boolean;
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
-  isPercentileCapped: boolean;
+  /** Upper-tail percentile capping enabled. */
+  isUpperPercentileCapped: boolean;
+  /** Lower-tail percentile capping enabled. */
+  isLowerPercentileCapped: boolean;
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
@@ -198,12 +201,13 @@ export type FactMetricQuantileData = {
   isKllMerge: boolean;
 };
 
+/** One quantile column for `SqlDialect.percentileCapSelectClause` (fact metric experiment SQL). */
 export type FactMetricPercentileData = {
   valueCol: string;
   outputCol: string;
+  sourceIndex: number;
   percentile: number;
   ignoreZeros: boolean;
-  sourceIndex: number;
 };
 
 export type BanditMetricData = Pick<
@@ -212,7 +216,8 @@ export type BanditMetricData = Pick<
   | "id"
   | "ratioMetric"
   | "regressionAdjusted"
-  | "isPercentileCapped"
+  | "isUpperPercentileCapped"
+  | "isLowerPercentileCapped"
   | "capCoalesceMetric"
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"
@@ -375,6 +380,10 @@ export interface ExperimentUnitsQueryParams {
 
 export interface ContextualBanditSrmQueryParams {
   settings: ExperimentUnitsQuerySettings;
+  /**
+   * Exposure query's `variation` column value, and its index.
+   */
+  variationKeys: Record<string, string>;
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
@@ -735,6 +744,12 @@ export type MetricAnalysisQueryResponseRow = {
   denominator_sum?: number;
   denominator_sum_squares?: number;
   main_denominator_sum_product?: number;
+  /** Upper-tail percentile cap threshold applied to the numerator (when applicable). */
+  main_cap_value?: number;
+  /** Lower-tail percentile cap threshold applied to the numerator (when applicable). */
+  main_cap_value_lower?: number;
+  denominator_cap_value?: number;
+  denominator_cap_value_lower?: number;
 
   value_min?: number;
   value_max?: number;
@@ -785,9 +800,11 @@ export type ExperimentMetricQueryResponseRows = {
   users: number;
   count: number;
   main_cap_value?: number;
+  main_cap_value_lower?: number;
   main_sum: number;
   main_sum_squares: number;
   denominator_cap_value?: number;
+  denominator_cap_value_lower?: number;
   denominator_sum?: number;
   denominator_sum_squares?: number;
   main_denominator_sum_product?: number;

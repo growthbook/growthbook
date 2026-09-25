@@ -55,6 +55,13 @@ export class InvalidStatusError extends ApiError<"invalid_status"> {
   }
 }
 
+export class InvalidTrackingKeyError extends ApiError<"invalid_tracking_key"> {
+  constructor(message: string, pattern: string, example: string) {
+    super("invalid_tracking_key", message, { pattern, example });
+    this.name = "InvalidTrackingKeyError";
+  }
+}
+
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
     super(message);

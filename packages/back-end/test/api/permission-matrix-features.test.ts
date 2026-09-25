@@ -186,9 +186,10 @@ const CASES: Case[] = [
   },
   {
     // Payload-AFFECTING metadata is a live write even though it's "metadata":
-    // targeting scope changes which projects the flag serves.
+    // targeting scope changes which projects the flag serves. Widening it also
+    // takes the Target policy, which only Full access bundles.
     name: "update targeting metadata (v2 update)",
-    allowed: ["editor", "full"],
+    allowed: ["full"],
     allowedDevOnly: [],
     run: () =>
       api.post(`/api/v2/features/${FEATURE_ID}`, {

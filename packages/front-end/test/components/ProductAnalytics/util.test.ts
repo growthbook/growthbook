@@ -189,6 +189,41 @@ describe("getCommonColumns", () => {
     ]);
   });
 
+  it("offers every scalar column of a sql dataset, but not `other`", () => {
+    const dataset: ExplorationDataset = {
+      type: "sql",
+      sql: "SELECT ...",
+      timestampColumn: "month",
+      columnTypes: {
+        month: "date",
+        plan: "string",
+        installs: "number",
+        active: "boolean",
+        // Catch-all for unidentified types — arrays and structs land here, and
+        // warehouses reject casting those to string.
+        countries: "other",
+      },
+      hiddenColumns: [],
+      values: [
+        {
+          type: "sql",
+          name: "installs",
+          rowFilters: [],
+          valueType: "sum",
+          valueColumn: "installs",
+          unit: null,
+        },
+      ],
+    };
+
+    expect(getCommonColumns(dataset, () => null, noFactMetric)).toEqual([
+      { column: "active", name: "active" },
+      { column: "installs", name: "installs" },
+      { column: "month", name: "month" },
+      { column: "plan", name: "plan" },
+    ]);
+  });
+
   it("intersects columns across multiple metrics in a metric dataset", () => {
     const dataset: ExplorationDataset = {
       type: "metric",
