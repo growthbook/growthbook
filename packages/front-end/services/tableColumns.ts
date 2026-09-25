@@ -57,6 +57,39 @@ function isHideable<TRow>(def: TableColumnDef<TRow>): boolean {
   return !def.locked && def.hideable !== false;
 }
 
+/** The effective resize bounds for a column, applying the shared defaults. */
+export function columnWidthBounds<TRow>(def: TableColumnDef<TRow>): {
+  min: number;
+  max: number;
+} {
+  // An explicit 0 is honoured: a spacer column has no content to protect.
+  const min =
+    def.minWidth === 0
+      ? 0
+      : Math.max(
+          def.minWidth ?? MIN_TABLE_COLUMN_WIDTH,
+          HARD_MIN_TABLE_COLUMN_WIDTH,
+        );
+  return { min, max: Math.max(min, def.maxWidth ?? MAX_TABLE_COLUMN_WIDTH) };
+}
+
+/**
+ * Narrowest the table can get before a slack column starves.
+ *
+ * A `table-layout: fixed` column with no width takes only what the specified
+ * widths leave over, so once they exceed the container it collapses to zero and
+ * its content becomes unreachable. Flooring the table instead keeps the slack
+ * column absorbing spare space when there is any, and pushes the table into
+ * horizontal scroll when there isn't.
+ */
+export function minTableWidth<TRow>(
+  resolved: ResolvedTableColumn<TRow>[],
+): number {
+  return resolved
+    .filter((col) => col.visible)
+    .reduce((sum, col) => sum + (col.width ?? columnWidthBounds(col).min), 0);
+}
+
 function clampWidth<TRow>(
   def: TableColumnDef<TRow>,
   width: number | undefined,
@@ -64,12 +97,8 @@ function clampWidth<TRow>(
   if (width === undefined || !Number.isFinite(width) || width <= 0) {
     return undefined;
   }
-  const min = Math.max(
-    def.minWidth ?? MIN_TABLE_COLUMN_WIDTH,
-    HARD_MIN_TABLE_COLUMN_WIDTH,
-  );
-  const max = def.maxWidth ?? MAX_TABLE_COLUMN_WIDTH;
-  return Math.min(Math.max(width, min), Math.max(min, max));
+  const { min, max } = columnWidthBounds(def);
+  return Math.min(Math.max(width, min), max);
 }
 
 function defaultsFor<TRow>(
