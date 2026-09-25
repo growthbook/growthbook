@@ -303,6 +303,17 @@ code a {
   }
 }
 
+/* The 404 hides the sidebar, but #body-content keeps the 18rem sidebar
+   padding (and #content-area the wide-screen offset), so the message sits
+   right of center. */
+#body-content:has(.not-found-container) {
+  padding-left: 0 !important;
+}
+
+#content-area:has(.not-found-container) {
+  margin-left: 0 !important;
+}
+
 /* Set the reference sections apart from the product docs above them, the way
    docs.growthbook.io separates them with a rule. */
 ul.sidebar-group > li[data-title="Tutorials"],

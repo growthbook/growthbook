@@ -2,6 +2,7 @@ import {
   closestCenter,
   DndContext,
   DragEndEvent,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -9,19 +10,24 @@ import {
 import {
   arrayMove,
   SortableContext,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiDotsSixVertical, PiEye, PiEyeSlash } from "react-icons/pi";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { Flex } from "@radix-ui/themes";
+import { PiDotsSixVertical } from "react-icons/pi";
+import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 
 export interface ManagedColumn {
   id: string;
   label: string;
   visible: boolean;
+  /** Can still be reordered, but its checkbox is checked and disabled. The
+   * popover's helper copy is where that gets explained. */
+  alwaysVisible?: boolean;
 }
 
 function SortableColumnRow({
@@ -60,46 +66,43 @@ function SortableColumnRow({
       <span
         {...attributes}
         {...listeners}
-        aria-label="Drag to reorder"
+        aria-label={`Drag to reorder ${column.label}`}
         style={{ cursor: "grab", display: "flex", color: "var(--gray-8)" }}
       >
         <PiDotsSixVertical />
       </span>
-      <Box style={{ flex: 1, minWidth: 0 }}>
-        <Text
-          as="div"
-          size="sm"
-          color={column.visible ? "text-high" : "text-low"}
-          truncate
-        >
-          {column.label}
-        </Text>
-      </Box>
-      <Tooltip body={column.visible ? "Hide column" : "Show column"}>
-        <IconButton
-          size="1"
-          variant="ghost"
-          color={column.visible ? "violet" : "gray"}
-          aria-label={column.visible ? "Hide column" : "Show column"}
-          onClick={() => onToggle(!column.visible)}
-        >
-          {column.visible ? <PiEye size={16} /> : <PiEyeSlash size={16} />}
-        </IconButton>
-      </Tooltip>
+      <Checkbox
+        size="sm"
+        labelSize="sm"
+        weight="regular"
+        label={column.label}
+        value={column.visible}
+        setValue={onToggle}
+        disabled={column.alwaysVisible}
+      />
     </Flex>
   );
 }
 
-interface Props {
+export interface ColumnSettingsProps {
   columns: ManagedColumn[];
   onChange: (columns: { id: string; visible: boolean }[]) => void;
+  onReset?: () => void;
+  canReset?: boolean;
 }
 
-export default function MetricExperimentsColumnSettings({
+export default function ColumnSettings({
   columns,
   onChange,
-}: Props) {
-  const sensors = useSensors(useSensor(PointerSensor));
+  onReset,
+  canReset,
+}: ColumnSettingsProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
   const ids = columns.map((c) => c.id);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -122,22 +125,38 @@ export default function MetricExperimentsColumnSettings({
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <Flex direction="column" gap="2">
-          {columns.map((c) => (
-            <SortableColumnRow
-              key={c.id}
-              column={c}
-              onToggle={(v) => toggle(c.id, v)}
-            />
-          ))}
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+          {/* Only the list scrolls, so the reset link stays reachable. pr is
+              for the scrollbar, which would otherwise sit on the row borders. */}
+          <Flex
+            direction="column"
+            gap="2"
+            pr="1"
+            style={{ maxHeight: "min(50vh, 360px)", overflowY: "auto" }}
+          >
+            {columns.map((c) => (
+              <SortableColumnRow
+                key={c.id}
+                column={c}
+                onToggle={(v) => toggle(c.id, v)}
+              />
+            ))}
+          </Flex>
+        </SortableContext>
+      </DndContext>
+      {onReset && canReset && (
+        <Flex justify="end" mt="3">
+          <Link onClick={onReset}>
+            <Text size="sm">Reset to default</Text>
+          </Link>
         </Flex>
-      </SortableContext>
-    </DndContext>
+      )}
+    </>
   );
 }

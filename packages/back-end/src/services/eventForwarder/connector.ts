@@ -219,6 +219,11 @@ export async function provisionEventForwarderThroughLicenseServer(
         const bigqueryConnectionParams = datasourceParams as
           | BigQueryConnectionParams
           | undefined;
+        if (!bigqueryConnectionParams) {
+          throw new Error(
+            "Missing BigQuery Data Source params for Event Forwarder provisioning",
+          );
+        }
         const decrypted =
           decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
             eventForwarderConfig,
@@ -241,12 +246,13 @@ export async function provisionEventForwarderThroughLicenseServer(
           await testEventForwarderWriteAccess(context, {
             sinkType: "bigquery",
             datasource,
-            params: bigqueryConnectionParams as BigQueryConnectionParams,
+            params: bigqueryConnectionParams,
             config: decrypted,
           }),
         );
 
         await ensureEventForwarderBigQueryTables({
+          datasourceParams: bigqueryConnectionParams,
           projectId,
           dataset: decrypted.dataset.trim(),
           tablePrefix,
