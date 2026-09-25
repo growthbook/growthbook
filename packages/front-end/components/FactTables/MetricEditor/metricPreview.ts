@@ -1,3 +1,4 @@
+import { startCase } from "lodash";
 import {
   FactMetricInterface,
   FactTableDefinition,
@@ -22,6 +23,43 @@ export function getMetricPreviewDateRange(
     predefined: "customDateRange",
     startDate: start.toISOString().slice(0, 10),
     endDate: end.toISOString().slice(0, 10),
+  };
+}
+
+export function getMetricPreviewUnitLabel(
+  unit: string,
+  factTable:
+    | (Pick<FactTableDefinition, "userIdColumns"> & {
+        columns: Pick<
+          FactTableDefinition["columns"][number],
+          "column" | "name"
+        >[];
+      })
+    | null,
+): { label: string; column: string } {
+  const column = factTable?.userIdColumns?.[unit] || unit;
+  const name = factTable?.columns
+    .find((c) => c.column === column)
+    ?.name?.trim();
+  const commonNames: Record<string, string> = {
+    userid: "Users",
+    anonymousid: "Anonymous users",
+    deviceid: "Devices",
+    sessionid: "Sessions",
+    accountid: "Accounts",
+    organizationid: "Organizations",
+    orgid: "Organizations",
+    customerid: "Customers",
+    visitorid: "Visitors",
+  };
+  const key = unit.replace(/[_\s-]/g, "").toLowerCase();
+  return {
+    label:
+      name ||
+      (Object.prototype.hasOwnProperty.call(commonNames, key)
+        ? commonNames[key]
+        : startCase(unit)),
+    column,
   };
 }
 
@@ -82,19 +120,13 @@ export function getMetricPreviewConfig(
       dataset: funnelSettingsToFunnelDataset(metric.funnelSettings, unit),
     };
   }
-  const dailyAverage =
-    metric.metricType === "quantile" ||
-    metric.numerator.aggregation === "max" ||
-    metric.numerator.aggregation === "count distinct";
   return {
     ...DEFAULT_EXPLORE_STATE,
     datasource: metric.datasource,
     dateRange,
     type: "metric",
     chartType: "bar",
-    ...(metric.metricType === "mean"
-      ? { showAs: dailyAverage ? ("per_unit" as const) : ("total" as const) }
-      : {}),
+    ...(metric.metricType === "mean" ? { showAs: "per_unit" as const } : {}),
     dataset: {
       type: "metric",
       values: [
@@ -122,48 +154,42 @@ export function getMetricPreviewSummary(
   rows: ProductAnalyticsResultRow[],
   metric: Pick<FactMetricInterface, "metricType" | "numerator">,
 ) {
-  const cells = rows
-    .flatMap((row) => (row.values?.[0] ? [row.values[0]] : []))
-    .filter((cell) => cell.numerator !== null);
-  if (!cells.length) return null;
+  const validRows = rows.filter(
+    (row) => (row.values?.[0]?.numerator ?? null) !== null,
+  );
+  if (!validRows.length) return null;
+  const latestDaily =
+    metric.metricType === "quantile" || metric.metricType === "proportion";
+  const latestRow = validRows.reduce((latest, row) =>
+    String(row.dimensions[0] ?? "") > String(latest.dimensions[0] ?? "")
+      ? row
+      : latest,
+  );
+  const cells = (latestDaily ? [latestRow] : validRows).flatMap((row) =>
+    row.values?.[0] ? [row.values[0]] : [],
+  );
   const numerator = cells.reduce(
     (total, cell) => total + (cell.numerator ?? 0),
     0,
   );
-  const denominator = cells.some((cell) => cell.denominator !== null)
+  const denominator = cells.every((cell) => cell.denominator !== null)
     ? cells.reduce((total, cell) => total + (cell.denominator ?? 0), 0)
     : null;
   const quotient =
     denominator !== null && denominator !== 0 ? numerator / denominator : null;
-  const dailyAverage =
-    metric.metricType === "quantile" ||
-    (metric.metricType === "mean" &&
-      (metric.numerator?.aggregation === "max" ||
-        metric.numerator?.aggregation === "count distinct"));
-  const dailyValues = cells.flatMap((cell) => {
-    if (cell.denominator === 0) return [];
-    return [(cell.numerator ?? 0) / (cell.denominator ?? 1)];
-  });
   return {
-    value:
-      metric.metricType === "ratio"
-        ? quotient
-        : dailyAverage
-          ? dailyValues.length
-            ? dailyValues.reduce((total, value) => total + value, 0) /
-              dailyValues.length
-            : null
-          : numerator,
+    value: latestDaily ? numerator : quotient,
     numerator,
     denominator,
     quotient,
+    date: latestDaily ? String(latestRow.dimensions[0] ?? "") : null,
     label:
       metric.metricType === "ratio"
         ? "Ratio of 7-day totals"
-        : dailyAverage
-          ? "Average of daily values"
+        : metric.metricType === "quantile"
+          ? "Latest daily quantile"
           : metric.metricType === "proportion"
-            ? "Sum of daily unit counts"
-            : "7-day total",
+            ? "Latest daily matching units"
+            : "Average per unit-day",
   };
 }

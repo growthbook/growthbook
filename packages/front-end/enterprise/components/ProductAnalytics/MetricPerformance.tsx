@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { ReactNode, useEffect, useMemo, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ExplorationConfig } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
-import { ago, datetime } from "shared/dates";
 import {
   DefinitionsContext,
   useDefinitions,
@@ -17,7 +16,9 @@ import {
   getMetricPreviewConfig,
   getMetricPreviewDateRange,
   getMetricPreviewUnits,
+  getMetricPreviewUnitLabel,
 } from "@/components/FactTables/MetricEditor/metricPreview";
+import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
 import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 
@@ -27,7 +28,13 @@ const EMPTY_CONFIG: ExplorationConfig = {
   dataset: { type: "metric", values: [] },
 };
 
-function PerformanceChart({ config }: { config: ExplorationConfig | null }) {
+function PerformanceChart({
+  config,
+  controls,
+}: {
+  config: ExplorationConfig | null;
+  controls: ReactNode;
+}) {
   const {
     exploration,
     submittedExploreState,
@@ -44,10 +51,6 @@ function PerformanceChart({ config }: { config: ExplorationConfig | null }) {
   useEffect(() => {
     if (config) setDraftExploreState(config);
   }, [config, setDraftExploreState]);
-  const lastQueried =
-    exploration?.status === "success"
-      ? (exploration.runStarted ?? exploration.dateCreated)
-      : null;
   const outdated = !!exploration && (!config || isStale || needsFetch);
   if (managedWarehouseUnavailable)
     return (
@@ -57,22 +60,19 @@ function PerformanceChart({ config }: { config: ExplorationConfig | null }) {
     );
   return (
     <Flex direction="column" gap="3" minHeight="0">
-      <Text size="sm" color="text-mid">
-        Last 7 complete days (UTC)
-      </Text>
       {outdated && (
         <Callout status="warning" size="sm">
-          Your latest changes are not applied to this graph.{" "}
           {config
-            ? "Run query to update it."
+            ? "Changes not applied. Run the query to refresh."
             : "Complete the metric definition and filters, then run the query."}
         </Callout>
       )}
-      {lastQueried && (
-        <Text size="sm" color="text-low">
-          <span title={datetime(lastQueried)}>Updated {ago(lastQueried)}</span>
+      <Flex align="center" justify="between" gap="2" wrap="wrap">
+        {controls}
+        <Text size="sm" color="text-mid" title="Last 7 complete days (UTC)">
+          Last 7 days (UTC)
         </Text>
-      )}
+      </Flex>
       {exploration || loading ? (
         <ExplorerChart
           compact
@@ -89,12 +89,15 @@ function PerformanceChart({ config }: { config: ExplorationConfig | null }) {
         </Text>
       )}
       {error && !exploration && <Callout status="error">{error}</Callout>}
-      <Button
-        disabled={!config || loading || !isSubmittable}
-        onClick={() => handleSubmit()}
-      >
-        Run query
-      </Button>
+      <Box className={styles.footer}>
+        <Button
+          style={{ width: "100%" }}
+          disabled={!config || loading || !isSubmittable}
+          onClick={() => handleSubmit()}
+        >
+          Run query
+        </Button>
+      </Box>
     </Flex>
   );
 }
@@ -134,6 +137,14 @@ export default function MetricPerformance({
     units.denominator.includes(selectedDenominatorUnit)
       ? selectedDenominatorUnit
       : (units.denominator[0] ?? null);
+  const numeratorFactTable = getFactTableById(
+    metric?.metricType === "funnel"
+      ? (metric.funnelSettings?.steps[0]?.factTableId ?? "")
+      : (metric?.numerator.factTableId ?? ""),
+  );
+  const denominatorFactTable = getFactTableById(
+    metric?.denominator?.factTableId ?? "",
+  );
   const dateRange = useMemo(() => getMetricPreviewDateRange(), []);
   const config = useMemo(
     () =>
@@ -161,45 +172,180 @@ export default function MetricPerformance({
     );
   return (
     <DefinitionsContext.Provider value={previewDefinitions}>
-      <Flex direction="column" gap="3">
-        {units.numerator.length > 1 && (
-          <Select
-            label={
-              metric?.metricType === "ratio"
-                ? "Numerator identifier"
-                : "Identifier"
-            }
-            value={unit ?? ""}
-            setValue={setSelectedUnit}
-          >
-            {units.numerator.map((id) => (
-              <SelectItem key={id} value={id}>
-                {id}
-              </SelectItem>
-            ))}
-          </Select>
-        )}
-        {units.denominator.length > 1 && (
-          <Select
-            label="Denominator identifier"
-            value={denominatorUnit ?? ""}
-            setValue={setSelectedDenominatorUnit}
-          >
-            {units.denominator.map((id) => (
-              <SelectItem key={id} value={id}>
-                {id}
-              </SelectItem>
-            ))}
-          </Select>
-        )}
-        <ExplorerProvider
-          initialConfig={config ?? EMPTY_CONFIG}
-          queryEnabled={config !== null}
-          trackingSource="metric-preview"
-        >
-          <PerformanceChart config={config} />
-        </ExplorerProvider>
-      </Flex>
+      <ExplorerProvider
+        initialConfig={config ?? EMPTY_CONFIG}
+        queryEnabled={config !== null}
+        trackingSource="metric-preview"
+      >
+        <PerformanceChart
+          config={config}
+          controls={
+            <Flex
+              direction="column"
+              gap="3"
+              width={
+                metric?.metricType === "ratio" ||
+                metric?.metricType === "funnel"
+                  ? "100%"
+                  : undefined
+              }
+              minWidth="0"
+            >
+              {metric?.metricType === "funnel" && (
+                <ol className={styles.funnelSteps} aria-label="Funnel steps">
+                  {metric.funnelSettings?.steps.map((step, index) => {
+                    const table = getFactTableById(step.factTableId);
+                    const column = unit
+                      ? getMetricPreviewUnitLabel(unit, table).column
+                      : null;
+                    return (
+                      <li key={index}>
+                        <span className={styles.stepNumber} aria-hidden="true">
+                          {index + 1}
+                        </span>
+                        <Flex direction="column" gap="1" minWidth="0">
+                          <Text weight="semibold">
+                            {step.name || `Step ${index + 1}`}
+                            {step.optional ? " (optional)" : ""}
+                          </Text>
+                          <Text size="sm" color="text-mid">
+                            {table?.name ||
+                              step.factTableId ||
+                              "Select a Fact Table"}
+                          </Text>
+                          {column && (
+                            <Text size="sm" color="text-low">
+                              {column}
+                            </Text>
+                          )}
+                        </Flex>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+              {metric?.metricType === "ratio" && (
+                <Flex direction="column" gap="1">
+                  <Text size="sm" weight="semibold" color="text-mid">
+                    Numerator
+                  </Text>
+                  <Text size="sm" color="text-mid">
+                    {numeratorFactTable?.name ||
+                      metric.numerator.factTableId ||
+                      "Select a Fact Table"}
+                  </Text>
+                </Flex>
+              )}
+              {units.numerator.length > 0 && (
+                <Select
+                  size={
+                    metric?.metricType === "ratio" ||
+                    metric?.metricType === "funnel"
+                      ? "md"
+                      : "sm"
+                  }
+                  triggerClassName={styles.unitTrigger}
+                  aria-label={
+                    metric?.metricType === "ratio"
+                      ? "Numerator unit"
+                      : metric?.metricType === "funnel"
+                        ? "Shared unit for all steps"
+                        : "Unit"
+                  }
+                  value={unit ?? ""}
+                  setValue={setSelectedUnit}
+                >
+                  {units.numerator.map((id) => {
+                    const { label, column } = getMetricPreviewUnitLabel(
+                      id,
+                      numeratorFactTable,
+                    );
+                    return (
+                      <SelectItem
+                        key={id}
+                        value={id}
+                        textValue={label}
+                        className={styles.unitItem}
+                      >
+                        <span className={styles.unitOption}>
+                          <span>
+                            <Text color="text-mid">
+                              {metric?.metricType === "funnel"
+                                ? "Shared unit "
+                                : "Unit "}
+                            </Text>
+                            {label}
+                          </span>
+                          <span className={styles.unitDescriptor}>
+                            {column}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </Select>
+              )}
+              {metric?.metricType === "funnel" &&
+                units.numerator.length === 0 && (
+                  <Text size="sm" color="text-mid">
+                    The steps need a shared identifier to preview this funnel.
+                  </Text>
+                )}
+              {metric?.metricType === "ratio" && (
+                <>
+                  <div className={styles.ratioDivider} aria-hidden="true">
+                    <span>÷</span>
+                  </div>
+                  <Flex direction="column" gap="1">
+                    <Text size="sm" weight="semibold" color="text-mid">
+                      Denominator
+                    </Text>
+                    <Text size="sm" color="text-mid">
+                      {denominatorFactTable?.name ||
+                        metric.denominator?.factTableId ||
+                        "Select a Fact Table"}
+                    </Text>
+                  </Flex>
+                </>
+              )}
+              {units.denominator.length > 0 && (
+                <Select
+                  size="md"
+                  triggerClassName={styles.unitTrigger}
+                  aria-label="Denominator unit"
+                  value={denominatorUnit ?? ""}
+                  setValue={setSelectedDenominatorUnit}
+                >
+                  {units.denominator.map((id) => {
+                    const { label, column } = getMetricPreviewUnitLabel(
+                      id,
+                      denominatorFactTable,
+                    );
+                    return (
+                      <SelectItem
+                        key={id}
+                        value={id}
+                        textValue={label}
+                        className={styles.unitItem}
+                      >
+                        <span className={styles.unitOption}>
+                          <span>
+                            <Text color="text-mid">Unit </Text>
+                            {label}
+                          </span>
+                          <span className={styles.unitDescriptor}>
+                            {column}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </Select>
+              )}
+            </Flex>
+          }
+        />
+      </ExplorerProvider>
     </DefinitionsContext.Provider>
   );
 }

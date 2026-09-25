@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import * as echarts from "echarts/core";
+import { PiInfo } from "react-icons/pi";
 import { factMetricValidator } from "shared/validators";
 import type {
   ComparisonMode,
@@ -35,6 +36,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
+import Button from "@/ui/Button";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import {
   buildAlignedComparisonOverlayForExplorer,
@@ -237,9 +240,10 @@ export default function ExplorerChart({
     compact &&
     submittedExploreState.dataset.type === "metric" &&
     submittedExploreState.dataset.values.length === 1
-      ? getFactMetricById(
+      ? (submittedExploreState.dataset.values[0].draftMetric ??
+        getFactMetricById(
           submittedExploreState.dataset.values[0].metricId ?? "",
-        )
+        ))
       : null;
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
@@ -805,7 +809,7 @@ export default function ExplorerChart({
               color: cssColorToHex("var(--gray-10)"),
               formatter: (day: string) =>
                 new Date(day).toLocaleDateString("en-US", {
-                  weekday: "narrow",
+                  weekday: "short",
                   timeZone: "UTC",
                 }),
             },
@@ -817,15 +821,11 @@ export default function ExplorerChart({
             name: seriesMeta[key]?.name ?? key,
             type: "bar",
             barCategoryGap: "15%",
-            data: sortedXValues.map((day, index) => ({
+            data: sortedXValues.map((day) => ({
               value: dataMap[key][day] ?? null,
               itemStyle: {
-                color: cssColorToHex(
-                  index === sortedXValues.length - 1
-                    ? "var(--violet-9)"
-                    : "var(--violet-4)",
-                ),
-                borderRadius: [10, 10, 0, 0],
+                color: cssColorToHex("var(--violet-9)"),
+                borderRadius: [2, 2, 0, 0],
               },
             })),
           }))
@@ -1103,43 +1103,59 @@ export default function ExplorerChart({
           style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%" }}
         >
           {compact && (
-            <Box pb="4">
-              {previewMetric?.metricType === "proportion" && (
-                <Text as="div" size="sm" weight="medium">
-                  Daily unit counts
-                </Text>
-              )}
-              <div
-                style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}
-              >
-                {previewSummary?.value === null || !previewSummary
-                  ? "—"
-                  : formatNumber(previewSummary.value)}
-              </div>
+            <Box pb="2">
+              <Flex align="center" gap="2">
+                <div
+                  style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}
+                >
+                  {previewSummary?.value === null || !previewSummary
+                    ? "—"
+                    : formatNumber(previewSummary.value)}
+                </div>
+                <Tooltip
+                  content={
+                    <Box>
+                      <Text as="div" size="sm">
+                        {previewSummary?.label}
+                      </Text>
+                      {previewSummary?.denominator !== null &&
+                        previewSummary?.denominator !== undefined &&
+                        previewMetric?.metricType !== "proportion" && (
+                          <Text as="div" size="sm">
+                            {previewMetric?.metricType === "ratio"
+                              ? "Numerator / denominator"
+                              : "Total / unit-days"}
+                            : {formatNumber(previewSummary.numerator)} /{" "}
+                            {formatNumber(previewSummary.denominator)} ={" "}
+                            {previewSummary.quotient === null
+                              ? "—"
+                              : formatNumber(previewSummary.quotient)}
+                          </Text>
+                        )}
+                      {previewMetric?.metricType === "proportion" && (
+                        <Text as="div" size="sm">
+                          Units matching the metric’s conditions each day, not
+                          an experiment conversion rate. A unit may appear on
+                          multiple days.
+                        </Text>
+                      )}
+                    </Box>
+                  }
+                >
+                  <Button
+                    variant="ghost"
+                    color="gray"
+                    size="sm"
+                    aria-label="What this number means"
+                  >
+                    <PiInfo />
+                  </Button>
+                </Tooltip>
+              </Flex>
               <Text as="div" size="sm" color="text-mid">
                 {previewSummary?.label}
+                {previewSummary?.date ? ` · ${previewSummary.date} (UTC)` : ""}
               </Text>
-              {previewSummary?.denominator !== null &&
-                previewSummary?.denominator !== undefined &&
-                previewMetric?.metricType !== "proportion" && (
-                  <Text as="div" size="sm" color="text-mid">
-                    {previewMetric?.metricType === "ratio"
-                      ? "Numerator / denominator"
-                      : "Total / unit-days"}
-                    : {formatNumber(previewSummary.numerator)} /{" "}
-                    {formatNumber(previewSummary.denominator)} ={" "}
-                    {previewSummary.quotient === null
-                      ? "—"
-                      : formatNumber(previewSummary.quotient)}
-                  </Text>
-                )}
-              {previewMetric?.metricType === "proportion" && (
-                <Text as="div" size="sm" color="text-mid">
-                  Units matching the metric’s conditions each day, not an
-                  experiment conversion rate. A unit may appear on multiple
-                  days.
-                </Text>
-              )}
             </Box>
           )}
           {compareReturnedNoData ? (
@@ -1195,8 +1211,6 @@ export default function ExplorerChart({
                       width: "100%",
                       height: "auto",
                       aspectRatio: "2 / 1",
-                      borderTop: "1px solid var(--gray-a5)",
-                      borderBottom: "1px solid var(--gray-a5)",
                     }
                   : { width: "100%", height: "100%" }
               }

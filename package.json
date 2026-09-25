@@ -141,6 +141,13 @@
         "react-native"
       ]
     },
+    "packageExtensions": {
+      "echarts-for-react": {
+        "dependencies": {
+          "tslib": "^2.8.1"
+        }
+      }
+    },
     "patchedDependencies": {
       "@types/presto-client@1.0.2": "patches/@types__presto-client@1.0.2.patch",
       "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",

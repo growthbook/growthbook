@@ -97,6 +97,7 @@ export function RowFilterInput({
         )}
       </Flex>
       <RowFilterEditorRows
+        key={factTable.id}
         value={value}
         setValue={setValue}
         columnSource={columnSource}

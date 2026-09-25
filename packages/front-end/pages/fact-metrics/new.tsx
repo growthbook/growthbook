@@ -9,6 +9,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import Badge from "@/ui/Badge";
@@ -256,9 +257,17 @@ export default function NewFactMetricPage() {
       )}
       {showLegacySwitch && (
         <Flex mt="3">
-          <Button variant="ghost" onClick={() => setShowLegacyForm(true)}>
-            Use legacy SQL metric form
-          </Button>
+          <DropdownMenu
+            trigger={
+              <Button variant="ghost" color="gray" size="sm">
+                More options
+              </Button>
+            }
+          >
+            <DropdownMenuItem onClick={() => setShowLegacyForm(true)}>
+              Use legacy SQL metric form
+            </DropdownMenuItem>
+          </DropdownMenu>
         </Flex>
       )}
     </div>
