@@ -13,6 +13,7 @@ import {
   isDashboardBlockRef,
   DashboardBlockRef,
   apiCreateDashboardBody,
+  apiCreateDashboardBodyV2,
   DashboardBlockWithAnalysisId,
   ApiDashboardInterface,
   ApiGetDashboardsForExperimentReturn,
@@ -48,6 +49,7 @@ import {
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   dashboardApiSpec,
+  createDashboardV2Endpoint,
   getDashboardsForExperimentEndpoint,
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
@@ -98,6 +100,14 @@ const BaseClass = MakeModelClass({
     modelKey: "dashboards",
     openApiSpec: dashboardApiSpec,
     customHandlers: [
+      defineCustomApiHandler({
+        ...createDashboardV2Endpoint,
+        reqHandler: async (req) => ({
+          dashboard: await req.context.models.dashboards.createFromApiV2(
+            req.body,
+          ),
+        }),
+      }),
       defineCustomApiHandler({
         ...getDashboardsForExperimentEndpoint,
         reqHandler: async (
@@ -460,9 +470,9 @@ export class DashboardModel extends BaseClass {
     };
   }
 
-  // Body `owner` wins over the caller. Create with none falls back to the PAT
-  // user; a secret key with neither is rejected. An update that omits it leaves
-  // the stored owner alone.
+  // On v2 create, body `owner` wins over the caller. Create with none falls
+  // back to the PAT user; a secret key with neither is rejected. An update
+  // that omits it leaves the stored owner alone.
   private async resolveDashboardOwner(
     owner: string | undefined,
     options: { required: true },
@@ -488,6 +498,23 @@ export class DashboardModel extends BaseClass {
   }
 
   protected async processApiCreateBody(rawBody: unknown) {
+    return this.processApiCreateBodyForUser(rawBody, this.context.userId);
+  }
+
+  public async createFromApiV2(
+    rawBody: unknown,
+  ): Promise<ApiDashboardInterface> {
+    const { owner, ...body } = apiCreateDashboardBodyV2.parse(rawBody);
+    const userId = await this.resolveDashboardOwner(owner, { required: true });
+    return resolveOwnerEmail(
+      this.toApiInterface(
+        await this.create(await this.processApiCreateBodyForUser(body, userId)),
+      ),
+      this.context,
+    );
+  }
+
+  private async processApiCreateBodyForUser(rawBody: unknown, userId: string) {
     const {
       editLevel,
       shareLevel,
@@ -499,9 +526,7 @@ export class DashboardModel extends BaseClass {
       globalControls,
       comparison,
       blocks,
-      owner,
     } = apiCreateDashboardBody.parse(rawBody);
-    const userId = await this.resolveDashboardOwner(owner, { required: true });
     const base = {
       uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
       isDefault: false,

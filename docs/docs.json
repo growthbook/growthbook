@@ -996,6 +996,7 @@
                   "api/Dashboards/operation/deleteDashboard",
                   "api/Dashboards/operation/listDashboards",
                   "api/Dashboards/operation/createDashboard",
+                  "api/Dashboards/operation/createDashboardV2",
                   "api/Dashboards/operation/getDashboardsForExperiment"
                 ]
               },
