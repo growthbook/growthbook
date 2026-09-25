@@ -9,6 +9,7 @@ import {
 } from "shared/validators";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
 import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { MakeModelClass } from "./BaseModel";
 import {
   apiMonitoringConfigToInternal,
@@ -20,11 +21,14 @@ import {
 // stored shape; `null` (clear) and absent pass through.
 function withInternalMonitoringConfig<
   T extends { monitoringConfig?: ApiRampMonitoringConfig | null },
->(body: T) {
+>(body: T, previous?: RampScheduleTemplateInterface["monitoringConfig"]) {
   if (!body.monitoringConfig) return body;
   return {
     ...body,
-    monitoringConfig: apiMonitoringConfigToInternal(body.monitoringConfig),
+    monitoringConfig: apiMonitoringConfigToInternal(
+      body.monitoringConfig,
+      previous,
+    ),
   };
 }
 
@@ -130,16 +134,25 @@ export class RampScheduleTemplateModel extends BaseClass {
     return { ...body, order: body.order ?? (await this.getNextOrder()) };
   }
 
-  // Overridden to read the stored query, which processApiUpdateBody can't see.
+  // Overridden to read the stored monitoring config, which
+  // processApiUpdateBody can't see.
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
     const { id } = req.params as { id: string };
-    await this.assertApiMonitoringIdentifierType(
-      req.body,
-      await this.getById(id),
+    const existing = await this.getById(id);
+    await this.assertApiMonitoringIdentifierType(req.body, existing);
+    const toUpdate = withInternalMonitoringConfig(
+      req.body as Omit<
+        UpdateProps<RampScheduleTemplateInterface>,
+        "monitoringConfig"
+      > & { monitoringConfig?: ApiRampMonitoringConfig | null },
+      existing?.monitoringConfig,
+    ) as UpdateProps<RampScheduleTemplateInterface>;
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
     );
-    return super.handleApiUpdate(req);
   }
 
   private async assertApiMonitoringIdentifierType(
@@ -156,17 +169,6 @@ export class RampScheduleTemplateModel extends BaseClass {
       field: "exposureQuery",
       currentExposureQueryId: existing?.monitoringConfig?.exposureQueryId,
     });
-  }
-
-  protected async processApiUpdateBody(
-    rawBody: unknown,
-  ): Promise<UpdateProps<RampScheduleTemplateInterface>> {
-    return withInternalMonitoringConfig(
-      rawBody as Omit<
-        UpdateProps<RampScheduleTemplateInterface>,
-        "monitoringConfig"
-      > & { monitoringConfig?: ApiRampMonitoringConfig | null },
-    ) as UpdateProps<RampScheduleTemplateInterface>;
   }
 
   // The monitoring data source is nested, so BaseModel wouldn't cache it.

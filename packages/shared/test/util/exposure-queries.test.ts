@@ -10,6 +10,8 @@ import {
   hasAssignmentQuerySelectionChanged,
   toApiAssignmentQueryRef,
   resolveExposureQueryForAnalysis,
+  parseAssignmentQuerySelection,
+  isSameAssignmentQuerySelection,
   flattenExposureQueryInput,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
@@ -551,5 +553,154 @@ describe("resolveExposureQueryForAnalysis", () => {
     expect(() => resolveExposureQueryForAnalysis(multi, "company_id")).toThrow(
       'no longer declares the "company_id" identifier type',
     );
+  });
+});
+
+describe("parseAssignmentQuerySelection", () => {
+  const multi = query({
+    id: "eq_multi",
+    name: "Multi",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const single = query({
+    id: "eq_single",
+    name: "Single",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+  });
+  const queries = [multi, single];
+
+  it("returns a declared identifier with its query", () => {
+    expect(
+      parseAssignmentQuerySelection(queries, {
+        exposureQueryId: "eq_multi",
+        identifierType: "anonymous_id",
+        onOmitted: "requireUnambiguous",
+      }),
+    ).toEqual({ ok: true, identifierType: "anonymous_id", query: multi });
+  });
+
+  it("rejects an unknown query", () => {
+    expect(
+      parseAssignmentQuerySelection(queries, {
+        exposureQueryId: "eq_missing",
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({
+      ok: false,
+      error: 'Assignment query "eq_missing" doesn\'t exist on this data source',
+    });
+  });
+
+  it("rejects an identifier the query doesn't declare", () => {
+    expect(
+      parseAssignmentQuerySelection(queries, {
+        exposureQueryId: "eq_multi",
+        identifierType: "company_id",
+        onOmitted: "defaultToFirst",
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        'Assignment query "Multi" doesn\'t declare the "company_id" identifier type',
+    });
+  });
+
+  it("defaults an omitted identifier to the query's first, not its legacy one", () => {
+    const parsed = parseAssignmentQuerySelection(queries, {
+      exposureQueryId: "eq_multi",
+      onOmitted: "defaultToFirst",
+    });
+    expect(parsed.ok && parsed.identifierType).toBe("user_id");
+  });
+
+  it("requires an identifier when the query declares several", () => {
+    expect(
+      parseAssignmentQuerySelection(queries, {
+        exposureQueryId: "eq_multi",
+        onOmitted: "requireUnambiguous",
+        field: "assignmentQuery",
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        'Assignment query "Multi" declares several identifier types (user_id, anonymous_id). Set assignmentQuery.identifierType to choose one.',
+    });
+  });
+
+  it("allows omitting the identifier when the query declares one", () => {
+    const parsed = parseAssignmentQuerySelection(queries, {
+      exposureQueryId: "eq_single",
+      onOmitted: "requireUnambiguous",
+    });
+    expect(parsed.ok && parsed.identifierType).toBe("user_id");
+  });
+
+  it("rejects a query that declares no identifiers", () => {
+    const empty = query({ id: "eq_empty", userIdType: "", userIdTypes: [] });
+    expect(
+      parseAssignmentQuerySelection([empty], {
+        exposureQueryId: "eq_empty",
+        onOmitted: "defaultToFirst",
+      }).ok,
+    ).toBe(false);
+  });
+});
+
+describe("isSameAssignmentQuerySelection", () => {
+  // Reordered after records were saved: the legacy identifier is no longer first.
+  const reordered = query({
+    id: "eq_1",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const legacy = { datasource: "ds_1", exposureQueryId: "eq_1" };
+
+  it("treats an unset identifier as the legacy one, not the first", () => {
+    expect(
+      isSameAssignmentQuerySelection(
+        legacy,
+        { ...legacy, identifierType: "anonymous_id" },
+        [reordered],
+      ),
+    ).toBe(true);
+    expect(
+      isSameAssignmentQuerySelection(
+        legacy,
+        { ...legacy, identifierType: "user_id" },
+        [reordered],
+      ),
+    ).toBe(false);
+  });
+
+  it("differs when the query or data source does", () => {
+    expect(
+      isSameAssignmentQuerySelection(
+        legacy,
+        { ...legacy, exposureQueryId: "eq_2" },
+        [reordered],
+      ),
+    ).toBe(false);
+    expect(
+      isSameAssignmentQuerySelection(
+        legacy,
+        { ...legacy, datasource: "ds_2" },
+        [reordered],
+      ),
+    ).toBe(false);
+  });
+
+  it("only matches identical raw identifiers without the query", () => {
+    expect(isSameAssignmentQuerySelection(legacy, { ...legacy }, [])).toBe(
+      true,
+    );
+    expect(
+      isSameAssignmentQuerySelection(
+        legacy,
+        { ...legacy, identifierType: "anonymous_id" },
+        [],
+      ),
+    ).toBe(false);
   });
 });

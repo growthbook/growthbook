@@ -89,6 +89,70 @@ export function flattenExposureQueryInput<
   };
 }
 
+type SelectableExposureQuery = Pick<
+  ExposureQuery,
+  "id" | "name" | "userIdType" | "userIdTypes"
+>;
+
+export type ParsedAssignmentQuerySelection<
+  Q extends SelectableExposureQuery = SelectableExposureQuery,
+> =
+  | { ok: true; identifierType: string; query: Q }
+  | { ok: false; error: string };
+
+/**
+ * Validates a new or changed selection and returns the identifier to store. An
+ * omitted identifier becomes the query's first (the new-record default), unless
+ * `onOmitted` is "requireUnambiguous" and the query declares several.
+ */
+export function parseAssignmentQuerySelection<
+  Q extends SelectableExposureQuery,
+>(
+  exposureQueries: Q[],
+  {
+    exposureQueryId,
+    identifierType,
+    onOmitted,
+    field,
+  }: {
+    exposureQueryId: string;
+    identifierType?: string;
+    onOmitted: "defaultToFirst" | "requireUnambiguous";
+    // The REST field to name in the ambiguity error.
+    field?: string;
+  },
+): ParsedAssignmentQuerySelection<Q> {
+  const query = exposureQueries.find((q) => q.id === exposureQueryId);
+  if (!query) {
+    return {
+      ok: false,
+      error: `Assignment query "${exposureQueryId}" doesn't exist on this data source`,
+    };
+  }
+  const name = query.name || query.id;
+  const declared = getExposureQueryIdentifierTypes(query);
+  if (identifierType) {
+    return declared.includes(identifierType)
+      ? { ok: true, identifierType, query }
+      : {
+          ok: false,
+          error: `Assignment query "${name}" doesn't declare the "${identifierType}" identifier type`,
+        };
+  }
+  if (onOmitted === "requireUnambiguous" && declared.length > 1) {
+    return {
+      ok: false,
+      error: `Assignment query "${name}" declares several identifier types (${declared.join(", ")}). Set ${field ? `${field}.` : ""}identifierType to choose one.`,
+    };
+  }
+  return declared[0]
+    ? { ok: true, identifierType: declared[0], query }
+    : {
+        ok: false,
+        error: `Assignment query "${name}" doesn't declare any identifier types`,
+      };
+}
+
 /**
  * A REST ref may omit `identifierType` unless it selects a different query that
  * declares several, where the choice would be ambiguous. Keeping the current
@@ -102,21 +166,18 @@ export function assertAssignmentQueryRefIdentifierType({
 }: {
   ref: { id: string; identifierType?: string } | undefined;
   field: "assignmentQuery" | "exposureQuery";
-  exposureQueries: Pick<
-    ExposureQuery,
-    "id" | "name" | "userIdType" | "userIdTypes"
-  >[];
+  exposureQueries: SelectableExposureQuery[];
   currentExposureQueryId: string | undefined;
 }): void {
   if (!ref || ref.identifierType || ref.id === currentExposureQueryId) return;
-  const query = exposureQueries.find((q) => q.id === ref.id);
-  if (!query) return;
-  const identifierTypes = getExposureQueryIdentifierTypes(query);
-  if (identifierTypes.length > 1) {
-    throw new Error(
-      `Assignment query "${query.name || query.id}" declares several identifier types (${identifierTypes.join(", ")}). Set ${field}.identifierType to choose one.`,
-    );
-  }
+  // An unknown query is rejected by selection validation, not here.
+  if (!exposureQueries.some((q) => q.id === ref.id)) return;
+  const parsed = parseAssignmentQuerySelection(exposureQueries, {
+    exposureQueryId: ref.id,
+    onOmitted: "requireUnambiguous",
+    field,
+  });
+  if (!parsed.ok) throw new Error(parsed.error);
 }
 
 /**
@@ -160,21 +221,20 @@ export function assertValidAssignmentQuerySelection({
   // Inherited by queries without their own project scope (holdout check).
   datasourceProjects?: string[];
 }): ExposureQuery {
-  const query = exposureQueries.find((q) => q.id === exposureQueryId);
-  if (!query) {
-    throw new Error(
-      `Assignment query "${exposureQueryId}" doesn't exist on this data source`,
-    );
+  const parsed = parseAssignmentQuerySelection(exposureQueries, {
+    exposureQueryId,
+    identifierType,
+    onOmitted: "defaultToFirst",
+  });
+  let query: ExposureQuery | undefined;
+  if (parsed.ok) {
+    query = parsed.query;
+  } else {
+    query = exposureQueries.find((q) => q.id === exposureQueryId);
+    // With no identifier to check, a query declaring none is left to analysis.
+    if (!query || identifierType) throw new Error(parsed.error);
   }
   const name = query.name || query.id;
-  if (
-    identifierType &&
-    !getExposureQueryIdentifierTypes(query).includes(identifierType)
-  ) {
-    throw new Error(
-      `Assignment query "${name}" doesn't declare the "${identifierType}" identifier type`,
-    );
-  }
   if (projects) {
     if (
       !isExposureQueryAvailableForProjects(query, projects, datasourceProjects)
@@ -224,30 +284,48 @@ export type AssignmentQuerySelection = {
 };
 
 /**
- * Whether a saved assignment query selection changed. A missing identifier
- * means the query's legacy identifier, so a client sending that resolved value back is not
- * a change. `loadExposureQueries` only runs when the raw identifiers differ.
+ * Whether two selections analyze on the same thing. An unset identifier means
+ * the query's legacy one, so echoing that resolved value back is the same.
+ * Without the query, only identical raw identifiers count as the same.
  */
+export function isSameAssignmentQuerySelection(
+  previous: AssignmentQuerySelection,
+  next: AssignmentQuerySelection,
+  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
+): boolean {
+  if (
+    previous.datasource !== next.datasource ||
+    previous.exposureQueryId !== next.exposureQueryId
+  ) {
+    return false;
+  }
+  const previousType = previous.identifierType || undefined;
+  const nextType = next.identifierType || undefined;
+  if (previousType === nextType) return true;
+  const query = exposureQueries.find((q) => q.id === next.exposureQueryId);
+  return (
+    getAnalysisIdentifierType(query, previousType) ===
+    getAnalysisIdentifierType(query, nextType)
+  );
+}
+
+// `loadExposureQueries` only runs when the raw selections differ.
 export async function hasAssignmentQuerySelectionChanged(
   previous: AssignmentQuerySelection,
   next: AssignmentQuerySelection,
   loadExposureQueries: () => Promise<ExposureQuery[]>,
 ): Promise<boolean> {
+  if (isSameAssignmentQuerySelection(previous, next, [])) return false;
   if (
     previous.datasource !== next.datasource ||
     previous.exposureQueryId !== next.exposureQueryId
   ) {
     return true;
   }
-  const previousType = previous.identifierType || undefined;
-  const nextType = next.identifierType || undefined;
-  if (previousType === nextType) return false;
-  const query = (await loadExposureQueries()).find(
-    (q) => q.id === next.exposureQueryId,
-  );
-  return (
-    getAnalysisIdentifierType(query, previousType) !==
-    getAnalysisIdentifierType(query, nextType)
+  return !isSameAssignmentQuerySelection(
+    previous,
+    next,
+    await loadExposureQueries(),
   );
 }
 

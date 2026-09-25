@@ -9,7 +9,7 @@ import {
   AssignmentQuerySelection,
   assertAssignmentQueryRefIdentifierType,
   assertValidAssignmentQuerySelection,
-  hasAssignmentQuerySelectionChanged,
+  isSameAssignmentQuerySelection,
 } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -20,41 +20,59 @@ type AssignmentQueryScope = {
 };
 
 /**
- * Validates `next` only when it differs from `previous` (always when `previous`
- * is null), so a record whose query later drifted can still save unrelated
- * edits. A missing data source or query id is left for analysis to surface.
+ * The data source to validate `next` against when it differs from `previous`
+ * (always when `previous` is null), else null. Also null when there's no data
+ * source or query to check, which analysis surfaces instead. Reads the
+ * request's data source cache before bypassing read scope, so a selection the
+ * caller may edit is checked even when they can't read the data source.
  */
+export async function loadChangedAssignmentQuerySelection(
+  context: ReqContext | ApiReqContext,
+  previous: AssignmentQuerySelection | null,
+  next: AssignmentQuerySelection,
+): Promise<DataSourceInterface | null> {
+  if (!next.datasource || !next.exposureQueryId) return null;
+  if (previous && isSameAssignmentQuerySelection(previous, next, [])) {
+    return null;
+  }
+  const datasource =
+    context.foreignRefs.datasource.get(next.datasource) ??
+    (await context.dangerouslyGetDataSourceByIdBypassPermission(
+      next.datasource,
+    ));
+  if (!datasource) return null;
+  if (
+    previous &&
+    isSameAssignmentQuerySelection(
+      previous,
+      next,
+      datasource.settings.queries?.exposure ?? [],
+    )
+  ) {
+    return null;
+  }
+  return datasource;
+}
+
+// Only a changed selection is validated, so a record whose query later drifted
+// can still save unrelated edits.
 export async function assertValidAssignmentQuerySelectionChange(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
   getScope: () => AssignmentQueryScope | Promise<AssignmentQueryScope>,
 ): Promise<void> {
-  if (!next.datasource || !next.exposureQueryId) return;
-  let datasource: Promise<DataSourceInterface | null> | undefined;
-  const loadDatasource = () =>
-    (datasource ??= context.dangerouslyGetDataSourceByIdBypassPermission(
-      next.datasource,
-    ));
-  const loadExposureQueries = async () =>
-    (await loadDatasource())?.settings.queries?.exposure ?? [];
-  if (
-    previous &&
-    !(await hasAssignmentQuerySelectionChanged(
-      previous,
-      next,
-      loadExposureQueries,
-    ))
-  ) {
-    return;
-  }
-  const loaded = await loadDatasource();
-  if (!loaded) return;
+  const datasource = await loadChangedAssignmentQuerySelection(
+    context,
+    previous,
+    next,
+  );
+  if (!datasource) return;
   assertValidAssignmentQuerySelection({
-    exposureQueries: loaded.settings.queries?.exposure ?? [],
+    exposureQueries: datasource.settings.queries?.exposure ?? [],
     exposureQueryId: next.exposureQueryId,
     identifierType: next.identifierType,
-    datasourceProjects: loaded.projects,
+    datasourceProjects: datasource.projects,
     ...(await getScope()),
   });
 }

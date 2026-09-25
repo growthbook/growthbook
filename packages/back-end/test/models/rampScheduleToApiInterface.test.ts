@@ -211,6 +211,56 @@ describe("apiMonitoringConfigToInternal", () => {
       }),
     ).toThrow("monitoringConfig.exposureQuery is required");
   });
+
+  describe("re-sending the stored query without an identifier", () => {
+    const previous = {
+      datasourceId: "ds_1",
+      exposureQueryId: "eq_1",
+      exposureQueryIdentifierType: "user_id",
+    };
+
+    it("keeps the stored identifier instead of dropping it", () => {
+      expect(
+        apiMonitoringConfigToInternal(
+          { datasourceId: "ds_1", exposureQuery: { id: "eq_1" } },
+          previous,
+        ).exposureQueryIdentifierType,
+      ).toBe("user_id");
+      expect(
+        apiMonitoringConfigToInternal(
+          { datasourceId: "ds_1", exposureQueryId: "eq_1" },
+          previous,
+        ).exposureQueryIdentifierType,
+      ).toBe("user_id");
+    });
+
+    it("uses an identifier the request names", () => {
+      expect(
+        apiMonitoringConfigToInternal(
+          {
+            datasourceId: "ds_1",
+            exposureQuery: { id: "eq_1", identifierType: "anonymous_id" },
+          },
+          previous,
+        ).exposureQueryIdentifierType,
+      ).toBe("anonymous_id");
+    });
+
+    it("doesn't carry the identifier to a different query or data source", () => {
+      expect(
+        apiMonitoringConfigToInternal(
+          { datasourceId: "ds_1", exposureQuery: { id: "eq_2" } },
+          previous,
+        ).exposureQueryIdentifierType,
+      ).toBeUndefined();
+      expect(
+        apiMonitoringConfigToInternal(
+          { datasourceId: "ds_2", exposureQuery: { id: "eq_1" } },
+          previous,
+        ).exposureQueryIdentifierType,
+      ).toBeUndefined();
+    });
+  });
 });
 
 describe("monitoringConfigToApi", () => {
