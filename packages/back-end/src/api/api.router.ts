@@ -7,8 +7,6 @@ import * as Sentry from "@sentry/node";
 import { parseEnvInt } from "shared/util";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
-import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
-import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
@@ -27,6 +25,7 @@ import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
 import { contextualBanditsRoutes } from "./contextual-bandits/contextual-bandits.router";
+import { contextualBanditQueriesRoutes } from "./contextual-bandit-queries/contextual-bandit-queries.router";
 import { snapshotsRoutes } from "./snapshots/snapshots.router";
 import { metricsRoutes } from "./metrics/metrics.router";
 import { usageRoutes } from "./usage/usage.router";
@@ -64,8 +63,6 @@ import { getOpenApiRoutesForApiConfig } from "./ApiModel";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
-  ContextualBanditModel,
-  ContextualBanditQueryModel,
   CustomFieldModel,
   MetricGroupModel,
   TeamModel,
@@ -166,6 +163,7 @@ export const allRoutes = [
   ...archetypesRoutes,
   ...experimentsRoutes,
   ...contextualBanditsRoutes,
+  ...contextualBanditQueriesRoutes,
   ...snapshotsRoutes,
   ...metricsRoutes,
   ...usageRoutes,

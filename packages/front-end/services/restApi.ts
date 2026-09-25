@@ -50,13 +50,16 @@ function getRestApiUrl(
     ? Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
     : {};
 
-  let url = `/api/v1${spec.path.replace(/:(\w+)/g, (_, p) => {
-    const value = paramsObj[p];
-    if (value === undefined || value === "") {
-      throw new Error(`Missing required path parameter: ${p}`);
-    }
-    return encodeURIComponent(value);
-  })}`;
+  let url = `/api/${spec.version ?? "v1"}${spec.path.replace(
+    /:(\w+)/g,
+    (_, p) => {
+      const value = paramsObj[p];
+      if (value === undefined || value === "") {
+        throw new Error(`Missing required path parameter: ${p}`);
+      }
+      return encodeURIComponent(value);
+    },
+  )}`;
 
   if (query && Object.keys(query).length > 0) {
     const qs = new URLSearchParams();
@@ -76,9 +79,10 @@ function getRestApiUrl(
 }
 
 /**
- * Typed helper for calling the public REST API (`/api/v1/*`) from the
- * front-end. Pass a validator from `shared/validators` plus params/body/query;
- * the response type is inferred from the validator's `responseSchema`.
+ * Typed helper for calling the public REST API (`/api/v1/*`, `/api/v2/*`) from
+ * the front-end. Pass an endpoint from `shared/api-endpoints` or
+ * `shared/validators` plus params/body/query; the response type is inferred
+ * from the endpoint's `responseSchema`.
  *
  * Uses `fetchRaw` from `useAuth` so requests inherit the JWT, `X-Organization`
  * header, and silent-refresh behavior.
@@ -155,7 +159,7 @@ export function useRestApiCall() {
 
 /**
  * SWR wrapper around `useRestApiCall` for GET endpoints: the read counterpart
- * of `useApi` for `/api/v1/*`. Pass `null` as `args` to skip fetching.
+ * of `useApi` for the public REST API. Pass `null` as `args` to skip fetching.
  */
 export function useRestApi<
   T extends AnyEndpointSpec & { method: "get" },

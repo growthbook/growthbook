@@ -2,12 +2,9 @@ import { z } from "zod";
 import isEqual from "lodash/isEqual";
 import { v4 as uuidv4 } from "uuid";
 import {
-  apiContextualBanditCancelReturn,
-  apiContextualBanditLifecycleReturn,
-  apiContextualBanditRefreshReturn,
-  apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
+  apiListContextualBanditsValidator,
   ApiContextualBanditInterface,
   assertContextualAttributesValid,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
@@ -27,27 +24,8 @@ import type { FeatureInterface } from "shared/types/feature";
 import { isFactMetricId } from "shared/experiments";
 import { NotFoundError } from "back-end/src/util/errors";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
-import {
-  cancelContextualBanditEndpoint,
-  contextualBanditApiSpec,
-  refreshContextualBanditEndpoint,
-  startContextualBanditEndpoint,
-  stopContextualBanditEndpoint,
-  updateVariationsContextualBanditEndpoint,
-} from "back-end/src/api/specs/contextual-bandit.spec";
-import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
-import {
-  executeContextualBanditStart,
-  executeContextualBanditStop,
-  refreshLinkedFeaturePayloads,
-} from "back-end/src/services/contextualBanditChanges";
-import {
-  activatePendingContextualBanditVariations,
-  executeContextualBanditVariationChange,
-  cancelContextualBanditLatestRunningSnapshot,
-  getContextualBanditLinkedFeatureInfo,
-  runContextualBanditSnapshot,
-} from "back-end/src/enterprise/services/contextualBandits";
+import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
+import { activatePendingContextualBanditVariations } from "back-end/src/enterprise/services/contextualBandits";
 import {
   CasConflictError,
   MakeModelClass,
@@ -81,147 +59,6 @@ const BaseClass = MakeModelClass({
     createEvent: "contextualBandit.create",
     updateEvent: "contextualBandit.update",
     deleteEvent: "contextualBandit.delete",
-  },
-  apiConfig: {
-    modelKey: "contextualBandits",
-    openApiSpec: contextualBanditApiSpec,
-    customHandlers: [
-      defineCustomApiHandler({
-        ...startContextualBanditEndpoint,
-        reqHandler: async (
-          req,
-        ): Promise<z.infer<typeof apiContextualBanditLifecycleReturn>> => {
-          const cb = await req.context.models.contextualBandits.getById(
-            req.params.id,
-          );
-          if (!cb) {
-            return req.context.throwNotFoundError(
-              `Contextual Bandit ${req.params.id} not found or not accessible`,
-            );
-          }
-          const envs =
-            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
-          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
-            req.context.permissions.throwPermissionError();
-          }
-          const linkedFeatures = await getContextualBanditLinkedFeatureInfo(
-            req.context,
-            cb,
-          );
-          if (linkedFeatures.length === 0) {
-            throw new Error(
-              "Link at least one Feature Flag before starting this contextual bandit",
-            );
-          }
-          const { updated } = await executeContextualBanditStart(
-            req.context,
-            cb,
-          );
-          return { contextualBandit: toApiContextualBandit(updated) };
-        },
-      }),
-      defineCustomApiHandler({
-        ...stopContextualBanditEndpoint,
-        reqHandler: async (
-          req,
-        ): Promise<z.infer<typeof apiContextualBanditLifecycleReturn>> => {
-          const cb = await req.context.models.contextualBandits.getById(
-            req.params.id,
-          );
-          if (!cb) {
-            return req.context.throwNotFoundError(
-              `Contextual Bandit ${req.params.id} not found or not accessible`,
-            );
-          }
-          const envs =
-            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
-          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
-            req.context.permissions.throwPermissionError();
-          }
-          const { updated } = await executeContextualBanditStop(
-            req.context,
-            cb,
-            { allowAlreadyStopped: true },
-          );
-          return { contextualBandit: toApiContextualBandit(updated) };
-        },
-      }),
-      defineCustomApiHandler({
-        ...refreshContextualBanditEndpoint,
-        reqHandler: async (
-          req,
-        ): Promise<z.infer<typeof apiContextualBanditRefreshReturn>> => {
-          const cb = await req.context.models.contextualBandits.getById(
-            req.params.id,
-          );
-          if (!cb) {
-            return req.context.throwNotFoundError(
-              `Contextual Bandit ${req.params.id} not found or not accessible`,
-            );
-          }
-          const envs =
-            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
-          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
-            req.context.permissions.throwPermissionError();
-          }
-          return runContextualBanditSnapshot(req.context, cb, {
-            triggeredBy: "manual",
-          });
-        },
-      }),
-      defineCustomApiHandler({
-        ...updateVariationsContextualBanditEndpoint,
-        reqHandler: async (
-          req,
-        ): Promise<z.infer<typeof apiContextualBanditVariationsReturn>> => {
-          const cb = await req.context.models.contextualBandits.getById(
-            req.params.id,
-          );
-          if (!cb) {
-            return req.context.throwNotFoundError(
-              `Contextual Bandit ${req.params.id} not found or not accessible`,
-            );
-          }
-          if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
-            req.context.permissions.throwPermissionError();
-          }
-          const { updated, featureDraftPublishFailures } =
-            await executeContextualBanditVariationChange(req.context, cb, {
-              addVariations: req.body.addVariations,
-              removeVariationIds: req.body.removeVariationIds,
-              updateVariations: req.body.updateVariations,
-            });
-          return {
-            contextualBandit: toApiContextualBandit(updated),
-            ...(featureDraftPublishFailures.length > 0
-              ? { featureDraftPublishFailures }
-              : {}),
-          };
-        },
-      }),
-      defineCustomApiHandler({
-        ...cancelContextualBanditEndpoint,
-        reqHandler: async (
-          req,
-        ): Promise<z.infer<typeof apiContextualBanditCancelReturn>> => {
-          const cb = await req.context.models.contextualBandits.getById(
-            req.params.id,
-          );
-          if (!cb) {
-            return req.context.throwNotFoundError(
-              `Contextual Bandit ${req.params.id} not found or not accessible`,
-            );
-          }
-          const envs =
-            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
-          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
-            req.context.permissions.throwPermissionError();
-          }
-          await cancelContextualBanditLatestRunningSnapshot(req.context, cb);
-          return { status: 200 };
-        },
-      }),
-    ],
   },
 });
 
@@ -349,10 +186,13 @@ export class ContextualBanditModel extends BaseClass {
     }
   }
 
-  public override async handleApiList(
-    req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
-  ): Promise<ApiContextualBanditInterface[]> {
-    const { projectId, datasourceId, trackingKey } = req.query;
+  public async listForApi({
+    projectId,
+    datasourceId,
+    trackingKey,
+  }: z.infer<typeof apiListContextualBanditsValidator.querySchema>): Promise<
+    ApiContextualBanditInterface[]
+  > {
     const filter: Record<string, string> = {};
     if (projectId) filter.project = projectId;
     if (datasourceId) filter.datasource = datasourceId;
@@ -366,7 +206,7 @@ export class ContextualBanditModel extends BaseClass {
     );
   }
 
-  protected async processApiCreateBody(rawBody: unknown) {
+  public async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateContextualBanditBody.parse(rawBody);
     const orgSettings = this.context.org.settings;
 
@@ -399,7 +239,7 @@ export class ContextualBanditModel extends BaseClass {
     };
   }
 
-  protected async processApiUpdateBody(rawBody: unknown) {
+  public async processApiUpdateBody(rawBody: unknown) {
     const body = apiUpdateContextualBanditBody.parse(rawBody);
     const out: Partial<ContextualBanditInterface> = {};
     for (const field of CONTEXTUAL_BANDIT_API_UPDATE_FIELDS) {

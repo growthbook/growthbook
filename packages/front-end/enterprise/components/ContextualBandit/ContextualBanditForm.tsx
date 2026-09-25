@@ -1,5 +1,6 @@
 import React, { FC, useState, useCallback } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -7,7 +8,6 @@ import {
   Variation,
 } from "shared/types/experiment";
 import {
-  ApiContextualBanditInterface,
   ApiCreateContextualBanditBody,
   getEligibleContextualAttributes,
 } from "shared/validators";
@@ -24,7 +24,7 @@ import { kebabCase } from "lodash";
 import { Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import { useWatching } from "@/services/WatchProvider";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -261,7 +261,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     screenshots: v.screenshots,
   }));
 
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const value = { ...rawValue, name: rawValue.name?.trim() };
@@ -380,15 +380,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     }
 
     if (!allowDuplicateTrackingKey && data.trackingKey) {
-      const existing = await apiCall<{
-        contextualBandits: ApiContextualBanditInterface[];
-      }>(
-        `/api/v1/contextual-bandits?trackingKey=${encodeURIComponent(
-          data.trackingKey,
-        )}`,
-        { method: "GET" },
+      const existing = await restApiCall(
+        contextualBanditEndpoints.listContextualBandits,
+        { query: { trackingKey: data.trackingKey } },
       );
-      if ((existing.contextualBandits?.length ?? 0) > 0) {
+      if (existing.contextualBandits.length > 0) {
         setAllowDuplicateTrackingKey(true);
         throw new Error(
           "Warning: A Contextual Bandit with that tracking key already exists. To continue anyway, click 'Save' again.",
@@ -449,12 +445,10 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       contextualAttributes: submitContextualAttributes,
     };
 
-    const res = await apiCall<{
-      contextualBandit: ApiContextualBanditInterface;
-    }>("/api/v1/contextual-bandits", {
-      method: "POST",
-      body: JSON.stringify(createBody),
-    });
+    const res = await restApiCall(
+      contextualBanditEndpoints.createContextualBandit,
+      { body: createBody },
+    );
 
     track("Create Contextual Bandit", {
       source,

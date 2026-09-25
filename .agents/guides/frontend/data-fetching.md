@@ -284,6 +284,30 @@ function MyComponent() {
 }
 ```
 
+## Public REST API (`/api/v1/*`, `/api/v2/*`)
+
+`useApi()` and `apiCall()` are for the internal API only. Requests to the public REST API need different handling (headers, URL versioning), so never pass an `/api/v1/...` or `/api/v2/...` path to them. Use `useRestApi()` for reads and `useRestApiCall()` for writes, from `@/services/restApi`, with an endpoint object from `shared/api-endpoints` or `shared/validators`. The endpoint supplies the path, version, and the params, body, query, and response types.
+
+```typescript
+import { contextualBanditEndpoints } from "shared/api-endpoints";
+import { useRestApi, useRestApiCall } from "@/services/restApi";
+
+// Read: SWR-backed; pass null to skip fetching
+const { data, mutate } = useRestApi(
+  contextualBanditEndpoints.getContextualBandit,
+  cbId ? { params: { id: cbId } } : null,
+);
+
+// Write
+const restApiCall = useRestApiCall();
+await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+  params: { id: cb.id },
+  body: { description },
+});
+```
+
+Deleting an endpoint from `shared/api-endpoints` breaks every caller at compile time, so search by the endpoint name (its operationId) to find the definition, the back-end handler, and each front-end caller.
+
 ## Organization Context
 
 All API requests automatically include:
@@ -300,5 +324,7 @@ This means switching organizations automatically invalidates all cached data.
 | ------------------ | ------------------------------------------ | ------------------------------- |
 | `useApi()`         | SWR-based data fetching                    | `@/hooks/useApi`                |
 | `useAuth()`        | Access `apiCall()` for mutations           | `@/services/auth`               |
+| `useRestApi()`     | SWR fetch for a public REST API endpoint   | `@/services/restApi`            |
+| `useRestApiCall()` | Public REST API mutations                  | `@/services/restApi`            |
 | `useDefinitions()` | Global definitions + `mutateDefinitions()` | `@/services/DefinitionsContext` |
 | `useUser()`        | User context with `refreshOrganization()`  | `@/services/UserContext`        |

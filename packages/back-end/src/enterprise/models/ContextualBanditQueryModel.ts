@@ -6,8 +6,6 @@ import {
 } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { resolveOwnerEmails } from "back-end/src/services/owner";
-import { contextualBanditQueryApiSpec } from "back-end/src/api/specs/contextual-bandit-query.spec";
 
 const BaseClass = MakeModelClass({
   schema: contextualBanditQueryValidator,
@@ -25,10 +23,6 @@ const BaseClass = MakeModelClass({
       },
     },
   ],
-  apiConfig: {
-    modelKey: "contextualBanditQueries",
-    openApiSpec: contextualBanditQueryApiSpec,
-  },
 });
 
 export class ContextualBanditQueryModel extends BaseClass {
@@ -108,41 +102,27 @@ export class ContextualBanditQueryModel extends BaseClass {
     );
   }
 
-  protected toApiInterface(
-    doc: ContextualBanditQueryInterface,
-  ): ApiContextualBanditQueryInterface {
-    return {
-      id: doc.id,
-      dateCreated: doc.dateCreated.toISOString(),
-      dateUpdated: doc.dateUpdated.toISOString(),
-      owner: doc.owner,
-      datasourceId: doc.datasourceId,
-      name: doc.name,
-      description: doc.description,
-      userIdType: doc.userIdType,
-      query: doc.query,
-      targetingAttributeColumns: doc.targetingAttributeColumns,
-    };
-  }
-
-  /** List, optionally scoped to one datasource (used by the CB create form's query picker). */
-  public override async handleApiList(
-    req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
-  ): Promise<ApiContextualBanditQueryInterface[]> {
-    const { datasourceId } = req.query;
-    const docs = datasourceId
-      ? await this.getByDatasource(datasourceId)
-      : await this.getAll();
-    return resolveOwnerEmails(
-      docs.map((doc) => this.toApiInterface(doc)),
-      this.context,
-    );
-  }
-
   /** All CB queries for a datasource. */
   public getByDatasource(
     datasourceId: string,
   ): Promise<ContextualBanditQueryInterface[]> {
     return this._find({ datasourceId });
   }
+}
+
+export function toApiContextualBanditQuery(
+  doc: ContextualBanditQueryInterface,
+): ApiContextualBanditQueryInterface {
+  return {
+    id: doc.id,
+    dateCreated: doc.dateCreated.toISOString(),
+    dateUpdated: doc.dateUpdated.toISOString(),
+    owner: doc.owner,
+    datasourceId: doc.datasourceId,
+    name: doc.name,
+    description: doc.description,
+    userIdType: doc.userIdType,
+    query: doc.query,
+    targetingAttributeColumns: doc.targetingAttributeColumns,
+  };
 }
