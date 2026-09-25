@@ -611,7 +611,16 @@ export default function FeatureDiagnostics({
     LOOKBACK_PRESETS.find((p) => p.id === lookback)?.label.toLowerCase() ??
     "the selected window";
 
+  /**
+   * Latest-wins guard. A time-frame change re-runs the query while an earlier
+   * run may still be in flight; only the newest response is allowed to land,
+   * or a slow 7-day response could overwrite a fast 15-minute one under a
+   * control that says "Last 15 minutes".
+   */
+  const queryRunRef = useRef(0);
+
   const onRunFeatureUsageQuery = async () => {
+    const run = ++queryRunRef.current;
     setLoading(true);
     setError(null);
     setErrorSql(null);
@@ -623,6 +632,10 @@ export default function FeatureDiagnostics({
           body: JSON.stringify({
             feature: feature.id,
             datasourceId: form.watch("datasourceId"),
+            // The window the control bar shows. Without it the endpoint falls
+            // back to its historical 7 days, so the stream described a
+            // different period from the one on screen.
+            lookback,
           }),
         },
         (responseData) => {
@@ -631,6 +644,7 @@ export default function FeatureDiagnostics({
           }
         },
       );
+      if (run !== queryRunRef.current) return;
       setUpdatedAt(new Date());
       if (results.rows) {
         const rowsWithId = results.rows.map((row, index) => ({
@@ -642,11 +656,27 @@ export default function FeatureDiagnostics({
         setResults([]);
       }
     } catch (e) {
+      if (run !== queryRunRef.current) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoading(false);
+      if (run === queryRunRef.current) setLoading(false);
     }
   };
+
+  /**
+   * Rows on screen always describe the window the control shows. Once a query
+   * has run, a time-frame change re-runs it; before the first run there is
+   * nothing on screen to contradict the control, so nothing is spent.
+   */
+  const runQueryRef = useRef(onRunFeatureUsageQuery);
+  runQueryRef.current = onRunFeatureUsageQuery;
+  const lastQueriedLookback = useRef(lookback);
+  useEffect(() => {
+    if (lastQueriedLookback.current === lookback) return;
+    lastQueriedLookback.current = lookback;
+    if (results === null || useDummyData) return;
+    runQueryRef.current();
+  }, [lookback, results, useDummyData]);
 
   // Empty State: Prompt user to set up a data source to view diagnostics for this feature
   // Skipped under ?dummy=true, which is the case with no datasource at all.
