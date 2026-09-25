@@ -364,7 +364,7 @@ tags:
     description: Retrieve queries used in experiments to calculate results.
   - name: settings
     x-displayName: Settings
-    description: Get the organization settings.
+    description: Read and update the organization settings.
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
