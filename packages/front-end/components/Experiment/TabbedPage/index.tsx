@@ -740,6 +740,7 @@ export default function TabbedPage({
               variationFilter: [],
             });
           }}
+          isTabActive={tab === "health"}
         />
       </div>
 

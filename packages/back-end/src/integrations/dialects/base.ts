@@ -149,6 +149,9 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
     additionalClauses: string = "",
   ) => `SELECT * FROM ${from} ${additionalClauses} LIMIT ${limit}`,
 
+  paginate: (limit: number, offset: number) =>
+    `LIMIT ${limit} OFFSET ${offset}`,
+
   defaultSchema: "",
 
   formatDialect: "",

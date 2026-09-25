@@ -1,6 +1,14 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotTraffic,
+} from "shared/types/experiment-snapshot";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "shared/types/datasource";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
@@ -11,6 +19,7 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
+import ExposureLogsCard from "@/components/HealthTab/ExposureLogsCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -33,6 +42,7 @@ export interface Props {
   onHealthNotify: () => void;
   onSnapshotUpdate: () => void;
   resetResultsSettings: () => void;
+  isTabActive: boolean;
 }
 
 export default function HealthTab({
@@ -40,6 +50,7 @@ export default function HealthTab({
   onHealthNotify,
   onSnapshotUpdate,
   resetResultsSettings,
+  isTabActive,
 }: Props) {
   const {
     error,
@@ -121,156 +132,230 @@ export default function HealthTab({
     [onHealthNotify],
   );
 
-  // If org has the health tab turned to off and has no data, prompt set up if the
-  // datasource and exposure query are present
-  if (
-    !isBandit &&
-    !runHealthTrafficQuery &&
-    !snapshot?.health?.traffic.dimension?.dim_exposure_date
-  ) {
-    // If for some reason the datasource and exposure query are missing, then we should
-    // not show the onboarding flow as there are other problems with this experiment
-    if (!datasource || !exposureQuery) {
-      return (
-        <Callout status="info" mt="3">
-          {noExposureQueryMessage}
-        </Callout>
-      );
-    }
-    return (
-      <Callout status="info" mt="3">
-        <Flex gap="4">
-          {runHealthTrafficQuery === undefined
-            ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
-            : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
-          {hasPermissionToConfigHealthTag ? (
-            <>
-              click the button on the right.
-              <Button
-                color="inherit"
-                ml="2"
-                style={{ width: "200px" }}
-                onClick={async () => {
-                  track("Health Tab Onboarding Opened", {
-                    source: "health-tab",
-                  });
-                  setSetupModalOpen(true);
-                }}
-              >
-                Set up Health Tab
-              </Button>
-              {setupModalOpen ? (
-                <HealthTabOnboardingModal
-                  open={setupModalOpen}
-                  close={() => setSetupModalOpen(false)}
-                  dataSource={datasource}
-                  exposureQuery={exposureQuery}
-                  healthTabOnboardingPurpose={"setup"}
-                  healthTabConfigParams={healthTabConfigParams}
-                />
-              ) : null}
-            </>
-          ) : (
-            "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
-          )}
-        </Flex>
-      </Callout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Callout status="error" mt="3">
-        {error.message}
-      </Callout>
-    );
-  }
-
-  if (snapshot?.health?.traffic.error === "TOO_MANY_ROWS") {
-    return (
-      <Callout status="error" mt="3">
-        <div className="mb-2">
-          Please update your{" "}
-          <Link href={`/datasources/${experiment.datasource}`}>
-            Datasource Settings
-          </Link>{" "}
-          to return fewer dimension slices per dimension or select fewer
-          dimensions to use in traffic breakdowns.
-        </div>
-
-        <div>
-          For more advice, see the documentation on the Health Tab{" "}
-          <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
-            here
-          </a>
-          .
-        </div>
-      </Callout>
-    );
-  }
-
-  if (snapshot?.health?.traffic.error === "NO_ROWS_IN_UNIT_QUERY") {
-    return (
-      <Callout status="info" mt="3">
-        No data found. It is likely there are no units in your experiment yet.
-      </Callout>
-    );
-  }
-
-  if (snapshot?.health?.traffic.error) {
-    return (
-      <Callout status="info" mt="3">
-        There was an error running the query for health tab:{" "}
-        {snapshot?.health?.traffic.error}.
-      </Callout>
-    );
-  }
-
-  if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
-    if (loading) {
-      return (
-        <Callout status="info" mt="3" icon={<LoadingSpinner />}>
-          Snapshot refreshing, health data loading...
-        </Callout>
-      );
-    }
-    if (!datasource || !exposureQuery) {
-      return (
-        <Callout status="info" mt="3">
-          {noExposureQueryMessage} Then, next time you update results, the
-          health tab will be available.
-        </Callout>
-      );
-    }
-    if (isBandit) {
-      if (experiment.status === "draft") {
+  // Returns the banner to render instead of the snapshot-derived cards, or
+  // null when the snapshot is healthy. The exposure logs card below renders
+  // either way: it queries the warehouse directly and needs no snapshot.
+  function getSnapshotBlocker(): ReactNode | null {
+    // If org has the health tab turned to off and has no data, prompt set up if the
+    // datasource and exposure query are present
+    if (
+      !isBandit &&
+      !runHealthTrafficQuery &&
+      !snapshot?.health?.traffic.dimension?.dim_exposure_date
+    ) {
+      // If for some reason the datasource and exposure query are missing, then we should
+      // not show the onboarding flow as there are other problems with this experiment
+      if (!datasource || !exposureQuery) {
         return (
           <Callout status="info" mt="3">
-            Start the Bandit to see health data.
-          </Callout>
-        );
-      } else {
-        return (
-          <Callout status="info" mt="3">
-            No updates yet. Traffic and health results will appear after a
-            successful refresh of the results.
+            {noExposureQueryMessage}
           </Callout>
         );
       }
+      return (
+        <Callout status="info" mt="3">
+          <Flex gap="4">
+            {runHealthTrafficQuery === undefined
+              ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
+              : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
+            {hasPermissionToConfigHealthTag ? (
+              <>
+                click the button on the right.
+                <Button
+                  color="inherit"
+                  ml="2"
+                  style={{ width: "200px" }}
+                  onClick={async () => {
+                    track("Health Tab Onboarding Opened", {
+                      source: "health-tab",
+                    });
+                    setSetupModalOpen(true);
+                  }}
+                >
+                  Set up Health Tab
+                </Button>
+                {setupModalOpen ? (
+                  <HealthTabOnboardingModal
+                    open={setupModalOpen}
+                    close={() => setSetupModalOpen(false)}
+                    dataSource={datasource}
+                    exposureQuery={exposureQuery}
+                    healthTabOnboardingPurpose={"setup"}
+                    healthTabConfigParams={healthTabConfigParams}
+                  />
+                ) : null}
+              </>
+            ) : (
+              "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
+            )}
+          </Flex>
+        </Callout>
+      );
     }
-    return (
-      <Callout status="info" mt="3">
-        Please return to the results page and run a query to see health data.
-      </Callout>
-    );
+
+    if (error) {
+      return (
+        <Callout status="error" mt="3">
+          {error.message}
+        </Callout>
+      );
+    }
+
+    if (snapshot?.health?.traffic.error === "TOO_MANY_ROWS") {
+      return (
+        <Callout status="error" mt="3">
+          <div className="mb-2">
+            Please update your{" "}
+            <Link href={`/datasources/${experiment.datasource}`}>
+              Datasource Settings
+            </Link>{" "}
+            to return fewer dimension slices per dimension or select fewer
+            dimensions to use in traffic breakdowns.
+          </div>
+
+          <div>
+            For more advice, see the documentation on the Health Tab{" "}
+            <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
+              here
+            </a>
+            .
+          </div>
+        </Callout>
+      );
+    }
+
+    if (snapshot?.health?.traffic.error === "NO_ROWS_IN_UNIT_QUERY") {
+      return (
+        <Callout status="info" mt="3">
+          No data found. It is likely there are no units in your experiment yet.
+        </Callout>
+      );
+    }
+
+    if (snapshot?.health?.traffic.error) {
+      return (
+        <Callout status="info" mt="3">
+          There was an error running the query for health tab:{" "}
+          {snapshot?.health?.traffic.error}.
+        </Callout>
+      );
+    }
+
+    if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
+      if (loading) {
+        return (
+          <Callout status="info" mt="3" icon={<LoadingSpinner />}>
+            Snapshot refreshing, health data loading...
+          </Callout>
+        );
+      }
+      if (!datasource || !exposureQuery) {
+        return (
+          <Callout status="info" mt="3">
+            {noExposureQueryMessage} Then, next time you update results, the
+            health tab will be available.
+          </Callout>
+        );
+      }
+      if (isBandit) {
+        if (experiment.status === "draft") {
+          return (
+            <Callout status="info" mt="3">
+              Start the Bandit to see health data.
+            </Callout>
+          );
+        } else {
+          return (
+            <Callout status="info" mt="3">
+              No updates yet. Traffic and health results will appear after a
+              successful refresh of the results.
+            </Callout>
+          );
+        }
+      }
+      return (
+        <Callout status="info" mt="3">
+          Please return to the results page and run a query to see health data.
+        </Callout>
+      );
+    }
+    return null;
   }
 
-  const totalUsers = snapshot?.health?.traffic?.overall?.variationUnits?.reduce(
-    (acc, a) => acc + a,
-    0,
+  const blocker = getSnapshotBlocker();
+  const traffic = snapshot?.health?.traffic;
+
+  // Slotted directly under the traffic graph when the snapshot cards render,
+  // and on its own otherwise — it queries the warehouse and needs no snapshot.
+  const exposureLogs = (
+    <ExposureLogsCard experiment={experiment} isTabActive={isTabActive} />
   );
 
-  const traffic = snapshot.health.traffic;
+  // No wrapper margin here: the cards bring their own mt-2 and the callouts
+  // set mt="3", so a wrapper would stack a second gap on top.
+  return (
+    <>
+      {blocker}
+      {!blocker && snapshot && traffic?.dimension?.dim_exposure_date ? (
+        <HealthSnapshotCards
+          experiment={experiment}
+          snapshot={snapshot}
+          traffic={traffic}
+          phase={phase}
+          datasource={datasource ?? null}
+          exposureQuery={exposureQuery}
+          healthIssues={healthIssues}
+          handleHealthNotification={handleHealthNotification}
+          healthTabConfigParams={healthTabConfigParams}
+          hasPermissionToConfigHealthTag={hasPermissionToConfigHealthTag}
+          isBandit={isBandit}
+          isHoldout={isHoldout}
+          showMultipleExposures={showMultipleExposures}
+          decisionFrameworkEnabled={decisionFrameworkEnabled}
+          exposureLogs={exposureLogs}
+        />
+      ) : (
+        exposureLogs
+      )}
+    </>
+  );
+}
+
+function HealthSnapshotCards({
+  experiment,
+  snapshot,
+  traffic,
+  phase,
+  datasource,
+  exposureQuery,
+  healthIssues,
+  handleHealthNotification,
+  healthTabConfigParams,
+  hasPermissionToConfigHealthTag,
+  isBandit,
+  isHoldout,
+  showMultipleExposures,
+  decisionFrameworkEnabled,
+  exposureLogs,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  snapshot: ExperimentSnapshotInterface;
+  traffic: ExperimentSnapshotTraffic;
+  phase: number;
+  datasource: DataSourceInterfaceWithParams | null;
+  exposureQuery?: ExposureQuery;
+  healthIssues: IssueValue[];
+  handleHealthNotification: (issue: IssueValue) => void;
+  healthTabConfigParams: HealthTabConfigParams;
+  hasPermissionToConfigHealthTag: boolean;
+  isBandit: boolean;
+  isHoldout: boolean;
+  showMultipleExposures: boolean;
+  decisionFrameworkEnabled?: boolean;
+  exposureLogs: ReactNode;
+}) {
+  const totalUsers =
+    traffic.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -291,6 +376,7 @@ export default function HealthTab({
         variations={variations}
         isBandit={isBandit}
       />
+      {exposureLogs}
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
           <SRMCard

@@ -22,6 +22,7 @@ import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
 import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
 import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
 import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
+import { prestoDialect } from "back-end/src/integrations/dialects/presto";
 import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
 import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
 import { adobeExperiencePlatformQueryServiceDialect } from "back-end/src/integrations/dialects/adobeExperiencePlatformQueryService";
@@ -32,6 +33,7 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
+import { getExperimentExposuresQuery } from "back-end/src/integrations/sql/queries/experiment-exposures-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
 
@@ -1917,6 +1919,114 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
     // compileSqlTemplate fills these with ISO-8601 timestamps
     expect(sql).toMatch(
       /BETWEEN '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' AND '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z'/,
+    );
+  });
+});
+
+describe("getExperimentExposuresQuery", () => {
+  const params = {
+    experimentId: "exp_123",
+    experimentTrackingKey: "my-experiment",
+    exposureQuerySql:
+      "SELECT ts AS timestamp, uid AS user_id, vid AS variation_id, eid AS experiment_id FROM t WHERE eid = '{{experimentId}}' AND ts BETWEEN '{{startDateISO}}' AND '{{endDateISO}}'",
+    userIdType: "user_id",
+    startDate: new Date("2025-03-01T00:00:00.000Z"),
+    endDate: new Date("2025-03-08T00:00:00.000Z"),
+    dimensions: ["country"],
+    limit: 100,
+    offset: 0,
+  };
+
+  it("substitutes every template variable, including experimentId", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, params);
+
+    expect(sql).not.toContain("{{experimentId}}");
+    expect(sql).not.toContain("{{startDateISO}}");
+    expect(sql).not.toContain("{{endDateISO}}");
+    // A missing experimentId falls back to "%", which would scan every
+    // experiment in the customer's warehouse.
+    expect(sql).not.toContain("= '%'");
+    expect(sql).toContain("my-experiment");
+  });
+
+  it("selects every column so extra fields reach the expandable row", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, params);
+    expect(sql).toMatch(/SELECT\s+\*/);
+  });
+
+  it("fetches one extra row to detect a next page", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, params);
+    expect(sql).toMatch(/LIMIT\s+101/);
+  });
+
+  it("uses deterministic tie-breakers for pagination", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, params);
+    expect(sql).toMatch(
+      /ORDER BY\s+timestamp DESC,\s+user_id DESC,\s+variation_id DESC,\s+country DESC/,
+    );
+  });
+
+  it("clamps limit and offset", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      limit: 5000,
+      offset: -10,
+    });
+    expect(sql).toMatch(/LIMIT\s+101/);
+    expect(sql).toMatch(/OFFSET\s+0/);
+  });
+
+  it("escapes quotes in the tracking key and filter values", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      experimentTrackingKey: "it's-mine",
+      userId: "o'brien",
+    });
+    expect(sql).not.toMatch(/experiment_id = 'it's-mine'/);
+    expect(sql).toContain("o\\'brien");
+  });
+
+  it("applies a declared dimension filter", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      dimensionFilters: { country: "US" },
+    });
+    expect(sql).toContain("country = 'US'");
+  });
+
+  it("rejects dimension names that are not identifier-shaped", () => {
+    // Silently dropping the filter would render unfiltered rows as filtered.
+    expect(() =>
+      getExperimentExposuresQuery(bigQueryDialect, {
+        ...params,
+        dimensions: ["bad name"],
+        dimensionFilters: { "bad name": "x" },
+      }),
+    ).toThrow(/not a supported column name/);
+  });
+
+  it("rejects a dimension filter for an undeclared dimension", () => {
+    expect(() =>
+      getExperimentExposuresQuery(bigQueryDialect, {
+        ...params,
+        dimensionFilters: { evil: "x" },
+      }),
+    ).toThrow(/not available on this exposure query/);
+  });
+
+  it("uses dialect-specific pagination", () => {
+    expect(getExperimentExposuresQuery(bigQueryDialect, params)).toMatch(
+      /LIMIT\s+101\s+OFFSET\s+0/,
+    );
+    // SQL Server has no LIMIT keyword.
+    const mssql = getExperimentExposuresQuery(mssqlDialect, params);
+    expect(mssql).not.toMatch(/\bLIMIT\b/);
+    expect(mssql).toMatch(
+      /OFFSET\s+0\s+ROWS\s+FETCH\s+NEXT\s+101\s+ROWS\s+ONLY/,
+    );
+    // Trino puts OFFSET before LIMIT.
+    expect(getExperimentExposuresQuery(prestoDialect, params)).toMatch(
+      /OFFSET\s+0\s+LIMIT\s+101/,
     );
   });
 });
