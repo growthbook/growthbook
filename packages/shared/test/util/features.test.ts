@@ -3335,6 +3335,15 @@ describe("ruleFootprint", () => {
     expect(ruleFootprint(rule, applicable)).toEqual([]);
   });
 
+  it("a stored null list applies nowhere rather than throwing", () => {
+    const rule = {
+      ...baseRule,
+      allEnvironments: false,
+      environments: null,
+    } as unknown as FeatureRule;
+    expect(ruleFootprint(rule, applicable)).toEqual([]);
+  });
+
   it("permissive fallback: neither field declared expands to applicable envs", () => {
     const rule: FeatureRule = {
       ...baseRule,

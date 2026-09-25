@@ -189,6 +189,7 @@ import {
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
+import { getPastExperimentsModelByDatasource } from "back-end/src/models/PastExperimentsModel";
 import {
   APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -235,6 +236,7 @@ import {
   BadRequestError,
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  InvalidTrackingKeyError,
 } from "back-end/src/util/errors";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
@@ -2598,9 +2600,40 @@ export function assertValidBucketVersions(
   }
 }
 
+export async function assertExperimentKeyFormat(
+  context: ReqContext | ApiReqContext,
+  trackingKey: string | undefined,
+  datasourceId: string | undefined,
+) {
+  const { experimentKeyRegexValidator: pattern, experimentKeyExample } =
+    context.org.settings ?? {};
+  if (!pattern) return;
+  const example = experimentKeyExample ?? "";
+  if (!trackingKey) {
+    throw new InvalidTrackingKeyError(
+      "Your organization requires an experiment tracking key to be entered.",
+      pattern,
+      example,
+    );
+  }
+  if (new RegExp(pattern).test(trackingKey)) return;
+  // Keys discovered in the Data Source can't be renamed, so they're exempt
+  const pastExperiments = datasourceId
+    ? await getPastExperimentsModelByDatasource(context.org.id, datasourceId)
+    : null;
+  if (pastExperiments?.experiments?.some((e) => e.trackingKey === trackingKey))
+    return;
+  throw new InvalidTrackingKeyError(
+    `Experiment tracking key must match the regex validator. '${pattern}' Example: '${example}'`,
+    pattern,
+    example,
+  );
+}
+
 // Assigns missing ids and keys, then checks both are unique. On an update
 // (`existing`), an omitted id keeps the stored one by key, else by position,
 // so linked feature rules keep pointing at the same variations.
+
 export function validateVariationIds(
   variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
   existing?: Pick<Variation, "id" | "key">[],

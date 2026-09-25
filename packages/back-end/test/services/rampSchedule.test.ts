@@ -416,6 +416,33 @@ describe("applyPatchToRule", () => {
     expect(result.environments).toBeUndefined();
   });
 
+  it("a null environments patch leaves the rule's scope alone", () => {
+    const scoped: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["dev"],
+    };
+    const result = applyPatchToRule(scoped, { environments: null });
+    expect(result.allEnvironments).toBe(false);
+    expect(result.environments).toEqual(["dev"]);
+  });
+
+  it("an anchor taken from a rule with no list restores every environment", () => {
+    const everywhere = { ...base } as FeatureRule;
+    delete everywhere.environments;
+    delete everywhere.allEnvironments;
+    const anchor = getStartPatchForRule(everywhere);
+    expect(anchor.allEnvironments).toBe(true);
+    const narrowed: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["production"],
+    };
+    const restored = applyPatchToRule(narrowed, anchor);
+    expect(restored.allEnvironments).toBe(true);
+    expect("environments" in restored).toBe(false);
+  });
+
   it("environments patch correctly resets allEnvironments to false", () => {
     const allEnvRule: FeatureRule = {
       ...base,
@@ -791,6 +818,54 @@ describe("getStartPatchForRule", () => {
     ]);
     expect(restored.allEnvironments).toBe(false);
     expect(restored.environments).toEqual(["production"]);
+  });
+
+  it("a list-only step narrows an all-environments anchor; a later wildcard widens it back", () => {
+    const rule = {
+      id: RULE_ID,
+      type: "force" as const,
+      value: "x",
+      enabled: true,
+      allEnvironments: true,
+    } as FeatureRule;
+    const stepWith = (patch: Record<string, unknown>) => ({
+      interval: 300,
+      actions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, ...patch },
+        },
+      ],
+    });
+    const sched = {
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, ...getStartPatchForRule(rule) },
+        },
+      ],
+      steps: [
+        stepWith({ environments: ["dev"] }),
+        stepWith({ allEnvironments: true }),
+      ],
+      endActions: [],
+    };
+
+    const narrowed = applyPatchToRule(
+      rule,
+      computeEffectivePatch(sched, 0).get(TARGET_ID)!,
+    );
+    expect(narrowed.allEnvironments).toBe(false);
+    expect(narrowed.environments).toEqual(["dev"]);
+
+    const widened = applyPatchToRule(
+      narrowed,
+      computeEffectivePatch(sched, 1).get(TARGET_ID)!,
+    );
+    expect(widened.allEnvironments).toBe(true);
+    expect("environments" in widened).toBe(false);
   });
 });
 
