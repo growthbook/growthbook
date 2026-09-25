@@ -34,6 +34,7 @@ import {
   mergeUpsertColumns,
   getAllFactTablesForOrganization,
   getFactTable,
+  getFactTablesByIds,
   createColumn,
   updateColumn,
   deleteColumn as deleteColumnInDb,
@@ -93,6 +94,23 @@ export const getFactTables = async (
   const context = getContextFromReq(req);
 
   const factTables = await getAllFactTablesForOrganization(context);
+
+  res.status(200).json({
+    status: 200,
+    factTables,
+  });
+};
+
+// Full column metadata (including jsonFields) for a specific id set.
+// The org-wide list endpoint strips jsonFields to keep that payload light.
+export const getFullFactTables = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<{ status: 200; factTables: FactTableInterface[] }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const ids = req.query.ids ? req.query.ids.split(",").filter(Boolean) : [];
+  const factTables = await getFactTablesByIds(context, ids);
 
   res.status(200).json({
     status: 200,

@@ -1,5 +1,4 @@
 import {
-  ColumnInterface,
   FactMetricInterface,
   FactTableDefinition,
   RowFilter,
@@ -50,15 +49,20 @@ import {
   getDateGranularity,
   mapDatabaseTypeToEnum,
   getMetricMixClass,
+  getAvailableDimensionColumns,
   hasTimestampColumn,
   hasTimeAxis,
+  dimensionColumnIsAvailable,
 } from "shared/enterprise";
+import type { DimensionFactTable } from "shared/enterprise";
 import {
   operatorLabelMap,
   getColumnInfo,
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
 export {
+  getAvailableDimensionColumns,
+  getRelevantFactTableIds,
   getMetricMixClass,
   getEffectiveShowAs,
   clearInapplicableShowAs,
@@ -637,132 +641,6 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
   }
 }
 
-const GROUPABLE_SQL_COLUMN_TYPES = new Set(["number", "date", "boolean"]);
-
-export function getCommonColumns(
-  dataset: ExplorationDataset | null,
-  getFactTableById: (id: string) => FactTableDefinition | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): Pick<ColumnInterface, "column" | "name">[] {
-  if (!dataset) return [];
-  // Funnels use first-touch dimensions on the initial step's fact table,
-  // so the candidate columns come from that one fact table — even when
-  // later steps reference different fact tables.
-  if (datasetHasValues(dataset)) {
-    if (!dataset.values || dataset.values.length === 0) return [];
-  } else if (dataset.type === "funnel") {
-    if (!dataset.steps || dataset.steps.length === 0) return [];
-  } else if (!dataset.factTableId) {
-    return [];
-  }
-
-  type SimpleColumn = Pick<
-    ColumnInterface,
-    "column" | "name" | "deleted" | "datatype" | "jsonFields"
-  >;
-  let columns: SimpleColumn[] | null = null;
-  const userIdTypes = new Set<string>();
-
-  if (dataset.type === "fact_table") {
-    const ft = getFactTableById(dataset.factTableId || "");
-    columns = ft?.columns || [];
-    ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-  } else if (dataset.type === "metric") {
-    for (const value of dataset.values) {
-      const metricId = value.metricId;
-      let valueColumns: SimpleColumn[] = [];
-
-      const factMetric = getFactMetricById(metricId);
-      if (factMetric) {
-        const ft = getFactTableById(
-          getFactMetricPrimaryFactTableId(factMetric),
-        );
-        valueColumns = ft?.columns || [];
-        ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-
-        // A ratio metric's denominator can live on a different fact table —
-        // only offer columns both sides can resolve, so a dimension can
-        // never be picked that a group-by query can't evaluate.
-        if (factMetric.denominator?.factTableId) {
-          const denominatorFt = getFactTableById(
-            factMetric.denominator.factTableId,
-          );
-          const denominatorColumnNames = new Set(
-            (denominatorFt?.columns || []).map((c) => c.column),
-          );
-          valueColumns = valueColumns.filter((c) =>
-            denominatorColumnNames.has(c.column),
-          );
-          denominatorFt?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-        }
-      }
-
-      if (columns === null) {
-        columns = valueColumns;
-      } else {
-        // Intersect by column name
-        const valueColumnNames = new Set(valueColumns.map((c) => c.column));
-        columns = columns.filter((c) => valueColumnNames.has(c.column));
-      }
-    }
-  } else if (dataset.type === "data_source" || dataset.type === "sql") {
-    columns = Object.entries(dataset.columnTypes).map(([name, datatype]) => ({
-      column: name,
-      name,
-      deleted: false,
-      datatype,
-    }));
-  } else if (dataset.type === "funnel") {
-    const initialStep = dataset.steps[0];
-    const ft = initialStep?.factTableId
-      ? getFactTableById(initialStep.factTableId)
-      : null;
-    columns = ft?.columns || [];
-  } else if (dataset.type === "journey") {
-    const ft = dataset.factTableId
-      ? getFactTableById(dataset.factTableId)
-      : null;
-    columns = ft?.columns || [];
-  }
-
-  // Warehouse tables are restricted to string columns, where cardinality is at
-  // least predictable. A SQL dataset is the user's own projection — the column
-  // they most often want to group by is a bucket they just computed (e.g.
-  // `toStartOfMonth(...) AS month`) — so offer its other scalar types too.
-  // `other` stays out: it is the catch-all for types we couldn't identify,
-  // which includes arrays and structs, and warehouses reject casting those to
-  // the string every group-by value is compared as.
-  const allowNonStringGroupBy = dataset.type === "sql";
-
-  const groupByColumns: Pick<ColumnInterface, "column" | "name">[] = [];
-  (columns || [])
-    .filter((c) => !c.deleted)
-    .filter((c) => !userIdTypes.has(c.column))
-    .forEach((c) => {
-      if (
-        c.datatype === "string" ||
-        (allowNonStringGroupBy && GROUPABLE_SQL_COLUMN_TYPES.has(c.datatype))
-      ) {
-        groupByColumns.push({ column: c.column, name: c.name });
-      }
-      // Nested JSON fields (use dot-notation, matching getColumnExpression)
-      if (c.datatype === "json" && c.jsonFields) {
-        Object.entries(c.jsonFields).forEach(([field, info]) => {
-          if (info.datatype === "string") {
-            groupByColumns.push({
-              column: `${c.column}.${field}`,
-              name: `${c.name || c.column}.${field}`,
-            });
-          }
-        });
-      }
-    });
-
-  return groupByColumns.sort((a, b) =>
-    (a.name || a.column).localeCompare(b.name || b.column),
-  );
-}
-
 /** Cached top values for a column (not dimension-specific — also usable for
  *  filtering UI); empty for data_source datasets, which have no cached
  *  column metadata. */
@@ -859,22 +737,19 @@ export function getValidDateGranularities(
  *  Returns a new config with the allowed dimensions (same config object if no changes were made). */
 export function validateDimensions(
   config: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableDefinition | null,
+  getFactTableById: (id: string) => DimensionFactTable | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationConfig {
-  const columns = getCommonColumns(
+  const columns = getAvailableDimensionColumns(
     config.dataset,
     getFactTableById,
     getFactMetricById,
   );
   const maxDims = getMaxDimensions(config.dataset);
 
-  let validDimensions = config.dimensions.filter((d) => {
-    if (d.dimensionType !== "dynamic" && d.dimensionType !== "static")
-      return true;
-    if (columns.length === 0) return true;
-    return columns.some((c) => c.column === d.column || d.column === null);
-  });
+  let validDimensions = config.dimensions.filter((d) =>
+    dimensionColumnIsAvailable(d, columns),
+  );
   if (validDimensions.length > maxDims) {
     validDimensions = validDimensions.slice(0, maxDims);
   }
