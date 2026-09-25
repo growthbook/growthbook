@@ -28,6 +28,8 @@ import {
 } from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { addNewExperimentToHoldout } from "back-end/src/services/holdouts";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
   resolveOwnerToUserId,
@@ -404,6 +406,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       phasePrerequisites(newExperiment.phases),
     );
 
+    // Checked before creating so a bad holdout can't leave an orphan behind
+    if (payload.holdoutId) {
+      await getHoldoutAvailableForProject({
+        context: req.context,
+        holdoutId: payload.holdoutId,
+        project: newExperiment.project,
+      });
+    }
+
     // Created running, stopped or with a scheduled start: judged as a change
     // from a draft of itself.
     await requireConfirmation(req.context, {
@@ -428,6 +439,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       data: newExperiment,
       context: req.context,
     });
+
+    if (payload.holdoutId) {
+      await addNewExperimentToHoldout(
+        req.context,
+        experiment,
+        payload.holdoutId,
+        [],
+      );
+    }
 
     if (ownerId) {
       // add owner as watcher

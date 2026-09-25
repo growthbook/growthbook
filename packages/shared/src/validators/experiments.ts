@@ -986,6 +986,10 @@ const apiExperimentShape = z.object({
   autoRefresh: z.boolean(),
   hashAttribute: z.string(),
   fallbackAttribute: z.string().optional(),
+  holdoutId: z
+    .string()
+    .optional()
+    .describe("The holdout this experiment runs inside, if any"),
   hashVersion: z.union([z.literal(1), z.literal(2)]),
   disableStickyBucketing: z.boolean().optional(),
   bucketVersion: z.coerce.number().optional(),
@@ -1500,6 +1504,7 @@ const postExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    holdoutId: z.string().optional().describe("Run inside this holdout"),
     attributeScopeAllProjects: z
       .boolean()
       .describe(
@@ -1635,6 +1640,12 @@ const updateExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    holdoutId: z
+      .string()
+      .optional()
+      .describe(
+        'Run inside this holdout. Only a draft without linked changes can change or leave it; "" leaves.',
+      ),
     attributeScopeAllProjects: z
       .boolean()
       .describe(
