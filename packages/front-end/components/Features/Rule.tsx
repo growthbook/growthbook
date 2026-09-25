@@ -1813,9 +1813,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 isDraft={isDraft}
               />
             )}
-            {rule.type === "contextual-bandit-ref" && (
-              <ContextualBanditRefSummary rule={rule} feature={feature} />
-            )}
             {rampSchedule && (
               <Box mt="4">
                 {!isSimpleSchedule && (

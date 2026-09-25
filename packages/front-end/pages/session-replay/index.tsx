@@ -483,12 +483,7 @@ export default function SessionReplayPage() {
     if (sessionId) void navigator.clipboard.writeText(sessionId);
   };
 
-  if (
-    !sessionReplayEnabled ||
-    !permissionsUtil.canViewSessionReplay({
-      projects: project ? [project] : [],
-    })
-  ) {
+  if (!sessionReplayEnabled || !permissionsUtil.canViewSessionReplay({})) {
     return <Custom404 />;
   }
 
