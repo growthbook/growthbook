@@ -868,6 +868,15 @@ export function toDataSourceApiInterface(
       }),
     ),
     eventTracker: settings?.schemaFormat || "custom",
+    ...(settings?.pipelineSettings
+      ? { pipelineSettings: settings.pipelineSettings }
+      : {}),
+    ...(settings?.maxConcurrentQueries
+      ? { maxConcurrentQueries: Number(settings.maxConcurrentQueries) }
+      : {}),
+    ...(settings?.queryCacheTTLMins
+      ? { queryCacheTTLMins: Number(settings.queryCacheTTLMins) }
+      : {}),
   };
 
   if (datasource.type === "mixpanel") {
