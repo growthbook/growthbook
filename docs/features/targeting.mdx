@@ -329,9 +329,9 @@ ID Lists are limited to 1 MB. Using multiple large ID Lists may impact performan
 ID Lists accept the following attribute types: `string`, `secureString`, or `number`. For targeting other types of attributes, use [Condition Groups](#condition-groups).
 
 <Tip>
-**Optimized ID lists**
+**Passing Saved Groups by reference**
 
-Enterprise users can use optimized ID lists to reduce payload size. Enable this feature by editing your SDK connection and toggling on **Pass ID Lists by reference**. If the toggle isn't visible, your SDK is not compatible with this feature.
+Enterprise users can reduce payload size by passing Saved Groups by reference: each group is sent once in the payload instead of being copied into every rule that uses it. Edit your SDK Connection and set **Pass Saved Groups by reference** to **ID Lists only** or **All Saved Groups**. **All Saved Groups** needs a newer SDK version, such as JavaScript SDK 1.8.0 or later. If the setting isn't visible, your SDK version does not support it.
 
 </Tip>
 
