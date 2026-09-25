@@ -51,7 +51,6 @@ import {
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
@@ -146,7 +145,6 @@ export default function FeaturesHeader({
   const TABS_HEADER_HEIGHT_PX = 55;
   const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
-  const { scrollY } = useScrollPosition();
   useEffect(() => {
     const el = tabsPinSentinelRef.current;
     if (!el) return;
@@ -165,9 +163,43 @@ export default function FeaturesHeader({
     return () => observer.disconnect();
   }, []);
 
-  // Portal the revisionAndSettingsGroup between the header and sticky tabs on scroll.
+  // Portal the revisionAndSettingsGroup between the header and sticky tabs.
   // Moving a single DOM node keeps dropdown menus stable.
-  const scrolled = scrollY > 15;
+  //
+  // The handover has to be seamless in BOTH directions, which rules out the two
+  // obvious triggers:
+  //
+  //  - `scrollY > 15` moved it after a few pixels, while the header row it came
+  //    from was still fully on screen — it appeared to leave for no reason.
+  //  - the tabs' own pinned state moves it too late. The header row goes under
+  //    the topbar well before the tabs reach their pin point, leaving a stretch
+  //    of scroll with the group in a slot that is no longer on screen and not
+  //    yet in the tab bar. It simply vanished.
+  //
+  // So the trigger is the header row's own departure: the group leaves at the
+  // exact moment its seat would pass under the topbar, and lands in the tab bar
+  // — which at that point is still in flow, further down and visible. It is on
+  // screen continuously, in one place or the other.
+  const APP_TOPBAR_HEIGHT_PX = 56;
+  const headerSlotSentinelRef = useRef<HTMLDivElement>(null);
+  const [headerSlotOffscreen, setHeaderSlotOffscreen] = useState(false);
+  useEffect(() => {
+    const el = headerSlotSentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setHeaderSlotOffscreen(!entry.isIntersecting),
+      {
+        root: null,
+        rootMargin: `-${APP_TOPBAR_HEIGHT_PX}px 0px 0px 0px`,
+        threshold: 0,
+      },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const scrolled = headerSlotOffscreen;
   const headerSlotRef = useRef<HTMLDivElement>(null);
   const tabsSlotRef = useRef<HTMLDivElement>(null);
   const [portalHost] = useState<HTMLDivElement | null>(() => {
@@ -480,10 +512,19 @@ export default function FeaturesHeader({
                 onOpenChange={setStaleStatusOpen}
               />
             </Flex>
-            {/* Slot: revisionAndSettingsGroup portal mounts here when not scrolled (>20px → tabs bar) */}
+            {/* Slot: revisionAndSettingsGroup portal mounts here until this row
+                scrolls under the topbar */}
             <div ref={headerSlotRef} />
             {portalHost && createPortal(revisionAndSettingsGroup, portalHost)}
           </Flex>
+          {/* Marks the bottom of the row above — the point at which the slot
+              stops being visible. Zero height so it measures that edge without
+              occupying it. */}
+          <div
+            ref={headerSlotSentinelRef}
+            aria-hidden
+            style={{ height: 1, width: "100%", pointerEvents: "none" }}
+          />
           <Flex gap="4" align="center">
             {holdout?.id && (
               <Box>
@@ -653,9 +694,14 @@ export default function FeaturesHeader({
                   {!(isCloud() && feature.valueType === "boolean") && (
                     <TabsTrigger value="validation">Validation</TabsTrigger>
                   )}
-                  {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
+                  {/* Slot: revisionAndSettingsGroup portal mounts here once the
+                      header row leaves. The class is only present while it is
+                      here, so the fade plays on arrival, not on page load. */}
                   <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
-                    <div ref={tabsSlotRef} />
+                    <div
+                      ref={tabsSlotRef}
+                      className={scrolled ? "revision-slot-enter" : ""}
+                    />
                   </Box>
                 </TabsList>
               </Tabs>

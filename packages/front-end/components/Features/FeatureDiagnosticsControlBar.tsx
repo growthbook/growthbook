@@ -61,8 +61,16 @@ const MAX_VISIBLE_CHIPS = 4;
  * chip reads back exactly what is selected inside it rather than a second
  * vocabulary for the same thing.
  */
-function chipLabel(filter: RowFilter): string {
-  const field = filter.column ?? "Filter";
+function chipLabel(
+  filter: RowFilter,
+  columns: FilterColumnSource["columns"],
+): string {
+  // The column's display label, so a chip names the field the way the menu
+  // and the group-by control do ("Rule", not "ruleId").
+  const field =
+    columns.find((c) => c.value === filter.column)?.label ??
+    filter.column ??
+    "Filter";
   const operator = operatorLabelMap[filter.operator] ?? filter.operator;
   const values = (filter.values ?? []).filter((v) => v !== "");
   if (!values.length) return `${field} ${operator}`;
@@ -498,7 +506,7 @@ export default function FeatureDiagnosticsControlBar({
       {visibleChips.map((chip) => (
         <FilterChip
           key={chip.index}
-          label={chipLabel(chip.filter)}
+          label={chipLabel(chip.filter, columnSource.columns)}
           filter={chip.filter}
           columnSource={narrowColumnSource(chip.filter.column)}
           portalContainer={themeRoot}
@@ -520,7 +528,7 @@ export default function FeatureDiagnosticsControlBar({
           radius="full"
           title={chips
             .slice(MAX_VISIBLE_CHIPS)
-            .map((c) => chipLabel(c.filter))
+            .map((c) => chipLabel(c.filter, columnSource.columns))
             .join("\n")}
         />
       )}

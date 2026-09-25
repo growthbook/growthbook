@@ -167,7 +167,10 @@ export default function FeaturePage() {
         currentVersion: version ?? baseFeature.version,
       }}
     >
-      <FeatureUsageProvider feature={feature}>
+      {/* revisionList, not revisions: the dummy path needs the most recent
+          publish, and revisionList is the complete history while revisions is
+          capped at five. */}
+      <FeatureUsageProvider feature={feature} revisions={data.revisionList}>
         <PageHead
           breadcrumb={[
             { display: "Feature Flags", href: "/features" },
@@ -260,6 +263,12 @@ export default function FeaturePage() {
             feature={feature}
             results={diagnosticsResults}
             setResults={setDiagnosticsResults}
+            // Two lists, two jobs: revisionList is the complete published
+            // history and decides which markers exist; revisions is the five
+            // most recent and is the only one carrying rules, so it decides
+            // what a marker can say.
+            revisionList={data.revisionList}
+            revisions={data.revisions}
             experiments={experiments}
           />
         )}

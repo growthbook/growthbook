@@ -58,6 +58,16 @@ interface Props {
    * its own chrome turns it off, so the header does not read as the top of a
    * card it is not part of.
    */
+  /**
+   * Rendered immediately after the title, inside the block that holds it, and
+   * baseline-aligned with it. For a fact that qualifies the heading — a count
+   * of what the query returned — rather than a control, which belongs in
+   * `actions` on the other side of the row.
+   *
+   * Omitted renders nothing, which is what every existing caller gets.
+   */
+  titleSuffix?: ReactNode;
+
   showDivider?: boolean;
 
   /** Embedded instances get a "View all" link back to the full page. */
@@ -77,6 +87,7 @@ export default function DataCardHeader({
   refreshLabel = "Refresh",
   refreshIcon,
   actions,
+  titleSuffix,
   showDivider = true,
   embedded,
 }: Props) {
@@ -86,13 +97,29 @@ export default function DataCardHeader({
           The button (32px) is taller than the heading (24px), so this puts the
           title ~4px lower than Summary's, which has no control beside it to set
           a taller row. Intra-row alignment wins over matching the other card. */}
-      <Flex align="center" justify="between" gap="3">
+      {/* `wrap` so the right-hand group drops to its own line on a narrow
+          card rather than squeezing the title block — which, with a suffix
+          beside the title, would otherwise truncate a fact rather than a
+          label. */}
+      <Flex align="center" justify="between" gap="3" wrap="wrap">
         {/* Shrinkable, so the title is what gives way when the right-hand group
           runs out of room. */}
         <Box className={styles.titleBlock}>
-          <Heading as="h2" size="md" title={title}>
-            {title}
-          </Heading>
+          {titleSuffix ? (
+            // Baseline, not centre: the suffix is set smaller than the
+            // heading, and centring would leave the two sitting on different
+            // lines of type.
+            <Flex align="baseline" gap="2" wrap="wrap">
+              <Heading as="h2" size="md" mb="0" title={title}>
+                {title}
+              </Heading>
+              {titleSuffix}
+            </Flex>
+          ) : (
+            <Heading as="h2" size="md" title={title}>
+              {title}
+            </Heading>
+          )}
           {description ? (
             <Text size="sm" color="text-mid" title={description} truncate>
               {description}

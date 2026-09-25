@@ -8,8 +8,11 @@ import {
   createContext,
   Fragment,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
+  useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -34,6 +37,10 @@ import { datetime } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import { FaBoltLightning } from "react-icons/fa6";
 import { PiCaretRightBold, PiXBold } from "react-icons/pi";
+import {
+  FEATURE_USAGE_BUCKET_SECONDS,
+  getFeatureUsageBucketTimes,
+} from "shared/featureUsageBuckets";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
@@ -49,38 +56,245 @@ import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
 import styles from "./FeatureUsageGraph.module.scss";
 
-function generateTimeSeries(lookback: FeatureUsageLookback, keys: string[]) {
-  const now = new Date();
-  const start = new Date(now);
-  start.setSeconds(0, 0);
-  let step = 0;
+/**
+ * Peak traffic the synthetic flag sustains, per minute of wall clock.
+ *
+ * A rate rather than a per-bucket count, so a longer window means more
+ * evaluations rather than the same number spread thinner — switching lookback
+ * should not change the apparent traffic of the flag.
+ *
+ * 1,000/min puts the 15-minute window (1-minute buckets) at roughly a thousand
+ * evaluations per bucket, which is where the ~1.6pp binomial noise below is
+ * visible as a tight band rather than as scatter.
+ */
+const DUMMY_PEAK_EVALS_PER_MINUTE = 1000;
 
-  if (lookback === "15minute") {
-    start.setMinutes(start.getMinutes() - 15);
-    step = 60 * 1000;
-  } else if (lookback === "hour") {
-    start.setHours(start.getHours() - 1);
-    step = 5 * 60 * 1000;
-  } else if (lookback === "day") {
-    start.setDate(start.getDate() - 1);
-    step = 60 * 60 * 1000;
-  } else if (lookback === "week") {
-    start.setDate(start.getDate() - 7);
-    step = 6 * 60 * 60 * 1000;
+/**
+ * Coverage of the rolled-out value before and after the most recent publish.
+ *
+ * Deliberately far apart. A 7-day window on a flag published yesterday has only
+ * a handful of buckets after the marker, so a subtle change has too few bars to
+ * establish itself — the step has to be unmistakable in eight or nine bars or
+ * it reads as noise.
+ */
+const DUMMY_COVERAGE_BEFORE = 0.25;
+const DUMMY_COVERAGE_AFTER = 0.8;
+
+/**
+ * A planted rollout, for `?dummy=true&scenario=rollout`.
+ *
+ * Real revision dates are the honest default, but they make the feature
+ * invisible where it is most useful: the demo flag last published yesterday, so
+ * Last 15 minutes correctly shows nothing but the steady state after it. This
+ * puts a whole rollout inside whatever window is selected, so the story reads
+ * at any lookback.
+ *
+ * Coverage by thirds, and volume held flat, so the ratio is the only thing
+ * moving — a chart where traffic and coverage both vary cannot show which one
+ * the marker explains.
+ */
+const ROLLOUT_SCENARIO_COVERAGE = [0, 0.25, 1];
+
+export interface DummyScenario {
+  /** Coverage of the rolled-out value at a moment. */
+  coverageAt: (t: number) => number;
+  /** Where the transitions are, for the markers. */
+  markers: { value: number; label: string }[];
+}
+
+/**
+ * Thirds of the CURRENT window, computed once from the shared bucket table so
+ * the data and the markers cannot disagree about where a transition is.
+ *
+ * Thresholds rather than bucket indices: `getDummyData` re-derives its own
+ * bucket list, and a timestamp comparison is immune to the two lists differing
+ * by a bucket if the minute ticks between the calls.
+ */
+export function buildRolloutScenario(
+  lookback: FeatureUsageLookback,
+  /**
+   * The flag's highest existing revision. The scenario's two transitions are
+   * numbered above it, so a flag with two revisions gets `rev 3` and `rev 4`.
+   */
+  baseVersion: number,
+): DummyScenario | undefined {
+  const times = getFeatureUsageBucketTimes(lookback);
+  if (times.length < 3) return undefined;
+
+  const first = times[Math.floor(times.length / 3)];
+  const second = times[Math.floor((2 * times.length) / 3)];
+
+  return {
+    coverageAt: (t) =>
+      ROLLOUT_SCENARIO_COVERAGE[t >= second ? 2 : t >= first ? 1 : 0],
+    /**
+     * The full label form — `rev N · 25%` — which is the thing being designed,
+     * and which the default path only reaches when a revision changed exactly
+     * one rule carrying a coverage.
+     *
+     * Numbered ABOVE the flag's real maximum so they cannot collide with
+     * anything in the revision dropdown. A reader who checks will find no such
+     * revision, which is the correct answer for a scenario: these transitions
+     * are a fiction, and a number that matched a real revision would be a
+     * claim about it.
+     */
+    markers: [
+      { value: first, label: `rev ${baseVersion + 1} · 25%` },
+      { value: second, label: `rev ${baseVersion + 2} · 100%` },
+    ],
+  };
+}
+
+/** Saturday and Sunday run at this share of a weekday. */
+const DUMMY_WEEKEND_FACTOR = 0.55;
+
+/**
+ * Deterministic 32-bit hash, so every derived number is a function of the
+ * bucket and the flag rather than of when the component happened to render.
+ *
+ * This matters beyond reproducibility: `getDummyData` is called during render,
+ * not memoised, so `Math.random()` gave the card a different total on every
+ * re-render — switching revision in the page header visibly changed the
+ * evaluation count, for a window whose data cannot have moved.
+ */
+function hashSeed(...parts: (string | number)[]): number {
+  let h = 2166136261;
+  const input = parts.join("|");
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** mulberry32 — small, fast, and good enough for a design fixture. */
+function seededRandom(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Standard normal, Box-Muller. Sampling noise is Gaussian, not uniform. */
+function gaussian(rand: () => number): number {
+  const u = Math.max(rand(), Number.EPSILON);
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand());
+}
+
+/**
+ * Traffic multiplier for a moment: a daily cycle troughing around 04:00 and
+ * peaking mid-afternoon, with weekends run down.
+ *
+ * Never reaches zero — a flag with real traffic still evaluates overnight, and
+ * an empty bucket would read as an outage rather than as a quiet hour.
+ */
+function volumeShape(t: number): number {
+  const d = new Date(t);
+  const hour = d.getHours() + d.getMinutes() / 60;
+  // Shifted so the trough lands at 04:00 rather than at midnight.
+  const daily = 0.3 + 0.7 * Math.pow(Math.sin((Math.PI * (hour - 4)) / 24), 2);
+  const day = d.getDay();
+  const weekly = day === 0 || day === 6 ? DUMMY_WEEKEND_FACTOR : 1;
+  return daily * weekly;
+}
+
+/**
+ * Splits a bucket's evaluations across groups at fixed shares, with binomial
+ * sampling noise — which is the only thing that should move a ratio when the
+ * config has not changed.
+ *
+ * Each group's count is drawn around `n * w` with SD `sqrt(n * w * (1 - w))`,
+ * so at a thousand evaluations an even split lands within about 1.6 percentage
+ * points. The previous generator drew each group independently and uniformly,
+ * which let a fixed 50% rollout render anywhere from 5% to 95% between adjacent
+ * bars — a shape no real traffic can produce.
+ *
+ * Counts are reconciled to sum to exactly `n`, which is what keeps the four
+ * marginals agreeing on the total.
+ */
+function splitCount(
+  n: number,
+  weights: number[],
+  rand: () => number,
+): number[] {
+  const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+  const counts = weights.map((w) => {
+    const p = w / totalWeight;
+    const sd = Math.sqrt(Math.max(n * p * (1 - p), 0));
+    return Math.max(0, Math.round(n * p + gaussian(rand) * sd));
+  });
+
+  // Rounding and clamping leave a small remainder; give it to the largest
+  // group, where it is proportionally least visible.
+  let drift = n - counts.reduce((a, b) => a + b, 0);
+  while (drift !== 0) {
+    let target = 0;
+    for (let i = 1; i < counts.length; i++) {
+      if (counts[i] > counts[target]) target = i;
+    }
+    const step = drift > 0 ? 1 : -1;
+    if (counts[target] + step < 0) break;
+    counts[target] += step;
+    drift -= step;
+  }
+  return counts;
+}
+
+/**
+ * Stable shares for a dimension's groups within one config period.
+ *
+ * `value` carries the story: the rolled-out value takes the period's coverage
+ * and the flag's default takes the rest, so the step at the publish is a
+ * genuine change in what the flag serves.
+ *
+ * `source` and `ruleId` also step, because publishing a revision changes which
+ * rule matches — the shares are derived from a hash of the group name and the
+ * period, which gives each group a fixed share within a period and a different
+ * one after. `environment` deliberately does not step: publishing does not
+ * change the mix of traffic between environments.
+ */
+function groupWeights(
+  dimension: "value" | "source" | "ruleId" | "environment",
+  groups: string[],
+  defaultValue: string,
+  coverage: number,
+  period: "before" | "after",
+  featureId: string,
+): number[] {
+  if (dimension === "environment") {
+    // Production dominates, as it does in real traffic.
+    return groups.map((g) => (g === "production" ? 0.85 : 0.15));
   }
 
-  const timeSeries: FeatureUsageDataPoint[] = [];
-  for (let i = 0; i < 30; i++) {
-    const time = new Date(start.getTime() + i * step);
-    if (time > now) break;
-    timeSeries.push({
-      t: time.getTime(),
-      v: Object.fromEntries(
-        keys.map((key) => [key, Math.floor(Math.random() * 1000)]),
-      ),
-    });
+  if (dimension === "value" && groups.length > 1) {
+    const rolledOut = groups.filter((g) => g !== defaultValue);
+    if (rolledOut.length) {
+      return groups.map((g) =>
+        g === defaultValue ? 1 - coverage : coverage / rolledOut.length,
+      );
+    }
   }
-  return timeSeries;
+
+  // Fixed within the period, different across it. 0.15 floor so no group
+  // collapses to invisible.
+  return groups.map(
+    (g) => 0.15 + seededRandom(hashSeed(featureId, dimension, period, g))(),
+  );
+}
+
+/** The timestamp the flag's most recent publish should show as a step. */
+function mostRecentPublishAt(
+  revisions: MinimalFeatureRevisionInterface[] | undefined,
+): number | null {
+  const published = (revisions ?? [])
+    .filter((r) => r.status === "published" && r.datePublished)
+    .map((r) => new Date(r.datePublished as unknown as string).getTime())
+    .filter((t) => isFinite(t));
+  return published.length ? Math.max(...published) : null;
 }
 
 function sumSeries(series: FeatureUsageDataPoint[]): number {
@@ -90,11 +304,32 @@ function sumSeries(series: FeatureUsageDataPoint[]): number {
   );
 }
 
+/**
+ * Synthetic usage for `?dummy=true`, shaped like traffic rather than like
+ * noise.
+ *
+ * One volume is drawn per bucket and then split four ways, rather than four
+ * independent draws. That is what makes the marginals agree: each dimension
+ * partitions the same evaluations, so all four sum to the same total and
+ * switching the group-by no longer changes the size of the chart. They did not
+ * agree before — the previous generator rolled each dimension separately.
+ *
+ * Buckets come from the shared table the warehouse query and the API's own
+ * skeleton read, so a granularity change is visible here too; this used to
+ * carry its own copy of the widths and a loop bound of 30.
+ */
 function getDummyData(
   feature: FeatureInterface,
   lookback: FeatureUsageLookback,
+  revisions?: MinimalFeatureRevisionInterface[],
   /** Forces total above the charted sum so the truncation disclosure renders. */
   truncate = false,
+  /**
+   * A planted rollout that replaces the real revision dates. Omitted keeps the
+   * default entirely: the flag's own publish history, its own coverage step,
+   * and the diurnal volume rhythm.
+   */
+  scenario?: DummyScenario,
 ): FeatureUsageData {
   const ruleIds = new Set<string>();
   const sources = new Set<string>(["defaultValue"]);
@@ -115,7 +350,84 @@ function getDummyData(
       });
     }
   });
-  const byValue = generateTimeSeries(lookback, Array.from(values));
+
+  const dimensions = [
+    { key: "value" as const, groups: Array.from(values) },
+    { key: "source" as const, groups: Array.from(sources) },
+    { key: "ruleId" as const, groups: Array.from(ruleIds) },
+    // Two environments rather than one so the dimension has something to stack.
+    { key: "environment" as const, groups: ["production", "staging"] },
+  ];
+
+  const stepAt = mostRecentPublishAt(revisions);
+  // Per minute, because the peak rate is per minute; the table is in seconds.
+  const bucketMinutes = FEATURE_USAGE_BUCKET_SECONDS[lookback] / 60;
+  const series: Record<string, FeatureUsageDataPoint[]> = {
+    value: [],
+    source: [],
+    ruleId: [],
+    environment: [],
+  };
+
+  getFeatureUsageBucketTimes(lookback).forEach((t) => {
+    const rand = seededRandom(hashSeed(feature.id, t));
+
+    /**
+     * A scenario drops the daily rhythm — the point is to isolate the ratio,
+     * and a chart where traffic and coverage both move cannot show which one
+     * the marker explains — but keeps count noise, so volume reads as steady
+     * rather than as identical.
+     *
+     * Deliberately a fixed ~5% of the count rather than true Poisson. Poisson
+     * SD is sqrt(n), which is 4.5% at the 500-evaluation buckets of a
+     * 15-minute window but 0.3% at the 120,000 of a week — so it would leave
+     * the long windows exactly as flush against the axis as before. A relative
+     * term varies every window enough for ECharts to pick an axis max above the
+     * data, which is where the headroom comes from.
+     *
+     * Small enough not to undermine the scenario: at 5% the bars still read as
+     * one steady volume, so composition remains the only thing visibly moving.
+     */
+    const base = DUMMY_PEAK_EVALS_PER_MINUTE * bucketMinutes;
+    const shape = scenario ? 1 : volumeShape(t);
+    const jitter = scenario ? 0.05 : 0.06;
+    const n = Math.max(
+      1,
+      Math.round(base * shape * (1 + jitter * gaussian(rand))),
+    );
+
+    const period: "before" | "after" =
+      stepAt !== null && t >= stepAt ? "after" : "before";
+    // A scenario overrides the flag's real history outright; it is a fiction
+    // and is not trying to agree with the revision list.
+    const coverage = scenario
+      ? scenario.coverageAt(t)
+      : period === "after"
+        ? DUMMY_COVERAGE_AFTER
+        : DUMMY_COVERAGE_BEFORE;
+
+    dimensions.forEach(({ key, groups }) => {
+      if (!groups.length) return;
+      const counts = splitCount(
+        n,
+        groupWeights(
+          key,
+          groups,
+          feature.defaultValue,
+          coverage,
+          // Under a scenario the other dimensions hold still, so nothing but
+          // the value split moves across the window.
+          scenario ? "before" : period,
+          feature.id,
+        ),
+        rand,
+      );
+      series[key].push({
+        t,
+        v: Object.fromEntries(groups.map((g, i) => [g, counts[i]])),
+      });
+    });
+  });
 
   return {
     // The sum of what is actually charted, not an independent draw. An
@@ -125,13 +437,11 @@ function getDummyData(
     // `?truncate=1` adds 20% on top, standing in for the real case where the
     // aggregate hit its LIMIT 200 cap — so the disclosure line below the legend
     // can be reviewed deliberately rather than never being seen.
-    total: Math.round(sumSeries(byValue) * (truncate ? 1.2 : 1)),
-    bySource: generateTimeSeries(lookback, Array.from(sources)),
-    byValue,
-    byRuleId: generateTimeSeries(lookback, Array.from(ruleIds)),
-    // Two environments rather than one so the dimension has something to
-    // stack; production dominates, as it does in real traffic.
-    byEnvironment: generateTimeSeries(lookback, ["production", "staging"]),
+    total: Math.round(sumSeries(series.value) * (truncate ? 1.2 : 1)),
+    bySource: series.source,
+    byValue: series.value,
+    byRuleId: series.ruleId,
+    byEnvironment: series.environment,
   };
 }
 
@@ -266,6 +576,12 @@ const formatter = Intl.NumberFormat("en-US", {
 });
 
 const SPARK_LOOKBACK: FeatureUsageLookback = "15minute";
+/**
+ * Window for the per-rule "matched" counts on the rules list. Seven days, not
+ * the sparkline's live 15 minutes: the count is what someone reads to decide a
+ * rule is dead, and on 15 minutes a healthy low-traffic rule reads as zero.
+ */
+export const RULE_TRAFFIC_LOOKBACK: FeatureUsageLookback = "week";
 const OTHER_KEY = "(other)";
 const TOP_N = 3;
 
@@ -279,6 +595,13 @@ const TOP_N = 3;
  * full band.
  */
 const MAX_BAR_WIDTH = 24;
+
+/** The four groupings FeatureUsageContainer can open on. */
+export type FeatureUsageDimensionTab =
+  | "source"
+  | "value"
+  | "rule"
+  | "environment";
 
 const categoricalColors = [
   "var(--blue-7)",
@@ -321,6 +644,17 @@ const featureUsageContext = createContext<{
   setLookback: (lookback: FeatureUsageLookback) => void;
   featureUsage: FeatureUsageData | undefined;
   sparkFeatureUsage: FeatureUsageData | undefined;
+  /** Always RULE_TRAFFIC_LOOKBACK, whatever the selected window is. */
+  ruleFeatureUsage: FeatureUsageData | undefined;
+  /**
+   * The rule counts are loading: before the first response, or while an
+   * explicit refresh is in flight. One flag for both, so first load and
+   * refresh cannot drift into two treatments. Background polling does not set
+   * it.
+   */
+  ruleTrafficLoading: boolean;
+  /** Explicit refresh of the rule counts; drives `ruleTrafficLoading`. */
+  refreshRuleTraffic: () => Promise<void>;
   /** Window-independent; see the separate SWR key in the provider. */
   featureUsageSummary: FeatureUsageSummary | undefined;
   /** Per-dimension marginals, for surfaces that chart from a row table. */
@@ -331,6 +665,12 @@ const featureUsageContext = createContext<{
   showFeatureUsage: boolean;
   managedWarehouseUnavailable: boolean;
   mutateFeatureUsage: () => void;
+  /**
+   * Transitions to mark when a demo scenario is planting its own rollout.
+   * Undefined in every other case, including normal dummy mode, where the
+   * flag's real revisions are the markers.
+   */
+  scenarioMarkers: { value: number; label: string }[] | undefined;
 }>({
   lookback: "15minute",
   setLookback: () => {},
@@ -338,23 +678,39 @@ const featureUsageContext = createContext<{
   managedWarehouseUnavailable: false,
   featureUsage: undefined,
   sparkFeatureUsage: undefined,
+  ruleFeatureUsage: undefined,
+  ruleTrafficLoading: false,
+  refreshRuleTraffic: async () => {},
   featureUsageSummary: undefined,
   featureUsageRows: undefined,
   featureUsageRowsMeta: undefined,
   usageUpdatedAt: null,
   mutateFeatureUsage: () => {},
+  scenarioMarkers: undefined,
 });
 
 export function FeatureUsageProvider({
   feature,
+  revisions,
   children,
 }: {
   feature: FeatureInterface | null;
+  /**
+   * Published history, used only by the dummy path: it steps the synthetic
+   * coverage at the most recent publish, so the revision marker has something
+   * to mark. The real path gets its step from the warehouse.
+   */
+  revisions?: MinimalFeatureRevisionInterface[];
   children: ReactNode;
 }) {
   const router = useRouter();
   const useDummyData = router.query["dummy"] === "true";
   const forceTruncation = router.query["truncate"] === "1";
+  /**
+   * Opt-in demo scenario. Only meaningful alongside `?dummy=true` — there is no
+   * synthetic data to shape without it.
+   */
+  const scenarioName = router.query["scenario"];
 
   const [lookback, setLookback] = useLocalStorage<FeatureUsageLookback>(
     "featureUsageLookback",
@@ -370,7 +726,11 @@ export function FeatureUsageProvider({
     : false;
   const showFeatureUsage = useDummyData || !!growthbookManagedDatasource;
 
-  const { data, mutate: mutateFeatureUsage } = useApi<{
+  const {
+    data,
+    error: usageError,
+    mutate: mutateFeatureUsage,
+  } = useApi<{
     usage: FeatureUsageData;
     rowsByDimension: FeatureUsageRowsByDimension;
     rowsMeta: FeatureUsageRowsMeta;
@@ -393,6 +753,24 @@ export function FeatureUsageProvider({
       lookback !== SPARK_LOOKBACK,
   });
 
+  // Not polled with the others: a week's scan every few seconds would be the
+  // most expensive query on the page, for a count that barely moves between
+  // polls. It refreshes on focus and on the Rules refresh button.
+  const {
+    data: ruleData,
+    error: ruleDataError,
+    mutate: mutateRuleData,
+  } = useApi<{
+    usage: FeatureUsageData;
+  }>(`/feature/${feature?.id}/usage?lookback=${RULE_TRAFFIC_LOOKBACK}`, {
+    shouldRun: () =>
+      !!feature &&
+      showFeatureUsage &&
+      !useDummyData &&
+      !managedWarehouseUnavailable &&
+      lookback !== RULE_TRAFFIC_LOOKBACK,
+  });
+
   // No lookback in the key, deliberately: these two numbers are
   // window-independent, so SWR caches them per feature and a lookback change
   // cannot re-run the scan for an answer that could not have moved.
@@ -407,9 +785,34 @@ export function FeatureUsageProvider({
     },
   );
 
+  // Built once per window, so the data and the markers read the same
+  // thresholds rather than each deriving their own.
+  // The highest version the flag actually has, so the scenario can number its
+  // transitions past it. Takes the revision list and the live version together:
+  // either can be ahead of the other while a draft is in flight.
+  const maxRevisionVersion = Math.max(
+    feature?.version ?? 0,
+    ...(revisions ?? []).map((r) => r.version),
+    0,
+  );
+
+  const rolloutScenario = useMemo(
+    () =>
+      useDummyData && scenarioName === "rollout"
+        ? buildRolloutScenario(lookback, maxRevisionVersion)
+        : undefined,
+    [useDummyData, scenarioName, lookback, maxRevisionVersion],
+  );
+
   const featureUsage =
     useDummyData && feature
-      ? getDummyData(feature, lookback, forceTruncation)
+      ? getDummyData(
+          feature,
+          lookback,
+          revisions,
+          forceTruncation,
+          rolloutScenario,
+        )
       : data?.usage;
 
   /**
@@ -474,10 +877,55 @@ export function FeatureUsageProvider({
 
   const sparkFeatureUsage =
     useDummyData && feature
-      ? getDummyData(feature, SPARK_LOOKBACK)
+      ? getDummyData(
+          feature,
+          SPARK_LOOKBACK,
+          revisions,
+          false,
+          // Its own window, so its own thirds — the sparkline is 15 minutes
+          // regardless of what the main chart is showing.
+          useDummyData && scenarioName === "rollout"
+            ? buildRolloutScenario(SPARK_LOOKBACK, maxRevisionVersion)
+            : undefined,
+        )
       : lookback === SPARK_LOOKBACK
         ? data?.usage
         : sparkData?.usage;
+
+  const ruleFeatureUsage =
+    useDummyData && feature
+      ? getDummyData(feature, RULE_TRAFFIC_LOOKBACK, revisions, false)
+      : lookback === RULE_TRAFFIC_LOOKBACK
+        ? data?.usage
+        : ruleData?.usage;
+
+  const ruleTrafficError =
+    lookback === RULE_TRAFFIC_LOOKBACK ? usageError : ruleDataError;
+
+  const [ruleTrafficRefreshing, setRuleTrafficRefreshing] = useState(false);
+  const refreshRuleTraffic = useCallback(async () => {
+    setRuleTrafficRefreshing(true);
+    try {
+      await Promise.all([
+        mutateFeatureUsage(),
+        lookback !== RULE_TRAFFIC_LOOKBACK ? mutateRuleData() : undefined,
+        // A floor on how long the loading state shows, so a fast (or dummy)
+        // response doesn't flash it for a single frame.
+        new Promise((resolve) => setTimeout(resolve, 600)),
+      ]);
+    } finally {
+      setRuleTrafficRefreshing(false);
+    }
+  }, [lookback, mutateFeatureUsage, mutateRuleData]);
+
+  // An errored fetch is not loading: without the error check a failed first
+  // load would shimmer forever.
+  const ruleTrafficLoading =
+    ruleTrafficRefreshing ||
+    (showFeatureUsage &&
+      !managedWarehouseUnavailable &&
+      !ruleFeatureUsage &&
+      !ruleTrafficError);
 
   const featureUsageAutoRefreshInterval = growthbook.getFeatureValue(
     "feature-usage-auto-refresh-interval",
@@ -526,7 +974,11 @@ export function FeatureUsageProvider({
         managedWarehouseUnavailable,
         featureUsage,
         sparkFeatureUsage,
+        ruleFeatureUsage,
+        ruleTrafficLoading,
+        refreshRuleTraffic,
         mutateFeatureUsage,
+        scenarioMarkers: rolloutScenario?.markers,
       }}
     >
       {children}
@@ -549,7 +1001,7 @@ export function FeatureUsageContainer({
 }: {
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
-  initialTab?: "source" | "value" | "rule" | "environment";
+  initialTab?: FeatureUsageDimensionTab;
   /**
    * For surfaces that own the time frame elsewhere. The chart still reads
    * `lookback` from context either way — this only hides the control, so there
@@ -1479,47 +1931,106 @@ export default function FeatureUsageGraph({
 export function FeatureUsageSparkline({
   valueType,
   revision,
+  stackBy = "default",
+  width: W = 90,
+  height: H = 28,
+  tooltip = "Usage analytics (15 minutes, live)",
+  initialTab,
 }: {
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
+  /**
+   * Which dimension the stack represents.
+   *
+   * "default" is the Overview-header behaviour: boolean flags stack byValue,
+   * everything else stacks bySource, both folded to a default/override pair.
+   * "rule" stacks one segment per rule, which is what the Rules section wants —
+   * the two are deliberately different views, not the same chart twice.
+   */
+  stackBy?: "default" | "rule";
+  width?: number;
+  height?: number;
+  tooltip?: string;
+  /** Defaults to the tab that matches `stackBy`. */
+  initialTab?: FeatureUsageDimensionTab;
 }) {
   const { sparkFeatureUsage, showFeatureUsage, managedWarehouseUnavailable } =
     useFeatureUsage();
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const useDummyData = router.query["dummy"] === "true";
+  /**
+   * SVG `id`s are document-global, so the gradient and clip paths below have
+   * to be namespaced per instance. Two sparklines now co-exist on the feature
+   * page (the Overview header and the Rules section); without this the second
+   * one's clip paths would resolve to the first one's geometry.
+   */
+  const uid = useId().replace(/:/g, "");
 
   if (!showFeatureUsage || managedWarehouseUnavailable) return null;
 
+  const pulseGradId = `spark-pulse-grad-${uid}`;
   const defaultBin = "default";
   const overrideBin = "override";
-  const keys = [defaultBin, overrideBin];
 
+  let keys: string[];
+  let colors: string[];
   let displayData: { t: number; v: Record<string, number> }[];
 
-  if (valueType === "boolean") {
-    const raw = sparkFeatureUsage?.byValue ?? [];
-    displayData = raw.map((d) => ({
-      ...d,
-      v: { [defaultBin]: d.v["false"] ?? 0, [overrideBin]: d.v["true"] ?? 0 },
-    }));
-  } else {
-    const raw = sparkFeatureUsage?.bySource ?? [];
-    const allSources = Array.from(
-      new Set(raw.flatMap((d) => Object.keys(d.v))),
+  if (stackBy === "rule") {
+    const raw = sparkFeatureUsage?.byRuleId ?? [];
+    /**
+     * Ranked by volume and coloured from `categoricalColors`, which is exactly
+     * how FeatureUsageGraph colours the By Rule tab this sparkline opens (see
+     * `keyColorMap`). Sharing the ranking and the palette is the whole point:
+     * a preview that assigned a rule a different colour than the chart behind
+     * it would be a false claim about which rule is which.
+     */
+    const totals = new Map<string, number>();
+    raw.forEach((d) =>
+      Object.entries(d.v).forEach(([k, n]) =>
+        totals.set(k, (totals.get(k) ?? 0) + (n || 0)),
+      ),
     );
-    displayData = raw.map((d) => ({
-      ...d,
-      v: {
-        [defaultBin]: d.v["defaultValue"] ?? 0,
-        [overrideBin]: allSources
-          .filter((s) => s !== "defaultValue")
-          .reduce((sum, s) => sum + (d.v[s] || 0), 0),
-      },
-    }));
+    keys = Array.from(totals.keys()).sort(
+      (a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0),
+    );
+    let paletteIdx = 0;
+    colors = keys.map((k) =>
+      // The default value is not a rule, so it takes the neutral rather than
+      // consuming a palette slot a real rule should have had.
+      k === "defaultValue"
+        ? ACCESSIBLE_BOOLEAN_COLORS.false
+        : categoricalColors[paletteIdx++ % categoricalColors.length],
+    );
+    displayData = raw;
+  } else {
+    keys = [defaultBin, overrideBin];
+    colors = [booleanColors.false, booleanColors.true];
+
+    if (valueType === "boolean") {
+      const raw = sparkFeatureUsage?.byValue ?? [];
+      displayData = raw.map((d) => ({
+        ...d,
+        v: { [defaultBin]: d.v["false"] ?? 0, [overrideBin]: d.v["true"] ?? 0 },
+      }));
+    } else {
+      const raw = sparkFeatureUsage?.bySource ?? [];
+      const allSources = Array.from(
+        new Set(raw.flatMap((d) => Object.keys(d.v))),
+      );
+      displayData = raw.map((d) => ({
+        ...d,
+        v: {
+          [defaultBin]: d.v["defaultValue"] ?? 0,
+          [overrideBin]: allSources
+            .filter((s) => s !== "defaultValue")
+            .reduce((sum, s) => sum + (d.v[s] || 0), 0),
+        },
+      }));
+    }
   }
 
-  const colors = [booleanColors.false, booleanColors.true];
   const colorScale = scaleOrdinal({ domain: keys, range: colors });
   const xDomain = displayData.map((d) => d.t);
   const rawMaxValue = displayData.reduce((max, p) => {
@@ -1531,9 +2042,7 @@ export function FeatureUsageSparkline({
   const hasData = rawMaxValue > 0;
   const maxValue = rawMaxValue || 1;
 
-  const W = 90;
   const BOTTOM_PAD = 2;
-  const H = 28;
   const AXIS_H = 1;
   const CHART_H = H - AXIS_H;
 
@@ -1545,7 +2054,7 @@ export function FeatureUsageSparkline({
 
   return (
     <>
-      <Tooltip content="Usage analytics (15 minutes, live)">
+      <Tooltip content={tooltip}>
         <Flex
           align="center"
           gap="1"
@@ -1555,7 +2064,7 @@ export function FeatureUsageSparkline({
           <svg width={W} height={H + BOTTOM_PAD}>
             <defs>
               <linearGradient
-                id="spark-pulse-grad"
+                id={pulseGradId}
                 x1="0%"
                 y1="0%"
                 x2="100%"
@@ -1630,7 +2139,7 @@ export function FeatureUsageSparkline({
                         ...colBars.map(({ bar }) => bar.y + bar.height),
                       ) - topY;
                     if (totalH <= 0) return null;
-                    const clipId = `spark-clip-${colIdx}`;
+                    const clipId = `spark-clip-${uid}-${colIdx}`;
                     return (
                       <g key={`spark-col-${colIdx}`}>
                         <defs>
@@ -1673,9 +2182,9 @@ export function FeatureUsageSparkline({
             <rect
               x={0}
               y={CHART_H + 2}
-              width={72}
+              width={Math.round(W * 0.8)}
               height={2}
-              fill="url(#spark-pulse-grad)"
+              fill={`url(#${pulseGradId})`}
               className={styles.sparkLivePulse}
               style={{ pointerEvents: "none" }}
             />
@@ -1711,7 +2220,9 @@ export function FeatureUsageSparkline({
           <FeatureUsageContainer
             valueType={valueType}
             revision={revision}
-            initialTab={valueType === "boolean" ? "value" : "source"}
+            initialTab={
+              initialTab ?? (valueType === "boolean" ? "value" : "source")
+            }
           />
         </Modal>
       )}

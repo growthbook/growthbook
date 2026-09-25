@@ -1,6 +1,12 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
+import {
+  PiFunnel,
+  PiPlusBold,
+  PiMagnifyingGlass,
+  PiArrowClockwise,
+  PiClock,
+} from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SafeRolloutInterface,
@@ -28,12 +34,16 @@ import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import DataFreshness from "@/components/Diagnostics/DataFreshness";
+import RuleFilterButton from "./RuleFilterButton";
+import { useFeatureUsage } from "./FeatureUsageGraph";
 import HoldoutValueModal from "./HoldoutValueModal";
 
 export default function FeatureRules({
@@ -58,6 +68,7 @@ export default function FeatureRules({
   onPendingRuleEditHandled,
   rulesEnv,
   setRulesEnv,
+  hasRules,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -85,6 +96,12 @@ export default function FeatureRules({
   // resolve for the same environment. null = "All environments" view.
   rulesEnv: string | null;
   setRulesEnv: (v: string | null) => void;
+  /**
+   * Any rule in any environment. Owned by the parent, which already computes it
+   * across every env for its own empty-state logic; recomputing it here would
+   * let the heading's copy and the parent's disagree.
+   */
+  hasRules: boolean;
 }) {
   const envs = environments.map((e) => e.id);
   const storedEnv = rulesEnv;
@@ -121,6 +138,13 @@ export default function FeatureRules({
     );
   }, [feature.rules, environments]);
   const hasOrphanedRules = orphanedRuleIds.size > 0;
+
+  const {
+    usageUpdatedAt,
+    showFeatureUsage,
+    ruleTrafficLoading,
+    refreshRuleTraffic,
+  } = useFeatureUsage();
 
   // Externally triggered rule open (e.g. ramp timeline CTA). Switch to the
   // requested env if it projects there, else any env that has it.
@@ -336,6 +360,45 @@ export default function FeatureRules({
 
   return (
     <>
+      <Flex align="center" justify="between" gap="3" mb="2">
+        <Heading as="h4" size="sm" mb="0">
+          Rules
+        </Heading>
+        <Flex align="center" gap="2" flexShrink="0">
+          {showFeatureUsage &&
+            (ruleTrafficLoading ? (
+              <Flex align="center" gap="1" style={{ whiteSpace: "nowrap" }}>
+                <PiClock size={12} color="var(--color-text-low)" />
+                <Text size="sm" color="text-mid" whiteSpace="nowrap">
+                  Refreshing…
+                </Text>
+              </Flex>
+            ) : (
+              <DataFreshness
+                updatedAt={usageUpdatedAt}
+                verb="Updated"
+                icon={<PiClock size={12} color="var(--color-text-low)" />}
+              />
+            ))}
+          {showFeatureUsage && (
+            <RuleFilterButton
+              label="Refresh rule traffic"
+              icon={<PiArrowClockwise size={12} strokeWidth={2} />}
+              // Same flag as the figures' skeleton, so the button can't be
+              // pressed again while the counts are still loading.
+              spinning={ruleTrafficLoading}
+              disabled={ruleTrafficLoading}
+              onClick={() => refreshRuleTraffic()}
+            />
+          )}
+        </Flex>
+      </Flex>
+      {!hasRules && (
+        <p>
+          Add powerful logic on top of your feature. The first rule that matches
+          will be applied and override the Default Value.
+        </p>
+      )}
       <Tabs
         value={env ?? FEATURE_RULES_ALL_ENVS}
         onValueChange={(v) => setEnv(v === FEATURE_RULES_ALL_ENVS ? null : v)}

@@ -1,6 +1,12 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureUsageDimension } from "shared/types/feature";
+import { FEATURE_USAGE_BUCKET_SECONDS } from "shared/featureUsageBuckets";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FeatureInterface } from "shared/types/feature";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -11,13 +17,22 @@ import {
   stemRuleId,
 } from "shared/util";
 import { useRouter } from "next/router";
-import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
+import {
+  FeatureEvalDiagnosticsFilterColumn,
+  FeatureEvalDiagnosticsQueryResponseRows,
+} from "shared/types/integrations";
 import type { RowFilter } from "shared/types/fact-table";
 import { ago, date, getValidDate } from "shared/dates";
 import { QueryStatistics } from "shared/types/query";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex, Skeleton } from "@radix-ui/themes";
 import clsx from "clsx";
-import { PiArrowClockwiseBold, PiClockBold } from "react-icons/pi";
+import {
+  PiArrowClockwiseBold,
+  PiChartBarBold,
+  PiClockBold,
+  PiXBold,
+} from "react-icons/pi";
+import { format } from "date-fns";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
@@ -43,6 +58,7 @@ import FeatureDiagnosticsControlBar, {
   LOOKBACK_PRESETS,
   type EnvironmentOption,
 } from "@/components/Features/FeatureDiagnosticsControlBar";
+import Heading from "@/ui/Heading";
 import DataCardHeader from "@/components/Diagnostics/DataCardHeader";
 import FeatureEvaluationsCard from "@/components/Features/FeatureEvaluationsCard";
 import styles from "./FeatureDiagnostics.module.scss";
@@ -164,6 +180,44 @@ function getDummyRowTemplates(feature: FeatureInterface): Array<{
  * Keys not listed keep their arrival order at the end, so a new column from the
  * warehouse still appears rather than being silently dropped.
  */
+/**
+ * The managed warehouse's stream columns, from its fixed query
+ * (ClickHouse#getFeatureEvalDiagnosticsQuery). Used only before a first run,
+ * when there are no rows yet to read the columns from.
+ */
+const MANAGED_STREAM_COLUMNS = [
+  "timestamp",
+  "feature_key",
+  "environment",
+  "value",
+  "source",
+  "ruleId",
+  "variationId",
+];
+
+/**
+ * The stream column(s) each grouping can filter by, first match wins. The rule
+ * column is `ruleId` on the managed warehouse and `rule_id` in the event
+ * forwarder templates. Mirrors the server's closed set.
+ */
+const STREAM_FILTER_COLUMNS: Record<
+  FeatureUsageDimension,
+  FeatureEvalDiagnosticsFilterColumn[]
+> = {
+  value: ["value"],
+  source: ["source"],
+  environment: ["environment"],
+  ruleId: ["ruleId", "rule_id"],
+};
+
+/** The series chip's prefix, matching the group-by control's labels. */
+const GROUP_BY_LABELS: Record<FeatureUsageDimension, string> = {
+  value: "Value",
+  ruleId: "Rule",
+  source: "Source",
+  environment: "Environment",
+};
+
 const COLUMN_ORDER = [
   "value",
   "source",
@@ -171,6 +225,85 @@ const COLUMN_ORDER = [
   "variationId",
   "environment",
 ];
+
+/**
+ * The chip's text: the bucket's bounds, plus the group if a segment was
+ * clicked rather than the column background.
+ *
+ * Seconds appear only when the buckets are sub-minute — at 30s a chip reading
+ * "16:52–16:52" would name the same minute twice and look like a bug.
+ */
+function describeSelection(
+  selection: { start: number; end: number; groupValue?: string },
+  bucketMs: number,
+): string {
+  const withSeconds = bucketMs < 60_000;
+  const time = (t: number) =>
+    format(new Date(t), withSeconds ? "HH:mm:ss" : "HH:mm");
+  // The date leads, once: on a 7-day window "14:20–14:40" names no particular
+  // day, and repeating the date on both ends would say the same thing twice
+  // for a bucket that cannot span one.
+  const range = `${format(new Date(selection.start), "MMM d")}, ${time(
+    selection.start,
+  )} – ${time(selection.end)}`;
+  return selection.groupValue === undefined
+    ? range
+    : `${range} · ${selection.groupValue}`;
+}
+
+/**
+ * Label for a revision marker.
+ *
+ * `rev 13 · 100%` only when there is genuinely one number to print: exactly one
+ * rule differs from the previous published revision, and that rule carries a
+ * coverage. Everything else is `rev 13`.
+ *
+ * The restraint is the point. A revision can change several rules at once, or
+ * set different coverage per environment, and in those cases no single
+ * percentage is true — picking the first rule or averaging them would put a
+ * number on the chart that describes nothing, which on a diagnostics surface is
+ * worse than saying less.
+ *
+ * `fullRevisions` is the five most recent (FeatureRevisionModel's `.limit(5)`),
+ * so a marker older than that has no rules to compare and takes the bare form.
+ * That is a data limit, not a judgement about the revision.
+ */
+function buildRevisionLabel(
+  fullRevisions: FeatureRevisionInterface[] | undefined,
+): (version: number) => string {
+  const byVersion = new Map(
+    (fullRevisions ?? []).map((r) => [r.version, r] as const),
+  );
+
+  return (version: number) => {
+    const bare = `rev ${version}`;
+    const current = byVersion.get(version);
+    const previous = byVersion.get(version - 1);
+    if (!current || !previous) return bare;
+
+    const rules = Array.isArray(current.rules) ? current.rules : [];
+    const previousById = new Map(
+      (Array.isArray(previous.rules) ? previous.rules : []).map(
+        (r) => [r.id, r] as const,
+      ),
+    );
+
+    // Compared by serialised value rather than by identity: a rule object is
+    // rebuilt on every save, so reference equality would report every rule as
+    // changed on every revision.
+    const changed = rules.filter(
+      (r) => JSON.stringify(previousById.get(r.id)) !== JSON.stringify(r),
+    );
+    if (changed.length !== 1) return bare;
+
+    const coverage = (changed[0] as { coverage?: number }).coverage;
+    if (typeof coverage !== "number") return bare;
+
+    // Stored 0-1. Trailing zeros dropped so a full rollout reads "100%" rather
+    // than "100.0%".
+    return `${bare} · ${parseFloat((coverage * 100).toFixed(1))}%`;
+  };
+}
 
 /**
  * The width `value` had before Timestamp grew: an equal share of what was left
@@ -259,6 +392,8 @@ export default function FeatureDiagnostics({
   feature,
   results,
   setResults,
+  revisionList,
+  revisions,
   experiments,
 }: {
   feature: FeatureInterface;
@@ -270,7 +405,11 @@ export default function FeatureDiagnostics({
       FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
     > | null,
   ) => void;
-  /** Already loaded by the page; names variations in the stream. */
+  /** Complete published history — which markers to draw. */
+  revisionList?: MinimalFeatureRevisionInterface[];
+  /** The five most recent, with rules — what a marker can say. */
+  revisions?: FeatureRevisionInterface[];
+  /** Already loaded by the page; names experiment-ref rules in the breakdown. */
   experiments?: ExperimentInterfaceStringDates[];
 }) {
   const [loading, setLoading] = useState(false);
@@ -294,6 +433,7 @@ export default function FeatureDiagnostics({
     featureUsageRows,
     featureUsageRowsMeta,
     usageUpdatedAt,
+    scenarioMarkers,
   } = useFeatureUsage();
 
   const orgEnvironments = useEnvironments();
@@ -354,6 +494,130 @@ export default function FeatureDiagnostics({
   // Committed filters. Staged editing lives inside the control bar's popover;
   // this is only what the surface is actually filtered by.
   const [panelFilters, setPanelFilters] = useState<RowFilter[]>([]);
+
+  /**
+   * The grouping lives here, not in the chart card: a selection names the
+   * dimension it was made in, so the two have to be cleared together.
+   */
+  const [groupBy, setGroupBy] = useState<FeatureUsageDimension>("value");
+
+  /**
+   * The bar selection. STREAM-SCOPED ONLY — it narrows the evaluation stream
+   * and nothing else.
+   *
+   *   stream = time frame ∧ environment ∧ page filters ∧ bar selection
+   *
+   * Deliberately NOT fed back into the chart's own data. Collapsing the chart
+   * to the selected bucket would destroy the context that made the bar worth
+   * clicking — you would be left looking at the thing you selected with nothing
+   * to compare it against.
+   *
+   * One selection at a time. Clicking another bar replaces it; this is a
+   * selection, not a filter list, and the page-level filters above are where
+   * accumulating constraints belong.
+   *
+   * Wired to the stream query: a selection re-runs it with a range and, when
+   * the grouping's column exists in this data source's rows, a filter. See
+   * `streamNarrowing` below for which parts of a selection are applied.
+   *
+   * Still not built: disclosing the row cap against the bucket total ("100 of
+   * 412"). That needs a second aggregate per click, and on the generic path
+   * its own COUNT(*) — a cost decision rather than an oversight.
+   */
+  const [selection, setSelection] = useState<{
+    /** Bucket bounds, ms. */
+    start: number;
+    end: number;
+    /** Absent for a column-background click: the whole bucket, any group. */
+    groupField?: FeatureUsageDimension;
+    groupValue?: string;
+  } | null>(null);
+
+  /**
+   * Chart click -> selection. Toggles: clicking the same bar again clears it,
+   * which is one of the four ways out (the others are the chip's ✕, Esc, and
+   * any page-level change).
+   *
+   * The bucket's end comes from the shared width table rather than from the
+   * gap to the next bar — the last bucket has no next bar, and a selection on
+   * it would otherwise have no end.
+   */
+  const bucketMs = FEATURE_USAGE_BUCKET_SECONDS[lookback] * 1000;
+  /**
+   * The breakdown panel's selection: one series across the whole window, by
+   * its key in the current grouping, with the label its chip shows. Mutually
+   * exclusive with the bar selection — each clears the other — because the
+   * chart can only dim against one of them. A new row replaces it.
+   */
+  const [seriesSelection, setSeriesSelection] = useState<{
+    key: string;
+    label: string;
+  } | null>(null);
+  const handleSeriesSelect = useCallback(
+    (picked: { key: string; label: string } | null) => {
+      setSelection(null);
+      setSeriesSelection(picked);
+    },
+    [],
+  );
+
+  const handleChartSelect = useCallback(
+    (picked: { x: number; group?: string }) => {
+      setSeriesSelection(null);
+      setSelection((current) => {
+        const same =
+          current &&
+          current.start === picked.x &&
+          current.groupValue === picked.group;
+        if (same) return null;
+        return {
+          start: picked.x,
+          end: picked.x + bucketMs,
+          groupField: picked.group === undefined ? undefined : groupBy,
+          groupValue: picked.group,
+        };
+      });
+    },
+    [bucketMs, groupBy],
+  );
+
+  /**
+   * Cleared by every page-level change, because each one invalidates it in its
+   * own way: a new time frame or environment means the bucket may not exist,
+   * a filter change means the stream underneath it is a different population,
+   * and a group-by switch strands the group constraint in a dimension that is
+   * no longer shown — `source = experiment` means nothing once you are looking
+   * at Value, and there is no honest re-mapping.
+   *
+   * Keyed on the values rather than wired into each setter so a future control
+   * cannot forget to call it.
+   */
+  useEffect(() => {
+    setSelection(null);
+    setSeriesSelection(null);
+  }, [lookback, selectedEnvironments, panelFilters, groupBy]);
+
+  // Esc, while a selection is live.
+  useEffect(() => {
+    if (!selection && seriesSelection === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setSelection(null);
+      setSeriesSelection(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selection, seriesSelection]);
+
+  const experimentsMap = useMemo(
+    () => new Map((experiments ?? []).map((e) => [e.id, e])),
+    [experiments],
+  );
+  const environmentIds = useMemo(
+    () => environmentOptions.map((e) => e.id),
+    [environmentOptions],
+  );
+
   // When the data on screen was fetched. SWR exposes no such timestamp, and a
   // null here is what the "Never run" stamp reads.
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -422,6 +686,133 @@ export default function FeatureDiagnostics({
   const displayResults = useDummyData ? dummyResults : results;
 
   /**
+   * Which of the four fields this data source's stream rows actually carry.
+   *
+   * Derived from the rows, not assumed: a generic data source wraps a query
+   * the customer wrote, which only has to emit `timestamp` and `feature_key`.
+   * A field is filterable only if its column came back, so the page never
+   * offers a filter that would make the query fail.
+   *
+   * Remembered from the last run that returned rows, because a filtered run
+   * that matches nothing returns no keys — and the column did not stop
+   * existing. Before any run, the managed warehouse's columns are known from
+   * its fixed query (ClickHouse#getFeatureEvalDiagnosticsQuery); a generic
+   * source's are not, so nothing on it is filterable until it has run once.
+   */
+  const [streamColumns, setStreamColumns] = useState<string[] | null>(null);
+  useEffect(() => {
+    setStreamColumns(null);
+  }, [datasourceId]);
+  useEffect(() => {
+    if (displayResults?.length)
+      setStreamColumns(Object.keys(displayResults[0]));
+  }, [displayResults]);
+  const knownStreamColumns =
+    streamColumns ??
+    (datasource?.type === "growthbook_clickhouse"
+      ? MANAGED_STREAM_COLUMNS
+      : null);
+
+  const filterColumnFor = useCallback(
+    (dimension: FeatureUsageDimension) => {
+      if (!knownStreamColumns) return null;
+      // Case-insensitive: some warehouses return identifiers upper-cased, and
+      // the unquoted canonical name folds to match them in the query.
+      const present = new Set(knownStreamColumns.map((c) => c.toLowerCase()));
+      return (
+        STREAM_FILTER_COLUMNS[dimension].find((c) =>
+          present.has(c.toLowerCase()),
+        ) ?? null
+      );
+    },
+    [knownStreamColumns],
+  );
+
+  /** Why the current grouping cannot filter the stream, or null if it can. */
+  const seriesFilterUnavailable = !knownStreamColumns
+    ? "Run the query once to filter the stream by this"
+    : filterColumnFor(groupBy)
+      ? null
+      : `This data source has no ${STREAM_FILTER_COLUMNS[groupBy][0]} column to filter the stream by`;
+
+  /**
+   * The selection as applied. A bar's group only applies when its column
+   * exists and it names one group — "(other)" is several, so it cannot. When
+   * it does not apply, the bar selects its whole column instead: the chart
+   * lights the column, the chip names only the bucket, and the query narrows
+   * only by time. Nothing claims a filter that is not in the query.
+   */
+  const appliedSelection = useMemo(() => {
+    if (!selection) return null;
+    const groupApplies =
+      selection.groupField !== undefined &&
+      selection.groupValue !== undefined &&
+      selection.groupValue !== "(other)" &&
+      !!filterColumnFor(selection.groupField);
+    return groupApplies
+      ? selection
+      : { start: selection.start, end: selection.end };
+  }, [selection, filterColumnFor]);
+
+  const streamNarrowing = useMemo(() => {
+    if (appliedSelection) {
+      const column =
+        appliedSelection.groupField !== undefined
+          ? filterColumnFor(appliedSelection.groupField)
+          : null;
+      return {
+        range: { start: appliedSelection.start, end: appliedSelection.end },
+        ...(column && appliedSelection.groupValue !== undefined
+          ? { filter: { column, value: appliedSelection.groupValue } }
+          : {}),
+      };
+    }
+    if (seriesSelection) {
+      const column = filterColumnFor(groupBy);
+      if (column) {
+        return { filter: { column, value: seriesSelection.key } };
+      }
+    }
+    return null;
+  }, [appliedSelection, seriesSelection, groupBy, filterColumnFor]);
+
+  /**
+   * What the chart needs to dim against: the x it was clicked at, and the
+   * group if a segment rather than the column background.
+   */
+  const chartSelection = appliedSelection
+    ? { x: appliedSelection.start, group: appliedSelection.groupValue }
+    : null;
+
+  /**
+   * Dummy mode has no query to run, so the synthetic rows are narrowed here.
+   * Only for the demo data: real rows are always narrowed by the query, since
+   * filtering the loaded rows would miss everything older than them.
+   */
+  const streamRows = useMemo(() => {
+    if (!useDummyData || !displayResults || !streamNarrowing) {
+      return displayResults;
+    }
+    const { filter, range } = streamNarrowing as {
+      filter?: { column: string; value: string };
+      range?: { start: number; end: number };
+    };
+    return displayResults.filter((row) => {
+      if (
+        filter &&
+        String(row[filter.column as keyof typeof row]) !== filter.value
+      ) {
+        return false;
+      }
+      if (range) {
+        const t = getValidDate(row.timestamp).getTime();
+        if (t < range.start || t >= range.end) return false;
+      }
+      return true;
+    });
+  }, [useDummyData, displayResults, streamNarrowing]);
+
+  /**
    * The managed warehouse's projection is fixed, so its columns are a fixed
    * set in a fixed order. Environment is always on — the environment scope does
    * not reach the query, so rows from every environment arrive and the values
@@ -435,11 +826,6 @@ export default function FeatureDiagnostics({
    * timestamp and feature_key are guaranteed, so its columns are still read
    * from the first row, exactly as before.
    */
-  const experimentsMap = useMemo(
-    () => new Map((experiments ?? []).map((e) => [e.id, e])),
-    [experiments],
-  );
-
   const managedStream =
     useDummyData || datasource?.type === "growthbook_clickhouse";
 
@@ -491,7 +877,7 @@ export default function FeatureDiagnostics({
   );
 
   const evalItems = useAddComputedFields(
-    displayResults ?? [],
+    streamRows ?? [],
     (row) => {
       const timestampDate = getValidDate(row.timestamp);
       // Compute display values for all columns
@@ -515,7 +901,7 @@ export default function FeatureDiagnostics({
         timestampSort: number;
       } & Record<string, string | number>;
     },
-    [displayResults, columns, managedStream, timestampPlan, variationLabel],
+    [streamRows, columns, managedStream, timestampPlan, variationLabel],
   );
 
   // Values come from what is actually loaded, so the builder offers real
@@ -526,9 +912,19 @@ export default function FeatureDiagnostics({
     // the same setting would need syncing and would drift — and the chip is the
     // better of the two, since it always has a value and lists environments the
     // flag is configured for.
-    const filterable = ["value", "source", "ruleId", "variationId"];
+    //
+    // Same order and names as the group-by control (Value, Rule, Source),
+    // read top to bottom where that reads left to right, so one field is
+    // called one thing in both places. Variation has no group-by counterpart
+    // and follows, named as its stream column is.
+    const filterable = [
+      { value: "value", label: GROUP_BY_LABELS.value },
+      { value: "ruleId", label: GROUP_BY_LABELS.ruleId },
+      { value: "source", label: GROUP_BY_LABELS.source },
+      { value: "variationId", label: streamColumnLabel("variationId") },
+    ];
     return {
-      columns: filterable.map((c) => ({ label: c, value: c })),
+      columns: filterable,
       savedFilters: [],
       getColumnInfo: (column: string | undefined) => ({
         datatype: "string" as const,
@@ -614,6 +1010,20 @@ export default function FeatureDiagnostics({
   const windowTotal = featureUsage?.total ?? 0;
   const lifetimeTotal = featureUsageSummary?.lifetimeTotal ?? 0;
   const filtersActive = panelFilters.length > 0 || isFiltered;
+
+  /**
+   * A search narrows only the loaded rows, so its count is of matches among
+   * them.
+   */
+  const streamSummary = (() => {
+    // Not a claim to make while the rows are still arriving.
+    if (items.length === 0) return loading ? "" : "No evaluations match";
+    const first = (currentPage - 1) * rowsPerPage + 1;
+    const last = Math.min(currentPage * rowsPerPage, items.length);
+    const range = `${first.toLocaleString()}–${last.toLocaleString()}`;
+    const of = items.length.toLocaleString();
+    return isFiltered ? `${range} of ${of} matches` : `${range} of ${of}`;
+  })();
   // Both have to have landed before any of this is meaningful — judging off a
   // half-loaded pair would flash "stopped" on every page load.
   const usageLoaded = !!featureUsage && !!featureUsageSummary;
@@ -649,6 +1059,19 @@ export default function FeatureDiagnostics({
             ? "stopped"
             : "quiet";
 
+  /**
+   * The two halves of the merged card, and what each one actually depends on.
+   *
+   * They are not the same condition: the chart needs usage data to exist at
+   * all, while the table needs a datasource wired up. Keeping them separate is
+   * why the card can render with only one half present.
+   */
+  const showChartHalf = showFeatureUsage && diagnosticsState !== "never";
+  const showStreamHalf = !!(
+    useDummyData ||
+    (datasource && datasourceHasFeatureUsageQuery)
+  );
+
   // Names the window the person actually chose, rather than a fixed string that
   // would be wrong on three of the four presets.
   const windowLabel =
@@ -680,6 +1103,9 @@ export default function FeatureDiagnostics({
             // back to its historical 7 days, so the stream described a
             // different period from the one on screen.
             lookback,
+            // A selection's range (ms) and filter. The server validates both;
+            // the column is looked up from a fixed set, never interpolated.
+            ...(streamNarrowing ?? {}),
           }),
         },
         (responseData) => {
@@ -714,13 +1140,18 @@ export default function FeatureDiagnostics({
    */
   const runQueryRef = useRef(onRunFeatureUsageQuery);
   runQueryRef.current = onRunFeatureUsageQuery;
-  const lastQueriedLookback = useRef(lookback);
+  // The window and the selection together: either changing re-runs the query.
+  // A selection runs it even before a first manual run, since clicking one is
+  // asking for the narrowed stream.
+  const streamQueryKey = `${lookback}|${JSON.stringify(streamNarrowing)}`;
+  const lastStreamQueryKey = useRef(streamQueryKey);
   useEffect(() => {
-    if (lastQueriedLookback.current === lookback) return;
-    lastQueriedLookback.current = lookback;
-    if (results === null || useDummyData) return;
+    if (lastStreamQueryKey.current === streamQueryKey) return;
+    lastStreamQueryKey.current = streamQueryKey;
+    if (useDummyData) return;
+    if (results === null && !streamNarrowing) return;
     runQueryRef.current();
-  }, [lookback, results, useDummyData]);
+  }, [streamQueryKey, results, useDummyData, streamNarrowing]);
 
   // Empty State: Prompt user to set up a data source to view diagnostics for this feature
   // Skipped under ?dummy=true, which is the case with no datasource at all.
@@ -755,7 +1186,7 @@ export default function FeatureDiagnostics({
       {/* Above the filter row, because Refresh re-runs the chart, the table
           and the filters — it cannot sit inside one of the things it
           refreshes. The stamp here is about the QUERY ("Refreshed"), which is
-          a different fact from the data clock on the Evaluation Stream card
+          a different fact from the data clock the stream half reports
           below ("last evaluated"); they were contradicting each other while
           they shared a word. */}
       {/* A zero-height marker at the bar's resting position. A sticky element
@@ -897,16 +1328,6 @@ export default function FeatureDiagnostics({
         </Callout>
       )}
 
-      {/* Skipped entirely when nothing has ever arrived: a flat empty plot
-          adds noise to a state the callout above has already explained. */}
-      {showFeatureUsage && diagnosticsState !== "never" && (
-        <FeatureEvaluationsCard
-          rowsByDimension={featureUsageRows}
-          rowsMeta={featureUsageRowsMeta}
-          total={featureUsage?.total ?? 0}
-        />
-      )}
-
       {!useDummyData && datasource && awaitingProvisioning && (
         <ManagedWarehouseNoEventsCallout />
       )}
@@ -924,167 +1345,299 @@ export default function FeatureDiagnostics({
           </Callout>
         )}
 
-      {(useDummyData || (datasource && datasourceHasFeatureUsageQuery)) && (
+      {/* ONE card. The chart and the table are two views of a single query —
+          summary on top, detail below — so the boundary between them was
+          padding and a gap standing in for a distinction that does not exist.
+
+          Both halves are still conditional, because they answer to different
+          things: the chart needs usage data to exist, the table needs a
+          datasource wired up. The card renders if either does. */}
+      {(showChartHalf || showStreamHalf) && (
         <Frame mt="4">
-          {/* The same header the Event Logs stream uses: the title sits inline
-              with the freshness stamp and Refresh, which describe this table
-              rather than the filter row above it. */}
-          {/* Title only. `actions={null}` rather than omitting it: the default
-              right-hand group is a freshness stamp and a Refresh button, and
-              the control bar above already owns both clocks and Run Query. */}
-          <DataCardHeader title="Evaluation Stream" actions={null} />
+          {showChartHalf && (
+            <FeatureEvaluationsCard
+              rowsByDimension={featureUsageRows}
+              rowsMeta={featureUsageRowsMeta}
+              total={featureUsage?.total ?? 0}
+              revisions={revisionList}
+              revisionLabel={buildRevisionLabel(revisions)}
+              markerOverride={scenarioMarkers}
+              groupBy={groupBy}
+              setGroupBy={setGroupBy}
+              selection={chartSelection}
+              onSelect={handleChartSelect}
+              rules={feature.rules ?? []}
+              // Holdout occupies slot #1, as on the rule cards.
+              ruleNumberOffset={feature.holdout?.id ? 2 : 1}
+              experimentsMap={experimentsMap}
+              scopeEnvironments={selectedEnvironments}
+              environmentIds={environmentIds}
+              valueType={feature.valueType}
+              seriesSelection={seriesSelection?.key ?? null}
+              onSeriesSelect={handleSeriesSelect}
+              seriesFilterUnavailable={seriesFilterUnavailable}
+            />
+          )}
 
-          {/* Full width: it is the only control left on this card, and the
-              control bar above owns time frame and filters.
+          {/* Back between the halves. The plot lost its bordered container a
+              few rounds ago, so nothing was drawing the boundary any more and
+              the search row read as a control on the chart. Inset to the
+              card's content edges, not bled to its border. */}
+          {showChartHalf && showStreamHalf && (
+            <Box className={styles.cardDivider} />
+          )}
 
-              16px below. Nothing above it: the header's divider already carries
-              a 16px bottom margin, and a margin here would stack on top of it
-              rather than replace it. */}
-          <Box mb="4">
-            {/* Committed on blur or Enter rather than per keystroke, the same
+          {showStreamHalf && (
+            <>
+              {/* The search and the selection chip share a row: both scope the
+              table, and the chip has no header to live on now that the
+              "Evaluation Stream" heading is gone. Keeping it below the divider
+              is what still says it narrows the table and not the chart. */}
+              {/* Names the lower half of the card, above everything that
+                  belongs to it — the search, the table and its footer all
+                  sit under this.
+
+                  An h3, subordinate to the card's own "Feature Evaluations" h2:
+                  the two halves are one section, and a peer-level heading would
+                  read as a second section inside the card.
+
+                  The gap to the chart is the divider's, above. */}
+              {/* 12px to the search row. */}
+              <Box mb="3">
+                <Heading as="h3" size="sm" mb="0">
+                  Evaluation Stream
+                </Heading>
+              </Box>
+
+              {/* Search spans the table's width, 12px above it. A bar
+                  selection's chip, when there is one, takes its own width at
+                  the end of the row and the search yields to it. */}
+              <Flex align="center" gap="2" mb="3" wrap="wrap">
+                <Box style={{ flex: "1 1 auto", minWidth: 0 }}>
+                  {/* Committed on blur or Enter rather than per keystroke, the same
                 as the Event Logs stream. Here that is about the reader rather
                 than about a request: filtering, re-sorting and re-paging on
                 every character moves rows out from under the cursor while it
                 is still being typed. */}
-            <StreamSearchField
-              value={searchInputProps.value}
-              onChange={(v) => {
-                setSearchValue(v);
-                // A new search is a new result set, so it starts at its own
-                // first page rather than wherever the last one had got to.
-                setPage(1);
-              }}
-              placeholder="Search evaluations..."
-            />
-          </Box>
-          {error && errorSql ? (
-            <Box my="3">
-              <DisplayTestQueryResults
-                results={[]}
-                duration={0}
-                sql={errorSql}
-                error={error}
-                expandable={true}
-              />
-            </Box>
-          ) : error ? (
-            <Callout status="error" my="3">
-              <strong>Error:</strong> {error}
-            </Callout>
-          ) : null}
-          {/* Constant height across states, so committing a search that matches
+                  <StreamSearchField
+                    value={searchInputProps.value}
+                    onChange={(v) => {
+                      setSearchValue(v);
+                      // A new search is a new result set, so it starts at its own
+                      // first page rather than wherever the last one had got to.
+                      setPage(1);
+                    }}
+                    placeholder="Search evaluations..."
+                  />
+                </Box>
+
+                {seriesSelection && streamNarrowing ? (
+                  <Flex align="center" gap="2" className={styles.selectionChip}>
+                    <PiChartBarBold size={12} aria-hidden />
+                    <Text size="sm">
+                      {`${GROUP_BY_LABELS[groupBy]}: ${seriesSelection.label}`}
+                    </Text>
+                    <button
+                      type="button"
+                      aria-label="Clear series selection"
+                      className={styles.selectionChipClear}
+                      onClick={() => setSeriesSelection(null)}
+                    >
+                      <PiXBold size={10} aria-hidden />
+                    </button>
+                  </Flex>
+                ) : null}
+                {appliedSelection ? (
+                  <Flex align="center" gap="2" className={styles.selectionChip}>
+                    <PiChartBarBold size={12} aria-hidden />
+                    <Text size="sm">
+                      {describeSelection(appliedSelection, bucketMs)}
+                    </Text>
+                    <button
+                      type="button"
+                      aria-label="Clear bar selection"
+                      className={styles.selectionChipClear}
+                      onClick={() => setSelection(null)}
+                    >
+                      <PiXBold size={10} aria-hidden />
+                    </button>
+                  </Flex>
+                ) : null}
+              </Flex>
+              {error && errorSql ? (
+                <Box my="3">
+                  <DisplayTestQueryResults
+                    results={[]}
+                    duration={0}
+                    sql={errorSql}
+                    error={error}
+                    expandable={true}
+                  />
+                </Box>
+              ) : error ? (
+                <Callout status="error" my="3">
+                  <strong>Error:</strong> {error}
+                </Callout>
+              ) : null}
+              {/* Constant height across states, so committing a search that matches
               nothing does not collapse the card and pull the page up under the
               reader. Reserves a full page of rows: the 30px header plus 30px
               per row, from the current page size. */}
-          <Box
-            className={streamTableStyles.resultsArea}
-            style={{ minHeight: 30 + rowsPerPage * 30 }}
-          >
-            {items.length === 0 && !error && (
-              <Box className={streamTableStyles.resultsPlaceholder}>
-                <EmptyState
-                  title="No evaluations found"
-                  description={
-                    isFiltered
-                      ? "Try a different search, or clear it to see every evaluation in this window"
-                      : "Try a longer time frame, or removing a filter"
-                  }
-                  leftButton={null}
-                  rightButton={null}
-                />
-              </Box>
-            )}
+              <Box
+                className={streamTableStyles.resultsArea}
+                style={{ minHeight: 30 + rowsPerPage * 30 }}
+              >
+                {items.length === 0 && !error && loading && (
+                  // Nothing loaded to hold the shape of, so placeholder rows
+                  // at the table's 30px pitch, one page's worth.
+                  <Box aria-hidden>
+                    {Array.from({ length: rowsPerPage }, (_, i) => (
+                      <Box key={i} className={styles.streamSkeletonRow}>
+                        <Skeleton
+                          loading
+                          className={styles.streamSkeleton}
+                          style={{ display: "block", height: 14 }}
+                        />
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+                {items.length === 0 && !error && !loading && (
+                  <Box className={streamTableStyles.resultsPlaceholder}>
+                    <EmptyState
+                      title="No evaluations found"
+                      description={
+                        isFiltered
+                          ? "Try a different search, or clear it to see every evaluation in this window"
+                          : "Try a longer time frame, or removing a filter"
+                      }
+                      leftButton={null}
+                      rightButton={null}
+                    />
+                  </Box>
+                )}
 
-            {items.length > 0 && (
-              <>
-                {/* The same dense table as the Event Logs stream: list variant,
+                {items.length > 0 && (
+                  <>
+                    {/* The same dense table as the Event Logs stream: list variant,
                   30px rows, 12px monospace cells that truncate rather than
                   wrap. The styling is shared rather than copied — see
                   components/Diagnostics/StreamTable.module.scss. */}
-                <Table
-                  variant="list"
-                  size="md"
-                  className={streamTableStyles.streamTable}
-                >
-                  <TableHeader>
-                    <TableRow>
-                      {/* Radix header cells, not the legacy `<th>` SortableTH
+                    <Table
+                      variant="list"
+                      size="md"
+                      className={`${streamTableStyles.streamTable} ${styles.evalTable}`}
+                    >
+                      <TableHeader>
+                        <TableRow>
+                          {/* Radix header cells, not the legacy `<th>` SortableTH
                         renders — the shared module's rules target
                         `.rt-TableColumnHeaderCell`. Same props, same sort UI.
 
                         Widths sit on the header only: under the shared fixed
                         layout the first row decides the columns. Columns given
                         no width share whatever is left, evenly. */}
-                      <SortableTableColumnHeader
-                        field="timestampSort"
-                        style={{ width: timestampPlan.width }}
-                      >
-                        {timestampHeader(timestampPlan.headerDate)}
-                      </SortableTableColumnHeader>
-                      {columns.map((key) => (
-                        <SortableTableColumnHeader
-                          key={key}
-                          field={key}
-                          // Only `value` is pinned; everything else stays
-                          // unsized and absorbs what Timestamp took.
-                          style={
-                            key === "value"
-                              ? { width: VALUE_COLUMN_WIDTH }
-                              : undefined
-                          }
-                        >
-                          {managedStream
-                            ? managedStreamColumnLabel(key)
-                            : streamColumnLabel(key)}
-                        </SortableTableColumnHeader>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visibleItems.map((row) => (
-                      <TableRow key={row.id}>
-                        {/* Every column, not just the long ones: `value` holds
+                          <SortableTableColumnHeader
+                            field="timestampSort"
+                            style={{ width: timestampPlan.width }}
+                          >
+                            {timestampHeader(timestampPlan.headerDate)}
+                          </SortableTableColumnHeader>
+                          {columns.map((key) => (
+                            <SortableTableColumnHeader
+                              key={key}
+                              field={key}
+                              // Only `value` is pinned; everything else stays
+                              // unsized and absorbs what Timestamp took.
+                              style={
+                                key === "value"
+                                  ? { width: VALUE_COLUMN_WIDTH }
+                                  : undefined
+                              }
+                            >
+                              {managedStream
+                                ? managedStreamColumnLabel(key)
+                                : streamColumnLabel(key)}
+                            </SortableTableColumnHeader>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {visibleItems.map((row) => (
+                          <TableRow key={row.id}>
+                            {/* Every column, not just the long ones: `value` holds
                             JSON on a non-boolean flag, and the timestamp clips
                             too once the card is narrow enough. */}
-                        <TableCell>
-                          <TruncatedCell value={String(row.timestamp)} />
-                        </TableCell>
-                        {columns.map((key) => (
-                          <TableCell key={key}>
-                            {managedStream &&
-                            key === "ruleId" &&
-                            ruleAbsenceNote(String(row[key] ?? "")) !== null ? (
-                              // A fact, not missing data: muted, with the
-                              // reason on hover.
-                              <span
-                                title={
-                                  ruleAbsenceNote(String(row[key] ?? "")) ??
-                                  undefined
-                                }
-                                style={{ color: "var(--color-text-low)" }}
+                            <TableCell>
+                              <Skeleton
+                                loading={loading}
+                                className={styles.streamSkeleton}
                               >
-                                —
-                              </span>
-                            ) : (
-                              <TruncatedCell value={String(row[key] ?? "")} />
-                            )}
-                          </TableCell>
+                                <span className={styles.streamSkeletonCell}>
+                                  <TruncatedCell
+                                    value={String(row.timestamp)}
+                                  />
+                                </span>
+                              </Skeleton>
+                            </TableCell>
+                            {columns.map((key) => (
+                              <TableCell key={key}>
+                                <Skeleton
+                                  loading={loading}
+                                  className={styles.streamSkeleton}
+                                >
+                                  <span className={styles.streamSkeletonCell}>
+                                    {managedStream &&
+                                    key === "ruleId" &&
+                                    ruleAbsenceNote(String(row[key] ?? "")) !==
+                                      null ? (
+                                      // A fact, not missing data: muted, with the
+                                      // reason on hover.
+                                      <span
+                                        title={
+                                          ruleAbsenceNote(
+                                            String(row[key] ?? ""),
+                                          ) ?? undefined
+                                        }
+                                        style={{
+                                          color: "var(--color-text-low)",
+                                        }}
+                                      >
+                                        —
+                                      </span>
+                                    ) : (
+                                      <TruncatedCell
+                                        value={String(row[key] ?? "")}
+                                      />
+                                    )}
+                                  </span>
+                                </Skeleton>
+                              </TableCell>
+                            ))}
+                          </TableRow>
                         ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <StreamPagination
-                  numItemsTotal={items.length}
-                  perPage={rowsPerPage}
-                  setPerPage={setRowsPerPage}
-                  currentPage={currentPage}
-                  onPageChange={setPage}
-                  pullBottom
-                />
-              </>
-            )}
-          </Box>
+                      </TableBody>
+                    </Table>
+                  </>
+                )}
+
+                {/* Renders in the empty state too, so "No evaluations match"
+                    sits where the count always is. */}
+                {!error && (
+                  <StreamPagination
+                    numItemsTotal={items.length}
+                    perPage={rowsPerPage}
+                    setPerPage={setRowsPerPage}
+                    currentPage={currentPage}
+                    onPageChange={setPage}
+                    pullBottom
+                    summary={streamSummary}
+                    hidePager={items.length === 0}
+                  />
+                )}
+              </Box>
+            </>
+          )}
         </Frame>
       )}
     </Box>

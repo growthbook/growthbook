@@ -1,6 +1,7 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
+import { color as echartsColor } from "echarts";
 import Decimal from "decimal.js";
 import {
   DataVizConfig,
@@ -157,6 +158,17 @@ export function DataVisualizationDisplay({
   showAxisNames = true,
   grid,
   barMaxWidth,
+  chartHeight,
+  yAxisSplitNumber,
+  legendPadding,
+  showLegend = true,
+  yAxisLabelFormatter,
+  markLineLabelDistance,
+  markLines,
+  selection,
+  selectionDimOpacity = 0.25,
+  onSelect,
+  markLineOvershoot,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
@@ -194,6 +206,113 @@ export function DataVisualizationDisplay({
    * scale divides plot width by category count with no ceiling.
    */
   barMaxWidth?: number;
+
+  /**
+   * Vertical reference lines at x-axis values — a published revision, a deploy,
+   * an incident. `value` is in the x-axis's own units, so epoch milliseconds on
+   * a time axis.
+   *
+   * Omitted draws none, which is what every existing caller gets. Attached to
+   * one series only: ECharts would otherwise draw the same line once per
+   * series, and a stacked chart with six groups would stack six identical
+   * dashed lines on top of each other.
+   */
+  /**
+   * Overrides the chart container's size. Omitted keeps the 350px floor and
+   * 80% height every existing caller renders at.
+   *
+   * A prop rather than a CSS override at the call site: the size is set as an
+   * inline style here, so a stylesheet could only win with `!important`, and
+   * the component would go on claiming a 350px floor that was not true.
+   */
+  chartHeight?: { minHeight?: string; height?: string };
+
+  /**
+   * `yAxis.splitNumber` — roughly how many gridlines to aim for. Omitted leaves
+   * ECharts' own choice, which is right for a full-height chart and too busy
+   * for a short one.
+   */
+  yAxisSplitNumber?: number;
+
+  /** Legend padding. Omitted keeps `[8, 0, 20, 0]`. */
+  legendPadding?: number[];
+
+  /**
+   * Hides ECharts' own legend. For a caller rendering the legend outside the
+   * canvas, where it costs no plot height. Omitted shows it, as every existing
+   * caller does.
+   */
+  showLegend?: boolean;
+
+  /**
+   * Replaces the y-axis tick text. For a short plot, where a full-precision
+   * number is wide enough to push the plot right for no gain. Omitted keeps the
+   * shared `formatter`, which every existing caller uses.
+   */
+  yAxisLabelFormatter?: (value: number) => string;
+
+  /**
+   * Pushes a mark line's label off its endpoint. Negative moves it down, which
+   * is how a label clears a legend band it would otherwise land in.
+   *
+   * A distance rather than a position because ECharts' `insideEnd*` positions
+   * render nothing for a pixel-anchored mark line — verified — and because an
+   * offset leaves the line's own overshoot intact, so the line still guarantees
+   * a visible segment under a tall bar.
+   */
+  markLineLabelDistance?: number;
+
+  markLines?: {
+    value: number;
+    label?: string;
+    /**
+     * Which way the label extends from its line. Omitted centres it, which is
+     * right anywhere but the edges; "right" makes it run leftward and "left"
+     * rightward, so a marker near a plot edge keeps its text inside.
+     */
+    align?: "left" | "right";
+  }[];
+
+  /**
+   * The currently selected bar, in DATA terms — `x` is the bucket's x-axis
+   * value and `group` the series it was clicked in, absent for a click on the
+   * column background.
+   *
+   * Expressed this way rather than as ECharts indices so the caller never has
+   * to know the internal series order or dataset row order; the translation
+   * both ways is this component's job.
+   *
+   * Set: the selected bar keeps its colour and everything else dims. Null or
+   * omitted: nothing dims, which is what every existing caller gets.
+   *
+   * `x` absent selects the whole SERIES named by `group` across every bucket,
+   * for a caller that selects from a list rather than from a bar.
+   */
+  selection?: { x?: number; group?: string } | null;
+
+  /**
+   * Alpha applied to everything outside the selection. Defaults to 0.25, the
+   * bar-selection dim, so existing callers are unchanged.
+   */
+  selectionDimOpacity?: number;
+
+  /**
+   * Fired when a bar is clicked. `group` is present for a segment and absent
+   * for the column background. Never fired unless a handler is passed, so the
+   * chart stays inert for callers that have no selection model.
+   */
+  onSelect?: (selection: { x: number; group?: string }) => void;
+
+  /**
+   * Pixels a mark line runs ABOVE the plot area, so it reads as annotating the
+   * chart rather than as one more thing inside it.
+   *
+   * 0 or omitted keeps the default, which spans exactly the plot. Needs
+   * `grid.top` as a number and `grid.bottom` as a percentage to resolve the two
+   * ends; any other grid shape falls back to the plot-spanning line rather than
+   * guessing at a height it cannot know before render.
+   */
+  markLineOvershoot?: number;
 }) {
   const anchorYAxisToZero =
     "displaySettings" in dataVizConfig && dataVizConfig.displaySettings
@@ -715,6 +834,269 @@ export function DataVisualizationDisplay({
     ];
   }, [aggregatedRows]);
 
+  /**
+   * Recessive by construction: the house grid-line colour for the rule itself,
+   * and the axis label colour for the text, so a marker reads as chart
+   * furniture rather than as data competing with the bars.
+   *
+   * `symbol: "none"` removes the arrowhead ECharts puts on a markLine by
+   * default, which on a vertical rule points at nothing.
+   */
+  /**
+   * A step darker than the grid lines — same black/white alpha construction the
+   * chart theme uses, roughly double the opacity.
+   *
+   * At the grid value the rule was there but not findable: a dashed line at 6%
+   * against stacked bars reads as a rendering artefact rather than as something
+   * placed deliberately. This is the next step up that still sits behind the
+   * data rather than beside it.
+   */
+  /**
+   * The panel a chart sits on, for the mark-line label's text outline. Read
+   * from the live CSS token rather than restated here, so it tracks the card
+   * through theme changes and any future retheming. ECharts paints to
+   * canvas/SVG and cannot take a `var()`, so it has to be resolved to a literal
+   * at config time.
+   */
+  const markLineSurface = useMemo(() => {
+    const fallback = theme === "dark" ? "#1c2339" : "#ffffff";
+    if (typeof window === "undefined") return fallback;
+    const resolved = getComputedStyle(document.documentElement)
+      .getPropertyValue("--color-panel-solid")
+      .trim();
+    return resolved || fallback;
+  }, [theme]);
+
+  const markLineColor =
+    theme === "dark" ? "rgba(255, 255, 255, 0.22)" : "rgba(0, 0, 0, 0.16)";
+
+  /**
+   * The two pixel anchors an overshooting line needs, or undefined when the
+   * grid cannot supply them.
+   *
+   * `grid.bottom` is a percentage from the BOTTOM, so the line's lower end is
+   * its complement from the top. Resolved as a percentage rather than a pixel
+   * count so it keeps tracking the plot floor as the chart is resized.
+   */
+  const markLineOvershootAnchors = useMemo(() => {
+    if (!markLineOvershoot) return undefined;
+    const top = grid?.top;
+    const bottom = grid?.bottom;
+    if (typeof top !== "number") return undefined;
+    if (typeof bottom !== "string" || !bottom.trim().endsWith("%")) {
+      return undefined;
+    }
+    const fromBottom = parseFloat(bottom);
+    if (!isFinite(fromBottom)) return undefined;
+    return {
+      top: top - markLineOvershoot,
+      bottom: `${100 - fromBottom}%`,
+    };
+  }, [markLineOvershoot, grid?.top, grid?.bottom]);
+
+  const markLineConfig = useMemo(() => {
+    /**
+     * One end of a mark line, or a whole plot-spanning one. Declared because
+     * the two forms below — bare items and two-item pairs — would otherwise
+     * infer as mutually exclusive array types and neither would accept the
+     * other.
+     */
+    type MarkLineEntry = {
+      xAxis: number;
+      y?: number | string;
+      label?: Record<string, unknown>;
+    };
+
+    if (!markLines?.length) return undefined;
+    const overshoot = markLineOvershootAnchors;
+    const themeColors = getChartThemeColors(theme);
+
+    return {
+      /**
+       * BEHIND the bars, alongside the axis split lines rather than above the
+       * data — which is where an annotation belongs relative to what it
+       * annotates. A markLine defaults to z 5 and so outranks its own series
+       * (z 2); 1 puts it under the bars while still clearing the split lines.
+       *
+       * Being hidden where it crosses a bar is the intended behaviour, not a
+       * loss: the split lines already do exactly this, and the segment above
+       * the plot is what guarantees the mark and its label stay readable no
+       * matter how tall the bar underneath is. That is what `markLineOvershoot`
+       * is for, and why the two go together.
+       */
+      z: 1,
+      /**
+       * Instant. A mark line is a reference, not a measurement — it has no
+       * value to reveal, so animating it draws the eye to the annotation
+       * instead of to the data it annotates.
+       *
+       * Set here rather than on the series: `markLine` extends
+       * AnimationOptionMixin in its own right, so this turns off the line's
+       * animation while the bars keep theirs.
+       */
+      animation: false,
+      symbol: "none" as const,
+      // The line is reference, not a data point — hovering it should not
+      // preempt the tooltip for the bar behind it.
+      silent: true,
+      emphasis: { disabled: true },
+      lineStyle: {
+        type: "dashed" as const,
+        width: 1,
+        color: markLineColor,
+      },
+      label: {
+        show: true,
+        // Top of the plot: a vertical markLine runs bottom-to-top, so "end" is
+        // the top edge, clear of the bars.
+        position: "end" as const,
+        color: themeColors.textColor,
+        fontSize: 10,
+        ...(markLineLabelDistance !== undefined
+          ? { distance: markLineLabelDistance }
+          : {}),
+        // Keeps the text legible wherever it lands — over the legend band on a
+        // tall chart, over the bars on a short one where it is pushed inside
+        // the plot.
+        textBorderColor: markLineSurface,
+        textBorderWidth: 2,
+      },
+      /**
+       * A line with no label is still a line. The caller decides which ones
+       * earn text; see the labelling policy where these are built.
+       */
+      data: markLines.map<MarkLineEntry | MarkLineEntry[]>((m) => {
+        const label = m.label
+          ? { formatter: m.label, ...(m.align ? { align: m.align } : {}) }
+          : { show: false };
+
+        if (overshoot) {
+          // Two explicit ends, so the line can leave the plot. Bottom FIRST:
+          // `position: "end"` anchors the label to the second point, and the
+          // label belongs at the top. Reversing these puts it under the bars.
+          //
+          // x stays a data coordinate while y is in pixels — ECharts resolves
+          // the two dimensions independently, so the line tracks the time axis
+          // exactly as the plot-spanning form does.
+          return [
+            { xAxis: m.value, y: overshoot.bottom },
+            { xAxis: m.value, y: overshoot.top, label },
+          ];
+        }
+
+        return { xAxis: m.value, label };
+      }),
+    };
+  }, [
+    markLines,
+    theme,
+    markLineColor,
+    markLineSurface,
+    markLineLabelDistance,
+    markLineOvershootAnchors,
+  ]);
+
+  /**
+   * Per-datum colour while a selection is live: the selected bar keeps its
+   * colour, everything else drops to a quarter alpha.
+   *
+   * A colour callback rather than ECharts' `blur` state, which only reaches a
+   * datum through `dispatchAction` — an imperative call that has to be kept in
+   * step with React's render and re-fired after every option change. Returning
+   * a colour is declarative: the dim IS the option, so it cannot drift from the
+   * selection prop.
+   *
+   * `rgba()` rather than an 8-digit hex, which ECharts does not parse here.
+   */
+  /**
+   * Whether this chart participates in selection at all.
+   *
+   * Drives the SHAPE of itemStyle, not just its value, and that matters: the
+   * chart is keyed on `JSON.stringify(option)`, and JSON.stringify drops
+   * function values. A colour that switched between a string and a callback as
+   * a selection came and went would change the key, remount the whole chart,
+   * and replay the entry animation — which is the flicker.
+   *
+   * Holding the callback form constant keeps the key stable across selection
+   * changes, so ECharts updates in place and the dim arrives as its normal
+   * update transition instead.
+   */
+  const selectable = typeof onSelect === "function";
+
+  /**
+   * Latest rows and callback, read by the click handlers at click time.
+   *
+   * echarts-for-react deep-compares `onEvents` after every update and, when it
+   * differs, disposes the chart and builds a new one — replaying the entry
+   * animation. An inline `{ click: () => … }` is a new function every render,
+   * so any re-render (the sticky header toggling on scroll, the auto-refresh
+   * poll) rebuilt the chart and flickered. The handlers below are created once
+   * per `selectable` and reach current values through these refs instead of
+   * closing over them. The same refs keep `onChartReady`'s background handler,
+   * which is bound once per chart instance, from going stale.
+   */
+  const aggregatedRowsRef = useRef(aggregatedRows);
+  aggregatedRowsRef.current = aggregatedRows;
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+
+  /**
+   * Segment clicks. ECharts reports these in its own terms — a series index and
+   * a dataset row index — so they are translated back to the x value and the
+   * group name before leaving this component.
+   */
+  const chartEvents = useMemo(
+    () =>
+      selectable
+        ? {
+            click: (params: {
+              componentType?: string;
+              dataIndex?: number;
+              seriesName?: string;
+            }) => {
+              if (params.componentType !== "series") return;
+              if (params.dataIndex === undefined) return;
+              const row = aggregatedRowsRef.current[params.dataIndex] as
+                | { x?: unknown }
+                | undefined;
+              const x =
+                row?.x instanceof Date ? row.x.getTime() : Number(row?.x);
+              if (!isFinite(x)) return;
+              onSelectRef.current?.({ x, group: params.seriesName });
+            },
+          }
+        : undefined,
+    [selectable],
+  );
+
+  const dimmedColor = useCallback(
+    (base: string, isSelected: boolean) => {
+      if (!selection || isSelected) return base;
+      // echarts' own helper, so any colour form the palette can produce —
+      // hex, rgb(), a named colour — is handled the same way the library
+      // handles it everywhere else.
+      return echartsColor.modifyAlpha(base, selectionDimOpacity);
+    },
+    [selection, selectionDimOpacity],
+  );
+
+  /**
+   * Whether a datum is the selected one. A background click carries no group,
+   * so it selects the whole column and every series at that x stays lit.
+   */
+  const isSelectedDatum = useCallback(
+    (dataIndex: number, seriesName: string) => {
+      if (!selection) return false;
+      // A series selection: every bucket of that series stays lit.
+      if (selection.x === undefined) return selection.group === seriesName;
+      const row = aggregatedRows[dataIndex] as { x?: unknown } | undefined;
+      const x = row?.x instanceof Date ? row.x.getTime() : Number(row?.x);
+      if (x !== selection.x) return false;
+      return selection.group === undefined || selection.group === seriesName;
+    },
+    [selection, aggregatedRows],
+  );
+
   const series = useMemo(() => {
     if (dimensionFields.length === 0) {
       return [
@@ -727,6 +1109,18 @@ export function DataVisualizationDisplay({
               : dataVizConfig.chartType,
           ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
           ...(barMaxWidth !== undefined ? { barMaxWidth } : {}),
+          ...(markLineConfig ? { markLine: markLineConfig } : {}),
+          ...(selectable
+            ? {
+                itemStyle: {
+                  color: (p: { dataIndex: number; color?: string }) =>
+                    dimmedColor(
+                      p.color ?? "",
+                      isSelectedDatum(p.dataIndex, xField ?? ""),
+                    ),
+                },
+              }
+            : {}),
           encode: {
             x: "x",
             y: "y",
@@ -754,8 +1148,12 @@ export function DataVisualizationDisplay({
         // order is not: on a chart that refreshes while you watch it, a segment
         // should not swap places because one group briefly overtook another.
         .sort((a, b) => a.localeCompare(b))
-        .map((dimensionKey) => ({
+        .map((dimensionKey, seriesIndex) => ({
           name: dimensionKey,
+          // First series only — see the note on the markLines prop.
+          ...(markLineConfig && seriesIndex === 0
+            ? { markLine: markLineConfig }
+            : {}),
           ...CHART_ANIMATION_CONFIG,
           type:
             dataVizConfig.chartType === "area"
@@ -764,9 +1162,25 @@ export function DataVisualizationDisplay({
           ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
           stack: shouldStack ? "stack" : undefined,
           ...(barMaxWidth !== undefined ? { barMaxWidth } : {}),
-          ...(seriesColors?.[dimensionKey]
-            ? { itemStyle: { color: seriesColors[dimensionKey] } }
-            : {}),
+          // A selection turns the flat colour into a per-datum one; without a
+          // selection the static form is kept, so nothing changes for callers
+          // that never select.
+          // The callback form is used whenever this chart is selectable, even
+          // with nothing selected — see `selectable` for why the shape has to
+          // stay constant. Non-selectable callers keep the flat colour.
+          ...(selectable
+            ? {
+                itemStyle: {
+                  color: (p: { dataIndex: number; color?: string }) =>
+                    dimmedColor(
+                      seriesColors?.[dimensionKey] ?? p.color ?? "",
+                      isSelectedDatum(p.dataIndex, dimensionKey),
+                    ),
+                },
+              }
+            : seriesColors?.[dimensionKey]
+              ? { itemStyle: { color: seriesColors[dimensionKey] } }
+              : {}),
           encode: {
             x: "x",
             y: dimensionKey,
@@ -782,11 +1196,38 @@ export function DataVisualizationDisplay({
     generateAllDimensionCombinations,
     seriesColors,
     barMaxWidth,
+    markLineConfig,
+    selectable,
+    dimmedColor,
+    isSelectedDatum,
   ]);
+
+  /**
+   * The palette, in series order — needed only because `itemStyle.color` is a
+   * callback on a selectable chart.
+   *
+   * ECharts cannot resolve a legend swatch from a function, so it silently
+   * falls back to its own default palette and the legend stops describing the
+   * bars. Handing it `option.color` gives it a per-series colour it can read
+   * without calling anything, while the bars keep taking theirs from the
+   * callback — so the legend is right AND the dimming still works.
+   *
+   * Order matters: ECharts assigns the palette by series index, and the series
+   * are sorted by name above, so this is built from the same sorted list.
+   */
+  const seriesPalette = useMemo(() => {
+    if (!selectable || !seriesColors) return undefined;
+    const names = (series as { name?: string }[])
+      .map((sr) => sr.name)
+      .filter((n): n is string => typeof n === "string");
+    if (!names.length) return undefined;
+    return names.map((n) => seriesColors[n]).filter(Boolean);
+  }, [selectable, seriesColors, series]);
 
   const option = useMemo(() => {
     return {
       dataset,
+      ...(seriesPalette?.length ? { color: seriesPalette } : {}),
       tooltip: {
         appendTo: "body",
         trigger: "axis",
@@ -798,6 +1239,9 @@ export function DataVisualizationDisplay({
         // Matches the dashboard charts; ECharts' own default leaves the text
         // flush against the tooltip edge.
         padding: [10, 14],
+        // Deliberately NOT the axis formatter: an axis abbreviates because it
+        // is a scale, a tooltip states the value because it is the answer to
+        // "what exactly is this bar".
         valueFormatter: (value: number) => {
           if (!yConfig?.type) {
             return value;
@@ -821,6 +1265,7 @@ export function DataVisualizationDisplay({
       ...(dimensionFields.length > 0
         ? {
             legend: {
+              show: showLegend,
               textStyle: {
                 color: textColor,
               },
@@ -830,7 +1275,7 @@ export function DataVisualizationDisplay({
                 ? {
                     top: 8,
                     type: "plain",
-                    padding: [8, 0, 20, 0],
+                    padding: legendPadding ?? [8, 0, 20, 0],
                     // Anchoring right means omitting `width` entirely: given a
                     // width, ECharts centres within it and `right` is ignored.
                     //
@@ -872,6 +1317,9 @@ export function DataVisualizationDisplay({
       },
       yAxis: {
         scale: !anchorYAxisToZero,
+        ...(yAxisSplitNumber !== undefined
+          ? { splitNumber: yAxisSplitNumber }
+          : {}),
         // The house grid line, imported rather than restated — a copy is how
         // VelocityBlockChart drifted from it.
         splitLine: {
@@ -891,12 +1339,20 @@ export function DataVisualizationDisplay({
         },
         axisLabel: {
           color: textColor,
+          ...(yAxisLabelFormatter
+            ? { formatter: (value: number) => yAxisLabelFormatter(value) }
+            : {}),
         },
       },
       series,
     };
   }, [
     dataset,
+    seriesPalette,
+    yAxisSplitNumber,
+    yAxisLabelFormatter,
+    legendPadding,
+    showLegend,
     dataVizConfig?.chartType,
     dataVizConfig.title,
     textColor,
@@ -967,8 +1423,58 @@ export function DataVisualizationDisplay({
         <EChartsReact
           key={JSON.stringify(option)}
           option={option}
-          style={{ width: "100%", minHeight: "350px", height: "80%" }}
+          style={{
+            width: "100%",
+            minHeight: chartHeight?.minHeight ?? "350px",
+            height: chartHeight?.height ?? "80%",
+          }}
+          onEvents={chartEvents}
           onChartReady={(chart) => {
+            /**
+             * Column-background clicks, which are not series events and so
+             * never reach `onEvents`. zrender leaves `target` undefined when a
+             * click lands on blank canvas rather than on a rendered element —
+             * that absence IS the test for "background".
+             *
+             * Deliberately paired with leaving `showBackground` off: turning it
+             * on would make each column a real element, which would set
+             * `target` and collapse the distinction these two channels exist to
+             * draw.
+             */
+            if (onSelect) {
+              chart
+                .getZr()
+                .on(
+                  "click",
+                  (e: {
+                    target?: unknown;
+                    offsetX: number;
+                    offsetY: number;
+                  }) => {
+                    if (e.target) return;
+                    const point = [e.offsetX, e.offsetY];
+                    if (!chart.containPixel("grid", point)) return;
+                    const [x] = chart.convertFromPixel(
+                      { seriesIndex: 0 },
+                      point,
+                    );
+                    if (!isFinite(x)) return;
+                    // Snap to the bucket the click fell in: the pixel maps to an
+                    // arbitrary instant, and a selection has to name a bucket.
+                    let nearest: number | null = null;
+                    aggregatedRowsRef.current.forEach((r) => {
+                      const rowX =
+                        (r as { x?: unknown }).x instanceof Date
+                          ? (r as { x: Date }).x.getTime()
+                          : Number((r as { x?: unknown }).x);
+                      if (!isFinite(rowX) || rowX > x) return;
+                      if (nearest === null || rowX > nearest) nearest = rowX;
+                    });
+                    if (nearest === null) return;
+                    onSelectRef.current?.({ x: nearest });
+                  },
+                );
+            }
             // TEMPORARY INSTRUMENTATION — remove before landing anything.
             // Captures the real ECharts option for the DataVisualizationDisplay
             // vs ExplorerChart comparison. dataset/aria/axisPointer are dropped

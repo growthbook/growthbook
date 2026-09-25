@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import Pagination from "@/ui/Pagination";
@@ -27,6 +28,14 @@ interface Props {
    * edge reads as 24px.
    */
   pullBottom?: boolean;
+
+  /**
+   * What the rows are, set directly right of the page-size control: "1–15 of
+   * 60 most recent". Omitted renders nothing there, as before.
+   */
+  summary?: ReactNode;
+  /** Hides the pager, for a state with no rows to page through. */
+  hidePager?: boolean;
 }
 
 /**
@@ -47,6 +56,8 @@ export default function StreamPagination({
   onPageChange,
   options = STREAM_ROWS_PER_PAGE_OPTIONS,
   pullBottom = false,
+  summary,
+  hidePager = false,
 }: Props) {
   return (
     <Flex justify="between" align="center" mb={pullBottom ? "-3" : "0"}>
@@ -70,15 +81,28 @@ export default function StreamPagination({
             </SelectItem>
           ))}
         </Select>
+        {/* 4px on top of the row's gap, so the count reads as its own item
+            rather than as the select's value. */}
+        {summary !== undefined && (
+          <span style={{ marginLeft: 4 }}>
+            <Text color="text-low" size="sm" whiteSpace="nowrap">
+              {summary}
+            </Text>
+          </span>
+        )}
       </Flex>
-      <Pagination
-        numItemsTotal={numItemsTotal}
-        perPage={perPage}
-        currentPage={currentPage}
-        onPageChange={onPageChange}
-        previousLabel={<PiCaretLeft size={14} />}
-        nextLabel={<PiCaretRight size={14} />}
-      />
+      <Flex gap="3" align="center">
+        {!hidePager && (
+          <Pagination
+            numItemsTotal={numItemsTotal}
+            perPage={perPage}
+            currentPage={currentPage}
+            onPageChange={onPageChange}
+            previousLabel={<PiCaretLeft size={14} />}
+            nextLabel={<PiCaretRight size={14} />}
+          />
+        )}
+      </Flex>
     </Flex>
   );
 }

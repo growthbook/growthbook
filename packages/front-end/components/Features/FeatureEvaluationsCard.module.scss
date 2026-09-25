@@ -1,39 +1,151 @@
-// The plot and its legend sit in their own bordered box inside the card, which
-// is how every Product Analytics chart is framed (see ExplorerChart.tsx) — the
-// card is the section, this is the plot.
+// No border, no radius, no padding: the chart sits directly on the card
+// surface, and the card's own border is the only one in this region. Kept
+// solely as the positioning context the chart's absolute children need.
 .plotFrame {
   position: relative;
-  border: 1px solid var(--gray-a3);
-  border-radius: var(--radius-4);
-  // No horizontal padding: the plot's own grid insets do that job, and any
-  // padding here would offset the canvas from the frame so the top row's
-  // percentage offsets no longer resolved against the same width as the
-  // chart's.
-  padding: 12px 0 4px;
+  // The chart takes whatever the panel leaves. min-width 0 lets it shrink
+  // below its content width so ECharts can resize into the space.
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-// Overlaid on the legend's row rather than stacked above it, so the two read as
-// one band across the top of the plot. The canvas keeps its own space, so
-// nothing below shifts. Inert to the pointer — the chart's own tooltip surface
-// runs underneath.
-.plotTotal {
-  position: absolute;
-  // Centred against the legend's row, not just placed near it. Derived rather
-  // than eyeballed, measured from this frame's inner top edge:
-  //
-  //   legend items start at 12 (this frame's padding-top)
-  //                       + 8  (ECharts legend.top, set in the card)
-  //                       + 8  (the legend's own padding-top)   = 28px
-  //   legend itemHeight is 14  -> its centre sits at 28 + 7     = 35px
-  //   this box is ~26px tall   -> top = 35 - 13                 = 22px
-  //
-  // If the legend's top, its padding, or this frame's padding changes, redo
-  // the arithmetic — the two are independently positioned and nothing enforces
-  // the alignment for us.
-  top: 22px;
-  // `left` comes from the card, matching the plot's grid inset.
-  z-index: 1;
-  pointer-events: none;
+// Chart left, breakdown right. The row's height is the chart's; the panel is
+// fixed to the same height and scrolls inside it, so no group-by can change
+// the card's height and move the stream below.
+.chartRow {
+  align-items: stretch;
+  // 26px from the plot's right edge to the card: 24 here plus the 2px right
+  // inset the chart keeps inside its own canvas (PLOT_GRID.right).
+  gap: 24px;
+}
+
+.panel {
+  flex: 0 0 326px;
+  width: 326px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  // Nudged up by offset rather than margin, so the shift is purely visual: the
+  // row's height, and so the card's, stays the chart's.
+  position: relative;
+  top: -8px;
+}
+
+// Type comes from @/ui/Text; this only holds the header out of the scroll.
+.panelHeader {
+  flex: 0 0 auto;
+  margin-bottom: 4px;
+}
+
+.panelList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.panelRow {
+  display: grid;
+  grid-template-columns: 17px 9px minmax(0, 1fr) 56px 40px;
+  align-items: center;
+  column-gap: 8px;
+  width: 100%;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: var(--radius-2);
+  background: transparent;
+  color: var(--color-text-high);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--gray-a2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: -2px;
+  }
+}
+
+.panelRowNoIndex {
+  grid-template-columns: 9px minmax(0, 1fr) 56px 40px;
+}
+
+// Cannot filter the stream: no pointer, no hover fill. The title says why.
+.panelRowBlocked,
+.panelRowBlocked:hover {
+  cursor: default;
+  background: transparent;
+}
+
+.panelRowSelected,
+.panelRowSelected:hover {
+  background: var(--violet-a3);
+}
+
+.indexPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 16px;
+  border-radius: 4px;
+  background: #f1f3f6;
+  color: var(--color-text-mid);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+:global(.dark-theme) .indexPill {
+  background: var(--gray-a4);
+}
+
+// Not a rule, so no number — but the column holds so labels stay aligned.
+.indexPillBlank {
+  visibility: hidden;
+}
+
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.swatchEmpty {
+  border: 1px dashed var(--gray-a8);
+}
+
+.rowLabel {
+  font-size: 11.5px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rowCount {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rowShare {
+  font-size: 11px;
+  text-align: right;
+  color: var(--color-text-low);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.panelRowEmpty {
+  .rowLabel {
+    color: var(--color-text-low);
+  }
+  .rowCount {
+    color: var(--gray-a8);
+  }
 }
 
 // Radix's SegmentedControl ships the inverse of the Figma ToggleGroup: a tinted

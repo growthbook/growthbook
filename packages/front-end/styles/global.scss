@@ -633,6 +633,17 @@ pre {
     }
   }
 
+  // The revision + settings group is relocated into this bar as a DOM node the
+  // moment the tabs pin, which is instant by nature — appendChild has no
+  // in-between. A short fade covers the arrival.
+  //
+  // Opacity only, and only for its duration: the group carries dropdown menus,
+  // and a lasting stacking context here is exactly the kind of thing that makes
+  // a portalled menu render in the wrong place.
+  .revision-slot-enter {
+    animation: revision-slot-fade-in 150ms ease;
+  }
+
   // For a tab whose own content starts with a sticky bar directly beneath this
   // one. Two stacked bars casting one shadow between them reads as the lower
   // bar being under the page rather than on top of it, so the tab hands the
@@ -653,6 +664,15 @@ pre {
     }
   }
 }
+@keyframes revision-slot-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .analysis-settings-bar {
   .col,
   .col-auto {

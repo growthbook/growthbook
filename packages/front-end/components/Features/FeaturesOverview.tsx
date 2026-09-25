@@ -1568,20 +1568,16 @@ export default function FeaturesOverview({
                 pt="4"
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
-                <Heading as="h4" size="sm" mb="2">
-                  Rules
-                </Heading>
                 {environments.length > 0 ? (
                   <>
-                    {!hasRules && (
-                      <p>
-                        Add powerful logic on top of your feature. The first
-                        rule that matches will be applied and override the
-                        Default Value.
-                      </p>
-                    )}
-
+                    {/*
+                      The "Rules" heading and the empty-state copy moved into
+                      FeatureRules: the heading now shares a row with the
+                      freshness stamp and the filter control, whose state lives
+                      there.
+                    */}
                     <FeatureRules
+                      hasRules={hasRules}
                       environments={environments}
                       feature={feature}
                       baseFeature={baseFeature}

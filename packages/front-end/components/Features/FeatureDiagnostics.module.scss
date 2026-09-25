@@ -25,21 +25,49 @@
   // inside a card.
   background-color: var(--background-color);
 
-  // The band hugs its content: 8px clear of the Run Query button, which is the
-  // tallest thing in the row, on both sides. That is what content scrolling
-  // past passes behind, so it is a buffer rather than a gap that only exists at
-  // rest.
-  //
-  // The top 8px also has to carry what the tab's own padding used to: padding
-  // on the container scrolls away, which let the title meet the tabs above once
-  // this stuck.
-  padding-top: 8px;
-  padding-bottom: 8px;
+  // At rest this is ordinary page spacing: the 20px the tab container used to
+  // put above the title, moved here because padding on the container scrolls
+  // away and let the title meet the tabs once this stuck. The pinned state
+  // tightens it — see .stickyHeaderStuck.
+  padding-top: 20px;
 
-  // Hands the bottom 8px straight back, so the control bar below keeps the
-  // position it had before this became sticky. The band still reserves the
-  // space; only the following sibling is pulled back up through it.
+  // The buffer content passes behind on its way under the bar. Handed straight
+  // back below, so the control bar keeps the position it had before any of this
+  // was sticky: the band reserves the space, and only the following sibling is
+  // pulled back up through it.
+  padding-bottom: 8px;
   margin-bottom: -8px;
+
+  // Matches the 150ms the tabs above already use, so the pair settles together
+  // rather than at two speeds.
+  //
+  // padding-top and margin-bottom MUST share a timing function: they move by
+  // equal and opposite amounts (-12 and +12), so an identical curve is what
+  // keeps their sum constant at every frame. Different easings would let the
+  // outer height wobble mid-transition and drag the page with it.
+  transition:
+    padding-top 150ms ease,
+    margin-bottom 150ms ease,
+    box-shadow 150ms ease;
+
+  // The title travels with the band. Safe for the outer height: this row is
+  // sized by the 32px Run Query button, which is taller than the heading at
+  // either size, so the text can shrink without the bar changing height.
+  :global(.rt-Heading) {
+    transition:
+      font-size 150ms ease,
+      line-height 150ms ease,
+      letter-spacing 150ms ease;
+  }
+}
+
+// Honour a reader who has asked for less movement: they still get both states,
+// just without the tween between them.
+@media (prefers-reduced-motion: reduce) {
+  .stickyHeader,
+  .stickyHeader :global(.rt-Heading) {
+    transition: none;
+  }
 }
 
 // Only once the bar is actually pinned. The tabs above it give their shadow up
@@ -60,8 +88,175 @@
 //
 //   0 1px 2px      ->  0 2px 2px -1px
 //   0 4px 4px      ->  0 6px 4px -2px
-.stickyHeaderStuck {
+//
+// Doubled so it beats .stickyHeader on specificity rather than on source order:
+// both are single classes on the same element, and the order of two rules in
+// one module is not something to make the layout depend on.
+.stickyHeaderStuck.stickyHeaderStuck {
   box-shadow:
     0 2px 2px -1px rgba(0, 0, 0, 0.1),
     0 6px 4px -2px rgba(0, 0, 0, 0.025);
+
+  // Pinned, the bar hugs its content: 8px clear of the Run Query button, the
+  // tallest thing in the row. At rest it keeps the page's own 20px, which is
+  // the spacing the tabs above expect.
+  padding-top: 8px;
+
+  // A sticky element still occupies its original box in flow, so losing 12px of
+  // padding would pull everything below up by 12px at the exact moment this
+  // pins. Giving those 12px back as bottom margin (-8 + 12) keeps the outer
+  // height identical, so nothing moves.
+  //
+  // Safe from feedback: the pinned state is read from a sentinel that sits
+  // ABOVE this element, so its position does not depend on this padding and the
+  // two cannot oscillate.
+  margin-bottom: 4px;
+
+  // Two steps down the Heading scale — md to xs, which is Radix 4 to 2 — so the
+  // title recedes once it is chrome rather than a page heading.
+  //
+  // Written as the scale's own tokens rather than the 18px/24px and 14px/18px
+  // they currently resolve to: a transition needs a concrete property to
+  // interpolate, but the values it interpolates between should still come from
+  // the type scale. Copied from .rt-Heading:where(.rt-r-size-2) in Radix's
+  // stylesheet.
+  //
+  // line-height is set directly rather than through Radix's `--line-height`
+  // custom property, which is what its size rules assign: unregistered custom
+  // properties animate discretely, so going through it would make the leading
+  // jump while the glyphs slid.
+  //
+  // Radix's size rules are `:where()`, so they carry no specificity and a plain
+  // descendant pair out-ranks them.
+  :global(.rt-Heading) {
+    font-size: calc(var(--font-size-2) * var(--heading-font-size-adjust));
+    line-height: var(--heading-line-height-2);
+    letter-spacing: calc(
+      var(--letter-spacing-2) + var(--heading-letter-spacing)
+    );
+  }
+}
+
+// The bar-selection chip, on the stream card header.
+//
+// Deliberately NOT the page-level filter pill from the control bar. The two are
+// different scopes cleared by different things — a page filter survives a bar
+// click, a bar selection does not survive a page filter — and two controls that
+// look alike but clear independently is the kind of thing a reader only learns
+// by being surprised.
+//
+// So: the accent colour rather than the neutral the filter pills use, a soft
+// tint rather than an outline, and fully rounded rather than the pills' radius.
+// It reads as a live selection rather than as one more committed constraint.
+.selectionChip {
+  // The design system's neutral chip: Radix's soft Badge at color="gray", which
+  // is `background: var(--accent-a3); color: var(--accent-a11)` with the gray
+  // accent mapped in. Taken as those literal gray tokens rather than by
+  // rendering a Badge, because this chip carries a remove button and Badge has
+  // no slot for one.
+  //
+  // It was violet, which read as an accent — a state the reader had entered
+  // rather than a value they had applied. Neutral is the right register: it is
+  // a filter on the table, like the page-level filter pills, not a highlight.
+  background: var(--gray-a3);
+  color: var(--gray-a11);
+  border-radius: 999px;
+  padding: 3px 6px 3px 10px;
+  // Never wraps: the range and the group are one fact, and a chip broken
+  // across two lines stops reading as a chip.
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.selectionChipClear {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+
+  &:hover {
+    opacity: 1;
+    background: var(--gray-a4);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gray-8);
+    outline-offset: 1px;
+    opacity: 1;
+  }
+}
+
+// Column headers for the evaluation stream, on top of the shared stream-table
+// styling. Diagnostics only — Event Logs shares that module and keeps its own
+// 13px sentence-case headers.
+//
+// At 13px sentence case the header row read as one more data row: same size as
+// the cells beneath it, same case, no signal that it was a different kind of
+// thing. Small uppercase in a muted grey makes it a label rather than content.
+//
+// Tripled to clear the shared module, which is itself tripled at (0,6,0) to beat
+// ui/Table's list-variant rules — see StreamTable.module.scss for the
+// arithmetic. The separator under the header is left alone: ui/Table already
+// draws it as an inset box-shadow on the cell.
+.evalTable {
+  &.evalTable.evalTable {
+    :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-text-low);
+    }
+  }
+}
+
+// The rule between the merged card's two halves.
+//
+// The chart lost its own bordered container, so without this nothing separates
+// the two and the search row reads as a control on the chart rather than on the
+// table.
+//
+// Inset to the card's content edges rather than bled to its border: it lines up
+// with the heading below it and the chart above, so it reads as part of the
+// same column of content instead of cutting the card in two.
+.cardDivider {
+  height: 1px;
+  background-color: var(--slate-a5);
+  // 24px to the legend above and 24px to the stream heading below — but the
+  // top figure is 18.5px, not 24.
+  //
+  // The legend is drawn INSIDE the chart canvas and stops 5.5px short of its
+  // bottom edge, so the canvas contributes that 5.5px to the visible gap before
+  // this margin starts. 18.5 + 5.5 = 24. Measured off the render; if the chart
+  // height or grid.bottom changes, re-measure rather than assuming.
+  margin: 18.5px 0 24px;
+}
+
+// Stream rows while a query re-runs. The cell's content stays in the DOM
+// hidden, so the block is the value's own width and nothing reflows on return.
+.streamSkeletonCell {
+  display: block;
+  max-width: 100%;
+}
+
+.streamSkeletonRow {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
+// Radix's pulse ignores reduced motion; doubled class to out-rank its
+// !important rule with the same weight.
+@media (prefers-reduced-motion: reduce) {
+  .streamSkeleton.streamSkeleton {
+    animation: none !important;
+    background-color: var(--gray-a3) !important;
+  }
 }

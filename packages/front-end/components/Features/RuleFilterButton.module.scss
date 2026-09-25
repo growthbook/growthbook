@@ -1,0 +1,77 @@
+/**
+ * Square icon control for the Rules section header.
+ *
+ * Exists because Radix `IconButton`'s size steps are 24px (size-1) and 32px
+ * (size-2) — 26px is not reachable through existing props, and the app does not
+ * override `--scaling`. Geometry is therefore literal; every colour resolves to
+ * a design-system token so this tracks the theme instead of pinning a canvas
+ * value that only holds in light mode.
+ */
+.ruleFilterButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--gray-a5);
+  border-radius: 7px;
+  background: var(--color-panel-solid);
+  color: var(--color-text-low);
+  cursor: pointer;
+  transition:
+    background-color 100ms ease,
+    border-color 100ms ease,
+    color 100ms ease;
+
+  &:hover:not(:disabled) {
+    background: var(--gray-a2);
+  }
+
+  &:disabled {
+    cursor: default;
+    color: var(--color-text-disabled);
+  }
+
+  // Keyboard focus only: a mouse press on a menu trigger should not leave a
+  // ring behind after the menu closes.
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 1px;
+  }
+}
+
+/**
+ * Active means rules are actually hidden right now — not merely that a switch
+ * sits in its non-default position. A control that lights up when nothing is
+ * being filtered trains people to ignore it.
+ */
+.active {
+  border-color: var(--violet-6);
+  background: var(--violet-3);
+  color: var(--violet-11);
+
+  &:hover:not(:disabled) {
+    background: var(--violet-4);
+  }
+}
+
+.spinning {
+  animation: ruleFilterSpin 700ms linear infinite;
+}
+
+@keyframes ruleFilterSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}
