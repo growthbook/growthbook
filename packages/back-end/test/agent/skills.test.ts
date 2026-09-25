@@ -2,6 +2,7 @@ import {
   mkdirSync,
   mkdtempSync,
   rmSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
@@ -277,6 +278,7 @@ describe("skill files", () => {
   writeFixtureFile(join(dir, "scripts", "sync.sh"), "curl $HOST\n");
   writeFixtureFile(join(dir, "logo.png"), "\x89PNG\x00\x00");
   writeFixtureFile(join(dir, ".hidden", "notes.md"), "secret");
+  symlinkSync(join(root, "missing.md"), join(dir, "dangling.md"));
   const { summaries, skills } = _loadSkillsFromDirectory(root);
 
   afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -292,7 +294,7 @@ describe("skill files", () => {
     ]);
   });
 
-  it("skips binary and hidden files, and the files already loaded as skills", () => {
+  it("skips binary, hidden and unreadable files, and the files already loaded as skills", () => {
     const files = [...skills.values()].filter((s) => s.kind === "file");
     expect(files.map((s) => s.name)).toEqual([
       "release-checklist/examples/payload.json",
@@ -308,6 +310,36 @@ describe("skill files", () => {
     expect(resolvedName("./scripts/sync.sh")).toBe(
       "release-checklist/scripts/sync.sh",
     );
+  });
+
+  it("still resolves a bare workflow name when a file shares it", () => {
+    const tools = createWorkflowFixture({ tools: [] });
+    writeFixtureFile(join(tools, "tools", "scripts", "prepare"), "echo\n");
+    try {
+      const merged = new Map([
+        ...skills,
+        ..._loadSkillsFromDirectory(tools).skills,
+      ]);
+      expect(_resolveSkill(merged, "prepare")?.name).toBe(
+        "release-checklist/references/prepare",
+      );
+      expect(_resolveSkill(merged, "scripts/prepare")?.name).toBe(
+        "tools/scripts/prepare",
+      );
+    } finally {
+      rmSync(tools, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the signature sensitive to edits when a symlink dangles", () => {
+    const before = _dirSignature(root);
+    expect(before).toContain("dangling.md:unreadable");
+    utimesSync(
+      join(dir, "SKILL.md"),
+      new Date(),
+      new Date(Date.now() + 10_000),
+    );
+    expect(_dirSignature(root)).not.toBe(before);
   });
 });
 

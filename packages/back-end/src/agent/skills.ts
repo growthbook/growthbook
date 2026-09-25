@@ -206,9 +206,16 @@ function readSkillFiles(
     }
     if (relative.split("/").some((part) => part.startsWith("."))) continue;
     const fullPath = path.join(domainDir, file);
-    if (!fs.statSync(fullPath).isFile()) continue;
-
-    const content = fs.readFileSync(fullPath);
+    let content: Buffer;
+    try {
+      if (!fs.statSync(fullPath).isFile()) continue;
+      content = fs.readFileSync(fullPath);
+    } catch {
+      logger.warn(
+        `Skipping unreadable skill file ${directoryName}/${relative}.`,
+      );
+      continue;
+    }
     if (content.subarray(0, 8000).includes(0)) continue;
     files.push({
       name: `${domainName}/${relative}`,
@@ -321,8 +328,13 @@ function dirSignature(dir: string): string {
       .filter((file) => !file.split(path.sep).some((p) => p.startsWith(".")))
       .sort()
       .map((file) => {
-        const stat = fs.statSync(path.join(dir, file));
-        return `${file}:${stat.mtimeMs}:${stat.size}`;
+        try {
+          const stat = fs.statSync(path.join(dir, file));
+          return `${file}:${stat.mtimeMs}:${stat.size}`;
+        } catch {
+          // A dangling symlink must not blank the whole signature and hide real edits.
+          return `${file}:unreadable`;
+        }
       })
       .join("\n");
   } catch {
@@ -351,12 +363,22 @@ function getSkillRegistry(): SkillRegistry {
   customSkillsSignature = dirSignature(AGENT_SKILLS_DIR);
   customSkillsCheckedAt = Date.now();
   let custom: SkillRegistry = { summaries: [], skills: new Map() };
-  if (skillsDirHasContent(AGENT_SKILLS_DIR)) {
-    custom = loadSkillsFromDirectory(AGENT_SKILLS_DIR);
-  } else {
-    logger.warn(
-      `AGENT_SKILLS_DIR is ${AGENT_SKILLS_DIR}, which has no <skill>/SKILL.md directories; no custom skills loaded.`,
+  try {
+    if (skillsDirHasContent(AGENT_SKILLS_DIR)) {
+      custom = loadSkillsFromDirectory(AGENT_SKILLS_DIR);
+    } else {
+      logger.warn(
+        `AGENT_SKILLS_DIR is ${AGENT_SKILLS_DIR}, which has no <skill>/SKILL.md directories; no custom skills loaded.`,
+      );
+    }
+  } catch (e) {
+    // E.g. a file removed mid-read; the next change to the directory retries.
+    logger.error(
+      e,
+      `Could not load skills from AGENT_SKILLS_DIR (${AGENT_SKILLS_DIR}); keeping the previous set.`,
     );
+    cachedRegistry ??= builtInRegistry;
+    return cachedRegistry;
   }
   cachedRegistry = mergeCustomSkills(builtInRegistry, custom);
   return cachedRegistry;
@@ -378,15 +400,24 @@ function resolveSkill(
   const exact = skills.get(trimmed);
   if (exact) return exact;
 
-  const workflow = trimmed.split("/").pop()?.replace(/\.md$/, "");
+  const segments = trimmed.split("/");
+  const workflow = segments.at(-1)?.replace(/\.md$/, "");
   if (!workflow) return undefined;
 
-  const matches = [...skills.keys()].filter(
-    (key) =>
-      key === workflow ||
-      key.endsWith(`/references/${workflow}`) ||
-      key.endsWith(`/${trimmed}`),
-  );
+  // Workflow-shaped names match workflows first, so a same-named file can't make one ambiguous.
+  const keys = [...skills.keys()];
+  const workflowShaped =
+    segments.length === 1 || segments.at(-2) === "references";
+  const workflowMatches = workflowShaped
+    ? keys.filter(
+        (key) =>
+          skills.get(key)?.kind !== "file" &&
+          (key === workflow || key.endsWith(`/references/${workflow}`)),
+      )
+    : [];
+  const matches = workflowMatches.length
+    ? workflowMatches
+    : keys.filter((key) => key.endsWith(`/${trimmed}`));
   return matches.length === 1 ? skills.get(matches[0]) : undefined;
 }
 
