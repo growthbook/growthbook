@@ -943,6 +943,7 @@
                 "group": "Settings",
                 "pages": [
                   "api/settings/operation/getSettings",
+                  "api/settings/operation/putSettings",
                   "api/settings/operation/putApprovalSettings"
                 ]
               },
@@ -997,6 +998,16 @@
                   "api/Dashboards/operation/listDashboards",
                   "api/Dashboards/operation/createDashboard",
                   "api/Dashboards/operation/getDashboardsForExperiment"
+                ]
+              },
+              {
+                "group": "Decision Criteria",
+                "pages": [
+                  "api/DecisionCriteria/operation/getDecisionCriteria",
+                  "api/DecisionCriteria/operation/updateDecisionCriteria",
+                  "api/DecisionCriteria/operation/deleteDecisionCriteria",
+                  "api/DecisionCriteria/operation/listDecisionCriteria",
+                  "api/DecisionCriteria/operation/createDecisionCriteria"
                 ]
               },
               {
@@ -1146,6 +1157,7 @@
               "api/CustomHook_model",
               "api/Dashboard_model",
               "api/DataSource_model",
+              "api/DecisionCriteria_model",
               "api/Dimension_model",
               "api/Environment_model",
               "api/EventUser_model",
