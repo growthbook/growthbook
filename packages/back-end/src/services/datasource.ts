@@ -30,10 +30,6 @@ import {
   DataSourceParamsForType,
   mergeDataSourceParams,
   redactSecretParams,
-  AssignmentQuerySelection,
-  assertAssignmentQueryRefIdentifierType,
-  assertValidAssignmentQuerySelection,
-  hasAssignmentQuerySelectionChanged,
 } from "shared/util";
 import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
 import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
@@ -54,10 +50,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import {
-  dangerouslyGetDataSourceByIdBypassPermission,
-  getDataSourceById,
-} from "back-end/src/models/DataSourceModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { SQLExecutionError } from "back-end/src/util/errors";
@@ -527,84 +520,4 @@ export async function testFeatureUsageQueryValidity(
   } catch (e) {
     return e.message;
   }
-}
-
-/**
- * Validates `next` only when it differs from `previous` (always when `previous`
- * is null), so a record whose query later drifted can still save unrelated
- * edits. A missing data source or query id is left for analysis to surface.
- */
-export async function assertValidAssignmentQuerySelectionChange(
-  context: ReqContext | ApiReqContext,
-  previous: AssignmentQuerySelection | null,
-  next: AssignmentQuerySelection,
-): Promise<void> {
-  if (!next.datasource || !next.exposureQueryId) return;
-  let datasource: Promise<DataSourceInterface | null> | undefined;
-  const loadDatasource = () =>
-    (datasource ??= dangerouslyGetDataSourceByIdBypassPermission(
-      context,
-      next.datasource,
-    ));
-  const loadExposureQueries = async () =>
-    (await loadDatasource())?.settings.queries?.exposure ?? [];
-  if (
-    previous &&
-    !(await hasAssignmentQuerySelectionChanged(
-      previous,
-      next,
-      loadExposureQueries,
-    ))
-  ) {
-    return;
-  }
-  const loaded = await loadDatasource();
-  if (!loaded) return;
-  assertValidAssignmentQuerySelection({
-    exposureQueries: loaded.settings.queries?.exposure ?? [],
-    exposureQueryId: next.exposureQueryId,
-    identifierType: next.identifierType,
-  });
-}
-
-// For REST handlers that haven't loaded the data source's queries yet.
-export async function assertApiAssignmentQueryRefHasIdentifierType(
-  context: ReqContext | ApiReqContext,
-  {
-    datasourceId,
-    ref,
-    field,
-    currentExposureQueryId,
-  }: {
-    datasourceId: string | undefined;
-    ref: { id: string; identifierType?: string } | undefined;
-    field: "assignmentQuery" | "exposureQuery";
-    currentExposureQueryId: string | undefined;
-  },
-): Promise<void> {
-  if (!datasourceId || !ref || ref.identifierType) return;
-  if (ref.id === currentExposureQueryId) return;
-  assertAssignmentQueryRefIdentifierType({
-    ref,
-    field,
-    exposureQueries: await getExposureQueriesForDatasource(
-      context,
-      datasourceId,
-    ),
-    currentExposureQueryId,
-  });
-}
-
-// Resolves legacy assignment query identifiers from the request's data source
-// cache, so serializing a list reads data sources once.
-export async function getExposureQueriesForDatasource(
-  context: ReqContext | ApiReqContext,
-  datasourceId: string,
-): Promise<ExposureQuery[]> {
-  if (!datasourceId) return [];
-  await context.populateForeignRefs({ datasource: [datasourceId] });
-  return (
-    context.foreignRefs.datasource.get(datasourceId)?.settings?.queries
-      ?.exposure ?? []
-  );
 }

@@ -57,6 +57,10 @@ import {
 } from "back-end/src/util/errors";
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import {
+  assertApiAssignmentQueryRefHasIdentifierType,
+  assertValidAssignmentQuerySelectionChange,
+} from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -486,10 +490,6 @@ export class RampScheduleModel extends BaseClass {
       exposureQueryId: mc.exposureQueryId,
       identifierType: mc.exposureQueryIdentifierType,
     });
-    // Lazy: services/datasource's import graph loops back to this model.
-    const { assertValidAssignmentQuerySelectionChange } = await import(
-      "back-end/src/services/datasource"
-    );
     await assertValidAssignmentQuerySelectionChange(
       this.context,
       previous ? toSelection(previous) : null,
@@ -861,10 +861,6 @@ export class RampScheduleModel extends BaseClass {
       updates.lockdownConfig = body.lockdownConfig;
     }
     if (body.monitoringConfig !== undefined) {
-      // Lazy: services/datasource's import graph loops back to this model.
-      const { assertApiAssignmentQueryRefHasIdentifierType } = await import(
-        "back-end/src/services/datasource"
-      );
       await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
         datasourceId: body.monitoringConfig?.datasourceId,
         ref: body.monitoringConfig?.exposureQuery,

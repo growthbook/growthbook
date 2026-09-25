@@ -65,7 +65,7 @@ import {
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import {
   resolveRampTargets,
   ruleFootprint,
@@ -1532,9 +1532,7 @@ function monitoringSelectionChanged(
       exposureQueryId: next.exposureQueryId,
       identifierType: next.exposureQueryIdentifierType,
     },
-    async () =>
-      (await getDataSourceById(ctx, next.datasourceId))?.settings?.queries
-        ?.exposure ?? [],
+    () => getExposureQueriesForDatasource(ctx, next.datasourceId),
   );
 }
 

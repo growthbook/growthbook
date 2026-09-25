@@ -26,7 +26,7 @@ import {
   assertFeatureValuesValid,
   toApiRevision,
 } from "back-end/src/services/features";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/datasource";
+import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";

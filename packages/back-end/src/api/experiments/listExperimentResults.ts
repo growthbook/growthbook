@@ -10,7 +10,7 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 
 export const listExperimentResults = createApiRequestHandler(
   listExperimentResultsValidator,

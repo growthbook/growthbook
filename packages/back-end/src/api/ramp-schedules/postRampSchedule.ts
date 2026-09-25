@@ -37,7 +37,7 @@ import {
   rampScheduleToApiInterface,
 } from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/datasource";
+import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 // Strict: a rule field placed on the step or action instead of inside `patch`

@@ -5,7 +5,7 @@ import { toApiAssignmentQueryRef } from "shared/util";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 
 export async function toReportApiInterface(
   context: ReqContext | ApiReqContext,

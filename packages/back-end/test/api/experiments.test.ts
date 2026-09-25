@@ -20,8 +20,8 @@ import { setupApp } from "./api.setup";
 
 // Serializers resolve legacy identifiers through the request's data source cache,
 // which these mock contexts don't have.
-jest.mock("back-end/src/services/datasource", () => ({
-  ...jest.requireActual("back-end/src/services/datasource"),
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
   getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
 }));
 

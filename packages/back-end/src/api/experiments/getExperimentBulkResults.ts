@@ -16,7 +16,7 @@ import {
   EXPERIMENT_BULK_RESULTS_ENABLED,
   EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX,
 } from "back-end/src/util/secrets";
-import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 
 // Answer exactly like the router's unknown-endpoint handler when disabled, so
 // a gated endpoint is indistinguishable from one that doesn't exist.
