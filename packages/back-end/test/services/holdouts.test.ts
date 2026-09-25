@@ -966,6 +966,7 @@ describe("parseHoldoutAssignmentQuery", () => {
         datasource,
         "exq_multi",
         undefined,
+        undefined,
         "requireUnambiguous",
       ),
     ).toThrow("Set assignmentQuery.identifierType to choose one");
@@ -989,5 +990,102 @@ describe("parseHoldoutAssignmentQuery", () => {
     ).toThrow(
       'Assignment query "Multi" doesn\'t declare the "device_id" identifier type',
     );
+  });
+
+  describe("project scope", () => {
+    const scopedDatasource = {
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exq_scoped",
+              name: "Scoped",
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
+              query: "SELECT 1",
+              dimensions: [],
+              projects: ["prj_a", "prj_b"],
+            },
+          ],
+        },
+      },
+    } as unknown as DataSourceInterface;
+
+    it("allows a query covering every holdout project", () => {
+      expect(
+        parseHoldoutAssignmentQuery(scopedDatasource, "exq_scoped", undefined, [
+          "prj_a",
+          "prj_b",
+        ]),
+      ).toBe("user_id");
+    });
+
+    it("rejects a query missing one of the holdout's projects", () => {
+      expect(() =>
+        parseHoldoutAssignmentQuery(scopedDatasource, "exq_scoped", undefined, [
+          "prj_a",
+          "prj_c",
+        ]),
+      ).toThrow("isn't available for every project this holdout covers");
+    });
+
+    it("rejects a scoped query for a holdout covering all projects", () => {
+      expect(() =>
+        parseHoldoutAssignmentQuery(
+          scopedDatasource,
+          "exq_scoped",
+          undefined,
+          [],
+        ),
+      ).toThrow("can't be used by a holdout that covers all projects");
+    });
+
+    it("applies the data source's projects to an unscoped query", () => {
+      const scopedDatasource = {
+        projects: ["prj_a", "prj_b"],
+        settings: {
+          queries: {
+            exposure: [
+              {
+                id: "exq_inherits",
+                name: "Inherits",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+                query: "SELECT 1",
+                dimensions: [],
+                projects: [],
+              },
+            ],
+          },
+        },
+      } as unknown as DataSourceInterface;
+      expect(() =>
+        parseHoldoutAssignmentQuery(
+          scopedDatasource,
+          "exq_inherits",
+          undefined,
+          [],
+        ),
+      ).toThrow("can't be used by a holdout that covers all projects");
+      expect(
+        parseHoldoutAssignmentQuery(
+          scopedDatasource,
+          "exq_inherits",
+          undefined,
+          ["prj_a"],
+        ),
+      ).toBe("user_id");
+    });
+
+    it("skips the scope check when projects is undefined", () => {
+      expect(
+        parseHoldoutAssignmentQuery(
+          scopedDatasource,
+          "exq_scoped",
+          undefined,
+          undefined,
+        ),
+      ).toBe("user_id");
+    });
   });
 });

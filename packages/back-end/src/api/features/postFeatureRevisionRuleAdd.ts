@@ -294,6 +294,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       const validatedFields = await validateCreateSafeRolloutFields(
         flattenExposureQueryInput(validatableFields),
         req.context,
+        feature.project ?? "",
       );
 
       const defaultRampSteps = [

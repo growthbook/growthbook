@@ -147,6 +147,9 @@ export const updateExperiment = createApiRequestHandler(
           ? "requireUnambiguous"
           : "defaultToFirst",
         field: "assignmentQuery",
+        // A project change alone that strands the current query is left to
+        // drift (outdated reason); only choosing a query is rejected.
+        scope: { project: req.body.project ?? experiment.project ?? "" },
       });
       if (!parsed.ok) throw new Error(parsed.error);
       assignmentQueryIdentifierType = parsed.identifierType;

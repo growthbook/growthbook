@@ -68,6 +68,7 @@ describe("validateCreateSafeRolloutFields", () => {
     const validated = await validateCreateSafeRolloutFields(
       { ...fields, exposureQueryId: "eq_multi" },
       context,
+      undefined,
       stored,
     );
     expect(validated.exposureQueryIdentifierType).toBe("user_id");
@@ -77,6 +78,7 @@ describe("validateCreateSafeRolloutFields", () => {
     const validated = await validateCreateSafeRolloutFields(
       { ...fields, exposureQueryId: "eq_single" },
       context,
+      undefined,
       stored,
     );
     expect(validated.exposureQueryIdentifierType).toBe("company_id");
@@ -91,6 +93,7 @@ describe("validateCreateSafeRolloutFields", () => {
           exposureQueryIdentifierType: "company_id",
         },
         context,
+        undefined,
         stored,
       ),
     ).rejects.toThrow('doesn\'t declare the "company_id" identifier type');

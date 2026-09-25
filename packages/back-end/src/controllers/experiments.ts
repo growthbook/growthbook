@@ -1383,6 +1383,7 @@ export async function postExperiments(
           exposureQueryId: obj.exposureQueryId,
           identifierType: obj.exposureQueryIdentifierType,
           onOmitted: "defaultToFirst",
+          scope: { project: obj.project ?? "" },
         },
       );
       if (!parsed.ok) throw new Error(parsed.error);
@@ -2021,7 +2022,22 @@ export async function postExperiment(
   if (changedSelectionDatasource) {
     const parsed = parseAssignmentQuerySelection(
       changedSelectionDatasource.settings.queries?.exposure ?? [],
-      { ...nextSelection, onOmitted: "defaultToFirst" },
+      {
+        ...nextSelection,
+        onOmitted: "defaultToFirst",
+        scope:
+          experiment.type === "holdout"
+            ? {
+                projects:
+                  (
+                    await context.models.holdout.getByExperimentId(
+                      experiment.id,
+                    )
+                  )?.projects ?? [],
+                datasourceProjects: changedSelectionDatasource.projects,
+              }
+            : { project: changes.project ?? experiment.project ?? "" },
+      },
     );
     if (!parsed.ok) throw new Error(parsed.error);
     changes.exposureQueryIdentifierType = parsed.identifierType;

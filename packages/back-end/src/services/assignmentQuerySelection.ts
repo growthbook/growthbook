@@ -14,6 +14,11 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
+type AssignmentQueryScope = {
+  project: string | undefined;
+  projects?: string[];
+};
+
 /**
  * The data source to validate `next` against when it differs from `previous`
  * (always when `previous` is null), else null. Also null when there's no data
@@ -55,6 +60,7 @@ export async function assertValidAssignmentQuerySelectionChange(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
+  getScope: () => AssignmentQueryScope | Promise<AssignmentQueryScope>,
 ): Promise<void> {
   const datasource = await loadChangedAssignmentQuerySelection(
     context,
@@ -66,6 +72,8 @@ export async function assertValidAssignmentQuerySelectionChange(
     exposureQueries: datasource.settings.queries?.exposure ?? [],
     exposureQueryId: next.exposureQueryId,
     identifierType: next.identifierType,
+    datasourceProjects: datasource.projects,
+    ...(await getScope()),
   });
 }
 

@@ -15,6 +15,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { getAllVariations } from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
 import {
@@ -443,6 +444,7 @@ async function applyReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,
   next: ReportAssignmentQuerySelection,
+  experiment: ExperimentInterface | null,
 ) {
   const toSelection = (s: ReportAssignmentQuerySelection) => ({
     datasource: s.datasource,
@@ -461,6 +463,15 @@ async function applyReportAssignmentQuery(
       exposureQueryId: next.exposureQueryId,
       identifierType: next.exposureQueryIdentifierType,
       onOmitted: "defaultToFirst",
+      scope:
+        experiment?.type === "holdout"
+          ? {
+              projects:
+                (await context.models.holdout.getByExperimentId(experiment.id))
+                  ?.projects ?? [],
+              datasourceProjects: datasource.projects,
+            }
+          : { project: experiment?.project ?? "" },
     },
   );
   if (!parsed.ok) throw new Error(parsed.error);
@@ -571,6 +582,7 @@ export async function putReport(
         context,
         report.experimentAnalysisSettings,
         updates.experimentAnalysisSettings,
+        experiment,
       );
     }
 
@@ -619,7 +631,12 @@ export async function putReport(
       updates.args.settingsForSnapshotMetrics =
         updates.args?.settingsForSnapshotMetrics || [];
 
-      await applyReportAssignmentQuery(context, report.args, updates.args);
+      await applyReportAssignmentQuery(
+        context,
+        report.args,
+        updates.args,
+        experiment,
+      );
 
       needsRun = true;
     }

@@ -11,6 +11,7 @@ import {
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
+  isExposureQueryAvailableForProjects,
   isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
@@ -55,6 +56,7 @@ import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-avai
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
+import { dangerouslyGetDataSourceByIdBypassPermission } from "back-end/src/models/DataSourceModel";
 import { logger } from "back-end/src/util/logger";
 import {
   getChangesToStartExperiment,
@@ -364,6 +366,8 @@ export function parseHoldoutAssignmentQuery(
   datasource: DataSourceInterface | null,
   assignmentQueryId: string | undefined,
   identifierType: string | undefined,
+  // The holdout's projects, which the query must all cover; undefined skips.
+  projects: string[] | undefined,
   onOmitted: "defaultToFirst" | "requireUnambiguous" = "defaultToFirst",
 ): string | undefined {
   if (!assignmentQueryId) return undefined;
@@ -374,10 +378,45 @@ export function parseHoldoutAssignmentQuery(
       identifierType,
       onOmitted,
       field: "assignmentQuery",
+      scope: projects
+        ? { projects, datasourceProjects: datasource?.projects }
+        : undefined,
     },
   );
   if (!parsed.ok) throw new Error(parsed.error);
   return parsed.identifierType;
+}
+
+// A project change must keep the holdout's current assignment query usable by
+// every project it now covers.
+export async function assertHoldoutAssignmentQueryCoversProjects(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "datasource" | "exposureQueryId">,
+  projects: string[],
+): Promise<void> {
+  if (!experiment.datasource || !experiment.exposureQueryId) return;
+  const datasource = await dangerouslyGetDataSourceByIdBypassPermission(
+    context,
+    experiment.datasource,
+  );
+  const query = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === experiment.exposureQueryId,
+  );
+  // A query that no longer exists is surfaced when analysis runs.
+  if (
+    !query ||
+    isExposureQueryAvailableForProjects(query, projects, datasource?.projects)
+  ) {
+    return;
+  }
+  const scopeSource = query.projects?.length
+    ? "the query's"
+    : "its data source's";
+  throw new BadRequestError(
+    projects.length
+      ? `This holdout's assignment query "${query.name || query.id}" isn't available for every selected project because of ${scopeSource} project scope. Widen that scope or choose another query first.`
+      : `This holdout's assignment query "${query.name || query.id}" is limited by ${scopeSource} project scope, so the holdout can't cover all projects. Widen that scope or choose another query first.`,
+  );
 }
 
 export async function createHoldoutWithExperiment(
@@ -401,6 +440,7 @@ export async function createHoldoutWithExperiment(
     datasource,
     data.assignmentQueryId,
     data.assignmentQueryIdentifierType,
+    data.projects ?? [],
   );
 
   const conditionResult = validateCondition(data.targetingCondition);
@@ -616,6 +656,18 @@ export async function updateHoldoutWithExperiment(
     }
     // Narrowing the project scope must not strand linked entities
     await assertHoldoutScopeCoversLinked(context, holdout, body.projects);
+    // A query changed in the same request is checked against these projects below.
+    const changesAssignmentQuery =
+      body.datasourceId !== undefined ||
+      body.assignmentQuery !== undefined ||
+      body.assignmentQueryId !== undefined;
+    if (!changesAssignmentQuery) {
+      await assertHoldoutAssignmentQueryCoversProjects(
+        context,
+        experiment,
+        body.projects,
+      );
+    }
   }
 
   const experimentChanges: Partial<ExperimentInterface> = {};
@@ -732,6 +784,7 @@ export async function updateHoldoutWithExperiment(
         datasource,
         effectiveQueryId,
         next.identifierType,
+        body.projects ?? holdout.projects,
         body.assignmentQuery ? "requireUnambiguous" : "defaultToFirst",
       );
     }

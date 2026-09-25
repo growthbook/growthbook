@@ -18,6 +18,8 @@ import { ReqContext } from "back-end/types/request";
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,
+  // The feature's project; undefined skips the assignment query scope check.
+  project: string | undefined,
   // The stored rollout on update: an unchanged selection isn't re-validated.
   previous?: Pick<
     SafeRolloutInterface,
@@ -85,6 +87,7 @@ export async function validateCreateSafeRolloutFields(
       exposureQueryId: safeRolloutFields.exposureQueryId,
       identifierType: exposureQueryIdentifierType,
       onOmitted: "defaultToFirst",
+      scope: project !== undefined ? { project } : undefined,
     });
     if (!parsed.ok) throw new BadRequestError(parsed.error);
     exposureQueryIdentifierType = parsed.identifierType;

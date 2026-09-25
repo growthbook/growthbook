@@ -201,6 +201,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
             ? "requireUnambiguous"
             : "defaultToFirst",
           field: "assignmentQuery",
+          scope: { project: payload.project ?? "" },
         },
       );
       if (!parsed.ok) {
