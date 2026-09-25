@@ -46,7 +46,6 @@ import DataCardHeader from "@/components/Diagnostics/DataCardHeader";
 import FeatureEvaluationsCard from "@/components/Features/FeatureEvaluationsCard";
 import styles from "./FeatureDiagnostics.module.scss";
 import {
-  flagShowsVariation,
   formatStreamTimestamp,
   MANAGED_STREAM_TABLE_COLUMNS,
   streamColumnLabel,
@@ -423,11 +422,13 @@ export default function FeatureDiagnostics({
 
   /**
    * The managed warehouse's projection is fixed, so its columns are a fixed
-   * set in a fixed order, decided by the flag's config rather than by the rows:
-   * a column that came and went as the reader paged would be worse than one
-   * that is always there. Environment is always on — the environment scope does
+   * set in a fixed order. Environment is always on — the environment scope does
    * not reach the query, so rows from every environment arrive and the values
    * genuinely differ. Dummy rows mirror the managed shape.
+   *
+   * Variation, on either path, shows only if some fetched row carries one. It
+   * is read from the whole result set, never the visible page, so it holds
+   * still while paging and changes only when the query re-runs.
    *
    * A generic data source wraps a query the customer wrote, where only
    * timestamp and feature_key are guaranteed, so its columns are still read
@@ -435,15 +436,15 @@ export default function FeatureDiagnostics({
    */
   const managedStream =
     useDummyData || datasource?.type === "growthbook_clickhouse";
-  const showVariation = useMemo(() => flagShowsVariation(feature), [feature]);
 
   const columns = useMemo(() => {
     if (displayResults === null || displayResults.length === 0) return [];
+    const hasVariation = (key: string) =>
+      displayResults.some((row) => (row[key] ?? "") !== "");
     if (managedStream) {
-      return [
-        ...MANAGED_STREAM_TABLE_COLUMNS,
-        ...(showVariation ? ["variationId"] : []),
-      ];
+      return hasVariation("variationId")
+        ? [...MANAGED_STREAM_TABLE_COLUMNS, "variationId"]
+        : MANAGED_STREAM_TABLE_COLUMNS;
     }
     const keysSet = new Set<string>();
     // Only iterate over the first row since all rows have the same structure
@@ -461,8 +462,14 @@ export default function FeatureDiagnostics({
       const i = COLUMN_ORDER.indexOf(key);
       return i === -1 ? COLUMN_ORDER.length : i;
     };
-    return Array.from(keysSet).sort((a, b) => rank(a) - rank(b));
-  }, [displayResults, managedStream, showVariation]);
+    return Array.from(keysSet)
+      .sort((a, b) => rank(a) - rank(b))
+      .filter(
+        (key) =>
+          !["variationid", "variation_id"].includes(key.toLowerCase()) ||
+          hasVariation(key),
+      );
+  }, [displayResults, managedStream]);
 
   const evalItems = useAddComputedFields(
     displayResults ?? [],

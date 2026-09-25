@@ -1,5 +1,4 @@
 import { format } from "date-fns";
-import type { FeatureInterface } from "shared/types/feature";
 
 /**
  * Header labels for stream columns, keyed lower-case so both spellings a
@@ -46,34 +45,6 @@ export const MANAGED_STREAM_TABLE_COLUMNS = [
   "source",
   "ruleId",
 ];
-
-/**
- * Whether the stream shows Variation, from the flag's config rather than the
- * rows: decided once per flag, so the column cannot appear and disappear as
- * the reader pages.
- *
- * Gated on the rule MECHANISM, not the flag's value type: `variationId` is set
- * only when the SDK evaluates a rule as an experiment (sdk-js core.ts,
- * `experimentResult.key`); a force rule emits "" on every row, whatever the
- * flag's type, and its Value column already says what was served.
- *
- * A safe rollout counts only while it is still an experiment in the payload.
- * Once released or rolled back, getFeatureDefinition sends it as a force rule
- * (back-end util/features.ts), so its rows carry "" too.
- */
-export function flagShowsVariation(
-  feature: Pick<FeatureInterface, "rules">,
-): boolean {
-  return (feature.rules ?? []).some((rule) => {
-    if (rule.type === "experiment" || rule.type === "experiment-ref") {
-      return true;
-    }
-    if (rule.type === "safe-rollout") {
-      return rule.status !== "released" && rule.status !== "rolled-back";
-    }
-    return false;
-  });
-}
 
 /**
  * The row's timestamp at the precision the data has. With a sub-second part in

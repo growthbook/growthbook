@@ -1,7 +1,5 @@
 import { format } from "date-fns";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
-  flagShowsVariation,
   formatStreamTimestamp,
   streamColumnLabel,
 } from "@/components/Features/featureDiagnosticsStream";
@@ -20,32 +18,6 @@ describe("streamColumnLabel", () => {
   it("renders unknown columns as it always has", () => {
     expect(streamColumnLabel("unit_id")).toBe("Unit Id");
     expect(streamColumnLabel("reason")).toBe("Reason");
-  });
-});
-
-describe("flagShowsVariation", () => {
-  const flag = (rules: Partial<FeatureRule>[]) =>
-    ({
-      rules: rules.map((r) => r as FeatureRule),
-    }) as Pick<FeatureInterface, "rules">;
-
-  it("is off with only force and rollout rules, whatever the value type", () => {
-    expect(
-      flagShowsVariation(flag([{ type: "force" }, { type: "rollout" }])),
-    ).toBe(false);
-  });
-
-  it("is on for an experiment rule", () => {
-    expect(flagShowsVariation(flag([{ type: "experiment-ref" }]))).toBe(true);
-    expect(flagShowsVariation(flag([{ type: "experiment" }]))).toBe(true);
-  });
-
-  it("counts a safe rollout only while it is still an experiment", () => {
-    const safe = (status: string) =>
-      flag([{ type: "safe-rollout", status } as Partial<FeatureRule>]);
-    expect(flagShowsVariation(safe("running"))).toBe(true);
-    expect(flagShowsVariation(safe("released"))).toBe(false);
-    expect(flagShowsVariation(safe("rolled-back"))).toBe(false);
   });
 });
 
