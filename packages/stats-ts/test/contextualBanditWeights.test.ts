@@ -219,6 +219,99 @@ describe("computeContextualBanditWeights", () => {
     );
   });
 
+  it("keeps one leaf and the analysis weights when no variation is powered enough", () => {
+    // Tree building only considers variations with >= MIN_UNITS_PER_VARIATION
+    // (100) total units. Every variation here is far below that, so none is
+    // eligible to drive a split and all contexts collapse into a single (root)
+    // leaf -- even though US and CA carry opposing signals that would otherwise
+    // split them apart. The pooled per-variation units at that leaf (40 each)
+    // are also below the 50-unit leaf-granularity threshold, so fewer than 2
+    // arms qualify and the weights fall back to the analysis weights unchanged.
+    const data = [
+      countryObs("US", 0, 20, 1),
+      countryObs("US", 1, 20, 2),
+      countryObs("CA", 0, 20, 2),
+      countryObs("CA", 1, 20, 1),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    // Both contexts map to the same single leaf.
+    expect(result.leaf_map).toHaveLength(1);
+    expect(result.responses).toHaveLength(2);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+
+    // No reweighting: every context keeps the analysis weights.
+    for (const r of result.responses) {
+      expect(r.updatedWeights).toEqual([0.5, 0.5]);
+      expect(r.bestArmProbabilities).toBeNull();
+      expect(r.updateMessage).toBe(
+        "requires at least 2 variations with sufficient units to update weights",
+      );
+    }
+  });
+
+  it("produces the same single-leaf, no-update result when only one variation has enough units", () => {
+    // v0 now clears the 50-unit leaf threshold (60 pooled units) while v1 stays
+    // below it (30 units), and neither reaches the 100-unit tree threshold. With
+    // only one qualifying arm (H = 1 < 2) the weights still cannot update, and
+    // with no tree-eligible variation the contexts stay in one leaf -- the same
+    // result as when no variation had enough units.
+    const data = [
+      countryObs("US", 0, 30, 1),
+      countryObs("US", 1, 15, 2),
+      countryObs("CA", 0, 30, 2),
+      countryObs("CA", 1, 15, 1),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    expect(result.leaf_map).toHaveLength(1);
+    expect(result.responses).toHaveLength(2);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+
+    for (const r of result.responses) {
+      expect(r.updatedWeights).toEqual([0.5, 0.5]);
+      expect(r.bestArmProbabilities).toBeNull();
+      expect(r.updateMessage).toBe(
+        "requires at least 2 variations with sufficient units to update weights",
+      );
+    }
+  });
+
+  it("keeps one leaf but still reweights when pooled units clear the 50-unit leaf threshold", () => {
+    // Boundary case between the two tests above: every variation is still below
+    // the 100-unit tree threshold (60 pooled units each), so the contexts stay
+    // in a single leaf. But those 60 pooled units clear the 50-unit leaf
+    // threshold for both arms (H = 2), so Thompson reweighting DOES run and the
+    // better-performing arm (v1) is weighted more heavily.
+    const data = [
+      countryObs("US", 0, 30, 1),
+      countryObs("US", 1, 30, 2),
+      countryObs("CA", 0, 30, 1),
+      countryObs("CA", 1, 30, 2),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    // Single leaf: no variation was powered enough to split.
+    expect(result.leaf_map).toHaveLength(1);
+    expect(result.responses).toHaveLength(2);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+
+    // Weights were updated (not the fallback), identically for every context.
+    for (const r of result.responses) {
+      expect(r.updateMessage).toBe("successfully updated");
+      expect(r.bestArmProbabilities).not.toBeNull();
+      const w = r.updatedWeights as number[];
+      expect(w[1]).toBeGreaterThan(w[0]);
+      expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    }
+    expect(result.responses[0].updatedWeights).toEqual(
+      result.responses[1].updatedWeights,
+    );
+  });
+
   it("splits differing contexts into separate leaves with distinct weights", () => {
     const data = [
       countryObs("US", 0, 200, 1),
