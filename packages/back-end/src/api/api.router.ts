@@ -63,6 +63,8 @@ import { informationSchemaTablesRoutes } from "./information-schema-tables/infor
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
 import { namespacesRoutes } from "./namespaces/namespaces.router";
+import { rolesRoutes } from "./roles/roles.router";
+import { apiKeysRoutes } from "./api-keys/api-keys.router";
 import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
 
 const API_MODELS: ModelClass[] = [
@@ -205,6 +207,8 @@ export const allRoutes = [
   ...rampSchedulesRoutes,
   ...reportRoutes,
   ...namespacesRoutes,
+  ...rolesRoutes,
+  ...apiKeysRoutes,
   ...openaiRoutes,
   ...visualEditorAiRoutes,
 ];
