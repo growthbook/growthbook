@@ -17,7 +17,6 @@ import { QueryStatistics } from "shared/types/query";
 import { Box } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiArrowClockwiseBold, PiClockBold } from "react-icons/pi";
-import { format } from "date-fns";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
@@ -46,6 +45,12 @@ import FeatureDiagnosticsControlBar, {
 import DataCardHeader from "@/components/Diagnostics/DataCardHeader";
 import FeatureEvaluationsCard from "@/components/Features/FeatureEvaluationsCard";
 import styles from "./FeatureDiagnostics.module.scss";
+import {
+  flagShowsVariation,
+  formatStreamTimestamp,
+  MANAGED_STREAM_TABLE_COLUMNS,
+  streamColumnLabel,
+} from "./featureDiagnosticsStream";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
@@ -191,24 +196,10 @@ const VALUE_COLUMN_WIDTH = "calc((100% - 150px) / 5)";
 const STICKY_HEADER_TOP_PX = 95;
 
 /**
- * Header text where the raw column name is not what the reader should see. The
- * default is the key auto-capitalised, which gives "Ruleid" and "Variationid" —
- * and the group-by control directly above already calls the first of those
- * "Rule", so the same field appeared under two names on one screen.
- *
- * Display only: `columns` stays the raw keys, because that is what the row
- * lookup, the sort field, the search fields and the filter builder all address.
- */
-const COLUMN_LABELS: Record<string, string> = {
-  ruleId: "Rule",
-  variationId: "Variation",
-};
-
-/**
  * Rows in the managed-warehouse shape from ClickHouse's
- * getFeatureEvalDiagnosticsQuery. Key order matters and is not cosmetic: the
- * component derives its columns from Object.keys of the first row, so this is
- * what decides both which columns appear and in what order.
+ * getFeatureEvalDiagnosticsQuery. Every managed column must be present: the
+ * table shows the managed warehouse's fixed column set for these rows, so a key
+ * missing here would render as an empty column.
  *
  * Templates are assigned round-robin rather than sampled, which guarantees
  * every source, value and rule id is visible in the table — a random draw can
@@ -430,9 +421,30 @@ export default function FeatureDiagnostics({
   // are the same code in both modes.
   const displayResults = useDummyData ? dummyResults : results;
 
-  // Extract all unique keys from results
+  /**
+   * The managed warehouse's projection is fixed, so its columns are a fixed
+   * set in a fixed order, decided by the flag's config rather than by the rows:
+   * a column that came and went as the reader paged would be worse than one
+   * that is always there. Environment is always on — the environment scope does
+   * not reach the query, so rows from every environment arrive and the values
+   * genuinely differ. Dummy rows mirror the managed shape.
+   *
+   * A generic data source wraps a query the customer wrote, where only
+   * timestamp and feature_key are guaranteed, so its columns are still read
+   * from the first row, exactly as before.
+   */
+  const managedStream =
+    useDummyData || datasource?.type === "growthbook_clickhouse";
+  const showVariation = useMemo(() => flagShowsVariation(feature), [feature]);
+
   const columns = useMemo(() => {
     if (displayResults === null || displayResults.length === 0) return [];
+    if (managedStream) {
+      return [
+        ...MANAGED_STREAM_TABLE_COLUMNS,
+        ...(showVariation ? ["variationId"] : []),
+      ];
+    }
     const keysSet = new Set<string>();
     // Only iterate over the first row since all rows have the same structure
     Object.keys(displayResults[0]).forEach((key) => {
@@ -450,7 +462,7 @@ export default function FeatureDiagnostics({
       return i === -1 ? COLUMN_ORDER.length : i;
     };
     return Array.from(keysSet).sort((a, b) => rank(a) - rank(b));
-  }, [displayResults]);
+  }, [displayResults, managedStream, showVariation]);
 
   const evalItems = useAddComputedFields(
     displayResults ?? [],
@@ -463,7 +475,7 @@ export default function FeatureDiagnostics({
       });
 
       return {
-        timestamp: format(timestampDate, "PPpp"),
+        timestamp: formatStreamTimestamp(row.timestamp, timestampDate),
         timestampSort: timestampDate.getTime(),
         ...displayValues,
       } as {
@@ -989,15 +1001,7 @@ export default function FeatureDiagnostics({
                               : undefined
                           }
                         >
-                          {COLUMN_LABELS[key] ??
-                            key
-                              .split("_")
-                              .map(
-                                (word) =>
-                                  word.charAt(0).toUpperCase() +
-                                  word.slice(1).toLowerCase(),
-                              )
-                              .join(" ")}
+                          {streamColumnLabel(key)}
                         </SortableTableColumnHeader>
                       ))}
                     </TableRow>
