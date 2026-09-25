@@ -390,6 +390,8 @@ export interface OrganizationSettings {
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
   requireUniqueExperimentTrackingKeys?: boolean;
+  experimentKeyExample?: string;
+  experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;

@@ -77332,6 +77332,17 @@ components:
       required:
         - overallResultsAsOf
       additionalProperties: false
+    ApiErrorInvalidTrackingKeyDetails:
+      type: object
+      properties:
+        pattern:
+          type: string
+        example:
+          type: string
+      required:
+        - pattern
+        - example
+      additionalProperties: false
     bypassedGates:
       type: object
       properties:
