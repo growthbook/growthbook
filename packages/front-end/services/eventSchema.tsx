@@ -21,7 +21,7 @@ import {
   SiPresto,
   SiSnowflake,
 } from "react-icons/si";
-import { DocSection } from "@/components/DocLink";
+import { DocSection, docUrl } from "@/components/DocLink";
 
 export type eventSchema = {
   value: SchemaFormat;
@@ -85,7 +85,7 @@ export const eventSchemas: eventSchema[] = [
     ],
     logo: "/images/3rd-party-logos/rudderstack.png",
     popular: true,
-    helpLink: "https://docs.growthbook.io/guide/rudderstack",
+    helpLink: docUrl("rudderstack"),
     options: [
       {
         name: "exposureTableName",
@@ -206,7 +206,7 @@ export const eventSchemas: eventSchema[] = [
     types: ["mysql"],
     logo: "/images/3rd-party-logos/matomo.png",
     popular: false,
-    helpLink: "https://docs.growthbook.io/guide/matomo",
+    helpLink: docUrl("matomo"),
     options: [
       {
         name: "tablePrefix",

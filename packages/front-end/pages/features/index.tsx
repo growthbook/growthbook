@@ -63,6 +63,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import { docUrl } from "@/components/DocLink";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const STALE_FILTER_TOKENS = new Set<string>(
@@ -688,7 +689,7 @@ export default function FeaturesPage() {
             leftButton={
               <LinkButton
                 external
-                href="https://docs.growthbook.io/features/basics"
+                href={docUrl("featureBasics")}
                 variant="outline"
               >
                 View Docs

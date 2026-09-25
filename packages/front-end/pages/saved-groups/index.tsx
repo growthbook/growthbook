@@ -17,6 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import { docUrl } from "@/components/DocLink";
 
 export default function SavedGroupsPage() {
   const router = useRouter();
@@ -146,7 +147,7 @@ export default function SavedGroupsPage() {
       <HelperText status="info" my="4">
         Learn more about using Condition Groups and ID Lists.
         <Link
-          href="https://docs.growthbook.io/features/targeting#saved-groups"
+          href={docUrl("savedGroups")}
           target="_blank"
           rel="noreferrer"
           ml="1"

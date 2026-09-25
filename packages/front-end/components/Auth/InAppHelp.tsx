@@ -2,11 +2,13 @@ import { useFeature } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
-import { FaArrowRight } from "react-icons/fa";
+import { PiArrowRight } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import LinkButton from "@/ui/LinkButton";
+import { docUrl } from "@/components/DocLink";
 
 export default function InAppHelp() {
   const router = useRouter();
@@ -87,20 +89,27 @@ export default function InAppHelp() {
               <p className="mb-2">
                 <strong>Have a question?</strong>
               </p>
-              <a
+              <LinkButton
                 href="https://slack.growthbook.io/?ref=app-top-nav"
-                target="blank"
-                className="btn btn-primary font-weight-normal my-2 w-100"
+                external
+                icon={<PiArrowRight />}
+                iconPosition="right"
+                my="2"
+                style={{ width: "100%" }}
               >
-                Join The Slack Community <FaArrowRight className="ml-2" />
-              </a>
-              <a
-                href="https://docs.growthbook.io/"
-                target="blank"
-                className="btn btn-outline-primary font-weight-normal my-2 w-100"
+                Join The Slack Community
+              </LinkButton>
+              <LinkButton
+                href={docUrl("home")}
+                variant="outline"
+                external
+                icon={<PiArrowRight />}
+                iconPosition="right"
+                my="2"
+                style={{ width: "100%" }}
               >
-                View Docs <FaArrowRight className="ml-2" />
-              </a>
+                View Docs
+              </LinkButton>
             </div>
             {showUpgradeModal && (
               <div className="bg-white border rounded p-3 m-3 shadow">
