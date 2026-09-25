@@ -24,9 +24,16 @@ import {
   getContextualBanditIdsFromRules,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
-import { isFactMetricId } from "shared/experiments";
+import {
+  getVisibleVariations,
+  isFactMetricId,
+  variationListToChange,
+} from "shared/experiments";
 import { NotFoundError } from "back-end/src/util/errors";
-import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+} from "back-end/src/services/owner";
 import {
   cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
@@ -397,6 +404,63 @@ export class ContextualBanditModel extends BaseClass {
       banditVersion: 0,
       seed: uuidv4(),
     };
+  }
+
+  public async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ): Promise<ApiContextualBanditInterface> {
+    const { variations, variationWeights, ...rest } =
+      apiUpdateContextualBanditBody.parse(req.body);
+    if (variations === undefined && variationWeights === undefined) {
+      return super.handleApiUpdate(req);
+    }
+
+    const { id } = req.params as { id: string };
+    req.res?.setHeader("Deprecation", "true");
+    this.context.logger.warn(
+      {
+        org: this.context.org.id,
+        contextualBandit: id,
+        variations: variations !== undefined,
+        variationWeights: variationWeights !== undefined,
+      },
+      "Deprecated fields sent to PUT /contextual-bandits/:id; use POST /contextual-bandits/:id/variations",
+    );
+
+    let cb = await this.getById(id);
+    if (!cb) {
+      throw new NotFoundError(
+        `Contextual Bandit ${id} not found or not accessible`,
+      );
+    }
+    if (!this.canUpdate(cb)) {
+      this.context.permissions.throwPermissionError();
+    }
+
+    const toUpdate = await this.processApiUpdateBody(rest);
+    if (Object.keys(toUpdate).length > 0) {
+      cb = await this.updateById(id, toUpdate);
+    }
+
+    if (variations) {
+      const change = variationListToChange(
+        getVisibleVariations(cb.variations),
+        variations,
+      );
+      if (
+        change.addVariations.length ||
+        change.removeVariationIds.length ||
+        change.updateVariations.length
+      ) {
+        ({ updated: cb } = await executeContextualBanditVariationChange(
+          this.context,
+          cb,
+          change,
+        ));
+      }
+    }
+
+    return resolveOwnerEmail(this.toApiInterface(cb), this.context);
   }
 
   protected async processApiUpdateBody(rawBody: unknown) {

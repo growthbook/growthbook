@@ -47808,6 +47808,72 @@ paths:
                     additionalProperties: false
                 seed:
                   type: string
+                variations:
+                  deprecated: true
+                  description: >-
+                    Deprecated: use `POST /contextual-bandits/{id}/variations`
+                    instead. Treated as the desired full list of variations;
+                    arms are added, removed, or renamed to match it. Order is
+                    ignored. Adding an arm this way is rejected when the bandit
+                    has linked features, since each new arm needs a value per
+                    feature.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      key:
+                        type: string
+                      screenshots:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            path:
+                              type: string
+                            width:
+                              type: number
+                            height:
+                              type: number
+                            description:
+                              type: string
+                              maxLength: 10000
+                          required:
+                            - path
+                          additionalProperties: false
+                      status:
+                        type: string
+                        enum:
+                          - active
+                          - pending
+                    required:
+                      - id
+                      - name
+                    additionalProperties: false
+                variationWeights:
+                  deprecated: true
+                  description: >-
+                    Deprecated and ignored. Weights are computed by the server;
+                    use `POST /contextual-bandits/{id}/variations` to change
+                    variations.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      variationId:
+                        type: string
+                      weight:
+                        type: number
+                    required:
+                      - variationId
+                      - weight
+                    additionalProperties: false
               additionalProperties: false
       responses:
         '200':

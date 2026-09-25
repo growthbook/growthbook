@@ -236,6 +236,12 @@ export type ApiCreateContextualBanditBody = z.infer<
   typeof apiCreateContextualBanditBody
 >;
 
+const apiUpdateCompatVariation = variation.extend({
+  key: z.string().optional(),
+  screenshots: z.array(screenshot).optional(),
+  status: z.enum(["active", "pending"]).optional(),
+});
+
 export const apiUpdateContextualBanditBody = z.strictObject({
   name: z.string().optional(),
   description: z.string().optional(),
@@ -273,6 +279,21 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
   seed: z.string().optional(),
+
+  variations: z
+    .array(apiUpdateCompatVariation)
+    .optional()
+    .meta({ deprecated: true })
+    .describe(
+      "Deprecated: use `POST /contextual-bandits/{id}/variations` instead. Treated as the desired full list of variations; arms are added, removed, or renamed to match it. Order is ignored. Adding an arm this way is rejected when the bandit has linked features, since each new arm needs a value per feature.",
+    ),
+  variationWeights: z
+    .array(variationWeightPairValidator)
+    .optional()
+    .meta({ deprecated: true })
+    .describe(
+      "Deprecated and ignored. Weights are computed by the server; use `POST /contextual-bandits/{id}/variations` to change variations.",
+    ),
 });
 
 export type ApiUpdateContextualBanditBody = z.infer<

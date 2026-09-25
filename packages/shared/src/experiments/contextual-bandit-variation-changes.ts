@@ -1,5 +1,6 @@
 import {
   ContextualBanditVariationStatus,
+  Screenshot,
   VariationWeightPair,
 } from "shared/validators";
 import { getEqualWeights } from "./experiments";
@@ -53,6 +54,59 @@ export function diffVariations(
     addedIds: nextIds.filter((id) => !prevSet.has(id)),
     removedIds: prevIds.filter((id) => !nextSet.has(id)),
   };
+}
+
+export type VariationListEntry = VariationIdentity & {
+  name: string;
+  description?: string;
+  key?: string;
+  screenshots?: Screenshot[];
+};
+
+export type VariationListChange = {
+  addVariations: VariationListEntry[];
+  removeVariationIds: string[];
+  updateVariations: Array<{
+    id: string;
+    name?: string;
+    description?: string;
+    key?: string;
+  }>;
+};
+
+export function variationListToChange(
+  current: VariationListEntry[],
+  desired: VariationListEntry[],
+): VariationListChange {
+  assertUniqueVariationIds(desired);
+  const currentById = new Map(current.map((v) => [v.id, v]));
+  const { removedIds } = diffVariations(current, desired);
+  const addVariations: VariationListEntry[] = [];
+  const updateVariations: VariationListChange["updateVariations"] = [];
+
+  for (const { id, name, description, key, screenshots } of desired) {
+    const prev = currentById.get(id);
+    if (!prev) {
+      addVariations.push({
+        id,
+        name,
+        ...(description !== undefined && { description }),
+        ...(key !== undefined && { key }),
+        ...(screenshots !== undefined && { screenshots }),
+      });
+      continue;
+    }
+    const patch = {
+      ...(name !== prev.name && { name }),
+      ...((description ?? "") !== (prev.description ?? "") && {
+        description: description ?? "",
+      }),
+      ...(key !== undefined && key !== prev.key && { key }),
+    };
+    if (Object.keys(patch).length) updateVariations.push({ id, ...patch });
+  }
+
+  return { addVariations, removeVariationIds: removedIds, updateVariations };
 }
 
 function assertUnique(values: string[], label: string): void {

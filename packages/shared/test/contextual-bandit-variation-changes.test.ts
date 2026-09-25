@@ -10,6 +10,7 @@ import {
   isPendingVariation,
   nextContextualBanditVariationKey,
   reconcileVariationWeights,
+  variationListToChange,
 } from "../src/experiments/contextual-bandit-variation-changes";
 
 const ids = (list: string[]) => list.map((id) => ({ id }));
@@ -349,5 +350,71 @@ describe("nextContextualBanditVariationKey", () => {
         "var_mtgtt9sv",
       ]),
     ).toBe("24");
+  });
+});
+
+describe("variationListToChange (deprecated PUT `variations` compat)", () => {
+  const current = [
+    { id: "a", name: "Control", key: "0", description: "" },
+    { id: "b", name: "B", key: "1" },
+  ];
+
+  it("is a no-op for a GET -> PUT round trip, regardless of order", () => {
+    const change = variationListToChange(current, [
+      { id: "b", name: "B", key: "1", description: undefined },
+      { id: "a", name: "Control", key: "0", description: "" },
+    ]);
+    expect(change).toEqual({
+      addVariations: [],
+      removeVariationIds: [],
+      updateVariations: [],
+    });
+  });
+
+  it("maps a new id to addVariations, carrying only supplied fields", () => {
+    const change = variationListToChange(current, [
+      ...current,
+      { id: "c", name: "C", screenshots: [] },
+    ]);
+    expect(change.addVariations).toEqual([
+      { id: "c", name: "C", screenshots: [] },
+    ]);
+    expect(change.removeVariationIds).toEqual([]);
+    expect(change.updateVariations).toEqual([]);
+  });
+
+  it("maps a missing id to removeVariationIds", () => {
+    const change = variationListToChange(current, [current[0]]);
+    expect(change.removeVariationIds).toEqual(["b"]);
+    expect(change.addVariations).toEqual([]);
+  });
+
+  it("maps changed name/description/key to updateVariations with only the changed fields", () => {
+    const change = variationListToChange(current, [
+      { id: "a", name: "Control", key: "0", description: "now described" },
+      { id: "b", name: "B renamed", key: "1" },
+    ]);
+    expect(change.updateVariations).toEqual([
+      { id: "a", description: "now described" },
+      { id: "b", name: "B renamed" },
+    ]);
+  });
+
+  it("handles add + remove + rename in one list", () => {
+    const change = variationListToChange(current, [
+      { id: "b", name: "B2", key: "1" },
+      { id: "c", name: "C" },
+    ]);
+    expect(change).toEqual({
+      addVariations: [{ id: "c", name: "C" }],
+      removeVariationIds: ["a"],
+      updateVariations: [{ id: "b", name: "B2" }],
+    });
+  });
+
+  it("rejects duplicate ids in the desired list", () => {
+    expect(() =>
+      variationListToChange(current, [current[0], current[0]]),
+    ).toThrow(/duplicate variation ids/);
   });
 });
