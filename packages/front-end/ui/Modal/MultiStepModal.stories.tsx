@@ -2,22 +2,51 @@ import { Flex, TextField } from "@radix-ui/themes";
 import { useState } from "react";
 import { Size } from "@/ui/Modal";
 import Button from "../Button";
+import Callout from "../Callout";
 import Checkbox from "../Checkbox";
+import Link from "../Link";
 import Text from "../Text";
-import MultiStepModal from "./MultiStepModal";
+import MultiStepModal, { useMultiStepModal } from "./MultiStepModal";
+
+// Demonstrates the opt-in navigation hook: a "go back and edit" affordance
+// rendered inside a later step's content, jumping the flow via goToStep.
+function ReviewStep({
+  name,
+  hypothesis,
+  disableStickyBucketing,
+}: {
+  name: string;
+  hypothesis: string;
+  disableStickyBucketing: boolean;
+}) {
+  const { goToStep } = useMultiStepModal();
+  return (
+    <Flex direction="column" gap="3">
+      <Callout status="info">
+        Review the experiment before creating it.{" "}
+        <Link onClick={() => goToStep(0)}>Edit overview</Link>
+      </Callout>
+      <Text>
+        <strong>Name:</strong> {name || "—"}
+      </Text>
+      <Text>
+        <strong>Hypothesis:</strong> {hypothesis || "—"}
+      </Text>
+      <Text>
+        <strong>Sticky Bucketing:</strong>{" "}
+        {disableStickyBucketing ? "Disabled" : "Enabled"}
+      </Text>
+    </Flex>
+  );
+}
 
 export default function MultiStepModalStories() {
   const [size, setSize] = useState<Size | null>(null);
-  const [step, setStep] = useState(0);
 
   const [name, setName] = useState("");
   const [hypothesis, setHypothesis] = useState("");
   const [disableStickyBucketing, setDisableStickyBucketing] = useState(false);
 
-  const open = (nextSize: Size) => {
-    setStep(0);
-    setSize(nextSize);
-  };
   const close = () => setSize(null);
 
   return (
@@ -26,12 +55,9 @@ export default function MultiStepModalStories() {
         <MultiStepModal.Root
           open={!!size}
           size={size}
-          step={step}
-          setStep={setStep}
-          header="New Experiment"
-          close={close}
+          title="New Experiment"
+          onClose={close}
           cta="Create"
-          backButton
           submit={async () => {
             // Pretend to persist the new experiment.
             await new Promise((resolve) => setTimeout(resolve, 400));
@@ -40,11 +66,8 @@ export default function MultiStepModalStories() {
         >
           <MultiStepModal.Step
             display="Overview"
-            validate={async () => {
-              if (!name.trim()) {
-                throw new Error("Enter an experiment name to continue");
-              }
-            }}
+            nextEnabled={!!name.trim()}
+            disabledMessage="Enter an experiment name to continue"
           >
             <Flex direction="column" gap="5">
               <Flex direction="column" gap="1">
@@ -79,26 +102,18 @@ export default function MultiStepModalStories() {
             </Flex>
           </MultiStepModal.Step>
           <MultiStepModal.Step display="Review">
-            <Flex direction="column" gap="3">
-              <Text>Review the experiment before creating it.</Text>
-              <Text>
-                <strong>Name:</strong> {name || "—"}
-              </Text>
-              <Text>
-                <strong>Hypothesis:</strong> {hypothesis || "—"}
-              </Text>
-              <Text>
-                <strong>Sticky Bucketing:</strong>{" "}
-                {disableStickyBucketing ? "Disabled" : "Enabled"}
-              </Text>
-            </Flex>
+            <ReviewStep
+              name={name}
+              hypothesis={hypothesis}
+              disableStickyBucketing={disableStickyBucketing}
+            />
           </MultiStepModal.Step>
         </MultiStepModal.Root>
       )}
 
       <Flex direction="row" gap="3" wrap="wrap">
-        <Button onClick={() => open("md")}>Medium Multi-Step Modal</Button>
-        <Button onClick={() => open("lg")}>Large Multi-Step Modal</Button>
+        <Button onClick={() => setSize("md")}>Medium Multi-Step Modal</Button>
+        <Button onClick={() => setSize("lg")}>Large Multi-Step Modal</Button>
       </Flex>
     </>
   );
