@@ -233,7 +233,9 @@ const apiCreateDashboardFields = z
           "per-block comparison.",
       ),
     blocks: z.array(apiCreateDashboardBlock),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPatOwnerInputField.describe(
+      "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. Optional when authenticating with a Personal Access Token (PAT): when omitted, the owner defaults to the PAT's user. Required when authenticating with an organization secret API key (which has no associated user): omitting it fails with a 400. A private dashboard created with an organization secret API key can only be retrieved or updated using its owner's Personal Access Token (PAT).",
+    ),
   })
   .strict();
 

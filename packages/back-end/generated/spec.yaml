@@ -867,7 +867,9 @@ paths:
                     (PAT): when omitted, the owner defaults to the PAT's user.
                     Required when authenticating with an organization secret API
                     key (which has no associated user): omitting it fails with a
-                    400.
+                    400. A private dashboard created with an organization secret
+                    API key can only be retrieved or updated using its owner's
+                    Personal Access Token (PAT).
                   type: string
                 project:
                   description: An associated project ID
