@@ -5085,6 +5085,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
+    ...(payload.fallbackAttribute !== undefined
+      ? { fallbackAttribute: payload.fallbackAttribute }
+      : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(payload.attributeScopeAllProjects !== undefined
       ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }

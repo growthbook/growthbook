@@ -1396,6 +1396,25 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       } as unknown as ExperimentInterface;
     }
 
+    it("maps fallbackAttribute, including clearing it", () => {
+      const experiment = makeExperiment();
+      const set = updateExperimentApiPayloadToInterface(
+        { fallbackAttribute: "deviceId" },
+        experiment,
+        new Map(),
+        organization,
+      );
+      expect(set.fallbackAttribute).toBe("deviceId");
+
+      const cleared = updateExperimentApiPayloadToInterface(
+        { fallbackAttribute: "" },
+        experiment,
+        new Map(),
+        organization,
+      );
+      expect(cleared.fallbackAttribute).toBe("");
+    });
+
     it("does not overwrite phase variations on phases-only updates", () => {
       const experiment = makeExperiment();
       const changes = updateExperimentApiPayloadToInterface(
