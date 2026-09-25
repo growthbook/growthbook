@@ -144,7 +144,7 @@ Day-to-day development uses `pnpm dev`, so you don't normally need to build the 
 
 ### Working on docs
 
-To start the docs site, `cd docs` and run `npx mint dev`. You can view the site at http://localhost:3000. Before pushing, run `npx mint validate` and `npx mint broken-links --check-anchors` — the same checks the Docs workflow runs.
+To start the docs site, `cd docs` and run `npx mint dev --port 3200`. You can view the site at http://localhost:3200. Before pushing, run `npx mint validate` and `npx mint broken-links --check-anchors` — the same checks the Docs workflow runs.
 
 ### Working on the SDKs
 
