@@ -8,6 +8,8 @@ import { toggleFeatureV2 } from "./toggleFeatureV2";
 import { revertFeatureV2 } from "./revertFeatureV2";
 import { getFeatureKeysV2 } from "./getFeatureKeysV2";
 import { getFeatureStaleV2 } from "./getFeatureStaleV2";
+import { postFeatureEvaluateV2 } from "./postFeatureEvaluateV2";
+import { getFeatureDependentsV2 } from "./getFeatureDependentsV2";
 import { getFeatureRevisionsV2 } from "./getFeatureRevisionsV2";
 import { getFeatureRevisionV2 } from "./getFeatureRevisionV2";
 import { getFeatureRevisionLatestV2 } from "./getFeatureRevisionLatestV2";
@@ -53,6 +55,8 @@ export const featureV2Routes: OpenApiRoute[] = [
   revertFeatureV2,
   getFeatureKeysV2,
   getFeatureStaleV2,
+  postFeatureEvaluateV2,
+  getFeatureDependentsV2,
 
   // Reading & listing revisions
   listRevisionsV2,

@@ -104,6 +104,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       condition: condition || "",
       attributeKey,
       projects,
+      description: req.body.description,
     });
 
     return {
