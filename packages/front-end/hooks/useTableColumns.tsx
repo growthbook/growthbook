@@ -18,7 +18,6 @@ import {
   ResolvedTableColumn,
   TableColumnDef,
   TableColumnLayout,
-  withSpacerColumn,
 } from "@/services/tableColumns";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { SearchReturn } from "@/services/search";
@@ -83,7 +82,7 @@ export interface UseTableColumnsReturn<TRow> {
  */
 export function useTableColumns<TRow>({
   layout: { layout, setLayout },
-  columns: codeDefs,
+  columns: defs,
   SortableHeader,
 }: {
   layout: TableColumnLayoutState;
@@ -91,8 +90,6 @@ export function useTableColumns<TRow>({
   /** useSearch's header, for columns with a `sortField`. */
   SortableHeader?: SearchReturn<TRow>["SortableTableColumnHeader"];
 }): UseTableColumnsReturn<TRow> {
-  const defs = useMemo(() => withSpacerColumn(codeDefs), [codeDefs]);
-
   const colRefs = useRef<Map<string, HTMLTableColElement | null>>(new Map());
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
 
@@ -101,10 +98,19 @@ export function useTableColumns<TRow>({
     [defs, layout],
   );
 
-  const visibleColumns = useMemo(
-    () => columns.filter((col) => col.visible),
-    [columns],
-  );
+  // The last resizable column fills what the others leave, so its edge is the
+  // row-actions column's rather than a stray handle beside an empty gap.
+  const visibleColumns = useMemo(() => {
+    const visible = columns.filter((col) => col.visible);
+    const fill = visible
+      .map((col) => col.resizable !== false)
+      .lastIndexOf(true);
+    return visible.map((col, i) =>
+      i === fill
+        ? { ...col, width: undefined, pinned: false, resizable: false }
+        : col,
+    );
+  }, [columns]);
 
   // A layout effect, so a table that needs fitting never paints unfitted first.
   useLayoutEffect(() => {
@@ -289,7 +295,7 @@ export function useTableColumns<TRow>({
     colSpan: visibleColumns.length,
     tableProps: {
       layout: "fixed",
-      minTableWidth: minTableWidth(columns),
+      minTableWidth: minTableWidth(visibleColumns),
       managedColumns: true,
     },
     settingsProps: {

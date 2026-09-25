@@ -98,30 +98,6 @@ export function isColumnVisible(
   return visibleFor(def, entry);
 }
 
-/**
- * Adds the column that absorbs leftover width, ahead of any trailing locked
- * columns (e.g. row actions).
- */
-export function withSpacerColumn<TRow>(
-  defs: TableColumnDef<TRow>[],
-): TableColumnDef<TRow>[] {
-  let insertAt = defs.length;
-  while (insertAt > 0 && defs[insertAt - 1].locked) insertAt--;
-  return [
-    ...defs.slice(0, insertAt),
-    {
-      id: "spacer",
-      label: "",
-      header: null,
-      locked: true,
-      resizable: false,
-      minWidth: 0,
-      render: () => null,
-    },
-    ...defs.slice(insertAt),
-  ];
-}
-
 /** The effective resize bounds for a column, applying the shared defaults. */
 export function columnWidthBounds<TRow>(def: TableColumnDef<TRow>): {
   min: number;

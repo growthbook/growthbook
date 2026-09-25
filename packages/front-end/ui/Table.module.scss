@@ -257,12 +257,6 @@
     background-color: var(--gray-a5);
   }
 
-  // The last handle borders the slack column, not a neighbour, so it only shows on hover.
-  :global(.rt-TableColumnHeaderCell):not(:has(~ * > .resizeHandle))
-    > &:not(:hover, :focus-visible, [data-active="true"])::after {
-    background-color: transparent;
-  }
-
   &:hover::after,
   &:focus-visible::after,
   &[data-active="true"]::after {

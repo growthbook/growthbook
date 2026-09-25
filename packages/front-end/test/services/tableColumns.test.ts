@@ -8,7 +8,6 @@ import {
   resolveTableColumns,
   TableColumnDef,
   TableColumnLayout,
-  withSpacerColumn,
 } from "@/services/tableColumns";
 
 type Row = { id: string };
@@ -484,21 +483,6 @@ describe("isColumnVisible", () => {
     );
     const future = layout([{ id: "a", visible: false }], 2);
     expect(isColumnVisible(future, col("a"))).toBe(true);
-  });
-});
-
-describe("withSpacerColumn", () => {
-  it("goes ahead of trailing locked columns, or last without any", () => {
-    const ids = (defs: TableColumnDef<Row>[]) =>
-      withSpacerColumn(defs).map((c) => c.id);
-    expect(
-      ids([
-        col("a", { locked: true }),
-        col("b"),
-        col("actions", { locked: true }),
-      ]),
-    ).toEqual(["a", "b", "spacer", "actions"]);
-    expect(ids([col("a"), col("b")])).toEqual(["a", "b", "spacer"]);
   });
 });
 
