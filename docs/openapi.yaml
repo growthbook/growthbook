@@ -379,6 +379,9 @@ tags:
   - name: ContextualBandits
     x-displayName: Contextual Bandits
     description: ''
+  - name: information-schema-tables
+    x-displayName: information-schema-tables
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -20662,6 +20665,200 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/data-sources' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postDataSource
+      summary: Create a data source
+      description: >-
+        Tests the connection before saving. Google Analytics and the managed
+        warehouse are set up in the app.
+      tags:
+        - data-sources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  maxLength: 10000
+                type:
+                  type: string
+                  enum:
+                    - redshift
+                    - athena
+                    - snowflake
+                    - postgres
+                    - mysql
+                    - mssql
+                    - bigquery
+                    - clickhouse
+                    - presto
+                    - databricks
+                    - mixpanel
+                    - vertica
+                    - adobe_experience_platform_query_service
+                params:
+                  description: >-
+                    Connection settings for the data source type, the same
+                    fields as its connection form. Write-only: never returned.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
+                projectIds:
+                  type: array
+                  items:
+                    type: string
+                eventTracker:
+                  type: string
+                identifierTypes:
+                  description: Replaces the list
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - id
+                    additionalProperties: false
+                assignmentQueries:
+                  description: >-
+                    Replaces the list. Each query is validated against the
+                    warehouse.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        description: Omit to create a new query
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      identifierType:
+                        type: string
+                      sql:
+                        type: string
+                      includesNameColumns:
+                        type: boolean
+                      dimensionColumns:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - name
+                      - identifierType
+                      - sql
+                    additionalProperties: false
+                identifierJoinQueries:
+                  description: Replaces the list
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      identifierTypes:
+                        type: array
+                        items:
+                          type: string
+                      sql:
+                        type: string
+                    required:
+                      - identifierTypes
+                      - sql
+                    additionalProperties: false
+                mixpanelSettings:
+                  type: object
+                  properties:
+                    viewedExperimentEventName:
+                      type: string
+                    experimentIdProperty:
+                      type: string
+                    variationIdProperty:
+                      type: string
+                    extraUserIdProperty:
+                      type: string
+                  additionalProperties: false
+                pipelineSettings:
+                  type: object
+                  properties:
+                    allowWriting:
+                      description: >-
+                        Let GrowthBook write temporary tables to speed up
+                        analysis
+                      type: boolean
+                    mode:
+                      type: string
+                      enum:
+                        - ephemeral
+                        - incremental
+                    writeDatabase:
+                      type: string
+                    writeDataset:
+                      description: Schema (or dataset) to write tables to
+                      type: string
+                    unitsTableRetentionHours:
+                      type: number
+                      exclusiveMinimum: 0
+                    unitsTableDeletion:
+                      type: boolean
+                    includedExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                    excludedExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                    incrementalOptInExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - allowWriting
+                    - mode
+                    - writeDataset
+                    - unitsTableRetentionHours
+                  additionalProperties: false
+                maxConcurrentQueries:
+                  type: number
+                queryCacheTTLMins:
+                  type: number
+              required:
+                - name
+                - type
+                - params
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+                required:
+                  - dataSource
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/data-sources' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"name":"Warehouse","type":"postgres","params":{"host":"db.example.com","port":5432,"database":"analytics","user":"growthbook","password":"********"}}'
   /v1/data-sources/{id}:
     get:
       operationId: getDataSource
@@ -20687,6 +20884,211 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/data-sources/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: updateDataSource
+      summary: Update a data source
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  maxLength: 10000
+                params:
+                  description: >-
+                    Merged into the stored connection settings and re-tested.
+                    Needs permission to edit the connection.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
+                projectIds:
+                  type: array
+                  items:
+                    type: string
+                eventTracker:
+                  type: string
+                identifierTypes:
+                  description: Replaces the list
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - id
+                    additionalProperties: false
+                assignmentQueries:
+                  description: >-
+                    Replaces the list. Each query is validated against the
+                    warehouse.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        description: Omit to create a new query
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      identifierType:
+                        type: string
+                      sql:
+                        type: string
+                      includesNameColumns:
+                        type: boolean
+                      dimensionColumns:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - name
+                      - identifierType
+                      - sql
+                    additionalProperties: false
+                identifierJoinQueries:
+                  description: Replaces the list
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      identifierTypes:
+                        type: array
+                        items:
+                          type: string
+                      sql:
+                        type: string
+                    required:
+                      - identifierTypes
+                      - sql
+                    additionalProperties: false
+                mixpanelSettings:
+                  type: object
+                  properties:
+                    viewedExperimentEventName:
+                      type: string
+                    experimentIdProperty:
+                      type: string
+                    variationIdProperty:
+                      type: string
+                    extraUserIdProperty:
+                      type: string
+                  additionalProperties: false
+                pipelineSettings:
+                  type: object
+                  properties:
+                    allowWriting:
+                      description: >-
+                        Let GrowthBook write temporary tables to speed up
+                        analysis
+                      type: boolean
+                    mode:
+                      type: string
+                      enum:
+                        - ephemeral
+                        - incremental
+                    writeDatabase:
+                      type: string
+                    writeDataset:
+                      description: Schema (or dataset) to write tables to
+                      type: string
+                    unitsTableRetentionHours:
+                      type: number
+                      exclusiveMinimum: 0
+                    unitsTableDeletion:
+                      type: boolean
+                    includedExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                    excludedExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                    incrementalOptInExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - allowWriting
+                    - mode
+                    - writeDataset
+                    - unitsTableRetentionHours
+                  additionalProperties: false
+                maxConcurrentQueries:
+                  type: number
+                queryCacheTTLMins:
+                  type: number
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+                  eventForwarderWarning:
+                    description: >-
+                      Set if the update saved but syncing the Event Forwarder
+                      failed
+                    type: string
+                required:
+                  - dataSource
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/data-sources/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteDataSource
+      summary: Delete a data source
+      description: >-
+        Refused while it's the organization default or metrics, segments or
+        dimensions still use it.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/data-sources/{id}'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{dataSourceId}/information-schema:
     get:
@@ -20719,6 +21121,38 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/data-sources/{dataSourceId}/information-schema'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/information-schema/refresh:
+    post:
+      operationId: postDataSourceInformationSchemaRefresh
+      summary: Refresh a data source's information schema
+      description: >-
+        Queues a background job that re-reads the warehouse's tables and
+        columns, creating the schema if there isn't one yet.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: boolean
+                    const: true
+                required:
+                  - queued
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/information-schema/refresh'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{id}/sql/search-tables:
@@ -32696,6 +33130,71 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/queries/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/queries:
+    get:
+      operationId: listDataSourceQueries
+      summary: Get a data source's 50 most recent queries
+      tags:
+        - queries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The data source id
+          schema:
+            description: The data source id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Query'
+                required:
+                  - queries
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/data-sources/{id}/queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/queries/{id}/cancel:
+    post:
+      operationId: postQueryCancel
+      summary: Cancel a running query
+      description: >-
+        Also asks the warehouse to stop it where the integration supports that.
+        Needs permission to run queries on the data source.
+      tags:
+        - queries
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    $ref: '#/components/schemas/Query'
+                required:
+                  - query
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/queries/{id}/cancel'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/settings:
     get:
       operationId: getSettings
@@ -32844,6 +33343,40 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/information-schema-tables/{tableId}/refresh:
+    post:
+      operationId: postInformationSchemaTableRefresh
+      summary: Refresh one table's columns
+      tags:
+        - information-schema-tables
+      parameters:
+        - name: tableId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: boolean
+                    const: true
+                required:
+                  - queued
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}/refresh'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedules:
@@ -64597,6 +65130,49 @@ components:
             - variationIdProperty
             - extraUserIdProperty
           additionalProperties: false
+        pipelineSettings:
+          type: object
+          properties:
+            allowWriting:
+              description: Let GrowthBook write temporary tables to speed up analysis
+              type: boolean
+            mode:
+              type: string
+              enum:
+                - ephemeral
+                - incremental
+            writeDatabase:
+              type: string
+            writeDataset:
+              description: Schema (or dataset) to write tables to
+              type: string
+            unitsTableRetentionHours:
+              type: number
+              exclusiveMinimum: 0
+            unitsTableDeletion:
+              type: boolean
+            includedExperimentIds:
+              type: array
+              items:
+                type: string
+            excludedExperimentIds:
+              type: array
+              items:
+                type: string
+            incrementalOptInExperimentIds:
+              type: array
+              items:
+                type: string
+          required:
+            - allowWriting
+            - mode
+            - writeDataset
+            - unitsTableRetentionHours
+          additionalProperties: false
+        maxConcurrentQueries:
+          type: number
+        queryCacheTTLMins:
+          type: number
       required:
         - id
         - dateCreated
@@ -79849,6 +80425,7 @@ x-tagGroups:
       - usage
       - meta
       - ContextualBandits
+      - information-schema-tables
       - Dashboards
       - ContextualBanditQueries
       - CustomFields
