@@ -11,7 +11,7 @@ import {
   assertCanUpdateHoldout,
   assertValidHoldoutEnvironments,
   assertValidHoldoutSchedule,
-  assertValidAssignmentQuery,
+  parseHoldoutAssignmentQuery,
   getNextScheduledStatusUpdateForStage,
   isHoldoutExperiment,
   normalizeHoldoutScheduleUpdates,
@@ -930,7 +930,7 @@ describe("assertCanUpdateHoldout", () => {
   });
 });
 
-describe("assertValidAssignmentQuery", () => {
+describe("parseHoldoutAssignmentQuery", () => {
   const datasource = {
     settings: {
       queries: {
@@ -938,7 +938,7 @@ describe("assertValidAssignmentQuery", () => {
           {
             id: "exq_multi",
             name: "Multi",
-            userIdType: "user_id",
+            userIdType: "anonymous_id",
             userIdTypes: ["user_id", "anonymous_id"],
             query: "SELECT 1",
             dimensions: [],
@@ -948,33 +948,44 @@ describe("assertValidAssignmentQuery", () => {
     },
   } as unknown as DataSourceInterface;
 
-  it("returns the query when the identifier is declared", () => {
+  it("returns a declared identifier", () => {
     expect(
-      assertValidAssignmentQuery(datasource, "exq_multi", "anonymous_id")?.id,
-    ).toBe("exq_multi");
+      parseHoldoutAssignmentQuery(datasource, "exq_multi", "anonymous_id"),
+    ).toBe("anonymous_id");
   });
 
-  it("allows omitting the identifier", () => {
+  it("defaults an omitted identifier to the query's first", () => {
     expect(
-      assertValidAssignmentQuery(datasource, "exq_multi", undefined)?.id,
-    ).toBe("exq_multi");
+      parseHoldoutAssignmentQuery(datasource, "exq_multi", undefined),
+    ).toBe("user_id");
+  });
+
+  it("requires an identifier on an ambiguous query when asked to", () => {
+    expect(() =>
+      parseHoldoutAssignmentQuery(
+        datasource,
+        "exq_multi",
+        undefined,
+        "requireUnambiguous",
+      ),
+    ).toThrow("Set assignmentQuery.identifierType to choose one");
   });
 
   it("returns undefined when no query id is given", () => {
     expect(
-      assertValidAssignmentQuery(datasource, undefined, undefined),
+      parseHoldoutAssignmentQuery(datasource, undefined, undefined),
     ).toBeUndefined();
   });
 
   it("throws for an unknown query", () => {
     expect(() =>
-      assertValidAssignmentQuery(datasource, "exq_missing", undefined),
+      parseHoldoutAssignmentQuery(datasource, "exq_missing", undefined),
     ).toThrow('Assignment query "exq_missing" doesn\'t exist');
   });
 
   it("throws for an identifier the query does not declare", () => {
     expect(() =>
-      assertValidAssignmentQuery(datasource, "exq_multi", "device_id"),
+      parseHoldoutAssignmentQuery(datasource, "exq_multi", "device_id"),
     ).toThrow(
       'Assignment query "Multi" doesn\'t declare the "device_id" identifier type',
     );

@@ -11,9 +11,8 @@ import {
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
-  assertValidAssignmentQuerySelection,
-  getExposureQueryIdentifierTypes,
-  assertAssignmentQueryRefIdentifierType,
+  isSameAssignmentQuerySelection,
+  parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
@@ -32,7 +31,7 @@ import {
   ExperimentPhase,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
-import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
   notifyHoldoutCreated,
   notifyHoldoutStatusChanged,
@@ -359,17 +358,26 @@ export async function resolveHoldoutExperimentToLink({
   }
 }
 
-export function assertValidAssignmentQuery(
+// Validates a holdout's assignment query selection and returns the identifier
+// to store; undefined when there's no query to select.
+export function parseHoldoutAssignmentQuery(
   datasource: DataSourceInterface | null,
   assignmentQueryId: string | undefined,
   identifierType: string | undefined,
-): ExposureQuery | undefined {
+  onOmitted: "defaultToFirst" | "requireUnambiguous" = "defaultToFirst",
+): string | undefined {
   if (!assignmentQueryId) return undefined;
-  return assertValidAssignmentQuerySelection({
-    exposureQueries: datasource?.settings?.queries?.exposure ?? [],
-    exposureQueryId: assignmentQueryId,
-    identifierType,
-  });
+  const parsed = parseAssignmentQuerySelection(
+    datasource?.settings?.queries?.exposure ?? [],
+    {
+      exposureQueryId: assignmentQueryId,
+      identifierType,
+      onOmitted,
+      field: "assignmentQuery",
+    },
+  );
+  if (!parsed.ok) throw new Error(parsed.error);
+  return parsed.identifierType;
 }
 
 export async function createHoldoutWithExperiment(
@@ -389,7 +397,7 @@ export async function createHoldoutWithExperiment(
     secondaryMetrics: data.secondaryMetrics,
   });
 
-  assertValidAssignmentQuery(
+  const exposureQueryIdentifierType = parseHoldoutAssignmentQuery(
     datasource,
     data.assignmentQueryId,
     data.assignmentQueryIdentifierType,
@@ -446,9 +454,7 @@ export async function createHoldoutWithExperiment(
     trackingKey: `holdout-${uuidv4()}`,
     datasource: data.datasourceId || "",
     exposureQueryId: data.assignmentQueryId || "",
-    ...(data.assignmentQueryIdentifierType
-      ? { exposureQueryIdentifierType: data.assignmentQueryIdentifierType }
-      : {}),
+    exposureQueryIdentifierType,
     userIdType: "anonymous",
     name: data.name,
     phases: [
@@ -699,30 +705,36 @@ export async function updateHoldoutWithExperiment(
     });
 
     const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
-    assertAssignmentQueryRefIdentifierType({
-      ref: body.assignmentQuery,
-      field: "assignmentQuery",
-      exposureQueries: datasource?.settings?.queries?.exposure ?? [],
-      currentExposureQueryId: experiment.exposureQueryId,
-    });
-    // Repointing without naming an identifier defaults to the new query's first.
+    const next = {
+      datasource: body.datasourceId ?? experiment.datasource ?? "",
+      exposureQueryId: effectiveQueryId,
+      // A partial update naming the same query keeps its stored identifier.
+      identifierType:
+        assignmentQueryIdentifierType ??
+        (effectiveQueryId === experiment.exposureQueryId
+          ? experiment.exposureQueryIdentifierType
+          : undefined),
+    };
+    // Only a changed selection is validated, so a query that drifted since
+    // doesn't block unrelated edits.
     if (
-      assignmentQueryIdentifierType === undefined &&
-      assignmentQueryId !== undefined &&
-      assignmentQueryId !== experiment.exposureQueryId
+      !isSameAssignmentQuerySelection(
+        {
+          datasource: experiment.datasource ?? "",
+          exposureQueryId: experiment.exposureQueryId,
+          identifierType: experiment.exposureQueryIdentifierType,
+        },
+        next,
+        datasource?.settings?.queries?.exposure ?? [],
+      )
     ) {
-      const newQuery = datasource?.settings?.queries?.exposure?.find(
-        (q) => q.id === assignmentQueryId,
+      assignmentQueryIdentifierType = parseHoldoutAssignmentQuery(
+        datasource,
+        effectiveQueryId,
+        next.identifierType,
+        body.assignmentQuery ? "requireUnambiguous" : "defaultToFirst",
       );
-      assignmentQueryIdentifierType = newQuery
-        ? getExposureQueryIdentifierTypes(newQuery)[0]
-        : undefined;
     }
-    assertValidAssignmentQuery(
-      datasource,
-      effectiveQueryId,
-      assignmentQueryIdentifierType ?? experiment.exposureQueryIdentifierType,
-    );
 
     if (body.datasourceId !== undefined) {
       experimentChanges.datasource = body.datasourceId;
