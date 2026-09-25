@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from "react";
+import React, { FC, useCallback, useEffect, useRef, useState } from "react";
 import { PastExperimentsInterface } from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
@@ -84,7 +84,13 @@ const ImportExperimentList: FC<{
   const [runError, setRunError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => setRunError(null), [importId]);
+  const importIdRef = useRef(importId);
+
+  useEffect(() => {
+    importIdRef.current = importId;
+    setRunError(null);
+    setSubmitting(false);
+  }, [importId]);
 
   // Searching
   const filterResults = useCallback(
@@ -254,6 +260,7 @@ const ImportExperimentList: FC<{
                 disabled={submitting}
                 onSubmit={async () => {
                   if (submitting) return;
+                  const requestImportId = importId;
                   setSubmitting(true);
                   setRunError(null);
                   try {
@@ -266,24 +273,29 @@ const ImportExperimentList: FC<{
                     });
                     await mutate();
                   } catch (e) {
-                    setRunError(e.message);
+                    if (importIdRef.current === requestImportId) {
+                      setRunError(e.message);
+                    }
                   } finally {
-                    setSubmitting(false);
+                    if (importIdRef.current === requestImportId) {
+                      setSubmitting(false);
+                    }
                   }
                 }}
               />
             </div>
           )}
       </div>
-      {runError && (
+      {runError && !(hasStarted && status === "failed") && (
         <Callout status="error" my="3">
           {runError}
         </Callout>
       )}
-      {!runError && hasStarted && status === "failed" && (
+      {hasStarted && status === "failed" && (
         <>
           <Callout status="error" my="3">
             <p>Error importing experiments.</p>
+            {runError && <p>{runError}</p>}
             {datasource?.id && (
               <>
                 {!!datasource?.dateUpdated &&
