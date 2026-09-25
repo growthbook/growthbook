@@ -853,7 +853,7 @@ describe("sessionReplayPlugin — session rotation safety", () => {
     _resetSampleDecisionsForTests();
   });
 
-  it("stops sending batches when session rotates during a multi-batch flush", async () => {
+  it("finishes every batch under the old id when the session rotates mid-flush", async () => {
     const originalId = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
     jest.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -891,15 +891,53 @@ describe("sessionReplayPlugin — session rotation safety", () => {
         },
     );
 
-    // First batch sent under the original session
-    expect(sentBodies[0].session_replay_id).toBe(originalId);
-    expect(sentBodies[0].chunkIndex).toBe(0);
-
-    // No batch was ever sent under the rotated session's ID
-    const wrongSession = sentBodies.filter(
-      (b) => b.session_replay_id !== originalId,
+    // The rotation must not truncate the flush: the snapshot chunk is
+    // worthless on its own, so every batch still ships under the old id
+    expect(sentBodies.length).toBeGreaterThan(1);
+    expect(sentBodies.every((b) => b.session_replay_id === originalId)).toBe(
+      true,
     );
-    expect(wrongSession).toHaveLength(0);
+    expect(sentBodies.map((b) => b.chunkIndex)).toEqual(
+      sentBodies.map((_, i) => i),
+    );
+  });
+
+  it("does not let a rotated-through flush clobber the new session's chunk state", async () => {
+    const originalId = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    let firstCallDone = false;
+    const fetchMock = jest.fn().mockImplementation(() => {
+      if (!firstCallDone) {
+        firstCallDone = true;
+        jest.advanceTimersByTime(31 * 60 * 1000);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+      } as Response);
+    });
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(INTERACTION_EVENT);
+
+    // Drain until the rotated-through flush has sent every remaining batch
+    for (let i = 0; i < 10; i++) await flushMicrotasks();
+
+    // Those post-rotation sends must not write their chunk cursor back over
+    // the new recording's freshly-initialised state
+    const persisted = JSON.parse(
+      sessionStorage.getItem("gb_session_replay") || "{}",
+    ) as { sessionReplayId?: string; lastChunkIndex?: number };
+
+    expect(persisted.sessionReplayId).toBeTruthy();
+    expect(persisted.sessionReplayId).not.toBe(originalId);
+    expect(persisted.lastChunkIndex).toBe(-1);
   });
 
   it("new session after rotation flushes only its own events", async () => {

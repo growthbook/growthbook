@@ -319,6 +319,7 @@ export function createReplayRecorder({
 
     const sessionReplayIdBeingSent = sessionReplayId;
     const sessionStartedAtBeingSent = sessionStartedAt;
+    const viewportBeingSent = { width: viewportWidth, height: viewportHeight };
     let nextChunkIndex = chunkIndex;
     const totalBufferedBytes = bufferedBytes;
     const eventsBeingSent = [...replayEvents];
@@ -382,10 +383,18 @@ export function createReplayRecorder({
         nextChunkIndex === 0 && totalBufferedBytes > FLUSH_BYTE_SIZE,
       );
 
-      for (let i = 0; i < batches.length; i++) {
-        // Session rotated mid-flush — stop sending stale batches
-        if (sessionReplayId !== sessionReplayIdBeingSent) break;
+      const commitChunk = (index: number) => {
+        if (sessionReplayId !== sessionReplayIdBeingSent) return;
+        chunkIndex = index + 1;
+        writePersistedReplayState({
+          sessionReplayId: sessionReplayIdBeingSent,
+          sessionStartedAt: sessionStartedAtBeingSent,
+          lastChunkIndex: index,
+          lastChunkAt: Date.now(),
+        });
+      };
 
+      for (let i = 0; i < batches.length; i++) {
         const batchChunkIndex = nextChunkIndex;
         const isFirstBatch = i === 0;
 
@@ -395,7 +404,7 @@ export function createReplayRecorder({
           ...(sessionId && { gb_session_id: sessionId }),
           chunkIndex: batchChunkIndex,
           sessionStartedAt: sessionStartedAtBeingSent,
-          viewport: { width: viewportWidth, height: viewportHeight },
+          viewport: viewportBeingSent,
           events: batches[i],
           context,
           featureEvals: {
@@ -412,21 +421,11 @@ export function createReplayRecorder({
         try {
           await sendWithRetry(payload);
           nextChunkIndex = batchChunkIndex + 1;
-          // Session rotated mid-flight — don't touch live state
-          if (sessionReplayId !== sessionReplayIdBeingSent) break;
-          chunkIndex = nextChunkIndex;
-          writePersistedReplayState({
-            sessionReplayId: sessionReplayIdBeingSent,
-            sessionStartedAt: sessionStartedAtBeingSent,
-            lastChunkIndex: batchChunkIndex,
-            lastChunkAt: Date.now(),
-          });
+          commitChunk(batchChunkIndex);
         } catch (e) {
           if (e instanceof RetryCancelledError) {
-            // stopRecording cancelled a pending retry — restore unsent
-            // batches for the final keepalive flush, but only if the
-            // session hasn't rotated (old events must not leak into the
-            // new session's buffer)
+            // stopRecording cancelled a pending retry. On teardown the unsent
+            // batches go back on the buffer for the final keepalive flush.
             if (sessionReplayId === sessionReplayIdBeingSent) {
               const remaining = batches.slice(i).flat();
               replayEvents.unshift(...remaining);
@@ -439,28 +438,19 @@ export function createReplayRecorder({
                 experimentEvals.unshift(...experimentEvalsBeingSent);
                 sessionEvents.unshift(...sessionEventsBeingSent);
               }
+              return;
             }
-            return;
-          }
-
-          // Rotated mid-flight — remaining batches are for a stale session
-          if (sessionReplayId !== sessionReplayIdBeingSent) {
             console.warn(
-              `session-replay: chunk ${batchChunkIndex} lost during session rotation`,
+              `session-replay: chunk ${batchChunkIndex} cancelled during session rotation`,
               e,
             );
-            return;
+            nextChunkIndex = batchChunkIndex + 1;
+            continue;
           }
 
           if (e instanceof RetryExhaustedError) {
             nextChunkIndex = batchChunkIndex + 1;
-            chunkIndex = nextChunkIndex;
-            writePersistedReplayState({
-              sessionReplayId: sessionReplayIdBeingSent,
-              sessionStartedAt: sessionStartedAtBeingSent,
-              lastChunkIndex: batchChunkIndex,
-              lastChunkAt: Date.now(),
-            });
+            commitChunk(batchChunkIndex);
             console.error(
               `session-replay: chunk ${batchChunkIndex} failed after ` +
                 `${RETRY_MAX_ATTEMPTS} retries; skipping`,
@@ -486,13 +476,7 @@ export function createReplayRecorder({
           }
           // Other 4XX: skip and continue
           nextChunkIndex = batchChunkIndex + 1;
-          chunkIndex = nextChunkIndex;
-          writePersistedReplayState({
-            sessionReplayId: sessionReplayIdBeingSent,
-            sessionStartedAt: sessionStartedAtBeingSent,
-            lastChunkIndex: batchChunkIndex,
-            lastChunkAt: Date.now(),
-          });
+          commitChunk(batchChunkIndex);
           console.error(
             `session-replay: chunk ${batchChunkIndex} permanently rejected ` +
               `(HTTP ${status}); skipping`,
