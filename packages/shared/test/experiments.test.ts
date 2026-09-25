@@ -10,6 +10,8 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
+  getInlineFilterPromptColumns,
+  reconcileInlineFilterPrompts,
   getAggregateFilters,
   getColumnExpression,
   expandVirtualColumnsInSql,
@@ -2861,5 +2863,127 @@ describe("isFactMetricJoinable", () => {
         },
       ),
     ).toBe(true);
+  });
+});
+
+describe("conditional inline filter prompts", () => {
+  const col = (column: string, extra: Partial<ColumnInterface> = {}) => ({
+    column,
+    name: column,
+    datatype: "string" as const,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    description: "",
+    numberFormat: "" as const,
+    deleted: false,
+    ...extra,
+  });
+  const factTable = {
+    userIdTypes: ["user_id"],
+    columns: [
+      col("user_id"),
+      col("event_name", {
+        alwaysInlineFilter: true,
+        conditionalInlineFilters: {
+          "Page View": "path",
+          "Modal Open": "properties.modalType",
+        },
+      }),
+      col("path"),
+      col("properties", { datatype: "json" }),
+    ],
+  };
+  const pageView = {
+    column: "event_name",
+    operator: "=" as const,
+    values: ["Page View"],
+  };
+
+  describe("getInlineFilterPromptColumns", () => {
+    it("prompts for the base columns only until a mapped value is chosen", () => {
+      expect(getInlineFilterPromptColumns(factTable, [])).toEqual([
+        "event_name",
+      ]);
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "=", values: ["Purchase"] },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+    it("adds the mapped column (including JSON paths) for a single pinned value", () => {
+      expect(getInlineFilterPromptColumns(factTable, [pageView])).toEqual([
+        "event_name",
+        "path",
+      ]);
+      // `in` with one value is equivalent to `=`
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "in", values: ["Modal Open"] },
+        ]),
+      ).toEqual(["event_name", "properties.modalType"]);
+    });
+    it("does not prompt for a multi-value in: the mapped column would exclude the other events", () => {
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          {
+            column: "event_name",
+            operator: "in",
+            values: ["Page View", "Order"],
+          },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+    it("ignores other operators and blank placeholders", () => {
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "!=", values: ["Page View"] },
+          { column: "event_name", operator: "=", values: [""] },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+  });
+
+  describe("reconcileInlineFilterPrompts", () => {
+    it("appends a placeholder when a mapped value is chosen", () => {
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [{ column: "event_name", operator: "=", values: [""] }],
+          [pageView],
+        ),
+      ).toEqual([pageView, { column: "path", operator: "=", values: [""] }]);
+    });
+    it("drops the still-empty placeholder when the value changes", () => {
+      const order = {
+        column: "event_name",
+        operator: "=" as const,
+        values: ["Order"],
+      };
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [pageView, { column: "path", operator: "=", values: [""] }],
+          [order, { column: "path", operator: "=", values: [""] }],
+        ),
+      ).toEqual([order]);
+    });
+    it("keeps a filled-in filter and does not re-add a removed prompt", () => {
+      const path = { column: "path", operator: "=" as const, values: ["/x"] };
+      const order = {
+        column: "event_name",
+        operator: "=" as const,
+        values: ["Order"],
+      };
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [pageView, path],
+          [order, path],
+        ),
+      ).toEqual([order, path]);
+      expect(
+        reconcileInlineFilterPrompts(factTable, [pageView], [pageView]),
+      ).toEqual([pageView]);
+    });
   });
 });

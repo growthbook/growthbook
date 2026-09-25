@@ -58,6 +58,10 @@ export interface ColumnInterface {
   dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
+  // For an `alwaysInlineFilter` column: value -> extra column to also prompt
+  // for when a metric filters this column to that value, e.g.
+  // { "Page View": "path", "Modal Open": "properties.modalType" }.
+  conditionalInlineFilters?: Record<string, string>;
   topValues?: string[];
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;

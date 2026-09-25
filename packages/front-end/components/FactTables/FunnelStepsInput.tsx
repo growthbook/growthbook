@@ -5,7 +5,9 @@ import {
   ConversionWindow,
   FunnelSettings,
   FunnelStep,
+  RowFilter,
 } from "shared/types/fact-table";
+import { reconcileInlineFilterPrompts } from "shared/experiments";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -54,6 +56,18 @@ function FunnelStepInput({
   const { getFactTableById } = useDefinitions();
   const { factTable: fullFactTable } = useFullFactTable(step.factTableId);
 
+  const setRowFilters = (rowFilters: RowFilter[]) => {
+    updateStep(index, {
+      rowFilters: fullFactTable
+        ? reconcileInlineFilterPrompts(
+            fullFactTable,
+            step.rowFilters || [],
+            rowFilters,
+          )
+        : rowFilters,
+    });
+  };
+
   const setConversionWindow = (update: Partial<ConversionWindow> | null) => {
     if (update === null) {
       updateStep(index, { conversionWindow: null });
@@ -92,7 +106,7 @@ function FunnelStepInput({
             <SampleRowsButton
               factTable={fullFactTable}
               value={step.rowFilters || []}
-              setValue={(rowFilters) => updateStep(index, { rowFilters })}
+              setValue={setRowFilters}
             />
           )}
           <Button
@@ -165,7 +179,7 @@ function FunnelStepInput({
                 hideSampleRows
                 factTable={fullFactTable}
                 value={step.rowFilters || []}
-                setValue={(rowFilters) => updateStep(index, { rowFilters })}
+                setValue={setRowFilters}
               />
             </Box>
           )}

@@ -2,6 +2,7 @@ import { UseFormReturn } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
+import { reconcileInlineFilterPrompts } from "shared/experiments";
 import {
   CreateFactMetricFormProps,
   getInitialInlineFilters,
@@ -451,7 +452,14 @@ export default function MetricEditor({
                     factTable={factTable}
                     value={numerator.rowFilters || []}
                     setValue={(rowFilters) =>
-                      form.setValue("numerator", { ...numerator, rowFilters })
+                      form.setValue("numerator", {
+                        ...numerator,
+                        rowFilters: reconcileInlineFilterPrompts(
+                          factTable,
+                          numerator.rowFilters || [],
+                          rowFilters,
+                        ),
+                      })
                     }
                   />
                 )
