@@ -91,8 +91,46 @@ export function flattenExposureQueryInput<
 
 type SelectableExposureQuery = Pick<
   ExposureQuery,
-  "id" | "name" | "userIdType" | "userIdTypes"
+  "id" | "name" | "userIdType" | "userIdTypes" | "projects"
 >;
+
+/**
+ * Where a selection is used: a single `project`, or `projects` that must all be
+ * covered (holdouts). Omit both to skip the check.
+ */
+export type AssignmentQueryScope = {
+  project?: string;
+  projects?: string[];
+  // Inherited by queries without their own project scope (holdout check).
+  datasourceProjects?: string[];
+};
+
+function getAssignmentQueryScopeError(
+  query: Pick<ExposureQuery, "id" | "name" | "projects">,
+  { project, projects, datasourceProjects }: AssignmentQueryScope,
+): string | null {
+  const name = query.name || query.id;
+  if (projects) {
+    if (
+      isExposureQueryAvailableForProjects(query, projects, datasourceProjects)
+    ) {
+      return null;
+    }
+    const scopeSource = query.projects?.length
+      ? "its own"
+      : "its data source's";
+    return projects.length
+      ? `Assignment query "${name}" isn't available for every project this holdout covers because of ${scopeSource} project scope`
+      : `Assignment query "${name}" is limited by ${scopeSource} project scope, so it can't be used by a holdout that covers all projects`;
+  }
+  if (
+    project !== undefined &&
+    !isProjectListValidForProject(query.projects, project)
+  ) {
+    return `Assignment query "${name}" isn't available for the selected project`;
+  }
+  return null;
+}
 
 export type ParsedAssignmentQuerySelection<
   Q extends SelectableExposureQuery = SelectableExposureQuery,
@@ -114,12 +152,14 @@ export function parseAssignmentQuerySelection<
     identifierType,
     onOmitted,
     field,
+    scope,
   }: {
     exposureQueryId: string;
     identifierType?: string;
     onOmitted: "defaultToFirst" | "requireUnambiguous";
     // The REST field to name in the ambiguity error.
     field?: string;
+    scope?: AssignmentQueryScope;
   },
 ): ParsedAssignmentQuerySelection<Q> {
   const query = exposureQueries.find((q) => q.id === exposureQueryId);
@@ -130,6 +170,8 @@ export function parseAssignmentQuerySelection<
     };
   }
   const name = query.name || query.id;
+  const scopeError = scope ? getAssignmentQueryScopeError(query, scope) : null;
+  if (scopeError) return { ok: false, error: scopeError };
   const declared = getExposureQueryIdentifierTypes(query);
   if (identifierType) {
     return declared.includes(identifierType)
@@ -234,28 +276,12 @@ export function assertValidAssignmentQuerySelection({
     // With no identifier to check, a query declaring none is left to analysis.
     if (!query || identifierType) throw new Error(parsed.error);
   }
-  const name = query.name || query.id;
-  if (projects) {
-    if (
-      !isExposureQueryAvailableForProjects(query, projects, datasourceProjects)
-    ) {
-      const scopeSource = query.projects?.length
-        ? "its own"
-        : "its data source's";
-      throw new Error(
-        projects.length
-          ? `Assignment query "${name}" isn't available for every project this holdout covers because of ${scopeSource} project scope`
-          : `Assignment query "${name}" is limited by ${scopeSource} project scope, so it can't be used by a holdout that covers all projects`,
-      );
-    }
-  } else if (
-    project !== undefined &&
-    !isProjectListValidForProject(query.projects, project)
-  ) {
-    throw new Error(
-      `Assignment query "${name}" isn't available for the selected project`,
-    );
-  }
+  const scopeError = getAssignmentQueryScopeError(query, {
+    project,
+    projects,
+    datasourceProjects,
+  });
+  if (scopeError) throw new Error(scopeError);
   return query;
 }
 
@@ -265,7 +291,7 @@ export function assertValidAssignmentQuerySelection({
  * resolved.
  */
 export function toApiAssignmentQueryRef(
-  id: string | undefined,
+  id: string,
   storedIdentifierType: string | undefined,
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
 ): { id: string; identifierType: string } | undefined {

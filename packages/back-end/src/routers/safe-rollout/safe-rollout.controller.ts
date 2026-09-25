@@ -244,6 +244,7 @@ export async function putSafeRollout(
     safeRolloutFields,
     context,
     selectionChanged ? (feature?.project ?? "") : undefined,
+    safeRollout,
   );
 
   await context.models.safeRollout.update(safeRollout, {

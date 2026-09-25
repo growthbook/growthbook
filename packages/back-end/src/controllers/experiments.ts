@@ -11,7 +11,7 @@ import {
   autoMerge,
   reconcileMergeBaselines,
   includeExperimentInPayload,
-  assertValidAssignmentQuerySelection,
+  parseAssignmentQuerySelection,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -115,7 +115,7 @@ import {
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { assertValidAssignmentQuerySelectionChange } from "back-end/src/services/assignmentQuerySelection";
+import { loadChangedAssignmentQuerySelection } from "back-end/src/services/assignmentQuerySelection";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
@@ -1377,12 +1377,17 @@ export async function postExperiments(
     validateVariationIds(obj.variations);
 
     if (datasource && obj.exposureQueryId) {
-      assertValidAssignmentQuerySelection({
-        exposureQueries: datasource.settings.queries?.exposure ?? [],
-        exposureQueryId: obj.exposureQueryId,
-        identifierType: obj.exposureQueryIdentifierType,
-        project: obj.project ?? "",
-      });
+      const parsed = parseAssignmentQuerySelection(
+        datasource.settings.queries?.exposure ?? [],
+        {
+          exposureQueryId: obj.exposureQueryId,
+          identifierType: obj.exposureQueryIdentifierType,
+          onOmitted: "defaultToFirst",
+          scope: { project: obj.project ?? "" },
+        },
+      );
+      if (!parsed.ok) throw new Error(parsed.error);
+      obj.exposureQueryIdentifierType = parsed.identifierType;
     }
 
     if (data.precomputedUnitDimensionIds !== undefined) {
@@ -1392,7 +1397,7 @@ export async function postExperiments(
         exposureQueryId:
           data.exposureQueryId ||
           datasource?.settings.queries?.exposure?.[0]?.id,
-        exposureQueryIdentifierType: data.exposureQueryIdentifierType,
+        exposureQueryIdentifierType: obj.exposureQueryIdentifierType,
         dimensionIds: data.precomputedUnitDimensionIds,
       });
     }
@@ -1996,6 +2001,48 @@ export async function postExperiment(
     };
   }
 
+  // Drift on an unchanged selection is flagged by the form, not blocked here. A
+  // changed one stores its parsed identifier, so it's never left implicit.
+  const nextSelection = {
+    datasource: changes.datasource ?? experiment.datasource ?? "",
+    exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+    identifierType:
+      changes.exposureQueryIdentifierType ??
+      experiment.exposureQueryIdentifierType,
+  };
+  const changedSelectionDatasource = await loadChangedAssignmentQuerySelection(
+    context,
+    {
+      datasource: experiment.datasource ?? "",
+      exposureQueryId: experiment.exposureQueryId,
+      identifierType: experiment.exposureQueryIdentifierType,
+    },
+    nextSelection,
+  );
+  if (changedSelectionDatasource) {
+    const parsed = parseAssignmentQuerySelection(
+      changedSelectionDatasource.settings.queries?.exposure ?? [],
+      {
+        ...nextSelection,
+        onOmitted: "defaultToFirst",
+        scope:
+          experiment.type === "holdout"
+            ? {
+                projects:
+                  (
+                    await context.models.holdout.getByExperimentId(
+                      experiment.id,
+                    )
+                  )?.projects ?? [],
+                datasourceProjects: changedSelectionDatasource.projects,
+              }
+            : { project: changes.project ?? experiment.project ?? "" },
+      },
+    );
+    if (!parsed.ok) throw new Error(parsed.error);
+    changes.exposureQueryIdentifierType = parsed.identifierType;
+  }
+
   const shouldValidatePrecomputedUnitDimensionIds =
     changes.precomputedUnitDimensionIds !== undefined ||
     changes.datasource !== undefined ||
@@ -2026,32 +2073,6 @@ export async function postExperiment(
       });
     }
   }
-
-  // Drift on an unchanged selection is flagged by the form, not blocked here.
-  await assertValidAssignmentQuerySelectionChange(
-    context,
-    {
-      datasource: experiment.datasource ?? "",
-      exposureQueryId: experiment.exposureQueryId,
-      identifierType: experiment.exposureQueryIdentifierType,
-    },
-    {
-      datasource: changes.datasource ?? experiment.datasource ?? "",
-      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
-      identifierType:
-        changes.exposureQueryIdentifierType ??
-        experiment.exposureQueryIdentifierType,
-    },
-    async () =>
-      experiment.type === "holdout"
-        ? {
-            project: undefined,
-            projects:
-              (await context.models.holdout.getByExperimentId(experiment.id))
-                ?.projects ?? [],
-          }
-        : { project: changes.project ?? experiment.project ?? "" },
-  );
 
   // Validate attributionModel + lookbackOverride consistency
   {

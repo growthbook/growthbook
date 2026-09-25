@@ -1,7 +1,10 @@
 import { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getSnapshotAnalysis } from "shared/util";
+import {
+  getSnapshotAnalysis,
+  parseAssignmentQuerySelection,
+} from "shared/util";
 import { pick, omit } from "lodash";
 import { experimentAnalysisSettings } from "shared/validators";
 import {
@@ -36,7 +39,7 @@ import {
 } from "back-end/src/models/ReportModel";
 import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { assertValidAssignmentQuerySelectionChange } from "back-end/src/services/assignmentQuerySelection";
+import { loadChangedAssignmentQuerySelection } from "back-end/src/services/assignmentQuerySelection";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,
@@ -435,7 +438,9 @@ type ReportAssignmentQuerySelection = {
   exposureQueryIdentifierType?: string;
 };
 
-function assertValidReportAssignmentQuery(
+// Validates a changed selection and stores its parsed identifier on `next`, so
+// it's never left implicit. An unchanged one is left alone, even if drifted.
+async function applyReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,
   next: ReportAssignmentQuerySelection,
@@ -446,20 +451,31 @@ function assertValidReportAssignmentQuery(
     exposureQueryId: s.exposureQueryId,
     identifierType: s.exposureQueryIdentifierType,
   });
-  return assertValidAssignmentQuerySelectionChange(
+  const datasource = await loadChangedAssignmentQuerySelection(
     context,
     toSelection(previous),
     toSelection(next),
-    async () =>
-      experiment?.type === "holdout"
-        ? {
-            project: undefined,
-            projects:
-              (await context.models.holdout.getByExperimentId(experiment.id))
-                ?.projects ?? [],
-          }
-        : { project: experiment?.project ?? "" },
   );
+  if (!datasource) return;
+  const parsed = parseAssignmentQuerySelection(
+    datasource.settings.queries?.exposure ?? [],
+    {
+      exposureQueryId: next.exposureQueryId,
+      identifierType: next.exposureQueryIdentifierType,
+      onOmitted: "defaultToFirst",
+      scope:
+        experiment?.type === "holdout"
+          ? {
+              projects:
+                (await context.models.holdout.getByExperimentId(experiment.id))
+                  ?.projects ?? [],
+              datasourceProjects: datasource.projects,
+            }
+          : { project: experiment?.project ?? "" },
+    },
+  );
+  if (!parsed.ok) throw new Error(parsed.error);
+  next.exposureQueryIdentifierType = parsed.identifierType;
 }
 
 export async function putReport(
@@ -562,7 +578,7 @@ export async function putReport(
     }
 
     if (updates.experimentAnalysisSettings) {
-      await assertValidReportAssignmentQuery(
+      await applyReportAssignmentQuery(
         context,
         report.experimentAnalysisSettings,
         updates.experimentAnalysisSettings,
@@ -615,7 +631,7 @@ export async function putReport(
       updates.args.settingsForSnapshotMetrics =
         updates.args?.settingsForSnapshotMetrics || [];
 
-      await assertValidReportAssignmentQuery(
+      await applyReportAssignmentQuery(
         context,
         report.args,
         updates.args,

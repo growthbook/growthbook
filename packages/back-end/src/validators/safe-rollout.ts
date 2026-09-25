@@ -1,7 +1,11 @@
-import { assertValidAssignmentQuerySelection } from "shared/util";
+import {
+  isSameAssignmentQuerySelection,
+  parseAssignmentQuerySelection,
+} from "shared/util";
 import {
   CreateSafeRolloutInterface,
   createSafeRolloutValidator,
+  SafeRolloutInterface,
 } from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -16,6 +20,11 @@ export async function validateCreateSafeRolloutFields(
   context: ReqContext | ApiReqContext,
   // The feature's project; undefined skips the assignment query scope check.
   project: string | undefined,
+  // The stored rollout on update: an unchanged selection isn't re-validated.
+  previous?: Pick<
+    SafeRolloutInterface,
+    "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
+  > | null,
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -50,15 +59,38 @@ export async function validateCreateSafeRolloutFields(
     );
   }
 
-  try {
-    assertValidAssignmentQuerySelection({
-      exposureQueries: datasource.settings?.queries?.exposure ?? [],
+  const exposureQueries = datasource.settings?.queries?.exposure ?? [];
+  const sameQuery =
+    previous?.datasourceId === safeRolloutFields.datasourceId &&
+    previous?.exposureQueryId === safeRolloutFields.exposureQueryId;
+  // Naming the same query without an identifier keeps the stored one.
+  let exposureQueryIdentifierType =
+    safeRolloutFields.exposureQueryIdentifierType ??
+    (sameQuery ? previous?.exposureQueryIdentifierType : undefined);
+  const unchanged =
+    !!previous &&
+    isSameAssignmentQuerySelection(
+      {
+        datasource: previous.datasourceId,
+        exposureQueryId: previous.exposureQueryId,
+        identifierType: previous.exposureQueryIdentifierType,
+      },
+      {
+        datasource: safeRolloutFields.datasourceId,
+        exposureQueryId: safeRolloutFields.exposureQueryId,
+        identifierType: exposureQueryIdentifierType,
+      },
+      exposureQueries,
+    );
+  if (!unchanged) {
+    const parsed = parseAssignmentQuerySelection(exposureQueries, {
       exposureQueryId: safeRolloutFields.exposureQueryId,
-      identifierType: safeRolloutFields.exposureQueryIdentifierType,
-      project,
+      identifierType: exposureQueryIdentifierType,
+      onOmitted: "defaultToFirst",
+      scope: project !== undefined ? { project } : undefined,
     });
-  } catch (e) {
-    throw new BadRequestError((e as Error).message);
+    if (!parsed.ok) throw new BadRequestError(parsed.error);
+    exposureQueryIdentifierType = parsed.identifierType;
   }
 
   if (
@@ -104,5 +136,7 @@ export async function validateCreateSafeRolloutFields(
     }
   }
 
-  return createSafeRolloutValidator.strip().parse(safeRolloutFields);
+  return createSafeRolloutValidator
+    .strip()
+    .parse({ ...safeRolloutFields, exposureQueryIdentifierType });
 }

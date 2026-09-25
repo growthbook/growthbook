@@ -1,8 +1,7 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
-  assertValidAssignmentQuerySelection,
-  assertAssignmentQueryRefIdentifierType,
   getAnalysisIdentifierType,
+  parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
@@ -192,28 +191,28 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           undefined,
         );
       }
-      try {
-        assertAssignmentQueryRefIdentifierType({
-          ref: req.body.assignmentQuery,
-          field: "assignmentQuery",
-          exposureQueries: datasource.settings.queries?.exposure ?? [],
-          currentExposureQueryId: undefined,
-        });
-        assertValidAssignmentQuerySelection({
-          exposureQueries: datasource.settings.queries?.exposure ?? [],
+      const parsed = parseAssignmentQuerySelection(
+        datasource.settings.queries?.exposure ?? [],
+        {
           exposureQueryId: payload.assignmentQueryId,
           identifierType: payload.assignmentQueryIdentifierType,
-          project: payload.project ?? "",
-        });
-      } catch (e) {
+          // Only the grouped field must name an identifier when it's ambiguous.
+          onOmitted: req.body.assignmentQuery
+            ? "requireUnambiguous"
+            : "defaultToFirst",
+          field: "assignmentQuery",
+          scope: { project: payload.project ?? "" },
+        },
+      );
+      if (!parsed.ok) {
         // Template callers can't override the assignment query, so point them at the template.
-        if (templateId) {
-          throw new Error(
-            `Template "${templateId}": ${(e as Error).message}. Update the template's assignment settings.`,
-          );
-        }
-        throw e;
+        throw new Error(
+          templateId
+            ? `Template "${templateId}": ${parsed.error}. Update the template's assignment settings.`
+            : parsed.error,
+        );
       }
+      payload.assignmentQueryIdentifierType = parsed.identifierType;
     }
 
     // check if tracking key is unique (skip the lookup entirely if the caller
