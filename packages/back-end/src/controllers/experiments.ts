@@ -1379,6 +1379,7 @@ export async function postExperiments(
         exposureQueries: datasource.settings.queries?.exposure ?? [],
         exposureQueryId: obj.exposureQueryId,
         identifierType: obj.exposureQueryIdentifierType,
+        project: obj.project ?? "",
       });
     }
 
@@ -2039,6 +2040,15 @@ export async function postExperiment(
         changes.exposureQueryIdentifierType ??
         experiment.exposureQueryIdentifierType,
     },
+    async () =>
+      experiment.type === "holdout"
+        ? {
+            project: undefined,
+            projects:
+              (await context.models.holdout.getByExperimentId(experiment.id))
+                ?.projects ?? [],
+          }
+        : { project: changes.project ?? experiment.project ?? "" },
   );
 
   // Validate attributionModel + lookbackOverride consistency

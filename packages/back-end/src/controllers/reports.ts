@@ -12,6 +12,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { getAllVariations } from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
 import {
@@ -440,6 +441,7 @@ function assertValidReportAssignmentQuery(
   context: ReqContext,
   previous: ReportAssignmentQuerySelection,
   next: ReportAssignmentQuerySelection,
+  experiment: ExperimentInterface | null,
 ) {
   const toSelection = (s: ReportAssignmentQuerySelection) => ({
     datasource: s.datasource,
@@ -450,6 +452,15 @@ function assertValidReportAssignmentQuery(
     context,
     toSelection(previous),
     toSelection(next),
+    async () =>
+      experiment?.type === "holdout"
+        ? {
+            project: undefined,
+            projects:
+              (await context.models.holdout.getByExperimentId(experiment.id))
+                ?.projects ?? [],
+          }
+        : { project: experiment?.project ?? "" },
   );
 }
 
@@ -557,6 +568,7 @@ export async function putReport(
         context,
         report.experimentAnalysisSettings,
         updates.experimentAnalysisSettings,
+        experiment,
       );
     }
 
@@ -609,6 +621,7 @@ export async function putReport(
         context,
         report.args,
         updates.args,
+        experiment,
       );
 
       needsRun = true;

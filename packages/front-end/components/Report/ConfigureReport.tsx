@@ -179,6 +179,7 @@ export default function ConfigureReport({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: experiment?.project,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
     identifierType: getAnalysisIdentifierType(

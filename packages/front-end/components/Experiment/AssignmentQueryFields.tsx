@@ -5,6 +5,7 @@ import { PiWarningFill } from "react-icons/pi";
 import {
   getAssignmentQueryDrift,
   getDefaultIdentifierType,
+  getExposureQueriesInScope,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getIdentifierTypeForHashAttribute,
@@ -23,14 +24,18 @@ type Selection = {
   identifierTypes: string[];
   groupedIdentifierTypes: (GroupedValue | SingleValue)[];
   exposureQueryOptions: SingleValue[];
-  // A kept selection whose query no longer declares its identifier.
+  // A kept selection the current scope or query no longer allows.
+  outOfScope: boolean;
   identifierUndeclared: boolean;
+  multiProject: boolean;
   setExposureQueryId: (exposureQueryId: string) => void;
   changeIdentifierType: (identifierType: string) => void;
 };
 
 export function useAssignmentQuerySelection({
   datasource,
+  project,
+  projects,
   hashAttribute,
   exposureQueryId,
   identifierType,
@@ -40,6 +45,10 @@ export function useAssignmentQuerySelection({
   keepCurrentSelection = false,
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
+  project: string | undefined;
+  // Multi-project owners (holdouts): only queries covering all of them. Takes
+  // precedence over `project`.
+  projects?: string[];
   hashAttribute: string | undefined;
   exposureQueryId: string | undefined;
   identifierType: string | undefined;
@@ -52,16 +61,25 @@ export function useAssignmentQuerySelection({
   keepCurrentSelection?: boolean;
 }): Selection {
   const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
-  const exposureQueries = useMemo(
-    () => datasource?.settings?.queries?.exposure ?? [],
-    [datasource],
+  const scopedQueries = useMemo(
+    () =>
+      datasource
+        ? getExposureQueriesInScope(datasource, project, projects)
+        : [],
+    [datasource, project, projects],
   );
   const keptQuery = keptQueryId
-    ? exposureQueries.find((q) => q.id === keptQueryId)
+    ? datasource?.settings?.queries?.exposure?.find((q) => q.id === keptQueryId)
     : undefined;
-  const { identifierUndeclared } = getAssignmentQueryDrift(
+  const { outOfScope, identifierUndeclared } = getAssignmentQueryDrift(
     keptQuery,
     identifierType,
+    scopedQueries,
+  );
+  const exposureQueries = useMemo(
+    () =>
+      keptQuery && outOfScope ? [...scopedQueries, keptQuery] : scopedQueries,
+    [scopedQueries, keptQuery, outOfScope],
   );
   const hashAttributeIdentifierTypeMap = useMemo(
     () => getHashAttributeIdentifierTypeMap(datasource?.settings?.userIdTypes),
@@ -181,20 +199,30 @@ export function useAssignmentQuerySelection({
     identifierTypes,
     groupedIdentifierTypes,
     exposureQueryOptions,
+    outOfScope,
     identifierUndeclared,
+    multiProject: !!projects,
     setExposureQueryId,
     changeIdentifierType,
   };
 }
 
-type DriftState = Pick<Selection, "identifierUndeclared" | "identifierType">;
+type DriftState = Pick<
+  Selection,
+  "outOfScope" | "identifierUndeclared" | "identifierType" | "multiProject"
+>;
 
 function getAssignmentQueryDriftMessage({
+  outOfScope,
   identifierUndeclared,
   identifierType,
+  multiProject,
 }: DriftState): string | null {
   if (identifierUndeclared) {
     return `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`;
+  }
+  if (outOfScope) {
+    return `The selected assignment query is no longer scoped to ${multiProject ? "every selected Project" : "this Project"}. Results still update, but consider switching to a query that is.`;
   }
   return null;
 }
@@ -252,6 +280,7 @@ export default function AssignmentQueryFields({
     exposureQueryOptions,
     setExposureQueryId,
     changeIdentifierType,
+    multiProject,
   } = selection;
   return (
     <>
@@ -272,7 +301,7 @@ export default function AssignmentQueryFields({
         labelClassName="font-weight-bold"
         helpText={
           identifierTypes.length === 0
-            ? "This Data Source has no assignment queries. Add one in the Data Source settings."
+            ? `No assignment queries are scoped to ${multiProject ? "the selected Projects" : "this Project"}. Add one in the Data Source settings.`
             : undefined
         }
         value={identifierType ?? ""}

@@ -25,6 +25,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getDefaultIdentifierType,
+  getExposureQueriesForProject,
   getExposureQuery,
   getHashAttributeIdentifierTypeMap,
   getSelectableIdentifierTypes,
@@ -80,6 +81,8 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
+  // A holdout's assignment query must cover every Project the holdout spans.
+  holdoutProjects?: string[];
 }> = ({
   experiment,
   envs,
@@ -87,6 +90,7 @@ const AnalysisForm: FC<{
   mutate,
   phase,
   source,
+  holdoutProjects,
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
@@ -162,7 +166,10 @@ const AnalysisForm: FC<{
       )
     : getDefaultIdentifierType({
         identifierTypes: getSelectableIdentifierTypes(
-          initialDatasourceSettings?.queries?.exposure ?? [],
+          getExposureQueriesForProject(
+            initialDatasourceSettings?.queries?.exposure ?? [],
+            experiment.project,
+          ),
         ),
         hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
           initialDatasourceSettings?.userIdTypes,
@@ -343,6 +350,8 @@ const AnalysisForm: FC<{
   // Saved settings must not be rewritten on load.
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: experiment.project,
+    projects: holdoutProjects,
     hashAttribute: experiment.hashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,
@@ -646,7 +655,10 @@ const AnalysisForm: FC<{
                     "exposureQueryIdentifierType",
                     getDefaultIdentifierType({
                       identifierTypes: getSelectableIdentifierTypes(
-                        ds?.settings?.queries?.exposure ?? [],
+                        getExposureQueriesForProject(
+                          ds?.settings?.queries?.exposure ?? [],
+                          experiment.project,
+                        ),
                       ),
                       hashAttributeIdentifierTypeMap:
                         getHashAttributeIdentifierTypeMap(

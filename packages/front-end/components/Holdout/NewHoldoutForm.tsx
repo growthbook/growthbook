@@ -343,6 +343,8 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: undefined,
+    projects: selectedProjects,
     hashAttribute: form.watch("hashAttribute"),
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,

@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { omit } from "lodash";
+import { hasAssignmentQuerySelectionChanged } from "shared/util";
 import {
   MetricTimeSeries,
   CreateSafeRolloutInterface,
@@ -12,6 +13,7 @@ import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnap
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   runLockedRampScheduleAction,
@@ -217,9 +219,31 @@ export async function putSafeRollout(
     throw new Error("Could not find safe rollout");
   }
 
+  // Only a changed selection is scope-checked, so a rollout whose query later
+  // fell out of scope can still be edited.
+  const nextDatasourceId = safeRolloutFields?.datasourceId ?? "";
+  const selectionChanged = await hasAssignmentQuerySelectionChanged(
+    {
+      datasource: safeRollout.datasourceId,
+      exposureQueryId: safeRollout.exposureQueryId,
+      identifierType: safeRollout.exposureQueryIdentifierType,
+    },
+    {
+      datasource: nextDatasourceId,
+      exposureQueryId: safeRolloutFields?.exposureQueryId ?? "",
+      identifierType: safeRolloutFields?.exposureQueryIdentifierType,
+    },
+    async () =>
+      (await getDataSourceById(context, nextDatasourceId))?.settings.queries
+        ?.exposure ?? [],
+  );
+  const feature = selectionChanged
+    ? await getFeature(context, safeRollout.featureId)
+    : null;
   const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
     safeRolloutFields,
     context,
+    selectionChanged ? (feature?.project ?? "") : undefined,
   );
 
   await context.models.safeRollout.update(safeRollout, {

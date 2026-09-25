@@ -3,8 +3,10 @@ import {
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
+  getExposureQueriesOutsideProjectScope,
   getAnalysisIdentifierType,
   assertValidAssignmentQuerySelection,
+  isExposureQueryAvailableForProjects,
   hasAssignmentQuerySelectionChanged,
   toApiAssignmentQueryRef,
   flattenExposureQueryInput,
@@ -22,6 +24,46 @@ function query(
     ...partial,
   };
 }
+
+describe("getExposureQueriesOutsideProjectScope", () => {
+  it("flags a query scoped to a project the data source is not", () => {
+    const result = getExposureQueriesOutsideProjectScope(
+      [{ id: "q1", name: "Q1", projects: ["p1", "p3"] }],
+      ["p1", "p2"],
+    );
+    expect(result).toEqual([{ id: "q1", name: "Q1", invalidProjects: ["p3"] }]);
+  });
+
+  it("allows a query whose projects are a subset of the data source's", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [{ id: "q1", name: "Q1", projects: ["p1"] }],
+        ["p1", "p2"],
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats an empty data source project list as all projects", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [{ id: "q1", name: "Q1", projects: ["p1"] }],
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats a query with no projects as inheriting the data source scope", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [
+          { id: "q1", name: "Q1", projects: [] },
+          { id: "q2", name: "Q2", projects: undefined },
+        ],
+        ["p1"],
+      ),
+    ).toEqual([]);
+  });
+});
 
 describe("assertExposureQueryDeclaresIdentifierType", () => {
   const multi = query({
@@ -244,6 +286,12 @@ describe("assertValidAssignmentQuerySelection", () => {
       userIdType: "anonymous_id",
       userIdTypes: ["anonymous_id", "user_id"],
     }),
+    query({
+      id: "eq_scoped",
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+      projects: ["prj_a"],
+    }),
   ];
 
   it("returns the query for a valid selection", () => {
@@ -252,6 +300,7 @@ describe("assertValidAssignmentQuerySelection", () => {
         exposureQueries,
         exposureQueryId: "eq_multi",
         identifierType: "user_id",
+        project: "prj_b",
       }).id,
     ).toBe("eq_multi");
   });
@@ -261,6 +310,7 @@ describe("assertValidAssignmentQuerySelection", () => {
       assertValidAssignmentQuerySelection({
         exposureQueries,
         exposureQueryId: "eq_missing",
+        project: undefined,
       }),
     ).toThrow('Assignment query "eq_missing" doesn\'t exist');
   });
@@ -271,8 +321,72 @@ describe("assertValidAssignmentQuerySelection", () => {
         exposureQueries,
         exposureQueryId: "eq_multi",
         identifierType: "company_id",
+        project: undefined,
       }),
     ).toThrow('doesn\'t declare the "company_id" identifier type');
+  });
+
+  it("rejects a query outside the project, unless the scope check is skipped", () => {
+    const selection = {
+      exposureQueries,
+      exposureQueryId: "eq_scoped",
+      identifierType: "user_id",
+    };
+    expect(() =>
+      assertValidAssignmentQuerySelection({ ...selection, project: "prj_b" }),
+    ).toThrow("isn't available for the selected project");
+    expect(
+      assertValidAssignmentQuerySelection({ ...selection, project: undefined })
+        .id,
+    ).toBe("eq_scoped");
+  });
+});
+
+describe("isExposureQueryAvailableForProjects", () => {
+  it("allows an unrestricted query for any projects, including all", () => {
+    expect(isExposureQueryAvailableForProjects({ projects: [] }, [], [])).toBe(
+      true,
+    );
+    expect(isExposureQueryAvailableForProjects({}, ["prj_a"], undefined)).toBe(
+      true,
+    );
+  });
+
+  it("requires a scoped query to cover every project", () => {
+    const query = { projects: ["prj_a", "prj_b"] };
+    expect(isExposureQueryAvailableForProjects(query, ["prj_a"], [])).toBe(
+      true,
+    );
+    expect(
+      isExposureQueryAvailableForProjects(query, ["prj_a", "prj_c"], []),
+    ).toBe(false);
+  });
+
+  it("rejects a scoped query when all projects are covered", () => {
+    expect(
+      isExposureQueryAvailableForProjects({ projects: ["prj_a"] }, [], []),
+    ).toBe(false);
+  });
+
+  it("applies the data source's projects to an unscoped query", () => {
+    const dsProjects = ["prj_a", "prj_b"];
+    expect(
+      isExposureQueryAvailableForProjects({ projects: [] }, [], dsProjects),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        ["prj_a", "prj_c"],
+        dsProjects,
+      ),
+    ).toBe(false);
+    expect(
+      isExposureQueryAvailableForProjects(
+        { projects: [] },
+        ["prj_b"],
+        dsProjects,
+      ),
+    ).toBe(true);
   });
 });
 
