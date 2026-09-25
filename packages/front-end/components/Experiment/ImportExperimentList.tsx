@@ -295,7 +295,7 @@ const ImportExperimentList: FC<{
         <>
           <Callout status="error" my="3">
             <p>Error importing experiments.</p>
-            {runError && <p>{runError}</p>}
+            {runError && <p>Could not start a new import: {runError}</p>}
             {datasource?.id && (
               <>
                 {!!datasource?.dateUpdated &&
