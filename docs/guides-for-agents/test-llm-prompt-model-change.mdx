@@ -953,15 +953,15 @@ ORDER BY experiment_id, variation_id
 
 Using the Managed Warehouse **Events** fact table, create:
 
-| Role      | Metric                      | Suggested type | Event/filter                                                                  | Direction           |
-| --------- | --------------------------- | -------------- | ----------------------------------------------------------------------------- | ------------------- |
-| Goal      | Resolved without escalation | Proportion     | `support_answer_resolved`                                                     | Increase            |
-| Guardrail | Policy violation            | Proportion     | `support_answer_policy_violation`                                             | Decrease            |
-| Guardrail | Failed LLM attempt | Proportion | completed status in `provider_error`, `timeout`, `invalid_output`, or a dedicated failure event | Decrease |
-| Guardrail | Escalated                   | Proportion     | `support_answer_escalated`                                                    | Decrease or neutral |
-| Guardrail | Latency                     | Mean           | `latency_ms` from `support_llm_completed`                                     | Decrease            |
-| Guardrail | Estimated cost              | Mean           | `estimated_cost_usd` from `support_llm_completed`                             | Decrease or bounded |
-| Secondary | Reopened                    | Proportion     | `support_answer_reopened`                                                     | Decrease            |
+| Role      | Metric                      | Suggested type | Event/filter                                                                                    | Direction           |
+| --------- | --------------------------- | -------------- | ----------------------------------------------------------------------------------------------- | ------------------- |
+| Goal      | Resolved without escalation | Proportion     | `support_answer_resolved`                                                                       | Increase            |
+| Guardrail | Policy violation            | Proportion     | `support_answer_policy_violation`                                                               | Decrease            |
+| Guardrail | Failed LLM attempt          | Proportion     | completed status in `provider_error`, `timeout`, `invalid_output`, or a dedicated failure event | Decrease            |
+| Guardrail | Escalated                   | Proportion     | `support_answer_escalated`                                                                      | Decrease or neutral |
+| Guardrail | Latency                     | Mean           | `latency_ms` from `support_llm_completed`                                                       | Decrease            |
+| Guardrail | Estimated cost              | Mean           | `estimated_cost_usd` from `support_llm_completed`                                               | Decrease or bounded |
+| Secondary | Reopened                    | Proportion     | `support_answer_reopened`                                                                       | Decrease            |
 
 Set metric windows to reflect when the outcome can realistically occur. An immediate structured-output failure may use minutes; “ticket reopened” may need days. Do not close an experiment before late outcomes have had time to arrive.
 
@@ -1043,18 +1043,18 @@ If a privacy review requires pseudonymous identifiers, ensure the exact same det
 
 ## Failure matrix
 
-| Failure                                 | Required behavior                                                                         | Verification                                 |
-| --------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
-| GrowthBook init timeout                 | Use `control`; alert operationally                                                        | Block API host in staging and assert control |
-| Empty or unknown feature value          | Use `control`                                                                             | Unit test malformed payload                  |
-| Event ingestor unavailable              | Continue user request; queue/retry according to SDK behavior; alert on missing-event rate | Block ingestor without blocking provider     |
-| Provider timeout | Reject at the deadline and request cancellation; emit one timeout guardrail; follow product fallback policy | Fake provider ignores cancellation and completes or rejects late |
-| Provider invalid JSON                   | Reject in adapter; emit `invalid_output`                                                  | Fixture with malformed response              |
-| Treatment model unavailable             | Fail or explicit fallback; count against treatment                                        | Inject provider 5xx                          |
-| Missing stable ID                       | Reject experiment path or use an established anonymous ID                                 | Contract test at request boundary            |
-| Duplicate outcome webhook               | Deduplicate by internal outcome ID before logging                                         | Replay webhook                               |
-| User receives both variants             | Investigate identifier churn, changed weights, multiple evaluations, or phase changes     | GrowthBook multiple-exposure health check    |
-| 50/50 expected but materially different | Investigate Sample Ratio Mismatch before reading effects                                  | GrowthBook SRM health check                  |
+| Failure                                 | Required behavior                                                                                           | Verification                                                     |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| GrowthBook init timeout                 | Use `control`; alert operationally                                                                          | Block API host in staging and assert control                     |
+| Empty or unknown feature value          | Use `control`                                                                                               | Unit test malformed payload                                      |
+| Event ingestor unavailable              | Continue user request; queue/retry according to SDK behavior; alert on missing-event rate                   | Block ingestor without blocking provider                         |
+| Provider timeout                        | Reject at the deadline and request cancellation; emit one timeout guardrail; follow product fallback policy | Fake provider ignores cancellation and completes or rejects late |
+| Provider invalid JSON                   | Reject in adapter; emit `invalid_output`                                                                    | Fixture with malformed response                                  |
+| Treatment model unavailable             | Fail or explicit fallback; count against treatment                                                          | Inject provider 5xx                                              |
+| Missing stable ID                       | Reject experiment path or use an established anonymous ID                                                   | Contract test at request boundary                                |
+| Duplicate outcome webhook               | Deduplicate by internal outcome ID before logging                                                           | Replay webhook                                                   |
+| User receives both variants             | Investigate identifier churn, changed weights, multiple evaluations, or phase changes                       | GrowthBook multiple-exposure health check                        |
+| 50/50 expected but materially different | Investigate Sample Ratio Mismatch before reading effects                                                    | GrowthBook SRM health check                                      |
 
 ## Rollback
 
