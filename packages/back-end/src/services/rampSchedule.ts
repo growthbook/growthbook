@@ -500,6 +500,16 @@ export function computeEffectivePatch(
       for (const [k, v] of Object.entries(fields)) {
         (existing as Record<string, unknown>)[k] = v;
       }
+      // Environment scope is one setting spelled as two fields: a later list
+      // narrows an all-environments anchor, a later wildcard drops the list.
+      if (
+        Array.isArray(fields.environments) &&
+        !("allEnvironments" in fields)
+      ) {
+        existing.allEnvironments = false;
+      } else if (fields.allEnvironments && !("environments" in fields)) {
+        existing.environments = null;
+      }
     } else {
       byTarget.set(act.targetId, { ruleId, ...fields } as RampStartPatch);
     }
@@ -672,18 +682,17 @@ export function applyPatchToRule(
   if ("prerequisites" in patch) {
     updated.prerequisites = patch.prerequisites ?? undefined;
   }
-  // Process `environments` before `allEnvironments` so that when both appear in
-  // the same patch (e.g. from getStartPatchForRule on an allEnvironments rule),
-  // the explicit `allEnvironments: true` always wins and is not silently reset
-  // to false by the `environments` branch running afterwards.
-  if ("environments" in patch) {
+  // Only a list scopes the rule; a null or undefined list changes nothing, since
+  // dropping the key would widen the rule and Mongo stores an undefined key as
+  // null. `allEnvironments` runs last so an explicit true wins over the list.
+  if (Array.isArray(patch.environments)) {
     updated.allEnvironments = false;
-    updated.environments = patch.environments ?? undefined;
+    updated.environments = patch.environments;
   }
   if ("allEnvironments" in patch) {
     updated.allEnvironments = patch.allEnvironments ?? false;
     if (patch.allEnvironments) {
-      updated.environments = undefined;
+      delete updated.environments;
     }
   }
   if ("force" in patch) {
@@ -733,6 +742,18 @@ export function applyPatchToRule(
   return updated;
 }
 
+// A rule with no list serves every environment; say so, since a null list in
+// a patch no longer means anything.
+function ruleScopeAsStartPatch(
+  rule: FeatureRule,
+): Pick<RampStartPatch, "allEnvironments" | "environments"> {
+  return {
+    allEnvironments:
+      rule.environments === undefined ? true : (rule.allEnvironments ?? null),
+    environments: rule.environments ?? null,
+  };
+}
+
 export function getStartPatchForRule(
   rule: FeatureRule,
 ): Omit<RampStartPatch, "ruleId"> {
@@ -748,8 +769,7 @@ export function getStartPatchForRule(
     condition: ruleState.condition ?? null,
     savedGroups: ruleState.savedGroups ?? null,
     prerequisites: ruleState.prerequisites ?? null,
-    allEnvironments: ruleState.allEnvironments ?? null,
-    environments: ruleState.environments ?? null,
+    ...ruleScopeAsStartPatch(rule),
     enabled: ruleState.enabled ?? null,
   };
 
@@ -886,8 +906,7 @@ function ruleFieldsAsStartPatch(
     if (f === "value") {
       if ("value" in r) patch.force = r.value;
     } else if (f === "environments") {
-      patch.allEnvironments = r.allEnvironments ?? null;
-      patch.environments = r.environments ?? null;
+      Object.assign(patch, ruleScopeAsStartPatch(rule));
     } else {
       patch[f] = r[f] ?? null;
     }
@@ -1266,6 +1285,9 @@ export const featureEntityHandler: EntityHandler = {
       const entries = actions.flatMap((action) => {
         if (action.targetType !== "feature-rule") return [];
         const { ruleId, ...patch } = action.patch;
+        // A null list stored before it was refused at write time changes
+        // nothing when applied, so it is not judged either.
+        if (patch.environments === null) delete patch.environments;
         return resolveRampTargets(
           { ruleId, environment: environment ?? null },
           updatedRules,

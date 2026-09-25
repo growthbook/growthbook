@@ -10,6 +10,7 @@
     "pretty:check": "prettier --check './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
     "type-check": "pnpm -r run type-check",
     "check-licenses": "node scripts/check-licenses.mjs",
+    "check-doclink-registry": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-doclink-registry.mjs",
     "clean": "pnpm -r run clean && rimraf node_modules",
     "doc-gen": "pnpm --filter shared gen-event-webhook-for-docs",
     "unused-export-check": "pnpm -r --workspace-concurrency=1 run unused-export-check",
@@ -38,7 +39,7 @@
   },
   "dependencies": {
     "@datadog/native-metrics": "^3.1.2",
-    "@datadog/pprof": "^5.13.2",
+    "@datadog/pprof": "^5.15.1",
     "dd-trace": "^5.100.0"
   },
   "devDependencies": {

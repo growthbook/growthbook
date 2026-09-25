@@ -191,6 +191,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
       requireUniqueExperimentTrackingKeys:
         settings.requireUniqueExperimentTrackingKeys ?? false,
+      experimentKeyExample: settings.experimentKeyExample ?? "",
+      experimentKeyRegexValidator: settings.experimentKeyRegexValidator ?? "",
       experimentMinLengthDays:
         settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
       experimentMaxLengthDays:
@@ -497,6 +499,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
           `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`,
         );
       }
+    }
+
+    const { experimentKeyExample, experimentKeyRegexValidator } =
+      transformedOrgSettings;
+    if (experimentKeyRegexValidator && !experimentKeyExample) {
+      throw new Error(
+        "Experiment key example must not be empty when a regex validator is defined.",
+      );
+    }
+    if (
+      experimentKeyRegexValidator &&
+      !new RegExp(experimentKeyRegexValidator).test(experimentKeyExample ?? "")
+    ) {
+      throw new Error(
+        `Experiment key example must match the regex validator. '${experimentKeyRegexValidator}' Example: '${experimentKeyExample ?? ""}'`,
+      );
     }
 
     await apiCall(`/organization`, {
