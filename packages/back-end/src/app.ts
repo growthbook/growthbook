@@ -741,9 +741,7 @@ app.use(metricGroupRouter);
 app.use(populationDataRouter);
 
 // Experiments
-app.use("/experiment", experimentExposuresRouter);
-
-// Experiments
+app.use(experimentExposuresRouter);
 app.get("/experiments", experimentsController.getExperiments);
 app.post("/experiments", experimentsController.postExperiments);
 app.get(

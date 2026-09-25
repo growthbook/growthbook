@@ -52,15 +52,25 @@ export function flattenRecord<T extends object>(
 ): Record<string, unknown> {
   const flattenKeys = new Set(options?.flattenKeys ?? []);
   const flattened: Record<string, unknown> = {};
+  const lifted: [string, string, unknown][] = [];
 
+  // Top-level fields first, so a lifted child can never overwrite one. A
+  // warehouse column called "userId" must not replace the normalized value.
   for (const [key, value] of Object.entries(row)) {
     if (flattenKeys.has(key) && isPlainObject(value)) {
       for (const [childKey, childValue] of Object.entries(value)) {
-        flattened[childKey] = childValue;
+        lifted.push([key, childKey, childValue]);
       }
       continue;
     }
     flattened[key] = value;
+  }
+
+  // A child whose name is already taken keeps its wrapper as a qualifier, so
+  // both values stay visible and their origin is obvious.
+  for (const [parentKey, childKey, childValue] of lifted) {
+    const key = childKey in flattened ? `${parentKey}.${childKey}` : childKey;
+    flattened[key] = childValue;
   }
 
   return flattened;

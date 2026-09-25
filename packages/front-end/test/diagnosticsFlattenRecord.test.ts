@@ -36,6 +36,17 @@ describe("flattenRecord", () => {
     expect(result).toHaveProperty("userId");
   });
 
+  it("does not let a lifted child overwrite a top-level field", () => {
+    const collide = {
+      userId: "u1",
+      extra: { userId: "raw-from-warehouse", browser: "chrome" },
+    };
+    const result = flattenRecord(collide, { flattenKeys: ["extra"] });
+    expect(result.userId).toBe("u1");
+    expect(result["extra.userId"]).toBe("raw-from-warehouse");
+    expect(result.browser).toBe("chrome");
+  });
+
   it("leaves nested objects intact when not named", () => {
     expect(flattenRecord(row)).toEqual(row);
   });

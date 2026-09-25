@@ -148,14 +148,16 @@ export async function getExposures(
     hasMore: false,
   };
 
+  // Outside the try below, whose catch turns throws into a 200 + error body.
+  if (!integration.getExperimentExposuresQuery) {
+    context.throwBadRequestError(
+      "Exposure logs are not supported for this data source type.",
+    );
+    return;
+  }
+
   let sql: string;
   try {
-    if (!integration.getExperimentExposuresQuery) {
-      context.throwBadRequestError(
-        "Exposure logs are not supported for this data source type.",
-      );
-      return;
-    }
     sql = integration.getExperimentExposuresQuery({
       experimentId: experiment.id,
       experimentTrackingKey: experiment.trackingKey,

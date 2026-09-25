@@ -33,18 +33,34 @@ export function getExperimentExposuresQuery(
   const limit = Math.max(1, Math.min(101, Math.floor(params.limit) + 1));
   const offset = Math.max(0, Math.floor(params.offset));
 
-  const safeDimensions = params.dimensions.filter(isSafeIdentifier);
+  // Dropping an unusable identifier would return unfiltered rows while the UI
+  // still shows the filter as applied, so refuse the query instead. The
+  // controller turns this into a visible error.
+  const assertSafeIdentifier = (name: string, label: string) => {
+    if (!isSafeIdentifier(name)) {
+      throw new Error(
+        `${label} "${name}" is not a supported column name for exposure logs.`,
+      );
+    }
+  };
+
+  params.dimensions.forEach((d) => assertSafeIdentifier(d, "Dimension"));
+
+  // Ordering on every configured column keeps paging stable for rows that tie
+  // on timestamp. Rows identical across all of them can still swap places
+  // between pages — the exposure query has no unique key to break that tie.
   const orderColumns = Array.from(
     new Set([
       "timestamp",
-      ...(isSafeIdentifier(params.userIdType) ? [params.userIdType] : []),
+      params.userIdType,
       "variation_id",
-      ...safeDimensions,
+      ...params.dimensions,
     ]),
   );
+  orderColumns.forEach((c) => assertSafeIdentifier(c, "Column"));
 
   const extraConditions: string[] = [];
-  if (params.userId && isSafeIdentifier(params.userIdType)) {
+  if (params.userId) {
     extraConditions.push(
       `${params.userIdType} = '${dialect.escapeStringLiteral(params.userId)}'`,
     );
@@ -56,9 +72,13 @@ export function getExperimentExposuresQuery(
   }
   if (params.dimensionFilters) {
     for (const [dim, val] of Object.entries(params.dimensionFilters)) {
-      if (val && safeDimensions.includes(dim)) {
-        extraConditions.push(`${dim} = '${dialect.escapeStringLiteral(val)}'`);
+      if (!val) continue;
+      if (!params.dimensions.includes(dim)) {
+        throw new Error(
+          `Dimension "${dim}" is not available on this exposure query.`,
+        );
       }
+      extraConditions.push(`${dim} = '${dialect.escapeStringLiteral(val)}'`);
     }
   }
   const extraWhere = extraConditions.length
@@ -79,7 +99,7 @@ export function getExperimentExposuresQuery(
       AND timestamp >= ${dialect.toTimestamp(params.startDate)}
       AND timestamp < ${dialect.toTimestamp(params.endDate)}${extraWhere}
     ORDER BY ${orderColumns.map((column) => `${column} DESC`).join(", ")}
-    LIMIT ${limit} OFFSET ${offset}
+    ${dialect.paginate(limit, offset)}
     `,
     dialect.formatDialect,
   );

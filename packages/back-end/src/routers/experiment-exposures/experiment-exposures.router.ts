@@ -8,8 +8,10 @@ const router = express.Router();
 const controller = wrapController(rawController);
 const filterString = z.string().max(255);
 
+// Mounted bare, so the full path lives here. /experiment is not owned by this
+// router — app.ts still registers the other /experiment/:id routes directly.
 router.get(
-  "/:id/exposures",
+  "/experiment/:id/exposures",
   validateRequestMiddleware({
     params: z.object({ id: z.string() }),
     query: z

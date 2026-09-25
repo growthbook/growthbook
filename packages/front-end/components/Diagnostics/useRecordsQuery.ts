@@ -160,8 +160,11 @@ export default function useRecordsQuery<TRow, TResponse>({
       appliedSearch,
       safeFilterKeys,
     );
+    // parseQuery lowercases field names, but callers look filters up by their
+    // configured name (a dimension may be camelCase), so compare case-insensitively.
     const getFilterValue = (field: string) =>
-      syntaxFilters.find((f) => f.field === field)?.values[0] ?? "";
+      syntaxFilters.find((f) => f.field.toLowerCase() === field.toLowerCase())
+        ?.values[0] ?? "";
     return { syntaxFilters, searchTerm, getFilterValue };
   }, [appliedSearch, safeFilterKeys]);
 

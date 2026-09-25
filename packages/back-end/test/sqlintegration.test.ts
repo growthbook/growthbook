@@ -22,6 +22,7 @@ import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
 import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
 import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
 import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
+import { prestoDialect } from "back-end/src/integrations/dialects/presto";
 import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
 import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
 import { adobeExperiencePlatformQueryServiceDialect } from "back-end/src/integrations/dialects/adobeExperiencePlatformQueryService";
@@ -1985,22 +1986,48 @@ describe("getExperimentExposuresQuery", () => {
     expect(sql).toContain("o\\'brien");
   });
 
-  it("ignores a dimension filter that is not a declared dimension", () => {
+  it("applies a declared dimension filter", () => {
     const sql = getExperimentExposuresQuery(bigQueryDialect, {
       ...params,
-      dimensionFilters: { country: "US", evil: "x" },
+      dimensionFilters: { country: "US" },
     });
     expect(sql).toContain("country = 'US'");
-    expect(sql).not.toContain("evil");
   });
 
-  it("drops dimension names that are not identifier-shaped", () => {
-    const sql = getExperimentExposuresQuery(bigQueryDialect, {
-      ...params,
-      dimensions: ["bad name"],
-      dimensionFilters: { "bad name": "x" },
-    });
-    expect(sql).not.toContain("bad name");
+  it("rejects dimension names that are not identifier-shaped", () => {
+    // Silently dropping the filter would render unfiltered rows as filtered.
+    expect(() =>
+      getExperimentExposuresQuery(bigQueryDialect, {
+        ...params,
+        dimensions: ["bad name"],
+        dimensionFilters: { "bad name": "x" },
+      }),
+    ).toThrow(/not a supported column name/);
+  });
+
+  it("rejects a dimension filter for an undeclared dimension", () => {
+    expect(() =>
+      getExperimentExposuresQuery(bigQueryDialect, {
+        ...params,
+        dimensionFilters: { evil: "x" },
+      }),
+    ).toThrow(/not available on this exposure query/);
+  });
+
+  it("uses dialect-specific pagination", () => {
+    expect(getExperimentExposuresQuery(bigQueryDialect, params)).toMatch(
+      /LIMIT\s+101\s+OFFSET\s+0/,
+    );
+    // SQL Server has no LIMIT keyword.
+    const mssql = getExperimentExposuresQuery(mssqlDialect, params);
+    expect(mssql).not.toMatch(/\bLIMIT\b/);
+    expect(mssql).toMatch(
+      /OFFSET\s+0\s+ROWS\s+FETCH\s+NEXT\s+101\s+ROWS\s+ONLY/,
+    );
+    // Trino puts OFFSET before LIMIT.
+    expect(getExperimentExposuresQuery(prestoDialect, params)).toMatch(
+      /OFFSET\s+0\s+LIMIT\s+101/,
+    );
   });
 });
 
