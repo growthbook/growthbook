@@ -164,6 +164,7 @@ import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { managedFlagRouter } from "./routers/managed-flag/managed-flag.router";
+import { experimentChangesRouter } from "./routers/experiment-changes/experiment-changes.router";
 import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
 import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
@@ -911,6 +912,7 @@ app.use("/holdout", holdoutRouter);
 
 // Mounted under /experiment, outside the /feature/* lockdown.
 app.use("/experiment/:id/managed-flag", managedFlagRouter);
+app.use("/experiment/:id/changes", experimentChangesRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);

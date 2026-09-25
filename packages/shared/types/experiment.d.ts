@@ -333,6 +333,10 @@ export interface LinkedFeatureInfo {
   /** The unpublished draft of this experiment's rule, if any. Populated regardless of `state`, which stays live-first. */
   pendingDraft?: {
     version: number;
+    /** What a save names as the draft it loaded, so an edit since then is caught. */
+    dateUpdated: string | null;
+    /** Armed to publish on a schedule with edits frozen until then. */
+    lockedBySchedule: boolean;
     status: RevisionStatus;
     /** The revision's own title, for naming which draft a readout describes. */
     title?: string;

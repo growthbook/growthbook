@@ -3307,6 +3307,21 @@ export function sha256(str: string, salt: string): string {
     .digest("hex");
 }
 
+// `validateFeatureValue` repairs loose JSON and returns the fix. A write stores
+// what it was sent, so a value that needed repair is refused, naming the fix.
+function assertStorableFeatureValue(
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  value: string,
+  label: string,
+): void {
+  const repaired = validateFeatureValue(feature, value, label);
+  if (repaired !== value) {
+    throw new BadRequestError(
+      `${label}: invalid JSON. Did you mean ${repaired.replace(/\s+/g, " ")}?`,
+    );
+  }
+}
+
 // Validate every value a single rule carries against the feature's JSON schema
 // (no-op when schema validation is disabled on the feature). Mirrors the
 // per-type value fields the front-end `validateFeatureRule` covers.
@@ -3317,22 +3332,26 @@ export function validateFeatureRuleValues(
   switch (rule.type) {
     case "force":
     case "rollout":
-      validateFeatureValue(feature, rule.value, "Value");
+      assertStorableFeatureValue(feature, rule.value, "Value");
       break;
     case "experiment":
       (rule.values ?? []).forEach((v, i) =>
-        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+        assertStorableFeatureValue(feature, v.value, `Variation ${i + 1}`),
       );
       break;
     case "experiment-ref":
     case "contextual-bandit-ref":
       (rule.variations ?? []).forEach((v, i) =>
-        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+        assertStorableFeatureValue(feature, v.value, `Variation ${i + 1}`),
       );
       break;
     case "safe-rollout":
-      validateFeatureValue(feature, rule.controlValue, "Control value");
-      validateFeatureValue(feature, rule.variationValue, "Variation value");
+      assertStorableFeatureValue(feature, rule.controlValue, "Control value");
+      assertStorableFeatureValue(
+        feature,
+        rule.variationValue,
+        "Variation value",
+      );
       break;
   }
 }
@@ -3349,7 +3368,7 @@ export function assertFeatureValuesValid(
 ): void {
   if (context.canSkipSchemaValidationFor("feature")) return;
   if (values.defaultValue !== undefined) {
-    validateFeatureValue(feature, values.defaultValue, "Default value");
+    assertStorableFeatureValue(feature, values.defaultValue, "Default value");
   }
   for (const rule of values.rules ?? []) {
     validateFeatureRuleValues(feature, rule);

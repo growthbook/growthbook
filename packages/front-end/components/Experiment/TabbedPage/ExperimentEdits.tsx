@@ -8,13 +8,30 @@ import {
   useRef,
   useState,
 } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
+  ExperimentChangesBody,
+  ExperimentChangesFields,
+} from "shared/validators";
+import { useAuth } from "@/services/auth";
 
-interface PendingEdit {
-  /** Writes the field's value. Rejects to leave the bar up. */
-  save: () => Promise<void>;
+type PendingEdit = {
   /** Puts the field back to what is stored. */
   discard: () => void;
-}
+  /** Runs once the edit has been written. */
+  onSaved?: () => void;
+} & (
+  | {
+      /** This edit's share of the one changeset the page saves. */
+      changes: () => ExperimentChangesBody;
+      save?: never;
+    }
+  | {
+      /** Writes through its own endpoint, after the changeset. Rejects to leave the bar up. */
+      save: () => Promise<void>;
+      changes?: never;
+    }
+);
 
 interface ExperimentEditsValue {
   /** Anything on the page edited but not yet written. */
@@ -28,11 +45,55 @@ interface ExperimentEditsValue {
 
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 
+function mergeChanges(parts: ExperimentChangesBody[]): ExperimentChangesBody {
+  const body: ExperimentChangesBody = {};
+  for (const part of parts) {
+    if (part.experiment) {
+      body.experiment = {
+        changes: { ...body.experiment?.changes, ...part.experiment.changes },
+        base: { ...body.experiment?.base, ...part.experiment.base },
+      };
+    }
+    if (part.flagValues) {
+      body.flagValues = [...(body.flagValues ?? []), ...part.flagValues];
+    }
+  }
+  return body;
+}
+
+/**
+ * An experiment-field edit, with the value each field held when loaded so a
+ * save over someone else's change fails instead of overwriting it.
+ */
+export function experimentFieldChanges(
+  experiment: ExperimentInterfaceStringDates,
+  changes: ExperimentChangesFields,
+): ExperimentChangesBody {
+  const base: Record<string, unknown> = {};
+  for (const key of Object.keys(changes)) {
+    base[key] =
+      key === "variationWeights"
+        ? (experiment.phases[experiment.phases.length - 1]?.variationWeights ??
+          null)
+        : (experiment[key as keyof ExperimentInterfaceStringDates] ?? null);
+  }
+  return { experiment: { changes, base } };
+}
+
 /**
  * Collects the page's in-place edits so one Save writes them together, rather
  * than every field posting the moment it loses focus.
  */
-export function ExperimentEditsProvider({ children }: { children: ReactNode }) {
+export function ExperimentEditsProvider({
+  experimentId,
+  mutate,
+  children,
+}: {
+  experimentId: string;
+  mutate: () => void;
+  children: ReactNode;
+}) {
+  const { apiCall } = useAuth();
   const edits = useRef(new Map<string, PendingEdit>());
   const [dirtyIds, setDirtyIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -52,18 +113,37 @@ export function ExperimentEditsProvider({ children }: { children: ReactNode }) {
   const saveAll = useCallback(async () => {
     setSaving(true);
     setError(null);
+    const pending = [...edits.current.values()];
+    // A refused save keeps the page's loaded base, so a retry can't quietly
+    // overwrite the change that refused it.
+    let wrote = false;
     try {
+      const inChangeset = pending.filter((edit) => edit.changes);
+      if (inChangeset.length) {
+        await apiCall(`/experiment/${experimentId}/changes`, {
+          method: "POST",
+          body: JSON.stringify(
+            mergeChanges(inChangeset.map((edit) => edit.changes?.() ?? {})),
+          ),
+        });
+        wrote = true;
+        inChangeset.forEach((edit) => edit.onSaved?.());
+      }
       // Sequential: these hit the same document, and a parallel write would
       // race the last one to land.
-      for (const edit of [...edits.current.values()]) {
+      for (const edit of pending) {
+        if (!edit.save) continue;
         await edit.save();
+        wrote = true;
+        edit.onSaved?.();
       }
     } catch (e) {
       setError(e.message || "Could not save your changes");
     } finally {
       setSaving(false);
+      if (wrote) mutate();
     }
-  }, []);
+  }, [apiCall, experimentId, mutate]);
 
   const discardAll = useCallback(() => {
     [...edits.current.values()].forEach((edit) => edit.discard());
@@ -106,18 +186,28 @@ export function useRegisterExperimentEdit(
   const latest = useRef(edit);
   latest.current = edit;
 
+  const inChangeset = !!edit.changes;
   useEffect(() => {
     if (!ctx) return;
+    const discard = () => latest.current.discard();
+    const onSaved = () => latest.current.onSaved?.();
     ctx.register(
       id,
-      dirty
-        ? {
-            save: () => latest.current.save(),
-            discard: () => latest.current.discard(),
-          }
-        : null,
+      !dirty
+        ? null
+        : inChangeset
+          ? {
+              changes: () => latest.current.changes?.() ?? {},
+              discard,
+              onSaved,
+            }
+          : {
+              save: () => latest.current.save?.() ?? Promise.resolve(),
+              discard,
+              onSaved,
+            },
     );
-  }, [ctx, id, dirty]);
+  }, [ctx, id, dirty, inChangeset]);
 
   useEffect(() => {
     return () => ctx?.register(id, null);

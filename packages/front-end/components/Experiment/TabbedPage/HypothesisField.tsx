@@ -13,15 +13,10 @@ import InlineMarkdownField from "@/components/Experiment/TabbedPage/InlineMarkdo
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
   editable: boolean;
 }
 
-export default function HypothesisField({
-  experiment,
-  mutate,
-  editable,
-}: Props) {
+export default function HypothesisField({ experiment, editable }: Props) {
   const { apiCall } = useAuth();
   const gb = useGrowthBook<AppFeatures>();
   const aiSuggestion = useRef<string | null>(null);
@@ -57,10 +52,11 @@ export default function HypothesisField({
   return (
     <InlineMarkdownField
       label="Hypothesis"
-      value={experiment.hypothesis || ""}
+      experiment={experiment}
+      field="hypothesis"
       placeholder="What do you expect to happen, and why?"
       editable={editable}
-      onSave={async (hypothesis) => {
+      onSaved={(hypothesis) => {
         if (aiSuggestion.current) {
           track("experiment-hypothesis-saved-after-ai-suggestion", {
             aiUsageData: computeAIUsageData({
@@ -69,11 +65,6 @@ export default function HypothesisField({
             }),
           });
         }
-        await apiCall(`/experiment/${experiment.id}`, {
-          method: "POST",
-          body: JSON.stringify({ hypothesis }),
-        });
-        mutate();
       }}
       aiSuggestFunction={suggestHypothesis}
       aiButtonText="Check Hypothesis"

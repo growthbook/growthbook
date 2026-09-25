@@ -117,7 +117,10 @@ export interface Props {
 /** The provider has to sit outside, so the page itself can read its state. */
 export default function TabbedPage(props: Props) {
   return (
-    <ExperimentEditsProvider>
+    <ExperimentEditsProvider
+      experimentId={props.experiment.id}
+      mutate={props.mutate}
+    >
       <TabbedPageContents {...props} />
     </ExperimentEditsProvider>
   );

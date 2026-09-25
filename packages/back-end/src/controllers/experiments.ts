@@ -5,14 +5,12 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import {
-  canChangeImplementationType,
   getImplementationType,
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
   autoMerge,
   reconcileMergeBaselines,
-  includeExperimentInPayload,
   isManagedByExperiment,
   isManagedFeature,
   type ManagedFlagKeyPlan,
@@ -54,6 +52,7 @@ import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
 import {
+  experimentChangesBody,
   ExperimentRefVariation,
   FeatureInterface,
   FeatureValueType,
@@ -65,15 +64,11 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
-  applyVariationWeightsToLatestPhase,
-  assertCanRunExperimentChanges,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
-  determineNextBanditSchedule,
   getLinkedChangeEnvironmentStates,
   getExperimentAttributeScopeProjects,
   getLinkedFeatureInfo,
-  normalizeStatusUpdateScheduleChanges,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   createExperimentSnapshot,
@@ -87,7 +82,6 @@ import {
   assertRegisteredAttributesScoped,
   lazyAttributeScope,
 } from "back-end/src/services/attributes";
-import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   approveScheduledExperimentStart,
   startExperiment,
@@ -125,7 +119,6 @@ import {
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
   getContextForAgendaJobByOrgId,
@@ -177,17 +170,14 @@ import {
 import { getActiveDraft } from "back-end/src/models/FeatureRevisionModel";
 import {
   adoptManagedFlagForExperiment,
-  assertManagedFlagCanMove,
   clearManagedMarkersForExperiment,
   createManagedFlagForNewExperiment,
   discardManagedDraftIfNoop,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
   managedFlagAdoptionBlocker,
-  moveManagedFlagWithExperiment,
   planManagedFlagKey,
   publishManagedDraft,
-  releaseManagedFlagForImplementationChange,
   removeManagedFeatureForExperiment,
   requestReviewForManagedDraft,
   stageManagedFeatureFields,
@@ -200,20 +190,26 @@ import {
   secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
-import {
-  shouldValidateCustomFieldsOnUpdate,
-  validateCustomFieldsForSection,
-} from "back-end/src/util/custom-fields";
+import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import {
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
-import { getLivePayloadChanges } from "back-end/src/services/experimentLivePayload";
 import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
+import {
+  applyExperimentChanges,
+  ExperimentChangesResult,
+} from "back-end/src/services/experimentChanges/applyExperimentChanges";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import {
+  applyExperimentUpdatePlan,
+  ExperimentUpdateInput,
+  planExperimentUpdate,
+} from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import {
   ExperimentLinkedFeatureValueUpdate,
   updateExperimentRefVariations,
@@ -1638,17 +1634,7 @@ export async function postExperiments(
  * @param res
  */
 export async function postExperiment(
-  req: AuthRequest<
-    ExperimentInterfaceStringDates & {
-      currentPhase?: number;
-      phaseStartDate?: string;
-      phaseEndDate?: string;
-      variationWeights?: number[];
-      coverage?: number;
-      isVariationKeyReconciliation?: boolean;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<ExperimentUpdateInput, { id: string }>,
   res: Response<
     | { status: number; experiment?: ExperimentInterface | null }
     | PrivateApiErrorResponse,
@@ -1656,27 +1642,18 @@ export async function postExperiment(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { org } = context;
   const { id } = req.params;
-  const {
-    phaseStartDate,
-    phaseEndDate,
-    currentPhase,
-    isVariationKeyReconciliation,
-    ...data
-  } = req.body;
 
-  const foundExperiment = await getExperimentById(context, id);
-  const aiSettings = await getAISettingsForOrg(context);
+  const experiment = await getExperimentById(context, id);
 
-  if (!foundExperiment) {
+  if (!experiment) {
     res.status(403).json({
       status: 404,
       message: "Experiment not found",
     });
     return;
   }
-  let experiment: ExperimentInterface = foundExperiment;
 
   if (experiment.organization !== org.id) {
     res.status(403).json({
@@ -1686,634 +1663,12 @@ export async function postExperiment(
     return;
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (data.implementationType === "multi") {
-    res.status(400).json({
-      status: 400,
-      message: "implementationType cannot be set to multi",
-    });
-    return;
-  }
-  // Against the flag actually managed, not the stored label; the release waits until every check passes.
-  let releaseManagedFlagFor: typeof data.implementationType;
-  if (data.implementationType !== undefined) {
-    const managed = await getManagedFeatureForExperiment(context, experiment);
-    const current = managed ? "values" : experiment.implementationType;
-    if (data.implementationType !== current) {
-      const afterRelease =
-        managed && data.implementationType !== "feature"
-          ? {
-              ...experiment,
-              linkedFeatures: (experiment.linkedFeatures ?? []).filter(
-                (id) => id !== managed.id,
-              ),
-            }
-          : experiment;
-      if (!canChangeImplementationType(afterRelease, data.implementationType)) {
-        res.status(400).json({
-          status: 400,
-          message:
-            "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
-        });
-        return;
-      }
-      if (managed) releaseManagedFlagFor = data.implementationType;
-    }
-  }
-
-  const attributeScope = lazyAttributeScope(() =>
-    getExperimentAttributeScopeProjects(context, {
-      project: "project" in data ? data.project : experiment.project,
-      linkedFeatures: experiment.linkedFeatures,
-    }),
-  );
-  await assertRegisteredAttributesScoped(
-    context,
-    {
-      hashAttribute: data.hashAttribute,
-      fallbackAttribute: data.fallbackAttribute,
-    },
-    "experiment",
-    {
-      hashAttribute: experiment.hashAttribute,
-      fallbackAttribute: experiment.fallbackAttribute,
-    },
-    attributeScope,
-  );
-  // Match persisted phases by condition value, not index — reordered or
-  // spliced phase lists must not re-validate grandfathered conditions.
-  const persistedConditions = new Set(
-    (experiment.phases ?? []).map((p) => p.condition),
-  );
-  await validateChangedPhaseReferences(
-    data.phases ?? [],
-    experiment.phases,
-    context,
-  );
-  for (const phase of data.phases ?? []) {
-    await assertRegisteredAttributesScoped(
-      context,
-      { condition: phase.condition },
-      "experiment phase",
-      {
-        condition: persistedConditions.has(phase.condition)
-          ? phase.condition
-          : undefined,
-      },
-      attributeScope,
-    );
-  }
-
-  // FIXME: We skip validation because project is updated in a different place than where
-  // we define custom fields, and that would prevent the user from doing either update.
-  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
-  if (
-    shouldValidateCustomFieldsOnUpdate({
-      existingCustomFieldValues: experiment.customFields,
-      updatedCustomFieldValues: data.customFields,
-    })
-  ) {
-    await validateCustomFieldsForSection({
-      customFieldValues: data.customFields,
-      existingCustomFieldValues: experiment.customFields,
-      customFieldsModel: context.models.customFields,
-      section: "experiment",
-      project: "project" in data ? data.project : experiment.project,
-    });
-  }
-
-  const { settings } = getScopedSettings({
-    organization: org,
-    experiment,
-  });
-
-  let datasourceId: string = experiment.datasource;
-
-  if (data.datasource) {
-    datasourceId = data.datasource;
-    const datasource = await getDataSourceById(context, data.datasource);
-    if (!datasource) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid datasource: " + data.datasource,
-      });
-      return;
-    }
-  }
-  // Validate that specified metrics exist and belong to the organization
-  const allMetricGroups = await context.models.metricGroups.getAll();
-  const oldMetricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    allMetricGroups,
-  );
-  const newMetricIds = getAllMetricIdsFromExperiment(
-    data,
-    false,
-    allMetricGroups,
-  ).filter((m) => !oldMetricIds.includes(m));
-
-  const metricMap = await getMetricMap(context);
-
-  const invalidMetricIds: string[] = [];
-
-  if (newMetricIds.length) {
-    for (let i = 0; i < newMetricIds.length; i++) {
-      const metric = metricMap.get(newMetricIds[i]);
-      if (metric) {
-        // Make sure it is tied to the same datasource as the experiment
-        if (datasourceId && metric.datasource !== datasourceId) {
-          res.status(400).json({
-            status: 400,
-            message:
-              "Metrics must be tied to the same datasource as the experiment: " +
-              newMetricIds[i],
-          });
-          return;
-        }
-      } else {
-        // check to see if this metric is actually a metric group
-        const metricGroup = await context.models.metricGroups.getById(
-          newMetricIds[i],
-        );
-        if (metricGroup) {
-          // Make sure it is tied to the same datasource as the experiment
-          if (metricGroup.datasource !== datasourceId) {
-            res.status(400).json({
-              status: 400,
-              message:
-                "Metric group must be tied to the same datasource as the experiment: " +
-                newMetricIds[i],
-            });
-            return;
-          }
-        } else {
-          // new metric that's not recognized...
-          invalidMetricIds.push(newMetricIds[i]);
-          // TODO: Commented out as a hotfix. Remove when issue #5316 is fixed.
-          // res.status(403).json({
-          //   status: 403,
-          //   message: "Unknown metric: " + newMetricIds[i],
-          // });
-          // return;
-        }
-      }
-    }
-
-    // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
-    // Filter out invalid metric ids from the data
-    if (invalidMetricIds.length) {
-      data.goalMetrics = data.goalMetrics?.filter(
-        (id) => !invalidMetricIds.includes(id),
-      );
-      data.secondaryMetrics = data.secondaryMetrics?.filter(
-        (id) => !invalidMetricIds.includes(id),
-      );
-      data.guardrailMetrics = data.guardrailMetrics?.filter(
-        (id) => !invalidMetricIds.includes(id),
-      );
-      if (
-        data.activationMetric &&
-        invalidMetricIds.includes(data.activationMetric)
-      ) {
-        data.activationMetric = "";
-      }
-    }
-  }
-
-  if (data.variations) {
-    validateVariationIds(data.variations);
-  }
-
-  const { changesLivePayload, changedFields: changedPayloadFields } =
-    getLivePayloadChanges(experiment, {
-      variations: data.variations,
-      coverage: data.coverage,
-      variationWeights: data.variationWeights,
-      isVariationKeyReconciliation,
-    });
-  if (experiment.status === "running" && changesLivePayload) {
-    const linkedFeaturesForPayload = await getFeaturesByIds(
-      context,
-      experiment.linkedFeatures || [],
-    );
-    const inPayload = includeExperimentInPayload(
-      experiment,
-      linkedFeaturesForPayload,
-    );
-    if (inPayload) {
-      res.status(400).json({
-        status: 400,
-        message: `Cannot change: [${changedPayloadFields.join(", ")}] while the experiment is running and live in the SDK payload.`,
-      });
-      return;
-    }
-  }
-
-  // Check if tracking key is being changed and validate uniqueness if required
-  if (
-    data.trackingKey &&
-    data.trackingKey !== experiment.trackingKey &&
-    org.settings?.requireUniqueExperimentTrackingKeys
-  ) {
-    const existing = await getExperimentByTrackingKey(
-      context,
-      data.trackingKey,
-    );
-    if (existing) {
-      res.status(400).json({
-        status: 400,
-        message: `An experiment with tracking key "${data.trackingKey}" already exists. Your organization requires unique experiment tracking keys.`,
-      });
-      return;
-    }
-  }
-
-  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
-    await getHoldoutAvailableForProject({
-      context,
-      holdoutId: data.holdoutId,
-      project: data.project ?? experiment.project,
-    });
-  } else if (data.project !== undefined && experiment.holdoutId) {
-    await getHoldoutAvailableForProject({
-      context,
-      holdoutId: experiment.holdoutId,
-      project: data.project,
-    });
-  }
-
-  // TODO(holdouts): allow changing holdout if the experiment is not linked to a feature
-  // in the live! feature revision
-  const experimentHasLinkedChanges =
-    experiment.hasURLRedirects ||
-    experiment.hasVisualChangesets ||
-    (experiment.linkedFeatures && experiment.linkedFeatures.length > 0);
-  if (
-    // Holdout change
-    data.holdoutId &&
-    data.holdoutId !== experiment.holdoutId &&
-    experiment.holdoutId
-  ) {
-    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
-      throw new Error(
-        "Cannot change holdout after experiment has been run or linked changes have been added",
-      );
-    }
-    await context.models.holdout.removeExperimentFromHoldout(
-      experiment.holdoutId,
-      experiment.id,
-    );
-  } else if (
-    // Holdout removal
-    data.holdoutId == "" &&
-    data.holdoutId !== experiment.holdoutId &&
-    experiment.holdoutId
-  ) {
-    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
-      throw new Error(
-        "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
-      );
-    }
-    await context.models.holdout.removeExperimentFromHoldout(
-      experiment.holdoutId,
-      experiment.id,
-    );
-  }
-
-  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
-    await context.models.holdout.addExperimentToHoldout(
-      data.holdoutId,
-      experiment.id,
-    );
-  }
-
-  if (data.defaultDashboardId) {
-    const dashboard = await context.models.dashboards.getById(
-      data.defaultDashboardId,
-    );
-    if (!dashboard) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid dashboard: " + data.defaultDashboardId,
-      });
-      return;
-    }
-  }
-
-  const keys: (keyof ExperimentInterface)[] = [
-    "trackingKey",
-    "owner",
-    "datasource",
-    "exposureQueryId",
-    "userIdType",
-    "hashAttribute",
-    "fallbackAttribute",
-    "disableStickyBucketing",
-    "hashVersion",
-    "name",
-    "tags",
-    "description",
-    "hypothesis",
-    "activationMetric",
-    "segment",
-    "queryFilter",
-    "skipPartialData",
-    "attributionModel",
-    "goalMetrics",
-    "secondaryMetrics",
-    "guardrailMetrics",
-    "metricOverrides",
-    "lookbackOverride",
-    "decisionFrameworkSettings",
-    "variations",
-    "status",
-    "statusUpdateSchedule",
-    "results",
-    "analysis",
-    "winner",
-    "implementation",
-    "autoAssign",
-    "previewURL",
-    "targetURLRegex",
-    "releasedVariationId",
-    "excludeFromPayload",
-    "autoSnapshots",
-    "disableAutoSnapshots",
-    "project",
-    "regressionAdjustmentEnabled",
-    "postStratificationEnabled",
-    "hasVisualChangesets",
-    "hasURLRedirects",
-    "sequentialTestingEnabled",
-    "sequentialTestingTuningParameter",
-    "statsEngine",
-    "type",
-    "implementationType",
-    "banditStage",
-    "banditScheduleValue",
-    "banditScheduleUnit",
-    "banditBurnInValue",
-    "banditBurnInUnit",
-    "banditConversionWindowValue",
-    "banditConversionWindowUnit",
-    "customFields",
-    "shareLevel",
-    "uid",
-    "analysisSummary",
-    "dismissedWarnings",
-    "holdoutId",
-    "defaultDashboardId",
-    "customMetricSlices",
-    "precomputedUnitDimensionIds",
-  ];
-  let changes: Changeset = {};
-
-  keys.forEach((key) => {
-    if (!(key in data)) {
-      return;
-    }
-
-    // Do a deep comparison for arrays, shallow for everything else
-    let hasChanges = data[key] !== experiment[key];
-    if (
-      key === "goalMetrics" ||
-      key === "secondaryMetrics" ||
-      key === "guardrailMetrics" ||
-      key === "metricOverrides" ||
-      key === "lookbackOverride" ||
-      key === "variations" ||
-      key === "statusUpdateSchedule" ||
-      key === "customFields" ||
-      key === "customMetricSlices" ||
-      key === "precomputedUnitDimensionIds"
-    ) {
-      hasChanges =
-        JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
-    }
-
-    if (hasChanges) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (changes as any)[key] = data[key];
-    }
-  });
-
-  normalizeStatusUpdateScheduleChanges(experiment, changes);
-
-  // Same validation as PUT /schedule, against the stored schedule and the
-  // post-update variations/metrics.
-  if (data.statusUpdateSchedule) {
-    validateScheduleUpdate({
-      context,
-      experimentType: data.type ?? experiment.type ?? "standard",
-      status: experiment.status,
-      archived: !!experiment.archived,
-      phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
-      existingSchedule: experiment.statusUpdateSchedule,
-      variations: changes.variations ?? experiment.variations,
-      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
-      incoming: data.statusUpdateSchedule,
-    });
-  }
-
-  // Coerce lookbackOverride date value when type is "date"
-  if (changes.lookbackOverride?.type === "date") {
-    changes.lookbackOverride = {
-      type: "date",
-      value: getValidDate(changes.lookbackOverride.value),
-    };
-  }
-
-  const shouldValidatePrecomputedUnitDimensionIds =
-    changes.precomputedUnitDimensionIds !== undefined ||
-    changes.datasource !== undefined ||
-    changes.exposureQueryId !== undefined;
-  if (shouldValidatePrecomputedUnitDimensionIds) {
-    const effectivePrecomputedUnitDimensionIds =
-      changes.precomputedUnitDimensionIds ??
-      experiment.precomputedUnitDimensionIds ??
-      [];
-    const effectiveDatasourceId =
-      changes.datasource ?? experiment.datasource ?? "";
-    const effectiveExposureQueryId =
-      changes.exposureQueryId ?? experiment.exposureQueryId;
-    if (effectivePrecomputedUnitDimensionIds.length > 0) {
-      const effectiveDatasource = effectiveDatasourceId
-        ? await getDataSourceById(context, effectiveDatasourceId)
-        : null;
-      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
-        context,
-        datasource: effectiveDatasource,
-        exposureQueryId: effectiveExposureQueryId,
-        dimensionIds: effectivePrecomputedUnitDimensionIds,
-      });
-    }
-  }
-
-  // Validate attributionModel + lookbackOverride consistency
-  {
-    const effectiveAttrModel =
-      changes.attributionModel ?? experiment.attributionModel;
-    const effectiveLookback =
-      "lookbackOverride" in changes
-        ? changes.lookbackOverride
-        : experiment.lookbackOverride;
-    if (effectiveAttrModel === "lookbackOverride" && !effectiveLookback) {
-      res.status(400).json({
-        status: 400,
-        message:
-          "lookbackOverride is required when attributionModel is 'lookbackOverride'",
-      });
-      return;
-    }
-  }
-
-  // If changing phase start/end dates (from "Configure Analysis" modal)
-  if (
-    experiment.status !== "draft" &&
-    currentPhase !== undefined &&
-    experiment.phases?.[currentPhase] &&
-    (phaseStartDate || phaseEndDate)
-  ) {
-    const phases = [...experiment.phases];
-    const phaseClone = { ...phases[currentPhase] };
-    phases[Math.floor(currentPhase * 1)] = phaseClone;
-    const firstPhaseClone = { ...phases[0] };
-
-    if (phaseStartDate) {
-      phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
-    }
-    if (experiment.status === "stopped" && phaseEndDate) {
-      phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
-      // update both phases when stopped
-      if (experiment.type === "holdout") {
-        firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
-        phases[0] = firstPhaseClone; // update the first phase to the same date ended
-      }
-    }
-    changes.phases = phases;
-  }
-
-  // Clean up some vars for bandits, but only if safe to do so...
-  // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
-  if (
-    experiment.status === "draft" &&
-    experiment.banditStage === undefined &&
-    ((data.type === undefined && experiment.type === "multi-armed-bandit") ||
-      data.type === "multi-armed-bandit")
-  ) {
-    changes = resetExperimentBanditSettings({
-      experiment,
-      metricMap,
-      changes,
-      settings,
-    });
-  }
-  // If it's already a bandit and..
-  if (experiment.type === "multi-armed-bandit") {
-    // ...the schedule has changed, recompute next run
-    if (
-      changes.banditScheduleUnit !== undefined ||
-      changes.banditScheduleValue !== undefined ||
-      changes.banditBurnInUnit !== undefined ||
-      changes.banditBurnInValue !== undefined
-    ) {
-      changes.nextSnapshotAttempt = determineNextBanditSchedule({
-        ...experiment,
-        ...changes,
-      } as ExperimentInterface);
-    }
-  }
-
-  if (experiment.type === "holdout") {
-    // Holdout targeting is handled by postExperimentTargeting, so coverage is
-    // the only payload-affecting field this path handles; apply it to every phase.
-    if (data.coverage !== undefined) {
-      const coverage = data.coverage;
-      const phases = changes.phases || [...experiment.phases];
-      changes.phases = phases.map((phase) => ({ ...phase, coverage }));
-    }
-  } else {
-    if (data.variationWeights) {
-      changes.phases = applyVariationWeightsToLatestPhase(
-        experiment,
-        data.variationWeights,
-      );
-    }
-
-    // Re-order phase variations to match the order of the variations coming in via the request body
-    if (data.variations) {
-      const phases = changes.phases || [...experiment.phases];
-      const lastIndex = phases.length - 1;
-      phases[lastIndex] = {
-        ...phases[lastIndex],
-        variations: data.variations.map((v) => ({
-          id: v.id,
-          status: "active" as const,
-        })),
-      };
-      changes.phases = phases;
-    }
-
-    if (data.coverage !== undefined) {
-      const coverage = data.coverage;
-      const phases = changes.phases || [...experiment.phases];
-      const lastIndex = phases.length - 1;
-      phases[lastIndex] = { ...phases[lastIndex], coverage };
-      changes.phases = phases;
-    }
-  }
-
-  await assertCanRunExperimentChanges(context, experiment, changes);
-
-  if ("project" in changes) {
-    await assertManagedFlagCanMove(context, experiment, changes.project ?? "");
-  }
-  await validateExperimentChange({ context, experiment, changes });
-  if (releaseManagedFlagFor) {
-    experiment = await releaseManagedFlagForImplementationChange({
-      context,
-      experiment,
-      next: releaseManagedFlagFor,
-      audit: req.audit,
-      acknowledged: context.ignoreWarnings,
-    });
-  }
-  const updated = await updateExperimentAndSync({
+  const plan = await planExperimentUpdate(context, experiment, req.body);
+  const updated = await applyExperimentUpdatePlan({
     context,
     experiment,
-    changes,
-  });
-  if ("project" in changes) {
-    await moveManagedFlagWithExperiment(context, updated);
-  }
-  if (
-    aiSettings.aiEnabled &&
-    (changes.name || changes.description || changes.hypothesis)
-  ) {
-    // If name, description or hypothesis changed, update the vectors:
-    await generateExperimentEmbeddings(context, [updated]);
-  }
-
-  await req.audit({
-    event: "experiment.update",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsUpdate(experiment, updated),
-  });
-
-  // If there are new tags to add
-  await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
-
-  await context.models.watch.upsertWatch({
-    userId,
-    item: experiment.id,
-    type: "experiments",
+    plan,
+    audit: req.audit,
   });
 
   res.status(200).json({
@@ -4329,6 +3684,31 @@ export async function getExperimentTimeSeries(
     status: 200,
     timeSeries,
   });
+}
+
+export async function postExperimentChanges(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<
+    { status: 200 } & ExperimentChangesResult,
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const parsed = experimentChangesBody.safeParse(req.body);
+  if (!parsed.success) {
+    throw new BadRequestError(errorStringFromZodResult(parsed));
+  }
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) throw new NotFoundError("Experiment not found");
+
+  const result = await applyExperimentChanges({
+    context,
+    experiment,
+    body: parsed.data,
+    audit: req.audit,
+    eventAudit: res.locals.eventAudit,
+  });
+  res.status(200).json({ status: 200, ...result });
 }
 
 export async function postExperimentFeatureValues(

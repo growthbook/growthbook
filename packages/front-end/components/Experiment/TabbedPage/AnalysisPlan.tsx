@@ -11,7 +11,6 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import SelectField from "@/components/Forms/SelectField";
@@ -26,7 +25,6 @@ import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import {
@@ -34,7 +32,10 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
-import { useRegisterExperimentEdit } from "./ExperimentEdits";
+import {
+  experimentFieldChanges,
+  useRegisterExperimentEdit,
+} from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
 
 const ASSIGNMENT_QUERY_HELP =
@@ -77,7 +78,6 @@ export default function AnalysisPlan({
   const { organization } = useUser();
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
-  const { apiCall } = useAuth();
 
   const [ownAdvancedOpen, setOwnAdvancedOpen] = useState(false);
   const advancedOpen = settingsOpen ?? ownAdvancedOpen;
@@ -134,7 +134,6 @@ export default function AnalysisPlan({
   const [guardrailMetrics, setGuardrailMetrics] = useState(
     experiment.guardrailMetrics || [],
   );
-  const [error, setError] = useState<string | null>(null);
   // A suggested datasource is not a change until someone touches the form,
   // or every page load would raise the save bar on its own.
   const [touched, setTouched] = useState(false);
@@ -149,28 +148,18 @@ export default function AnalysisPlan({
       !isEqual(guardrailMetrics, experiment.guardrailMetrics || []));
 
   useRegisterExperimentEdit("analysis-plan", dirty, {
-    save: async () => {
-      setError(null);
-      try {
-        await apiCall(`/experiment/${experiment.id}`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...advanced,
-            datasource,
-            exposureQueryId,
-            goalMetrics,
-            secondaryMetrics,
-            guardrailMetrics,
-          }),
-        });
-        setTouched(false);
-        setAdvanced(null);
-        mutate();
-      } catch (e) {
-        const message = e.message || "Could not save the analysis plan";
-        setError(message);
-        throw new Error(message);
-      }
+    changes: () =>
+      experimentFieldChanges(experiment, {
+        ...advanced,
+        datasource,
+        exposureQueryId,
+        goalMetrics,
+        secondaryMetrics,
+        guardrailMetrics,
+      }),
+    onSaved: () => {
+      setTouched(false);
+      setAdvanced(null);
     },
     discard: () => {
       setAdvanced(null);
@@ -180,7 +169,6 @@ export default function AnalysisPlan({
       setSecondaryMetrics(experiment.secondaryMetrics || []);
       setGuardrailMetrics(experiment.guardrailMetrics || []);
       setTouched(false);
-      setError(null);
     },
   });
 
@@ -512,12 +500,6 @@ export default function AnalysisPlan({
           guardrailMetrics,
           setGuardrailMetrics,
         )}
-
-        {error ? (
-          <Callout status="error" size="sm" mt="2">
-            {error}
-          </Callout>
-        ) : null}
       </Box>
     </>
   );

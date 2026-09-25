@@ -69,6 +69,7 @@ import {
 } from "./ExperimentEdits";
 import useExperimentEditing from "./useExperimentEditing";
 import SetupFieldRow from "./SetupFieldRow";
+import FlagValueRows from "./FlagValueRows";
 import styles from "./TrafficAllocationFunnel.module.scss";
 
 export interface Props {
@@ -81,8 +82,12 @@ export interface Props {
   /** Opens the values editor; offered per variation while no flag exists yet. */
   addVariationValues?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
-  /** The sole linked Feature Flag, when the cards can show its values. */
+  /** The sole linked Feature Flag, whose environments and draft the header describes. */
   servedValueFeature?: LinkedFeatureInfo | null;
+  /** Every linked Feature Flag, one value row each under the variations. */
+  linkedFeatures?: LinkedFeatureInfo[];
+  /** Whether the value rows can be edited in place. */
+  canEditFlagValues?: boolean;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
@@ -240,6 +245,8 @@ export default function TrafficAllocationFunnel({
   addVariationValues,
   setEditVariationIndex,
   servedValueFeature,
+  linkedFeatures = [],
+  canEditFlagValues = false,
   canEditExperiment = false,
   safeToEdit = false,
   mutate,
@@ -344,26 +351,6 @@ export default function TrafficAllocationFunnel({
     canEditExperiment &&
     permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
   const [editEnvironments, setEditEnvironments] = useState(false);
-  // Each side reads its own fields.
-  const servedValueSource = preferDraft
-    ? servedValueFeature?.pendingDraft
-    : liveRule && {
-        values: liveRule.liveValues,
-        sparse: liveRule.liveSparse,
-      };
-  // Against the draft's type and default; live keeps the old type until publish.
-  const servedValueDisplayFeature = useMemo(() => {
-    const feature = servedValueFeature?.feature;
-    if (!feature) return undefined;
-    const draft = servedValueFeature?.pendingDraft;
-    if (!preferDraft || !draft) return feature;
-    return {
-      ...feature,
-      valueType: draft.valueType,
-      defaultValue: draft.defaultValue,
-    };
-  }, [servedValueFeature, preferDraft]);
-
   const envStateSource = preferDraft
     ? servedValueFeature?.pendingDraft
     : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
@@ -768,20 +755,17 @@ export default function TrafficAllocationFunnel({
               }
               onAddValue={
                 addVariationValues &&
-                !servedValueFeature &&
+                !linkedFeatures.length &&
                 getImplementationType(experiment) === "values"
                   ? addVariationValues
                   : undefined
               }
-              servedValues={servedValueSource?.values}
-              servedValueFeature={
-                servedValueSource ? servedValueDisplayFeature : undefined
-              }
-              servedValueSparse={servedValueSource?.sparse}
-              servedValueIsDraft={preferDraft}
-              servedValueDraftIds={draftValueIds}
-              servedValueDraftName={draftDetail.name}
-              servedValueDraftNote={draftDetail.note}
+            />
+            <FlagValueRows
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              canEdit={canEditFlagValues}
+              showLive={hasDraftChanges && !preferDraft}
             />
           </>
         )}

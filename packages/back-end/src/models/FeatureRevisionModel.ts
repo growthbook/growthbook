@@ -3204,6 +3204,41 @@ export async function deleteRevisionForFailedLanding(
   );
 }
 
+// Stored shape, read past mongoose: the interface is env-filtered and
+// inheritance-expanded, so it cannot be written back as the pre-image.
+export type RevisionSnapshot = Record<string, unknown> & { dateUpdated?: Date };
+
+export async function getRevisionSnapshot(
+  organization: string,
+  featureId: string,
+  version: number,
+): Promise<RevisionSnapshot | null> {
+  return FeatureRevisionModel.collection.findOne({
+    organization,
+    featureId,
+    version,
+  });
+}
+
+// Puts a revision back exactly as it was, only while nothing but the caller has
+// written it since `writtenDateUpdated`. False = someone else's edit landed.
+export async function restoreRevisionSnapshot(
+  snapshot: RevisionSnapshot,
+  writtenDateUpdated: Date | undefined,
+): Promise<boolean> {
+  const { organization, featureId, version } = snapshot;
+  const result = await FeatureRevisionModel.collection.replaceOne(
+    {
+      organization,
+      featureId,
+      version,
+      dateUpdated: writtenDateUpdated ?? { $exists: false },
+    },
+    snapshot,
+  );
+  return result.matchedCount === 1;
+}
+
 export async function deleteAllRevisionsForFeature(
   organization: string,
   featureId: string,

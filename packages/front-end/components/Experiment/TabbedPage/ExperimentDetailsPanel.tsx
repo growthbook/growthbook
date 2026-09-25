@@ -152,7 +152,6 @@ export default function ExperimentDetailsPanel({
                 <DescriptionField
                   stacked
                   experiment={experiment}
-                  mutate={mutate}
                   editable={false}
                   labelAction={pencil("Edit description", () =>
                     editSection("description"),

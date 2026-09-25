@@ -43,6 +43,7 @@ import {
   MatchingRule,
   naiveFlattenV1Rules,
   validateCondition,
+  isRevisionEditLockedBySchedule,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -5566,6 +5567,11 @@ export async function getRefLinkedFeatureInfo({
           matchedDraftRevision && {
             pendingDraft: {
               version: matchedDraftRevision.version,
+              dateUpdated: matchedDraftRevision.dateUpdated
+                ? new Date(matchedDraftRevision.dateUpdated).toISOString()
+                : null,
+              lockedBySchedule:
+                isRevisionEditLockedBySchedule(matchedDraftRevision),
               status: matchedDraftRevision.status,
               values: refRuleValues(draftMatches[0]?.rule),
               sparse: !!(draftMatches[0]?.rule as ExperimentRefRule)?.sparse,

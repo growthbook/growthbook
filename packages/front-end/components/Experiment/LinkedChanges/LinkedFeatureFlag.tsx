@@ -30,7 +30,7 @@ type Props = {
   numLinkedChanges: number;
   onReAdd?: () => void;
   mutate?: () => void;
-  /** The variation cards are already showing these values. */
+  /** The value rows under the variations are already showing these values. */
   valuesShownOnVariations?: boolean;
 };
 
@@ -114,13 +114,15 @@ export default function LinkedFeatureFlag({
     future: experiment.status === "draft" ? "started" : false,
   });
 
-  // With values on the variation cards, this only earns space for a warning.
+  // With values in the rows under the variations, this only earns space for a warning.
   const hasValueWarnings =
     (info.state === "live" || info.state === "draft") &&
     (info.inconsistentValues || info.rulesAbove);
   const showValueSection = !valuesShownOnVariations || hasValueWarnings;
 
+  // The rows under the variations edit these values in place.
   const showEditButton =
+    !valuesShownOnVariations &&
     canEditFeatureDraft &&
     experiment.status === "draft" &&
     !experiment.nextScheduledStatusUpdate &&

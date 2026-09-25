@@ -32,6 +32,7 @@ import {
 import { featureManagedByValidator } from "./managed-by";
 
 import { namedSchema } from "./openapi-helpers";
+import { experimentAnalysisSettingsDraft, variation } from "./experiments";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -2169,3 +2170,51 @@ export type GetFeatureStaleResponse = z.infer<
 >;
 
 export type FeatureStaleEntry = GetFeatureStaleResponse["features"][string];
+
+export const experimentChangesFields = experimentAnalysisSettingsDraft
+  .extend({
+    name: z.string().min(1),
+    description: z.string(),
+    hypothesis: z.string(),
+    variations: z.array(variation),
+    variationWeights: z.array(z.number()),
+  })
+  .partial()
+  .strict();
+export type ExperimentChangesFields = z.infer<typeof experimentChangesFields>;
+
+export const experimentChangesBody = z
+  .object({
+    experiment: z
+      .object({
+        changes: experimentChangesFields,
+        // The value of each changed field as the client loaded it; a field that
+        // moved since then fails the save instead of being overwritten.
+        base: z.record(z.string(), z.unknown()),
+      })
+      .strict()
+      .optional(),
+    flagValues: z
+      .array(
+        z
+          .object({
+            featureId: z.string(),
+            variations: z.array(experimentRefVariation),
+            valueType: z.enum(featureValueType).optional(),
+            // JSON only. Omitted leaves the rule's sparse flag as it is.
+            sparse: z.boolean().optional(),
+            // The revision the values were loaded from: the live version starts
+            // a new draft (dateUpdated unused), a draft version writes into it.
+            revision: z
+              .object({
+                version: z.number().int(),
+                dateUpdated: z.string().nullable(),
+              })
+              .strict(),
+          })
+          .strict(),
+      )
+      .optional(),
+  })
+  .strict();
+export type ExperimentChangesBody = z.infer<typeof experimentChangesBody>;

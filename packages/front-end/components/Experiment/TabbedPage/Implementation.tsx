@@ -146,7 +146,7 @@ export default function Implementation({
     !experiment.nextScheduledStatusUpdate &&
     permissionsUtil.canViewFeatureModal(experiment.project);
 
-  // The cards can only name "the" served value with exactly one implementation.
+  // The funnel's environments and draft toggle describe exactly one implementation.
   const soleLinkedFeature =
     linkedFeatures.length === 1 &&
     !experiment.hasVisualChangesets &&
@@ -154,8 +154,8 @@ export default function Implementation({
       ? linkedFeatures[0]
       : null;
 
-  // Nothing left for the panel to say: the values are on the variation cards,
-  // the traffic modal owns editing, and managed mode hides the add affordances.
+  // Nothing left for the panel to say: the values are in the rows under the
+  // variations, and managed mode hides the add affordances.
   const managedSoleImplementation = isManaged && !!soleLinkedFeature;
 
   const holdoutHasLinkedExpOrFeatures =
@@ -236,6 +236,10 @@ export default function Implementation({
             mutate={mutate}
             phaseIndex={phases.length - 1}
             servedValueFeature={soleLinkedFeature}
+            linkedFeatures={linkedFeatures}
+            // Values land in drafts in every status; publishing them is what
+            // goes through review.
+            canEditFlagValues={canEditExperiment}
           />
         ) : (
           <TrafficAndTargeting
@@ -269,7 +273,7 @@ export default function Implementation({
             setEditVariationIndex={setEditMetadataIndex}
             hideVariations={showTrafficFunnel}
             managedMode={managedMode}
-            valuesShownOnVariations={!!soleLinkedFeature && showTrafficFunnel}
+            valuesShownOnVariations={showTrafficFunnel}
             onAddValues={
               canAdoptManagedFlag && !pendingScheduledStart
                 ? (addVariationValues ?? undefined)

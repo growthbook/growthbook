@@ -432,6 +432,7 @@ export async function updateExperimentRefVariations({
   updatedVariationValues,
   sparse,
   user,
+  guardDateUpdated = false,
 }: {
   context: ReqContext;
   feature: FeatureInterface;
@@ -440,6 +441,7 @@ export async function updateExperimentRefVariations({
   updatedVariationValues: ExperimentRefVariation[];
   sparse?: boolean;
   user: EventUser;
+  guardDateUpdated?: boolean;
 }): Promise<FeatureRevisionInterface> {
   // Experiment-served values must satisfy the backing Config's schema +
   // invariants, the same as a direct feature publish — enforced here at
@@ -477,6 +479,7 @@ export async function updateExperimentRefVariations({
       ...(sparse !== undefined && { sparse }),
     },
     user,
+    { guardDateUpdated },
   );
 
   if (!updatedRevision) {
@@ -545,7 +548,10 @@ export async function validateExperimentFeatureUpdates({
     const updatedVariationValues = entry.variations;
     const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
       if (m.rule.type !== "experiment-ref") return false;
-      return !isEqual(m.rule.variations, updatedVariationValues);
+      return (
+        !isEqual(m.rule.variations, updatedVariationValues) ||
+        (entry.sparse !== undefined && entry.sparse !== !!m.rule.sparse)
+      );
     });
 
     // A type change counts even when every value reads the same under both types.

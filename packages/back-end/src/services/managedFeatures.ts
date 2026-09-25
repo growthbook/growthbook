@@ -895,6 +895,7 @@ export async function stageManagedFeatureFields({
   valueType,
   defaultValue,
   eventAudit,
+  guardDateUpdated = false,
 }: {
   context: ReqContext;
   feature: FeatureInterface;
@@ -904,6 +905,7 @@ export async function stageManagedFeatureFields({
   /** Control's value. Omit to leave the default alone. */
   defaultValue?: string;
   eventAudit: EventUser;
+  guardDateUpdated?: boolean;
 }): Promise<FeatureRevisionInterface> {
   // Against the draft: an earlier edit may already have staged either field.
   const draftType = revision.metadata?.valueType ?? feature.valueType;
@@ -943,6 +945,7 @@ export async function stageManagedFeatureFields({
         ...(defaultChanged && { defaultValue }),
       }),
     },
+    { guardDateUpdated },
   );
   if (!updated) {
     throw new Error(

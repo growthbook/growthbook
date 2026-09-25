@@ -3,7 +3,6 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { FeatureInterface } from "shared/types/feature";
 import { FC, useState, useRef, useCallback } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -26,7 +25,6 @@ import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselM
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
-import VariationServedValue from "@/components/Experiment/VariationServedValue";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import styles from "./VariationsTable.module.scss";
 
@@ -155,18 +153,6 @@ interface Props {
   onEditTraffic?: (variationId?: string) => void;
   // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
-  /** Each variation's served value, when the sole implementation is a flag. */
-  servedValues?: { variationId: string; value: string }[];
-  servedValueFeature?: FeatureInterface;
-  servedValueSparse?: boolean;
-  /** The values shown are an unpublished draft, not what is live. */
-  servedValueIsDraft?: boolean;
-  /** Variations whose draft value differs from live; null when not shown. */
-  servedValueDraftIds?: Set<string> | null;
-  /** Names the draft the served values come from; omitted for a managed flag. */
-  servedValueDraftName?: string;
-  /** Other drafts this readout is not showing. */
-  servedValueDraftNote?: string;
   /** Offered on each card while a values experiment has no flag yet. */
   onAddValue?: () => void;
 }
@@ -245,13 +231,6 @@ export function VariationBox({
   onEditMetadata,
   onEditTraffic,
   capWidth = false,
-  servedValue,
-  servedValueFeature,
-  servedValueSparse,
-  servedValueIsDraft,
-  servedValueDraftIds,
-  servedValueDraftName,
-  servedValueDraftNote,
   onAddValue,
 }: {
   i: number;
@@ -274,17 +253,6 @@ export function VariationBox({
   onEditMetadata?: (variationIndex: number) => void;
   onEditTraffic?: (variationId?: string) => void;
   capWidth?: boolean;
-  /** The value this variation serves, when the sole implementation is a flag. */
-  servedValue?: string;
-  servedValueFeature?: FeatureInterface;
-  servedValueSparse?: boolean;
-  servedValueIsDraft?: boolean;
-  /** Variations whose draft value differs from live; null when not shown. */
-  servedValueDraftIds?: Set<string> | null;
-  /** Names the draft the served values come from; omitted for a managed flag. */
-  servedValueDraftName?: string;
-  /** Other drafts this readout is not showing. */
-  servedValueDraftNote?: string;
   /** Offered on each card while a values experiment has no flag yet. */
   onAddValue?: () => void;
 }) {
@@ -425,20 +393,7 @@ export function VariationBox({
               </Flex>
             )}
           </Flex>
-          {servedValueFeature ? (
-            <VariationServedValue
-              value={servedValue ?? ""}
-              feature={servedValueFeature}
-              sparse={servedValueSparse}
-              isDraft={
-                servedValueIsDraft &&
-                (!servedValueDraftIds || servedValueDraftIds.has(v.id))
-              }
-              draftName={servedValueDraftName}
-              draftNote={servedValueDraftNote}
-            />
-          ) : null}
-          {!servedValueFeature && onAddValue && !isPublic ? (
+          {onAddValue && !isPublic ? (
             <Box mt="2">
               <Link onClick={onAddValue} weight="medium">
                 <PiPlus style={{ marginRight: "var(--space-1)" }} />
@@ -467,13 +422,6 @@ const VariationsTable: FC<Props> = ({
   onAddVariation,
   onEditTraffic,
   centered = false,
-  servedValues,
-  servedValueFeature,
-  servedValueSparse,
-  servedValueIsDraft,
-  servedValueDraftIds,
-  servedValueDraftName,
-  servedValueDraftNote,
   onAddValue,
 }) => {
   const variations = getLatestPhaseVariations(experiment);
@@ -545,15 +493,6 @@ const VariationsTable: FC<Props> = ({
               shareType={shareType}
               onEditMetadata={onEditMetadata}
               onEditTraffic={onEditTraffic}
-              servedValue={
-                servedValues?.find((sv) => sv.variationId === v.id)?.value
-              }
-              servedValueFeature={servedValueFeature}
-              servedValueSparse={servedValueSparse}
-              servedValueIsDraft={servedValueIsDraft}
-              servedValueDraftIds={servedValueDraftIds}
-              servedValueDraftName={servedValueDraftName}
-              servedValueDraftNote={servedValueDraftNote}
               onAddValue={onAddValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage

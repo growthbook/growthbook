@@ -2,25 +2,29 @@ import { ReactNode, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { AISuggestionType } from "shared/ai";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Markdown from "@/components/Markdown/Markdown";
 import AISuggestButton from "@/components/Markdown/AISuggestButton";
 import RichTextEditor, { RichTextEditorHandle } from "@/ui/RichTextEditor";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
-import { useRegisterExperimentEdit } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import {
+  experimentFieldChanges,
+  useRegisterExperimentEdit,
+} from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Metadata from "@/ui/Metadata";
 import ExpandableBlock from "./ExpandableBlock";
 
 export interface Props {
   label: string;
-  /** The saved value. */
-  value: string;
+  experiment: ExperimentInterfaceStringDates;
+  field: "hypothesis" | "description";
   placeholder?: string;
   /** Show the editor rather than the rendered markdown. */
   editable: boolean;
-  onSave: (next: string) => Promise<void>;
+  onSaved?: (next: string) => void;
   /**
    * With nothing saved yet, collapse to a "+ {addLabel}" button until the user
    * asks for the field. Omit to always show the editor.
@@ -42,10 +46,11 @@ export interface Props {
  */
 export default function InlineMarkdownField({
   label,
-  value: savedValue,
+  experiment,
+  field,
   placeholder,
   editable,
-  onSave,
+  onSaved,
   addLabel,
   aiSuggestFunction,
   aiButtonText,
@@ -54,12 +59,12 @@ export default function InlineMarkdownField({
   stacked,
   labelAction,
 }: Props) {
+  const savedValue = experiment[field] || "";
   const [value, setValue] = useState(savedValue);
   const editor = useRef<RichTextEditorHandle>(null);
   // What the field held before a suggestion replaced it, so it can be undone.
   const [beforeSuggestion, setBeforeSuggestion] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   // What the server holds, so a blur that changed nothing writes nothing.
   const saved = useRef(savedValue);
@@ -73,23 +78,15 @@ export default function InlineMarkdownField({
 
   // The page's save bar writes this, so a field losing focus no longer posts.
   const dirty = editable && value.trim() !== savedValue.trim();
-  useRegisterExperimentEdit(`inline:${label}`, dirty, {
-    save: async () => {
-      const next = value.trim();
-      setError(null);
-      try {
-        await onSave(next);
-        saved.current = next;
-      } catch (e) {
-        const message =
-          e.message || `Could not save the ${label.toLowerCase()}`;
-        setError(message);
-        throw new Error(message);
-      }
+  useRegisterExperimentEdit(`inline:${field}`, dirty, {
+    changes: () =>
+      experimentFieldChanges(experiment, { [field]: value.trim() }),
+    onSaved: () => {
+      saved.current = value.trim();
+      onSaved?.(value.trim());
     },
     discard: () => {
       replaceValue(savedValue);
-      setError(null);
     },
   });
 
@@ -194,7 +191,7 @@ export default function InlineMarkdownField({
     );
   }
 
-  const shownError = error || aiError;
+  const shownError = aiError;
   const errorCallout = shownError ? (
     <Callout status="error" size="sm" mt="2">
       {shownError}

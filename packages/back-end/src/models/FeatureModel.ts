@@ -1780,6 +1780,7 @@ export async function editFeatureRules(
   matches: { ruleId: string; environmentId?: string }[],
   updates: Partial<FeatureRule>,
   user: EventUser,
+  { guardDateUpdated = false }: { guardDateUpdated?: boolean } = {},
 ) {
   const projected = applyPartialFeatureRuleUpdatesToRevision(
     revision,
@@ -1812,6 +1813,7 @@ export async function editFeatureRules(
       subject,
       value: JSON.stringify(updates),
     },
+    { guardDateUpdated },
   );
   return updatedRevision;
 }

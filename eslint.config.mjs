@@ -198,7 +198,11 @@ export default defineConfig([
   {
     // Standalone runtime/tooling scripts (no build step): require() is correct
     // and console is the intended logging channel.
-    files: ["./preview/idle-monitor.js", "./scripts/*.js", "./scripts/*.mjs"],
+    files: [
+      "./preview/idle-monitor.js",
+      "./scripts/**/*.js",
+      "./scripts/**/*.mjs",
+    ],
 
     rules: {
       "@typescript-eslint/no-require-imports": "off",
