@@ -12,7 +12,7 @@ GrowthBook offers a fully managed event ingestion pipeline. Use our SDKs to trac
 - **Fully Managed**: No need to worry about infrastructure management, scaling, or maintenance.
 - **Seamless Integration**: Built-in tracking in our SDKs.
 - **Near Real-Time**: Events are available in your warehouse typically within a few seconds.
-- **Broad Support**: Works with BigQuery and Snowflake today, with more warehouses coming soon.
+- **Broad Support**: Works with BigQuery, Snowflake, and Databricks today, with more warehouses coming soon.
 
 ## How it Works
 
@@ -52,6 +52,39 @@ The Snowflake connection **must use key-pair authentication** — password authe
 `CREATE TABLE` and `CREATE SCHEMA` are required because the Confluent Snowflake Sink uses Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
 
 Key-pair authentication must be configured on the Snowflake datasource connection itself — it is not set in the Event Forwarder UI. Update your datasource's connection settings to use key-pair auth before enabling the Event Forwarder.
+
+### Databricks
+
+The Databricks connection **must use Databricks OAuth (machine-to-machine) authentication** with a Databricks-issued client ID and secret. Personal access tokens keep working for queries, but the Event Forwarder writes through [Zerobus Ingest](https://docs.databricks.com/aws/en/ingestion/zerobus), which only accepts Databricks OAuth tokens. Switch the datasource connection to Databricks OAuth before enabling the Event Forwarder.
+
+Grant the service principal the following on the destination catalog and schema. GrowthBook creates the three Delta tables itself, so it also gets `SELECT` and `MODIFY` on them as their owner.
+
+```sql
+GRANT USE CATALOG ON CATALOG <catalog> TO `<service-principal-application-id>`;
+GRANT USE SCHEMA, CREATE TABLE ON SCHEMA <catalog>.<schema> TO `<service-principal-application-id>`;
+```
+
+In the Event Forwarder UI you provide:
+
+- **Catalog**, pre-filled from your connection when it names one.
+- **Schema**, an existing schema the service principal can create tables in. We suggest a dedicated one such as `growthbook`.
+- **Table prefix** (optional, default `gb`). GrowthBook creates `<prefix>_events`, `<prefix>_experiment_viewed`, and `<prefix>_feature_usage` in that schema, clustered on `received_at`, with `attributes` and `properties` stored as `VARIANT`.
+- **Zerobus endpoint** for your workspace. See [Finding your Zerobus endpoint](#finding-your-zerobus-endpoint) below.
+
+#### Finding your Zerobus endpoint
+
+The endpoint is not shown in the Databricks UI; you build it from two values:
+
+| Cloud        | Endpoint                                                       |
+| ------------ | -------------------------------------------------------------- |
+| AWS          | `https://<workspace-id>.zerobus.<region>.cloud.databricks.com` |
+| Azure        | `https://<workspace-id>.zerobus.<region>.azuredatabricks.net`  |
+| Google Cloud | `https://<workspace-id>.zerobus.<region>.gcp.databricks.com`   |
+
+- **Workspace ID** is the long number in your workspace URL. On AWS and Google Cloud it follows `?o=` (for example `https://dbc-a1b2c3d4-e5f6.cloud.databricks.com/?o=1234567890123456`). On Azure it follows `adb-` in the hostname (`https://adb-1234567890123456.7.azuredatabricks.net`). GrowthBook pre-fills it where the connection host carries it.
+- **Region** is the cloud region your workspace runs in, for example `us-east-1`, `eastus`, or `us-central1`. It is shown in the Databricks account console under **Workspaces**.
+
+Zerobus Ingest is a serverless Databricks feature billed to **your** Databricks account per GB ingested. No SQL warehouse or cluster runs on your side to receive events; the SQL warehouse configured on the datasource is only used to create the tables and to run your experiment queries.
 
 ## Network Access
 

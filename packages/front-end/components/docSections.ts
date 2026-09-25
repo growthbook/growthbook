@@ -149,6 +149,7 @@ export const docSections = {
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",
   managedWarehouseIngestionApi: "/app/managed-warehouse#ingestion-api",
   eventForwarder: "/app/event-forwarder",
+  eventForwarderZerobus: "/app/event-forwarder#finding-your-zerobus-endpoint",
   chooseDataPath: "/app/choose-data-path",
   devTools: "/tools/chrome-extension",
   pipelineMode: "/app/data-pipeline",

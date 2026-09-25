@@ -577,9 +577,8 @@ export function parseDatabricksEventForwarderTablePrefix(
   return {
     catalog: assertDatabricksIdentifier(segments[0], "Catalog"),
     schema: assertDatabricksIdentifier(segments[1], "Schema"),
-    tablePrefix: normalizeDatabricksTablePrefixForEventForwarder(
-      assertNonEmptySegment(segments[2], "Table prefix"),
-    ),
+    // Empty prefix falls back to the default, like BigQuery and Snowflake.
+    tablePrefix: normalizeDatabricksTablePrefixForEventForwarder(segments[2]),
   };
 }
 
@@ -602,6 +601,30 @@ export function resolveDatabricksEventForwarderTables(
     experiment_viewed: qualify(names.experimentViewed),
     feature_usage: qualify(names.featureUsage),
   };
+}
+
+// Placeholder template from the connection host: Azure and GCP hosts carry the
+// workspace id (adb-<id>.<n>.azuredatabricks.net, <id>.<n>.gcp.databricks.com);
+// the region never does.
+export function suggestDatabricksEventForwarderZerobusEndpoint(
+  host: string | undefined,
+): string {
+  const h = (host ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "");
+  if (h.endsWith(".azuredatabricks.net")) {
+    const id = h.match(/^adb-(\d+)\./)?.[1] ?? "<workspace-id>";
+    return `https://${id}.zerobus.<region>.azuredatabricks.net`;
+  }
+  if (h.endsWith(".cloud.databricks.com")) {
+    return "https://<workspace-id>.zerobus.<region>.cloud.databricks.com";
+  }
+  if (h.endsWith(".gcp.databricks.com")) {
+    const id = h.match(/^(\d+)\./)?.[1] ?? "<workspace-id>";
+    return `https://${id}.zerobus.<region>.gcp.databricks.com`;
+  }
+  return "";
 }
 
 // https://<workspace-id>.zerobus.<region>.{cloud|gcp}.databricks.com | .azuredatabricks.net

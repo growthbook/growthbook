@@ -1,4 +1,6 @@
 import {
+  DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
+  getDatabricksEventForwarderAuthMessage,
   EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   attributeMatchesDatasourceProjects,
   findCollidingUserIdTypeName,
@@ -20,6 +22,19 @@ const managed = (userIdType: string, attribute: string) => ({
   description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   attributes: [attribute],
   managedBy: "api",
+});
+
+describe("getDatabricksEventForwarderAuthMessage", () => {
+  it("names Entra ID when a stored connection still uses it", () => {
+    expect(
+      getDatabricksEventForwarderAuthMessage({
+        authType: "azure-entra" as unknown as "pat",
+      }),
+    ).toMatch(/Entra ID/);
+    expect(getDatabricksEventForwarderAuthMessage({ authType: "pat" })).toBe(
+      DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
+    );
+  });
 });
 
 describe("getEventForwarderSinkTypeForDatasource", () => {

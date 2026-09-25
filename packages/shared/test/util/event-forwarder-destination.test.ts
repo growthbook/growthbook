@@ -9,6 +9,7 @@ import {
   isValidSnowflakeTableName,
   isValidSnowflakeTablePrefix,
   normalizeDatabricksEventForwarderZerobusEndpoint,
+  suggestDatabricksEventForwarderZerobusEndpoint,
   normalizeDatabricksTablePrefixForEventForwarder,
   parseDatabricksEventForwarderTablePrefix,
   quoteDatabricksIdentifier,
@@ -489,6 +490,11 @@ describe("parseDatabricksEventForwarderTablePrefix", () => {
     ).toEqual({ catalog: "main", schema: "analytics", tablePrefix: "gb" });
   });
 
+  it("defaults an empty prefix to gb", () => {
+    expect(parseDatabricksEventForwarderTablePrefix("main.analytics.")).toEqual(
+      { catalog: "main", schema: "analytics", tablePrefix: "gb" },
+    );
+  });
   it("rejects anything but three parts", () => {
     expect(() => parseDatabricksEventForwarderTablePrefix("main.gb")).toThrow(
       /catalog\.schema\.prefix/,
@@ -525,6 +531,34 @@ describe("quoteDatabricksIdentifier", () => {
   it("wraps in backticks and doubles embedded backticks", () => {
     expect(quoteDatabricksIdentifier("gb_events")).toBe("`gb_events`");
     expect(quoteDatabricksIdentifier("we`ird")).toBe("`we``ird`");
+  });
+});
+
+describe("suggestDatabricksEventForwarderZerobusEndpoint", () => {
+  it("fills the workspace id and domain from an Azure host", () => {
+    expect(
+      suggestDatabricksEventForwarderZerobusEndpoint(
+        "adb-1234567890123456.7.azuredatabricks.net",
+      ),
+    ).toBe("https://1234567890123456.zerobus.<region>.azuredatabricks.net");
+  });
+  it("fills only the domain from an AWS host, and nothing for unknown hosts", () => {
+    expect(
+      suggestDatabricksEventForwarderZerobusEndpoint(
+        "dbc-abc123-def4.cloud.databricks.com",
+      ),
+    ).toBe("https://<workspace-id>.zerobus.<region>.cloud.databricks.com");
+    expect(
+      suggestDatabricksEventForwarderZerobusEndpoint("x.example.com"),
+    ).toBe("");
+    expect(suggestDatabricksEventForwarderZerobusEndpoint(undefined)).toBe("");
+  });
+  it("fills the workspace id and domain from a GCP host", () => {
+    expect(
+      suggestDatabricksEventForwarderZerobusEndpoint(
+        "1234567890123456.0.gcp.databricks.com",
+      ),
+    ).toBe("https://1234567890123456.zerobus.<region>.gcp.databricks.com");
   });
 });
 
