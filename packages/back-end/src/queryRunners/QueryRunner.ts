@@ -1126,7 +1126,6 @@ export abstract class QueryRunner<
       queryId: doc.id,
     })
       .then(async ({ rows, statistics }) => {
-        clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
         await updateQuery(this.context, doc, {
           finishedAt: new Date(),
@@ -1135,13 +1134,15 @@ export abstract class QueryRunner<
           result: process ? process(rows) : rows,
           statistics: statistics,
         });
+        // Heartbeat until the terminal write lands so a slow result write
+        // isn't reaped as orphaned. If it throws, the catch below clears it.
+        clearInterval(timer);
         if (onSuccess) {
           await onSuccess(rows);
         }
         this.onQueryFinish();
       })
       .catch(async (e) => {
-        clearInterval(timer);
         logger.debug("Query failed: " + e.message);
         try {
           const updated = await updateQueryIfRunning(this.context, doc, {
@@ -1158,6 +1159,8 @@ export abstract class QueryRunner<
           this.onQueryFinish();
         } catch (err) {
           logger.error(err);
+        } finally {
+          clearInterval(timer);
         }
       });
   }
