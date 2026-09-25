@@ -345,6 +345,7 @@ export interface MetricSettingsForStatsEngine {
   prior_mean?: number;
   prior_stddev?: number;
   target_mde: number;
+  scaled_impact_days: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
   compute_uncapped_metric: boolean;
 }
