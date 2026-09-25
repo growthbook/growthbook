@@ -299,6 +299,13 @@ describe("chat composer serialization", () => {
       expect(skillDisplayName("dashboard-create")).toBe("Dashboard create");
     });
 
+    it("keeps Feature Flag in Title Case, as a named resource", () => {
+      expect(skillDisplayName("feature-flags")).toBe("Feature Flags");
+      expect(skillDisplayName("create-feature-flag")).toBe(
+        "Create Feature Flag",
+      );
+    });
+
     it("leaves a single-word id alone apart from the initial capital", () => {
       expect(skillDisplayName("dashboards")).toBe("Dashboards");
     });

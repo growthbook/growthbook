@@ -5,13 +5,16 @@ import useApi from "@/hooks/useApi";
 import Checkbox from "@/ui/Checkbox";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
+import Callout from "@/ui/Callout";
 import { skillDisplayName } from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
 
 export default function AgentSkillsSettings({ canEdit }: { canEdit: boolean }) {
   const form = useFormContext();
-  const { data } = useApi<{ skills: OrgSkillSummary[] }>("/agent/skills");
+  const { data, error } = useApi<{ skills: OrgSkillSummary[] }>(
+    "/agent/skills",
+  );
   const domains = (data?.skills ?? []).filter((s) => s.kind === "domain");
-  if (!domains.length) return null;
+  if (!error && !domains.length) return null;
 
   const disabled: string[] = form.watch("disabledAgentSkills") ?? [];
 
@@ -23,35 +26,39 @@ export default function AgentSkillsSettings({ canEdit }: { canEdit: boolean }) {
       <Text as="div" mb="3">
         Choose which skills the AI Assistant can use.
       </Text>
-      {domains.map((skill) => (
-        <Flex key={skill.name} gap="3" align="start" mb="3">
-          <Checkbox
-            id={`toggle-skill-${skill.name}`}
-            value={!disabled.includes(skill.name)}
-            setValue={(on) =>
-              form.setValue(
-                "disabledAgentSkills",
-                on
-                  ? disabled.filter((name) => name !== skill.name)
-                  : [...disabled, skill.name],
-              )
-            }
-            disabled={!canEdit}
-            mt="1"
-          />
-          <Flex direction="column">
-            <Flex gap="2" align="center">
-              <Text weight="medium">
-                <label htmlFor={`toggle-skill-${skill.name}`}>
+      {error ? (
+        <Callout status="error">
+          Could not load the AI Assistant skills. {error.message}
+        </Callout>
+      ) : (
+        <Flex direction="column" gap="3">
+          {domains.map((skill) => (
+            <Checkbox
+              key={skill.name}
+              id={`toggle-skill-${skill.name}`}
+              align="start"
+              weight="medium"
+              label={
+                <Flex as="span" gap="2" align="center">
                   {skillDisplayName(skill.name)}
-                </label>
-              </Text>
-              {skill.custom && <Badge label="Custom" color="violet" />}
-            </Flex>
-            <Text color="text-mid">{skill.description}</Text>
-          </Flex>
+                  {skill.custom && <Badge label="Custom" color="violet" />}
+                </Flex>
+              }
+              description={skill.description}
+              value={!disabled.includes(skill.name)}
+              setValue={(on) =>
+                form.setValue(
+                  "disabledAgentSkills",
+                  on
+                    ? disabled.filter((name) => name !== skill.name)
+                    : [...disabled, skill.name],
+                )
+              }
+              disabled={!canEdit}
+            />
+          ))}
         </Flex>
-      ))}
+      )}
     </Box>
   );
 }
