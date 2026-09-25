@@ -235,6 +235,7 @@ import {
   BadRequestError,
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  InvalidTrackingKeyError,
 } from "back-end/src/util/errors";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
@@ -2606,9 +2607,12 @@ export async function assertExperimentKeyFormat(
   const { experimentKeyRegexValidator: pattern, experimentKeyExample } =
     context.org.settings ?? {};
   if (!pattern) return;
+  const example = experimentKeyExample ?? "";
   if (!trackingKey) {
-    throw new Error(
+    throw new InvalidTrackingKeyError(
       "Your organization requires an experiment tracking key to be entered.",
+      pattern,
+      example,
     );
   }
   if (new RegExp(pattern).test(trackingKey)) return;
@@ -2618,8 +2622,10 @@ export async function assertExperimentKeyFormat(
     : null;
   if (pastExperiments?.experiments?.some((e) => e.trackingKey === trackingKey))
     return;
-  throw new Error(
-    `Experiment tracking key must match the regex validator. '${pattern}' Example: '${experimentKeyExample ?? ""}'`,
+  throw new InvalidTrackingKeyError(
+    `Experiment tracking key must match the regex validator. '${pattern}' Example: '${example}'`,
+    pattern,
+    example,
   );
 }
 

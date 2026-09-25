@@ -1202,6 +1202,7 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toContain("must match the regex validator");
+      expect(res.body.code).toBe("invalid_tracking_key");
       expect(createExperiment).not.toHaveBeenCalled();
     });
 
@@ -2103,6 +2104,7 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toContain("must match the regex validator");
+      expect(res.body.code).toBe("invalid_tracking_key");
     });
 
     it("updates experiment variations with signed URLs", async () => {
