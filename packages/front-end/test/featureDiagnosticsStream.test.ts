@@ -24,24 +24,28 @@ describe("streamColumnLabel", () => {
 });
 
 describe("flagShowsVariation", () => {
-  const flag = (
-    valueType: FeatureInterface["valueType"],
-    types: FeatureRule["type"][],
-  ) =>
+  const flag = (rules: Partial<FeatureRule>[]) =>
     ({
-      valueType,
-      rules: types.map((type) => ({ type }) as FeatureRule),
-    }) as Pick<FeatureInterface, "valueType" | "rules">;
+      rules: rules.map((r) => r as FeatureRule),
+    }) as Pick<FeatureInterface, "rules">;
 
-  it("is off for a boolean flag with no experiment rule", () => {
-    expect(flagShowsVariation(flag("boolean", ["force", "rollout"]))).toBe(
-      false,
-    );
+  it("is off with only force and rollout rules, whatever the value type", () => {
+    expect(
+      flagShowsVariation(flag([{ type: "force" }, { type: "rollout" }])),
+    ).toBe(false);
   });
 
-  it("is on for an experiment rule or a multivariate flag", () => {
-    expect(flagShowsVariation(flag("boolean", ["experiment-ref"]))).toBe(true);
-    expect(flagShowsVariation(flag("string", ["force"]))).toBe(true);
+  it("is on for an experiment rule", () => {
+    expect(flagShowsVariation(flag([{ type: "experiment-ref" }]))).toBe(true);
+    expect(flagShowsVariation(flag([{ type: "experiment" }]))).toBe(true);
+  });
+
+  it("counts a safe rollout only while it is still an experiment", () => {
+    const safe = (status: string) =>
+      flag([{ type: "safe-rollout", status } as Partial<FeatureRule>]);
+    expect(flagShowsVariation(safe("running"))).toBe(true);
+    expect(flagShowsVariation(safe("released"))).toBe(false);
+    expect(flagShowsVariation(safe("rolled-back"))).toBe(false);
   });
 });
 

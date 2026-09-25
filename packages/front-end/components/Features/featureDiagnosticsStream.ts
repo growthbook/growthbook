@@ -47,26 +47,32 @@ export const MANAGED_STREAM_TABLE_COLUMNS = [
   "ruleId",
 ];
 
-/** Rule types the SDK evaluates as an experiment, so rows carry a variation. */
-const EXPERIMENT_RULE_TYPES = new Set([
-  "experiment",
-  "experiment-ref",
-  "safe-rollout",
-]);
-
 /**
  * Whether the stream shows Variation, from the flag's config rather than the
  * rows: decided once per flag, so the column cannot appear and disappear as
- * the reader pages. On for a multivariate (non-boolean) flag or any flag with
- * an experiment rule.
+ * the reader pages.
+ *
+ * Gated on the rule MECHANISM, not the flag's value type: `variationId` is set
+ * only when the SDK evaluates a rule as an experiment (sdk-js core.ts,
+ * `experimentResult.key`); a force rule emits "" on every row, whatever the
+ * flag's type, and its Value column already says what was served.
+ *
+ * A safe rollout counts only while it is still an experiment in the payload.
+ * Once released or rolled back, getFeatureDefinition sends it as a force rule
+ * (back-end util/features.ts), so its rows carry "" too.
  */
 export function flagShowsVariation(
-  feature: Pick<FeatureInterface, "valueType" | "rules">,
+  feature: Pick<FeatureInterface, "rules">,
 ): boolean {
-  if (feature.valueType !== "boolean") return true;
-  return (feature.rules ?? []).some((rule) =>
-    EXPERIMENT_RULE_TYPES.has(rule.type),
-  );
+  return (feature.rules ?? []).some((rule) => {
+    if (rule.type === "experiment" || rule.type === "experiment-ref") {
+      return true;
+    }
+    if (rule.type === "safe-rollout") {
+      return rule.status !== "released" && rule.status !== "rolled-back";
+    }
+    return false;
+  });
 }
 
 /**
