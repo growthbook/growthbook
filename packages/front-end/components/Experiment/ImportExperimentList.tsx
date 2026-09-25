@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useRef, useState } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
@@ -82,15 +82,6 @@ const ImportExperimentList: FC<{
 
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
   const [runError, setRunError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const importIdRef = useRef(importId);
-
-  useEffect(() => {
-    importIdRef.current = importId;
-    setRunError(null);
-    setSubmitting(false);
-  }, [importId]);
 
   // Searching
   const filterResults = useCallback(
@@ -201,6 +192,7 @@ const ImportExperimentList: FC<{
   }
 
   const hasStarted = data.experiments.queries.length > 0;
+  const importFailed = hasStarted && status === "failed";
 
   const totalRows = dedupeFilter
     ? new Set(pastExpArr.map((e) => e.trackingKey)).size
@@ -257,88 +249,72 @@ const ImportExperimentList: FC<{
                 mutate={mutate}
                 model={data.experiments}
                 icon="refresh"
-                disabled={submitting}
+                setError={setRunError}
                 onSubmit={async () => {
-                  if (submitting) return;
-                  const requestImportId = importId;
-                  setSubmitting(true);
-                  setRunError(null);
-                  try {
-                    await apiCall<{ id: string }>("/experiments/import", {
-                      method: "POST",
-                      body: JSON.stringify({
-                        datasource: data.experiments.datasource,
-                        force: true,
-                      }),
-                    });
-                    await mutate();
-                  } catch (e) {
-                    if (importIdRef.current === requestImportId) {
-                      setRunError(e.message);
-                    }
-                  } finally {
-                    if (importIdRef.current === requestImportId) {
-                      setSubmitting(false);
-                    }
-                  }
+                  await apiCall<{ id: string }>("/experiments/import", {
+                    method: "POST",
+                    body: JSON.stringify({
+                      datasource: data.experiments.datasource,
+                      force: true,
+                    }),
+                  });
+                  await mutate();
                 }}
               />
             </div>
           )}
       </div>
-      {runError && !(hasStarted && status === "failed") && (
+      {(runError || importFailed) && (
         <Callout status="error" my="3">
-          {runError}
-        </Callout>
-      )}
-      {hasStarted && status === "failed" && (
-        <>
-          <Callout status="error" my="3">
-            <p>Error importing experiments.</p>
-            {runError && <p>Could not start a new import: {runError}</p>}
-            {datasource?.id && (
-              <>
-                {!!datasource?.dateUpdated &&
-                datasource?.dateUpdated > data?.experiments?.dateUpdated ? (
-                  <p>
-                    Your datasource&apos;s{" "}
-                    <em>Experiment Assignment Queries</em> may have been
-                    misconfigured. The datasource has been modified since the
-                    last data refresh, so use the &apos;Get New Data&apos;
-                    button above to check if the issue has been resolved.
-                    Otherwise,{" "}
-                    <Link href={`/datasources/${datasource.id}?openAll=1`}>
-                      edit the datasource
-                    </Link>
-                    .
-                  </p>
-                ) : (
-                  <p>
-                    Your datasource&apos;s{" "}
-                    <em>Experiment Assignment Queries</em> may be misconfigured.{" "}
-                    <Link href={`/datasources/${datasource.id}?openAll=1`}>
-                      Edit the datasource
-                    </Link>
-                    .
-                  </p>
-                )}
-              </>
-            )}
+          {runError && <p>Could not start a new import: {runError}</p>}
+          {importFailed && (
+            <>
+              <p>Error importing experiments.</p>
+              {datasource?.id && (
+                <>
+                  {!!datasource?.dateUpdated &&
+                  datasource?.dateUpdated > data?.experiments?.dateUpdated ? (
+                    <p>
+                      Your datasource&apos;s{" "}
+                      <em>Experiment Assignment Queries</em> may have been
+                      misconfigured. The datasource has been modified since the
+                      last data refresh, so use the &apos;Get New Data&apos;
+                      button above to check if the issue has been resolved.
+                      Otherwise,{" "}
+                      <Link href={`/datasources/${datasource.id}?openAll=1`}>
+                        edit the datasource
+                      </Link>
+                      .
+                    </p>
+                  ) : (
+                    <p>
+                      Your datasource&apos;s{" "}
+                      <em>Experiment Assignment Queries</em> may be
+                      misconfigured.{" "}
+                      <Link href={`/datasources/${datasource.id}?openAll=1`}>
+                        Edit the datasource
+                      </Link>
+                      .
+                    </p>
+                  )}
+                </>
+              )}
 
-            <span>
-              <ViewAsyncQueriesButton
-                queries={data.experiments.queries?.map((q) => q.query) ?? []}
-                error={data.experiments.error}
-                ctaComponent={(onClick) => (
-                  <a className="alert-link" href="#" onClick={onClick}>
-                    View Queries
-                  </a>
-                )}
-              />{" "}
-              for more information.
-            </span>
-          </Callout>
-        </>
+              <span>
+                <ViewAsyncQueriesButton
+                  queries={data.experiments.queries?.map((q) => q.query) ?? []}
+                  error={data.experiments.error}
+                  ctaComponent={(onClick) => (
+                    <a className="alert-link" href="#" onClick={onClick}>
+                      View Queries
+                    </a>
+                  )}
+                />{" "}
+                for more information.
+              </span>
+            </>
+          )}
+        </Callout>
       )}
       {totalRows === 0 && (
         <div>
