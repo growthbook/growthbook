@@ -406,6 +406,42 @@ export const apiMetricAnalysisValidator = namedSchema(
           'The status of the analysis (e.g., "running", "completed", "error")',
         ),
       settings: z.record(z.string(), z.any()).optional(),
+      metric: z.string().optional().describe("The fact metric id"),
+      error: z.string().optional(),
+      result: z
+        .object({
+          units: z.number(),
+          mean: z.number(),
+          stddev: z.number().optional(),
+          numerator: z.number().optional(),
+          denominator: z.number().optional(),
+          dates: z
+            .array(
+              z.object({
+                date: z.string().meta({ format: "date-time" }),
+                units: z.number(),
+                mean: z.number(),
+                stddev: z.number().optional(),
+                numerator: z.number().optional(),
+                denominator: z.number().optional(),
+              }),
+            )
+            .optional()
+            .describe("Daily values"),
+          histogram: z
+            .array(
+              z.object({
+                start: z.number(),
+                end: z.number(),
+                units: z.number(),
+              }),
+            )
+            .optional(),
+        })
+        .optional()
+        .describe("Present once the analysis has finished"),
+      dateCreated: z.string().meta({ format: "date-time" }).optional(),
+      dateUpdated: z.string().meta({ format: "date-time" }).optional(),
     })
     .strict(),
 );
@@ -841,6 +877,13 @@ const postFactMetricAnalysisBody = z
       .lte(999999)
       .describe("Number of days to look back for the analysis. Defaults to 30.")
       .optional(),
+    startDate: z.iso
+      .datetime()
+      .describe(
+        "Analyze a fixed window instead of `lookbackDays`. Needs `endDate` too.",
+      )
+      .optional(),
+    endDate: z.iso.datetime().optional(),
     populationType: z
       .enum(["factTable", "segment"])
       .describe(
@@ -1021,4 +1064,51 @@ export const postFactMetricAnalysisValidator = {
   method: "post" as const,
   path: "/fact-metrics/:id/analysis",
   exampleRequest: { body: { lookbackDays: 90 } },
+};
+
+const metricAnalysisResponse = z
+  .object({ metricAnalysis: apiMetricAnalysisValidator })
+  .strict();
+
+export const getMetricAnalysisValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z
+    .object({ id: z.string().describe("The metric analysis id") })
+    .strict(),
+  responseSchema: metricAnalysisResponse,
+  summary: "Get a metric analysis and its results",
+  description: "Poll until `status` is no longer running.",
+  operationId: "getMetricAnalysis",
+  tags: ["fact-metrics"],
+  method: "get" as const,
+  path: "/metric-analyses/:id",
+};
+
+export const getLatestFactMetricAnalysisValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: analysisIdParams,
+  responseSchema: z
+    .object({ metricAnalysis: apiMetricAnalysisValidator.nullable() })
+    .strict(),
+  summary: "Get the latest analysis of a fact metric",
+  operationId: "getLatestFactMetricAnalysis",
+  tags: ["fact-metrics"],
+  method: "get" as const,
+  path: "/fact-metrics/:id/analysis",
+};
+
+export const postMetricAnalysisCancelValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z
+    .object({ id: z.string().describe("The metric analysis id") })
+    .strict(),
+  responseSchema: metricAnalysisResponse,
+  summary: "Cancel a running metric analysis",
+  operationId: "postMetricAnalysisCancel",
+  tags: ["fact-metrics"],
+  method: "post" as const,
+  path: "/metric-analyses/:id/cancel",
 };

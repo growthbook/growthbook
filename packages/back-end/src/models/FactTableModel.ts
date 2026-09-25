@@ -199,6 +199,9 @@ export function createPropsToInterface(
     userIdColumns: props.userIdColumns,
     eventName: props.eventName,
     tableType: props.tableType,
+    ...(props.autoSliceUpdatesEnabled !== undefined && {
+      autoSliceUpdatesEnabled: props.autoSliceUpdatesEnabled,
+    }),
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
@@ -1309,6 +1312,7 @@ export function toFactTableApiInterface(
       columnRefreshPending: factTable.columnRefreshPending ?? false,
       archived: factTable.archived,
       autoSliceUpdatesEnabled: factTable.autoSliceUpdatesEnabled,
+      tableType: factTable.tableType,
       managedBy: factTable.managedBy || "",
       dateCreated: factTable.dateCreated?.toISOString() || "",
       dateUpdated: factTable.dateUpdated?.toISOString() || "",

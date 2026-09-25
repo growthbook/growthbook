@@ -40,6 +40,7 @@ const openApiTags = [
   "custom-hooks",
   "organizations",
   "members",
+  "saved-queries",
   "code-references",
   "archetypes",
   "queries",
@@ -216,6 +217,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   usage: {
     display: "Usage",
     description: "Usage information for metrics in experiments.",
+  },
+  "saved-queries": {
+    display: "Saved Queries",
+    description:
+      "Saved SQL Explorer queries and their charts, which Dashboard SQL Explorer blocks display. Requires the saved SQL Explorer queries feature.",
   },
   meta: {
     display: "Meta",

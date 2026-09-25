@@ -1140,6 +1140,7 @@ export const apiFactTableValidator = namedSchema(
           "Whether Auto Slice values for this fact table's columns are refreshed automatically in the background.",
         )
         .optional(),
+      tableType: factTableTypeValidator.optional(),
       managedBy: z
         .enum(["", "api", "admin"])
         .describe(
@@ -1278,6 +1279,13 @@ export const postFactTableBody = z
         'Optional array of column definitions to store for this fact table. Supplied columns are stored as-is. Omit `datatype` (or send "") on a column to have it auto-detected from the SQL.',
       )
       .optional(),
+    tableType: factTableTypeValidator
+      .describe("What the table holds; helps suggest metrics")
+      .optional(),
+    autoSliceUpdatesEnabled: z
+      .boolean()
+      .describe("Refresh Auto Slice values in the background")
+      .optional(),
     managedBy: z
       .enum(["", "api", "admin"])
       .describe('Set this to "api" to disable editing in the GrowthBook UI')
@@ -1309,8 +1317,9 @@ const updateFactTableBody = z
     userIdColumns: userIdColumnsField.optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
       .describe(
-        "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
+        "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature. `null` turns them off.",
       )
+      .nullable()
       .optional(),
     sql: z.string().describe("The SQL query for this fact table").optional(),
     timestampColumn: timestampColumnField.optional(),
@@ -1323,6 +1332,13 @@ const updateFactTableBody = z
       .describe(
         'Optional array of columns to upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Slice-related properties require an enterprise license.',
       )
+      .optional(),
+    tableType: factTableTypeValidator
+      .describe("What the table holds; helps suggest metrics")
+      .optional(),
+    autoSliceUpdatesEnabled: z
+      .boolean()
+      .describe("Refresh Auto Slice values in the background")
       .optional(),
     managedBy: z
       .enum(["", "api", "admin"])
@@ -1757,6 +1773,43 @@ export const refreshAggregatedFactTableValidator = {
     params: { id: "abc123" },
     body: { fullRestate: false },
   },
+};
+
+export const cancelAggregatedFactTableRunValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z
+    .object({
+      id: z.string().describe("The id of the fact table"),
+      idType: z.string(),
+    })
+    .strict(),
+  responseSchema: z
+    .object({
+      cancelled: z
+        .boolean()
+        .describe("False when no run was in progress for that id type"),
+    })
+    .strict(),
+  summary: "Cancel a running aggregated table refresh",
+  operationId: "cancelAggregatedFactTableRun",
+  tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/:id/aggregated-tables/:idType/cancel",
+};
+
+export const refreshFactTableColumnsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ factTable: apiFactTableValidator }).strict(),
+  summary: "Re-detect a fact table's columns",
+  description:
+    "Queues a background re-read of the columns its SQL returns, e.g. after the warehouse schema changed. `columnRefreshPending` is true until it finishes.",
+  operationId: "refreshFactTableColumns",
+  tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/:id/columns/refresh",
 };
 
 const aggregatedTableRunParams = z
