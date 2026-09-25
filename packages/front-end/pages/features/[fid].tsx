@@ -260,6 +260,7 @@ export default function FeaturePage() {
             feature={feature}
             results={diagnosticsResults}
             setResults={setDiagnosticsResults}
+            experiments={experiments}
           />
         )}
 

@@ -1,4 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "shared/types/organization";
@@ -47,10 +48,13 @@ import FeatureEvaluationsCard from "@/components/Features/FeatureEvaluationsCard
 import styles from "./FeatureDiagnostics.module.scss";
 import { dummyUserForRow } from "./featureDiagnosticsDummyUsers";
 import {
-  formatStreamTimestamp,
+  buildVariationLabeler,
   MANAGED_STREAM_TABLE_COLUMNS,
   managedStreamColumnLabel,
+  planStreamTimestamps,
+  ruleAbsenceNote,
   streamColumnLabel,
+  timestampHeader,
 } from "./featureDiagnosticsStream";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
@@ -104,7 +108,7 @@ function getDummyRowTemplates(feature: FeatureInterface): Array<{
     {
       value: feature.defaultValue,
       source: "defaultValue",
-      ruleId: "",
+      ruleId: "$default",
       variationId: "",
     },
   ];
@@ -167,16 +171,6 @@ const COLUMN_ORDER = [
   "variationId",
   "environment",
 ];
-
-/**
- * Wide enough for the full timestamp, which must never truncate — it is the
- * sort column, and a clipped one is unreadable in a way the others are not.
- *
- * Measured rather than guessed: the widest `PPpp` string is 25 characters
- * ("Sep 21, 2026, 11:59:59 PM"), and at the cells' 12px monospace that is
- * ~183px, plus ui/Table's 12px of padding on each side.
- */
-const TIMESTAMP_COLUMN_WIDTH = 210;
 
 /**
  * The width `value` had before Timestamp grew: an equal share of what was left
@@ -265,6 +259,7 @@ export default function FeatureDiagnostics({
   feature,
   results,
   setResults,
+  experiments,
 }: {
   feature: FeatureInterface;
   results: Array<
@@ -275,6 +270,8 @@ export default function FeatureDiagnostics({
       FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
     > | null,
   ) => void;
+  /** Already loaded by the page; names variations in the stream. */
+  experiments?: ExperimentInterfaceStringDates[];
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -438,6 +435,11 @@ export default function FeatureDiagnostics({
    * timestamp and feature_key are guaranteed, so its columns are still read
    * from the first row, exactly as before.
    */
+  const experimentsMap = useMemo(
+    () => new Map((experiments ?? []).map((e) => [e.id, e])),
+    [experiments],
+  );
+
   const managedStream =
     useDummyData || datasource?.type === "growthbook_clickhouse";
 
@@ -471,6 +473,23 @@ export default function FeatureDiagnostics({
     return Array.from(keysSet).sort((a, b) => rank(a) - rank(b));
   }, [displayResults, managedStream]);
 
+  /**
+   * Timestamp format and width, decided once from the whole fetched result set
+   * like the column gates above, so it never truncates and holds still while
+   * paging. See planStreamTimestamps.
+   */
+  const timestampPlan = useMemo(
+    () => planStreamTimestamps(displayResults ?? []),
+    [displayResults],
+  );
+
+  // "0 · Control" from the flag's current config; the bare index when the
+  // config has no name for it.
+  const variationLabel = useMemo(
+    () => buildVariationLabeler(feature.rules ?? [], experimentsMap),
+    [feature.rules, experimentsMap],
+  );
+
   const evalItems = useAddComputedFields(
     displayResults ?? [],
     (row) => {
@@ -478,11 +497,17 @@ export default function FeatureDiagnostics({
       // Compute display values for all columns
       const displayValues: Record<string, string> = {};
       columns.forEach((key) => {
-        displayValues[key] = formatDisplayValue(row[key]);
+        displayValues[key] =
+          managedStream && key === "variationId"
+            ? variationLabel(
+                String(row.ruleId ?? ""),
+                String(row.variationId ?? ""),
+              )
+            : formatDisplayValue(row[key]);
       });
 
       return {
-        timestamp: formatStreamTimestamp(row.timestamp, timestampDate),
+        timestamp: timestampPlan.format(row.timestamp, timestampDate),
         timestampSort: timestampDate.getTime(),
         ...displayValues,
       } as {
@@ -490,7 +515,7 @@ export default function FeatureDiagnostics({
         timestampSort: number;
       } & Record<string, string | number>;
     },
-    [displayResults, columns],
+    [displayResults, columns, managedStream, timestampPlan, variationLabel],
   );
 
   // Values come from what is actually loaded, so the builder offers real
@@ -992,9 +1017,9 @@ export default function FeatureDiagnostics({
                         no width share whatever is left, evenly. */}
                       <SortableTableColumnHeader
                         field="timestampSort"
-                        style={{ width: TIMESTAMP_COLUMN_WIDTH }}
+                        style={{ width: timestampPlan.width }}
                       >
-                        Timestamp
+                        {timestampHeader(timestampPlan.headerDate)}
                       </SortableTableColumnHeader>
                       {columns.map((key) => (
                         <SortableTableColumnHeader
@@ -1026,7 +1051,23 @@ export default function FeatureDiagnostics({
                         </TableCell>
                         {columns.map((key) => (
                           <TableCell key={key}>
-                            <TruncatedCell value={String(row[key] ?? "")} />
+                            {managedStream &&
+                            key === "ruleId" &&
+                            ruleAbsenceNote(String(row[key] ?? "")) !== null ? (
+                              // A fact, not missing data: muted, with the
+                              // reason on hover.
+                              <span
+                                title={
+                                  ruleAbsenceNote(String(row[key] ?? "")) ??
+                                  undefined
+                                }
+                                style={{ color: "var(--color-text-low)" }}
+                              >
+                                —
+                              </span>
+                            ) : (
+                              <TruncatedCell value={String(row[key] ?? "")} />
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
