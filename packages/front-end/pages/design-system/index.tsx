@@ -45,6 +45,7 @@ import VariationLabelStories from "@/ui/VariationLabel.stories";
 import VariationNumberStories from "@/ui/VariationNumber.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
 import ModalStories from "@/ui/Modal/Modal.stories";
+import MultiStepModalStories from "@/ui/Modal/MultiStepModal.stories";
 
 type StoryEntry = {
   name: string;
@@ -131,6 +132,12 @@ export default function DesignSystemPage() {
     { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
     { name: "Modal", Stories: ModalStories },
+    {
+      name: "MultiStepModal",
+      description:
+        "Composable primitives for multi-page modals, built on Modal: Root, Step, Done, Stepper, and the Back / Next / Footer parts. Behavior lives in the parts, so any layout keeps validation and navigation intact. Use the MultiStepModalStandard pattern for the common wizard, and compose the primitives for non-standard layouts. Reuses the Modal sizes (md, lg, xl, fill).",
+      Stories: MultiStepModalStories,
+    },
   ] satisfies StoryEntry[];
 
   const entries = useMemo(
