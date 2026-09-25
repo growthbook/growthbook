@@ -416,6 +416,9 @@ tags:
   - name: AutoRuns
     x-displayName: Auto Runs
     description: ''
+  - name: UrlRedirects
+    x-displayName: URL Redirects
+    description: 'Redirect tests: send each variation to a different URL.'
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -658,6 +661,9 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable"
       />
+  - name: LaunchChecklist_model
+    x-displayName: Launch Checklist
+    description: <SchemaDefinition schemaRef="#/components/schemas/LaunchChecklist" />
   - name: Learning_model
     x-displayName: Learning
     description: <SchemaDefinition schemaRef="#/components/schemas/Learning" />
@@ -775,6 +781,9 @@ tags:
   - name: Team_model
     x-displayName: Team
     description: <SchemaDefinition schemaRef="#/components/schemas/Team" />
+  - name: UrlRedirect_model
+    x-displayName: Url Redirect
+    description: <SchemaDefinition schemaRef="#/components/schemas/UrlRedirect" />
   - name: VisualChange_model
     x-displayName: Visual Change
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
@@ -14996,6 +15005,9 @@ paths:
                   type: string
                 fallbackAttribute:
                   type: string
+                holdoutId:
+                  description: Run inside this holdout
+                  type: string
                 attributeScopeAllProjects:
                   description: >-
                     Picker preference: show attributes from all projects in this
@@ -15704,6 +15716,11 @@ paths:
                   type: string
                 fallbackAttribute:
                   type: string
+                holdoutId:
+                  description: >-
+                    Run inside this holdout. Only a draft without linked changes
+                    can change or leave it; "" leaves.
+                  type: string
                 attributeScopeAllProjects:
                   description: >-
                     Picker preference: show attributes from all projects in this
@@ -16270,6 +16287,40 @@ paths:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteExperiment
+      summary: Delete an experiment
+      description: >-
+        Also deletes its visual changesets and removes it from presentations and
+        its holdout. Experiment rules on linked Feature Flags are not removed.
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start-checklist:
     get:
@@ -17102,6 +17153,453 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"comment":"This looks good to ship."}'
+  /v1/experiments/{id}/restart:
+    post:
+      operationId: postExperimentRestart
+      summary: Restart a stopped experiment
+      description: >-
+        Reopens the last phase. Bandits start a new phase with fresh buckets
+        instead, since a bandit phase can't be resumed.
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  description: Defaults to running
+                  type: string
+                  enum:
+                    - running
+                    - draft
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/restart' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/phases:
+    post:
+      operationId: postExperimentPhase
+      summary: Start a new phase of a running experiment
+      description: >-
+        Ends the current phase and starts another, e.g. to change targeting or
+        traffic and re-randomize.
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: >-
+                Targeting fields that are omitted carry over from the current
+                phase
+              type: object
+              properties:
+                releasePlan:
+                  description: >-
+                    `new-phase` (default) re-randomizes everyone.
+                    `new-phase-same-seed` keeps assignments.
+                    `new-phase-block-sticky` re-randomizes and also drops users
+                    sticky-bucketed in earlier phases. Bucket versions only
+                    change when sticky bucketing is on.
+                  type: string
+                  enum:
+                    - new-phase
+                    - new-phase-same-seed
+                    - new-phase-block-sticky
+                reason:
+                  description: Recorded on the phase being ended
+                  type: string
+                condition:
+                  type: string
+                savedGroups:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                coverage:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                namespace:
+                  anyOf:
+                    - type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                        name:
+                          type: string
+                        range:
+                          type: array
+                          prefixItems:
+                            - type: number
+                            - type: number
+                        format:
+                          type: string
+                          const: legacy
+                      required:
+                        - enabled
+                        - name
+                        - range
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                        name:
+                          type: string
+                        ranges:
+                          type: array
+                          items:
+                            type: array
+                            prefixItems:
+                              - type: number
+                              - type: number
+                        hashAttribute:
+                          type: string
+                        hashVersion:
+                          type: number
+                        format:
+                          type: string
+                          const: multiRange
+                      required:
+                        - enabled
+                        - name
+                        - ranges
+                        - format
+                      additionalProperties: false
+                variationWeights:
+                  type: array
+                  items:
+                    type: number
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/phases' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"coverage":0.5,"reason":"Ramp to 50%"}'
+  /v1/experiments/{id}/phases/{phase}:
+    delete:
+      operationId: deleteExperimentPhase
+      summary: Delete an experiment phase
+      description: >-
+        Also cleans up snapshots and incremental-refresh data for the phase,
+        which replacing `phases` on update does not. The only phase can't be
+        deleted.
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+        - name: phase
+          in: path
+          required: true
+          description: Zero-based phase index
+          schema:
+            description: Zero-based phase index
+            type: integer
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/experiments/{id}/phases/{phase}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/launch-checklist:
+    get:
+      operationId: getLaunchChecklist
+      summary: Get the pre-launch checklist for the organization or a Project
+      tags:
+        - experiments
+      parameters:
+        - name: projectId
+          in: query
+          description: >-
+            Omit for the organization-wide checklist. A Project's checklist
+            replaces the organization's for its experiments.
+          schema:
+            description: >-
+              Omit for the organization-wide checklist. A Project's checklist
+              replaces the organization's for its experiments.
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  launchChecklist:
+                    anyOf:
+                      - title: Launch Checklist
+                        $ref: '#/components/schemas/LaunchChecklist'
+                      - type: 'null'
+                required:
+                  - launchChecklist
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/launch-checklist' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: putLaunchChecklist
+      summary: Create or replace a pre-launch checklist
+      description: >-
+        Requires the custom pre-launch checklist feature. The organization
+        checklist needs permission to manage settings; a Project's needs
+        permission to update the Project.
+      tags:
+        - experiments
+      parameters:
+        - name: projectId
+          in: query
+          description: >-
+            Omit for the organization-wide checklist. A Project's checklist
+            replaces the organization's for its experiments.
+          schema:
+            description: >-
+              Omit for the organization-wide checklist. A Project's checklist
+              replaces the organization's for its experiments.
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tasks:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      task:
+                        description: Shown to the person launching
+                        type: string
+                        minLength: 1
+                      completionType:
+                        description: >-
+                          `auto` items are checked off from the experiment
+                          itself
+                        type: string
+                        enum:
+                          - manual
+                          - auto
+                      url:
+                        description: Optional link shown with the task
+                        type: string
+                      propertyKey:
+                        description: >-
+                          For `auto` items: the experiment field that must be
+                          set
+                        type: string
+                        enum:
+                          - description
+                          - hypothesis
+                          - project
+                          - tag
+                          - screenshots
+                          - prerequisiteTargeting
+                          - customField
+                          - schedule
+                      customFieldId:
+                        description: When propertyKey is `customField`
+                        type: string
+                    required:
+                      - task
+                      - completionType
+                    additionalProperties: false
+              required:
+                - tasks
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  launchChecklist:
+                    $ref: '#/components/schemas/LaunchChecklist'
+                required:
+                  - launchChecklist
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/launch-checklist' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteLaunchChecklist
+      summary: Delete a Project's pre-launch checklist
+      description: >-
+        Its experiments fall back to the organization checklist. The
+        organization checklist itself can't be deleted, only emptied.
+      tags:
+        - experiments
+      parameters:
+        - name: projectId
+          in: query
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/launch-checklist' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/visual-changesets:
     get:
       operationId: listVisualChangesets
@@ -21285,6 +21783,32 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"editorUrl":"https://example.com/"}'
+    delete:
+      operationId: deleteVisualChangeset
+      summary: Delete a visual changeset
+      tags:
+        - visual-changesets
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/visual-changesets/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/visual-changesets/{id}/visual-change:
     post:
       operationId: postVisualChange
@@ -36242,6 +36766,32 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/reports/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteReport
+      summary: Delete a report
+      description: Deleting another user's report needs permission to delete any report.
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/reports/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/reports/{id}/refresh:
     post:
@@ -56899,6 +57449,36 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/holdouts/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteHoldout
+      summary: Delete a single holdout
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/holdouts/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/holdouts:
     post:
       operationId: createHoldout
@@ -57606,6 +58186,218 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/auto-runs/{id}/artifacts' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/url-redirects/{id}:
+    get:
+      operationId: getUrlRedirect
+      summary: Get a single urlRedirect
+      tags:
+        - UrlRedirects
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  urlRedirect:
+                    $ref: '#/components/schemas/UrlRedirect'
+                required:
+                  - urlRedirect
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/url-redirects/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteUrlRedirect
+      summary: Delete a single urlRedirect
+      tags:
+        - UrlRedirects
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/url-redirects/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateUrlRedirect
+      summary: Update a single urlRedirect
+      tags:
+        - UrlRedirects
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urlPattern:
+                  type: string
+                destinationURLs:
+                  description: >-
+                    Must include every variation in the experiment's latest
+                    phase
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      variation:
+                        type: string
+                    required:
+                      - url
+                      - variation
+                    additionalProperties: false
+                persistQueryString:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  urlRedirect:
+                    $ref: '#/components/schemas/UrlRedirect'
+                required:
+                  - urlRedirect
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/url-redirects/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/url-redirects:
+    post:
+      operationId: createUrlRedirect
+      summary: Create a single urlRedirect
+      description: >-
+        Rejected if the origin or destinations overlap another running redirect,
+        which would loop.
+      tags:
+        - UrlRedirects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                experiment:
+                  type: string
+                urlPattern:
+                  type: string
+                destinationURLs:
+                  description: >-
+                    Must include every variation in the experiment's latest
+                    phase
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      variation:
+                        type: string
+                    required:
+                      - url
+                      - variation
+                    additionalProperties: false
+                persistQueryString:
+                  type: boolean
+              required:
+                - experiment
+                - urlPattern
+                - destinationURLs
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  urlRedirect:
+                    $ref: '#/components/schemas/UrlRedirect'
+                required:
+                  - urlRedirect
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/url-redirects' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listUrlRedirects
+      summary: Get all urlRedirects
+      tags:
+        - UrlRedirects
+      parameters:
+        - name: experimentId
+          in: query
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  urlRedirects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UrlRedirect'
+                required:
+                  - urlRedirects
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/url-redirects' \
               -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
@@ -62589,6 +63381,9 @@ components:
           type: string
         fallbackAttribute:
           type: string
+        holdoutId:
+          description: The holdout this experiment runs inside, if any
+          type: string
         hashVersion:
           anyOf:
             - type: number
@@ -63392,6 +64187,9 @@ components:
               type: string
             fallbackAttribute:
               type: string
+            holdoutId:
+              description: The holdout this experiment runs inside, if any
+              type: string
             hashVersion:
               anyOf:
                 - type: number
@@ -63734,6 +64532,64 @@ components:
                 - status
               additionalProperties: false
           additionalProperties: false
+    LaunchChecklist:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          description: Empty for the organization-wide checklist
+          type: string
+        tasks:
+          type: array
+          items:
+            type: object
+            properties:
+              task:
+                description: Shown to the person launching
+                type: string
+                minLength: 1
+              completionType:
+                description: '`auto` items are checked off from the experiment itself'
+                type: string
+                enum:
+                  - manual
+                  - auto
+              url:
+                description: Optional link shown with the task
+                type: string
+              propertyKey:
+                description: 'For `auto` items: the experiment field that must be set'
+                type: string
+                enum:
+                  - description
+                  - hypothesis
+                  - project
+                  - tag
+                  - screenshots
+                  - prerequisiteTargeting
+                  - customField
+                  - schedule
+              customFieldId:
+                description: When propertyKey is `customField`
+                type: string
+            required:
+              - task
+              - completionType
+            additionalProperties: false
+        dateCreated:
+          format: date-time
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - projectId
+        - tasks
+        - dateCreated
+        - dateUpdated
+      additionalProperties: false
     VisualChangeset:
       type: object
       properties:
@@ -76570,6 +77426,48 @@ components:
         - dateCompleted
         - url
       additionalProperties: false
+    UrlRedirect:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        experiment:
+          description: The experiment this redirect belongs to
+          type: string
+        urlPattern:
+          description: Visitors on URLs matching this are redirected
+          type: string
+        destinationURLs:
+          description: One destination per variation id
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              variation:
+                type: string
+            required:
+              - url
+              - variation
+            additionalProperties: false
+        persistQueryString:
+          type: boolean
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - experiment
+        - urlPattern
+        - destinationURLs
+        - persistQueryString
+      additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -79860,6 +80758,7 @@ x-tagGroups:
       - Learnings
       - Holdouts
       - AutoRuns
+      - UrlRedirects
   - name: Models
     tags:
       - AggregatedFactTable_model
@@ -79932,6 +80831,7 @@ x-tagGroups:
       - Holdout_model
       - InformationSchema_model
       - InformationSchemaTable_model
+      - LaunchChecklist_model
       - Learning_model
       - LookbackOverride_model
       - Member_model
@@ -79967,5 +80867,6 @@ x-tagGroups:
       - Targeting Rule_model
       - TargetingReviewRule_model
       - Team_model
+      - UrlRedirect_model
       - VisualChange_model
       - VisualChangeset_model
