@@ -20,6 +20,7 @@ export type {
   FeatureDefinition,
   FeatureRule,
   FeatureResult,
+  FeatureResultReason,
   FeatureResultSource,
   Experiment,
   Result,
