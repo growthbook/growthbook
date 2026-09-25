@@ -180,7 +180,7 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
           })
           .join("\n")}
       FROM __newCovariateValues c
-      )
+      ) __insertRows
       `,
     dialect.formatDialect,
   );

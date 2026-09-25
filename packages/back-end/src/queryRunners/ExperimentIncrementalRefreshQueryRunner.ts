@@ -68,6 +68,7 @@ import {
   conversionWindowQueryNameSuffix,
   getOverriddenMetricConversionWindowHours,
   partitionMetricsByConversionWindow,
+  getStatisticsQueryChunks,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
 import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
@@ -1040,18 +1041,24 @@ const startExperimentIncrementalRefreshQueries = async (
     // whose numerator and denominator both live in this FT. Caches that
     // only host one half of a cross-FT ratio skip this — those metrics'
     // stats are computed in the cross-FT pair pass below.
-    // skipPartialData: one stats query per conversion window over the shared table.
+    // skipPartialData: one stats query per conversion window over the shared
+    // table, split further per quantile metric without efficient percentiles.
     if (sameFtMetrics.length > 0) {
-      const partitions = partitionMetricsByConversionWindow(
+      const chunks = partitionMetricsByConversionWindow(
         sameFtMetrics,
         snapshotSettings.skipPartialData,
         activationMetric,
+      ).flatMap((partition) =>
+        getStatisticsQueryChunks(
+          partition,
+          !!integration.getSourceProperties().hasEfficientPercentiles,
+        ),
       );
-      for (const partition of partitions) {
-        // Quantiles only run overall stats. Recheck per partition so a mixed
+      for (const chunk of chunks) {
+        // Quantiles only run overall stats. Recheck per chunk so a mixed
         // quantile/mean group only disables precomputation on the quantile slice.
         const runOverallQuantileAnalysis =
-          partition.metrics.some(quantileMetricType);
+          chunk.metrics.some(quantileMetricType);
         const dimensionsForPrecomputation =
           org.settings?.disablePrecomputedDimensions ||
           runOverallQuantileAnalysis
@@ -1059,7 +1066,7 @@ const startExperimentIncrementalRefreshQueries = async (
             : eligibleDimensionsWithSlicesUnderMaxCells;
 
         const statisticsQuery = await startQuery({
-          name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`,
+          name: `statistics_${group.groupId}${chunk.nameSuffix}`,
           displayTitle: `Compute Statistics ${sourceName}`,
           query: integration.getIncrementalRefreshStatisticsQuery({
             settings: snapshotSettings,
@@ -1067,7 +1074,7 @@ const startExperimentIncrementalRefreshQueries = async (
             activationMetric: activationMetric,
             factTableMap: params.factTableMap,
             unitsSourceTableFullName: unitsTableFullName,
-            metrics: partition.metrics,
+            metrics: chunk.metrics,
             lastMaxTimestamp: existingSource?.maxTimestamp || null,
             dimensionsForPrecomputation,
             dimensionsForAnalysis: [],

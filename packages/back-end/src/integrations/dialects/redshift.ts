@@ -7,6 +7,17 @@ import { baseDialect } from "./base";
 const redshiftEscapeStringLiteral = (value: string) =>
   value.replace(/\\/g, "\\\\").replace(/'/g, "''");
 
+const redshiftDataTypes: Partial<Record<DataType, string>> = {
+  // Bare VARCHAR in DDL is VARCHAR(256), too short for long ids or dimension values.
+  string: "VARCHAR(65535)",
+  // Bare DOUBLE is not a Redshift type.
+  float: "DOUBLE PRECISION",
+  // HLL_CREATE_SKETCH/HLL_COMBINE return HLLSKETCH; casting to VARBINARY fails, so cast to HLLSKETCH (no-op) instead.
+  hll: "HLLSKETCH",
+  // What arrayAggSorted's SPLIT_TO_ARRAY returns.
+  arrayTimestamp: "SUPER",
+};
+
 export const redshiftDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "redshift",
@@ -23,15 +34,18 @@ export const redshiftDialect: SqlDialect = {
   formatDate: (col: string) => `to_char(${col}, 'YYYY-MM-DD')`,
   formatDateTimeString: (col: string) =>
     `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`,
+  // TIMESTAMP holds microseconds; US prints all six.
+  formatTimestampExact: (col: string) =>
+    `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.US')`,
+  // CURRENT_TIMESTAMP is leader-node only and errors in a query that reads user tables.
+  getCurrentTimestamp: () => "GETDATE()",
   castToFloat: (col: string) => `${col}::float`,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `HLL_CREATE_SKETCH(${col})`,
   hllReaggregate: (col: string) => `HLL_COMBINE(${col})`,
   hllCardinality: (col: string) => `HLL_CARDINALITY(${col})`,
-  // HLL_CREATE_SKETCH/HLL_COMBINE return HLLSKETCH; casting to VARBINARY fails, so cast to HLLSKETCH (no-op) instead.
-  getDataType: (dataType: DataType): string => {
-    return dataType === "hll" ? "HLLSKETCH" : baseDialect.getDataType(dataType);
-  },
+  getDataType: (dataType: DataType): string =>
+    redshiftDataTypes[dataType] ?? baseDialect.getDataType(dataType),
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
       .split(".")

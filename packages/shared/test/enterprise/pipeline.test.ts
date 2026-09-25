@@ -2,6 +2,7 @@ import {
   getExperimentSourceSnapshotRef,
   getIncrementalFullRefreshReasons,
   getIncrementalPipelineUnsupportedReason,
+  getIncrementalUnsupportedMetricReason,
   isExperimentIncrementalEnabled,
   isNewerOverallResultsDataAvailable,
   overallResultsBuiltWithoutIncrementalPipeline,
@@ -365,6 +366,7 @@ const unsupportedReasonBaseParams = {
   datasourceProperties: {
     hasIncrementalRefresh: true,
     hasQuantileSketch: true,
+    hasArrayConcatAgg: true,
   },
   pipelineSettings: makePipelineSettings(),
   experimentId,
@@ -450,6 +452,21 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
     ).toBeNull();
   });
 
+  it("flags funnel metrics on a data source that can't merge arrays", () => {
+    expect(
+      getIncrementalPipelineUnsupportedReason({
+        ...unsupportedReasonBaseParams,
+        datasourceProperties: {
+          hasIncrementalRefresh: true,
+          hasQuantileSketch: true,
+        },
+        metrics: [makeFunnelMetric()],
+      }),
+    ).toBe(
+      "Funnel metrics are not supported with Incremental Pipeline mode on this Data Source.",
+    );
+  });
+
   it("flags event quantile metrics on a data source without quantile sketches", () => {
     expect(
       getIncrementalPipelineUnsupportedReason({
@@ -472,6 +489,23 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
         metrics: [makeEventQuantileMetric()],
       }),
     ).toBeNull();
+  });
+
+  it("reports legacy metrics before event quantile metrics in any order", () => {
+    const legacyReason =
+      "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.";
+    for (const metrics of [
+      [makeEventQuantileMetric(), makeLegacyMetric()],
+      [makeLegacyMetric(), makeEventQuantileMetric()],
+    ]) {
+      expect(
+        getIncrementalPipelineUnsupportedReason({
+          ...unsupportedReasonBaseParams,
+          datasourceProperties: { hasIncrementalRefresh: true },
+          metrics,
+        }),
+      ).toBe(legacyReason);
+    }
   });
 
   it("returns the highest-priority reason when several apply", () => {
@@ -525,6 +559,38 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
     ).toBe(
       "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.",
     );
+  });
+});
+
+describe("getIncrementalUnsupportedMetricReason", () => {
+  const funnelReason =
+    "Funnel metrics are not supported with Incremental Pipeline mode on this Data Source.";
+
+  it("flags funnel metrics unless the data source can merge arrays", () => {
+    expect(
+      getIncrementalUnsupportedMetricReason(makeFunnelMetric(), undefined),
+    ).toBe(funnelReason);
+    expect(
+      getIncrementalUnsupportedMetricReason(makeFunnelMetric(), {
+        hasQuantileSketch: true,
+      }),
+    ).toBe(funnelReason);
+    expect(
+      getIncrementalUnsupportedMetricReason(makeFunnelMetric(), {
+        hasArrayConcatAgg: false,
+      }),
+    ).toBe(funnelReason);
+    expect(
+      getIncrementalUnsupportedMetricReason(makeFunnelMetric(), {
+        hasArrayConcatAgg: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("does not need array merging for other fact metrics", () => {
+    expect(
+      getIncrementalUnsupportedMetricReason(makeFactMetric(), undefined),
+    ).toBeNull();
   });
 });
 

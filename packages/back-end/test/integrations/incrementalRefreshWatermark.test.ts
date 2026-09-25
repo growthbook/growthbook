@@ -4,6 +4,7 @@ import BigQuery from "back-end/src/integrations/BigQuery";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
 import { prestoDialect } from "back-end/src/integrations/dialects/presto";
+import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
 import { baseDialect } from "back-end/src/integrations/dialects/base";
 import {
   afterWatermark,
@@ -103,6 +104,9 @@ describe("formatTimestampExact", () => {
     );
     expect(prestoDialect.formatTimestampExact("MAX(t)")).toBe(
       "cast(MAX(t) as varchar)",
+    );
+    expect(redshiftDialect.formatTimestampExact("MAX(t)")).toBe(
+      "to_char(MAX(t), 'YYYY-MM-DD HH24:MI:SS.US')",
     );
     expect(baseDialect.formatTimestampExact("MAX(t)")).toBe("NULL");
   });

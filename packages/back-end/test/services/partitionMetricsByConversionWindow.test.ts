@@ -9,6 +9,7 @@ import {
   conversionWindowMinutesKey,
   conversionWindowQueryNameSuffix,
   getMetricConversionWindowHours,
+  getStatisticsQueryChunks,
   getOverriddenMetricConversionWindowHours,
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
@@ -294,5 +295,76 @@ describe("getOverriddenMetricConversionWindowHours", () => {
     expect(longWindowMetric.windowSettings.windowValue).toBe(3);
     expect(longWindowMetric.windowSettings.windowUnit).toBe("days");
     expect(longWindowMetric.windowSettings.delayValue).toBe(1);
+  });
+});
+
+describe("getStatisticsQueryChunks", () => {
+  const unitQuantile = (id: string) =>
+    factMetricFactory.build({
+      id,
+      metricType: "quantile",
+      numerator: {
+        factTableId: "ft_events",
+        column: "amount",
+        aggregation: "sum",
+      },
+      quantileSettings: { type: "unit", quantile: 0.5, ignoreZeros: false },
+    });
+  const q1 = unitQuantile("fact_q1");
+  const q2 = unitQuantile("fact_q2");
+  const noWindow = { window: null };
+  const hourWindow = { window: { hours: 1, key: "60m" } };
+  const summarize = (chunks: ReturnType<typeof getStatisticsQueryChunks>) =>
+    chunks.map((c) => [c.nameSuffix, c.metrics.map((m) => m.id)]);
+
+  it("keeps every metric in one unsuffixed chunk with efficient percentiles", () => {
+    const metrics = [shortWindowMetric, q1, q2];
+    const chunks = getStatisticsQueryChunks({ ...noWindow, metrics }, true);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].metrics).toBe(metrics);
+    expect(chunks[0].nameSuffix).toBe("");
+  });
+
+  it("keeps the conversion-window suffix alone when nothing is split", () => {
+    expect(
+      summarize(
+        getStatisticsQueryChunks({ ...hourWindow, metrics: [q1, q2] }, true),
+      ),
+    ).toEqual([["_cw60m", ["fact_q1", "fact_q2"]]]);
+    for (const metrics of [[q1], [shortWindowMetric, longWindowMetric]]) {
+      const chunks = getStatisticsQueryChunks(
+        { ...hourWindow, metrics },
+        false,
+      );
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].metrics).toBe(metrics);
+      expect(chunks[0].nameSuffix).toBe("_cw60m");
+    }
+  });
+
+  it("gives each quantile metric its own chunk without efficient percentiles", () => {
+    expect(
+      summarize(
+        getStatisticsQueryChunks(
+          {
+            ...noWindow,
+            metrics: [q1, shortWindowMetric, q2, longWindowMetric],
+          },
+          false,
+        ),
+      ),
+    ).toEqual([
+      ["", ["fact_short_window", "fact_long_window"]],
+      ["_fact_q1", ["fact_q1"]],
+      ["_fact_q2", ["fact_q2"]],
+    ]);
+    expect(
+      summarize(
+        getStatisticsQueryChunks({ ...hourWindow, metrics: [q1, q2] }, false),
+      ),
+    ).toEqual([
+      ["_cw60m_fact_q1", ["fact_q1"]],
+      ["_cw60m_fact_q2", ["fact_q2"]],
+    ]);
   });
 });

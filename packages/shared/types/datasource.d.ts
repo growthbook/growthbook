@@ -152,6 +152,7 @@ export interface DataSourceProperties {
   hasQuantileSketch?: boolean;
   hasIncrementalRefresh?: boolean;
   hasArrayQuantileGrid?: boolean;
+  hasArrayConcatAgg?: boolean;
   maxColumns: number;
 }
 

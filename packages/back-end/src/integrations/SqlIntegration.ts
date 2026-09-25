@@ -364,6 +364,7 @@ export default abstract class SqlIntegration
       hasQuantileSketch: this.hasQuantileSketch(),
       hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
       hasArrayQuantileGrid: this.getSqlDialect().hasArrayQuantileGrid(),
+      hasArrayConcatAgg: !!this.getSqlDialect().arrayConcatAgg,
       maxColumns: 1000,
     };
   }
@@ -2499,7 +2500,7 @@ export default abstract class SqlIntegration
           , dv.metric_date AS metric_date
         FROM __newDailyValues dv
         CROSS JOIN __maxTimestamp mt
-)
+) __insertRows
       `,
       this.getSqlDialect().formatDialect,
     );
@@ -2758,7 +2759,15 @@ export default abstract class SqlIntegration
                 if (stepIndex === 0) {
                   return `, MIN(umj.${funnelStepResolvedTsColumn(prefix, 0)}) AS ${funnelStepResolvedTsColumn(alias, 0)}`;
                 }
-                return `, ${this.getSqlDialect().arrayConcatAgg(
+                const dialect = this.getSqlDialect();
+                // Backstop: the incremental prerequisite check rejects funnels
+                // on these warehouses before any query runs.
+                if (!dialect.arrayConcatAgg) {
+                  throw new Error(
+                    "Merging arrays across rows is not supported by this data source.",
+                  );
+                }
+                return `, ${dialect.arrayConcatAgg(
                   `umj.${funnelStepArrayColumn(prefix, stepIndex)}`,
                 )} AS ${funnelStepArrayColumn(alias, stepIndex)}`;
               })

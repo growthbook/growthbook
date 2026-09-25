@@ -152,7 +152,7 @@ export function getInsertAggregatedFactTableDataQuery(
         , ${castToTimestamp("MAX(dv.__max_ts) OVER ()")} AS max_timestamp
         ${finalMetricCols}
       FROM __dailyValues dv
-    )
+    ) __insertRows
     `,
     dialect.formatDialect,
   );

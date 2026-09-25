@@ -167,7 +167,12 @@ export interface SqlDialect {
     lowerBound: string | null,
     upperBound: string | null,
   ) => string;
-  arrayConcatAgg: (col: string) => string;
+  /**
+   * Aggregate concatenating the arrays in `col` across the group's rows.
+   * Absent when the warehouse can't merge arrays across rows, which
+   * incremental funnels need to read their per-day step arrays.
+   */
+  arrayConcatAgg?: (col: string) => string;
   getCurrentTimestamp: () => string;
   ifElse: (condition: string, ifTrue: string, ifFalse: string) => string;
   getDataType: (dataType: DataType) => string;

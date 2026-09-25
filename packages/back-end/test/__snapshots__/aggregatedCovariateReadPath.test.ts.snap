@@ -42,7 +42,7 @@ FROM
       COALESCE(c.m0_covariate_value, 0) AS fact_ra1_value
     FROM
       __newCovariateValues c
-  )"
+  ) __insertRows"
 `;
 
 exports[`covariate insert SQL builders legacy builder aligns the per-row covariate window to whole UTC days when requested 1`] = `
@@ -101,7 +101,7 @@ FROM
       COALESCE(c.m0_covariate_value, 0) AS fact_ra14_value
     FROM
       __newCovariateValues c
-  )"
+  ) __insertRows"
 `;
 
 exports[`covariate insert SQL builders legacy builder scans raw events with the per-row covariate window 1`] = `
@@ -160,5 +160,5 @@ FROM
       COALESCE(c.m0_covariate_value, 0) AS fact_ra1_value
     FROM
       __newCovariateValues c
-  )"
+  ) __insertRows"
 `;

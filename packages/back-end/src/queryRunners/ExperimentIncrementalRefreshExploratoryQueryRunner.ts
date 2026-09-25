@@ -36,6 +36,7 @@ import {
   conversionWindowQueryNameSuffix,
   getOverriddenMetricConversionWindowHours,
   partitionMetricsByConversionWindow,
+  getStatisticsQueryChunks,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -268,15 +269,21 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const sourceName = factTable ? `(${factTable.name})` : "";
 
     // Mainly for skipPartialData / conversionWindow
-    // We partition the stats query by conversion window over the same shared table.
-    const partitions = partitionMetricsByConversionWindow(
+    // We partition the stats query by conversion window over the same shared
+    // table, split further per quantile metric without efficient percentiles.
+    const chunks = partitionMetricsByConversionWindow(
       sameFtMetrics,
       snapshotSettings.skipPartialData,
       activationMetric,
+    ).flatMap((partition) =>
+      getStatisticsQueryChunks(
+        partition,
+        !!integration.getSourceProperties().hasEfficientPercentiles,
+      ),
     );
-    for (const partition of partitions) {
+    for (const chunk of chunks) {
       const statisticsQuery = await startQuery({
-        name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`,
+        name: `statistics_${group.groupId}${chunk.nameSuffix}`,
         displayTitle: `Compute Statistics ${sourceName}`,
         query: integration.getIncrementalRefreshStatisticsQuery({
           settings: snapshotSettings,
@@ -301,7 +308,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
             },
           ],
           unitsSourceTableFullName: unitsTableFullName,
-          metrics: partition.metrics,
+          metrics: chunk.metrics,
           lastMaxTimestamp: existingSource?.maxTimestamp || null,
           asOf,
         }),
