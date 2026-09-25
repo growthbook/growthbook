@@ -719,10 +719,9 @@ export class ReqContextClass {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids),
     );
-    // An org doesn't have that many data sources, so we just fetch them all
-    await this.addMissingForeignRefs("datasource", datasource, () =>
-      getDataSourcesByOrganization(this),
-    );
+    if (datasource?.some((id) => !this.foreignRefs.datasource.has(id))) {
+      await this.loadAllDataSourceRefs();
+    }
     await this.addMissingForeignRefs("metric", metric, (ids) =>
       getExperimentMetricsByIds(this, ids),
     );
@@ -730,6 +729,36 @@ export class ReqContextClass {
       getFeaturesByIds(this, ids),
     );
   }
+  // An org doesn't have that many data sources, so we fetch them all, once per
+  // request: concurrent lookups share the load, and an id still missing after
+  // it isn't in the org or isn't readable, so it isn't refetched.
+  private allDataSourceRefs: Promise<void> | null = null;
+  private loadAllDataSourceRefs(): Promise<void> {
+    if (!this.allDataSourceRefs) {
+      const load: Promise<void> = getDataSourcesByOrganization(this).then(
+        (datasources) => {
+          // A forget during the load means these may already be stale.
+          if (this.allDataSourceRefs !== load) return;
+          datasources.forEach((ds) =>
+            this.foreignRefs.datasource.set(ds.id, ds),
+          );
+        },
+        (error) => {
+          if (this.allDataSourceRefs === load) this.allDataSourceRefs = null;
+          throw error;
+        },
+      );
+      this.allDataSourceRefs = load;
+    }
+    return this.allDataSourceRefs;
+  }
+
+  // Called after a data source write, so later reads in the request see it.
+  public forgetDataSourceRefs(): void {
+    this.foreignRefs.datasource.clear();
+    this.allDataSourceRefs = null;
+  }
+
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(
     type: K,
     ids: string[] | undefined,

@@ -343,6 +343,7 @@ export async function deleteDatasource(
     id: datasource.id,
     organization: context.org.id,
   });
+  context.forgetDataSourceRefs();
 
   // Eviction is synchronous; socket teardown can take up to the driver's
   // connect timeout, so don't make the request wait on it
@@ -538,6 +539,7 @@ export async function createDataSource(
   const model = (await DataSourceModel.create(
     datasource,
   )) as DataSourceDocument;
+  context.forgetDataSourceRefs();
 
   const integration = getSourceIntegrationObject(context, datasource);
   if (
@@ -798,6 +800,7 @@ export async function updateDataSource(
       $set: updates,
     },
   );
+  context.forgetDataSourceRefs();
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });
   await touchDefinitionsVersion(
