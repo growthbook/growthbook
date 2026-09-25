@@ -1865,6 +1865,40 @@ describe("SDK payload generation (scenario-specific)", () => {
       expect(rules[0].disableStickyBucketing).toBe(true);
       expect(rules[0].variations).toBeUndefined();
     });
+
+    it("emits the CB's saved groups and prerequisites, not just its condition", async () => {
+      const doc = {
+        ...cbDoc,
+        condition: JSON.stringify({ country: "US" }),
+        savedGroups: [{ match: "all", ids: ["grp_1"] }],
+        prerequisites: [
+          { id: "parent-flag", condition: JSON.stringify({ value: true }) },
+        ],
+      } as unknown as ContextualBanditInterface;
+      const ctx = minimalContext();
+      ctx.models = {
+        contextualBandits: {
+          getById: async (id: string) => (id === "cb1" ? doc : null),
+        },
+      } as unknown as ApiReqContext["models"];
+      const data = cbData();
+      data.groupMap = new Map([
+        ["grp_1", { type: "list", attributeKey: "id", values: ["u1", "u2"] }],
+      ]) as SDKPayloadRawData["groupMap"];
+      const out = await buildSDKPayloadForConnection({
+        context: ctx,
+        connection: connectionForVersion("1.7.0"),
+        data,
+      });
+      const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+      expect(rules?.length).toBe(1);
+      const condition = JSON.stringify(rules[0].condition);
+      expect(condition).toContain('"country":"US"');
+      expect(condition).toContain("grp_1");
+      expect(rules[0].parentConditions).toEqual([
+        { id: "parent-flag", condition: { value: true } },
+      ]);
+    });
   });
 
   // Regression: the legacy SDK payload path read per-env rule arrays, so a

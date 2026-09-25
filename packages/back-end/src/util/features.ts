@@ -1366,12 +1366,31 @@ export function getFeatureDefinition({
 
           if (cb.status === "draft") return null;
 
+          // Same targeting inputs as the CB's own doc: condition, saved
+          // groups and prerequisites (the last two were previously stored on
+          // the CB but never emitted).
           const phaseCondition = mergeConditionAndSavedGroups({
             savedGroupStrategy,
             condition: cb.condition,
+            savedGroups: cb.savedGroups,
           });
           if (phaseCondition) {
             rule.condition = phaseCondition;
+          }
+
+          const cbPrerequisites = (cb.prerequisites ?? [])
+            .map((p) => {
+              const condition = mergeConditionAndSavedGroups({
+                savedGroupStrategy,
+                condition: p.condition,
+              });
+              if (!condition) return null;
+              return { id: p.id, condition };
+            })
+            .filter(isDefined);
+          if (!hasPrerequisites && cbPrerequisites.length) return null;
+          if (cbPrerequisites.length) {
+            rule.parentConditions = cbPrerequisites;
           }
 
           rule.coverage = cb.coverage;
@@ -1435,6 +1454,8 @@ export function getFeatureDefinition({
 
           if (rule.condition)
             savedGroupStrategy.finalizeCondition(rule.condition);
+          if (rule.parentConditions)
+            savedGroupStrategy.finalizeCondition(rule.parentConditions);
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
