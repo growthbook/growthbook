@@ -230,7 +230,7 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
       filterOrder={["variation", ...dimensions]}
       filterLabels={{ variation: "Variation" }}
       emptyMessage="No exposures found for this time range."
-      idleMessage="Click Update to load exposure records."
+      idleMessage="Press Enter or click Update to load exposure records."
       warning={warning}
     />
   );

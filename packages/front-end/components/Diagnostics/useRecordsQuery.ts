@@ -1,17 +1,9 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import useApi from "@/hooks/useApi";
 import { SyntaxFilter, transformQuery } from "@/services/search";
 import { useSearchFiltersBase } from "@/components/Search/SearchFilters";
 import { toSafeFilterKeys } from "./format";
 import { DEFAULT_TIME_RANGES, TimeRangeOption } from "./types";
-
-const SEARCH_DEBOUNCE_MS = 300;
 
 function buildDateRange(
   hours: number,
@@ -61,8 +53,12 @@ export interface UseRecordsQueryResult<TRow, TResponse> {
   hasRun: boolean;
   canRun: boolean;
   autoRun: boolean;
-  refresh: () => void;
+  /** Applies the staged search and time range, and re-queries the warehouse. */
+  submit: () => void;
+  /** Staged edits the user has not submitted yet. */
+  hasPendingChanges: boolean;
 
+  /** Staged: takes effect on the next submit, not on selection. */
   rangeHours: number;
   setRangeHours: (hours: number) => void;
   timeRanges: TimeRangeOption[];
@@ -101,15 +97,14 @@ export default function useRecordsQuery<TRow, TResponse>({
   TRow,
   TResponse
 > {
-  const [rangeHours, setRangeHoursRaw] = useState(defaultRangeHours);
   const [page, setPageRaw] = useState(1);
-  // What the box shows, vs. what the query ran with. Typing settles into the
-  // second after a pause; picking a filter applies at once. Same split as
-  // useFeatureContentSearch.
+  // Every filter control is staged: what the control shows, vs. what the query
+  // actually ran with. Only submit closes the gap, so a customer's warehouse is
+  // never billed for a keystroke or a stray dropdown pick.
   const [searchValue, setSearchValue] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
-  const applyNowRef = useRef(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [rangeHours, setRangeHours] = useState(defaultRangeHours);
+  const [appliedRangeHours, setAppliedRangeHours] = useState(defaultRangeHours);
   const [windowEndTime, setWindowEndTime] = useState(() => Date.now());
   const [stateEndpoint, setStateEndpoint] = useState(endpoint);
   const [committedQs, setCommittedQs] = useState<string | null>(null);
@@ -119,7 +114,8 @@ export default function useRecordsQuery<TRow, TResponse>({
   useEffect(() => {
     if (endpointIsCurrent) return;
     setStateEndpoint(endpoint);
-    setRangeHoursRaw(defaultRangeHours);
+    setRangeHours(defaultRangeHours);
+    setAppliedRangeHours(defaultRangeHours);
     setPageRaw(1);
     setSearchValue("");
     setAppliedSearch("");
@@ -127,21 +123,6 @@ export default function useRecordsQuery<TRow, TResponse>({
     setCommittedQs(null);
     setCommitRequested(false);
   }, [defaultRangeHours, endpoint, endpointIsCurrent]);
-
-  useEffect(() => {
-    if (searchValue === appliedSearch) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const delay = applyNowRef.current ? 0 : SEARCH_DEBOUNCE_MS;
-    applyNowRef.current = false;
-    debounceRef.current = setTimeout(() => {
-      setAppliedSearch(searchValue);
-      setPageRaw(1);
-      setCommitRequested(true);
-    }, delay);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [searchValue, appliedSearch]);
 
   const safeFilterKeys = useMemo(
     () => toSafeFilterKeys(filterKeys),
@@ -168,10 +149,15 @@ export default function useRecordsQuery<TRow, TResponse>({
     return { syntaxFilters, searchTerm, getFilterValue };
   }, [appliedSearch, safeFilterKeys]);
 
-  // Keep the time window fixed while filtering and paging so every request
-  // operates on the same dataset. Update and range changes re-anchor it.
-  const draftQs = useMemo(() => {
-    const { startDate, endDate } = buildDateRange(rangeHours, windowEndTime);
+  // Built only from applied state, never from staged controls, so paging cannot
+  // quietly ship a range the user picked but never submitted. The window stays
+  // fixed while paging so every request sees the same dataset; submit
+  // re-anchors it.
+  const appliedQs = useMemo(() => {
+    const { startDate, endDate } = buildDateRange(
+      appliedRangeHours,
+      windowEndTime,
+    );
     const params = buildParams({
       startDate,
       endDate,
@@ -190,7 +176,7 @@ export default function useRecordsQuery<TRow, TResponse>({
     // the key every render. Everything it closes over reaches us through
     // `parsed`, which is in the dep list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rangeHours, windowEndTime, page, pageSize, parsed]);
+  }, [appliedRangeHours, windowEndTime, page, pageSize, parsed]);
 
   const { data, error, isValidating } = useApi<TResponse>(
     `${endpoint}?${committedQs}`,
@@ -203,8 +189,8 @@ export default function useRecordsQuery<TRow, TResponse>({
   );
 
   // Only the first load is automatic, and only where compute is ours, so a
-  // customer's warehouse is never hit just by opening the tab. Once it has run
-  // once, control changes re-query on their own.
+  // customer's warehouse is never hit just by opening the tab. Afterwards every
+  // re-query goes through submit.
   useEffect(() => {
     if (!canRun || !isActive || !autoRun || !endpointIsCurrent) return;
     if (committedQs !== null) return;
@@ -212,23 +198,23 @@ export default function useRecordsQuery<TRow, TResponse>({
     setCommitRequested(true);
   }, [canRun, isActive, autoRun, endpointIsCurrent, committedQs]);
 
+  // Runs after the staged values above have landed in applied state, so the
+  // committed query string is the one the user actually asked for.
   useEffect(() => {
     if (!commitRequested || !isActive || !endpointIsCurrent) return;
-    setCommittedQs(draftQs);
+    setCommittedQs(appliedQs);
     setCommitRequested(false);
-  }, [commitRequested, draftQs, endpointIsCurrent, isActive]);
+  }, [commitRequested, appliedQs, endpointIsCurrent, isActive]);
 
-  const refresh = useCallback(() => {
-    setWindowEndTime((previous) => Math.max(Date.now(), previous + 1));
-    setCommitRequested(true);
-  }, []);
-
-  const setRangeHours = useCallback((hours: number) => {
-    setRangeHoursRaw(hours);
+  // The only path to the warehouse, shared by the Enter key and the Update
+  // button. Results start from page 1 because the window has moved.
+  const submit = useCallback(() => {
+    setAppliedSearch(searchValue);
+    setAppliedRangeHours(rangeHours);
     setWindowEndTime((previous) => Math.max(Date.now(), previous + 1));
     setPageRaw(1);
     setCommitRequested(true);
-  }, []);
+  }, [searchValue, rangeHours]);
 
   const setPage = useCallback((next: number) => {
     setPageRaw(next);
@@ -240,12 +226,6 @@ export default function useRecordsQuery<TRow, TResponse>({
     [],
   );
 
-  // Picking a filter or clearing is a complete action, so it skips the pause.
-  const setSearchValueAndSubmit = useCallback((v: string) => {
-    applyNowRef.current = true;
-    setSearchValue(v);
-  }, []);
-
   const searchInputProps = useMemo(
     () => ({ value: searchValue, onChange: onSearchChange }),
     [searchValue, onSearchChange],
@@ -255,10 +235,12 @@ export default function useRecordsQuery<TRow, TResponse>({
     useSearchFiltersBase({
       searchInputProps,
       syntaxFilters: liveFilters,
-      setSearchValue: setSearchValueAndSubmit,
+      setSearchValue,
     });
 
   const hasRun = data !== undefined || error !== undefined;
+  const hasPendingChanges =
+    searchValue !== appliedSearch || rangeHours !== appliedRangeHours;
 
   return {
     rows: data ? selectRows(data) : [],
@@ -269,7 +251,8 @@ export default function useRecordsQuery<TRow, TResponse>({
     hasRun,
     canRun,
     autoRun,
-    refresh,
+    submit,
+    hasPendingChanges,
 
     rangeHours,
     setRangeHours,
@@ -281,7 +264,7 @@ export default function useRecordsQuery<TRow, TResponse>({
 
     search: {
       searchInputProps,
-      setSearchValue: setSearchValueAndSubmit,
+      setSearchValue,
       searchTerm: parsed.searchTerm,
       syntaxFilters: liveFilters,
       filterKeys: safeFilterKeys,

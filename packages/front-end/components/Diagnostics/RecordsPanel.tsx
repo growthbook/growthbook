@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowsClockwise } from "react-icons/pi";
+import { PiArrowsClockwise, PiKeyReturn } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { FilterDropdown } from "@/components/Search/SearchFilters";
@@ -78,7 +78,8 @@ export default function RecordsPanel<TRow extends object, TResponse>({
     isRefreshing,
     hasRun,
     autoRun,
-    refresh,
+    submit,
+    hasPendingChanges,
     rangeHours,
     setRangeHours,
     timeRanges,
@@ -124,7 +125,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
             variant="outline"
             size="sm"
             loading={isRefreshing}
-            onClick={refresh}
+            onClick={submit}
             icon={<PiArrowsClockwise />}
           >
             Update
@@ -139,6 +140,24 @@ export default function RecordsPanel<TRow extends object, TResponse>({
             size="sm"
             placeholder={searchPlaceholder}
             {...search.searchInputProps}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              // The field is not in a form, so this only guards against a
+              // parent form picking the key up as an implicit submit.
+              e.preventDefault();
+              submit();
+            }}
+            append={
+              <Button
+                variant={hasPendingChanges ? "soft" : "ghost"}
+                size="sm"
+                onClick={submit}
+                aria-label="Run query"
+                title="Run query (Enter)"
+              >
+                <PiKeyReturn aria-hidden />
+              </Button>
+            }
           />
         </Box>
         {dropdownKeys.map((key) => (
