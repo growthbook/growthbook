@@ -284,9 +284,9 @@ function MyComponent() {
 }
 ```
 
-## Public REST API (`/api/v1/*`)
+## Public REST API (`/api/v1/*`, `/api/v2/*`)
 
-`useApi()` and `apiCall()` target the internal API. They never send the `X-SSO-Connection-ID` header, so a `/api/v1/...` path passed to them fails for Enterprise SSO users. Call the public REST API through `@/services/restApi` with an endpoint object from `shared/api-endpoints` (or a legacy `*Validator` from `shared/validators`). Path, params, body, query, and response types all come from the endpoint.
+`useApi()` and `apiCall()` are for the internal API only. Requests to the public REST API need different handling (headers, URL versioning), so never pass an `/api/v1/...` or `/api/v2/...` path to them. Use `useRestApi()` for reads and `useRestApiCall()` for writes, from `@/services/restApi`, with an endpoint object from `shared/api-endpoints` or `shared/validators`. The endpoint supplies the path, version, and the params, body, query, and response types.
 
 ```typescript
 import { contextualBanditEndpoints } from "shared/api-endpoints";
