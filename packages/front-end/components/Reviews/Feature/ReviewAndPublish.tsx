@@ -61,6 +61,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
+import { timezoneShortLabel } from "shared/dates";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -1033,7 +1034,8 @@ export default function ReviewAndPublish({
         title="Scheduled to publish"
         body={
           <>
-            {format(new Date(revision.scheduledPublishAt as Date), "PPp")}
+            {format(new Date(revision.scheduledPublishAt as Date), "PPp")} (
+            {timezoneShortLabel(new Date(revision.scheduledPublishAt as Date))})
             {lockActive ? "" : " · pending approval"}
           </>
         }
@@ -2982,6 +2984,7 @@ export default function ReviewAndPublish({
                             }
                             precision="datetime"
                             disableBefore={new Date().toISOString()}
+                            showTimezone
                           />
                           <Flex align="center" gap="1" mt="2">
                             <Checkbox

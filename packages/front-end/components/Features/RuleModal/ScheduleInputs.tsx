@@ -4,7 +4,9 @@
 // identical to the ramp schedule path.
 
 import { Flex } from "@radix-ui/themes";
+import { timezoneShortLabel } from "shared/dates";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import DatePicker from "@/components/DatePicker";
 import ScheduleRow from "@/components/Schedule/ScheduleRow";
@@ -138,14 +140,21 @@ export default function ScheduleInputs({
           formatOptionLabel={formatOptionLabel}
         />
         {state.startDate && (
-          <DatePicker
-            date={state.startDate || undefined}
-            setDate={(d) => patchState({ startDate: d ? d.toISOString() : "" })}
-            precision="datetime"
-            containerClassName="mb-0"
-            scheduleEndDate={state.endScheduleAt || undefined}
-            disabled={startDisabled}
-          />
+          <>
+            <DatePicker
+              date={state.startDate || undefined}
+              setDate={(d) =>
+                patchState({ startDate: d ? d.toISOString() : "" })
+              }
+              precision="datetime"
+              containerClassName="mb-0"
+              scheduleEndDate={state.endScheduleAt || undefined}
+              disabled={startDisabled}
+            />
+            <Text size="sm" color="text-low">
+              ({timezoneShortLabel(state.startDate)})
+            </Text>
+          </>
         )}
       </ScheduleRow>
 
@@ -163,21 +172,32 @@ export default function ScheduleInputs({
           formatOptionLabel={formatOptionLabel}
         />
         {endTriggerValue === "specific-time" && (
-          <DatePicker
-            date={state.endScheduleAt || undefined}
-            setDate={(d) =>
-              patchState({ endScheduleAt: d ? d.toISOString() : "" })
-            }
-            precision="datetime"
-            containerClassName="mb-0"
-            scheduleStartDate={state.startDate || undefined}
-            disableBefore={
-              state.startDate ? new Date(state.startDate) : new Date()
-            }
-            disabled={disabled}
-          />
+          <>
+            <DatePicker
+              date={state.endScheduleAt || undefined}
+              setDate={(d) =>
+                patchState({ endScheduleAt: d ? d.toISOString() : "" })
+              }
+              precision="datetime"
+              containerClassName="mb-0"
+              scheduleStartDate={state.startDate || undefined}
+              disableBefore={
+                state.startDate ? new Date(state.startDate) : new Date()
+              }
+              disabled={disabled}
+            />
+            <Text size="sm" color="text-low">
+              ({timezoneShortLabel(state.endScheduleAt || new Date())})
+            </Text>
+          </>
         )}
       </ScheduleRow>
+
+      {(state.startDate || endTriggerValue === "specific-time") && (
+        <Text size="sm" color="text-low">
+          Times are in your local timezone
+        </Text>
+      )}
     </Flex>
   );
 }
