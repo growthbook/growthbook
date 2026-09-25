@@ -61,8 +61,14 @@ export default function SavedGroupTargetingField({
 }: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
-  const { unsupportedConnections, hasLargeSavedGroupFeature, connections } =
-    useLargeSavedGroupSupport(project);
+  const largeSavedGroupSupport = useLargeSavedGroupSupport(project);
+
+  // The picker below lists both kinds of Saved Group, so warn about whichever
+  // this rule actually targets. A Condition Group needs a newer SDK than an
+  // ID List does.
+  const targetsConditionGroup = value.some((v) =>
+    v.ids.some((id) => getSavedGroupById(id)?.type === "condition"),
+  );
 
   const savedGroupsLabel =
     label &&
@@ -201,17 +207,15 @@ export default function SavedGroupTargetingField({
           {labelActions}
         </Flex>
       ) : (
-        savedGroupsLabel && (
-          <Box mb="1">
-            {savedGroupsLabel}
-            <LargeSavedGroupPerformanceWarning
-              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-              unsupportedConnections={unsupportedConnections}
-              connections={connections}
-            />
-          </Box>
-        )
+        savedGroupsLabel && <Box mb="1">{savedGroupsLabel}</Box>
       )}
+      {/* Outside the branch above: `label` has a default, so every call site
+          takes the first one. The warning renders itself away when there is
+          nothing to say. */}
+      <LargeSavedGroupPerformanceWarning
+        {...largeSavedGroupSupport}
+        type={targetsConditionGroup ? "condition" : "list"}
+      />
       {addRemoveSelector}
       <Box>
         {conflicts.length > 0 && (

@@ -776,7 +776,9 @@ export default function CustomHookModal({
           {testResult.error && (
             <div className="mt-3">
               <strong>Error:</strong>
-              <pre className="p-3 bg-light">{testResult.error}</pre>
+              <pre className="p-3 bg-light">
+                <MarkdownLinks text={testResult.error} />
+              </pre>
             </div>
           )}
           {testResult.log && (
