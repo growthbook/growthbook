@@ -31,6 +31,17 @@ describe("dummyUserForRow", () => {
       });
   });
 
+  it("includes a long array, a single-entry array and a number array", () => {
+    const arrays = rows.flatMap((r) =>
+      Object.values(r.attributes).filter(Array.isArray),
+    );
+    expect(arrays.some((a) => a.length >= 6)).toBe(true);
+    expect(arrays.some((a) => a.length === 1)).toBe(true);
+    expect(arrays.some((a) => a.every((v) => typeof v === "number"))).toBe(
+      true,
+    );
+  });
+
   it("keeps a user's attributes identical between rows", () => {
     const byUser = new Map<string, string>();
     rows.forEach((r) => {

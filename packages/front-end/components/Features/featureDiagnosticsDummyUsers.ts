@@ -7,12 +7,14 @@
  * `attributes`, a flat JSON-serializable key/value object — the shape the SDK
  * evaluates against and the one Event Logs already carries
  * (`z.record(z.string(), z.unknown())` in shared/validators/event-logs.ts).
+ * Values are scalars or flat arrays of strings or numbers, matching
+ * GrowthBook's attribute types; no nesting and no nulls.
  *
  * When the real columns land, delete this file and its two uses in
  * getDummyDiagnosticsRows. Nothing else reads it.
  */
 
-type AttributeValue = string | number | boolean;
+type AttributeValue = string | number | boolean | string[] | number[];
 
 interface DummyUser {
   unitId: string;
@@ -51,6 +53,15 @@ const USERS: DummyUser[] = [
       language: "en-US",
       timezone: "America/New_York",
       sessionCount: 87,
+      tags: [
+        "beta",
+        "power-user",
+        "early-adopter",
+        "us-east",
+        "annual-billing",
+        "nps-promoter",
+        "webinar-attendee",
+      ],
     },
   },
   {
@@ -92,8 +103,8 @@ const USERS: DummyUser[] = [
       language: "de-DE",
       timezone: "Europe/Berlin",
       sessionCount: 1540,
-      cartValue: 0,
       seats: 45,
+      permissions: ["billing:admin"],
     },
   },
   {
@@ -171,6 +182,7 @@ const USERS: DummyUser[] = [
       accountAgeDays: 58,
       signupDate: "2026-07-29",
       language: "en-IN",
+      featureGroups: [3, 11, 27],
     },
   },
   {
