@@ -313,7 +313,7 @@ export type Options = {
   /** @deprecated */
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -340,7 +340,7 @@ export type ClientOptions = {
   streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -352,7 +352,7 @@ export type GlobalContext = {
   experiments?: AutoExperiment[];
   enabled?: boolean;
   qaMode?: boolean;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
@@ -489,7 +489,7 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
@@ -616,7 +616,19 @@ export interface StickyAssignmentsDocument {
   assignments: StickyAssignments;
 }
 
+/** The v1 shape: an ID list's values. New code should use SavedGroupsPayload. */
 export type SavedGroupsValues = Record<string, (string | number)[]>;
+
+/** The savedGroupReferencesV2 shape of one saved group, of any type. */
+export type SavedGroupPayloadEntry =
+  | { type: "list"; attributeKey: string; values: (string | number)[] }
+  | { type: "condition"; condition: ConditionInterface };
+
+/** The `savedGroups` payload field. Entries may use either shape above. */
+export type SavedGroupsPayload = Record<
+  string,
+  (string | number)[] | SavedGroupPayloadEntry
+>;
 
 export type BaseLog = {
   timestamp: string;

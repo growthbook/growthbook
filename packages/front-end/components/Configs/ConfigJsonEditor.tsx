@@ -31,6 +31,7 @@ import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -891,7 +892,7 @@ export default function ConfigJsonEditor({
       )}
       {saveError && (
         <Callout status="error" mb="3">
-          {saveError}
+          <MarkdownLinks text={saveError} />
         </Callout>
       )}
       {twoColumns(
