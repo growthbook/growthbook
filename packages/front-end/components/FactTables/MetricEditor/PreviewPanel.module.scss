@@ -1,12 +1,10 @@
 .previewContent,
 .sqlPreview {
-  // Overlay scrollbars don't reserve a gutter, so keep content clear of them.
-  padding-inline-end: var(--space-4);
+  padding: var(--space-4);
 }
 
 .sqlPreview {
   pre {
-    padding-left: var(--space-5) !important;
     max-height: none !important;
     overflow: visible !important;
   }
@@ -21,25 +19,27 @@
 
 .header {
   flex-shrink: 0;
-  padding-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--gray-a5);
 }
 
 .tabs {
-  border: 1px solid var(--gray-a5);
+  padding: 2px;
+  background: var(--gray-a2);
+  border: 1px solid var(--gray-a4);
   border-radius: var(--radius-2);
   box-shadow: none;
-  overflow: hidden;
 
   [role="tab"] {
-    border-radius: 0;
-    height: 30px;
-    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-1);
+    height: 24px;
+    padding: var(--space-1) var(--space-3);
     font-size: 12px;
+    color: var(--gray-11);
 
     :global(.rt-BaseTabListTriggerInner) {
       inset: 0;
-      border-radius: 0;
+      border-radius: var(--radius-1);
     }
 
     &::before,
@@ -47,25 +47,22 @@
       display: none;
     }
 
-    & + [role="tab"] {
-      border-left: 1px solid var(--gray-a5);
-    }
-
     &[data-state="active"] {
-      background: var(--violet-3);
-      color: var(--violet-11);
+      background: var(--color-panel-solid);
+      box-shadow: var(--shadow-1);
+      color: var(--gray-12);
     }
   }
 }
+
 .panel {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  height: clamp(440px, 55dvh, 520px);
-  max-height: min(600px, calc(100dvh - 88px));
   align-self: flex-start;
   width: 100%;
-  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 
   @media (min-width: 1024px) {
     position: sticky;
@@ -77,19 +74,96 @@
 .tabRoot {
   display: flex;
   flex-direction: column;
-  flex: 1;
   min-height: 0;
 }
 
 .content {
-  flex: 1;
   min-height: 0;
   min-width: 0;
   overflow: auto;
-  scrollbar-gutter: stable;
 }
 
-.sqlPanel {
-  height: calc(100dvh - var(--metric-preview-top, 72px) - 16px);
-  max-height: calc(100dvh - var(--metric-preview-top, 72px) - 16px);
+.footer {
+  margin: var(--space-1) calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--gray-a5);
+}
+
+.unitItem[role="option"] {
+  height: auto;
+  min-height: 56px;
+  padding-block: var(--space-2);
+
+  .unitOption {
+    gap: var(--space-1);
+  }
+}
+
+.unitOption {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.unitDescriptor {
+  color: var(--gray-11);
+  font-size: var(--font-size-1);
+}
+
+.unitTrigger .unitDescriptor {
+  display: none;
+}
+
+.ratioDivider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--gray-11);
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--gray-a5);
+  }
+
+  span {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--gray-a5);
+    border-radius: 50%;
+    background: var(--gray-a2);
+  }
+}
+
+.funnelSteps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    gap: var(--space-3);
+    padding-block: var(--space-3);
+    overflow-wrap: anywhere;
+
+    & + li {
+      border-top: 1px solid var(--gray-a5);
+    }
+  }
+}
+
+.stepNumber {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--violet-3);
+  color: var(--violet-11);
+  font-size: var(--font-size-1);
 }

@@ -32,17 +32,13 @@ export default function PreviewPanel({
     : null;
 
   return (
-    <Frame
-      className={`${styles.panel} ${view === "sql" ? styles.sqlPanel : ""}`}
-      p="4"
-      mb="0"
-    >
+    <Frame className={styles.panel} p="0" mb="0">
       <Tabs
         className={styles.tabRoot}
         value={view}
         onValueChange={(v) => setView(v as "preview" | "sql")}
       >
-        <Flex direction="column" gap="2" mb="3" className={styles.header}>
+        <Flex direction="column" gap="2" className={styles.header}>
           <Flex justify="between" align="center">
             <Heading as="h4" size="sm" mb="0">
               Preview
@@ -105,12 +101,11 @@ export default function PreviewPanel({
             forceMount
             className={styles.previewContent}
             style={{
-              height: "100%",
               display: view === "preview" ? undefined : "none",
             }}
           >
             {unavailableReason ? (
-              <Flex direction="column" gap="3" justify="center" height="100%">
+              <Flex direction="column" gap="3">
                 <Text weight="semibold">
                   Preview not available for this metric
                 </Text>

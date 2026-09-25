@@ -13,6 +13,7 @@ import {
   getMetricPreviewDateRange,
   getMetricPreviewSummary,
   getMetricPreviewUnits,
+  getMetricPreviewUnitLabel,
 } from "./metricPreview";
 
 const numerator = {
@@ -55,22 +56,22 @@ it("uses seven complete UTC days, including across month boundaries", () => {
     endDate: "2026-10-02",
   });
 });
-it("sums counts and sums, with their pooled numerator and denominator", () => {
+it("uses a weighted per-unit average for mean metrics", () => {
   expect(
     getMetricPreviewSummary(rows, { metricType: "mean", numerator }),
   ).toMatchObject({
-    value: 600,
+    value: 7.5,
     numerator: 600,
     denominator: 80,
     quotient: 7.5,
-    label: "7-day total",
+    label: "Average per unit-day",
   });
   expect(
     getMetricPreviewSummary(rows, {
       metricType: "mean",
       numerator: { ...numerator, column: "$$count", aggregation: undefined },
     })?.value,
-  ).toBe(600);
+  ).toBe(7.5);
 });
 it("uses a ratio of totals, not an average or sum of daily ratios", () => {
   expect(
@@ -82,20 +83,24 @@ it("uses a ratio of totals, not an average or sum of daily ratios", () => {
     label: "Ratio of 7-day totals",
   });
 });
-it("averages non-additive daily values and labels the result accordingly", () => {
+it("uses the latest quantile and a weighted average for per-unit maxima", () => {
   const quantiles = rows.map((row) => ({
     ...row,
     values: row.values?.map((value) => ({ ...value, denominator: null })),
   }));
   expect(
     getMetricPreviewSummary(quantiles, { metricType: "quantile", numerator }),
-  ).toMatchObject({ value: 300, label: "Average of daily values" });
+  ).toMatchObject({
+    value: 400,
+    label: "Latest daily quantile",
+    date: "2026-09-21",
+  });
   expect(
     getMetricPreviewSummary(rows, {
       metricType: "mean",
       numerator: { ...numerator, aggregation: "max" },
     })?.value,
-  ).toBeCloseTo((10 + 400 / 60) / 2);
+  ).toBe(7.5);
 });
 it("shows daily unit counts instead of a misleading proportion", () => {
   expect(
@@ -107,7 +112,11 @@ it("shows daily unit counts instead of a misleading proportion", () => {
         aggregation: "max",
       },
     }),
-  ).toMatchObject({ value: 600, label: "Sum of daily unit counts" });
+  ).toMatchObject({
+    value: 400,
+    label: "Latest daily matching units",
+    date: "2026-09-21",
+  });
 });
 it("does not invent a value for absent data or a zero denominator", () => {
   expect(
@@ -187,4 +196,78 @@ it("offers only identifiers shared by all funnel steps", () => {
       dateRange: getMetricPreviewDateRange(),
     }).dataset,
   ).toMatchObject({ unit: "account_id" });
+});
+
+describe("getMetricPreviewUnitLabel", () => {
+  it("prefers the display name of the mapped column", () => {
+    expect(
+      getMetricPreviewUnitLabel("user_id", {
+        userIdColumns: { user_id: "customer_key" },
+        columns: [{ column: "customer_key", name: "Members" }],
+      }),
+    ).toEqual({ label: "Members", column: "customer_key" });
+  });
+  it("uses common identifier names and preserves the raw column", () => {
+    expect(getMetricPreviewUnitLabel("userId", null)).toEqual({
+      label: "Users",
+      column: "userId",
+    });
+    expect(
+      getMetricPreviewUnitLabel("account_id", {
+        columns: [],
+        userIdColumns: { account_id: "properties.account" },
+      }),
+    ).toEqual({ label: "Accounts", column: "properties.account" });
+  });
+  it("humanizes unknown identifiers and ignores blank display names", () => {
+    expect(
+      getMetricPreviewUnitLabel("workspace_key", {
+        columns: [{ column: "workspace_key", name: "  " }],
+      }),
+    ).toEqual({ label: "Workspace Key", column: "workspace_key" });
+  });
+});
+
+it("finds the latest populated day regardless of row order", () => {
+  expect(
+    getMetricPreviewSummary([...rows].reverse(), {
+      metricType: "quantile",
+      numerator,
+    }),
+  ).toMatchObject({ value: 400, date: "2026-09-21" });
+  expect(
+    getMetricPreviewSummary(
+      [
+        ...rows,
+        {
+          dimensions: ["2026-09-22"],
+          values: [{ metricId: "metric", numerator: null, denominator: null }],
+        },
+      ],
+      { metricType: "proportion", numerator },
+    ),
+  ).toMatchObject({ value: 400, date: "2026-09-21" });
+});
+it("does not calculate an average with missing unit counts", () => {
+  expect(
+    getMetricPreviewSummary(
+      [
+        {
+          dimensions: ["2026-09-21"],
+          values: [{ metricId: "metric", numerator: 400, denominator: null }],
+        },
+      ],
+      { metricType: "mean", numerator },
+    )?.value,
+  ).toBeNull();
+});
+it("uses the per-unit scale for mean metric charts", () => {
+  expect(
+    getMetricPreviewConfig(metric(), {
+      draft: true,
+      unit: "user_id",
+      denominatorUnit: null,
+      dateRange: getMetricPreviewDateRange(),
+    }).showAs,
+  ).toBe("per_unit");
 });
