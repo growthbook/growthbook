@@ -102,7 +102,9 @@ const BaseClass = MakeModelClass({
     customHandlers: [
       defineCustomApiHandler({
         ...createDashboardV2Endpoint,
-        reqHandler: async (req) => ({
+        reqHandler: async (
+          req,
+        ): Promise<{ dashboard: ApiDashboardInterface }> => ({
           dashboard: await req.context.models.dashboards.createFromApiV2(
             req.body,
           ),
