@@ -92,6 +92,18 @@ describe("validateOrgSettingsUpdate", () => {
       ).toThrow("does not match the regex validator");
     });
 
+    it("refuses resetting the example while a regex is set", () => {
+      expect(() =>
+        validateOrgSettingsUpdate(
+          makeContext({
+            featureKeyExample: "team-abc",
+            featureRegexValidator: "^team-",
+          }),
+          { featureKeyExample: undefined },
+        ),
+      ).toThrow("must not be empty");
+    });
+
     it("does not re-check values the save leaves unchanged", () => {
       expect(() =>
         validateOrgSettingsUpdate(
