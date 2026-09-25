@@ -138,6 +138,7 @@ export default function QuantileFields({
           hasCountDistinctHLL={hasCountDistinctHLL}
           value={numerator.column}
           onChange={(column) => onNumeratorChange({ ...numerator, column })}
+          showUnavailableWarning={scope === "event"}
         />
       </Flex>
 
