@@ -325,6 +325,18 @@ describe("mergeLayoutForWrite", () => {
     expect([b.width, b.pinned]).toEqual([150, false]);
   });
 
+  it("keeps a column the user sized to exactly its default pinned", () => {
+    const defs = [col("a", { defaultWidth: 200 })];
+    const [a] = resolveTableColumns(defs, null);
+    const merged = mergeLayoutForWrite(
+      [{ ...a, width: 200, pinned: true }],
+      null,
+    );
+    const resolved = resolveTableColumns(defs, merged);
+    expect([resolved[0].width, resolved[0].pinned]).toEqual([200, true]);
+    expect(isLayoutCustomized(defs, resolved)).toBe(true);
+  });
+
   it("does not carry orphans across a version mismatch", () => {
     const defs = [col("a")];
     const stored = layout([{ id: "old", visible: true }], 99);

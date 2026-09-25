@@ -166,7 +166,11 @@ export function useTableColumns<TRow>({
   const setWidth = useCallback(
     (id: string, width: number | undefined) => {
       const w = width === undefined ? undefined : Math.round(width);
-      write(columns.map((col) => (col.id === id ? { ...col, width: w } : col)));
+      write(
+        columns.map((col) =>
+          col.id === id ? { ...col, width: w, pinned: w !== undefined } : col,
+        ),
+      );
     },
     [columns, write],
   );

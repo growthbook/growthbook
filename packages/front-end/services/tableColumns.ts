@@ -40,6 +40,8 @@ export interface TableColumnLayoutEntry {
   id: string;
   visible: boolean;
   width?: number;
+  /** The user sized this column, even if to its default width. */
+  pinned?: boolean;
 }
 
 /** Versioned so a future server-side store can accept the blob verbatim. */
@@ -282,14 +284,18 @@ export function resolveTableColumns<TRow>(
     // A column the user can't resize has no stored width worth honouring —
     // it is a stale copy of a past default, and it would shadow the current
     // one forever for anyone who has already saved a layout.
-    const width =
-      clampWidth(def, def.resizable === false ? undefined : entry?.width) ??
-      defaultWidth;
+    const saved = clampWidth(
+      def,
+      def.resizable === false ? undefined : entry?.width,
+    );
     return {
       ...def,
       visible: visibleFor(def, entry),
-      width,
-      pinned: width !== defaultWidth,
+      width: saved ?? defaultWidth,
+      // Layouts saved before the marker stored every width, defaults included.
+      pinned:
+        saved !== undefined &&
+        (entry?.pinned === true || saved !== defaultWidth),
     };
   });
 
@@ -329,15 +335,12 @@ export function mergeLayoutForWrite<TRow>(
   return {
     v: TABLE_COLUMN_LAYOUT_VERSION,
     columns: [
-      ...resolved.map((col) => ({
-        id: col.id,
-        visible: col.visible,
-        // Only a width the user chose, so later changes to the default still reach them.
-        width:
-          col.width === clampWidth(col, col.defaultWidth)
-            ? undefined
-            : col.width,
-      })),
+      // Only widths the user chose, so later changes to a default still reach them.
+      ...resolved.map((col) =>
+        col.pinned
+          ? { id: col.id, visible: col.visible, width: col.width, pinned: true }
+          : { id: col.id, visible: col.visible },
+      ),
       ...orphans,
     ],
   };
@@ -355,7 +358,8 @@ export function isLayoutCustomized<TRow>(
     return (
       def.id !== col.id ||
       def.visible !== col.visible ||
-      def.width !== col.width
+      def.width !== col.width ||
+      def.pinned !== col.pinned
     );
   });
 }
