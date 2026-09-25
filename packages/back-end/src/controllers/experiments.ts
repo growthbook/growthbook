@@ -114,10 +114,8 @@ import {
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  assertValidAssignmentQuerySelectionChange,
-  getIntegrationFromDatasourceId,
-} from "back-end/src/services/datasource";
+import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { assertValidAssignmentQuerySelectionChange } from "back-end/src/services/assignmentQuerySelection";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
@@ -872,8 +870,12 @@ export async function getExperimentIncrementalRefresh(
         })
       : null;
 
+    // Bypasses read scope: a viewer who can't read the data source must still
+    // get the same answer. Only the matching decision leaves the server.
     const datasource = snapshot
-      ? await getDataSourceById(context, experiment.datasource)
+      ? await context.dangerouslyGetDataSourceByIdBypassPermission(
+          experiment.datasource,
+        )
       : null;
     if (
       legacyDoc &&

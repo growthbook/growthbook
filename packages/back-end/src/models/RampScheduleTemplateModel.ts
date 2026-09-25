@@ -8,6 +8,7 @@ import {
   rampScheduleTemplateValidator,
 } from "shared/validators";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
+import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 import {
   apiMonitoringConfigToInternal,
@@ -149,10 +150,6 @@ export class RampScheduleTemplateModel extends BaseClass {
       rawBody as { monitoringConfig?: ApiRampMonitoringConfigInput | null }
     )?.monitoringConfig;
     if (!mc) return;
-    // Lazy: services/datasource's import graph loops back to RampScheduleModel.
-    const { assertApiAssignmentQueryRefHasIdentifierType } = await import(
-      "back-end/src/services/datasource"
-    );
     await assertApiAssignmentQueryRefHasIdentifierType(this.context, {
       datasourceId: mc.datasourceId,
       ref: mc.exposureQuery,

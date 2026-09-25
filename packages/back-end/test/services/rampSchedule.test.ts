@@ -93,10 +93,6 @@ jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
-}));
-
 jest.mock("back-end/src/services/organizations", () => ({
   getEnvironments: jest.fn().mockReturnValue([]),
 }));

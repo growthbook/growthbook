@@ -8,7 +8,7 @@ import {
 } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const getReport = createApiRequestHandler(getReportValidator)(async (

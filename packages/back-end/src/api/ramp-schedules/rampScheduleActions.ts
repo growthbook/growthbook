@@ -19,7 +19,7 @@ import { getHealthSettings } from "shared/enterprise";
 import { expandMetricGroups } from "shared/experiments";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/datasource";
+import { assertApiAssignmentQueryRefHasIdentifierType } from "back-end/src/services/assignmentQuerySelection";
 import {
   advanceScheduleManually,
   approveAndPublishStep,

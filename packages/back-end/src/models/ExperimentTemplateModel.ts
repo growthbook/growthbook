@@ -17,7 +17,7 @@ import {
 import {
   assertApiAssignmentQueryRefHasIdentifierType,
   assertValidAssignmentQuerySelectionChange,
-} from "back-end/src/services/datasource";
+} from "back-end/src/services/assignmentQuerySelection";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { MakeModelClass } from "./BaseModel";

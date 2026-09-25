@@ -2,7 +2,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
 import { waitForIndexes } from "back-end/src/models/BaseModel";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getExposureQueriesForDatasource } from "back-end/src/services/datasource";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import {
   connectTestMongo,
   disconnectTestMongo,

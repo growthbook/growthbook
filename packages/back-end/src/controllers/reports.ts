@@ -35,10 +35,8 @@ import {
   updateReport,
 } from "back-end/src/models/ReportModel";
 import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
-import {
-  assertValidAssignmentQuerySelectionChange,
-  getIntegrationFromDatasourceId,
-} from "back-end/src/services/datasource";
+import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { assertValidAssignmentQuerySelectionChange } from "back-end/src/services/assignmentQuerySelection";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,

@@ -72,7 +72,7 @@ import {
 import {
   assertApiAssignmentQueryRefHasIdentifierType,
   getExposureQueriesForDatasource,
-} from "back-end/src/services/datasource";
+} from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
 

@@ -2,7 +2,7 @@ import type {
   RampScheduleInterface,
   SafeRolloutInterface,
 } from "shared/validators";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import {
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   restartSchedule,
@@ -25,8 +25,9 @@ jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
@@ -407,20 +408,13 @@ describe("assertCanUpdateLinkedSafeRolloutMonitoringConfig identifier type", () 
   } as SafeRolloutInterface;
 
   beforeEach(() => {
-    jest.mocked(getDataSourceById).mockResolvedValue({
-      id: "ds_1",
-      settings: {
-        queries: {
-          exposure: [
-            {
-              id: "exposure_1",
-              userIdType: "anonymous_id",
-              userIdTypes: ["anonymous_id", "user_id"],
-            },
-          ],
-        },
+    jest.mocked(getExposureQueriesForDatasource).mockResolvedValue([
+      {
+        id: "exposure_1",
+        userIdType: "anonymous_id",
+        userIdTypes: ["anonymous_id", "user_id"],
       },
-    } as Awaited<ReturnType<typeof getDataSourceById>>);
+    ] as Awaited<ReturnType<typeof getExposureQueriesForDatasource>>);
   });
 
   it("blocks an identifier change once the SafeRollout has started", async () => {
