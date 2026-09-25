@@ -44014,6 +44014,14 @@ paths:
                               - description
                               - config
                             additionalProperties: false
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization. Omit
+                    to leave the current owner unchanged.
+                  type: string
               additionalProperties: false
       responses:
         '200':
@@ -47561,6 +47569,18 @@ paths:
                           - description
                           - config
                         additionalProperties: false
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                    Optional when authenticating with a Personal Access Token
+                    (PAT): when omitted, the owner defaults to the PAT's user.
+                    Required when authenticating with an organization secret API
+                    key (which has no associated user): omitting it fails with a
+                    400.
+                  type: string
               required:
                 - title
                 - editLevel
@@ -73186,6 +73206,14 @@ components:
                   - explorerAnalysisId
                   - config
                 additionalProperties: false
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
       required:
         - id
         - uid
@@ -73200,6 +73228,7 @@ components:
         - dateCreated
         - dateUpdated
         - blocks
+        - owner
       additionalProperties: false
     ContextualBandit:
       type: object

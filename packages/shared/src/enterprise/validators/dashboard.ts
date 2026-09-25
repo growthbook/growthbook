@@ -4,6 +4,12 @@ import {
   baseExplorationConfigValidator,
 } from "../../validators/product-analytics";
 import { namedSchema } from "../../validators/openapi-helpers";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  requiredUnlessPatOwnerInputField,
+} from "../../validators/owner-field";
 
 import {
   apiCreateDashboardBlockInterface,
@@ -107,6 +113,8 @@ export const apiDashboardInterface = namedSchema(
       dateCreated: z.iso.datetime(),
       dateUpdated: z.iso.datetime(),
       blocks: z.array(apiDashboardBlockInterface),
+      owner: ownerField,
+      ownerEmail: ownerEmailField,
     }),
 );
 
@@ -225,6 +233,7 @@ const apiCreateDashboardFields = z
           "per-block comparison.",
       ),
     blocks: z.array(apiCreateDashboardBlock),
+    owner: requiredUnlessPatOwnerInputField,
   })
   .strict();
 
@@ -233,21 +242,35 @@ const READ_ONLY_DASHBOARD_FIELDS = Object.keys(dashboardInterface.shape).filter(
   (key) => !(key in apiCreateDashboardFields.shape),
 );
 
+/** On the response, not the stored doc, so the read-only derivation above misses it. */
+const RESPONSE_ONLY_FIELDS = ["ownerEmail"] as const;
+
 export const apiCreateDashboardBody = z.preprocess(
-  (raw) => withoutKeys(raw, READ_ONLY_DASHBOARD_FIELDS),
+  (raw) =>
+    withoutKeys(raw, [...READ_ONLY_DASHBOARD_FIELDS, ...RESPONSE_ONLY_FIELDS]),
   apiCreateDashboardFields,
 );
 
 const apiUpdateDashboardFields = apiCreateDashboardFields
-  .omit({ experimentId: true, blocks: true })
+  .omit({ experimentId: true, blocks: true, owner: true })
   .extend({
     blocks: z.array(apiUpdateDashboardBlock),
+    owner: ownerInputField
+      .optional()
+      .describe(
+        "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. Omit to leave the current owner unchanged.",
+      ),
   })
   .partial();
 
 /** `experimentId` too: an update cannot reparent a dashboard, but a GET still returns it. */
 export const apiUpdateDashboardBody = z.preprocess(
-  (raw) => withoutKeys(raw, [...READ_ONLY_DASHBOARD_FIELDS, "experimentId"]),
+  (raw) =>
+    withoutKeys(raw, [
+      ...READ_ONLY_DASHBOARD_FIELDS,
+      ...RESPONSE_ONLY_FIELDS,
+      "experimentId",
+    ]),
   apiUpdateDashboardFields,
 );
 

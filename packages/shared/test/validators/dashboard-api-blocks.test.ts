@@ -115,7 +115,37 @@ describe("dashboard API block validation", () => {
     expect(result.success).toBe(true);
     expect(result.data).not.toHaveProperty("organization");
     expect(result.data).not.toHaveProperty("experimentId");
+    expect(result.data).not.toHaveProperty("userId");
     expect(result.data?.title).toBe("Nhat's KPI Dashboard");
+  });
+
+  it("keeps an owner on create and drops the response-only fields", () => {
+    const parsed = apiCreateDashboardBody.parse({
+      title: "D",
+      editLevel: "private",
+      shareLevel: "private",
+      enableAutoUpdates: false,
+      blocks: [],
+      owner: "admin@example.com",
+      userId: "u_1",
+      ownerEmail: "stale@example.com",
+    });
+    expect(parsed.owner).toBe("admin@example.com");
+    expect(parsed).not.toHaveProperty("userId");
+    expect(parsed).not.toHaveProperty("ownerEmail");
+  });
+
+  it("keeps an owner on update and drops userId from a GET round-trip", () => {
+    const parsed = apiUpdateDashboardBody.parse({
+      id: "dash_1",
+      userId: "u_1",
+      owner: "u_2",
+      ownerEmail: "stale@example.com",
+      title: "D",
+    });
+    expect(parsed.owner).toBe("u_2");
+    expect(parsed).not.toHaveProperty("userId");
+    expect(parsed).not.toHaveProperty("ownerEmail");
   });
 
   it("takes a bare { id } as a reference to a saved block", () => {
