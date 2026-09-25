@@ -6,7 +6,6 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type {
   DimensionColumnData,
   ExperimentFactMetricsQueryParams,
-  FactMetricPercentileData,
 } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { applyMetricOverrides } from "back-end/src/util/integration";
@@ -37,6 +36,7 @@ import {
   funnelStepResolvedTsColumn,
   funnelStepTimestampColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import { getFactMetricPercentileData } from "back-end/src/integrations/sql/columns/fact-metric-percentile-data";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
@@ -217,30 +217,12 @@ export function getExperimentFactMetricsQuery(
   }
 
   // TODO(sql): refactor so this is a property of the source table itself
-  const percentileTableIndices = new Set<number>();
-  const percentileData: FactMetricPercentileData[] = [];
-  metricData
-    .filter((m) => m.isPercentileCapped)
-    .forEach((m) => {
-      percentileData.push({
-        valueCol: `${m.alias}_value`,
-        outputCol: `${m.alias}_value_cap`,
-        percentile: m.metric.cappingSettings.value ?? 1,
-        ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-        sourceIndex: m.numeratorSourceIndex,
-      });
-      percentileTableIndices.add(m.numeratorSourceIndex);
-      if (m.ratioMetric) {
-        percentileData.push({
-          valueCol: `${m.alias}_denominator`,
-          outputCol: `${m.alias}_denominator_cap`,
-          percentile: m.metric.cappingSettings.value ?? 1,
-          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-          sourceIndex: m.denominatorSourceIndex,
-        });
-        percentileTableIndices.add(m.denominatorSourceIndex);
-      }
-    });
+  const percentileData = metricData.flatMap((m) =>
+    getFactMetricPercentileData(m),
+  );
+  const percentileTableIndices = new Set(
+    percentileData.map((p) => p.sourceIndex),
+  );
 
   const eventQuantileData = getFactMetricQuantileData(metricData, "event");
   // Event quantile columns are emitted under one unqualified name per source,

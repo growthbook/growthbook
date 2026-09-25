@@ -11,6 +11,7 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getMetricAnalysisPopulationCTEs } from "back-end/src/integrations/sql/ctes/metric-analysis-population-ctes";
 import { getMetricAnalysisStatisticClauses } from "back-end/src/integrations/sql/clauses/metric-analysis-statistic-clauses";
+import { getFactMetricPercentileData } from "back-end/src/integrations/sql/columns/fact-metric-percentile-data";
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 
 export function getMetricAnalysisQuery(
@@ -84,16 +85,24 @@ export function getMetricAnalysisQuery(
     valueCol: "value",
     metric,
     capTablePrefix: "cap",
-    capValueCol: "value_capped",
+    capValueCol: "value_cap",
+    lowerCapValueCol: "value_cap_lower",
     columnRef: metric.numerator,
   });
   const finalDenominatorColumn = capCoalesceValue(dialect, {
     valueCol: "denominator",
     metric,
     capTablePrefix: "cap",
-    capValueCol: "denominator_capped",
+    capValueCol: "denominator_cap",
+    lowerCapValueCol: "denominator_cap_lower",
     columnRef: metric.denominator,
   });
+
+  const percentileData = getFactMetricPercentileData(metricData, {
+    value: "value",
+    denominator: "denominator",
+  });
+  const capJoin = percentileData.length ? "CROSS JOIN __capValue cap" : "";
 
   const populationSQL = getMetricAnalysisPopulationCTEs(dialect, {
     populationExposureQuery: params.populationExposureQuery,
@@ -172,34 +181,11 @@ export function getMetricAnalysisQuery(
             ${baseIdType}
         )
         ${
-          metricData.isPercentileCapped
+          percentileData.length
             ? `
         , __capValue AS (
             ${dialect.percentileCapSelectClause(
-              [
-                {
-                  valueCol: "value",
-                  outputCol: "value_capped",
-                  percentile: metricData.metric.cappingSettings.value ?? 1,
-                  ignoreZeros:
-                    metricData.metric.cappingSettings.ignoreZeros ?? false,
-                  sourceIndex: metricData.numeratorSourceIndex,
-                },
-                ...(metricData.ratioMetric
-                  ? [
-                      {
-                        valueCol: "denominator",
-                        outputCol: "denominator_capped",
-                        percentile:
-                          metricData.metric.cappingSettings.value ?? 1,
-                        ignoreZeros:
-                          metricData.metric.cappingSettings.ignoreZeros ??
-                          false,
-                        sourceIndex: metricData.denominatorSourceIndex,
-                      },
-                    ]
-                  : []),
-              ],
+              percentileData,
               "__userMetricOverall",
             )}
         )
@@ -230,7 +216,7 @@ export function getMetricAnalysisQuery(
                 : ""
             }
           FROM __userMetricDaily
-          ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+          ${capJoin}
           GROUP BY date
         )
         , __statisticsOverall AS (
@@ -255,7 +241,7 @@ export function getMetricAnalysisQuery(
                 : ""
             }
           FROM __userMetricOverall
-        ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+          ${capJoin}
         )
         ${
           createHistogram

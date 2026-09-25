@@ -11,7 +11,11 @@ import {
 } from "shared/experiments";
 import { getFunnelRuleViolations } from "shared/funnels";
 import { UpdateProps } from "shared/types/base-model";
-import { factMetricValidator, ApiFactMetric } from "shared/validators";
+import {
+  factMetricValidator,
+  ApiFactMetric,
+  validateFactMetricCapping,
+} from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -330,6 +334,16 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       newDoc.denominator = FactMetricModel.migrateColumnRef(newDoc.denominator);
     }
 
+    // Ratio metrics support only percentile capping.
+    if (newDoc.metricType === "ratio") {
+      if (newDoc.cappingSettings?.type === "absolute") {
+        newDoc.cappingSettings = { type: "", value: 0 };
+      }
+      if (newDoc.lowerCappingSettings?.type === "absolute") {
+        newDoc.lowerCappingSettings = null;
+      }
+    }
+
     return newDoc as FactMetricInterface;
   }
 
@@ -460,6 +474,8 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     factTableMap: Map<string, FactTableInterface>,
     context: Context,
   ): Promise<void> {
+    validateFactMetricCapping(data, previousData);
+
     if (data.metricType === "funnel" && !data.funnelSettings) {
       throw new Error("Funnel settings required for funnel metrics");
     }
@@ -582,9 +598,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     }
     if (data.denominator) {
       throw new Error("Denominator not allowed for funnel metrics");
-    }
-    if (data.cappingSettings.type) {
-      throw new Error("Capping is not supported for funnel metrics");
     }
     if (data.quantileSettings) {
       throw new Error("Quantile settings are not supported for funnel metrics");
@@ -841,6 +854,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       quantileSettings,
       funnelSettings,
       cappingSettings,
+      lowerCappingSettings,
       windowSettings,
       regressionAdjustmentDays,
       regressionAdjustmentEnabled,
@@ -869,6 +883,13 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
         type: cappingSettings.type || "none",
         ignoreZeros: cappingSettings.ignoreZeros ?? undefined,
       },
+      lowerCappingSettings: lowerCappingSettings
+        ? {
+            type: lowerCappingSettings.type || "none",
+            value: lowerCappingSettings.value,
+            ignoreZeros: lowerCappingSettings.ignoreZeros ?? undefined,
+          }
+        : null,
       windowSettings: {
         ...windowSettings,
         type: windowSettings.type || "none",
