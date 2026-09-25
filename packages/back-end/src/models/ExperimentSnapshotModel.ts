@@ -33,7 +33,11 @@ import { notifyExperimentChange } from "back-end/src/services/experimentNotifica
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
-import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
+import {
+  ExperimentUpdateExecutionLogger,
+  logExperimentUpdated,
+  SnapshotConclusion,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
@@ -432,12 +436,15 @@ export async function updateSnapshot({
   id,
   updates,
   failureCause,
+  conclusion,
   experimentUpdateExecutionLogger,
 }: {
   context: Context;
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
   failureCause?: QueryRunnerFailureCause;
+  // Omitted for the runners, whose update logger says whether they recovered.
+  conclusion?: SnapshotConclusion;
   experimentUpdateExecutionLogger?: ExperimentUpdateExecutionLogger | null;
 }) {
   const organization = context.org.id;
@@ -637,12 +644,16 @@ export async function updateSnapshot({
   }
 
   if (
-    experimentUpdateExecutionLogger &&
-    experimentSnapshot.status !== "running"
+    experimentSnapshot.status !== "running" &&
+    experimentSnapshot.status !== existingInterface.status
   ) {
-    experimentUpdateExecutionLogger.logUpdateCompleted(context, {
+    logExperimentUpdated(context, {
+      snapshot: experimentSnapshot,
       snapshotStatus: experimentSnapshot.status,
-      error: experimentSnapshot.error,
+      conclusion: conclusion ?? {
+        concludedBy: experimentUpdateExecutionLogger?.concludedBy ?? "runner",
+      },
+      executionLogger: experimentUpdateExecutionLogger ?? null,
     });
   }
 
@@ -906,14 +917,21 @@ export async function deleteSnapshotById(context: Context, id: string) {
 export async function deleteSnapshotIfRunning(
   context: Context,
   id: string,
+  conclusion: SnapshotConclusion,
 ): Promise<boolean> {
-  const { deletedCount } = await ExperimentSnapshotModel.deleteOne({
+  const deleted = await ExperimentSnapshotModel.findOneAndDelete({
     organization: context.org.id,
     id,
     status: "running",
   });
-  if (!deletedCount) return false;
+  if (!deleted) return false;
   await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(id);
+  logExperimentUpdated(context, {
+    snapshot: toInterface(deleted),
+    snapshotStatus: "deleted",
+    conclusion,
+    executionLogger: null,
+  });
   return true;
 }
 
@@ -1050,6 +1068,7 @@ export async function errorSnapshotIfStillRunning(
   id: string,
   updates: Partial<ExperimentSnapshotInterface>,
   failureCause: QueryRunnerFailureCause,
+  conclusion: SnapshotConclusion,
 ): Promise<boolean> {
   const updated = await ExperimentSnapshotModel.findOneAndUpdate(
     {
@@ -1061,11 +1080,14 @@ export async function errorSnapshotIfStillRunning(
     { new: true },
   );
   if (!updated) return false;
-  await notifySnapshotUpdateFailure({
-    context,
-    snapshot: toInterface(updated),
-    failureCause,
+  const snapshot = toInterface(updated);
+  logExperimentUpdated(context, {
+    snapshot,
+    snapshotStatus: "error",
+    conclusion,
+    executionLogger: null,
   });
+  await notifySnapshotUpdateFailure({ context, snapshot, failureCause });
   return true;
 }
 

@@ -661,6 +661,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       this.model.id,
       { queries: this.model.queries, error },
       "unknown",
+      { concludedBy: "runner" },
     );
   }
 

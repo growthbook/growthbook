@@ -531,6 +531,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       this.model.id,
       { queries: this.model.queries, error },
       "unknown",
+      { concludedBy: "runner" },
     );
     if (wrote) {
       await this.context.models.incrementalRefresh

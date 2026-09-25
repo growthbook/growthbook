@@ -18,6 +18,7 @@ import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnaps
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -31,8 +32,24 @@ type ExperimentAnalysisInputs = {
   variationNames: string[];
 };
 
+export type RecoveryDeclineReason =
+  | "report"
+  | "unknown-runner-kind"
+  | "no-experiment"
+  | "bandit"
+  | "superseded";
+
+export type StalledSnapshotRecovery =
+  | { kind: "recovered" }
+  // The runner finished with an error, which it has already written.
+  | { kind: "failed" }
+  | { kind: "declined"; reason: RecoveryDeclineReason };
+
 interface RecoverableExperimentRunner {
   prepareAnalysisData(inputs: ExperimentAnalysisInputs): void;
+  setExperimentUpdateExecutionLogger(
+    logger: ExperimentUpdateExecutionLogger | null,
+  ): void;
   finalizeFromPersistedResults(): Promise<boolean>;
 }
 
@@ -77,18 +94,18 @@ const experimentRunnerFactories: Partial<
 };
 
 /**
- * Finalizes a stalled snapshot from its persisted query results.
- * Returns false when we are unable to do so, so the caller can take action.
+ * Finalizes a stalled snapshot from its persisted query results. Anything but
+ * "recovered" leaves the caller to decide what the snapshot ends as.
  */
 export async function recoverStalledSnapshot(
   context: ReqContext | ApiReqContext,
   snapshot: ExperimentSnapshotInterface,
-): Promise<boolean> {
+): Promise<StalledSnapshotRecovery> {
   if (snapshot.report) {
     logger.info(
       `Not recovering stalled snapshot ${snapshot.id}: report snapshots have no recovery path`,
     );
-    return false;
+    return { kind: "declined", reason: "report" };
   }
 
   const make = experimentRunnerFactories[snapshot.runnerKind ?? "results"];
@@ -96,14 +113,14 @@ export async function recoverStalledSnapshot(
     logger.info(
       `Not recovering stalled snapshot ${snapshot.id}: no recovery path for runner kind "${snapshot.runnerKind}"`,
     );
-    return false;
+    return { kind: "declined", reason: "unknown-runner-kind" };
   }
 
   if (!snapshot.experiment) {
     logger.info(
       `Not recovering stalled snapshot ${snapshot.id}: snapshot has no experiment`,
     );
-    return false;
+    return { kind: "declined", reason: "no-experiment" };
   }
 
   const experiment = await getExperimentById(context, snapshot.experiment);
@@ -111,14 +128,14 @@ export async function recoverStalledSnapshot(
     logger.info(
       `Not recovering stalled snapshot ${snapshot.id}: experiment ${snapshot.experiment} no longer exists`,
     );
-    return false;
+    return { kind: "declined", reason: "no-experiment" };
   }
 
   if (experiment.type === "multi-armed-bandit") {
     logger.info(
       `Not recovering stalled snapshot ${snapshot.id}: the live path applies a bandit reweight after results that recovery cannot reproduce`,
     );
-    return false;
+    return { kind: "declined", reason: "bandit" };
   }
 
   const lastSuccessfulSnapshot = await getLatestSuccessfulSnapshot({
@@ -135,7 +152,7 @@ export async function recoverStalledSnapshot(
     logger.info(
       `Not recovering stalled snapshot ${snapshot.id}: superseded by newer successful snapshot ${lastSuccessfulSnapshot.id}`,
     );
-    return false;
+    return { kind: "declined", reason: "superseded" };
   }
 
   const metricMap = await getMetricMap(context);
@@ -163,5 +180,24 @@ export async function recoverStalledSnapshot(
     metricMap,
     variationNames,
   });
-  return runner.finalizeFromPersistedResults();
+  // The plan behind the original run was never persisted.
+  runner.setExperimentUpdateExecutionLogger(
+    new ExperimentUpdateExecutionLogger(
+      {
+        runnerKind: snapshot.runnerKind ?? "results",
+        incrementalFallbackReason: null,
+        useCache: null,
+        fullRefresh: null,
+        fullRefreshReason: null,
+      },
+      { datasource: integration.datasource, concludedBy: "recovery" },
+    ),
+  );
+  // Repeats every reaper tick with no conclusion if the analysis kills the process.
+  logger.warn(
+    `Recovering stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}) from persisted results`,
+  );
+  return (await runner.finalizeFromPersistedResults())
+    ? { kind: "recovered" }
+    : { kind: "failed" };
 }

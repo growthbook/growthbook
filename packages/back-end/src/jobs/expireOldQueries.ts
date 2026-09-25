@@ -14,6 +14,7 @@ import {
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
+import { SnapshotReapReason } from "back-end/src/services/experimentUpdateExecutionLogger";
 import {
   findRunningMetricsByQueryId,
   updateMetricQueriesAndStatus,
@@ -90,7 +91,7 @@ const expireOldQueries = async () => {
   const snapshots = await findRunningSnapshotsByQueryId([...queryIds]);
   for (let i = 0; i < snapshots.length; i++) {
     const snapshot = snapshots[i];
-    logger.info("Updating status of snapshot " + snapshot.id);
+    logger.warn("Updating status of snapshot " + snapshot.id);
     updateQueryStatus(snapshot.queries, queryIds);
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     await updateSnapshot({
@@ -101,6 +102,7 @@ const expireOldQueries = async () => {
         status: "error",
         queries: snapshot.queries,
       },
+      conclusion: { concludedBy: "reaper", reason: "stale-queries" },
     });
 
     // Release the incremental refresh lock if this snapshot held it.
@@ -366,9 +368,12 @@ async function reapStalledSnapshots() {
     // When every query succeeded, finalize the snapshot from the persisted
     // results instead of erroring it. The cross-org candidate can be stale, so
     // re-read in the org context and require the snapshot to still be running
-    // on the same queries. An ineligible or unsuccessful recovery returns false
-    // and falls through to the error write below
+    // on the same queries. A declined or failed recovery falls through to the
+    // error write below, which records why as the reap reason.
     let recoverError = "";
+    let reason: SnapshotReapReason = isOrphanedDag
+      ? "orphaned"
+      : "not-finalized";
     if (queryStatuses.every((q) => q.status === "succeeded")) {
       try {
         const freshSnapshot = await findSnapshotById(context, snapshot.id);
@@ -399,19 +404,25 @@ async function reapStalledSnapshots() {
             continue;
           }
 
-          if (await recoverStalledSnapshot(context, freshSnapshot)) {
-            logger.info(
+          const recovery = await recoverStalledSnapshot(context, freshSnapshot);
+          if (recovery.kind === "recovered") {
+            logger.warn(
               `Recovered stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}) from persisted results`,
             );
             // Retry in case the runner's own release failed.
             await releaseStalledSnapshotLock(context, snapshot);
             continue;
           }
+          reason =
+            recovery.kind === "declined"
+              ? `recovery-declined:${recovery.reason}`
+              : "recovery-failed";
         }
       } catch (e) {
         // A failed finalize must still leave the snapshot terminal, so fall
         // through to the error write below instead of retrying every tick.
         recoverError = getErrorMessage(e);
+        reason = "recovery-failed";
         logger.warn(
           e,
           `Failed to recover stalled snapshot ${snapshot.id} from persisted results`,
@@ -451,10 +462,11 @@ async function reapStalledSnapshots() {
         : isOrphanedDag
           ? "query"
           : "analysis",
+      { concludedBy: "reaper", reason },
     );
     if (!reaped) continue;
 
-    logger.info(
+    logger.warn(
       isOrphanedDag
         ? `Reaped orphaned snapshot ${snapshot.id} (experiment ${snapshot.experiment}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
@@ -638,7 +650,7 @@ async function reapStalledContextualBanditSnapshots() {
     );
     if (res.modifiedCount === 0) continue;
 
-    logger.info(
+    logger.warn(
       orphanedDag
         ? `Reaped orphaned contextual bandit snapshot ${snapshot.id} (cb ${snapshot.contextualBandit}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled contextual bandit snapshot ${snapshot.id} (cb ${snapshot.contextualBandit}): all ${queryIds.length} queries terminal but status still running`,
@@ -764,7 +776,7 @@ async function reapStalledAggregatedFactTableRuns() {
     });
     if (!reaped) continue;
 
-    logger.info(
+    logger.warn(
       orphanedDag
         ? `Reaped orphaned aggregated fact table run ${run.id} (${run.factTableId}/${run.idType}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled aggregated fact table run ${run.id} (${run.factTableId}/${run.idType}): all ${queryIds.length} queries terminal but run never finalized`,

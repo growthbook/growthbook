@@ -38,10 +38,12 @@ jest.mock("back-end/src/services/datasource", () => ({
 const mockResultsFinalize = jest.fn().mockResolvedValue(true);
 const mockIncrFinalize = jest.fn().mockResolvedValue(true);
 const mockIncrExplFinalize = jest.fn().mockResolvedValue(true);
+const mockResultsSetLogger = jest.fn();
 
 jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
   ExperimentResultsQueryRunner: jest.fn(() => ({
     prepareAnalysisData: jest.fn(),
+    setExperimentUpdateExecutionLogger: mockResultsSetLogger,
     finalizeFromPersistedResults: mockResultsFinalize,
   })),
 }));
@@ -51,6 +53,7 @@ jest.mock(
   () => ({
     ExperimentIncrementalRefreshQueryRunner: jest.fn(() => ({
       prepareAnalysisData: jest.fn(),
+      setExperimentUpdateExecutionLogger: jest.fn(),
       finalizeFromPersistedResults: mockIncrFinalize,
     })),
   }),
@@ -61,6 +64,7 @@ jest.mock(
   () => ({
     ExperimentIncrementalRefreshExploratoryQueryRunner: jest.fn(() => ({
       prepareAnalysisData: jest.fn(),
+      setExperimentUpdateExecutionLogger: jest.fn(),
       finalizeFromPersistedResults: mockIncrExplFinalize,
     })),
   }),
@@ -154,7 +158,7 @@ describe("recoverStalledSnapshot", () => {
   it("routes a results snapshot to the results runner and finalizes it", async () => {
     await expect(
       recoverStalledSnapshot(context, snapshot({ runnerKind: "results" })),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ kind: "recovered" });
 
     expect(getIntegrationFromDatasourceId).toHaveBeenCalledWith(
       context,
@@ -166,10 +170,29 @@ describe("recoverStalledSnapshot", () => {
     expect(ExperimentIncrementalRefreshQueryRunner).not.toHaveBeenCalled();
   });
 
+  it("times the recovery under its own update logger", async () => {
+    (getIntegrationFromDatasourceId as jest.Mock).mockResolvedValue({
+      datasource: { id: "ds_1", type: "bigquery" },
+    });
+
+    await recoverStalledSnapshot(context, snapshot());
+
+    const executionLogger = mockResultsSetLogger.mock.calls[0][0];
+    expect(executionLogger.concludedBy).toBe("recovery");
+    expect(executionLogger.datasourceType).toBe("bigquery");
+    expect(executionLogger.plan).toEqual({
+      runnerKind: "results",
+      incrementalFallbackReason: null,
+      useCache: null,
+      fullRefresh: null,
+      fullRefreshReason: null,
+    });
+  });
+
   it("treats an absent runnerKind as a results snapshot", async () => {
-    await expect(recoverStalledSnapshot(context, snapshot())).resolves.toBe(
-      true,
-    );
+    await expect(recoverStalledSnapshot(context, snapshot())).resolves.toEqual({
+      kind: "recovered",
+    });
 
     expect(ExperimentResultsQueryRunner).toHaveBeenCalled();
     expect(mockResultsFinalize).toHaveBeenCalled();
@@ -180,7 +203,7 @@ describe("recoverStalledSnapshot", () => {
     async (runnerKind) => {
       await expect(
         recoverStalledSnapshot(context, snapshot({ runnerKind })),
-      ).resolves.toBe(true);
+      ).resolves.toEqual({ kind: "recovered" });
 
       expect(ExperimentIncrementalRefreshQueryRunner).toHaveBeenCalled();
       expect(mockIncrFinalize).toHaveBeenCalled();
@@ -194,7 +217,7 @@ describe("recoverStalledSnapshot", () => {
         context,
         snapshot({ runnerKind: "incremental-exploratory" }),
       ),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ kind: "recovered" });
 
     expect(
       ExperimentIncrementalRefreshExploratoryQueryRunner,
@@ -202,11 +225,19 @@ describe("recoverStalledSnapshot", () => {
     expect(mockIncrExplFinalize).toHaveBeenCalled();
   });
 
+  it("reports a failed finalize so the caller knows the runner wrote the error", async () => {
+    mockResultsFinalize.mockResolvedValueOnce(false);
+
+    await expect(recoverStalledSnapshot(context, snapshot())).resolves.toEqual({
+      kind: "failed",
+    });
+  });
+
   it("declines a persisted runner kind with no recovery path", async () => {
     // Persisted data can name a kind this build does not know how to rebuild.
     await expect(
       recoverStalledSnapshot(context, snapshot({ runnerKind: "future-kind" })),
-    ).resolves.toBe(false);
+    ).resolves.toEqual({ kind: "declined", reason: "unknown-runner-kind" });
     expect(getIntegrationFromDatasourceId).not.toHaveBeenCalled();
   });
 
@@ -215,14 +246,14 @@ describe("recoverStalledSnapshot", () => {
 
     await expect(
       recoverStalledSnapshot(context, snapshot({ runnerKind: "results" })),
-    ).resolves.toBe(false);
+    ).resolves.toEqual({ kind: "declined", reason: "no-experiment" });
     expect(ExperimentResultsQueryRunner).not.toHaveBeenCalled();
   });
 
   it("declines a report snapshot without loading the experiment", async () => {
     await expect(
       recoverStalledSnapshot(context, snapshot({ report: "rep_1" })),
-    ).resolves.toBe(false);
+    ).resolves.toEqual({ kind: "declined", reason: "report" });
     expect(getExperimentById).not.toHaveBeenCalled();
   });
 
@@ -231,9 +262,10 @@ describe("recoverStalledSnapshot", () => {
       experiment({ type: "multi-armed-bandit" }),
     );
 
-    await expect(recoverStalledSnapshot(context, snapshot())).resolves.toBe(
-      false,
-    );
+    await expect(recoverStalledSnapshot(context, snapshot())).resolves.toEqual({
+      kind: "declined",
+      reason: "bandit",
+    });
     expect(ExperimentResultsQueryRunner).not.toHaveBeenCalled();
   });
 
@@ -243,9 +275,10 @@ describe("recoverStalledSnapshot", () => {
       dateCreated: new Date("2026-08-02T00:00:00Z"),
     });
 
-    await expect(recoverStalledSnapshot(context, snapshot())).resolves.toBe(
-      false,
-    );
+    await expect(recoverStalledSnapshot(context, snapshot())).resolves.toEqual({
+      kind: "declined",
+      reason: "superseded",
+    });
     expect(getLatestSuccessfulSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
         experiment: "exp_1",
@@ -262,9 +295,9 @@ describe("recoverStalledSnapshot", () => {
       dateCreated: new Date("2026-07-31T00:00:00Z"),
     });
 
-    await expect(recoverStalledSnapshot(context, snapshot())).resolves.toBe(
-      true,
-    );
+    await expect(recoverStalledSnapshot(context, snapshot())).resolves.toEqual({
+      kind: "recovered",
+    });
   });
 
   it("seeds variation names from the snapshot's own phase", async () => {

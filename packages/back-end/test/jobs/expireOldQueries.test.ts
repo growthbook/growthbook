@@ -348,7 +348,10 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     (updateExperiment as jest.Mock).mockResolvedValue({});
     (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(context);
     (findSnapshotById as jest.Mock).mockResolvedValue(null);
-    (recoverStalledSnapshot as jest.Mock).mockResolvedValue(false);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({
+      kind: "declined",
+      reason: "superseded",
+    });
     hasFreshLockHeartbeat.mockResolvedValue(false);
   });
 
@@ -437,6 +440,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         error: expect.stringContaining("A retry has been scheduled."),
       }),
       "cancelled",
+      { concludedBy: "reaper", reason: "orphaned" },
     );
   });
 
@@ -453,6 +457,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         error: expect.stringContaining("Please try updating results again."),
       }),
       "query",
+      { concludedBy: "reaper", reason: "orphaned" },
     );
   });
 
@@ -489,7 +494,9 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       { id: "qry_1", status: "succeeded" },
       { id: "qry_2", status: "succeeded" },
     ]);
-    (recoverStalledSnapshot as jest.Mock).mockResolvedValue(true);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({
+      kind: "recovered",
+    });
 
     await runJob();
 
@@ -531,6 +538,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         ),
       }),
       "analysis",
+      { concludedBy: "reaper", reason: "not-finalized" },
     );
   });
 
@@ -551,12 +559,31 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         ),
       }),
       "analysis",
+      { concludedBy: "reaper", reason: "recovery-failed" },
     );
   });
 
-  it("falls through to the generic error write when recovery returns false", async () => {
+  it("names a finalize that failed as a failed recovery", async () => {
     mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
-    (recoverStalledSnapshot as jest.Mock).mockResolvedValue(false);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({ kind: "failed" });
+
+    await runJob();
+
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
+      context,
+      "snp_1",
+      expect.anything(),
+      "analysis",
+      { concludedBy: "reaper", reason: "recovery-failed" },
+    );
+  });
+
+  it("falls through to the generic error write when recovery declines", async () => {
+    mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({
+      kind: "declined",
+      reason: "superseded",
+    });
 
     await runJob();
 
@@ -569,6 +596,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         ),
       }),
       "analysis",
+      { concludedBy: "reaper", reason: "recovery-declined:superseded" },
     );
     // Nothing threw, so the recovery suffix must not be appended.
     const { error } = (errorSnapshotIfStillRunning as jest.Mock).mock
@@ -644,6 +672,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         error: expect.stringContaining("queries were never started"),
       }),
       "query",
+      { concludedBy: "reaper", reason: "orphaned" },
     );
     expect(markPendingQueriesAsFailed).toHaveBeenCalledWith(
       context,
@@ -691,6 +720,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         error: expect.stringContaining("queries were never started"),
       }),
       "query",
+      { concludedBy: "reaper", reason: "orphaned" },
     );
   });
 
