@@ -33180,7 +33180,7 @@ paths:
                 codeRefsPlatformUrl:
                   anyOf:
                     - type: string
-                      pattern: ^https?:\/\/
+                      pattern: ^(https?:\/\/|$)
                     - type: 'null'
                 aiEnabled:
                   anyOf:
@@ -69219,7 +69219,7 @@ components:
             type: string
         codeRefsPlatformUrl:
           type: string
-          pattern: ^https?:\/\/
+          pattern: ^(https?:\/\/|$)
         aiEnabled:
           type: boolean
         aiAskDataEnabled:
