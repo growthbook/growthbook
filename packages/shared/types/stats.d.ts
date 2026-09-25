@@ -188,7 +188,7 @@ export type ContextualBanditResponseSnapshot = {
   /** Per-variation sample (data-only) variances; not posterior variances. */
   sampleVariances?: number[] | null;
   updatedWeights?: number[] | null;
-  bestArmProbabilities?: (number | null)[] | null;
+  bestArmProbabilities?: number[] | null;
   updateMessage?: string | null;
   error?: string | null;
 };

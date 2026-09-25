@@ -20,7 +20,7 @@ export type BanditArmStatistic = {
 
 export type VariationWeightResult = {
   updatedWeights: number[];
-  bestArmProbabilities: (number | null)[] | null;
+  bestArmProbabilities: number[] | null;
   updateMessage: string;
   error: string;
 };
@@ -271,10 +271,10 @@ export function updateVariationWeights(
   const remainingMass = (numStats - numWithoutEnoughUsers) / numStats;
 
   const updatedWeights = new Array<number>(numStats).fill(1 / numStats);
-  const bestArmProbabilities = new Array<number | null>(numStats).fill(null);
+  const bestArmProbabilities = new Array<number>(numStats).fill(1 / numStats);
   statsWithEnoughUsers.forEach((idx, j) => {
     updatedWeights[idx] = subsetWeights[j] * remainingMass;
-    bestArmProbabilities[idx] = subsetProbs[j];
+    bestArmProbabilities[idx] = subsetProbs[j] * remainingMass;
   });
 
   const updateMessage =
