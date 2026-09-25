@@ -213,7 +213,7 @@ const writableSettingsFields = {
   codeRefsBranchesToFilter: z.array(z.string()),
   codeRefsPlatformUrl: z
     .string()
-    .regex(/^https?:\/\//, "Must be an http(s) URL"),
+    .regex(/^(https?:\/\/|$)/, "Must be empty or an http(s) URL"),
 
   // AI
   aiEnabled: z.boolean(),
