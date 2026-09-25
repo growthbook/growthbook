@@ -291,8 +291,10 @@ export default function HealthTab({
     <ExposureLogsCard experiment={experiment} isTabActive={isTabActive} />
   );
 
+  // No wrapper margin here: the cards bring their own mt-2 and the callouts
+  // set mt="3", so a wrapper would stack a second gap on top.
   return (
-    <div className="mt-2">
+    <>
       {blocker}
       {!blocker && snapshot && traffic?.dimension?.dim_exposure_date ? (
         <HealthSnapshotCards
@@ -315,7 +317,7 @@ export default function HealthTab({
       ) : (
         exposureLogs
       )}
-    </div>
+    </>
   );
 }
 

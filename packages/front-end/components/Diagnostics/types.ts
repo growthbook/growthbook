@@ -24,7 +24,8 @@ export const DEFAULT_TIME_RANGES: TimeRangeOption[] = [
 ];
 
 export interface RecordsFilterOption {
-  name: string;
+  /** Matches SearchFiltersItem so a dropdown can render a rich label. */
+  name: string | JSX.Element;
   id: string;
   searchValue: string;
 }

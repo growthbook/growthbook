@@ -6,11 +6,12 @@ import {
   isManagedWarehouseUnavailable,
 } from "shared/util";
 import type { ExperimentExposureRecord } from "shared/validators";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import RecordsPanel from "@/components/Diagnostics/RecordsPanel";
 import useRecordsQuery from "@/components/Diagnostics/useRecordsQuery";
@@ -102,17 +103,18 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
     },
   });
 
+  // Indexed off the latest phase so the number matches the traffic card legend.
   // The warehouse returns v.key when variation keys are configured, and the
   // positional index otherwise.
-  const getVariationName = useMemo(() => {
-    const byId = new Map<string, string>();
-    experiment.variations.forEach((v, i) => {
-      const name = v.name || `Variation ${i}`;
-      byId.set(v.key || String(i), name);
-      byId.set(String(i), name);
+  const variationsById = useMemo(() => {
+    const byId = new Map<string, { index: number; name: string }>();
+    getLatestPhaseVariations(experiment).forEach((v) => {
+      const entry = { index: v.index, name: v.name || `Variation ${v.index}` };
+      byId.set(v.key || String(v.index), entry);
+      byId.set(String(v.index), entry);
     });
-    return (id: string) => byId.get(id) ?? id;
-  }, [experiment.variations]);
+    return byId;
+  }, [experiment]);
 
   const columns: RecordsColumn<ExperimentExposureRecord>[] = useMemo(
     () => [
@@ -140,14 +142,22 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
       {
         key: "variationId",
         header: "Variation",
-        render: (r) => (
-          <Badge
-            label={getVariationName(r.variationId)}
-            size="xs"
-            variant="soft"
-            radius="full"
-          />
-        ),
+        render: (r) => {
+          // An id the experiment no longer defines is shown raw, so it is not
+          // mistaken for a real variation.
+          const variation = variationsById.get(r.variationId);
+          return variation ? (
+            <VariationLabel
+              number={variation.index}
+              name={variation.name}
+              size="sm"
+            />
+          ) : (
+            <Text size="sm" mono>
+              {r.variationId}
+            </Text>
+          );
+        },
       },
       ...dimensions.map((dim) => ({
         key: dim,
@@ -156,15 +166,22 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
           r.dimensions[dim] ? <>{r.dimensions[dim]}</> : <Empty />,
       })),
     ],
-    [dimensions, getVariationName],
+    [dimensions, variationsById],
   );
 
   const filterOptions = useMemo(() => {
     const options: Record<string, RecordsFilterOption[]> = {
-      variation: experiment.variations.map((v, i) => ({
-        name: v.name || `Variation ${i}`,
-        id: v.key || String(i),
-        searchValue: v.key || String(i),
+      // The menu carries the same label as the column; the token stays the id.
+      variation: getLatestPhaseVariations(experiment).map((v) => ({
+        name: (
+          <VariationLabel
+            number={v.index}
+            name={v.name || `Variation ${v.index}`}
+            size="sm"
+          />
+        ),
+        id: v.key || String(v.index),
+        searchValue: v.key || String(v.index),
       })),
     };
     // Dimension values aren't enumerable up front, so offer what this page has.
@@ -179,7 +196,7 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
         .map((value) => ({ name: value, id: value, searchValue: value }));
     }
     return options;
-  }, [experiment.variations, dimensions, query.rows]);
+  }, [experiment, dimensions, query.rows]);
 
   if (!canRun) return null;
 
@@ -211,7 +228,9 @@ export default function ExposureLogsCard({ experiment, isTabActive }: Props) {
       })`}
       filterOptions={filterOptions}
       filterOrder={["variation", ...dimensions]}
+      filterLabels={{ variation: "Variation" }}
       emptyMessage="No exposures found for this time range."
+      idleMessage="Click Update to load exposure records."
       warning={warning}
     />
   );

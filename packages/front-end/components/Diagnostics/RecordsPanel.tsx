@@ -3,13 +3,15 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowsClockwise } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Field from "@/components/Forms/Field";
 import { FilterDropdown } from "@/components/Search/SearchFilters";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import Pagination from "@/ui/Pagination";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import TextField from "@/ui/TextField";
+import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
 import ExpandableTable from "./ExpandableTable";
 import { RecordsColumn, RecordsFilterOption } from "./types";
@@ -30,18 +32,24 @@ export interface RecordsPanelProps<TRow extends object, TResponse> {
   /** Keyed by filter key; an empty list renders no dropdown for that key. */
   filterOptions?: Record<string, RecordsFilterOption[]>;
   filterOrder?: string[];
+  /**
+   * Dropdown trigger labels, keyed by filter key. The key stays the search
+   * token (`variation:`), so the label can match the column header instead.
+   */
+  filterLabels?: Record<string, string>;
 
   /** When the displayed results were produced. */
   lastUpdated?: string | Date | null;
 
   emptyMessage?: string;
+  /** Shown before the first run when the caller waits for an explicit Update. */
+  idleMessage?: string;
   /**
    * Rendered above the table as-is, e.g. a warehouse error returned in a 200.
    * Callers own the presentation so they can supply their own Callout.
    */
   warning?: ReactNode;
   headerActions?: ReactNode;
-  containerClassName?: string;
 }
 
 export default function RecordsPanel<TRow extends object, TResponse>({
@@ -56,11 +64,12 @@ export default function RecordsPanel<TRow extends object, TResponse>({
   searchPlaceholder,
   filterOptions = {},
   filterOrder,
+  filterLabels = {},
   lastUpdated,
   emptyMessage = "No records found for this time range.",
+  idleMessage = "Click Update to load records.",
   warning,
   headerActions,
-  containerClassName = "box p-3 my-4",
 }: RecordsPanelProps<TRow, TResponse>) {
   const {
     rows,
@@ -84,13 +93,17 @@ export default function RecordsPanel<TRow extends object, TResponse>({
   );
 
   return (
-    <div className={containerClassName}>
+    // px/py match the p-3 density of the neighbouring health cards, which is
+    // tighter than Frame's default.
+    <Frame px="4" py="4" my="4">
       <Flex justify="between" align="center" gap="3" mb="3" wrap="wrap">
-        <h3 className="mb-0">{title}</h3>
+        <Heading as="h2" size="lg" mb="0">
+          {title}
+        </Heading>
         <Flex gap="2" align="center" wrap="wrap">
           {headerActions}
           {lastUpdated && (
-            <Tooltip body={datetime(lastUpdated)}>
+            <Tooltip content={datetime(lastUpdated)}>
               <Text size="sm" color="text-low">
                 Last updated {ago(lastUpdated)}
               </Text>
@@ -109,6 +122,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
           </Select>
           <Button
             variant="outline"
+            size="sm"
             loading={isRefreshing}
             onClick={refresh}
             icon={<PiArrowsClockwise />}
@@ -120,9 +134,9 @@ export default function RecordsPanel<TRow extends object, TResponse>({
 
       <Flex gap="2" align="center" mb="3" wrap="wrap">
         <Box flexGrow="1" mr="2" style={{ minWidth: 240 }}>
-          <Field
+          <TextField
             type="search"
-            containerClassName="mb-0"
+            size="sm"
             placeholder={searchPlaceholder}
             {...search.searchInputProps}
           />
@@ -131,6 +145,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
           <FilterDropdown
             key={key}
             filter={key}
+            heading={filterLabels[key]}
             syntaxFilters={search.syntaxFilters}
             open={search.dropdownFilterOpen}
             setOpen={search.setDropdownFilterOpen}
@@ -158,7 +173,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
 
       {!hasRun && !autoRun && !isRefreshing ? (
         <Text size="sm" color="text-low">
-          Click Update to load exposure records.
+          {idleMessage}
         </Text>
       ) : isLoading ? (
         <LoadingSpinner />
@@ -190,6 +205,6 @@ export default function RecordsPanel<TRow extends object, TResponse>({
           )}
         </>
       ) : null}
-    </div>
+    </Frame>
   );
 }

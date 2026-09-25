@@ -7,6 +7,7 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
+import Button from "@/ui/Button";
 import RecordDetail from "./RecordDetail";
 import { flattenRecord, RecordsColumn } from "./types";
 
@@ -59,21 +60,26 @@ export default function ExpandableTable<T extends object>({
 
           return (
             <Fragment key={id}>
-              <TableRow
-                role="button"
-                tabIndex={0}
-                aria-expanded={isExpanded}
-                style={{ cursor: "pointer" }}
-                onClick={toggle}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggle();
-                  }
-                }}
-              >
+              {/* The row stays a row for assistive tech; the caret button is
+              the keyboard control, so clicking a cell to select text is safe. */}
+              <TableRow style={{ cursor: "pointer" }} onClick={toggle}>
                 <TableCell>
-                  {isExpanded ? <PiCaretDown /> : <PiCaretRight />}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    stopPropagation
+                    aria-expanded={isExpanded}
+                    aria-label={
+                      isExpanded ? "Hide full record" : "Show full record"
+                    }
+                    onClick={toggle}
+                  >
+                    {isExpanded ? (
+                      <PiCaretDown aria-hidden />
+                    ) : (
+                      <PiCaretRight aria-hidden />
+                    )}
+                  </Button>
                 </TableCell>
                 {columns.map((col) => (
                   <TableCell key={col.key}>{col.render(row)}</TableCell>
