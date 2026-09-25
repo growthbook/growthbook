@@ -111,7 +111,7 @@ export default function Welcome({
 
   const welcomeContent =
     state === "login" ? (
-      <p>Welcome back, lets get started with some experiments</p>
+      <p>Welcome back, let&apos;s get started with some experiments</p>
     ) : state === "register" ? (
       <p>
         Let&apos;s run some experiments! Enter your information to get started.

@@ -2235,7 +2235,7 @@ export async function generateExperimentKeywords(
       exp.description || ""
     }\nanalysisSummary: ${
       exp.analysisSummary
-    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma seperated.`,
+    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma separated.`,
     type: "generate-experiment-keywords",
     isDefaultPrompt: true,
     temperature: 0.1,

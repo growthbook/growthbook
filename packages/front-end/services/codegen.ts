@@ -8,9 +8,9 @@ const fnvHash = `(n)=>{let o=2166136261;const t=n.length;for(let e=0;e<t;e++)o^=
 
 export function getUrlRegex(url: string): string {
   return `/${url
-    // JSON strigify adds extra escaping for backslashes
+    // JSON stringify adds extra escaping for backslashes
     .replace(/\\\\/g, "\\")
-    // Need to do this replace twice to catch 2 slahes in a row (e.g. `http://`)
+    // Need to do this replace twice to catch 2 slashes in a row (e.g. `http://`)
     .replace(/([^\\])\//g, "$1\\/")
     .replace(/([^\\])\//g, "$1\\/")}/i`;
 }

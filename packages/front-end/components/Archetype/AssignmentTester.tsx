@@ -338,7 +338,7 @@ export default function AssignmentTester({
                     <label
                       className="small text-muted mr-2 mb-0 small text-muted text-ellipsis"
                       htmlFor="evalDate"
-                      title="When there are scheduled rules, this date select lets your see what values the user will get."
+                      title="When there are scheduled rules, this date select lets you see what values the user will get."
                     >
                       Evaluation Date
                     </label>
@@ -474,7 +474,7 @@ export default function AssignmentTester({
               close={() => setOpenArchetypeModal(null)}
             >
               <div className="p-3">
-                Archetypes allow you set up user attribute traits to test how
+                Archetypes allow you to set up user attribute traits to test how
                 feature will be applied to your real users. This feature is part
                 of our Pro or Enterprise plans.
               </div>

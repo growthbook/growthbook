@@ -676,7 +676,7 @@ const NewDataSourceForm: FC<{
         <h3>{selectedSchema.label || ""} Query Options</h3>
         <div className="my-4">
           <div className="d-inline-block">
-            Below are are the typical defaults for{" "}
+            Below are the typical defaults for{" "}
             {selectedSchema.label || "this data source"}.{" "}
             {selectedSchema.options?.length === 1
               ? "The value "

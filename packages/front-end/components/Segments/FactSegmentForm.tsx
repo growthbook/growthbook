@@ -53,12 +53,12 @@ export default function FactSegmentForm({
     }
   }
 
-  // Build a list of unique data source ids that have atleast 1 fact table built on it
+  // Build a list of unique data source ids that have at least 1 fact table built on it
   const uniqueDatasourcesWithFactTables = Array.from(
     new Set(factTables.map((ft) => ft.datasource)),
   );
 
-  // Filter the list of datasources to only show those that have atleast 1 fact built on it
+  // Filter the list of datasources to only show those that have at least 1 fact built on it
   const datasourceOptions = filteredDatasources.filter((filteredDs) =>
     uniqueDatasourcesWithFactTables.includes(filteredDs.id),
   );

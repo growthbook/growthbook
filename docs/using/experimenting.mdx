@@ -21,7 +21,7 @@ settings yourself.
 
 When you run an experiment, you need to choose who will get the experiment, and what percentage
 those users should get each variation. In GrowthBook, we allow you to pick overall exposure
-percentage, as well as customize the split per variation. Yor can also target an experiment at just some
+percentage, as well as customize the split per variation. You can also target an experiment at just some
 attribute values.
 
 GrowthBook uses deterministic hashing to do the assignment. That means that each user’s hashing
@@ -30,7 +30,7 @@ This number will always be the same for the same set of inputs.
 
 There is quite often a need to de-risk a new A/B test by running the control at a higher percentage of
 users than the new variation, for example, 80% of users get the control, and 20% get the new variation.
-To solve this case, we recommend keeping the experiment spits equal, and adjusting the overall
+To solve this case, we recommend keeping the experiment splits equal, and adjusting the overall
 exposure (ie, 20% exposure, 50/50 on each variation, so each variation gets 10%). This way the overall
 exposure can be ramped up (or down) without having any users potentially switch variations.
 
@@ -209,7 +209,7 @@ working properly.
 ### Suspicious Uplift Detection
 
 You can set thresholds per metric for a maximum percent change. When a metric results is above this,
-GrowthBook will show an alert. Large uplifts may indicate a bug - see [Twymans Law](/using/experimentation-problems#twymans-law).
+GrowthBook will show an alert. Large uplifts may indicate a bug - see [Twyman's Law](/using/experimentation-problems#twymans-law).
 
 ### Guardrails
 
@@ -315,7 +315,7 @@ or use Sequential analysis.
 It is quite common to have experiment results with mixed results. Deciding on the results of an
 experiment in these cases may require some interpretation. As a general rule, you should have one
 goal metric that is the primary metric you’re trying to improve, and if this metric is up significantly it is
-generally straightforward to declare a result. If you have a mix and up and down metrics, the decisions
+generally straightforward to declare a result. If you have a mix of up and down metrics, the decisions
 are less clear.
 
 Once you have reached a decision with your experiment, you can click the “mark as finished” link

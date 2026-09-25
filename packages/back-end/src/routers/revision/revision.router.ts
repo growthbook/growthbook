@@ -16,7 +16,7 @@ const revisionController = wrapController(rawRevisionController);
 
 // Allowed `status` query values: any individual revision status, or the alias
 // "open" for non-merged/non-discarded. Validated server-side so a typo
-// (e.g. "?status=garabge") returns a 400 instead of silently matching nothing.
+// (e.g. "?status=garbage") returns a 400 instead of silently matching nothing.
 const revisionStatusQueryValues = [...revisionStatus, "open"] as const;
 
 // Shared pagination/filtering query schema for revision list endpoints.

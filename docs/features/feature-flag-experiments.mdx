@@ -27,7 +27,7 @@ This modal window allows for a great deal of flexibility and customization in ho
 ### Experiment Targeting Conditions
 
 Experiment rules can be targeted at specific user or client attributes. Only users who match the targeting condition will
-be included in experiment. You can add multiple targeting conditions per rule, and you can add multiple rules per feature,
+be included in the experiment. You can add multiple targeting conditions per rule, and you can add multiple rules per feature,
 this gives you great flexibility in targeting and customizing your experiment to specific audiences. You can read more
 about [targeting](/features/targeting). By default, all users will be included.
 
@@ -46,7 +46,7 @@ on either a logged-in user id or some sort of anonymous identifier like a device
 has the same value for this attribute, they will always get assigned the same variation.
 
 The values available here are defined in the GrowthBook UI under the _SDK Configuration → Attributes_
-section. Like all attributes in GrowthBook, the users value for this attribute must be defined in the SDK implementation.
+section. Like all attributes in GrowthBook, the user's value for this attribute must be defined in the SDK implementation.
 You can read more about [targeting attributes](/features/targeting).
 
 ### Exposure, Variations, and Weights
@@ -55,7 +55,7 @@ Here you can choose the overall traffic you want to see the experiment as well a
 assign to less than 100% of the users, the remaining users will skip the rule and fall through to the next matching one
 (or the default value) instead. 100% traffic means 100% of those evaluations, not 100% of all visitors.
 
-You may want to run an experiment at a split percentages that weights the control group
+You may want to run an experiment at a split percentage that weights the control group
 in order to de-risk the new feature (say 90% control, 10% new treatment). It is best practice in such cases to keep the splits the
 same, and adjust the overall exposure (ie, 20% overall exposure, 50/50 split for the variations).
 

@@ -159,7 +159,7 @@ export function PowerCard({
             <PiInfo />
             This alert was muted, it will not consider the experiment Unhealthy
             even if problems are detected. Click{" "}
-            <Link onClick={toggleMuteAlert}>here</Link> to reenable it.
+            <Link onClick={toggleMuteAlert}>here</Link> to re-enable it.
           </Text>
         ) : null}
 

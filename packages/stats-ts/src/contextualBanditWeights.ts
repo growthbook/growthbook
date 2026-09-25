@@ -44,7 +44,7 @@ const MAX_ATTRIBUTES = 10;
 /**
  * Result of a two-group category split: the group id (0/1) for each category,
  * the achieved total pooled within-group SSE, and whether the search converged.
- * `initIdx` indicates which contexts serve as the initial centriods.
+ * `initIdx` indicates which contexts serve as the initial centroids.
  */
 interface kMeansResult {
   labels: number[];
@@ -469,7 +469,7 @@ function bestExhaustiveBinarySplit(
  * per cluster and scores each candidate move by adding/removing a single
  * category's stats in O(V), so a full pass is O(n·k·V) instead of O(n^2·V).
  *
- * Initializes centriods randomly from the categories (aka Forgy initialization).
+ * Initializes centroids randomly from the categories (aka Forgy initialization).
  */
 function approximateBinaryKMeans(
   cats: CompactCat[],

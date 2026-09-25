@@ -21,7 +21,7 @@ However, **this choice to not re-randomize will lead to carryover bias**!
 
 How so? Well, consider what will happen after you restart the experiment. Let's say in Phase 2 each variation gets 100 totally new users. However, we also have some users returning to the app who were exposed to the experiment in Phase 1. In variation A, there are 50 returning users and in variation B, where the bug was causing churn, there are 10 returning users.
 
-Then, your experiment has 150 users in A and 110 users in B! This imbalance is caused because the effects of first phase of the experiment is _carrying over_ to the second phase of the experiment.
+Then, your experiment has 150 users in A and 110 users in B! This imbalance is caused because the effects of the first phase of the experiment are _carrying over_ to the second phase of the experiment.
 
 The best way to deal with carryover bias is to prevent it from happening in the first place, because this kind of bias can **unpredictably affect your results** and is **hard to detect**.
 
