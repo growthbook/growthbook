@@ -46,7 +46,6 @@ export function getQueryStatus(
   let numFailed = 0;
   const failedNames: string[] = [];
 
-  if (error) status = "failed";
   let running = false;
   for (let i = 0; i < queries.length; i++) {
     if (queries[i].status === "failed") {
@@ -56,6 +55,8 @@ export function getQueryStatus(
     if (queries[i].status === "running" || queries[i].status === "queued")
       running = true;
   }
+
+  if (error) return { status: "failed", numFailed, failedNames };
 
   if (numFailed > 0) status = "partially-succeeded";
   if (queries.length > 0 && numFailed >= queries.length / 2) status = "failed";
@@ -67,7 +68,11 @@ type Props = {
   cta?: string;
   loadingText?: string;
   cancelEndpoint: string;
-  model: { queries: Queries; runStarted: string | Date | undefined | null };
+  model: {
+    queries: Queries;
+    runStarted: string | Date | undefined | null;
+    error?: string | null;
+  };
   mutate: () => Promise<unknown> | unknown;
   icon?: "run" | "refresh";
   position?: "left" | "right";
@@ -114,7 +119,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
     ).length;
     const numQueries = model.queries.length;
 
-    const { status } = getQueryStatus(model.queries || []);
+    const { status } = getQueryStatus(model.queries || [], model.error);
     const timeoutLength = getTimeoutLength(elapsed);
     // Mutate periodically to check for updates
     useEffect(() => {

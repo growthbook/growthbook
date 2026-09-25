@@ -21,6 +21,7 @@ export type EntityType = "experiment" | "holdout" | "safe-rollout";
 type RefreshResultsModel = {
   id: string;
   queries?: Queries;
+  error?: string | null;
   runStarted?: string | Date | null;
 };
 
@@ -220,6 +221,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
         }}
         model={{
           queries: latest.queries || [],
+          error: latest.error,
           runStarted: latest.runStarted ?? null,
         }}
         icon="refresh"
