@@ -71,6 +71,7 @@ import { namespacesRoutes } from "./namespaces/namespaces.router";
 import { rolesRoutes } from "./roles/roles.router";
 import { eventWebhooksRoutes } from "./event-webhooks/event-webhooks.router";
 import { auditsRoutes } from "./audits/audits.router";
+import { savedQueriesRoutes } from "./saved-queries/saved-queries.router";
 import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
 
 const API_MODELS: ModelClass[] = [
@@ -221,6 +222,7 @@ export const allRoutes = [
   ...rolesRoutes,
   ...eventWebhooksRoutes,
   ...auditsRoutes,
+  ...savedQueriesRoutes,
   ...openaiRoutes,
   ...visualEditorAiRoutes,
 ];
