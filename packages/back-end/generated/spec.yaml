@@ -29516,13 +29516,83 @@ paths:
                     - binary
                     - other
                 sql:
-                  description: The SQL expression that computes the column value
+                  description: >-
+                    The SQL expression that computes the column value. Exactly
+                    one of `sql` or `lookup` is required.
                   example: price * quantity
                   type: string
+                lookup:
+                  description: >-
+                    Makes this a lookup column, usable only in row filters: it
+                    keeps rows whose `localKey` appears as `remoteKey` in the
+                    source (another Fact Table, a SQL query, or a table, per
+                    `type`) where `remoteColumn` matches the filter. For a Fact
+                    Table source, `datatype` is set from the remote column.
+                    Exactly one of `sql` or `lookup` is required.
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: factTable
+                        factTableId:
+                          type: string
+                        localKey:
+                          type: string
+                        remoteKey:
+                          type: string
+                        remoteColumn:
+                          type: string
+                      required:
+                        - type
+                        - factTableId
+                        - localKey
+                        - remoteKey
+                        - remoteColumn
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: sql
+                        sql:
+                          type: string
+                        localKey:
+                          type: string
+                        remoteKey:
+                          type: string
+                        remoteColumn:
+                          type: string
+                      required:
+                        - type
+                        - sql
+                        - localKey
+                        - remoteKey
+                        - remoteColumn
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: table
+                        table:
+                          type: string
+                        localKey:
+                          type: string
+                        remoteKey:
+                          type: string
+                        remoteColumn:
+                          type: string
+                      required:
+                        - type
+                        - table
+                        - localKey
+                        - remoteKey
+                        - remoteColumn
+                      additionalProperties: false
               required:
                 - column
                 - datatype
-                - sql
               additionalProperties: false
       responses:
         '200':
@@ -29589,8 +29659,76 @@ paths:
                     - binary
                     - other
                 sql:
-                  description: The SQL expression that computes the column value
+                  description: >-
+                    The SQL expression that computes the column value. Not valid
+                    on a lookup column.
                   type: string
+                lookup:
+                  description: >-
+                    A lookup column's source and keys. Only valid on a lookup
+                    column; a column can't switch between an expression and a
+                    lookup.
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: factTable
+                        factTableId:
+                          type: string
+                        localKey:
+                          type: string
+                        remoteKey:
+                          type: string
+                        remoteColumn:
+                          type: string
+                      required:
+                        - type
+                        - factTableId
+                        - localKey
+                        - remoteKey
+                        - remoteColumn
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: sql
+                        sql:
+                          type: string
+                        localKey:
+                          type: string
+                        remoteKey:
+                          type: string
+                        remoteColumn:
+                          type: string
+                      required:
+                        - type
+                        - sql
+                        - localKey
+                        - remoteKey
+                        - remoteColumn
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: table
+                        table:
+                          type: string
+                        localKey:
+                          type: string
+                        remoteKey:
+                          type: string
+                        remoteColumn:
+                          type: string
+                      required:
+                        - type
+                        - table
+                        - localKey
+                        - remoteKey
+                        - remoteColumn
+                      additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -66735,6 +66873,74 @@ components:
             value. Only valid on a virtual column; when omitted from an update,
             the existing expression is preserved.
           type: string
+        lookup:
+          description: >-
+            For lookup columns, the source the column resolves through. A lookup
+            column is a virtual column usable only in row filters; it filters
+            rows to those whose `localKey` appears as `remoteKey` in the source
+            (another Fact Table, a SQL query, or a table, per `type`) where
+            `remoteColumn` matches the filter.
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: factTable
+                factTableId:
+                  type: string
+                localKey:
+                  type: string
+                remoteKey:
+                  type: string
+                remoteColumn:
+                  type: string
+              required:
+                - type
+                - factTableId
+                - localKey
+                - remoteKey
+                - remoteColumn
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: sql
+                sql:
+                  type: string
+                localKey:
+                  type: string
+                remoteKey:
+                  type: string
+                remoteColumn:
+                  type: string
+              required:
+                - type
+                - sql
+                - localKey
+                - remoteKey
+                - remoteColumn
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: table
+                table:
+                  type: string
+                localKey:
+                  type: string
+                remoteKey:
+                  type: string
+                remoteColumn:
+                  type: string
+              required:
+                - type
+                - table
+                - localKey
+                - remoteKey
+                - remoteColumn
+              additionalProperties: false
         topValues:
           readOnly: true
           description: >-
@@ -66870,6 +67076,74 @@ components:
             value. Only valid on a virtual column; when omitted from an update,
             the existing expression is preserved.
           type: string
+        lookup:
+          description: >-
+            For lookup columns, the source the column resolves through. A lookup
+            column is a virtual column usable only in row filters; it filters
+            rows to those whose `localKey` appears as `remoteKey` in the source
+            (another Fact Table, a SQL query, or a table, per `type`) where
+            `remoteColumn` matches the filter.
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: factTable
+                factTableId:
+                  type: string
+                localKey:
+                  type: string
+                remoteKey:
+                  type: string
+                remoteColumn:
+                  type: string
+              required:
+                - type
+                - factTableId
+                - localKey
+                - remoteKey
+                - remoteColumn
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: sql
+                sql:
+                  type: string
+                localKey:
+                  type: string
+                remoteKey:
+                  type: string
+                remoteColumn:
+                  type: string
+              required:
+                - type
+                - sql
+                - localKey
+                - remoteKey
+                - remoteColumn
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: table
+                table:
+                  type: string
+                localKey:
+                  type: string
+                remoteKey:
+                  type: string
+                remoteColumn:
+                  type: string
+              required:
+                - type
+                - table
+                - localKey
+                - remoteKey
+                - remoteColumn
+              additionalProperties: false
       required:
         - column
       additionalProperties: false

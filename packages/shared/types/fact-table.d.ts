@@ -15,6 +15,7 @@ import {
   testFactFilterPropsValidator,
   testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
+  testLookupSourcePropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
   windowSettingsValidator,
@@ -33,6 +34,7 @@ import {
   funnelOrderingValidator,
   funnelSettingsValidator,
   conditionalInlineFiltersValidator,
+  columnLookupValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
@@ -48,6 +50,7 @@ export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;
 
 export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
+export type ColumnLookup = z.infer<typeof columnLookupValidator>;
 
 export interface ColumnInterface {
   dateCreated: Date;
@@ -75,6 +78,9 @@ export interface ColumnInterface {
   // The raw SQL expression for a virtual column, e.g. "price * quantity".
   // Inlined into generated SQL by getColumnExpression.
   sql?: string;
+  // Set on a lookup column (a virtual column with no `sql`). Usable only in
+  // row filters; compiled to a semi-join by getRowFilterSQL.
+  lookup?: ColumnLookup;
 }
 
 export interface FactFilterInterface {
@@ -215,6 +221,15 @@ export type TestRowFiltersProps = z.infer<typeof testRowFiltersPropsValidator>;
 export type TestVirtualColumnProps = z.infer<
   typeof testVirtualColumnPropsValidator
 >;
+export type TestLookupSourceProps = z.infer<
+  typeof testLookupSourcePropsValidator
+>;
+
+export interface LookupSourceTestResults {
+  sql: string;
+  columns?: { column: string; datatype: FactTableColumnType }[];
+  error?: string;
+}
 
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
 export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;

@@ -24,6 +24,8 @@ import {
   setAdjustedPValuesOnResults,
   chanceToWinFlatPrior,
   getRowFilterSQL,
+  isValidLookupTableName,
+  makeLookupResolver,
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
   isFactMetricJoinable,
@@ -583,6 +585,199 @@ describe("Experiments", () => {
       });
 
       describe("getRowFilterSQL", () => {
+        describe("lookup columns", () => {
+          const baseCol = {
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+            description: "",
+            numberFormat: "" as const,
+            deleted: false,
+          };
+          const planLookup: ColumnInterface = {
+            ...baseCol,
+            column: "plan_vc",
+            name: "Plan",
+            datatype: "string",
+            isVirtual: true,
+            lookup: {
+              type: "factTable",
+              factTableId: "ftb_users",
+              localKey: "user_id",
+              remoteKey: "id",
+              remoteColumn: "plan",
+            },
+          };
+          const lookupFactTable = {
+            ...factTable,
+            columns: [...factTable.columns, planLookup],
+          };
+          const usersColumns: ColumnInterface[] = [
+            { ...baseCol, column: "id", name: "id", datatype: "string" },
+            { ...baseCol, column: "plan", name: "plan", datatype: "string" },
+            {
+              ...baseCol,
+              column: "signup",
+              name: "signup",
+              datatype: "date",
+            },
+          ];
+          const resolveLookup = () => ({
+            sql: "SELECT * FROM users",
+            columns: usersColumns,
+          });
+          const helpers = {
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          };
+
+          it("compiles to a semi-join on the remote column", () => {
+            expect(
+              getRowFilterSQL({
+                ...helpers,
+                factTable: lookupFactTable,
+                rowFilter: {
+                  column: "plan_vc",
+                  operator: "=",
+                  values: ["pro"],
+                },
+                resolveLookup,
+              }),
+            ).toStrictEqual(
+              "(user_id IN (\nSELECT id\nFROM (\nSELECT * FROM users\n) __lookup\nWHERE (plan = 'pro')\n))",
+            );
+          });
+
+          it("keeps negation inside the subquery", () => {
+            expect(
+              getRowFilterSQL({
+                ...helpers,
+                factTable: lookupFactTable,
+                rowFilter: {
+                  column: "plan_vc",
+                  operator: "not_in",
+                  values: ["free", "trial"],
+                },
+                resolveLookup,
+              }),
+            ).toContain("user_id IN (\nSELECT id");
+          });
+
+          it("uses the remote column's datatype", () => {
+            const sql = getRowFilterSQL({
+              ...helpers,
+              factTable: {
+                ...lookupFactTable,
+                columns: [
+                  ...factTable.columns,
+                  {
+                    ...planLookup,
+                    datatype: "date",
+                    lookup: { ...planLookup.lookup!, remoteColumn: "signup" },
+                  },
+                ],
+              },
+              rowFilter: {
+                column: "plan_vc",
+                operator: ">",
+                values: ["2024-01-01"],
+              },
+              castToTimestamp: (c) => `CAST(${c} AS TIMESTAMP)`,
+              resolveLookup,
+            });
+            expect(sql).toContain(
+              "WHERE (CAST(signup AS TIMESTAMP) >= CAST('2024-01-02' AS TIMESTAMP))",
+            );
+          });
+
+          it("compiles a table source to SELECT *", () => {
+            const tableLookup: ColumnInterface = {
+              ...planLookup,
+              lookup: {
+                type: "table",
+                table: "`proj-1.crm.users`",
+                localKey: "user_id",
+                remoteKey: "id",
+                remoteColumn: "plan",
+              },
+            };
+            const sql = getRowFilterSQL({
+              ...helpers,
+              factTable: {
+                ...factTable,
+                columns: [...factTable.columns, tableLookup],
+              },
+              rowFilter: {
+                column: "plan_vc",
+                operator: "=",
+                values: ["pro"],
+              },
+              resolveLookup: makeLookupResolver({
+                factTableMap: new Map(),
+                datasourceId: "ds",
+                getSql: (rawSql) => rawSql,
+              }),
+            });
+            expect(sql).toContain(
+              "FROM (\nSELECT * FROM `proj-1.crm.users`\n)",
+            );
+            expect(sql).toContain("WHERE (plan = 'pro')");
+          });
+
+          it("validates table names", () => {
+            [
+              "users",
+              "db.schema.users",
+              "`db`.`users`",
+              "`proj-1.dataset.events_*`",
+              '"Schema"."Users"',
+            ].forEach((t) => expect(isValidLookupTableName(t)).toBe(true));
+            [
+              "users; DROP TABLE x",
+              "users--",
+              "(SELECT 1)",
+              "`users",
+              "users /* x */",
+            ].forEach((t) => expect(isValidLookupTableName(t)).toBe(false));
+          });
+
+          it("throws without a resolver", () => {
+            expect(() =>
+              getRowFilterSQL({
+                ...helpers,
+                factTable: lookupFactTable,
+                rowFilter: {
+                  column: "plan_vc",
+                  operator: "=",
+                  values: ["pro"],
+                },
+              }),
+            ).toThrow(/can't be used in this query/);
+          });
+
+          it("rejects chained lookups", () => {
+            expect(() =>
+              getRowFilterSQL({
+                ...helpers,
+                factTable: lookupFactTable,
+                rowFilter: {
+                  column: "plan_vc",
+                  operator: "=",
+                  values: ["pro"],
+                },
+                resolveLookup: () => ({
+                  sql: "SELECT * FROM users",
+                  columns: [
+                    { ...planLookup, column: "plan" },
+                    ...usersColumns.filter((c) => c.column !== "plan"),
+                  ],
+                }),
+              }),
+            ).toThrow(/another lookup column/);
+          });
+        });
+
         it("escapes string literals", () => {
           expect(
             getRowFilterSQL({

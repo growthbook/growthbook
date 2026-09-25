@@ -92,6 +92,7 @@ const factTableSchema = new mongoose.Schema({
       lockedAutoSlices: [String],
       isVirtual: Boolean,
       sql: String,
+      lookup: {},
     },
   ],
   columnsError: String,
@@ -883,6 +884,17 @@ export async function deleteColumn(
   const dependentFilters = factTable.filters.filter((f) =>
     sqlReferencesColumn(f.value, columnName, identifierQuote),
   );
+  const dependentLookupColumns = factTable.columns.filter(
+    (c) =>
+      !c.deleted &&
+      c.column !== columnName &&
+      c.lookup?.localKey.split(".")[0] === columnName,
+  );
+  const remoteLookups = await getLookupDependents(
+    context,
+    factTable.id,
+    columnName,
+  );
   // Org-wide for the same reason as explorations/dashboards below: a metric in a
   // project the caller cannot read must still block the delete.
   const [allFactMetrics, visibleFactMetrics] = await Promise.all([
@@ -929,13 +941,18 @@ export async function deleteColumn(
       (c) => `\n - Virtual column: ${c.name || c.column}`,
     ),
     ...dependentFilters.map((f) => `\n - Filter: ${f.name || f.id}`),
+    ...dependentLookupColumns.map(
+      (c) => `\n - Lookup column: ${c.name || c.column}`,
+    ),
+    ...remoteLookups.names.map((n) => `\n - Lookup column: ${n}`),
     ...dependentMetrics.map((m) => `\n - Fact Metric: ${m.name || m.id}`),
     ...dependentExplorations.map((e) => `\n - Exploration: ${e.name || e.id}`),
     ...dependentDashboards.map((d) => `\n - Dashboard: ${d.name || d.id}`),
   ];
   // Counted, not named, so the error never reveals resources the caller cannot
   // read — while still blocking the delete.
-  const totalHidden = hiddenCount + hiddenMetricCount;
+  const totalHidden =
+    hiddenCount + hiddenMetricCount + remoteLookups.hiddenCount;
   if (totalHidden > 0) {
     lines.push(
       `\n - ${totalHidden} other resource(s) you do not have access to`,
@@ -997,6 +1014,7 @@ export function mergeUpsertColumns(
         // Origin is immutable on upsert (handled explicitly below).
         "isVirtual",
         "sql",
+        "lookup",
       ]),
       datatype: incomingColumn.datatype ?? originalColumn.datatype,
       jsonFields:
@@ -1009,8 +1027,13 @@ export function mergeUpsertColumns(
       // expression; when omitted, the existing expression is preserved (so a
       // partial sync that doesn't repeat `sql` never blanks it out).
       isVirtual: originalColumn.isVirtual,
-      sql: originalColumn.isVirtual
-        ? (incomingColumn.sql ?? originalColumn.sql)
+      sql:
+        originalColumn.isVirtual && !originalColumn.lookup
+          ? (incomingColumn.sql ?? originalColumn.sql)
+          : undefined,
+      // Likewise a lookup column stays a lookup, and nothing else becomes one.
+      lookup: originalColumn.lookup
+        ? (incomingColumn.lookup ?? originalColumn.lookup)
         : undefined,
       ...(incomingColumn.topValues ? { topValuesDate: new Date() } : {}),
       dateUpdated: new Date(),
@@ -1178,6 +1201,65 @@ export async function updateFactFilter(
   );
 }
 
+/**
+ * Lookup columns on other Fact Tables whose source is this one, optionally
+ * only those reading a given column of it. Org-wide, so a table the caller
+ * can't read still blocks a delete; those are counted, not named.
+ */
+async function getLookupDependents(
+  context: ReqContext | ApiReqContext,
+  factTableId: string,
+  column?: string,
+): Promise<{ names: string[]; hiddenCount: number }> {
+  const docs = await FactTableModel.find({
+    organization: context.org.id,
+    "columns.lookup.factTableId": factTableId,
+  });
+  const names: string[] = [];
+  let hiddenCount = 0;
+  for (const ft of docs.map(toInterface)) {
+    const cols = ft.columns.filter(
+      (c) =>
+        !c.deleted &&
+        c.lookup?.type === "factTable" &&
+        c.lookup.factTableId === factTableId &&
+        (!column ||
+          [c.lookup.remoteKey, c.lookup.remoteColumn].some(
+            (k) => k.split(".")[0] === column,
+          )),
+    );
+    if (!cols.length) continue;
+    if (!context.permissions.canReadMultiProjectResource(ft.projects)) {
+      hiddenCount++;
+      continue;
+    }
+    cols.forEach((c) => names.push(`${ft.name}: ${c.name || c.column}`));
+  }
+  return { names, hiddenCount };
+}
+
+/** Blocks deleting a Fact Table that lookup columns still read from. */
+export async function assertNoLookupDependents(
+  context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface,
+) {
+  const { names, hiddenCount } = await getLookupDependents(
+    context,
+    factTable.id,
+  );
+  const lines = names.map((n) => `\n - Lookup column: ${n}`);
+  if (hiddenCount) {
+    lines.push(
+      `\n - ${hiddenCount} other resource(s) you do not have access to`,
+    );
+  }
+  if (lines.length) {
+    throw new Error(
+      `Cannot delete: the following still reference it:${lines.join("")}`,
+    );
+  }
+}
+
 export async function deleteFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
@@ -1335,6 +1417,7 @@ export function toFactTableColumnApiInterface(
     lockedAutoSlices: column.lockedAutoSlices,
     isVirtual: column.isVirtual,
     sql: column.sql,
+    lookup: column.lookup,
     topValues: column.topValues,
     topValuesDate: column.topValuesDate?.toISOString(),
     dateCreated: column.dateCreated.toISOString(),

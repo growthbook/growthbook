@@ -658,7 +658,7 @@ export function getCommonColumns(
 
   type SimpleColumn = Pick<
     ColumnInterface,
-    "column" | "name" | "deleted" | "datatype" | "jsonFields"
+    "column" | "name" | "deleted" | "datatype" | "jsonFields" | "lookup"
   >;
   let columns: SimpleColumn[] | null = null;
   const userIdTypes = new Set<string>();
@@ -736,7 +736,7 @@ export function getCommonColumns(
 
   const groupByColumns: Pick<ColumnInterface, "column" | "name">[] = [];
   (columns || [])
-    .filter((c) => !c.deleted)
+    .filter((c) => !c.deleted && !c.lookup)
     .filter((c) => !userIdTypes.has(c.column))
     .forEach((c) => {
       if (
