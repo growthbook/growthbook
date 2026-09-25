@@ -105,6 +105,10 @@ How to use skills:
   2. \`loadSkill('<domain>/references/<leaf>')\` — follow that leaf's detailed
      \`callApi\` workflow.
 - **Standalone domains** have no children — one \`loadSkill\` is enough.
+- A loaded skill may point to other files in its folder, such as
+  \`examples/payload.json\`. Load one with \`loadSkill('<domain>/<path>')\` when
+  the skill tells you to. A script loads as text only: read what it does and
+  carry that out with \`callApi\` instead.
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
@@ -509,7 +513,7 @@ const loadSkillInputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Top-level skill name from 'Available skills', or a qualified <domain>/references/<workflow> path from a loaded domain router.",
+      "Top-level skill name from 'Available skills', a qualified <domain>/references/<workflow> path from a loaded domain router, or a <domain>/<path> file a loaded skill points to.",
     ),
 });
 

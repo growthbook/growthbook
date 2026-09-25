@@ -367,14 +367,6 @@ export const SECRET_API_KEY = secretAPIKey;
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 export const XAI_API_KEY = process.env.XAI_API_KEY || "";
-
-// Self-hosted only: extra AI Assistant skills, and built-ins to drop ("true" or a comma-separated list).
-export const AGENT_SKILLS_DIR = IS_CLOUD
-  ? ""
-  : process.env.AGENT_SKILLS_DIR || "";
-export const AGENT_SKILLS_DISABLE_BUILTINS = IS_CLOUD
-  ? ""
-  : process.env.AGENT_SKILLS_DISABLE_BUILTINS || "";
 export const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY || "";
 export const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || "";
 // Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
@@ -384,6 +376,11 @@ export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // /v1beta/models to find an ID your account has access to and override.
 export const GEMINI_IMAGE_MODEL =
   process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+
+// Self-hosted only: extra AI Assistant skills, layered over the built-ins.
+export const AGENT_SKILLS_DIR = IS_CLOUD
+  ? ""
+  : process.env.AGENT_SKILLS_DIR || "";
 // Kraken.io credentials — AI-generated images are resized + re-encoded to
 // WebP via the Kraken API instead of any in-process codec (sharp/wasm-vips),
 // which proved unreliable in production. When unset, optimization is skipped

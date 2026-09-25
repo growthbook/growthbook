@@ -13,7 +13,6 @@ import {
   _enabledFor,
   _loadSkillsFromDirectory,
   _mergeCustomSkills,
-  _parseDisabledBuiltIns,
   _resolveSkill,
 } from "back-end/src/agent/skills";
 
@@ -155,6 +154,19 @@ describe("agent skills loader", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("skips a skill whose name isn't a slug", () => {
+    const root = createWorkflowFixture({ ok: [] });
+    writeFixtureFile(
+      join(root, "bad", "SKILL.md"),
+      `---\nname: Release/Checklist\ndescription: Bad name\n---\n`,
+    );
+    try {
+      expect([..._loadSkillsFromDirectory(root).skills.keys()]).toEqual(["ok"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("custom skills", () => {
@@ -177,7 +189,7 @@ describe("custom skills", () => {
   });
 
   it("adds custom domains and replaces a same-named built-in wholesale", () => {
-    const merged = _mergeCustomSkills(builtIn, custom, new Set());
+    const merged = _mergeCustomSkills(builtIn, custom);
 
     expect(names(merged)).toEqual([
       "experiments",
@@ -191,19 +203,8 @@ describe("custom skills", () => {
     );
   });
 
-  it("drops the named built-ins, or all of them", () => {
-    const empty = { summaries: [], skills: new Map() };
-
-    expect(
-      names(_mergeCustomSkills(builtIn, empty, new Set(["experiments"]))),
-    ).toEqual(["feature-flags", "feature-flags/references/flag-create"]);
-    expect(names(_mergeCustomSkills(builtIn, custom, "all"))).toEqual(
-      names(custom),
-    );
-  });
-
   it("tags custom skills so settings can badge them", () => {
-    const merged = _mergeCustomSkills(builtIn, custom, new Set());
+    const merged = _mergeCustomSkills(builtIn, custom);
 
     expect(merged.skills.get("release-checklist")?.custom).toBe(true);
     expect(merged.skills.get("experiments")?.custom).toBeUndefined();
@@ -267,11 +268,45 @@ describe("custom skills", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+});
 
-  it("parses AGENT_SKILLS_DISABLE_BUILTINS", () => {
-    expect(_parseDisabledBuiltIns("TRUE")).toBe("all");
-    expect(_parseDisabledBuiltIns(" experiments, ,analytics ")).toEqual(
-      new Set(["experiments", "analytics"]),
+describe("skill files", () => {
+  const root = createWorkflowFixture({ "release-checklist": ["prepare"] });
+  const dir = join(root, "release-checklist");
+  writeFixtureFile(join(dir, "examples", "payload.json"), '{"id": 1}');
+  writeFixtureFile(join(dir, "scripts", "sync.sh"), "curl $HOST\n");
+  writeFixtureFile(join(dir, "logo.png"), "\x89PNG\x00\x00");
+  writeFixtureFile(join(dir, ".hidden", "notes.md"), "secret");
+  const { summaries, skills } = _loadSkillsFromDirectory(root);
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it("indexes other text files by path, but keeps them out of the menu", () => {
+    expect(skills.get("release-checklist/examples/payload.json")?.body).toBe(
+      '{"id": 1}',
+    );
+    expect(skills.get("release-checklist/scripts/sync.sh")?.kind).toBe("file");
+    expect(summaries.map((s) => s.name)).toEqual([
+      "release-checklist",
+      "release-checklist/references/prepare",
+    ]);
+  });
+
+  it("skips binary and hidden files, and the files already loaded as skills", () => {
+    const files = [...skills.values()].filter((s) => s.kind === "file");
+    expect(files.map((s) => s.name)).toEqual([
+      "release-checklist/examples/payload.json",
+      "release-checklist/scripts/sync.sh",
+    ]);
+  });
+
+  it("resolves a file by the relative path its skill uses", () => {
+    const resolvedName = (name: string) => _resolveSkill(skills, name)?.name;
+    expect(resolvedName("examples/payload.json")).toBe(
+      "release-checklist/examples/payload.json",
+    );
+    expect(resolvedName("./scripts/sync.sh")).toBe(
+      "release-checklist/scripts/sync.sh",
     );
   });
 });

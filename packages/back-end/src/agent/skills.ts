@@ -4,10 +4,7 @@ import yaml from "js-yaml";
 import type { OrgSkillSummary, SkillSummary } from "shared/ai-chat";
 import type { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
-import {
-  AGENT_SKILLS_DIR,
-  AGENT_SKILLS_DISABLE_BUILTINS,
-} from "back-end/src/util/secrets";
+import { AGENT_SKILLS_DIR } from "back-end/src/util/secrets";
 
 /**
  * Agent skills teach the generic agent how to use slices of the GrowthBook
@@ -30,10 +27,11 @@ import {
  *
  * Domain routers appear in the system-prompt index and the composer's
  * slash-command menu; workflows load on demand once the model has read the
- * router's workflow table.
+ * router's workflow table. Any other text file in a skill's folder loads by
+ * path (`<domain>/<path>`) but is never listed.
  *
  * Self-hosted installs can add skills in the same layout from
- * `AGENT_SKILLS_DIR` and drop built-ins with `AGENT_SKILLS_DISABLE_BUILTINS`.
+ * `AGENT_SKILLS_DIR`; orgs turn skills off in settings.
  */
 
 /** A skill's index entry plus the prompt body only the agent reads. */
@@ -110,6 +108,9 @@ function resolveSkillsDir(): string | null {
   return candidates.find(skillsDirHasContent) ?? null;
 }
 
+// Names key the lookup and `/` separates a workflow or file path from its domain.
+const SKILL_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/;
+
 function readMarkdownFile(fullPath: string) {
   return parseFrontmatter(fs.readFileSync(fullPath, "utf8"));
 }
@@ -126,6 +127,12 @@ function readDomainSkill(
 
   const { data: frontmatter, body } = readMarkdownFile(routerPath);
   const name = frontmatter.name || directoryName;
+  if (!SKILL_NAME_RE.test(name)) {
+    logger.warn(
+      `Skill ${directoryName}/SKILL.md is named "${name}", which isn't lowercase letters, digits, hyphens and underscores; skipping it.`,
+    );
+    return null;
+  }
   const domain: Skill = {
     name,
     description: frontmatter.description || "",
@@ -182,6 +189,38 @@ function readReferenceSkills(
   return references;
 }
 
+/** Every other non-binary file in the folder; scripts load as text, since nothing here runs them. */
+function readSkillFiles(
+  skillsDir: string,
+  directoryName: string,
+  domainName: string,
+): Skill[] {
+  const domainDir = path.join(skillsDir, directoryName);
+  const files: Skill[] = [];
+  for (const file of fs
+    .readdirSync(domainDir, { recursive: true, encoding: "utf8" })
+    .sort()) {
+    const relative = file.split(path.sep).join("/");
+    if (relative === "SKILL.md" || /^references\/[^/]+\.md$/.test(relative)) {
+      continue;
+    }
+    if (relative.split("/").some((part) => part.startsWith("."))) continue;
+    const fullPath = path.join(domainDir, file);
+    if (!fs.statSync(fullPath).isFile()) continue;
+
+    const content = fs.readFileSync(fullPath);
+    if (content.subarray(0, 8000).includes(0)) continue;
+    files.push({
+      name: `${domainName}/${relative}`,
+      description: "",
+      body: content.toString("utf8"),
+      kind: "file",
+      group: domainName,
+    });
+  }
+  return files;
+}
+
 function toSummary({ name, description, kind, group }: Skill): SkillSummary {
   return { name, description, kind, ...(group === undefined ? {} : { group }) };
 }
@@ -213,63 +252,47 @@ function loadSkillsFromDirectory(dir: string | null): SkillRegistry {
     skills.set(domain.name, domain);
 
     const domainReferences = readReferenceSkills(dir, entry, domain.name);
-    if (domainReferences === null) continue;
-    if (domainReferences.length === 0) {
+    if (domainReferences?.length === 0) {
       logger.warn(
         `Skill domain "${domain.name}" has no workflows. Run 'pnpm --filter back-end assemble-skills' with a growthbook/skills checkout; see packages/back-end/src/agent/README.md.`,
       );
     }
-    for (const reference of domainReferences) {
+    for (const reference of domainReferences ?? []) {
       skills.set(reference.name, reference);
       summaries.push(toSummary(reference));
     }
+    for (const file of readSkillFiles(dir, entry, domain.name)) {
+      skills.set(file.name, file);
+    }
   }
 
-  const names = [...skills.keys()];
+  const names = summaries.map((s) => s.name);
   const domainCount = summaries.filter((s) => s.kind === "domain").length;
   logger.info(
-    `Loaded ${names.length} agent skill(s) from ${dir} (${domainCount} domain, ${names.length - domainCount} reference): ${names.join(", ")}`,
+    `Loaded ${names.length} agent skill(s) from ${dir} (${domainCount} domain, ${names.length - domainCount} reference, ${skills.size - names.length} file): ${names.join(", ")}`,
   );
   return { summaries, skills };
 }
 
 /**
  * Layers a self-hosted install's own skills over the built-ins. A custom domain
- * replaces the built-in of the same name, workflows included, and `disabled`
- * ("all" or domain names) drops built-ins outright.
+ * replaces the built-in of the same name, workflows and files included.
  */
 function mergeCustomSkills(
   builtIn: SkillRegistry,
   custom: SkillRegistry,
-  disabled: "all" | ReadonlySet<string>,
 ): SkillRegistry {
   const customDomains = new Set(
     custom.summaries.filter((s) => s.kind === "domain").map((s) => s.name),
   );
-  const builtInDomains = builtIn.summaries.filter((s) => s.kind === "domain");
-  for (const { name } of builtInDomains) {
-    if (customDomains.has(name)) {
+  for (const { name, kind } of builtIn.summaries) {
+    if (kind === "domain" && customDomains.has(name)) {
       logger.info(`Custom agent skill "${name}" overrides the built-in one.`);
     }
   }
-  if (disabled !== "all") {
-    for (const name of disabled) {
-      if (!builtInDomains.some((s) => s.name === name)) {
-        logger.warn(
-          `AGENT_SKILLS_DISABLE_BUILTINS names "${name}", which is not a built-in skill.`,
-        );
-      }
-    }
-  }
 
-  const keep = ({ name, group }: SkillSummary) => {
-    const domain = group ?? name;
-    return !(
-      disabled === "all" ||
-      disabled.has(domain) ||
-      customDomains.has(domain)
-    );
-  };
+  const keep = ({ name, group }: SkillSummary) =>
+    !customDomains.has(group ?? name);
   return {
     summaries: [
       ...builtIn.summaries.filter(keep),
@@ -283,16 +306,6 @@ function mergeCustomSkills(
       ]),
     ]),
   };
-}
-
-function parseDisabledBuiltIns(value: string): "all" | Set<string> {
-  if (value.trim().toLowerCase() === "true") return "all";
-  return new Set(
-    value
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean),
-  );
 }
 
 const CUSTOM_SKILLS_RECHECK_MS = 30_000;
@@ -330,54 +343,49 @@ function getSkillRegistry(): SkillRegistry {
   if (cachedRegistry && !customSkillsChanged()) return cachedRegistry;
 
   builtInRegistry ??= loadSkillsFromDirectory(resolveSkillsDir());
-  const builtIn = builtInRegistry;
-  if (!AGENT_SKILLS_DIR && !AGENT_SKILLS_DISABLE_BUILTINS) {
-    cachedRegistry = builtIn;
+  if (!AGENT_SKILLS_DIR) {
+    cachedRegistry = builtInRegistry;
     return cachedRegistry;
   }
 
-  if (AGENT_SKILLS_DIR) {
-    customSkillsSignature = dirSignature(AGENT_SKILLS_DIR);
-    customSkillsCheckedAt = Date.now();
-  }
-
+  customSkillsSignature = dirSignature(AGENT_SKILLS_DIR);
+  customSkillsCheckedAt = Date.now();
   let custom: SkillRegistry = { summaries: [], skills: new Map() };
-  if (AGENT_SKILLS_DIR) {
-    if (skillsDirHasContent(AGENT_SKILLS_DIR)) {
-      custom = loadSkillsFromDirectory(AGENT_SKILLS_DIR);
-    } else {
-      logger.warn(
-        `AGENT_SKILLS_DIR is ${AGENT_SKILLS_DIR}, which has no <skill>/SKILL.md directories; no custom skills loaded.`,
-      );
-    }
+  if (skillsDirHasContent(AGENT_SKILLS_DIR)) {
+    custom = loadSkillsFromDirectory(AGENT_SKILLS_DIR);
+  } else {
+    logger.warn(
+      `AGENT_SKILLS_DIR is ${AGENT_SKILLS_DIR}, which has no <skill>/SKILL.md directories; no custom skills loaded.`,
+    );
   }
-  cachedRegistry = mergeCustomSkills(
-    builtIn,
-    custom,
-    parseDisabledBuiltIns(AGENT_SKILLS_DISABLE_BUILTINS),
-  );
+  cachedRegistry = mergeCustomSkills(builtInRegistry, custom);
   return cachedRegistry;
 }
 
 /**
- * Skills are keyed `<domain>` or `<domain>/references/<workflow>`, but a domain
- * router lists its workflows as `references/<workflow>.md` — the path a
- * shell-capable agent would read — and sibling workflows refer to each other by
- * bare name. Accept those shapes when they point at exactly one skill, so the
- * caller doesn't have to reassemble the qualified key from the router's table.
+ * Skills are keyed `<domain>`, `<domain>/references/<workflow>` or
+ * `<domain>/<file path>`, but a domain router lists its workflows as
+ * `references/<workflow>.md` — the path a shell-capable agent would read — and
+ * refers to its other files by relative path, while sibling workflows name each
+ * other bare. Accept those shapes when they point at exactly one skill, so the
+ * caller doesn't have to reassemble the qualified key.
  */
 function resolveSkill(
   skills: Map<string, Skill>,
   name: string,
 ): Skill | undefined {
-  const exact = skills.get(name);
+  const trimmed = name.trim().replace(/^\.\//, "");
+  const exact = skills.get(trimmed);
   if (exact) return exact;
 
-  const workflow = name.trim().split("/").pop()?.replace(/\.md$/, "");
+  const workflow = trimmed.split("/").pop()?.replace(/\.md$/, "");
   if (!workflow) return undefined;
 
   const matches = [...skills.keys()].filter(
-    (key) => key === workflow || key.endsWith(`/references/${workflow}`),
+    (key) =>
+      key === workflow ||
+      key.endsWith(`/references/${workflow}`) ||
+      key.endsWith(`/${trimmed}`),
   );
   return matches.length === 1 ? skills.get(matches[0]) : undefined;
 }
@@ -392,7 +400,6 @@ function enabledFor(org: OrganizationInterface) {
 export const _loadSkillsFromDirectory = loadSkillsFromDirectory;
 export const _resolveSkill = resolveSkill;
 export const _mergeCustomSkills = mergeCustomSkills;
-export const _parseDisabledBuiltIns = parseDisabledBuiltIns;
 export const _enabledFor = enabledFor;
 export const _dirSignature = dirSignature;
 

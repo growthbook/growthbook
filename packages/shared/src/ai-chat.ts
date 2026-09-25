@@ -185,7 +185,8 @@ export type AIChatMention = {
   stale?: boolean;
 };
 
-export type SkillKind = "domain" | "leaf";
+/** `file` is any other text file in a skill's folder: loadable by path, never listed. */
+export type SkillKind = "domain" | "leaf" | "file";
 
 /** Skill index entry for the `/` menu. Omits the prompt body — the agent loads that. */
 export interface SkillSummary {
