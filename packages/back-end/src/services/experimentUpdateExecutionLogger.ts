@@ -9,8 +9,6 @@ import type { RecoveryDeclineReason } from "back-end/src/queryRunners/rehydrate"
 
 type ExperimentUpdateLogMeta = {
   datasource: DataSourceInterface;
-  // The live runner or a stalled-snapshot recovery replaying its results.
-  concludedBy: "runner" | "recovery";
 };
 
 export type SnapshotReapReason =
@@ -24,6 +22,9 @@ export type SnapshotReapReason =
 export type SnapshotConclusion =
   | { concludedBy: "runner" | "recovery" | "cancel" }
   | { concludedBy: "reaper"; reason: SnapshotReapReason };
+
+/** A live run, or a stalled-snapshot recovery replaying its persisted results. */
+export type SnapshotRunnerRole = "runner" | "recovery";
 
 export type ExperimentUpdateLogPlan = {
   runnerKind: SnapshotQueryRunnerKind;
@@ -48,19 +49,19 @@ type ExperimentUpdateExecutionLog = {
   covariateSources: ExperimentUpdateCovariateSourceLog[] | null;
 };
 
-type ExperimentUpdateTimingMs = {
-  generateSql: number;
-  runQueries: number;
-  analyze: number;
-  persistSnapshot: number;
-  propagateSnapshot: number;
-  total: number;
-};
+export type ExperimentUpdateTimingPhase =
+  | "generateSql"
+  | "runQueries"
+  | "analyze"
+  | "persistSnapshot"
+  | "propagateSnapshot";
 
-export type ExperimentUpdateTimingPhase = Exclude<
-  keyof ExperimentUpdateTimingMs,
-  "total"
->;
+// A phase this logger never started is null, because it was skipped or ran in
+// a process that died before a recovery took over.
+type ExperimentUpdateTimingMs = Record<
+  ExperimentUpdateTimingPhase,
+  number | null
+> & { total: number };
 
 export class ExperimentUpdateExecutionLogger {
   public execution: ExperimentUpdateExecutionLog = {
@@ -73,13 +74,9 @@ export class ExperimentUpdateExecutionLogger {
   private readonly phaseStartedAtMs: Partial<
     Record<ExperimentUpdateTimingPhase, number>
   > = {};
-  private readonly phaseMs = {
-    generateSql: 0,
-    runQueries: 0,
-    analyze: 0,
-    persistSnapshot: 0,
-    propagateSnapshot: 0,
-  };
+  private readonly phaseMs: Partial<
+    Record<ExperimentUpdateTimingPhase, number>
+  > = {};
 
   constructor(
     public readonly plan: ExperimentUpdateLogPlan,
@@ -103,12 +100,13 @@ export class ExperimentUpdateExecutionLogger {
       return;
     }
     this.phaseStartedAtMs[phase] = Date.now();
+    this.phaseMs[phase] ??= 0;
   }
 
   endPhase(phase: ExperimentUpdateTimingPhase): void {
     const startedAt = this.phaseStartedAtMs[phase];
     if (startedAt !== undefined) {
-      this.phaseMs[phase] += Date.now() - startedAt;
+      this.phaseMs[phase] = (this.phaseMs[phase] ?? 0) + Date.now() - startedAt;
       delete this.phaseStartedAtMs[phase];
     }
 
@@ -126,17 +124,17 @@ export class ExperimentUpdateExecutionLogger {
 
   getTimings(): ExperimentUpdateTimingMs {
     return {
-      ...this.phaseMs,
+      generateSql: this.phaseMs.generateSql ?? null,
+      runQueries: this.phaseMs.runQueries ?? null,
+      analyze: this.phaseMs.analyze ?? null,
+      persistSnapshot: this.phaseMs.persistSnapshot ?? null,
+      propagateSnapshot: this.phaseMs.propagateSnapshot ?? null,
       total: this.totalMs ?? 0,
     };
   }
 
   recordCovariateSource(entry: ExperimentUpdateCovariateSourceLog): void {
     (this.execution.covariateSources ??= []).push(entry);
-  }
-
-  get concludedBy(): ExperimentUpdateLogMeta["concludedBy"] {
-    return this.meta.concludedBy;
   }
 
   get datasourceType(): DataSourceInterface["type"] {

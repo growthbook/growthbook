@@ -531,7 +531,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       this.model.id,
       { queries: this.model.queries, error },
       "unknown",
-      { concludedBy: "runner" },
+      { concludedBy: this.concludedBy },
     );
     if (wrote) {
       await this.context.models.incrementalRefresh
@@ -577,6 +577,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       id: this.model.id,
       updates,
       failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

@@ -3433,6 +3433,7 @@ export async function postSnapshotAnalysis(
       context,
       id,
       updates: { settings: snapshot.settings },
+      conclusion: null,
     });
   }
 

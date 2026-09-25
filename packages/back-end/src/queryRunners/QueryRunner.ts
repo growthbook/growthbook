@@ -35,6 +35,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentUpdateExecutionLogger,
   ExperimentUpdateTimingPhase,
+  SnapshotRunnerRole,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 
 export type QueryMap = Map<string, QueryInterface>;
@@ -253,6 +254,8 @@ export abstract class QueryRunner<
   /** Serializes refresh passes so two cannot analyze or mutate model at once. */
   private refreshChain: Promise<void> = Promise.resolve();
   private finishedQueryMapCache: QueryMap = new Map();
+  // Snapshot runners report this as who concluded the snapshot.
+  protected concludedBy: SnapshotRunnerRole = "runner";
   protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
 
@@ -682,6 +685,7 @@ export abstract class QueryRunner<
    * Returns true if the snapshot was finalized successfully.
    */
   public async finalizeFromPersistedResults(): Promise<boolean> {
+    this.concludedBy = "recovery";
     // Direct assignment: setStatus("running") arms heartbeat and watchdog
     // timers, which a one-shot job must not.
     this.status = "running";

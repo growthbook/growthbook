@@ -443,8 +443,9 @@ export async function updateSnapshot({
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
   failureCause?: QueryRunnerFailureCause;
-  // Omitted for the runners, whose update logger says whether they recovered.
-  conclusion?: SnapshotConclusion;
+  // Who ends the snapshot if this update moves it out of "running"; null for
+  // updates that never change its status.
+  conclusion: SnapshotConclusion | null;
   experimentUpdateExecutionLogger?: ExperimentUpdateExecutionLogger | null;
 }) {
   const organization = context.org.id;
@@ -647,14 +648,18 @@ export async function updateSnapshot({
     experimentSnapshot.status !== "running" &&
     experimentSnapshot.status !== existingInterface.status
   ) {
-    logExperimentUpdated(context, {
-      snapshot: experimentSnapshot,
-      snapshotStatus: experimentSnapshot.status,
-      conclusion: conclusion ?? {
-        concludedBy: experimentUpdateExecutionLogger?.concludedBy ?? "runner",
-      },
-      executionLogger: experimentUpdateExecutionLogger ?? null,
-    });
+    if (conclusion) {
+      logExperimentUpdated(context, {
+        snapshot: experimentSnapshot,
+        snapshotStatus: experimentSnapshot.status,
+        conclusion,
+        executionLogger: experimentUpdateExecutionLogger ?? null,
+      });
+    } else {
+      logger.warn(
+        `Snapshot ${id} moved to "${experimentSnapshot.status}" by an update that passed no conclusion`,
+      );
+    }
   }
 
   const updateDashboardWithSnapshot = async (dashboard: DashboardInterface) => {

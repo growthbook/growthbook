@@ -190,7 +190,7 @@ export async function recoverStalledSnapshot(
         fullRefresh: null,
         fullRefreshReason: null,
       },
-      { datasource: integration.datasource, concludedBy: "recovery" },
+      { datasource: integration.datasource },
     ),
   );
   // Repeats every reaper tick with no conclusion if the analysis kills the process.

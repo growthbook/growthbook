@@ -178,7 +178,6 @@ describe("recoverStalledSnapshot", () => {
     await recoverStalledSnapshot(context, snapshot());
 
     const executionLogger = mockResultsSetLogger.mock.calls[0][0];
-    expect(executionLogger.concludedBy).toBe("recovery");
     expect(executionLogger.datasourceType).toBe("bigquery");
     expect(executionLogger.plan).toEqual({
       runnerKind: "results",

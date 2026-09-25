@@ -792,7 +792,6 @@ describe("ExperimentSnapshotModel", () => {
         },
         {
           datasource: { id: "ds_1", type: "bigquery" } as never,
-          concludedBy: "runner",
         },
       );
 
@@ -803,6 +802,7 @@ describe("ExperimentSnapshotModel", () => {
           status: "error",
           error: "Failed to run queries",
         },
+        conclusion: { concludedBy: "runner" },
         experimentUpdateExecutionLogger: executionLogger,
       });
 
@@ -815,7 +815,7 @@ describe("ExperimentSnapshotModel", () => {
           error: "Failed to run queries",
           timingsMs: expect.objectContaining({
             persistSnapshot: expect.any(Number),
-            propagateSnapshot: 0,
+            propagateSnapshot: null,
           }),
         }),
         "Experiment update completed",
@@ -846,7 +846,6 @@ describe("ExperimentSnapshotModel", () => {
         },
         {
           datasource: { id: "ds_1", type: "bigquery" } as never,
-          concludedBy: "runner",
         },
       );
 
@@ -862,6 +861,7 @@ describe("ExperimentSnapshotModel", () => {
             }),
           ],
         },
+        conclusion: { concludedBy: "runner" },
         experimentUpdateExecutionLogger: executionLogger,
       });
 
@@ -873,7 +873,7 @@ describe("ExperimentSnapshotModel", () => {
           snapshotStatus: "success",
           timingsMs: expect.objectContaining({
             persistSnapshot: expect.any(Number),
-            propagateSnapshot: 0,
+            propagateSnapshot: null,
           }),
         }),
         "Experiment update completed",
@@ -900,11 +900,13 @@ describe("ExperimentSnapshotModel", () => {
         context,
         id: snapshot.id,
         updates: { status: "success" },
+        conclusion: { concludedBy: "runner" },
       });
       await updateSnapshot({
         context,
         id: snapshot.id,
         updates: { status: "success" },
+        conclusion: { concludedBy: "runner" },
       });
 
       const lines = experimentUpdatedLines(context);
@@ -931,7 +933,7 @@ describe("ExperimentSnapshotModel", () => {
       ).toBeGreaterThanOrEqual(60_000);
     });
 
-    it("takes concludedBy from a recovery update logger", async () => {
+    it("logs a recovery's conclusion with the timings its update logger took", async () => {
       const context = getSnapshotUpdateContext();
       const snapshot = makeSnapshotWithMetric("snp_recovered");
       await createExperimentSnapshotModel({ data: snapshot, context });
@@ -940,6 +942,7 @@ describe("ExperimentSnapshotModel", () => {
         context,
         id: snapshot.id,
         updates: { status: "success" },
+        conclusion: { concludedBy: "recovery" },
         experimentUpdateExecutionLogger: new ExperimentUpdateExecutionLogger(
           {
             runnerKind: "results",
@@ -948,10 +951,7 @@ describe("ExperimentSnapshotModel", () => {
             fullRefresh: null,
             fullRefreshReason: null,
           },
-          {
-            datasource: { id: "ds_1", type: "bigquery" } as never,
-            concludedBy: "recovery",
-          },
+          { datasource: { id: "ds_1", type: "bigquery" } as never },
         ),
       });
 
@@ -965,6 +965,21 @@ describe("ExperimentSnapshotModel", () => {
           }),
         }),
       ]);
+    });
+
+    it("warns instead of logging when an update without a conclusion ends a snapshot", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_no_conclusion");
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: { status: "error" },
+        conclusion: null,
+      });
+
+      expect(experimentUpdatedLines(context)).toEqual([]);
     });
 
     it("logs the reaper's conclusion once when it errors a running snapshot", async () => {

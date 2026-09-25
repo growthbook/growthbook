@@ -25,7 +25,6 @@ describe("ExperimentUpdateExecutionLogger", () => {
 
   const meta = {
     datasource: { id: "ds_1", type: "bigquery" } as never,
-    concludedBy: "runner" as const,
   };
 
   const snapshot = (
@@ -77,6 +76,23 @@ describe("ExperimentUpdateExecutionLogger", () => {
       total: expect.any(Number),
     });
     expect(logger.getTimings().generateSql).toBe(10);
+  });
+
+  it("reports phases that never started as null", async () => {
+    const logger = new ExperimentUpdateExecutionLogger(plan, meta);
+    await logger.withTiming("analyze", async () => {
+      jest.advanceTimersByTime(10);
+    });
+    logger.endPhase("runQueries");
+
+    expect(logger.completedTimings()).toEqual({
+      generateSql: null,
+      runQueries: null,
+      analyze: 10,
+      persistSnapshot: null,
+      propagateSnapshot: null,
+      total: 10,
+    });
   });
 
   it("records phase timings via startPhase and endPhase", async () => {
@@ -191,11 +207,11 @@ describe("ExperimentUpdateExecutionLogger", () => {
       incrementalRefreshMode: "incremental",
       covariateSources: null,
       timingsMs: {
-        generateSql: 0,
-        runQueries: 0,
-        analyze: 0,
-        persistSnapshot: 0,
-        propagateSnapshot: 0,
+        generateSql: null,
+        runQueries: null,
+        analyze: null,
+        persistSnapshot: null,
+        propagateSnapshot: null,
         total: 0,
         snapshotAge: 5_000,
       },

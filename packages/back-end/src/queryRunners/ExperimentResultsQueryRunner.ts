@@ -661,7 +661,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       this.model.id,
       { queries: this.model.queries, error },
       "unknown",
-      { concludedBy: "runner" },
+      { concludedBy: this.concludedBy },
     );
   }
 
@@ -697,6 +697,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       id: this.model.id,
       updates,
       failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     // The cancel owns report.snapshot for a cancelled run: it deletes the run

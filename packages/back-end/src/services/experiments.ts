@@ -2150,7 +2150,7 @@ export async function createSnapshotFromPlan({
 
     experimentUpdateExecutionLogger = new ExperimentUpdateExecutionLogger(
       experimentUpdateLog,
-      { datasource, concludedBy: "runner" },
+      { datasource },
     );
 
     let queryRunner: ExperimentSnapshotQueryRunner;
@@ -2277,6 +2277,7 @@ export async function createSnapshotFromPlan({
           status: "error",
           error: e.message,
         },
+        conclusion: { concludedBy: "runner" },
         experimentUpdateExecutionLogger,
       });
     }
