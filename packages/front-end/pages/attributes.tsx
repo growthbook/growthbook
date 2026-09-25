@@ -22,22 +22,11 @@ import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
-import Table, {
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableColumnHeader,
-  TableCell,
-} from "@/ui/Table";
+import Table, { TableHeader, TableBody, TableRow, TableCell } from "@/ui/Table";
 import Heading from "@/ui/Heading";
 import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
 import { useTableColumns } from "@/hooks/useTableColumns";
-import {
-  columnWidthBounds,
-  ResolvedTableColumn,
-  TableColumnDef,
-} from "@/services/tableColumns";
-import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
+import { TableColumnDef } from "@/services/tableColumns";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { useUser } from "@/services/UserContext";
 import {
@@ -464,17 +453,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
         },
       })),
       {
-        // The one column that absorbs leftover width: a resize takes from it
-        // before taking from the neighbouring column. Renders nothing.
-        id: "spacer",
-        label: "",
-        header: null,
-        locked: true,
-        resizable: false,
-        minWidth: 0,
-        render: () => null,
-      },
-      {
         id: "actions",
         label: "Row actions",
         header: null,
@@ -498,67 +476,18 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
 
   const {
-    columns,
     visibleColumns,
     colSpan,
-    hiddenCount,
-    isCustomized,
-    applySettings,
-    resizeColumn,
-    previewResize,
-    resetWidth,
-    reset,
-    renderedWidth,
-    minTableWidth,
+    tableProps,
+    settingsProps,
+    renderHeaderCell,
+    renderCell,
     ColGroup,
-  } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
-
-  // Lives in the empty row-actions header rather than the filter toolbar, which
-  // is for data filters.
-  const columnSettings = (
-    <Flex justify="center">
-      <ColumnSettingsButton
-        columns={columns
-          // Locked columns can't be hidden or moved, so listing them is noise.
-          .filter((c) => !c.locked)
-          .map((c) => ({
-            id: c.id,
-            label: c.label,
-            visible: c.visible,
-            alwaysVisible: c.hideable === false,
-          }))}
-        hiddenCount={hiddenCount}
-        canReset={isCustomized}
-        onReset={reset}
-        onChange={applySettings}
-        note="The Attribute column is always shown."
-      />
-    </Flex>
-  );
-
-  const renderHeader = (col: ResolvedTableColumn<AttributeRow>) =>
-    col.id === "actions"
-      ? columnSettings
-      : col.header !== undefined
-        ? col.header
-        : col.label;
-
-  const renderResizeHandle = (col: ResolvedTableColumn<AttributeRow>) => {
-    if (col.resizable === false) return null;
-    const { min, max } = columnWidthBounds(col);
-    return (
-      <ColumnResizeHandle
-        label={col.label}
-        width={renderedWidth(col.id)}
-        minWidth={min}
-        maxWidth={max}
-        onCommit={(w) =>
-          w === undefined ? resetWidth(col.id) : resizeColumn(col.id, w)
-        }
-        setLiveWidth={(w) => previewResize(col.id, w)}
-      />
-    );
-  };
+  } = useTableColumns({
+    storageKey: "attributes",
+    columns: columnDefs,
+    SortableHeader: SortableTableColumnHeader,
+  });
 
   return (
     <>
@@ -603,42 +532,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Flex>
             </Box>
           )}
-          <Table
-            variant="list"
-            stickyHeader
-            roundedCorners
-            layout="fixed"
-            minTableWidth={minTableWidth}
-          >
+          <Table variant="list" stickyHeader roundedCorners {...tableProps}>
             <ColGroup />
             <TableHeader>
               <TableRow>
                 {visibleColumns.map((col) =>
-                  col.sortField ? (
-                    <SortableTableColumnHeader
-                      key={col.id}
-                      field={col.sortField}
-                      className={col.headerProps?.className}
-                      style={{
-                        textAlign: col.align,
-                        ...col.headerProps?.style,
-                      }}
-                      endAdornment={renderResizeHandle(col)}
-                    >
-                      {renderHeader(col)}
-                    </SortableTableColumnHeader>
-                  ) : (
-                    <TableColumnHeader
-                      key={col.id}
-                      className={col.headerProps?.className}
-                      style={{
-                        textAlign: col.align,
-                        ...col.headerProps?.style,
-                      }}
-                    >
-                      {renderHeader(col)}
-                      {renderResizeHandle(col)}
-                    </TableColumnHeader>
+                  renderHeaderCell(
+                    col,
+                    // Lives in the empty row-actions header rather than the
+                    // filter toolbar, which is for data filters.
+                    col.id === "actions" ? (
+                      <Flex justify="center">
+                        <ColumnSettingsButton
+                          {...settingsProps}
+                          note="The Attribute column is always shown."
+                        />
+                      </Flex>
+                    ) : undefined,
                   ),
                 )}
               </TableRow>
@@ -651,19 +561,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       className={v.archived ? "disabled" : ""}
                       key={"attr-row-" + v.property}
                     >
-                      {visibleColumns.map((col) => {
-                        const { className, style } = col.cellProps?.(v) ?? {};
-                        return (
-                          <TableCell
-                            key={col.id}
-                            className={className}
-                            style={style}
-                            clip={col.clip}
-                          >
-                            {col.render(v, renderedWidth(col.id))}
-                          </TableCell>
-                        );
-                      })}
+                      {visibleColumns.map((col) => renderCell(col, v))}
                     </TableRow>
                   ))}
                   {!filteredAttributes.length && isFiltered && (

@@ -1,4 +1,5 @@
 import React, {
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -6,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import {
+  columnWidthBounds,
   fitColumnWidths,
   isLayoutCustomized,
   mergeLayoutForWrite,
@@ -15,32 +17,32 @@ import {
   ResolvedTableColumn,
   TableColumnDef,
   TableColumnLayout,
+  withSpacerColumn,
 } from "@/services/tableColumns";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { SearchReturn } from "@/services/search";
+import { TableCell, TableColumnHeader } from "@/ui/Table";
+import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
+import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
 
 export interface UseTableColumnsReturn<TRow> {
   /** All columns in their effective order, hidden ones included. */
   columns: ResolvedTableColumn<TRow>[];
   visibleColumns: ResolvedTableColumn<TRow>[];
   colSpan: number;
-  hiddenCount: number;
-  isCustomized: boolean;
-  /**
-   * Pass to `<Table minTableWidth>`: every column at its minimum. Past this the
-   * table overflows and the page scrolls horizontally.
-   */
-  minTableWidth: number;
-  /** The width a column renders at once fitted to the table's container. */
-  renderedWidth: (id: string) => number | undefined;
-  /** Apply order and visibility in a single write. */
-  applySettings: (ordered: { id: string; visible: boolean }[]) => void;
-  /** Resize within the container, taking room from spare space or the neighbour. */
-  resizeColumn: (id: string, width: number) => void;
-  /** Written imperatively during a drag; no React render per frame. */
-  previewResize: (id: string, width: number) => void;
-  /** Clears the saved width, so the code default applies. */
-  resetWidth: (id: string) => void;
-  reset: () => void;
+  /** Spread onto `<Table>`: the fixed layout the widths rely on, and its floor. */
+  tableProps: { layout: "fixed"; minTableWidth: number };
+  /** Spread onto `<ColumnSettingsButton>`. */
+  settingsProps: Omit<
+    React.ComponentProps<typeof ColumnSettingsButton>,
+    "note" | "trigger"
+  >;
+  /** Header cell with sort and resize; `children` overrides the column's header. */
+  renderHeaderCell: (
+    col: ResolvedTableColumn<TRow>,
+    children?: ReactNode,
+  ) => ReactNode;
+  renderCell: (col: ResolvedTableColumn<TRow>, row: TRow) => ReactNode;
   /**
    * Renders the `<colgroup>`. Pass as the first child of `<Table>` — under a
    * fixed layout these widths are what make column sizes authoritative.
@@ -56,11 +58,15 @@ export interface UseTableColumnsReturn<TRow> {
  */
 export function useTableColumns<TRow>({
   storageKey,
-  columns: defs,
+  columns: codeDefs,
+  SortableHeader,
 }: {
   storageKey: string;
   columns: TableColumnDef<TRow>[];
+  /** useSearch's header, for columns with a `sortField`. */
+  SortableHeader?: SearchReturn<TRow>["SortableTableColumnHeader"];
 }): UseTableColumnsReturn<TRow> {
+  const defs = useMemo(() => withSpacerColumn(codeDefs), [codeDefs]);
   const [layout, setLayout] = useLocalStorage<TableColumnLayout | null>(
     `${storageKey}:columns`,
     null,
@@ -200,19 +206,76 @@ export function useTableColumns<TRow>({
     return Group;
   }, [visibleColumns, rendered]);
 
+  const renderResizeHandle = (col: ResolvedTableColumn<TRow>) => {
+    if (col.resizable === false) return null;
+    const { min, max } = columnWidthBounds(col);
+    return (
+      <ColumnResizeHandle
+        label={col.label}
+        width={rendered.get(col.id)}
+        minWidth={min}
+        maxWidth={max}
+        onCommit={(w) =>
+          w === undefined ? resetWidth(col.id) : resizeColumn(col.id, w)
+        }
+        setLiveWidth={(w) => previewResize(col.id, w)}
+      />
+    );
+  };
+
+  const renderHeaderCell = (
+    col: ResolvedTableColumn<TRow>,
+    children: ReactNode = col.header !== undefined ? col.header : col.label,
+  ) => {
+    const headerProps = {
+      className: col.headerProps?.className,
+      style: { textAlign: col.align, ...col.headerProps?.style },
+    };
+    return col.sortField && SortableHeader ? (
+      <SortableHeader
+        key={col.id}
+        field={col.sortField}
+        endAdornment={renderResizeHandle(col)}
+        {...headerProps}
+      >
+        {children}
+      </SortableHeader>
+    ) : (
+      <TableColumnHeader key={col.id} {...headerProps}>
+        {children}
+        {renderResizeHandle(col)}
+      </TableColumnHeader>
+    );
+  };
+
+  const renderCell = (col: ResolvedTableColumn<TRow>, row: TRow) => (
+    <TableCell key={col.id} clip={col.clip} {...col.cellProps?.(row)}>
+      {col.render(row, rendered.get(col.id))}
+    </TableCell>
+  );
+
   return {
     columns,
     visibleColumns,
     colSpan: visibleColumns.length,
-    hiddenCount: columns.length - visibleColumns.length,
-    isCustomized: isLayoutCustomized(defs, columns),
-    minTableWidth: minTableWidth(columns),
-    renderedWidth: (id) => rendered.get(id),
-    applySettings,
-    resizeColumn,
-    previewResize,
-    resetWidth,
-    reset,
+    tableProps: { layout: "fixed", minTableWidth: minTableWidth(columns) },
+    settingsProps: {
+      // Locked columns can't be hidden or moved, so listing them is noise.
+      columns: columns
+        .filter((col) => !col.locked)
+        .map((col) => ({
+          id: col.id,
+          label: col.label,
+          visible: col.visible,
+          alwaysVisible: col.hideable === false,
+        })),
+      hiddenCount: columns.length - visibleColumns.length,
+      canReset: isLayoutCustomized(defs, columns),
+      onReset: reset,
+      onChange: applySettings,
+    },
+    renderHeaderCell,
+    renderCell,
     ColGroup,
   };
 }

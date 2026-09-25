@@ -55,6 +55,30 @@ export type ResolvedTableColumn<TRow> = TableColumnDef<TRow> & {
   width?: number;
 };
 
+/**
+ * Adds the column that absorbs leftover width, ahead of any trailing locked
+ * columns (e.g. row actions). Resizing takes from it before a neighbour.
+ */
+export function withSpacerColumn<TRow>(
+  defs: TableColumnDef<TRow>[],
+): TableColumnDef<TRow>[] {
+  let insertAt = defs.length;
+  while (insertAt > 0 && defs[insertAt - 1].locked) insertAt--;
+  return [
+    ...defs.slice(0, insertAt),
+    {
+      id: "spacer",
+      label: "",
+      header: null,
+      locked: true,
+      resizable: false,
+      minWidth: 0,
+      render: () => null,
+    },
+    ...defs.slice(insertAt),
+  ];
+}
+
 function isHideable<TRow>(def: TableColumnDef<TRow>): boolean {
   return !def.locked && def.hideable !== false;
 }

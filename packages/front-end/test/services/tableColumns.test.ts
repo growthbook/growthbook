@@ -8,6 +8,7 @@ import {
   resolveTableColumns,
   TableColumnDef,
   TableColumnLayout,
+  withSpacerColumn,
 } from "@/services/tableColumns";
 
 type Row = { id: string };
@@ -325,6 +326,21 @@ describe("minTableWidth", () => {
     ];
     // 100 + the shared 64 floor + 0 + the fixed column's own 40.
     expect(minTableWidth(resolveTableColumns(defs, null))).toBe(204);
+  });
+});
+
+describe("withSpacerColumn", () => {
+  it("goes ahead of trailing locked columns, or last without any", () => {
+    const ids = (defs: TableColumnDef<Row>[]) =>
+      withSpacerColumn(defs).map((c) => c.id);
+    expect(
+      ids([
+        col("a", { locked: true }),
+        col("b"),
+        col("actions", { locked: true }),
+      ]),
+    ).toEqual(["a", "b", "spacer", "actions"]);
+    expect(ids([col("a"), col("b")])).toEqual(["a", "b", "spacer"]);
   });
 });
 
