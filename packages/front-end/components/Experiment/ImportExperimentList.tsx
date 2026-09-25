@@ -305,9 +305,7 @@ const ImportExperimentList: FC<{
                   queries={data.experiments.queries?.map((q) => q.query) ?? []}
                   error={data.experiments.error}
                   ctaComponent={(onClick) => (
-                    <a className="alert-link" href="#" onClick={onClick}>
-                      View Queries
-                    </a>
+                    <Link onClick={onClick}>View queries</Link>
                   )}
                 />{" "}
                 for more information.
