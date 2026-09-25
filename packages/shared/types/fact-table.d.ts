@@ -140,6 +140,15 @@ export type FactTableDefinition = Omit<
   columns: FactTableColumnDefinition[];
 };
 
+// Slim shape returned by GET /fact-tables/full — just enough to resolve
+// dimension/column availability (real `jsonFields`, unlike FactTableDefinition)
+// for a small id set, without shipping `sql` or the rest of the org-wide
+// metadata (name, datasource, tags, ...).
+export type FullFactTableColumns = Pick<
+  FactTableInterface,
+  "id" | "columns" | "userIdTypes"
+>;
+
 export type AggregatedFactTableSettings = z.infer<
   typeof aggregatedFactTableSettingsValidator
 >;

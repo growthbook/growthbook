@@ -355,10 +355,10 @@ describe("getAvailableDimensionColumns", () => {
         () => null,
       ),
     ).toEqual([
-      { column: "active", name: "active" },
-      { column: "amount", name: "amount" },
-      { column: "country", name: "country" },
-      { column: "ts", name: "ts" },
+      { column: "active", name: "active", datatype: "boolean" },
+      { column: "amount", name: "amount", datatype: "number" },
+      { column: "country", name: "country", datatype: "string" },
+      { column: "ts", name: "ts", datatype: "date" },
     ]);
     expect(
       getAvailableDimensionColumns(
