@@ -19,6 +19,17 @@ import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
 import { getExperimentNames } from "./getExperimentNames";
 import { getExperimentStartChecklist } from "./getExperimentStartChecklist";
 import { postExperimentComment } from "./postExperimentComment";
+import {
+  deleteExperiment,
+  deleteExperimentPhase,
+  postExperimentPhase,
+  postExperimentRestart,
+} from "./experimentLifecycle";
+import {
+  deleteLaunchChecklist,
+  getLaunchChecklist,
+  putLaunchChecklist,
+} from "./launchChecklist";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
@@ -42,6 +53,13 @@ export const experimentsRoutes: OpenApiRoute[] = [
   deleteVariationScreenshot,
   getExperimentNames,
   postExperimentComment,
+  deleteExperiment,
+  postExperimentRestart,
+  postExperimentPhase,
+  deleteExperimentPhase,
+  getLaunchChecklist,
+  putLaunchChecklist,
+  deleteLaunchChecklist,
   // VisualChangeset Endpoints (mounted under /experiments)
   listVisualChangesets,
   postVisualChangesets,

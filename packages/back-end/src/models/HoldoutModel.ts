@@ -57,6 +57,7 @@ import {
   assertCanUpdateHoldout,
   assertValidHoldoutSchedule,
   createHoldoutWithExperiment,
+  deleteHoldoutAndExperiment,
   normalizeHoldoutScheduleUpdates,
   setHoldoutStage,
   updateHoldoutWithExperiment,
@@ -470,6 +471,24 @@ export class HoldoutModel extends BaseClass {
     }
 
     return resolveOwnerEmail(toApiHoldout(holdout, experiment), this.context);
+  }
+
+  // Also removes the holdout's experiment and unlinks its features and
+  // experiments. No plan gate, so a lapsed org can still clean up.
+  public override async handleApiDelete(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiDelete"]>[0],
+  ): Promise<string> {
+    const holdout = await this.getById(req.params.id);
+    if (!holdout) req.context.throwNotFoundError();
+    if (!this.context.permissions.canDeleteHoldout(holdout)) {
+      this.context.permissions.throwPermissionError();
+    }
+    const experiment = await getExperimentById(
+      this.context,
+      holdout.experimentId,
+    );
+    await deleteHoldoutAndExperiment(this.context, holdout, experiment);
+    return holdout.id;
   }
 
   public override async handleApiUpdate(

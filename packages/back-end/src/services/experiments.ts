@@ -3335,6 +3335,7 @@ export async function toExperimentApiInterface(
     autoRefresh: !!experiment.autoSnapshots && !experiment.disableAutoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute,
+    ...(experiment.holdoutId ? { holdoutId: experiment.holdoutId } : {}),
     hashVersion: experiment.hashVersion || 2,
     disableStickyBucketing: experiment.disableStickyBucketing,
     bucketVersion: experiment.bucketVersion,
@@ -4717,6 +4718,7 @@ export function postExperimentApiPayloadToInterface(
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
     fallbackAttribute: payload.fallbackAttribute || "",
+    ...(payload.holdoutId ? { holdoutId: payload.holdoutId } : {}),
     ...(payload.attributeScopeAllProjects !== undefined
       ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }
       : {}),
@@ -5126,6 +5128,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(payload.fallbackAttribute !== undefined
       ? { fallbackAttribute: payload.fallbackAttribute }
+      : {}),
+    ...(payload.holdoutId !== undefined
+      ? { holdoutId: payload.holdoutId }
       : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(payload.attributeScopeAllProjects !== undefined

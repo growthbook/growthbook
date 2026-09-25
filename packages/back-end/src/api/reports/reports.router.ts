@@ -5,6 +5,7 @@ import { postReport } from "./postReport";
 import { postReportRefresh } from "./postReportRefresh";
 import { putReportMetadata } from "./putReportMetadata";
 import { putReportSettings } from "./putReportSettings";
+import { deleteReport } from "./deleteReport";
 
 export const reportRoutes: OpenApiRoute[] = [
   listReports,
@@ -13,4 +14,5 @@ export const reportRoutes: OpenApiRoute[] = [
   postReportRefresh,
   putReportMetadata,
   putReportSettings,
+  deleteReport,
 ];

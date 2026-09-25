@@ -19,6 +19,7 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { LearningModel } from "back-end/src/models/LearningModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { AutoRunModel } from "back-end/src/models/AutoRunModel";
+import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -76,6 +77,7 @@ const API_MODELS: ModelClass[] = [
   LearningModel,
   HoldoutModel,
   AutoRunModel,
+  UrlRedirectModel,
 ];
 
 const router = Router();
