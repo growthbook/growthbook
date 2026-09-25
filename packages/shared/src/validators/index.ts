@@ -41,6 +41,7 @@ export * from "./signup-attribution";
 export * from "./snapshot-analysis-chunks";
 export * from "./webhook-secrets";
 export * from "./webhooks";
+export * from "./experiment-exposures";
 export * from "./event-forwarder-config";
 export * from "./event-forwarder-access-test";
 export * from "./event-forwarder-status";

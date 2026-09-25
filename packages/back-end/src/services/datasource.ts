@@ -6,6 +6,8 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import {
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
   TestQueryResult,
@@ -361,6 +363,25 @@ export async function runFeatureEvalDiagnosticsQuery(
   } catch (e) {
     throw new SQLExecutionError(formatQueryExecutionErrorForApi(e), sql);
   }
+}
+
+export async function runExperimentExposuresQuery(
+  integration: SourceIntegrationInterface,
+  params: ExperimentExposuresQueryParams,
+): Promise<ExperimentExposuresQueryResponse & { sql: string }> {
+  if (
+    !integration.getExperimentExposuresQuery ||
+    !integration.runExperimentExposuresQuery
+  ) {
+    throw new Error(
+      "Exposure logs are not supported for this data source type.",
+    );
+  }
+
+  const sql = integration.getExperimentExposuresQuery(params);
+  const { rows, statistics } =
+    await integration.runExperimentExposuresQuery(sql);
+  return { rows, statistics, sql };
 }
 
 export async function testQuery(
