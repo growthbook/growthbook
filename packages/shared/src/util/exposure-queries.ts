@@ -210,7 +210,7 @@ export function assertValidAssignmentQuerySelection({
  * resolved.
  */
 export function toApiAssignmentQueryRef(
-  id: string | undefined,
+  id: string,
   storedIdentifierType: string | undefined,
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[],
 ): { id: string; identifierType: string } | undefined {

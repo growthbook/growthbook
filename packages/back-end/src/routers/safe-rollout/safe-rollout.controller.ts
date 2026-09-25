@@ -220,6 +220,7 @@ export async function putSafeRollout(
   const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
     safeRolloutFields,
     context,
+    safeRollout,
   );
 
   await context.models.safeRollout.update(safeRollout, {
