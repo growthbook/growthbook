@@ -426,9 +426,9 @@ export default function FeatureDiagnostics({
    * not reach the query, so rows from every environment arrive and the values
    * genuinely differ. Dummy rows mirror the managed shape.
    *
-   * Variation, on either path, shows only if some fetched row carries one. It
-   * is read from the whole result set, never the visible page, so it holds
-   * still while paging and changes only when the query re-runs.
+   * Variation shows only if some fetched row carries one. It is read from the
+   * whole result set, never the visible page, so it holds still while paging
+   * and changes only when the query re-runs.
    *
    * A generic data source wraps a query the customer wrote, where only
    * timestamp and feature_key are guaranteed, so its columns are still read
@@ -462,13 +462,7 @@ export default function FeatureDiagnostics({
       const i = COLUMN_ORDER.indexOf(key);
       return i === -1 ? COLUMN_ORDER.length : i;
     };
-    return Array.from(keysSet)
-      .sort((a, b) => rank(a) - rank(b))
-      .filter(
-        (key) =>
-          !["variationid", "variation_id"].includes(key.toLowerCase()) ||
-          hasVariation(key),
-      );
+    return Array.from(keysSet).sort((a, b) => rank(a) - rank(b));
   }, [displayResults, managedStream]);
 
   const evalItems = useAddComputedFields(
