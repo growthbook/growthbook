@@ -6,10 +6,6 @@ import { Box } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 
-const numberFormatter = new Intl.NumberFormat(undefined, {
-  maximumSignificantDigits: 4,
-});
-
 /** Number of tree leaves at a growth stage (each split adds exactly one leaf). */
 function leafCount(step: ContextualBanditSseStep): number {
   return step.numSplits + 1;
@@ -88,21 +84,15 @@ export function attributeSseReductions(
 }
 
 /**
- * Renders a single split's details, reused by the attribute detail modal.
- *
- * - `variant="tooltip"` (default): leads with the leaf count and
- *   error at that growth stage, then the split.
- * - `variant="detail"`: leads with the split, then a footer showing the percent
- *   of error the split removed (`percentReducedLabel`) and the resulting leaf
- *   count.
+ * Renders a single split's details for the attribute detail modal: the split
+ * itself, followed by a footer showing the percent of error the split removed
+ * (`percentReducedLabel`) and the resulting leaf count.
  */
 export function SseSplitDetails({
   step,
-  variant = "tooltip",
   percentReducedLabel,
 }: {
   step: ContextualBanditSseStep;
-  variant?: "tooltip" | "detail";
   percentReducedLabel?: string;
 }) {
   const isRoot = step.numSplits === 0;
@@ -147,33 +137,19 @@ export function SseSplitDetails({
     </Text>
   );
 
-  if (variant === "detail") {
-    return (
-      <Box>
-        {splitBody}
-        <Box mt="3">
-          {percentReducedLabel !== undefined ? (
-            <Text size="sm" color="text-low" as="div">
-              Percent error reduced {percentReducedLabel}
-            </Text>
-          ) : null}
-          <Text size="sm" color="text-low" as="div">
-            {leafCount(step)} leaves in tree after split
-          </Text>
-        </Box>
-      </Box>
-    );
-  }
-
   return (
-    <Box style={{ maxWidth: 320 }}>
-      <Text size="sm" weight="medium" as="div">
-        {leafCount(step)} {leafCount(step) === 1 ? "leaf" : "leaves"}
-      </Text>
-      <Text size="sm" color="text-low" as="div" mb="2">
-        Eligible-only error {numberFormatter.format(step.totalSse)}
-      </Text>
+    <Box>
       {splitBody}
+      <Box mt="3">
+        {percentReducedLabel !== undefined ? (
+          <Text size="sm" color="text-low" as="div">
+            Percent error reduced {percentReducedLabel}
+          </Text>
+        ) : null}
+        <Text size="sm" color="text-low" as="div">
+          {leafCount(step)} leaves in tree after split
+        </Text>
+      </Box>
     </Box>
   );
 }

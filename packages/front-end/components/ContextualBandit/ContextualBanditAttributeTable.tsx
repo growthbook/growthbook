@@ -91,7 +91,6 @@ function AttributeSplitsModal({
             >
               <SseSplitDetails
                 step={step}
-                variant="detail"
                 percentReducedLabel={percentFormatter.format(
                   fractionRemoved(gain, rootSse),
                 )}
