@@ -348,7 +348,19 @@ tags:
       only via a super-admin's Personal Access Token.
   - name: members
     x-displayName: Members
-    description: Members are users who have been invited to an organization.
+    description: >-
+      Members are users who have been invited to an organization. Also covers
+      pending invites and users waiting for approval to join.
+  - name: roles
+    x-displayName: Roles
+    description: >-
+      Built-in and custom roles that can be given to members, teams and API
+      keys. Managing custom roles requires an Enterprise plan.
+  - name: api-keys
+    x-displayName: API Keys
+    description: >-
+      Organization secret API keys. Key values are never returned; keys are
+      created in the app.
   - name: code-references
     x-displayName: Code References
     description: >-
@@ -422,6 +434,9 @@ tags:
   - name: AnalyticsExploration_model
     x-displayName: Analytics Exploration
     description: <SchemaDefinition schemaRef="#/components/schemas/AnalyticsExploration" />
+  - name: ApiKey_model
+    x-displayName: Api Key
+    description: <SchemaDefinition schemaRef="#/components/schemas/ApiKey" />
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -658,6 +673,9 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable"
       />
+  - name: Invite_model
+    x-displayName: Invite
+    description: <SchemaDefinition schemaRef="#/components/schemas/Invite" />
   - name: Learning_model
     x-displayName: Learning
     description: <SchemaDefinition schemaRef="#/components/schemas/Learning" />
@@ -693,6 +711,9 @@ tags:
   - name: PaginationFields_model
     x-displayName: Pagination Fields
     description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
+  - name: PendingMember_model
+    x-displayName: Pending Member
+    description: <SchemaDefinition schemaRef="#/components/schemas/PendingMember" />
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
@@ -719,6 +740,9 @@ tags:
   - name: RevisionIdRef_model
     x-displayName: Revision Id Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/RevisionIdRef" />
+  - name: Role_model
+    x-displayName: Role
+    description: <SchemaDefinition schemaRef="#/components/schemas/Role" />
   - name: Safe Rollout Rule_model
     x-displayName: Safe Rollout Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/Safe Rollout Rule" />
@@ -32670,6 +32694,363 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/members/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/invites:
+    get:
+      operationId: listInvites
+      summary: Get all pending invites
+      tags:
+        - members
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invites:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invite'
+                required:
+                  - invites
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/invites' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postInvite
+      summary: Invite a user to the organization
+      description: Inviting an email that already has an invite returns the existing one.
+      tags:
+        - members
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  description: Global role. Defaults to the organization's default role.
+                  type: string
+                environments:
+                  type: array
+                  items:
+                    type: string
+                additionalRoles:
+                  description: >-
+                    Additional roles granted alongside this one, in the same
+                    scope. Each is granted independently and environment access
+                    is the union across them.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                    required:
+                      - role
+                      - environments
+                    additionalProperties: false
+                projectRoles:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      project:
+                        type: string
+                      role:
+                        type: string
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      additionalRoles:
+                        description: >-
+                          Additional roles granted alongside this one, in the
+                          same scope. Each is granted independently and
+                          environment access is the union across them.
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                          required:
+                            - role
+                            - environments
+                          additionalProperties: false
+                    required:
+                      - project
+                      - role
+                      - environments
+                    additionalProperties: false
+                email:
+                  type: string
+              required:
+                - email
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invite:
+                    $ref: '#/components/schemas/Invite'
+                  inviteUrl:
+                    description: Share this link if the email can't be delivered
+                    type: string
+                  emailSent:
+                    type: boolean
+                required:
+                  - invite
+                  - inviteUrl
+                  - emailSent
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/invites' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"email":"new.user@example.com","role":"engineer"}'
+  /v1/invites/{email}:
+    put:
+      operationId: putInvite
+      summary: Change the role an invite grants
+      tags:
+        - members
+      parameters:
+        - $ref: '#/components/parameters/email'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  description: Global role. Defaults to the organization's default role.
+                  type: string
+                environments:
+                  type: array
+                  items:
+                    type: string
+                additionalRoles:
+                  description: >-
+                    Additional roles granted alongside this one, in the same
+                    scope. Each is granted independently and environment access
+                    is the union across them.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                    required:
+                      - role
+                      - environments
+                    additionalProperties: false
+                projectRoles:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      project:
+                        type: string
+                      role:
+                        type: string
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      additionalRoles:
+                        description: >-
+                          Additional roles granted alongside this one, in the
+                          same scope. Each is granted independently and
+                          environment access is the union across them.
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                          required:
+                            - role
+                            - environments
+                          additionalProperties: false
+                    required:
+                      - project
+                      - role
+                      - environments
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invite:
+                    $ref: '#/components/schemas/Invite'
+                required:
+                  - invite
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/invites/{email}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteInvite
+      summary: Revoke an invite
+      tags:
+        - members
+      parameters:
+        - $ref: '#/components/parameters/email'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/invites/{email}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/invites/{email}/resend:
+    post:
+      operationId: postInviteResend
+      summary: Resend an invite email
+      tags:
+        - members
+      parameters:
+        - $ref: '#/components/parameters/email'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inviteUrl:
+                    description: Share this link if the email can't be delivered
+                    type: string
+                  emailSent:
+                    type: boolean
+                required:
+                  - inviteUrl
+                  - emailSent
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/invites/{email}/resend' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/pending-members:
+    get:
+      operationId: listPendingMembers
+      summary: Get users waiting for approval to join
+      tags:
+        - members
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pendingMembers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PendingMember'
+                required:
+                  - pendingMembers
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/pending-members' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/pending-members/{id}/approve:
+    post:
+      operationId: postPendingMemberApprove
+      summary: Approve a pending member
+      description: >-
+        Adds them with the role on their pending request. Use updateMemberRole
+        to change it afterwards.
+      tags:
+        - members
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The pending member's user id
+          schema:
+            description: The pending member's user id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  approvedId:
+                    type: string
+                required:
+                  - approvedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/pending-members/{id}/approve' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/queries/{id}:
     get:
       operationId: getQuery
@@ -36892,6 +37273,514 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/namespaces/ns-abc123/rotateSeed' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/roles:
+    get:
+      operationId: listRoles
+      summary: Get all roles, built-in and custom
+      tags:
+        - roles
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  roles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Role'
+                required:
+                  - roles
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/roles' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postRole
+      summary: Create a custom role
+      description: >-
+        Custom roles require an Enterprise plan and permission to manage custom
+        roles.
+      tags:
+        - roles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  description: Letters, numbers and underscores only
+                  type: string
+                  minLength: 2
+                  maxLength: 64
+                  pattern: ^[a-zA-Z0-9_]+$
+                displayName:
+                  type: string
+                  maxLength: 64
+                description:
+                  type: string
+                  maxLength: 100
+                policies:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - ReadData
+                      - Comments
+                      - FlagsFullAccess
+                      - FlagsCreate
+                      - FlagsEditDrafts
+                      - FlagsReview
+                      - FlagsPublish
+                      - FlagsRevert
+                      - FlagsDelete
+                      - FlagsTarget
+                      - FlagsBypassApprovals
+                      - ArchetypesFullAccess
+                      - FeaturesFullAccess
+                      - FeaturesBypassApprovals
+                      - ConstantsFullAccess
+                      - ConfigsFullAccess
+                      - ExperimentsFullAccess
+                      - LearningsFullAccess
+                      - VisualEditorFullAccess
+                      - SuperDeleteReports
+                      - DataSourcesFullAccess
+                      - DataSourceConfiguration
+                      - RunQueries
+                      - MetricsFullAccess
+                      - FactTablesFullAccess
+                      - FactMetricsFullAccess
+                      - DimensionsFullAccess
+                      - SegmentsFullAccess
+                      - IdeasFullAccess
+                      - PresentationsFullAccess
+                      - ExperimentsPublish
+                      - SDKPayloadPublish
+                      - SDKConnectionsFullAccess
+                      - AttributesFullAccess
+                      - EnvironmentsFullAccess
+                      - NamespacesFullAccess
+                      - SavedGroupsFullAccess
+                      - SavedGroupsCreate
+                      - SavedGroupsEditDrafts
+                      - SavedGroupsReview
+                      - SavedGroupsPublish
+                      - SavedGroupsRevert
+                      - SavedGroupsDelete
+                      - SavedGroupsBypassApprovals
+                      - SavedGroupsBypassSizeLimit
+                      - BypassSavedGroupSizeLimit
+                      - GeneralSettingsFullAccess
+                      - NorthStarMetricFullAccess
+                      - TeamManagementFullAccess
+                      - ProjectsFullAccess
+                      - ProjectAdminAccess
+                      - TagsFullAccess
+                      - APIKeysFullAccess
+                      - IntegrationsFullAccess
+                      - EventWebhooksFullAccess
+                      - BillingFullAccess
+                      - AuditLogsFullAccess
+                      - CustomRolesFullAccess
+                      - CustomFieldsFullAccess
+                      - TemplatesFullAccess
+                      - DecisionCriteriaFullAccess
+                      - SqlExplorerFullAccess
+                      - HoldoutsFullAccess
+                      - CustomHooksFullAccess
+                      - ManageOfficialResources
+                      - GeneralDashboardsFullAccess
+                      - SessionReplayViewAccess
+                      - SessionReplayFullAccess
+              required:
+                - id
+                - description
+                - policies
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  role:
+                    $ref: '#/components/schemas/Role'
+                required:
+                  - role
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/roles' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"id":"flagEditor","description":"Edit Feature Flags, read everything else","policies":["ReadData","FeaturesFullAccess"]}'
+  /v1/roles/{id}:
+    put:
+      operationId: putRole
+      summary: Update a custom role
+      description: >-
+        Custom roles require an Enterprise plan and permission to manage custom
+        roles. Supplied fields replace the stored ones.
+      tags:
+        - roles
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The role id
+          schema:
+            description: The role id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  maxLength: 64
+                description:
+                  type: string
+                  maxLength: 100
+                policies:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - ReadData
+                      - Comments
+                      - FlagsFullAccess
+                      - FlagsCreate
+                      - FlagsEditDrafts
+                      - FlagsReview
+                      - FlagsPublish
+                      - FlagsRevert
+                      - FlagsDelete
+                      - FlagsTarget
+                      - FlagsBypassApprovals
+                      - ArchetypesFullAccess
+                      - FeaturesFullAccess
+                      - FeaturesBypassApprovals
+                      - ConstantsFullAccess
+                      - ConfigsFullAccess
+                      - ExperimentsFullAccess
+                      - LearningsFullAccess
+                      - VisualEditorFullAccess
+                      - SuperDeleteReports
+                      - DataSourcesFullAccess
+                      - DataSourceConfiguration
+                      - RunQueries
+                      - MetricsFullAccess
+                      - FactTablesFullAccess
+                      - FactMetricsFullAccess
+                      - DimensionsFullAccess
+                      - SegmentsFullAccess
+                      - IdeasFullAccess
+                      - PresentationsFullAccess
+                      - ExperimentsPublish
+                      - SDKPayloadPublish
+                      - SDKConnectionsFullAccess
+                      - AttributesFullAccess
+                      - EnvironmentsFullAccess
+                      - NamespacesFullAccess
+                      - SavedGroupsFullAccess
+                      - SavedGroupsCreate
+                      - SavedGroupsEditDrafts
+                      - SavedGroupsReview
+                      - SavedGroupsPublish
+                      - SavedGroupsRevert
+                      - SavedGroupsDelete
+                      - SavedGroupsBypassApprovals
+                      - SavedGroupsBypassSizeLimit
+                      - BypassSavedGroupSizeLimit
+                      - GeneralSettingsFullAccess
+                      - NorthStarMetricFullAccess
+                      - TeamManagementFullAccess
+                      - ProjectsFullAccess
+                      - ProjectAdminAccess
+                      - TagsFullAccess
+                      - APIKeysFullAccess
+                      - IntegrationsFullAccess
+                      - EventWebhooksFullAccess
+                      - BillingFullAccess
+                      - AuditLogsFullAccess
+                      - CustomRolesFullAccess
+                      - CustomFieldsFullAccess
+                      - TemplatesFullAccess
+                      - DecisionCriteriaFullAccess
+                      - SqlExplorerFullAccess
+                      - HoldoutsFullAccess
+                      - CustomHooksFullAccess
+                      - ManageOfficialResources
+                      - GeneralDashboardsFullAccess
+                      - SessionReplayViewAccess
+                      - SessionReplayFullAccess
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  role:
+                    $ref: '#/components/schemas/Role'
+                required:
+                  - role
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/roles/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteRole
+      summary: Delete a custom role
+      description: >-
+        Custom roles require an Enterprise plan and permission to manage custom
+        roles. A role still used by a member, invite, team, API key or the
+        default role can't be deleted.
+      tags:
+        - roles
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The role id
+          schema:
+            description: The role id
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/roles/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/roles/{id}/activate:
+    post:
+      operationId: postRoleActivate
+      summary: Reactivate a deactivated role
+      description: >-
+        Custom roles require an Enterprise plan and permission to manage custom
+        roles.
+      tags:
+        - roles
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The role id
+          schema:
+            description: The role id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  role:
+                    $ref: '#/components/schemas/Role'
+                required:
+                  - role
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/roles/{id}/activate'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/roles/{id}/deactivate:
+    post:
+      operationId: postRoleDeactivate
+      summary: Deactivate a role
+      description: >-
+        Custom roles require an Enterprise plan and permission to manage custom
+        roles. Works for built-in roles too.
+      tags:
+        - roles
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The role id
+          schema:
+            description: The role id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  role:
+                    $ref: '#/components/schemas/Role'
+                required:
+                  - role
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/roles/{id}/deactivate' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/api-keys:
+    get:
+      operationId: listApiKeys
+      summary: Get all organization secret API keys
+      description: >-
+        Key values are never returned. Personal access tokens and SDK keys are
+        not included.
+      tags:
+        - api-keys
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apiKeys:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiKey'
+                required:
+                  - apiKeys
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/api-keys' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/api-keys/{id}/disable:
+    post:
+      operationId: postApiKeyDisable
+      summary: Disable an API key
+      description: A disabled key is rejected on authentication but not deleted.
+      tags:
+        - api-keys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The API key id (not the secret)
+          schema:
+            description: The API key id (not the secret)
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apiKey:
+                    $ref: '#/components/schemas/ApiKey'
+                required:
+                  - apiKey
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/api-keys/{id}/disable' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/api-keys/{id}/enable:
+    post:
+      operationId: postApiKeyEnable
+      summary: Re-enable a disabled API key
+      tags:
+        - api-keys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The API key id (not the secret)
+          schema:
+            description: The API key id (not the secret)
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apiKey:
+                    $ref: '#/components/schemas/ApiKey'
+                required:
+                  - apiKey
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/api-keys/{id}/enable'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/api-keys/{id}:
+    delete:
+      operationId: deleteApiKey
+      summary: Delete an API key
+      tags:
+        - api-keys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The API key id (not the secret)
+          schema:
+            description: The API key id (not the secret)
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/api-keys/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/transform-copy:
     post:
@@ -58324,6 +59213,14 @@ components:
       schema:
         description: Name of the global role
         type: string
+    email:
+      name: email
+      in: path
+      required: true
+      description: The invited email address
+      schema:
+        description: The invited email address
+        type: string
     tableId:
       name: tableId
       in: path
@@ -67951,6 +68848,186 @@ components:
         - email
         - globalRole
       additionalProperties: false
+    Invite:
+      type: object
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+        limitAccessByEnvironment:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        additionalRoles:
+          description: >-
+            Additional roles granted alongside this one, in the same scope. Each
+            is granted independently and environment access is the union across
+            them.
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+              limitAccessByEnvironment:
+                type: boolean
+            required:
+              - role
+              - environments
+            additionalProperties: false
+        projectRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              project:
+                type: string
+              role:
+                type: string
+              limitAccessByEnvironment:
+                type: boolean
+              environments:
+                type: array
+                items:
+                  type: string
+              additionalRoles:
+                description: >-
+                  Additional roles granted alongside this one, in the same
+                  scope. Each is granted independently and environment access is
+                  the union across them.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                  required:
+                    - role
+                    - environments
+                  additionalProperties: false
+            required:
+              - project
+              - role
+              - limitAccessByEnvironment
+              - environments
+            additionalProperties: false
+        invitedBy:
+          type: string
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - email
+        - role
+        - limitAccessByEnvironment
+        - environments
+        - dateCreated
+      additionalProperties: false
+    PendingMember:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        limitAccessByEnvironment:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        additionalRoles:
+          description: >-
+            Additional roles granted alongside this one, in the same scope. Each
+            is granted independently and environment access is the union across
+            them.
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+              limitAccessByEnvironment:
+                type: boolean
+            required:
+              - role
+              - environments
+            additionalProperties: false
+        projectRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              project:
+                type: string
+              role:
+                type: string
+              limitAccessByEnvironment:
+                type: boolean
+              environments:
+                type: array
+                items:
+                  type: string
+              additionalRoles:
+                description: >-
+                  Additional roles granted alongside this one, in the same
+                  scope. Each is granted independently and environment access is
+                  the union across them.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                  required:
+                    - role
+                    - environments
+                  additionalProperties: false
+            required:
+              - project
+              - role
+              - limitAccessByEnvironment
+              - environments
+            additionalProperties: false
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - role
+        - limitAccessByEnvironment
+        - environments
+        - dateCreated
+      additionalProperties: false
     Query:
       type: object
       properties:
@@ -69486,6 +70563,133 @@ components:
         - trackingKey
         - status
         - ranges
+      additionalProperties: false
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        policies:
+          type: array
+          items:
+            type: string
+        isCustom:
+          description: False for the built-in roles
+          type: boolean
+        deactivated:
+          description: >-
+            Deactivated roles are hidden in the app and can't be given to API
+            keys. Existing assignments keep working.
+          type: boolean
+      required:
+        - id
+        - description
+        - policies
+        - isCustom
+        - deactivated
+      additionalProperties: false
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        role:
+          type: string
+        limitAccessByEnvironment:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        additionalRoles:
+          description: >-
+            Additional roles granted alongside this one, in the same scope. Each
+            is granted independently and environment access is the union across
+            them.
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+              limitAccessByEnvironment:
+                type: boolean
+            required:
+              - role
+              - environments
+            additionalProperties: false
+        projectRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              project:
+                type: string
+              role:
+                type: string
+              limitAccessByEnvironment:
+                type: boolean
+              environments:
+                type: array
+                items:
+                  type: string
+              additionalRoles:
+                description: >-
+                  Additional roles granted alongside this one, in the same
+                  scope. Each is granted independently and environment access is
+                  the union across them.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                  required:
+                    - role
+                    - environments
+                  additionalProperties: false
+            required:
+              - project
+              - role
+              - limitAccessByEnvironment
+              - environments
+            additionalProperties: false
+        disabled:
+          type: boolean
+        lastUsed:
+          description: Null when the key has never been used
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - description
+        - role
+        - limitAccessByEnvironment
+        - environments
+        - disabled
+        - lastUsed
+        - dateCreated
       additionalProperties: false
     Dashboard:
       type: object
@@ -79841,6 +81045,8 @@ x-tagGroups:
       - custom-hooks
       - organizations
       - members
+      - roles
+      - api-keys
       - code-references
       - archetypes
       - queries
@@ -79864,6 +81070,7 @@ x-tagGroups:
     tags:
       - AggregatedFactTable_model
       - AnalyticsExploration_model
+      - ApiKey_model
       - Archetype_model
       - Attribute_model
       - AutoRun_model
@@ -79932,6 +81139,7 @@ x-tagGroups:
       - Holdout_model
       - InformationSchema_model
       - InformationSchemaTable_model
+      - Invite_model
       - Learning_model
       - LookbackOverride_model
       - Member_model
@@ -79943,6 +81151,7 @@ x-tagGroups:
       - NamespaceExperimentMember_model
       - Organization_model
       - PaginationFields_model
+      - PendingMember_model
       - Project_model
       - Query_model
       - RampSchedule_model
@@ -79951,6 +81160,7 @@ x-tagGroups:
       - RequireReviewRule_model
       - RequireReviewRuleInput_model
       - RevisionIdRef_model
+      - Role_model
       - Safe Rollout Rule_model
       - SavedGroup_model
       - SavedGroupApprovalRule_model
