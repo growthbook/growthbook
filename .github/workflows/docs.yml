@@ -4,6 +4,8 @@ on:
     paths:
       - "docs/**"
       - "scripts/check-docs-frontmatter.mjs"
+      - "scripts/check-doclink-registry.mjs"
+      - "packages/front-end/components/docSections.ts"
       - ".github/workflows/docs.yml"
   push:
     branches:
@@ -11,6 +13,8 @@ on:
     paths:
       - "docs/**"
       - "scripts/check-docs-frontmatter.mjs"
+      - "scripts/check-doclink-registry.mjs"
+      - "packages/front-end/components/docSections.ts"
       - ".github/workflows/docs.yml"
 jobs:
   # Mintlify hosts/deploys docs via their GitHub App; this job only validates content.
@@ -40,4 +44,7 @@ jobs:
 
       - name: Check for broken links
         working-directory: docs
-        run: mint broken-links --check-anchors
+        run: mint broken-links --check-anchors --check-redirects
+
+      - name: Check DocLink registry targets
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-doclink-registry.mjs
