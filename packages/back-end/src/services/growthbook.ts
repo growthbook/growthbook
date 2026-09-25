@@ -223,6 +223,9 @@ export function trackAIUsage({
   numPromptTokensUsed,
   numCompletionTokensUsed,
   numRetriedTokensUsed,
+  numCacheReadTokens,
+  numCacheWriteTokens,
+  spendUsd,
   usedDefaultPrompt,
   usedOwnKey,
   outcome = "success",
@@ -236,6 +239,9 @@ export function trackAIUsage({
   numCompletionTokensUsed?: number;
   // Spent on attempts that produced nothing usable, but still billed.
   numRetriedTokensUsed?: number;
+  numCacheReadTokens?: number;
+  numCacheWriteTokens?: number;
+  spendUsd?: number;
   usedDefaultPrompt: boolean;
   usedOwnKey: boolean;
   outcome?: AIUsageOutcome;
@@ -260,6 +266,9 @@ export function trackAIUsage({
       numPromptTokensUsed,
       numCompletionTokensUsed,
       numRetriedTokensUsed,
+      numCacheReadTokens,
+      numCacheWriteTokens,
+      spendUsd,
       usedDefaultPrompt,
       usedOwnKey,
       outcome,

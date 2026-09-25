@@ -1,5 +1,22 @@
 import { parseOptionalInt } from "./util/numbers";
 
+export {
+  estimateCompletionUsd,
+  findOpenRouterModel,
+  openRouterIdCandidates,
+  parseOpenRouterCatalog,
+  parseOpenRouterModelRows,
+  parseUsdRate,
+  resolveOpenRouterRates,
+  OPENROUTER_PROVIDER_PREFIX,
+} from "./ai-cost";
+export type {
+  AICompletionUsage,
+  OpenRouterCatalogProvider,
+  OpenRouterModel,
+  OpenRouterPricing,
+} from "./ai-cost";
+
 export const AI_PROVIDERS = [
   "openai",
   "anthropic",
