@@ -161,18 +161,43 @@ export function useTableColumns<TRow>({
     [columns, write],
   );
 
-  // Only the resized column is written: the others stay unpinned, so fitting
-  // keeps making room for it on later renders. Rounded, as fitted widths aren't.
+  // Pins `id` at `width`, plus any column left of it that fitting had squeezed,
+  // where it is: fitting won't shrink them now, and they mustn't spring back.
+  // Rounded, as fitted widths aren't.
+  const resizeTo = useCallback(
+    (id: string, width: number) => {
+      const index = visibleColumns.findIndex((col) => col.id === id);
+      const left = new Set(visibleColumns.slice(0, index).map((col) => col.id));
+      return (col: ResolvedTableColumn<TRow>): ResolvedTableColumn<TRow> => {
+        if (col.id === id) {
+          return { ...col, width: Math.round(width), pinned: true };
+        }
+        const at = rendered.get(col.id);
+        return left.has(col.id) &&
+          at !== undefined &&
+          col.width !== undefined &&
+          at < col.width
+          ? { ...col, width: Math.round(at), pinned: true }
+          : col;
+      };
+    },
+    [visibleColumns, rendered],
+  );
+
   const setWidth = useCallback(
     (id: string, width: number | undefined) => {
-      const w = width === undefined ? undefined : Math.round(width);
       write(
-        columns.map((col) =>
-          col.id === id ? { ...col, width: w, pinned: w !== undefined } : col,
+        columns.map(
+          width === undefined
+            ? (col) =>
+                col.id === id
+                  ? { ...col, width: undefined, pinned: false }
+                  : col
+            : resizeTo(id, width),
         ),
       );
     },
-    [columns, write],
+    [columns, write, resizeTo],
   );
 
   // Writing null rather than a defaults blob, so later changes to the code
@@ -182,9 +207,7 @@ export function useTableColumns<TRow>({
   // Mid-drag, re-fit around the dragged column as if it were already committed,
   // writing the <col> nodes directly rather than rendering every frame.
   const previewWidth = (id: string, width: number) => {
-    const preview = visibleColumns.map((col) =>
-      col.id === id ? { ...col, width, pinned: true } : col,
-    );
+    const preview = visibleColumns.map(resizeTo(id, width));
     fitColumnWidths(preview, available).forEach((w, colId) => {
       const el = colRefs.current.get(colId);
       if (el) el.style.width = `${w}px`;

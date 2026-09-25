@@ -372,6 +372,18 @@ describe("minTableWidth", () => {
     expect(minTableWidth(resolved)).toBe(314);
   });
 
+  it("counts columns left of a pinned one at their width, as fitting won't shrink them", () => {
+    const defs = [
+      col("a", { defaultWidth: 300, minWidth: 100 }),
+      col("b", { defaultWidth: 300 }),
+    ];
+    const resolved = resolveTableColumns(
+      defs,
+      layout([{ id: "b", visible: true, width: 250 }]),
+    );
+    expect(minTableWidth(resolved)).toBe(550);
+  });
+
   it("floors a slack column at its minWidth rather than counting it as zero", () => {
     // The bug this guards: a fixed-layout column with no width takes only the
     // leftover space, so without a floor it collapses once the others fill up.
@@ -510,22 +522,28 @@ describe("fitColumnWidths", () => {
     expect(fit(1000)).toEqual({ a: 300, b: 100, c: 200, actions: 40 });
   });
 
-  it("shrinks columns in proportion, sparing ones at their minimum", () => {
-    // 100 over: a and c give it up 3:2, b is already at its floor.
-    expect(fit(540)).toEqual({ a: 240, b: 100, c: 160, actions: 40 });
+  it("shrinks the rightmost column first, skipping fixed ones", () => {
+    // 100 over: c gives it all; actions can't resize.
+    expect(fit(540)).toEqual({ a: 300, b: 100, c: 100, actions: 40 });
   });
 
-  it("passes a floored column's share on, and stops at the minimums", () => {
-    // c floors at 100 first; a absorbs the rest.
+  it("moves left once a column floors, and stops at the minimums", () => {
+    // c floors at 100, b already is, so a absorbs the rest.
     expect(fit(360)).toEqual({ a: 120, b: 100, c: 100, actions: 40 });
     expect(fit(100)).toEqual({ a: 100, b: 100, c: 100, actions: 40 });
   });
 
-  it("leaves a pinned column at its width and squeezes the rest around it", () => {
+  it("leaves columns left of a resized one untouched while the right can give", () => {
+    // What keeps a dragged edge under the pointer: only c moves.
+    const widened = layout([{ id: "b", visible: true, width: 150 }]);
+    expect(fit(640)).toEqual({ a: 300, b: 100, c: 200, actions: 40 });
+    expect(fit(640, widened)).toEqual({ a: 300, b: 150, c: 150, actions: 40 });
+  });
+
+  it("never shrinks columns left of a pinned one, overflowing instead", () => {
+    // Taking from a or b would slide c's left edge out from under the pointer.
     const widened = layout([{ id: "c", visible: true, width: 400 }]);
-    expect(fit(740, widened)).toEqual({ a: 200, b: 100, c: 400, actions: 40 });
-    // Nothing left to give: the table overflows rather than undoing the resize.
-    expect(fit(300, widened)).toEqual({ a: 100, b: 100, c: 400, actions: 40 });
+    expect(fit(740, widened)).toEqual({ a: 300, b: 100, c: 400, actions: 40 });
   });
 });
 

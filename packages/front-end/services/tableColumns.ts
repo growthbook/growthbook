@@ -138,8 +138,19 @@ export function columnWidthBounds<TRow>(def: TableColumnDef<TRow>): {
   return { min, max: Math.max(min, def.maxWidth ?? MAX_TABLE_COLUMN_WIDTH) };
 }
 
-function isShrinkable<TRow>(col: ResolvedTableColumn<TRow>): boolean {
-  return col.width !== undefined && col.resizable !== false && !col.pinned;
+/**
+ * The columns fitting may shrink, rightmost last. Nothing left of the last
+ * pinned column qualifies, so a resize only ever moves the columns to its right
+ * and the dragged edge stays under the pointer.
+ */
+function shrinkableColumns<TRow>(
+  visible: ResolvedTableColumn<TRow>[],
+): ResolvedTableColumn<TRow>[] {
+  const sized = visible.filter((col) => col.width !== undefined);
+  const lastPinned = sized.map((col) => col.pinned).lastIndexOf(true);
+  return sized
+    .slice(lastPinned + 1)
+    .filter((col) => col.resizable !== false && !col.pinned);
 }
 
 /**
@@ -152,16 +163,16 @@ function isShrinkable<TRow>(col: ResolvedTableColumn<TRow>): boolean {
 export function minTableWidth<TRow>(
   resolved: ResolvedTableColumn<TRow>[],
 ): number {
-  return resolved
-    .filter((col) => col.visible)
-    .reduce(
-      (sum, col) =>
-        sum +
-        (isShrinkable(col)
-          ? columnWidthBounds(col).min
-          : (col.width ?? columnWidthBounds(col).min)),
-      0,
-    );
+  const visible = resolved.filter((col) => col.visible);
+  const shrinkable = new Set(shrinkableColumns(visible).map((col) => col.id));
+  return visible.reduce(
+    (sum, col) =>
+      sum +
+      (shrinkable.has(col.id)
+        ? columnWidthBounds(col).min
+        : (col.width ?? columnWidthBounds(col).min)),
+    0,
+  );
 }
 
 /**
@@ -170,8 +181,8 @@ export function minTableWidth<TRow>(
  * whatever is left over.
  *
  * Widths apply as-is while they fit. Past that, columns the user hasn't sized
- * shrink in proportion to their width, each stopping at its minimum; pinned
- * columns keep their width, and the table overflows once nothing else can give.
+ * shrink from the right, each down to its minimum before the next one gives,
+ * stopping at the last pinned column; then the table overflows.
  */
 export function fitColumnWidths<TRow>(
   visible: ResolvedTableColumn<TRow>[],
@@ -186,28 +197,12 @@ export function fitColumnWidths<TRow>(
     Array.from(widths.values()).reduce((sum, w) => sum + w, 0) +
     slackMin -
     available;
-  let shrinkable = sized.filter(
-    (col) =>
-      isShrinkable(col) &&
-      (widths.get(col.id) as number) > columnWidthBounds(col).min,
-  );
-  // Each pass hands the remaining excess to the columns still above their
-  // minimum; one hitting its floor passes its share on to the next pass.
-  while (excess > 0.5 && shrinkable.length) {
-    const total = shrinkable.reduce(
-      (sum, col) => sum + (widths.get(col.id) as number),
-      0,
-    );
-    let taken = 0;
-    shrinkable = shrinkable.filter((col) => {
-      const width = widths.get(col.id) as number;
-      const { min } = columnWidthBounds(col);
-      const next = Math.max(min, width - (excess * width) / total);
-      widths.set(col.id, next);
-      taken += width - next;
-      return next > min;
-    });
-    excess -= taken;
+  for (const col of shrinkableColumns(visible).reverse()) {
+    if (excess <= 0) break;
+    const width = widths.get(col.id) as number;
+    const next = Math.max(columnWidthBounds(col).min, width - excess);
+    widths.set(col.id, next);
+    excess -= width - next;
   }
   return widths;
 }
