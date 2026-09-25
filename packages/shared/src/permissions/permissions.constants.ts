@@ -939,6 +939,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       // covered saved groups too, and a Project Admin relied on it.
       "FlagsBypassApprovals",
       "SavedGroupsBypassApprovals",
+      "SessionReplayViewAccess",
       "ProjectAdminAccess",
     ],
   },
@@ -1066,4 +1067,7 @@ export const READ_ONLY_PERMISSIONS = [
   "runQueries",
   "runSqlExplorerQueries",
   "addComments",
+  // A session's projects come from its SDK connection, which can span several.
+  // Read-only semantics let a user with access to any one of them see it.
+  "viewSessionReplay",
 ];
