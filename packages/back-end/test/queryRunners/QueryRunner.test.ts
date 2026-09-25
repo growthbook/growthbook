@@ -1004,6 +1004,68 @@ describe("QueryRunner", () => {
       }
     });
 
+    // The reaper fails running docs whose heartbeat is older than 70s, so a
+    // slow terminal write (large result chunks on a loaded Mongo) must keep
+    // heartbeating until it lands.
+    it.each(["succeeded", "failed"] as const)(
+      "keeps heartbeating until the %s write lands, then stops",
+      async (outcome) => {
+        jest.useFakeTimers();
+        const query = createMockQuery("qry_slow_write", "running");
+        const runner = new CascadeFailureQueryRunner(
+          mockContext,
+          {
+            id: "test-model",
+            organization: "test-org",
+            queries: [{ name: "a", query: query.id, status: "running" }],
+            runStarted: new Date(),
+          },
+          mockIntegration,
+        );
+        let landTerminalWrite = () => {};
+        const terminalWrite = new Promise<void>((resolve) => {
+          landTerminalWrite = resolve;
+        });
+        jest.mocked(updateQueryIfPending).mockResolvedValue(true);
+        jest
+          .mocked(updateQuery)
+          .mockImplementation(async (context, doc, changes) => {
+            if (changes.status === "succeeded") await terminalWrite;
+            return { ...doc, ...changes };
+          });
+        jest.mocked(updateQueryIfRunning).mockImplementation(async () => {
+          await terminalWrite;
+          return true;
+        });
+        const heartbeatWrites = () =>
+          jest
+            .mocked(updateQuery)
+            .mock.calls.filter(([, , changes]) => changes.heartbeat).length;
+
+        try {
+          await runner.executeQuery(query, {
+            run: async () => {
+              if (outcome === "failed") throw new Error("warehouse error");
+              return { rows: [] };
+            },
+            onFailure: jest.fn(),
+          });
+          await jest.advanceTimersByTimeAsync(100000);
+          expect(heartbeatWrites()).toBe(3);
+
+          landTerminalWrite();
+          await jest.advanceTimersByTimeAsync(0);
+          await jest.advanceTimersByTimeAsync(120000);
+          expect(heartbeatWrites()).toBe(3);
+        } finally {
+          jest.clearAllTimers();
+          jest.useRealTimers();
+          jest.mocked(updateQuery).mockReset();
+          jest.mocked(updateQueryIfRunning).mockReset();
+        }
+      },
+    );
+
     // Reproduces the swallowed-error bug in the aggregated fact table pipeline.
     // A multi-query DAG (insert + a dependent coverage query) fails when the
     // insert hits invalid SQL. The first refresh flips the runner to failed; a
