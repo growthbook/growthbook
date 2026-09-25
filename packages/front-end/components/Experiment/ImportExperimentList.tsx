@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { FC, useCallback, useEffect, useState } from "react";
 import { PastExperimentsInterface } from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
@@ -82,6 +82,9 @@ const ImportExperimentList: FC<{
 
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
   const [runError, setRunError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => setRunError(null), [importId]);
 
   // Searching
   const filterResults = useCallback(
@@ -248,7 +251,10 @@ const ImportExperimentList: FC<{
                 mutate={mutate}
                 model={data.experiments}
                 icon="refresh"
+                disabled={submitting}
                 onSubmit={async () => {
+                  if (submitting) return;
+                  setSubmitting(true);
                   setRunError(null);
                   try {
                     await apiCall<{ id: string }>("/experiments/import", {
@@ -261,6 +267,8 @@ const ImportExperimentList: FC<{
                     await mutate();
                   } catch (e) {
                     setRunError(e.message);
+                  } finally {
+                    setSubmitting(false);
                   }
                 }}
               />
@@ -272,7 +280,7 @@ const ImportExperimentList: FC<{
           {runError}
         </Callout>
       )}
-      {hasStarted && status === "failed" && (
+      {!runError && hasStarted && status === "failed" && (
         <>
           <Callout status="error" my="3">
             <p>Error importing experiments.</p>
