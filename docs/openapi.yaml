@@ -590,6 +590,9 @@ tags:
   - name: FeatureEnvironmentV2_model
     x-displayName: Feature Environment V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironmentV2" />
+  - name: FeatureEvaluation_model
+    x-displayName: Feature Evaluation
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEvaluation" />
   - name: FeatureExperimentRefRule_model
     x-displayName: Feature Experiment Ref Rule
     description: >-
@@ -10174,6 +10177,126 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v2/stale-features' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/evaluate:
+    post:
+      operationId: postFeatureEvaluate
+      summary: Evaluate a feature flag for a set of attributes
+      description: >-
+        Runs the SDK against the flag without publishing anything, so a draft
+        can be checked before it goes live.
+      tags:
+        - features-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                attributes:
+                  description: Merged over the archetype's attributes when both are given
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
+                archetypeId:
+                  description: Evaluate as this archetype (requires the archetypes feature)
+                  type: string
+                version:
+                  description: >-
+                    Revision to evaluate, including unpublished drafts. Defaults
+                    to the live version.
+                  type: integer
+                environments:
+                  description: Defaults to every environment the flag is in
+                  type: array
+                  items:
+                    type: string
+                evalDate:
+                  description: Evaluate scheduled rules as of this time. Defaults to now.
+                  type: string
+                  format: date-time
+                skipRulesWithPrerequisites:
+                  description: >-
+                    Prerequisite flags aren't evaluated here. True (default)
+                    skips rules that have them; false treats their prerequisites
+                    as passing.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeatureEvaluation'
+                required:
+                  - results
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/new-checkout/evaluate' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"attributes":{"id":"user-123","country":"US"},"version":4}'
+  /v2/features/{id}/dependents:
+    get:
+      operationId: getFeatureDependents
+      summary: Get the flags and experiments that depend on a feature flag
+      description: >-
+        Check this before archiving or deleting a flag. Includes archived
+        dependents.
+      tags:
+        - features-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  features:
+                    description: Flags that use this one as a prerequisite
+                    type: array
+                    items:
+                      type: string
+                  experiments:
+                    description: Experiments that use this flag as a prerequisite
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/experiments'
+                required:
+                  - features
+                  - experiments
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v2/features/{id}/dependents' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/feature-revisions:
     get:
@@ -20189,6 +20312,12 @@ paths:
                   type: array
                   items:
                     type: string
+                disableEqualityConditions:
+                  description: >-
+                    Prevent exact-match targeting on this attribute; only regex
+                    and greater/less than comparisons are allowed. Useful for
+                    PII.
+                  type: boolean
               required:
                 - property
                 - datatype
@@ -20228,6 +20357,11 @@ paths:
             schema:
               type: object
               properties:
+                property:
+                  description: >-
+                    Rename the attribute. Conditions that reference the old name
+                    are not updated; check `getAttributeReferences` first.
+                  type: string
                 datatype:
                   description: The attribute datatype
                   type: string
@@ -20272,6 +20406,12 @@ paths:
                   type: array
                   items:
                     type: string
+                disableEqualityConditions:
+                  description: >-
+                    Prevent exact-match targeting on this attribute; only regex
+                    and greater/less than comparisons are allowed. Useful for
+                    PII.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -20317,6 +20457,76 @@ paths:
         - lang: cURL
           source: >-
             curl -X DELETE 'https://api.growthbook.io/api/v1/attributes/abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/attributes/{property}/references:
+    get:
+      operationId: getAttributeReferences
+      summary: Get what references an attribute
+      description: >-
+        Feature Flag rules, experiments (targeting or hash attribute) and
+        condition Saved Groups that use the attribute. Check this before
+        renaming or deleting it.
+      tags:
+        - attributes
+      parameters:
+        - $ref: '#/components/parameters/property'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  features:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        project:
+                          type: string
+                      required:
+                        - id
+                        - name
+                      additionalProperties: false
+                  experiments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        project:
+                          type: string
+                        projects:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - id
+                        - name
+                      additionalProperties: false
+                  savedGroups:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/savedGroups'
+                required:
+                  - features
+                  - experiments
+                  - savedGroups
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/attributes/{property}/references'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/sdk-connections:
@@ -21533,6 +21743,9 @@ paths:
                     omitted, it defaults to the user associated with the
                     request's Personal Access Token (PAT), if one is being used.
                   type: string
+                description:
+                  type: string
+                  maxLength: 10000
                 projects:
                   type: array
                   items:
@@ -21720,6 +21933,9 @@ paths:
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization.
                   type: string
+                description:
+                  type: string
+                  maxLength: 10000
                 projects:
                   type: array
                   items:
@@ -21943,7 +22159,19 @@ paths:
                   savedGroups:
                     type: array
                     items:
-                      $ref: '#/components/schemas/savedGroups'
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        groupName:
+                          type: string
+                        projects:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - id
+                      additionalProperties: false
                 required:
                   - features
                   - experiments
@@ -62151,6 +62379,59 @@ components:
         - status
         - rules
       additionalProperties: false
+    FeatureEvaluation:
+      type: object
+      properties:
+        environment:
+          type: string
+        enabled:
+          description: False when the flag is off in this environment
+          type: boolean
+        value:
+          description: What the SDK would return. Null when disabled.
+        source:
+          description: Why this value was chosen. Null when disabled.
+          anyOf:
+            - type: string
+              enum:
+                - unknownFeature
+                - defaultValue
+                - force
+                - override
+                - experiment
+                - prerequisite
+                - cyclicPrerequisite
+            - type: 'null'
+        ruleId:
+          description: The rule that matched, if any
+          anyOf:
+            - type: string
+            - type: 'null'
+        experiment:
+          description: Present when an experiment rule matched
+          type: object
+          properties:
+            key:
+              type: string
+            variationId:
+              type: number
+            inExperiment:
+              type: boolean
+            hashAttribute:
+              type: string
+          required:
+            - key
+            - variationId
+            - inExperiment
+            - hashAttribute
+          additionalProperties: false
+      required:
+        - environment
+        - enabled
+        - value
+        - source
+        - ruleId
+      additionalProperties: false
     Targeting Rule:
       description: >-
         A targeting rule that serves a specific value to users matching the
@@ -64384,6 +64665,8 @@ components:
           type: array
           items:
             type: string
+        disableEqualityConditions:
+          type: boolean
       required:
         - property
         - datatype
@@ -78275,6 +78558,17 @@ components:
               additionalProperties: false
             - type: 'null'
       additionalProperties: false
+    experiments:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - name
+      additionalProperties: false
     log:
       type: object
       properties:
@@ -78379,17 +78673,6 @@ components:
       required:
         - path
         - description
-      additionalProperties: false
-    experiments:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-      required:
-        - id
-        - name
       additionalProperties: false
     currentLeafWeights:
       type: object
@@ -78532,6 +78815,21 @@ components:
         - datasourceId
         - variations
       additionalProperties: false
+    savedGroups:
+      type: object
+      properties:
+        id:
+          type: string
+        groupName:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - groupName
+      additionalProperties: false
     tables:
       type: object
       properties:
@@ -78548,20 +78846,6 @@ components:
         - schema
         - table
         - columnCount
-      additionalProperties: false
-    savedGroups:
-      type: object
-      properties:
-        id:
-          type: string
-        groupName:
-          type: string
-        projects:
-          type: array
-          items:
-            type: string
-      required:
-        - id
       additionalProperties: false
     constants:
       type: object
@@ -79914,6 +80198,7 @@ x-tagGroups:
       - FeatureDefinition_model
       - FeatureEnvironmentV1_model
       - FeatureEnvironmentV2_model
+      - FeatureEvaluation_model
       - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
