@@ -776,8 +776,8 @@ export default function SessionReplayPage() {
               >
                 <PiCaretLeft aria-hidden />
               </Button>
-              <Text size="sm" weight="medium" aria-current="page">
-                {page}
+              <Text size="sm" weight="medium">
+                <span aria-current="page">{page}</span>
               </Text>
               <Button
                 variant="outline"
