@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import { filterEnvironmentsByFeature, namespacesToMap } from "shared/util";
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
@@ -8,10 +7,7 @@ import { FeatureTestResult } from "shared/types/feature";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "back-end/types/api";
-import {
-  getEnvironments,
-  getContextFromReq,
-} from "back-end/src/services/organizations";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createArchetype,
   deleteArchetypeById,
@@ -26,11 +22,10 @@ import {
 } from "back-end/src/services/audit";
 import {
   evaluateFeature,
-  getSavedGroupMap,
+  filterArchetypeEnvironments,
+  getFeatureEvalDependencies,
 } from "back-end/src/services/features";
-import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
 type GetArchetypeResponse = {
@@ -117,36 +112,21 @@ export const getArchetypeAndEval = async (
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
-    const groupMap = await getSavedGroupMap(context);
-    const experimentMap = await getAllPayloadExperiments(context);
-    const allEnvironments = getEnvironments(org);
-    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-    const safeRolloutMap =
-      await context.models.safeRollout.getAllPayloadSafeRollouts();
-    const constants = await getResolvableValues(context);
+    const deps = await getFeatureEvalDependencies(context, feature);
 
     archetype.forEach((arch) => {
       try {
         const attributes = arch.attributes
           ? (JSON.parse(arch.attributes) as ArchetypeAttributeValues)
           : ({} as ArchetypeAttributeValues);
-        const archEnvironments =
-          arch.environments && arch.environments.length
-            ? environments.filter((e) => arch.environments?.includes(e.id))
-            : environments;
         const result = evaluateFeature({
+          ...deps,
+          environments: filterArchetypeEnvironments(deps.environments, arch),
           feature,
           attributes,
-          environments: archEnvironments,
-          experimentMap,
-          groupMap,
           revision,
           scrubPrerequisites,
           skipRulesWithPrerequisites,
-          safeRolloutMap,
-          namespaces: namespacesToMap(org.settings?.namespaces),
-          organization: org,
-          constants,
         });
 
         if (!result) return;
