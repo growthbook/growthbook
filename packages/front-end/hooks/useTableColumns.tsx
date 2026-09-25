@@ -162,10 +162,11 @@ export function useTableColumns<TRow>({
   );
 
   // Only the resized column is written: the others stay unpinned, so fitting
-  // keeps making room for it on later renders.
+  // keeps making room for it on later renders. Rounded, as fitted widths aren't.
   const setWidth = useCallback(
     (id: string, width: number | undefined) => {
-      write(columns.map((col) => (col.id === id ? { ...col, width } : col)));
+      const w = width === undefined ? undefined : Math.round(width);
+      write(columns.map((col) => (col.id === id ? { ...col, width: w } : col)));
     },
     [columns, write],
   );
