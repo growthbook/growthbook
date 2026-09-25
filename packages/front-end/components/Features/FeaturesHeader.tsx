@@ -56,6 +56,21 @@ import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
+function HiddenProject({ id }: { id: string }) {
+  return (
+    <Tooltip
+      body={
+        <>
+          A Project you don&apos;t have access to, or one that no longer exists
+          (<code>{id}</code>)
+        </>
+      }
+    >
+      <em>Hidden Project</em>
+    </Tooltip>
+  );
+}
+
 export default function FeaturesHeader({
   feature,
   baseFeature,
@@ -498,17 +513,11 @@ export default function FeaturesHeader({
                 value={
                   <Flex gap="1">
                     {projectIsDeReferenced ? (
-                      <Tooltip
-                        body={
-                          <>
-                            Project <code>{projectId}</code> not found
-                          </>
-                        }
-                      >
-                        <span className="text-danger">
-                          <PiWarning /> Invalid project
-                        </span>
-                      </Tooltip>
+                      // The viewer's project list is read-filtered, so this is
+                      // either a Project they cannot see or one since deleted.
+                      <Text weight="regular" color="text-mid">
+                        <HiddenProject id={projectId} />
+                      </Text>
                     ) : currentProject && currentProject !== feature.project ? (
                       <Tooltip
                         body={<>This feature is not in your current project.</>}
@@ -548,11 +557,22 @@ export default function FeaturesHeader({
               <Metadata
                 label="Targeting Projects"
                 value={
-                  feature.targetingAllProjects
-                    ? "All Projects"
-                    : (feature.targetingProjects ?? [])
-                        .map((id) => getProjectById(id)?.name || id)
-                        .join(", ")
+                  feature.targetingAllProjects ? (
+                    "All Projects"
+                  ) : (
+                    // Same tokens Metadata applies to a string value, so the
+                    // list reads like the Project field beside it.
+                    <Text weight="regular" color="text-mid">
+                      {(feature.targetingProjects ?? []).map((id, i) => (
+                        <span key={id}>
+                          {i > 0 ? ", " : ""}
+                          {getProjectById(id)?.name || (
+                            <HiddenProject id={id} />
+                          )}
+                        </span>
+                      ))}
+                    </Text>
+                  )
                 }
               />
             )}

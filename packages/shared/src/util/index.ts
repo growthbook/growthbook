@@ -23,7 +23,13 @@ import {
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
-import { featureHasEnvironment } from "./features";
+import {
+  featureHasEnvironment,
+  getAttributeScopeProjectIds,
+  getTargetingProjectIds,
+  StagedTargetingScope,
+  TargetingScopedEntity,
+} from "./features";
 
 export * from "./strings";
 export * from "./units-query-settings";
@@ -41,6 +47,7 @@ export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./ruleId";
+export * from "./revertRampDetach";
 export * from "./numbers";
 export * from "./types";
 export * from "./errors";
@@ -59,10 +66,16 @@ export function getAffectedEnvsForExperiment({
   experiment,
   orgEnvironments,
   linkedFeatures,
+  pendingDrafts,
 }: {
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
   orgEnvironments: Environment[];
   linkedFeatures?: FeatureInterface[];
+  // Drafts the experiment publishes when it starts; their rules reach too.
+  pendingDrafts?: {
+    feature: FeatureInterface;
+    revision: FeatureRevisionInterface;
+  }[];
 }): string[] {
   if (!orgEnvironments.length) {
     return [];
@@ -76,41 +89,54 @@ export function getAffectedEnvsForExperiment({
   )
     return ["__ALL__"];
 
-  if (linkedFeatures?.length) {
-    const envs = new Set<string>();
-    const orgEnvIds = orgEnvironments.map((e) => e.id);
-    linkedFeatures.forEach((linkedFeature) => {
-      const matches = getMatchingRules(
-        linkedFeature,
-        (rule) =>
-          (rule.type === "experiment-ref" &&
-            rule.enabled &&
-            rule.experimentId === experiment.id) ||
-          false,
-        orgEnvIds,
-        undefined,
-        // the boolean below skips environments if they are disabled on the feature
-        true,
-      );
-
-      // if we find any matching rules get the environments that are affected
-      if (matches.length) {
-        matches.forEach((match) => {
-          const env = orgEnvironments.find(
-            (env) => env.id === match.environmentId,
-          );
-
-          if (env) {
-            if (featureHasEnvironment(linkedFeature, env)) {
-              envs.add(match.environmentId);
-            }
-          }
-        });
+  const envs = new Set<string>();
+  const orgEnvIds = orgEnvironments.map((e) => e.id);
+  const collect = (
+    linkedFeature: FeatureInterface,
+    revision?: FeatureRevisionInterface,
+  ) => {
+    // A draft can also switch environments on; judge it as it will land.
+    const feature = revision?.environmentsEnabled
+      ? {
+          ...linkedFeature,
+          environmentSettings: Object.fromEntries(
+            orgEnvIds.map((env) => [
+              env,
+              {
+                ...linkedFeature.environmentSettings?.[env],
+                enabled:
+                  revision.environmentsEnabled?.[env] ??
+                  linkedFeature.environmentSettings?.[env]?.enabled ??
+                  false,
+              },
+            ]),
+          ),
+        }
+      : linkedFeature;
+    const matches = getMatchingRules(
+      feature,
+      (rule) =>
+        (rule.type === "experiment-ref" &&
+          rule.enabled &&
+          rule.experimentId === experiment.id) ||
+        false,
+      orgEnvIds,
+      revision,
+      // the boolean below skips environments if they are disabled on the feature
+      true,
+    );
+    for (const match of matches) {
+      const env = orgEnvironments.find((e) => e.id === match.environmentId);
+      if (env && featureHasEnvironment(feature, env)) {
+        envs.add(match.environmentId);
       }
-    });
-    return Array.from(envs);
-  }
-  return [];
+    }
+  };
+  (linkedFeatures ?? []).forEach((feature) => collect(feature));
+  (pendingDrafts ?? []).forEach(({ feature, revision }) =>
+    collect(feature, revision),
+  );
+  return Array.from(envs);
 }
 
 export function getSnapshotAnalysis(
@@ -424,13 +450,47 @@ export function getRulesForEnvironment(
 
 // A rule's own project scope: explicit list, or null = all projects. Empty array
 // means "no project" (leak-safe — never "all"); allProjects/legacy-absent → null.
-export function ruleProjectScope(rule: FeatureRule): string[] | null {
+export function ruleProjectScope(rule: {
+  allProjects?: boolean;
+  projects?: string[];
+}): string[] | null {
   if (rule == null || typeof rule !== "object") return [];
   if (rule.allProjects === true) return null;
   // allProjects === false is explicit scoping — an absent/empty list means no
   // project, never "all". Only the legacy state (no scope fields) falls back to all.
   if (rule.allProjects !== false && rule.projects == null) return null;
   return Array.isArray(rule.projects) ? rule.projects : [];
+}
+
+// Effective delivery Projects for a rule. Unlike attribute discovery, an
+// empty primary Project remains its own delivery scope, represented by "".
+export function getRuleTargetingProjectIds(
+  entity: TargetingScopedEntity,
+  rule: { allProjects?: boolean; projects?: string[] },
+): string[] | null {
+  const projects = getTargetingProjectIds(entity);
+  const ruleProjects = ruleProjectScope(rule);
+  return ruleProjects === null
+    ? projects
+    : projects === null
+      ? ruleProjects
+      : ruleProjects.filter((p) => projects.includes(p));
+}
+
+// Attribute scope for one rule: the feature's scope narrowed to the projects
+// the rule itself targets. A rule scoped outside the delivery set (or to no
+// project) reaches nowhere and so narrows nothing.
+export function getRuleAttributeScopeProjectIds(
+  entity: TargetingScopedEntity,
+  staged: StagedTargetingScope | undefined,
+  rule: { allProjects?: boolean; projects?: string[] },
+): string[] | null {
+  const featureScope = getAttributeScopeProjectIds(entity, staged);
+  const ruleScope = ruleProjectScope(rule);
+  if (ruleScope === null || ruleScope.length === 0) return featureScope;
+  if (featureScope === null) return ruleScope;
+  const narrowed = ruleScope.filter((p) => featureScope.includes(p));
+  return narrowed.length ? narrowed : featureScope;
 }
 
 // Whether a rule is served into an SDK payload: true only where its own scope,
@@ -485,6 +545,7 @@ export function ruleFootprint(
 ): string[] {
   if (rule.allEnvironments) return applicableEnvs;
   if (rule.environments === undefined) return applicableEnvs;
+  if (!Array.isArray(rule.environments)) return [];
   const applicableSet = new Set(applicableEnvs);
   return rule.environments.filter((e) => applicableSet.has(e));
 }

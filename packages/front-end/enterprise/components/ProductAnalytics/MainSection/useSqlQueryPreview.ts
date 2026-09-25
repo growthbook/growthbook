@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QueryExecutionResult, type SqlDataset } from "shared/validators";
+import { mapColumnTypeToExplorationType } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { applySqlPreviewMetadata } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  applySqlPreviewMetadata,
+  type ExplorerDraftConfig,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 
 export const PREVIEW_ROW_LIMIT = 100;
@@ -65,28 +69,35 @@ export default function useSqlQueryPreview({
     setExploreReady(exploreReady);
   }, [exploreReady, setExploreReady]);
 
+  // Read the draft through a ref: a preview resolves well after it was started,
+  // and closing over the draft would both clobber anything edited in between and
+  // hand the caller a config to submit that predates it.
+  const draftRef = useRef(draftExploreState);
+  draftRef.current = draftExploreState;
+
   const applyColumnMetadata = useCallback(
     (
       sql: string,
       columnTypes: SqlDataset["columnTypes"],
       inferredTimestamp: string | null,
-    ) => {
-      if (draftExploreState.dataset.type !== "sql") return;
-      setDraftExploreState(
-        applySqlPreviewMetadata(
-          draftExploreState,
-          sql,
-          columnTypes,
-          inferredTimestamp,
-        ),
+    ): ExplorerDraftConfig | null => {
+      const draft = draftRef.current;
+      if (draft.dataset.type !== "sql") return null;
+      const next = applySqlPreviewMetadata(
+        draft,
+        sql,
+        columnTypes,
+        inferredTimestamp,
       );
+      setDraftExploreState(next);
+      return next;
     },
-    [draftExploreState, setDraftExploreState],
+    [setDraftExploreState],
   );
 
   const runQuery = useCallback(
-    async (sql: string): Promise<boolean> => {
-      if (!sql.trim() || !datasourceId) return false;
+    async (sql: string): Promise<ExplorerDraftConfig | null> => {
+      if (!sql.trim() || !datasourceId) return null;
 
       setIsQueryRunning(true);
       onRun?.();
@@ -108,20 +119,27 @@ export default function useSqlQueryPreview({
 
         if (response.error) {
           setState({ status: "error", result, error: response.error });
-          return false;
+          return null;
         }
 
         const columns = response.columns ?? [];
-        const columnTypes = Object.fromEntries(
-          columns.map((column) => [column.name, column.dataType ?? "other"]),
-        ) as SqlDataset["columnTypes"];
+        const columnTypes: SqlDataset["columnTypes"] = Object.fromEntries(
+          columns.map((column) => [
+            column.name,
+            mapColumnTypeToExplorationType(column.dataType),
+          ]),
+        );
         const timestampColumn =
           columns.find((column) => column.dataType === "date")?.name ?? null;
 
         lastPreviewedSqlRef.current = sql;
-        applyColumnMetadata(sql, columnTypes, timestampColumn);
+        const nextConfig = applyColumnMetadata(
+          sql,
+          columnTypes,
+          timestampColumn,
+        );
         setState({ status: "success", result, error: null });
-        return true;
+        return nextConfig;
       } catch (caught) {
         const error = caught instanceof Error ? caught.message : String(caught);
         setState({
@@ -133,7 +151,7 @@ export default function useSqlQueryPreview({
             sql,
           },
         });
-        return false;
+        return null;
       } finally {
         setIsQueryRunning(false);
       }

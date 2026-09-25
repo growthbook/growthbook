@@ -158,6 +158,7 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         userIdTypes,
       });
     }
+    case "databricks":
     default:
       return null;
   }

@@ -1,13 +1,20 @@
-// Lines the member tables up column-for-column. Sums under 100% on purpose:
-// actions is a fixed 50px, and a fixed layout squeezes when nothing is spare.
+// Lines the member tables up column-for-column (name + email = emailNoName,
+// date + date = dateOnly). Each table sums to 100% so the fixed layout has no
+// spare width to hand the actions column.
 export const MEMBER_COLUMN_WIDTHS = {
   name: "11%",
-  email: "16%",
+  email: "15%",
   emailNoName: "26%",
-  date: "10%",
+  date: "9%",
   dateOnly: "18%",
-  role: "22%",
-  projectRoles: "15%",
-  teams: "10%",
-  actions: "50px",
+  role: "18%",
+  projectRoles: "18%",
+  teams: "16%",
+  // The project page drops Project Roles; Role and Teams split its share.
+  roleOnProject: "26%",
+  teamsOnProject: "26%",
+  teamName: "14%",
+  teamDescription: "18%",
+  teamDate: "12%",
+  actions: "4%",
 } as const;

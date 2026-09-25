@@ -6,7 +6,10 @@ import {
   generateSigningKey,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
-import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  assertProjectRulesReferenceProjects,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
@@ -172,12 +175,23 @@ export class ApiKeyModel extends BaseClass {
         }
         for (const pr of doc.projectRoles) {
           this.validateRole(pr.role);
-          await this.validateProject(pr.project);
           this.validateEnvironments(pr.environments);
           for (const rule of pr.additionalRoles ?? []) {
             this.validateRole(rule.role);
             this.validateEnvironments(rule.environments);
           }
+        }
+        // Only rules this write adds or changes are checked (same as members and
+        // teams), so a key still pointing at a since-deleted project stays
+        // editable and can be disabled.
+        try {
+          await assertProjectRulesReferenceProjects(
+            this.context,
+            previousDoc?.projectRoles,
+            doc.projectRoles,
+          );
+        } catch (e) {
+          this.context.throwBadRequestError(e.message);
         }
       }
     }
@@ -200,15 +214,6 @@ export class ApiKeyModel extends BaseClass {
       if (!orgEnvIds.includes(env)) {
         this.context.throwBadRequestError(`Invalid environment: ${env}`);
       }
-    }
-  }
-
-  private async validateProject(projectId: string) {
-    const project = (await this.context.getProjects()).find(
-      ({ id }) => id === projectId,
-    );
-    if (!project) {
-      this.context.throwBadRequestError(`Invalid project: ${projectId}`);
     }
   }
 
@@ -418,6 +423,17 @@ export class ApiKeyModel extends BaseClass {
         disabled: { $ne: true },
       },
       { $set: { disabled: true } },
+    );
+  }
+
+  // A deleted project's roles are dead grants; drop them from every org key.
+  public static async dangerousRemoveProjectRolesForProject(
+    organization: string,
+    projectId: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateMany(
+      { organization, "projectRoles.project": projectId },
+      { $pull: { projectRoles: { project: projectId } } },
     );
   }
 

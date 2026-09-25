@@ -18,7 +18,7 @@ import {
   OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
+import { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AgreementType,
   environment,
@@ -213,6 +213,7 @@ export type SDKAttribute = {
   projects?: string[];
   disableEqualityConditions?: boolean;
   tags?: string[];
+  customFields?: Record<string, string>;
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -284,6 +285,8 @@ export interface OrganizationSettings {
   aiAskDataEnabled?: boolean;
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
+  // Voice dictation. Unset resolves in getAISettingsForOrg.
+  sttModel?: STTModel;
   /** @deprecated */
   openAIDefaultModel?: AIModel;
   // Per-surface overrides for the Visual Editor. Image model is a free
@@ -387,6 +390,8 @@ export interface OrganizationSettings {
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
   requireUniqueExperimentTrackingKeys?: boolean;
+  experimentKeyExample?: string;
+  experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
@@ -395,6 +400,8 @@ export interface OrganizationSettings {
   blockFileUploads?: boolean;
   defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
+  // Opt-in validation of Saved Group scope at consuming Feature Flags.
+  enforceSavedGroupProjectScope?: boolean;
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
@@ -555,6 +562,8 @@ export type GetOrganizationResponse = {
   // Providers with a usable key, stored or inherited from the environment.
   // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];
+  // Resolved dictation model, null when unavailable. Hides the mic button.
+  sttModel: STTModel | null;
 };
 
 export type DailyUsage = {

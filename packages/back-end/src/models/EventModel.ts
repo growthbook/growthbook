@@ -53,9 +53,9 @@ const eventSchema = new mongoose.Schema({
     enum: zodNotificationEventNamesEnum,
   },
   version: {
-    type: String,
+    type: Number,
     required: false,
-    enum: ["1"],
+    enum: [MODEL_VERSION],
   },
   data: {
     type: Object,

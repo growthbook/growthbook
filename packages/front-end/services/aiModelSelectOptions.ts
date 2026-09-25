@@ -1,4 +1,4 @@
-import type { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
+import type { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AI_IMAGE_MODELS,
   AI_PROVIDER_MODEL_MAP,
@@ -50,6 +50,7 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "o3-mini": "O3 Mini",
   o1: "O1",
   // Anthropic Claude. Tier before version, matching Anthropic's own naming.
+  "claude-opus-5-5": "Claude Opus 5.5",
   "claude-opus-5": "Claude Opus 5",
   "claude-sonnet-5": "Claude Sonnet 5",
   "claude-opus-4-8": "Claude Opus 4.8",
@@ -66,7 +67,6 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "grok-4.6": "Grok 4.6",
   "grok-4.5": "Grok 4.5",
   "grok-4.3": "Grok 4.3",
-  // Mistral. "(latest)" marks a rolling alias — the model behind it changes.
   "mistral-large-latest": "Mistral Large (latest)",
   "mistral-medium-latest": "Mistral Medium (latest)",
   "mistral-small-latest": "Mistral Small (latest)",
@@ -112,6 +112,17 @@ export const EMBEDDING_MODEL_OPTIONS =
     },
     { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
   ]);
+
+/** Transcription models for voice dictation, labeled with their provider. */
+export const STT_MODEL_OPTIONS = ensureValuesExactlyMatchUnion<STTModel>()([
+  { value: "gpt-transcribe", label: "OpenAI: GPT Transcribe" },
+  { value: "gpt-4o-transcribe", label: "OpenAI: GPT-4o Transcribe" },
+  { value: "gpt-4o-mini-transcribe", label: "OpenAI: GPT-4o Mini Transcribe" },
+  { value: "whisper-1", label: "OpenAI: Whisper (legacy)" },
+  { value: "grok-stt-1.0", label: "xAI: Grok STT 1.0" },
+  // Mistral. "(latest)" marks a rolling alias — the model behind it changes.
+  { value: "voxtral-mini-latest", label: "Mistral: Voxtral Mini (latest)" },
+]);
 
 function withSelectedOption<T extends FlatOption | GroupedOption>(
   options: T[],
@@ -181,6 +192,12 @@ export const USE_DEFAULT_EMBEDDING_MODEL_OPTION = {
   label: `Use default (${DEFAULT_EMBEDDING_MODEL})`,
 };
 
+// Names no model: what the default resolves to depends on which provider keys exist.
+export const USE_DEFAULT_STT_MODEL_OPTION = {
+  value: "",
+  label: "Use default dictation model",
+};
+
 /**
  * Clears the org's own default and hands the choice back to GrowthBook. Always
  * offered on Cloud — it is the only way back once a model is pinned, or once
@@ -197,6 +214,7 @@ export function getModelDisplayLabel(model: string): string {
     AI_MODEL_DISPLAY_LABELS[model as AIModel] ??
     getImageModelMeta(model)?.label ??
     EMBEDDING_MODEL_OPTIONS.find((o) => o.value === model)?.label ??
+    STT_MODEL_OPTIONS.find((o) => o.value === model)?.label ??
     model
   );
 }
@@ -265,5 +283,25 @@ export function getAvailableEmbeddingModelOptions(
     selectedModel,
     (value) =>
       EMBEDDING_MODEL_OPTIONS.find((o) => o.value === value)?.label ?? value,
+  );
+}
+
+/** Filtered like the embedding options; a provider list with no STT model leaves only the sentinel. */
+export function getAvailableSTTModelOptions(
+  availableProviders: readonly AIProvider[] | undefined,
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
+  const options =
+    availableProviders === undefined
+      ? STT_MODEL_OPTIONS
+      : STT_MODEL_OPTIONS.filter((o) => {
+          const provider = getProviderForAIModel("stt", o.value);
+          return provider === null || availableProviders.includes(provider);
+        });
+
+  return withSelectedOption(
+    [USE_DEFAULT_STT_MODEL_OPTION, ...options],
+    selectedModel,
+    (value) => STT_MODEL_OPTIONS.find((o) => o.value === value)?.label ?? value,
   );
 }

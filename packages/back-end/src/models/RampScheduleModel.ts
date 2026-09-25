@@ -2,9 +2,12 @@ import escapeRegExp from "lodash/escapeRegExp";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
 import {
+  ANCHORED_RAMP_SCHEDULE_STATUSES,
   ApiRampScheduleInterface,
   RampScheduleInterface,
+  RampStartAction,
   RampStepAction,
+  RampTarget,
   StepHoldConditions,
   isAwaitingStartApproval,
   isReadyForApproval,
@@ -15,13 +18,17 @@ import {
   RULE_ID_ENV_SUFFIX_DELIMITER,
   stemRuleId,
   isRampScheduleServing,
+  unanchoredRampTargets,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
   assertRampScheduleReplanAllowed,
   changesRampPlan,
+  toApiRampStep,
+  withStringForce,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   appendRampEvent,
   assertCanEditRampScheduleConfig,
@@ -31,6 +38,8 @@ import {
   getEffectiveRampAutoUpdateState,
   getRampAutoUpdatePreference,
   getRampMonitoringMode,
+  normalizeRampPlanForceValues,
+  rampStartValuesOf,
   runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
@@ -88,6 +97,8 @@ const BaseClass = MakeModelClass({
     // dangerouslyFindAllDueSchedules is a cross-tenant query.
     // sparse: true matches the existing index (most documents have nextProcessAt: null).
     { fields: { nextProcessAt: 1 }, sparse: true },
+    // Every feature publish reads the feature's schedules (getAllByFeatureId).
+    { fields: { organization: 1, entityId: 1 } },
   ],
   globallyUniquePrimaryKeys: true,
   defaultValues: {
@@ -237,15 +248,14 @@ export function rampScheduleToApiInterface(
     entityType: doc.entityType,
     entityId: doc.entityId,
     targets: doc.targets,
-    startActions: doc.startActions,
+    // Plans written before values were normalized may still hold a raw JSON
+    // `force`; emit the string form the scheduler will apply.
+    startActions: doc.startActions?.map(withStringForce),
     steps: doc.steps.map((s) => ({
-      interval: s.interval,
-      actions: s.actions,
-      approvalNotes: s.approvalNotes ?? undefined,
-      monitored: !!s.monitored,
-      holdConditions: s.holdConditions ?? undefined,
+      ...toApiRampStep(s),
+      actions: (s.actions ?? []).map(withStringForce),
     })),
-    endActions: doc.endActions,
+    endActions: doc.endActions?.map(withStringForce),
     startDate: dateToIso(doc.startDate),
     cutoffDate: dateToIso(doc.cutoffDate),
     requiresStartApproval: doc.requiresStartApproval,
@@ -321,7 +331,7 @@ type LegacyApiRampTrigger =
 type PostBodyAction = {
   targetType?: "feature-rule";
   targetId?: string;
-  patch: Partial<RampStepAction["patch"]>;
+  patch: Partial<RampStartAction["patch"]>;
 };
 
 // Accepts both the new `{ interval, holdConditions }` shape and the legacy
@@ -386,7 +396,38 @@ export function normalizeApiStepShapes(
   });
 }
 
+// A write may not leave an active target without a rollback anchor. Targets
+// already unanchored before the write (legacy docs, healed lazily by
+// ensureRampStartActions) are tolerated so housekeeping writes keep working.
+function assertTargetsAnchored(
+  doc: RampScheduleInterface,
+  previouslyUnanchored: RampTarget[],
+) {
+  const tolerated = new Set(previouslyUnanchored.map((t) => t.id));
+  const missing = unanchoredRampTargets(doc).filter(
+    (t) => !tolerated.has(t.id),
+  );
+  if (!missing.length) return;
+  const refs = missing.map((t) => t.ruleId ?? t.id).join(", ");
+  throw new BadRequestError(
+    `Ramp schedule target(s) ${refs} have no startActions. Every active target needs a rollback anchor; omit startActions to derive it from the rule.`,
+  );
+}
+
 export class RampScheduleModel extends BaseClass {
+  protected async beforeCreate(doc: RampScheduleInterface) {
+    assertTargetsAnchored(doc, []);
+  }
+  protected async beforeUpdate(
+    existing: RampScheduleInterface,
+    updates: UpdateProps<RampScheduleInterface>,
+  ) {
+    assertTargetsAnchored(
+      { ...existing, ...updates },
+      unanchoredRampTargets(existing),
+    );
+  }
+
   private getProject(doc: RampScheduleInterface): string | undefined {
     const { feature } = this.getForeignRefs(doc, false);
     return feature?.project;
@@ -585,19 +626,45 @@ export class RampScheduleModel extends BaseClass {
     if (!schedule) {
       throw new NotFoundError("Ramp schedule not found");
     }
-    if (schedule.targets.length && changesRampPlan(req.body)) {
-      await assertRampScheduleReplanAllowed(
-        this.context,
-        schedule,
-        canUseRestApiBypassSetting(req),
-      );
-    }
-
     // Locked so the read-modify-write can't clobber a concurrent advance.
     return runLockedRampScheduleAction(
       this.context,
       req.params.id,
       (schedule) => this.applyApiUpdateLocked(req, schedule),
+    );
+  }
+
+  private async validateApiPlanPatches(
+    context: ApiReqContext,
+    schedule: RampScheduleInterface,
+    updates: Record<string, unknown>,
+  ) {
+    // Lazy: the validations module reaches back into this model through the
+    // request context, so a static import trips initialization.
+    const {
+      collectRampPlanActions,
+      mergedRampPlan,
+      rampPatchEntriesForTargets,
+      validateRampPlanPatches,
+    } = await import("back-end/src/api/features/validations");
+    if (!collectRampPlanActions(updates).length) return;
+    const actions = collectRampPlanActions(mergedRampPlan(updates, schedule));
+    const featureIds = [
+      ...new Set(
+        actions
+          .map(
+            (a) => schedule.targets.find((t) => t.id === a.targetId)?.entityId,
+          )
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    await context.populateForeignRefs({ feature: featureIds });
+    await validateRampPlanPatches(
+      context,
+      rampPatchEntriesForTargets(actions, schedule.targets, (id) =>
+        context.foreignRefs.feature.get(id),
+      ),
+      { stored: [schedule] },
     );
   }
 
@@ -608,6 +675,15 @@ export class RampScheduleModel extends BaseClass {
     if (!["pending", "ready", "paused"].includes(schedule.status)) {
       throw new Error(
         `Cannot update ramp schedule in status "${schedule.status}". Only pending, ready, or paused schedules can be modified.`,
+      );
+    }
+    // Judged against the in-lock document, so a plan reviewed meanwhile is
+    // not overwritten by a body that matched the earlier read.
+    if (schedule.targets.length && changesRampPlan(req.body, schedule)) {
+      await assertRampScheduleReplanAllowed(
+        this.context,
+        schedule,
+        canUseRestApiBypassSetting(req),
       );
     }
 
@@ -745,6 +821,31 @@ export class RampScheduleModel extends BaseClass {
     // Same publish-class gate as the dashboard PUT; canUpdate() alone passes
     // with draft access, which is right for name/monitoring edits only.
     await assertCanEditRampScheduleConfig(this.context, schedule, updates);
+    // In-lock, after the permission gate: targets resolve against the in-lock
+    // document.
+    await this.validateApiPlanPatches(req.context, schedule, updates);
+
+    // Rule values are strings; bring any raw JSON `force` in the new plan to
+    // that form and reject a value the feature's type does not accept. A
+    // start value echoing the rule's own or the stored anchor is not judged.
+    const feature = this.getForeignRefs(schedule, false).feature;
+    Object.assign(
+      updates,
+      normalizeRampPlanForceValues(
+        updates as Pick<
+          RampScheduleInterface,
+          "steps" | "startActions" | "endActions"
+        >,
+        feature,
+        {
+          knownStartValues: rampStartValuesOf(
+            feature,
+            schedule.targets,
+            schedule.startActions,
+          ),
+        },
+      ),
+    );
 
     const editedFields = Object.keys(updates).filter(
       (k) => k !== "nextProcessAt" && k !== "eventHistory",
@@ -831,6 +932,22 @@ export class RampScheduleModel extends BaseClass {
     return this._find({
       entityType: "feature",
       entityId: { $in: featureIds },
+    });
+  }
+
+  // Schedules whose anchor a publish of `featureId` must reconcile with.
+  public async findAnchoredByTargetFeature(
+    featureId: string,
+  ): Promise<RampScheduleInterface[]> {
+    return this._find({
+      status: { $in: ANCHORED_RAMP_SCHEDULE_STATUSES },
+      targets: {
+        $elemMatch: {
+          entityType: "feature",
+          entityId: featureId,
+          status: "active",
+        },
+      },
     });
   }
 

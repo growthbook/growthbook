@@ -1,6 +1,11 @@
 import type { OrganizationInterface } from "shared/types/organization";
+import { normalizeTargetingInUpdates } from "shared/util";
 import { putFeatureRevisionMetadataValidator } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
+import {
+  assertTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -12,12 +17,14 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
+import { stagingTargetingBase } from "back-end/src/revisions/featureDraftAuthority";
 import {
   discardIfJustCreated,
   isDraftStatus,
   validateCustomFields,
   resolveOrCreateRevision,
 } from "./validations";
+import { assertValidProjectIds } from "./v2Shared";
 
 export type RevisionMetadataBody = {
   comment?: string;
@@ -25,6 +32,8 @@ export type RevisionMetadataBody = {
   description?: string;
   owner?: unknown;
   project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
   tags?: string[];
   neverStale?: boolean;
   customFields?: Record<string, unknown>;
@@ -100,6 +109,18 @@ export async function setRevisionMetadata(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+
+    const draft = created ? null : revision;
+    const stagedTargeting = withStagedTargeting(feature, draft?.metadata);
+    normalizeTargetingInUpdates(metadataFields, stagedTargeting);
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: await stagingTargetingBase(context, feature, draft),
+      proposed: withStagedTargeting(stagedTargeting, metadataFields),
+      optedOut: await context.getTargetingOptOutProjectIds(),
+    });
+    // After the gate so an unreadable id cannot be probed for existence.
+    await assertValidProjectIds(metadataFields.targetingProjects, context);
 
     const changes: RevisionChanges = {};
     if (comment !== undefined) changes.comment = comment;

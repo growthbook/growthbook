@@ -87,6 +87,7 @@ export const AI_PROVIDER_MODEL_MAP = {
   anthropic: [
     // Current generation. These ids are complete as published — Anthropic
     // stopped issuing dated snapshots for them, so there is nothing to pin.
+    "claude-opus-5-5",
     "claude-opus-5",
     "claude-sonnet-5",
     "claude-opus-4-8",
@@ -139,10 +140,10 @@ export const AI_PROVIDER_MODEL_MAP = {
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
 export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5";
-// Currently the same as the general default. Kept as its own constant so the
-// visual editor — the most schema-sensitive workload we run — can be moved
-// independently when its needs and the general default's diverge.
-export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel = "claude-sonnet-5";
+// The visual editor is the most schema-sensitive workload we run: multi-step
+// tool loops that must end in a large, exact JSON object, plus vision. It
+// gets the Opus tier while the general default stays on Sonnet.
+export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel = "claude-opus-5-5";
 // Self-hosted has no managed key, so the default has to follow whichever
 // provider the admin actually configured. A fixed OpenAI default told an
 // admin who set only ANTHROPIC_API_KEY that no OpenAI key was configured.
@@ -160,13 +161,19 @@ export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
 export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image";
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
-export function getProviderFromModel(model: AIModel): AIProvider {
-  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
+function providerOf(
+  map: Readonly<Record<string, readonly string[]>>,
+  model: string,
+  label: string,
+): AIProvider {
+  for (const [provider, models] of Object.entries(map)) {
+    if (models.includes(model)) return provider as AIProvider;
   }
-  throw new Error(`Model ${model} is not supported.`);
+  throw new Error(`${label} ${model} is not supported.`);
+}
+
+export function getProviderFromModel(model: AIModel): AIProvider {
+  return providerOf(AI_PROVIDER_MODEL_MAP, model, "Model");
 }
 
 // OpenAI reasoning models (the o-series and the entire GPT-5 family) are
@@ -182,6 +189,7 @@ export function isReasoningModel(model: AIModel): boolean {
 // returns a 400 rather than being ignored. Claude 4.6 and older still accept
 // it, so this can't be a version-range check — add new ids here as they ship.
 const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
+  "claude-opus-5-5",
   "claude-opus-5",
   "claude-sonnet-5",
   "claude-opus-4-8",
@@ -193,6 +201,74 @@ const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
 export function supportsTemperature(model: AIModel): boolean {
   if (isReasoningModel(model)) return false;
   return !CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(model);
+}
+
+// Claude models without native structured output. For these the only way to
+// get schema-shaped JSON is the AI SDK's json-tool fallback: a forced call to
+// a synthetic tool. The newest models (Opus 5.5) reject forced tool use
+// outright, so the fallback is a 400 there — the mode has to follow the
+// model. Only Opus 5.5 and Sonnet 5 are spike-verified against the real API;
+// the other entries below Sonnet 5 mirror @ai-sdk/anthropic's own
+// getModelCapabilities() table (supportsStructuredOutput), since it's the
+// only signal we have for models we haven't individually tested.
+const CLAUDE_MODELS_WITHOUT_STRUCTURED_OUTPUT: ReadonlySet<string> = new Set([
+  "claude-opus-4-8",
+  "claude-sonnet-4-6",
+  "claude-haiku-4-5-20251001",
+  "claude-opus-4-20250514",
+  "claude-sonnet-4-20250514",
+  "claude-3-7-sonnet-20250219",
+  "claude-3-5-haiku-20241022",
+  "claude-3-haiku-20240307",
+]);
+
+// How the AI SDK's Anthropic provider should produce schema-shaped output for
+// this model, or null when the model isn't Claude. Native mode also lifts the
+// json-tool fallback's ban on parallel tool calls.
+export function anthropicStructuredOutputMode(
+  model: AIModel,
+): "outputFormat" | "jsonTool" | null {
+  if (getProviderFromModel(model) !== "anthropic") return null;
+  return CLAUDE_MODELS_WITHOUT_STRUCTURED_OUTPUT.has(model)
+    ? "jsonTool"
+    : "outputFormat";
+}
+
+export const DEFAULT_MAX_OUTPUT_TOKENS = 8000;
+
+// Anthropic 400s when max_tokens exceeds the model's cap (other providers
+// clamp), so hand-maintain an entry for every model capped below the default.
+const MAX_OUTPUT_TOKENS_BY_MODEL: Readonly<Record<string, number>> = {
+  "claude-3-haiku-20240307": 4096,
+};
+
+export function getMaxOutputTokens(
+  model: AIModel,
+  desired: number = DEFAULT_MAX_OUTPUT_TOKENS,
+): number {
+  const modelMax = MAX_OUTPUT_TOKENS_BY_MODEL[model];
+  return modelMax === undefined ? desired : Math.min(desired, modelMax);
+}
+
+// Documented ceilings only: over-asking is a 400, not a clamp.
+const MODEL_MAX_OUTPUT_TOKENS: Partial<Record<AIModel, number>> = {
+  "claude-opus-5": 128000,
+  "claude-sonnet-5": 128000,
+  "claude-opus-4-8": 128000,
+  "claude-sonnet-4-6": 128000,
+  "claude-haiku-4-5-20251001": 64000,
+};
+
+// `extended` applies only where the ceiling is known, capped at it; otherwise `safe`.
+export function resolveMaxOutputTokens(
+  model: AIModel,
+  safe: number,
+  extended?: number,
+): number {
+  const ceiling = MODEL_MAX_OUTPUT_TOKENS[model];
+  const wanted =
+    ceiling === undefined ? safe : Math.min(ceiling, extended ?? safe);
+  return getMaxOutputTokens(model, wanted);
 }
 
 // Whether a text model can accept image input (vision). The model
@@ -534,23 +610,58 @@ export const AI_PROVIDER_EMBEDDING_MODEL_MAP = {
 export type EmbeddingModel =
   (typeof AI_PROVIDER_EMBEDDING_MODEL_MAP)[keyof typeof AI_PROVIDER_EMBEDDING_MODEL_MAP][number];
 
-// Helper to determine which provider an embedding model belongs to
 export function getProviderFromEmbeddingModel(
   model: EmbeddingModel,
 ): AIProvider {
-  for (const [provider, models] of Object.entries(
-    AI_PROVIDER_EMBEDDING_MODEL_MAP,
-  )) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
-  }
-  throw new Error(`Embedding model ${model} is not supported.`);
+  return providerOf(AI_PROVIDER_EMBEDDING_MODEL_MAP, model, "Embedding model");
 }
 
-// Text, embedding and image models each have their own registry, so callers
-// holding an org setting must say which one it came from.
-export type AIModelKind = "text" | "embedding" | "image";
+// Batch (file-POST) transcription models. Anthropic and Google are absent: no audio input, or upload-only.
+export const AI_PROVIDER_STT_MODEL_MAP = {
+  openai: [
+    "gpt-transcribe",
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+    "whisper-1",
+  ],
+  xai: ["grok-stt-1.0"],
+  mistral: ["voxtral-mini-latest"],
+} as const;
+
+export type STTModel =
+  (typeof AI_PROVIDER_STT_MODEL_MAP)[keyof typeof AI_PROVIDER_STT_MODEL_MAP][number];
+
+export type STTProvider = keyof typeof AI_PROVIDER_STT_MODEL_MAP;
+
+export function getProviderFromSTTModel(model: STTModel): STTProvider {
+  return providerOf(
+    AI_PROVIDER_STT_MODEL_MAP,
+    model,
+    "Transcription model",
+  ) as STTProvider;
+}
+
+// Each provider's first model, in registry order: a missing key degrades to the next provider.
+export const DEFAULT_STT_MODELS = Object.entries(AI_PROVIDER_STT_MODEL_MAP).map(
+  ([provider, models]) => [provider, models[0]] as [STTProvider, STTModel],
+);
+
+export const DEFAULT_STT_MODEL: STTModel = DEFAULT_STT_MODELS[0][1];
+
+/** Which model "use default" resolves to, given the providers that have a key. */
+export function resolveDefaultSTTModel(
+  providersWithKeys: readonly AIProvider[],
+): STTModel | null {
+  return (
+    DEFAULT_STT_MODELS.find(([provider]) =>
+      providersWithKeys.includes(provider),
+    )?.[1] ?? null
+  );
+}
+
+// Text, embedding, image and transcription models each have their own
+// registry, so callers holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image" | "stt";
 
 // Provider that serves `model`, or null when the id isn't in that registry.
 // Null rather than a throw: a stale org setting should read as "not selectable",
@@ -563,6 +674,7 @@ export function getProviderForAIModel(
     if (kind === "text") return getProviderFromModel(model as AIModel);
     if (kind === "embedding")
       return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    if (kind === "stt") return getProviderFromSTTModel(model as STTModel);
     return getImageModelMeta(model)?.provider ?? null;
   } catch {
     return null;
@@ -603,6 +715,12 @@ export const AI_MODEL_SETTINGS = [
     kind: "embedding",
     label: "Embedding model",
     fallback: DEFAULT_EMBEDDING_MODEL,
+  },
+  {
+    key: "sttModel",
+    kind: "stt",
+    label: "Dictation model",
+    fallback: DEFAULT_STT_MODEL,
   },
 ] as const;
 

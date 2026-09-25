@@ -5,6 +5,7 @@ import {
   dimensionValidator,
   factTableExplorationConfigValidator,
   funnelExplorationConfigValidator,
+  journeyExplorationConfigValidator,
   metricExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
   sqlExplorationConfigValidator,
@@ -21,7 +22,8 @@ type ExplorationConfig =
   | z.infer<typeof factTableExplorationConfigValidator>
   | z.infer<typeof dataSourceExplorationConfigValidator>
   | z.infer<typeof sqlExplorationConfigValidator>
-  | z.infer<typeof funnelExplorationConfigValidator>;
+  | z.infer<typeof funnelExplorationConfigValidator>
+  | z.infer<typeof journeyExplorationConfigValidator>;
 
 type Dimension = z.infer<typeof dimensionValidator>;
 
@@ -129,6 +131,30 @@ export function explorationConfigReferencesColumn(
       (step) => step.factTableId === factTableId,
     );
     if (!usesFactTable) return false;
+
+    return config.dimensions.some((d) =>
+      dimensionReferencesColumn(d, columnName, identifierQuote, filters),
+    );
+  }
+
+  if (config.type === "journey") {
+    if (config.dataset.factTableId !== factTableId) return false;
+
+    if (config.dataset.unit === columnName) return true;
+    if (config.dataset.stepColumns.includes(columnName)) return true;
+    if (
+      config.dataset.stepGroups?.some((g) => g.column === columnName) ??
+      false
+    ) {
+      return true;
+    }
+    if (
+      config.dataset.rowFilters.some((f) =>
+        rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
+      )
+    ) {
+      return true;
+    }
 
     return config.dimensions.some((d) =>
       dimensionReferencesColumn(d, columnName, identifierQuote, filters),

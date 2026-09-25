@@ -24,6 +24,7 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
+import { EventForwarderSinkType } from "shared/types/event-forwarder";
 import {
   OrganizationInterface,
   OrgMemberInfo,
@@ -1067,7 +1068,8 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
 // Raw plan limits only — does NOT honor the pricing-limits flag's kill switch.
 // Enforcement paths must use getEffectiveOrgLimits (services/plan-limits.ts).
 export function getOrgLimits(
-  org: MinimalOrganization & Pick<OrganizationInterface, "limits">,
+  org: MinimalOrganization &
+    Pick<OrganizationInterface, "limits" | "dateCreated">,
   planLimitsOverride?: OrgLimits,
 ): OrgLimitsAccessor {
   const effectivePlan = getEffectiveAccountPlan(org);
@@ -1075,6 +1077,7 @@ export function getOrgLimits(
   return makeOrgLimits({
     effectivePlan,
     orgLimits: org.limits,
+    orgDateCreated: org.dateCreated,
     licenseLimits: getLicense(org.licenseKey || process.env.LICENSE_KEY)
       ?.limits,
     planLimits:
@@ -1190,7 +1193,7 @@ export async function postProvisionEventForwarderToLicenseServer(
 export async function postTeardownEventForwarderToLicenseServer(params: {
   organizationId: string;
   datasourceId: string;
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderSinkType;
   topic?: string;
   connectorName?: string;
   connectorId?: string;

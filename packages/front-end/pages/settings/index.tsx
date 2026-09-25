@@ -191,6 +191,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
       requireUniqueExperimentTrackingKeys:
         settings.requireUniqueExperimentTrackingKeys ?? false,
+      experimentKeyExample: settings.experimentKeyExample ?? "",
+      experimentKeyRegexValidator: settings.experimentKeyRegexValidator ?? "",
       experimentMinLengthDays:
         settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
       experimentMaxLengthDays:
@@ -216,6 +218,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultAIModel:
         settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
+      sttModel: settings.sttModel,
       visualEditorAIModel: settings.visualEditorAIModel,
       visualEditorImageModel: settings.visualEditorImageModel || "",
       visualEditorAIContext: settings.visualEditorAIContext || "",
@@ -229,6 +232,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       topValuesLookbackValue:
         settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
       savedGroupSizeLimit: undefined,
+      enforceSavedGroupProjectScope:
+        settings.enforceSavedGroupProjectScope ?? false,
       postStratificationEnabled:
         settings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
@@ -287,6 +292,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     aiAskDataEnabled: form.watch("aiAskDataEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
+    sttModel: form.watch("sttModel") || undefined,
     visualEditorAIModel: form.watch("visualEditorAIModel"),
     visualEditorImageModel: form.watch("visualEditorImageModel"),
     visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
@@ -296,6 +302,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     topValuesLookbackValue: form.watch("topValuesLookbackValue"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
+    enforceSavedGroupProjectScope: form.watch("enforceSavedGroupProjectScope"),
     approvalFlows: form.watch("approvalFlows"),
     learningStatuses: form.watch("learningStatuses"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
@@ -352,6 +359,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
             getRequireRegisteredAttributesSettings(
               settings?.requireRegisteredAttributes,
             );
+        } else if (k === "enforceSavedGroupProjectScope") {
+          newVal.enforceSavedGroupProjectScope =
+            settings.enforceSavedGroupProjectScope ?? false;
         } else if (k === "approvalFlows") {
           newVal.approvalFlows = applyApprovalFlowEntitlements(
             settings?.approvalFlows,
@@ -489,6 +499,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
           `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`,
         );
       }
+    }
+
+    const { experimentKeyExample, experimentKeyRegexValidator } =
+      transformedOrgSettings;
+    if (experimentKeyRegexValidator && !experimentKeyExample) {
+      throw new Error(
+        "Experiment key example must not be empty when a regex validator is defined.",
+      );
+    }
+    if (
+      experimentKeyRegexValidator &&
+      !new RegExp(experimentKeyRegexValidator).test(experimentKeyExample ?? "")
+    ) {
+      throw new Error(
+        `Experiment key example must match the regex validator. '${experimentKeyRegexValidator}' Example: '${experimentKeyExample ?? ""}'`,
+      );
     }
 
     await apiCall(`/organization`, {

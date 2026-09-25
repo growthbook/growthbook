@@ -1,4 +1,3 @@
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ApiAutoRun, autoRunMetaString } from "shared/validators";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -10,11 +9,7 @@ import { useUser } from "@/services/UserContext";
 // up where the wizard left off instead of starting from an empty Get Started page.
 export default function AutoRunCallout() {
   const { userId } = useUser();
-  const aiOnboarding = useFeatureIsOn("ai-assisted-onboarding");
-  const { data } = useApi<{ autoRuns: ApiAutoRun[] }>("/auto-runs", {
-    shouldRun: () => aiOnboarding,
-  });
-  if (!aiOnboarding) return null;
+  const { data } = useApi<{ autoRuns: ApiAutoRun[] }>("/auto-runs");
 
   const mine = (data?.autoRuns || [])
     .filter((r) => r.createdBy === userId)

@@ -2,6 +2,7 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
+  assertTargetingRulesDisjoint,
   getNamespaceRanges,
   getRulesForEnvironment,
   normalizeApprovalRuleSettings,
@@ -60,6 +61,7 @@ import {
   removeMember,
   revokeInvite,
   setLicenseKey,
+  assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
 import { updatePassword } from "back-end/src/services/users";
 import {
@@ -466,6 +468,11 @@ export async function putMemberRole(
       additionalRoles,
       projectRoles,
     });
+    await assertProjectRulesReferenceProjects(
+      context,
+      org.members.find((m) => m.id === id)?.projectRoles,
+      projectRoles,
+    );
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -561,6 +568,11 @@ export async function putMemberProjectRole(
   try {
     // The whole rule, additional roles included — nothing rides in unchecked.
     assertMemberRoleInfoValid(org, projectRole);
+    await assertProjectRulesReferenceProjects(
+      context,
+      org.members.find((m) => m.id === id)?.projectRoles,
+      [projectRole],
+    );
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -831,6 +843,11 @@ export async function putInviteRole(
       additionalRoles,
       projectRoles,
     });
+    await assertProjectRulesReferenceProjects(
+      context,
+      org.invites.find((invite) => invite.key === key)?.projectRoles,
+      projectRoles,
+    );
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -985,7 +1002,7 @@ export async function getOrganization(
 
   // Returned here so every page can gate AI affordances off the org's real key
   // state without a second request. The keys never leave the back end.
-  const { keySource } = await getAISettingsForOrg(context);
+  const { keySource, sttModel } = await getAISettingsForOrg(context);
   const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
 
   // Teams were already loaded (unfiltered) by the auth middleware
@@ -1030,6 +1047,7 @@ export async function getOrganization(
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
     aiKeyProviders,
+    sttModel,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -1454,6 +1472,7 @@ export async function postInvite(
       additionalRoles,
       projectRoles,
     });
+    await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -1788,18 +1807,21 @@ export async function putOrganization(
       orig.externalId = org.externalId;
     }
     if (settings) {
-      updates.settings = {
-        ...org.settings,
-        // Drops rule references to deleted teams/environments, so the settings
-        // UI's "Saving removes it" note is true.
-        ...pruneApprovalRuleReferences(
-          normalizeApprovalRuleSettings(settings),
-          {
-            environments: (org.settings?.environments ?? []).map((e) => e.id),
-            teams: (context.teams ?? []).map((t) => t.id),
-          },
-        ),
-      };
+      // Drops rule references to deleted teams, environments, and projects, so
+      // the settings UI's "Saving removes it" note is true and a stale
+      // round-tripped rule can never block the save.
+      const pruned = pruneApprovalRuleReferences(
+        normalizeApprovalRuleSettings(settings),
+        {
+          environments: (org.settings?.environments ?? []).map((e) => e.id),
+          teams: (context.teams ?? []).map((t) => t.id),
+          projects: await context.getAllProjectIds(),
+        },
+      );
+      if (pruned.targetingReviewMode) {
+        assertTargetingRulesDisjoint(pruned.targetingReviewMode);
+      }
+      updates.settings = { ...org.settings, ...pruned };
       orig.settings = org.settings;
     }
 
@@ -2356,7 +2378,7 @@ export async function addOrphanedUser(
     );
   }
 
-  const { org } = getContextFromReq(req);
+  const { org } = context;
 
   const { id } = req.params;
   const { role, environments, limitAccessByEnvironment, projectRoles } =
@@ -2388,6 +2410,7 @@ export async function addOrphanedUser(
       environments,
       projectRoles,
     });
+    await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
   } catch (e) {
     return res.status(400).json({
       status: 400,

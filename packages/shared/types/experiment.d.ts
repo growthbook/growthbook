@@ -284,6 +284,14 @@ export type LinkedFeatureEnvState =
   | "disabled-rule"
   | "active";
 
+export interface StagedRefDraft {
+  version: number;
+  status: RevisionStatus;
+  values: ExperimentRefVariation[];
+  hasMergeConflict?: boolean;
+  hasUnrelatedDraftChanges?: boolean;
+}
+
 export interface LinkedFeatureInfo {
   feature: FeatureInterface;
   state: LinkedFeatureState;
@@ -315,6 +323,12 @@ export interface LinkedFeatureInfo {
   draftRevisionVersion?: number;
   /** Status of the matching draft revision (present when state === "draft"). */
   draftRevisionStatus?: RevisionStatus;
+  /**
+   * Open drafts changing this entity's ref rule while live still serves the
+   * old one (`state` stays "live", `values` shows what is serving), newest
+   * first. Lets the UI show staged values instead of reporting them missing.
+   */
+  stagedDrafts?: StagedRefDraft[];
   /** True when the draft cannot be auto-merged into live due to conflicting changes. */
   hasMergeConflict?: boolean;
   /**

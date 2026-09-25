@@ -103,6 +103,71 @@ describe("getMergeResultPublishEnvs", () => {
       expect(envs.sort()).toEqual([...ENVS].sort());
     });
 
+    it("widens to what a rewritten ramp anchor can reach, not to every env for a coverage-only step", async () => {
+      const devRule = {
+        type: "rollout",
+        id: "r1",
+        value: "a",
+        coverage: 0.5,
+        hashAttribute: "id",
+        environments: ["dev"],
+      } as unknown as FeatureRule;
+      const anchored = (anchorPatch: Record<string, unknown>) => ({
+        context: ctxWith(),
+        feature: feat(),
+        filledLiveRules: [devRule],
+        result: {
+          metadata: { description: "x" },
+          environmentsEnabled: { dev: true },
+        } as unknown as MergeResultChanges,
+        environmentIds: ENVS,
+        anchoredUpdates: [
+          {
+            schedule: {
+              targets: [
+                {
+                  id: "t1",
+                  entityType: "feature" as const,
+                  entityId: "f1",
+                  ruleId: "r1",
+                  status: "active" as const,
+                },
+              ],
+              startActions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "t1",
+                  patch: { ruleId: "r1", ...anchorPatch },
+                },
+              ],
+              steps: [
+                {
+                  interval: 1,
+                  actions: [
+                    {
+                      targetType: "feature-rule" as const,
+                      targetId: "t1",
+                      patch: { ruleId: "r1", coverage: 0.5 },
+                    },
+                  ],
+                },
+              ],
+              endActions: [],
+            },
+            patches: [{ targetId: "t1", ruleId: "r1" }],
+          },
+        ],
+      });
+      expect(
+        await getMergeResultPublishEnvs(anchored({ environments: ["dev"] })),
+      ).toEqual(["dev"]);
+      expect(
+        (
+          await getMergeResultPublishEnvs(anchored({ allEnvironments: true }))
+        ).sort(),
+      ).toEqual([...ENVS].sort());
+    });
+
     it("does NOT widen for metadata that never reaches an SDK", async () => {
       const envs = await getMergeResultPublishEnvs({
         context: ctxWith(),

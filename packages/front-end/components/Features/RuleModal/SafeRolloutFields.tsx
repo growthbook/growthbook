@@ -41,6 +41,7 @@ import Callout from "@/ui/Callout";
 export default function SafeRolloutFields({
   feature,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   environment,
   setPrerequisiteTargetingSdkIssues,
@@ -58,6 +59,7 @@ export default function SafeRolloutFields({
 }: {
   feature: FeatureInterface;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
@@ -117,6 +119,7 @@ export default function SafeRolloutFields({
         <TargetingFieldsGroup
           project={feature.project || ""}
           attributeProjects={attributeProjects}
+          savedGroupProjects={savedGroupProjects}
           environments={[environment]}
           feature={feature}
           savedGroups={form.watch("savedGroups") || []}

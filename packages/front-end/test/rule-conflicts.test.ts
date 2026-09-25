@@ -568,6 +568,59 @@ describe("getRuleReachability — soft conflicts (attribute overlap)", () => {
     });
   });
 
+  it("does not warn on an opaque shared attribute when another ANDed attribute is disjoint", () => {
+    // Date-string ranges are opaque, but `language` already rules out overlap.
+    const now = { $gt: "2026-01-01T00:00:00Z" };
+    const result = analyze([
+      force("r1", { condition: cond({ language: "en", now }) }),
+      force("r2", { condition: cond({ language: "fr", now }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("does not warn on overlapping modeled attributes when another ANDed attribute is disjoint", () => {
+    // #7109: country and install_unix_time overlap, but language can't.
+    const shared = { country: "US", install_unix_time: { $gt: 1700000000 } };
+    const result = analyze([
+      rollout("r1", 0.5, cond({ ...shared, language: "ru" })),
+      force("r2", { condition: cond({ ...shared, language: "de" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("does not treat an `$ini` below a case-sensitive `$ne` as disjoint", () => {
+    // `browser = SAFARI` matches both rules.
+    const now = { $gt: "2026-01-01T00:00:00Z" };
+    const result = analyze([
+      force("r1", { condition: cond({ browser: { $ne: "safari" }, now }) }),
+      force("r2", { condition: cond({ browser: { $ini: ["safari"] }, now }) }),
+    ]);
+    expect(result.get("r2")?.softConflicts).toEqual([
+      { attr: "browser", consumingRuleIds: ["r1"] },
+      { attr: "now", consumingRuleIds: ["r1"] },
+    ]);
+  });
+
+  it("still warns on an opaque shared attribute when the other attribute overlaps", () => {
+    const now = { $gt: "2026-01-01T00:00:00Z" };
+    const result = analyze([
+      force("r1", { condition: cond({ language: "en", now }) }),
+      force("r2", { condition: cond({ language: "en", now }) }),
+    ]);
+    expect(result.get("r2")?.softConflicts).toEqual([
+      { attr: "language", consumingRuleIds: ["r1"] },
+      { attr: "now", consumingRuleIds: ["r1"] },
+    ]);
+  });
+
   it("does not warn when an opaque rule above targets a different attribute", () => {
     const result = analyze([
       force("r1", { condition: cond({ country: "US" }) }),

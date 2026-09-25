@@ -436,6 +436,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("A retry has been scheduled."),
       }),
+      "cancelled",
     );
   });
 
@@ -451,6 +452,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("Please try updating results again."),
       }),
+      "query",
     );
   });
 
@@ -528,6 +530,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
           "queries finished but results were never finalized",
         ),
       }),
+      "analysis",
     );
   });
 
@@ -547,6 +550,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
           "Automatic recovery failed: analysis blew up",
         ),
       }),
+      "analysis",
     );
   });
 
@@ -564,6 +568,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
           "queries finished but results were never finalized",
         ),
       }),
+      "analysis",
     );
     // Nothing threw, so the recovery suffix must not be appended.
     const { error } = (errorSnapshotIfStillRunning as jest.Mock).mock
@@ -638,6 +643,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("queries were never started"),
       }),
+      "query",
     );
     expect(markPendingQueriesAsFailed).toHaveBeenCalledWith(
       context,
@@ -684,6 +690,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("queries were never started"),
       }),
+      "query",
     );
   });
 

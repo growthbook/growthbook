@@ -60,6 +60,10 @@ Each rule for Feature Flags, Configs, and Constants has the following options:
 - **Allow approve & publish in one step** — Adds an "Approve & Publish" option so reviewers with Publish access can approve and publish a draft together.
 - **Require approval for** — Changes to rules, values, and prerequisites always require approval. Optionally also require approval for enabled environment changes (kill switches) and for metadata changes (description, owner, project, tags, etc.).
 
+The **Global** section below the rules holds settings that span every rule. One of them concerns [Targeting Projects](/features/environments#delivering-a-feature-to-multiple-projects):
+
+- **Apply approval requirements from Targeting Projects** (on by default) — A Feature Flag delivered into other Projects must also satisfy those Projects' approval rules before publishing. A Targeting Project with a rule of its own must additionally be approved by one of its own reviewers, and those reviewers may review the draft. When off, only the flag's primary Project's rules and reviewers apply. Also available on the [REST API](/api#tag/settings) as `targetingReviewMode`.
+
 ![Approval flow organization settings](/static/images/features/approval-flows/org-settings.png)
 
 ### Environment-scoped approvals
@@ -90,9 +94,12 @@ Requested reviews appear in the **Drafts** tab on the Features overview page wit
 
 ### Reviewing
 
-A reviewer needs the **Review** permission for Feature Flags, covering the
-environments the draft changes (see
-[Environment-scoped approvals](#environment-scoped-approvals)). The person who
+A reviewer needs the **Review** permission for Feature Flags in the flag's
+primary Project, covering the environments the draft changes (see
+[Environment-scoped approvals](#environment-scoped-approvals)). When the flag is
+delivered into a Targeting Project that has an approval rule of its own, that
+Project's reviewers may also review the draft; their approval satisfies their
+own Project's requirement, not the primary Project's. The person who
 created the draft cannot approve it. If **Block contributors from
 self-approving** is enabled, anyone who contributed to the draft is also
 prevented from approving it. See [Permissions](/account/user-permissions) for
@@ -131,8 +138,11 @@ Once the changes are **Approved**, they can be published.
 After approval, anyone with **Publish** access to the affected environments can
 publish the draft. If the approval rule lists **Required approver teams**, the
 draft additionally cannot publish until a member of one of those teams has
-approved it. A user with **Bypass draft approvals** can publish without an
-approval.
+approved it. If the flag is delivered into a Targeting Project with an approval
+rule of its own, the draft also needs an approval from one of that Project's
+reviewers. A user with **Bypass draft approvals** can publish without any of
+these, and so can API keys when **REST API always bypasses approval
+requirements** is on.
 
 <Frame>
   <img src="/static/images/features/approval-flows/publish-with-admin-bypass.png" alt="Publishing approved changes with admin bypass option" width="600" />

@@ -37,7 +37,7 @@ import { GroupMap } from "shared/types/saved-group";
 // Direct file import (not the `shared/validators` barrel) to avoid a runtime
 // import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
 import { assertValidExtendsEntries } from "../validators/constant";
-import { RampScheduleInterface } from "../validators/ramp-schedule";
+import { RampScheduleInterface, RampTarget } from "../validators/ramp-schedule";
 import {
   hasAttributeCondition,
   hasTargetingConfigured,
@@ -45,7 +45,7 @@ import {
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
-  expandNestedSavedGroups,
+  createV1SavedGroupsOperatorHandler,
   EXTENDS_KEY,
 } from "../sdk-versioning";
 import {
@@ -314,6 +314,15 @@ export function validateJSONFeatureValue(
   }
 }
 
+// Rule values are stored as strings ("false", "10", '{"a":1}'); the SDK
+// payload builder parses that string per the feature's value type. Anything
+// that can carry a value as a raw JSON type (a ramp patch's `force` is typed
+// that way) is brought to this form before it reaches a rule: strings pass
+// through, anything else becomes its JSON text.
+export function stringifyFeatureValue(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 export function validateFeatureValue(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   value: string,
@@ -553,6 +562,83 @@ export function expandSparseToFull(
     if (!mergedRefs.includes(ref)) mergedRefs.push(ref);
   }
   return serializeExtendsObject(mergedRefs, ownKeys);
+}
+
+type RampRulePatch = {
+  ruleId?: string | null;
+  coverage?: number | null;
+  hashAttribute?: string | null;
+};
+type RampTargetAction = { targetId?: string | null; patch?: object | null };
+
+// A partial-coverage patch for `ruleId` with no patch naming a hash attribute;
+// on a force rule such a plan is refused at write and at fire time.
+export function rampPlanLacksHashAttribute(
+  plan: {
+    startActions?: { patch?: RampRulePatch }[] | null;
+    steps?: { actions?: { patch?: RampRulePatch }[] | null }[] | null;
+    endActions?: { patch?: RampRulePatch }[] | null;
+  },
+  ruleId: string,
+): boolean {
+  const patches = [
+    ...(plan.startActions ?? []),
+    ...(plan.steps ?? []).flatMap((s) => s.actions ?? []),
+    ...(plan.endActions ?? []),
+  ]
+    .map((a) => a.patch)
+    .filter((p): p is RampRulePatch => !!p && (p.ruleId ?? ruleId) === ruleId);
+  return (
+    patches.some((p) => (p.coverage ?? 1) < 1) &&
+    !patches.some((p) => p.hashAttribute)
+  );
+}
+
+// Patch fields in rule terms; `force` is the rule's `value`.
+export const RAMP_PATCH_RULE_FIELDS: Record<string, string> = {
+  coverage: "coverage",
+  condition: "condition",
+  savedGroups: "savedGroups",
+  prerequisites: "prerequisites",
+  allEnvironments: "allEnvironments",
+  environments: "environments",
+  force: "value",
+  enabled: "enabled",
+};
+
+// Rule fields a plan's steps or end state set on one target, with where each is
+// first set ("step 2", "end state"). A publish refuses direct edits to these.
+export function rampPlanControlledFields(
+  plan: {
+    steps?: { actions?: RampTargetAction[] | null }[] | null;
+    endActions?: RampTargetAction[] | null;
+  },
+  targetId: string,
+): Map<string, string> {
+  const controlled = new Map<string, string>();
+  const collect = (action: RampTargetAction, where: string) => {
+    if (action.targetId !== targetId) return;
+    for (const key of Object.keys(action.patch ?? {})) {
+      const field = RAMP_PATCH_RULE_FIELDS[key];
+      if (field && !controlled.has(field)) controlled.set(field, where);
+    }
+  };
+  (plan.steps ?? []).forEach((step, i) =>
+    (step.actions ?? []).forEach((a) => collect(a, `step ${i + 1}`)),
+  );
+  (plan.endActions ?? []).forEach((a) => collect(a, "end state"));
+  return controlled;
+}
+
+// The attribute a new rollout buckets on when none is chosen: `id` when it is
+// marked as a hash attribute, else the first marked one, else `id`.
+export function getDefaultHashAttribute(
+  attributeSchema: SDKAttributeSchema | undefined,
+): string {
+  const marked = (attributeSchema ?? [])
+    .filter((a) => a.hashAttribute)
+    .map((a) => a.property);
+  return marked.includes("id") ? "id" : marked[0] || "id";
 }
 
 // Validate the values a revert restores against the value type / JSON schema
@@ -1254,6 +1340,18 @@ export function getRevertTargetHoldout(
   return revision.holdout ?? null;
 }
 
+// The archived state a revert restores. Revisions only record `archived` since
+// they became full snapshots; a published revision from before that carries no
+// value, and restoring it restores an active flag rather than carrying the live
+// value forward. Same reasoning as the holdout above: carrying forward makes an
+// archive published after this revision un-revertable — the revert reports
+// nothing to revert, or lands with the flag still archived.
+export function getRevertTargetArchived(
+  revision: Pick<RevisionFields, "archived">,
+): boolean {
+  return revision.archived ?? false;
+}
+
 // An open draft that is already the feature's live version: a publish advanced
 // the feature but never marked the revision published. Publishing it reconciles.
 export function isStrandedLiveRevision({
@@ -1293,8 +1391,10 @@ export function featureMetadataEnvelope(
     description: feature.description ?? "",
     owner: feature.owner ?? "",
     project: feature.project ?? "",
-    targetingAllProjects: feature.targetingAllProjects,
-    targetingProjects: feature.targetingProjects,
+    // Persist defaults so a stored snapshot cannot inherit a later expansion
+    // of live targeting when the revision is edited or published.
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags ?? [],
     neverStale: feature.neverStale,
     customFields: feature.customFields,
@@ -1684,6 +1784,7 @@ export function evaluatePublishGovernance({
 // the specific file (not a barrel) to avoid a runtime import cycle.
 export {
   isScheduledPublishPending,
+  pendingScheduleWarning,
   isScheduledPublishDue,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
@@ -2396,7 +2497,10 @@ export function validateCondition(
     }
 
     const scrubbed = cloneDeep(res);
-    recursiveWalk(scrubbed, expandNestedSavedGroups(groupMap || new Map()));
+    recursiveWalk(
+      scrubbed,
+      createV1SavedGroupsOperatorHandler(groupMap || new Map()),
+    );
     if (conditionHasSavedGroupErrors(scrubbed, skipSavedGroupCycleCheck)) {
       return {
         success: false,
@@ -2888,7 +2992,7 @@ export function getDependentExperiments(
   });
 }
 
-// Simplified version of getParsedCondition() from: back-end/src/util/features.ts
+// Simplified version of mergeConditionAndSavedGroups() from: back-end/src/util/features.ts
 export function getParsedPrereqCondition(condition: string) {
   if (condition && condition !== "{}") {
     try {
@@ -3432,6 +3536,23 @@ export function isRampScheduleServing(
 }
 
 /**
+ * Active rule targets with no start action to roll back to. Full rollback and
+ * restart apply `startActions` to return the rule to its pre-ramp state, so an
+ * unanchored target silently keeps whatever step it was on. Targets without a
+ * `ruleId` are inert to the engine and need no anchor.
+ */
+export function unanchoredRampTargets(
+  schedule: Pick<RampScheduleInterface, "targets" | "startActions">,
+): RampTarget[] {
+  const anchored = new Set(
+    (schedule.startActions ?? []).map((a) => a.targetId),
+  );
+  return schedule.targets.filter(
+    (t) => t.status === "active" && !!t.ruleId && !anchored.has(t.id),
+  );
+}
+
+/**
  * Every patch a schedule aims at one target. Exported for the control gate,
  * which needs the patches' own `ruleId`s (see `rampTargetRuleIds`).
  */
@@ -3698,6 +3819,14 @@ export type PolicyRule = { requiredApproverTeams?: string[] };
 export type ReviewRequirement = {
   required: boolean;
   rules: PolicyRule[];
+  // Feature Flags only: strict-mode targeting projects whose OWN review rule
+  // fired. Each must be signed off by one of its own reviewers, not only the
+  // primary project's.
+  approverProjects?: string[];
+  // Feature Flags only: every governing project whose rule fired, with that
+  // rule, so a rule's required teams are judged against approvals that count
+  // for the project that imposed it.
+  governing?: { project: string; rule: PolicyRule }[];
 };
 
 // Primary + strict targeting over current+staged, so adds and removes are both
@@ -3733,6 +3862,41 @@ export function governingReviewProjectsForFeature({
   );
 }
 
+// Every project whose reviewers might be eligible to review this flag's
+// drafts: the primary plus strict-mode targeting projects with a review rule
+// of their own. With a revision, current and staged targeting both count.
+// Without one (coarse gates that run before the revision is loaded) any such
+// project might be staged, so all of them qualify; the precise, per-draft
+// answer is `getRevisionReviewRequirement(...).approverProjects`.
+export function featureReviewCandidateProjects(
+  feature: Pick<
+    FeatureInterface,
+    "project" | "targetingAllProjects" | "targetingProjects"
+  >,
+  settings?: OrganizationSettings,
+  revision?: Pick<FeatureRevisionInterface, "metadata">,
+): string[] {
+  const primary = feature.project ?? "";
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return [primary];
+  const ownRule = projectsWithOwnRule(requireReviews).filter(
+    (project) =>
+      project &&
+      project !== primary &&
+      !!getReviewSetting(requireReviews, { project })?.requireReviewOn,
+  );
+  const targeting = revision
+    ? governingReviewProjectsForFeature({ feature, revision, settings }).filter(
+        (project) => ownRule.includes(project),
+      )
+    : ownRule.filter(
+        (project) =>
+          getTargetingReviewMode(settings?.targetingReviewMode, project) ===
+          "strict",
+      );
+  return [primary, ...targeting];
+}
+
 export function getRevisionReviewRequirement({
   feature,
   baseRevision,
@@ -3756,11 +3920,17 @@ export function getRevisionReviewRequirement({
     orgEnvironments,
     feature,
   ).map((e) => e.id);
-  const none: ReviewRequirement = { required: false, rules: [] };
+  const none: ReviewRequirement = {
+    required: false,
+    rules: [],
+    approverProjects: [],
+  };
   if (!requireApprovalsLicensed) return none;
   const requireReviews = settings?.requireReviews;
   if (!Array.isArray(requireReviews)) {
-    return requireReviews ? { required: true, rules: [] } : none;
+    return requireReviews
+      ? { required: true, rules: [], approverProjects: [] }
+      : none;
   }
 
   const reviewSettings = governingReviewProjectsForFeature({
@@ -3768,8 +3938,14 @@ export function getRevisionReviewRequirement({
     revision,
     settings,
   })
-    .map((project) => getReviewSetting(requireReviews, { project }))
-    .filter((rs): rs is RequireReview => !!rs?.requireReviewOn);
+    .map((project) => ({
+      project,
+      setting: getReviewSetting(requireReviews, { project }),
+    }))
+    .filter(
+      (entry): entry is { project: string; setting: RequireReview } =>
+        !!entry.setting?.requireReviewOn,
+    );
   if (!reviewSettings.length) return none;
 
   const affected = getDraftAffectedEnvironments(
@@ -3869,16 +4045,34 @@ export function getRevisionReviewRequirement({
     return false;
   };
 
-  const triggering = reviewSettings.filter(needsReviewForSetting);
+  const triggering = reviewSettings.filter((entry) =>
+    needsReviewForSetting(entry.setting),
+  );
   // By content: merged rules are distinct objects, so identity would not dedupe.
   const seen = new Set<string>();
-  const rules = triggering.filter((r) => {
-    const key = JSON.stringify(r);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  return { required: rules.length > 0, rules };
+  const rules = triggering
+    .map((entry) => entry.setting)
+    .filter((r) => {
+      const key = JSON.stringify(r);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  // Inherited org-wide rules give a targeting project no say of its own.
+  const ownRule = new Set(projectsWithOwnRule(requireReviews));
+  const primary = feature.project ?? "";
+  const approverProjects = triggering
+    .map((entry) => entry.project)
+    .filter((project) => project !== primary && ownRule.has(project));
+  return {
+    required: rules.length > 0,
+    rules,
+    approverProjects,
+    governing: triggering.map((entry) => ({
+      project: entry.project,
+      rule: entry.setting,
+    })),
+  };
 }
 
 // Whether review is required anywhere in the org: the legacy boolean, or any
@@ -4733,7 +4927,7 @@ export type ReviewAuthorityFootprint =
 export const ANY_REVIEW_FOOTPRINT: ReviewAuthorityFootprint = { scope: "any" };
 
 // Per governing project: an unrelated rule must not widen a metadata change.
-function requiresMetadataReview(
+export function requiresMetadataReview(
   settings?: OrganizationSettings,
   governingProjects?: string[],
 ): boolean {

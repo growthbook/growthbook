@@ -12,6 +12,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 const scanContext = { scan: true } as unknown as ApiReqContext;
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgObject: () => scanContext,
+  getEnvironments: () => [{ id: "production" }, { id: "dev" }],
 }));
 
 const ctx = { org: { id: "org" } } as unknown as ApiReqContext;
@@ -52,6 +53,34 @@ describe("assertValidPrerequisiteParents", () => {
     await expect(
       assertValidPrerequisiteParents(ctx, flag("c", "p")),
     ).rejects.toThrow(/circular dependency/);
+  });
+
+  it("finds cycles per environment, as the SDK evaluates them", async () => {
+    const gated = (id: string, env: string, parent: string) =>
+      ({
+        ...flag(id),
+        environmentSettings: {
+          production: { enabled: true },
+          dev: { enabled: true },
+        },
+        rules: [
+          {
+            type: "force",
+            value: "true",
+            environments: [env],
+            prerequisites: [{ id: parent, condition: "{}" }],
+          },
+        ],
+      }) as unknown as FeatureInterface;
+    // A gates on B in production; B gates on A in dev: never in one payload.
+    stub(() => ({ b: gated("b", "dev", "a") }));
+    await expect(
+      assertValidPrerequisiteParents(ctx, gated("a", "production", "b")),
+    ).resolves.toBeUndefined();
+    stub(() => ({ b: gated("b", "production", "a") }));
+    await expect(
+      assertValidPrerequisiteParents(ctx, gated("a", "production", "b")),
+    ).rejects.toThrow(/circular/);
   });
 
   it("refuses a chain still open after the depth limit", async () => {

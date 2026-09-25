@@ -437,10 +437,21 @@ async function reapStalledSnapshots() {
       : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted." +
         (recoverError ? ` Automatic recovery failed: ${recoverError}` : "");
 
-    const reaped = await errorSnapshotIfStillRunning(context, snapshot.id, {
-      queries: snapshot.queries,
-      error,
-    });
+    const reaped = await errorSnapshotIfStillRunning(
+      context,
+      snapshot.id,
+      {
+        queries: snapshot.queries,
+        error,
+      },
+      // A retry is already scheduled, so nobody needs an alert about it; the
+      // cancelled cause is the one the notifier suppresses.
+      shouldScheduleSnapshotRetry
+        ? "cancelled"
+        : isOrphanedDag
+          ? "query"
+          : "analysis",
+    );
     if (!reaped) continue;
 
     logger.info(
