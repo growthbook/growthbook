@@ -473,6 +473,10 @@ export function getFactMetricDefinitionForHash(
     numerator: factMetric.numerator,
     denominator: factMetric.denominator,
     cappingSettings: factMetric.cappingSettings,
+    // Omit disabled floors so existing uncapped metric hashes stay unchanged.
+    lowerCappingSettings: factMetric.lowerCappingSettings?.type
+      ? factMetric.lowerCappingSettings
+      : undefined,
     quantileSettings: factMetric.quantileSettings,
     funnelSettings: factMetric.funnelSettings,
     numeratorFactTable: {

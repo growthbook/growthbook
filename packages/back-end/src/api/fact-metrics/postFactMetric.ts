@@ -11,6 +11,8 @@ import {
 import {
   postFactMetricBodyFields,
   postFactMetricValidator,
+  resolveCappingSettingsPatch,
+  validateFactMetricCapping,
 } from "shared/validators";
 import {
   CreateFactMetricProps,
@@ -50,6 +52,7 @@ export async function getCreateMetricPropsFromBody(
     quantileSettings,
     funnelSettings,
     cappingSettings,
+    lowerCappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
     priorSettings,
@@ -173,11 +176,11 @@ export async function getCreateMetricPropsFromBody(
     }
   }
 
-  if (cappingSettings?.type && cappingSettings?.type !== "none") {
-    data.cappingSettings.type = cappingSettings.type;
-    data.cappingSettings.value = cappingSettings.value || 0;
-    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
-  }
+  Object.assign(
+    data,
+    resolveCappingSettingsPatch({ cappingSettings, lowerCappingSettings }),
+  );
+  validateFactMetricCapping(data);
 
   if (windowSettings?.type && windowSettings?.type !== "none") {
     data.windowSettings.type = windowSettings.type;

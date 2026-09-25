@@ -39,6 +39,7 @@ import {
   validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -728,7 +729,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   }, [form, exposureQueries, exposureQueryId]);
 
-  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
+  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(
+    !settings.experimentKeyRegexValidator,
+  );
 
   let header = isNewExperiment
     ? `Add New ${isBandit ? "Bandit" : "Experiment"}`
@@ -742,6 +745,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     setValueAs: (s) => s?.trim(),
   });
   const trackingKeyFieldHandlers = form.register("trackingKey");
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+    isImport,
+  );
 
   const checkForSimilar = useCallback(async () => {
     if (!aiEnabled) return;
@@ -997,6 +1004,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <div className="form-group">
               <Text as="label" weight="semibold" mb="1">
                 Tracking Key
+                {trackingKeyFormatProps.markRequired ? (
+                  <span
+                    style={{
+                      color: "var(--red-11)",
+                      marginLeft: "var(--space-1)",
+                    }}
+                  >
+                    *
+                  </span>
+                ) : null}
               </Text>
               <Text as="div" color="text-mid" mb="2">
                 {`Unique identifier for this ${
@@ -1006,6 +1023,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <Field
                 size="legacy"
                 {...trackingKeyFieldHandlers}
+                {...trackingKeyFormatProps}
                 onChange={(e) => {
                   trackingKeyFieldHandlers.onChange(e);
                   setLinkNameWithTrackingKey(false);
