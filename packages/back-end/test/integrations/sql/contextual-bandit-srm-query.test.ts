@@ -7,7 +7,7 @@ import { getContextualBanditSrmQuery } from "back-end/src/integrations/sql/queri
 const defaultExposureQuery = {
   query:
     "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, bandit_version, variation_weights FROM cb_assignments",
-  userIdType: "user_id",
+  identifierType: "user_id",
 };
 
 function makeSettings(
@@ -143,7 +143,7 @@ describe("getContextualBanditSrmQuery", () => {
         {
           exposureQuery: {
             query: "SELECT * FROM my_cb_assignments",
-            userIdType: "anonymous_id",
+            identifierType: "anonymous_id",
           },
         },
       ),
@@ -206,7 +206,7 @@ describe("getContextualBanditSrmQuery", () => {
       {
         query:
           "SELECT user_id, anonymous_id, timestamp, experiment_id, variation_id FROM assignments",
-        userIdType: "anonymous_id",
+        identifierType: "anonymous_id",
       },
     );
 

@@ -1636,7 +1636,7 @@ describe("full fact metric experiment query - bigquery", () => {
           unitsSource: "exposureQuery",
           unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
             query: testExposureQuery.query,
-            userIdType: testExposureQuery.userIdType,
+            identifierType: testExposureQuery.userIdType,
           }),
           activationMetric: null,
           dimensions: [],
@@ -1737,7 +1737,7 @@ describe("quantile grid array packing is BigQuery-only", () => {
         unitsSource: "exposureQuery",
         unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
           query: testExposureQuery.query,
-          userIdType: testExposureQuery.userIdType,
+          identifierType: testExposureQuery.userIdType,
         }),
         activationMetric: null,
         dimensions: [],
@@ -1991,7 +1991,7 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
           { ...settings, dimensions },
           {
             query: testExposureQuery.query,
-            userIdType: testExposureQuery.userIdType,
+            identifierType: testExposureQuery.userIdType,
           },
         ),
         activationMetric: null,

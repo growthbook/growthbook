@@ -1,7 +1,4 @@
-import {
-  assertExposureQueryDeclaresIdentifierType,
-  getAnalysisIdentifierType,
-} from "shared/util";
+import { resolveExposureQueryForAnalysis } from "shared/util";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
@@ -97,19 +94,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   if (!exposureQuery) {
     throw new Error("Exposure query not found");
   }
-  // The query may have dropped the stored identifier since it was saved.
-  assertExposureQueryDeclaresIdentifierType(
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
     exposureQuery,
     snapshotSettings.exposureQueryIdentifierType,
   );
-
-  const resolvedExposureQuery = {
-    query: exposureQuery.query,
-    userIdType: getAnalysisIdentifierType(
-      exposureQuery,
-      snapshotSettings.exposureQueryIdentifierType,
-    ),
-  };
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices

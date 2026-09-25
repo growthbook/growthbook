@@ -102,7 +102,7 @@ export const startPopulationDataQueries = async (
 
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(settings, {
     query: "",
-    userIdType: params.populationSettings.userIdType,
+    identifierType: params.populationSettings.userIdType,
   });
 
   for (const m of legacyMetricSingles) {

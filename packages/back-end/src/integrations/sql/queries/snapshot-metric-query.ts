@@ -69,7 +69,7 @@ export function getSnapshotMetricQuery(
     activationMetric,
   );
 
-  const userIdType = params.unitsSettings.exposureQuery.userIdType;
+  const userIdType = params.unitsSettings.exposureQuery.identifierType;
   if (!userIdType) {
     throw new Error("Unable to determine user id type from exposureQuery");
   }

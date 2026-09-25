@@ -1,4 +1,5 @@
 import { ExposureQuery } from "shared/types/datasource";
+import { ResolvedExposureQuery } from "shared/types/integrations";
 import { isProjectListValidForProject } from ".";
 
 type ExposureQueryIdentity = Pick<
@@ -289,4 +290,23 @@ export function getExposureQueriesOutsideProjectScope(
     }
   }
   return violations;
+}
+
+/**
+ * The SQL builders' input for a saved record: refuses a query that no longer
+ * declares the identifier the record analyzes on, then pairs its SQL with that
+ * identifier.
+ */
+export function resolveExposureQueryForAnalysis(
+  query: Pick<
+    ExposureQuery,
+    "id" | "name" | "query" | "userIdType" | "userIdTypes"
+  >,
+  storedIdentifierType: string | undefined,
+): ResolvedExposureQuery {
+  assertExposureQueryDeclaresIdentifierType(query, storedIdentifierType);
+  return {
+    query: query.query,
+    identifierType: getAnalysisIdentifierType(query, storedIdentifierType),
+  };
 }

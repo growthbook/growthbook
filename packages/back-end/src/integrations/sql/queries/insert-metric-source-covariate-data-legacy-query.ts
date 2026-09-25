@@ -74,12 +74,12 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
     datasource.settings,
     {
       objects: [
-        [exposureQuery.userIdType],
+        [exposureQuery.identifierType],
         source.factTable?.userIdTypes || [],
       ],
       from: params.settings.startDate,
       to: params.settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
+      forcedBaseIdType: exposureQuery.identifierType,
       experimentId: params.settings.experimentId,
     },
   );

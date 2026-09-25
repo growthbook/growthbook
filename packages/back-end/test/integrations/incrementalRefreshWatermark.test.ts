@@ -59,7 +59,7 @@ const exposureQuery: ExposureQuery = {
 };
 const resolvedExposureQuery = {
   query: exposureQuery.query,
-  userIdType: exposureQuery.userIdType,
+  identifierType: exposureQuery.userIdType,
 };
 
 const settings: ExperimentSnapshotSettings = {

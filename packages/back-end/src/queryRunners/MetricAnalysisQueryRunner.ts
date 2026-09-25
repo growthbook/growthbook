@@ -79,7 +79,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       populationExposureQuery: populationExposureQuery
         ? {
             query: populationExposureQuery.query,
-            userIdType: params.settings.userIdType,
+            identifierType: params.settings.userIdType,
           }
         : undefined,
     };

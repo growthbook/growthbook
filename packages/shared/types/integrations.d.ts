@@ -340,7 +340,7 @@ export type ColumnTopValuesResponseRow = {
 
 export interface ExperimentUnitsQuerySettings {
   experimentId: string;
-  exposureQuery: { query: string; userIdType: string };
+  exposureQuery: ResolvedExposureQuery;
   startDate: Date;
   endDate: Date;
   skipPartialData: boolean;
@@ -575,7 +575,10 @@ export interface IncrementalRefreshStatisticsQueryParams {
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 
-export type ResolvedExposureQuery = { query: string; userIdType: string };
+// An assignment query's SQL with the identifier resolved for this analysis.
+// Deliberately not shaped like `ExposureQuery`, so an unresolved query can't be
+// passed where a resolved one is expected.
+export type ResolvedExposureQuery = { query: string; identifierType: string };
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;
