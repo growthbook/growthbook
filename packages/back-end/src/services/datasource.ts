@@ -529,11 +529,6 @@ export async function testFeatureUsageQueryValidity(
   }
 }
 
-type AssignmentQueryScope = {
-  project: string | undefined;
-  projects?: string[];
-};
-
 /**
  * Validates `next` only when it differs from `previous` (always when `previous`
  * is null), so a record whose query later drifted can still save unrelated
@@ -543,7 +538,6 @@ export async function assertValidAssignmentQuerySelectionChange(
   context: ReqContext | ApiReqContext,
   previous: AssignmentQuerySelection | null,
   next: AssignmentQuerySelection,
-  getScope: () => AssignmentQueryScope | Promise<AssignmentQueryScope>,
 ): Promise<void> {
   if (!next.datasource || !next.exposureQueryId) return;
   let datasource: Promise<DataSourceInterface | null> | undefined;
@@ -570,8 +564,6 @@ export async function assertValidAssignmentQuerySelectionChange(
     exposureQueries: loaded.settings.queries?.exposure ?? [],
     exposureQueryId: next.exposureQueryId,
     identifierType: next.identifierType,
-    datasourceProjects: loaded.projects,
-    ...(await getScope()),
   });
 }
 

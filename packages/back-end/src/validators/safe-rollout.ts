@@ -14,8 +14,6 @@ import { ReqContext } from "back-end/types/request";
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
   context: ReqContext | ApiReqContext,
-  // The feature's project; undefined skips the assignment query scope check.
-  project: string | undefined,
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -55,7 +53,6 @@ export async function validateCreateSafeRolloutFields(
       exposureQueries: datasource.settings?.queries?.exposure ?? [],
       exposureQueryId: safeRolloutFields.exposureQueryId,
       identifierType: safeRolloutFields.exposureQueryIdentifierType,
-      project,
     });
   } catch (e) {
     throw new BadRequestError((e as Error).message);

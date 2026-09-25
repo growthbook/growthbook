@@ -142,7 +142,6 @@ export default function BanditRefNewFields({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
-    project,
     hashAttribute: form.watch("hashAttribute"),
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,

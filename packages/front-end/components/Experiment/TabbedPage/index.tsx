@@ -680,7 +680,6 @@ export default function TabbedPage({
         <ResultsTab
           experiment={experiment}
           mutate={mutate}
-          holdoutProjects={holdout?.projects}
           editMetrics={editMetrics}
           editResult={editResult}
           newPhase={newPhase}

@@ -163,15 +163,14 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.hasPremiumFeature("templates");
   }
 
-  // Runs for internal and REST writes. A project change re-checks the
-  // selection, since it changes which queries the template may use.
+  // Runs for internal and REST writes.
   protected override async customValidation(
     doc: ExperimentTemplateInterface,
     previousDoc?: ExperimentTemplateInterface,
   ) {
     await assertValidAssignmentQuerySelectionChange(
       this.context,
-      previousDoc && (previousDoc.project || "") === (doc.project || "")
+      previousDoc
         ? {
             datasource: previousDoc.datasource,
             exposureQueryId: previousDoc.exposureQueryId,
@@ -183,7 +182,6 @@ export class ExperimentTemplatesModel extends BaseClass {
         exposureQueryId: doc.exposureQueryId,
         identifierType: doc.exposureQueryIdentifierType,
       },
-      () => ({ project: doc.project ?? "" }),
     );
   }
 

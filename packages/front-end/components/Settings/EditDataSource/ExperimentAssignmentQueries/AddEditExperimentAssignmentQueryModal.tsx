@@ -20,9 +20,6 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import useProjectOptions from "@/hooks/useProjectOptions";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -35,8 +32,6 @@ type EditExperimentAssignmentQueryProps = {
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
 > = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
-  const { projects } = useDefinitions();
-  const permissionsUtil = usePermissionsUtil();
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -79,7 +74,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
             query: defaultQuery,
             userIdType: defaultUserId ?? "",
             userIdTypes: defaultUserId ? [defaultUserId] : [],
-            projects: [],
           },
   });
 
@@ -101,7 +95,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       hasNameCol: false,
       userIdType: undefined,
       userIdTypes: [],
-      projects: [],
     });
   });
 
@@ -122,20 +115,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   );
 
   const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
-
-  const userEnteredProjects = form.watch("projects") ?? [];
-  // Enforces EAQ.projects ⊆ datasource.projects.
-  const filteredProjects = projects.filter(
-    (project) =>
-      !dataSource.projects?.length ||
-      dataSource.projects.includes(project.id) ||
-      userEnteredProjects.includes(project.id),
-  );
-  const projectOptions = useProjectOptions(
-    () => permissionsUtil.canUpdateDataSourceSettings(dataSource),
-    userEnteredProjects,
-    filteredProjects.length ? filteredProjects : undefined,
-  );
 
   const savedUserIdTypes =
     mode === "edit" && exposureQuery
@@ -340,18 +319,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                       : ""
                   }`}
                 </Callout>
-              )}
-              {projects.length > 0 && (
-                <MultiSelectField
-                  legacyHeight
-                  label="Projects"
-                  helpText="Only the Data Source's Projects can be selected. Leave empty to make this query available to all of them."
-                  placeholder="All Data Source Projects"
-                  value={userEnteredProjects}
-                  options={projectOptions}
-                  onChange={(value) => form.setValue("projects", value)}
-                  customClassName="label-overflow-ellipsis"
-                />
               )}
               <div className="form-group">
                 <label className="mr-5">Query</label>

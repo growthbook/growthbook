@@ -28,7 +28,6 @@ import {
   setHoldoutStage,
   assertCanRunHoldoutEnvironments,
   assertCanUpdateHoldout,
-  assertHoldoutAssignmentQueryCoversProjects,
   assertHoldoutScopeCoversLinked,
   assertValidHoldoutEnvironments,
   createHoldoutWithExperiment,
@@ -309,11 +308,6 @@ export const updateHoldout = async (
       await context.models.projects.ensureProjectsExist(updates.projects);
     }
     await assertHoldoutScopeCoversLinked(context, holdout, updates.projects);
-    await assertHoldoutAssignmentQueryCoversProjects(
-      context,
-      experiment,
-      updates.projects,
-    );
   }
 
   const updatedHoldout = await context.models.holdout.update(holdout, updates);

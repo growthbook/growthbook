@@ -494,8 +494,6 @@ export class RampScheduleModel extends BaseClass {
       this.context,
       previous ? toSelection(previous) : null,
       toSelection(next),
-      // Undefined (no anchoring feature) skips the scope check.
-      () => ({ project: this.getProject(doc) }),
     );
   }
   protected async beforeUpdate(

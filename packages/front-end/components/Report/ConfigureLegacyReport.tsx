@@ -199,7 +199,6 @@ export default function ConfigureLegacyReport({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
-    project: experiment?.project,
     hashAttribute: experiment?.hashAttribute,
     exposureQueryId,
     identifierType: getAnalysisIdentifierType(

@@ -5,7 +5,6 @@ import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
-  getExposureQueriesOutsideProjectScope,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
@@ -274,32 +273,6 @@ export async function removeProjectFromDatasources(
     { organization, projects: project },
     { $pull: { projects: project }, $set: { dateUpdated: new Date() } },
   );
-
-  // Also drop the project from assignment query scopes; a stale reference left
-  // behind would fail the scope check on the next data source save.
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    organization,
-    "settings.queries.exposure.projects": project,
-  });
-  for (const doc of docs) {
-    const datasource = toInterface(doc);
-    const prunedExposure = (datasource.settings.queries?.exposure ?? []).map(
-      (q) =>
-        q.projects?.includes(project)
-          ? { ...q, projects: q.projects.filter((p) => p !== project) }
-          : q,
-    );
-    await DataSourceModel.updateOne(
-      { id: datasource.id, organization },
-      {
-        $set: {
-          "settings.queries.exposure": prunedExposure,
-          dateUpdated: new Date(),
-        },
-      },
-    );
-  }
-
   await touchDefinitionsVersion(organization);
 }
 
@@ -425,25 +398,6 @@ function assertUniqueUserIdTypeNames(
   }
 }
 
-// Enforces EAQ.projects ⊆ datasource.projects. Narrowing a data source's
-// projects to strand an existing query is a hard block, not an auto-fix.
-function assertExposureQueriesWithinProjectScope(
-  settings: DataSourceSettings | undefined,
-  datasourceProjects: string[],
-): void {
-  const violations = getExposureQueriesOutsideProjectScope(
-    settings?.queries?.exposure ?? [],
-    datasourceProjects,
-  );
-  if (!violations.length) return;
-  const detail = violations
-    .map((v) => `"${v.name}" (${v.invalidProjects.join(", ")})`)
-    .join("; ");
-  throw new Error(
-    `These experiment assignment queries are scoped to projects the data source is not: ${detail}. Update the assignment query projects to be within the data source's projects.`,
-  );
-}
-
 // Managed records have no Edit or Delete in the UI; this is what holds the line
 // for direct API calls and stale browser tabs.
 function assertEventForwarderManagedRecordsIntact(
@@ -532,7 +486,6 @@ export async function createDataSource(
   datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
-  assertExposureQueriesWithinProjectScope(settings, projects);
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
   const model = (await DataSourceModel.create(
@@ -773,14 +726,6 @@ export async function updateDataSource(
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
 
-  // Check the resulting state, since narrowing projects alone can strand a query.
-  if (updates.projects !== undefined || updates.settings?.queries?.exposure) {
-    assertExposureQueriesWithinProjectScope(
-      updates.settings ?? datasource.settings,
-      updates.projects ?? datasource.projects ?? [],
-    );
-  }
-
   if (!hasActualChanges(datasource, updates)) {
     return;
   }
@@ -846,7 +791,6 @@ export function toDataSourceApiInterface(
         includesNameColumns: !!q.hasNameCol,
         dimensionColumns: q.dimensions,
         error: q.error,
-        projects: q.projects || [],
       };
     }),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(

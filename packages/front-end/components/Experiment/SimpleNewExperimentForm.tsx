@@ -27,7 +27,6 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  getExposureQueriesForProject,
   getDefaultIdentifierTypeForQuery,
   getHashAttributeIdentifierTypeMap,
 } from "@/services/datasources";
@@ -94,19 +93,14 @@ export function getAutoDatasourceId({
 export function getAutoExposureQueryId({
   datasource,
   hashAttribute,
-  project,
   templateExposureQueryId,
 }: {
   datasource?: DataSourceInterfaceWithParams;
   hashAttribute: string;
-  project?: string;
   templateExposureQueryId?: string;
 }): string {
   const dsSettings = datasource?.settings;
-  const exposureQueries = getExposureQueriesForProject(
-    dsSettings?.queries?.exposure || [],
-    project,
-  );
+  const exposureQueries = dsSettings?.queries?.exposure || [];
 
   if (templateExposureQueryId) {
     const templateExposureQueryIsValid = exposureQueries.some(
@@ -121,13 +115,10 @@ export function getAutoExposureQueryId({
   // lookup below can't resolve the assignment query. Map the hash attribute to its
   // exposure query directly instead.
   if (datasource?.type === "growthbook_clickhouse") {
-    const managedQueryId = getManagedWarehouseExposureQueryIdForAttribute({
+    return getManagedWarehouseExposureQueryIdForAttribute({
       settings: datasource.settings,
       attribute: hashAttribute,
     });
-    return exposureQueries.some((q) => q.id === managedQueryId)
-      ? managedQueryId
-      : "";
   }
 
   if (exposureQueries.length > 1) {
@@ -333,10 +324,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const autoDatasource = autoDatasourceId
     ? getDatasourceById(autoDatasourceId)
     : null;
-  const autoDsExposureQueries = getExposureQueriesForProject(
-    autoDatasource?.settings?.queries?.exposure || [],
-    selectedProject,
-  );
+  const autoDsExposureQueries =
+    autoDatasource?.settings?.queries?.exposure || [];
   const hashAttributeLinkedToIdentifier = (
     autoDatasource?.settings?.userIdTypes || []
   ).some((t) => t.attributes?.includes(watchedHashAttribute));
@@ -344,7 +333,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     getAutoExposureQueryId({
       datasource: autoDatasource ?? undefined,
       hashAttribute: watchedHashAttribute,
-      project: selectedProject,
       templateExposureQueryId: watchedTemplate?.exposureQueryId,
     }) !== "";
   const showLinkIdentifierCallout =
@@ -428,7 +416,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     const exposureQueryId = getAutoExposureQueryId({
       datasource: selectedDatasource ?? undefined,
       hashAttribute: hashAttribute || "",
-      project,
       templateExposureQueryId: data.exposureQueryId || "",
     });
     const exposureQueryIdentifierType = getAutoExposureQueryIdentifierType({

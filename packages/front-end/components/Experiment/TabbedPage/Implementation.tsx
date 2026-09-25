@@ -313,7 +313,6 @@ export default function Implementation({
           mutate={mutate}
           envs={envs}
           canEdit={!!editTargeting && !pendingScheduledStart}
-          holdoutProjects={holdout?.projects}
         />
         <DecisionMakingSettings
           experiment={experiment}

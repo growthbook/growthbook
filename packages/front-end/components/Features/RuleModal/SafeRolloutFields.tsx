@@ -112,7 +112,6 @@ export default function SafeRolloutFields({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource: dataSource,
-    project: feature.project,
     hashAttribute: form.watch("hashAttribute"),
     exposureQueryId: form.watch("safeRolloutFields.exposureQueryId"),
     identifierType: form.watch("safeRolloutFields.exposureQueryIdentifierType"),

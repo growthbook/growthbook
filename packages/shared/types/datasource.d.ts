@@ -189,8 +189,6 @@ export interface ExposureQuery {
   error?: string;
   /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
-  /** Projects this query is scoped to. Empty = all of the data source's projects; when set, a subset of them. */
-  projects?: string[];
 }
 
 export interface FeatureUsageQuery {

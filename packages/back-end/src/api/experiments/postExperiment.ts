@@ -203,7 +203,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           exposureQueries: datasource.settings.queries?.exposure ?? [],
           exposureQueryId: payload.assignmentQueryId,
           identifierType: payload.assignmentQueryIdentifierType,
-          project: payload.project ?? "",
         });
       } catch (e) {
         // Template callers can't override the assignment query, so point them at the template.

@@ -141,9 +141,6 @@ export const updateExperiment = createApiRequestHandler(
       exposureQueryId: assignmentQueryId,
       identifierType:
         assignmentQueryIdentifierType ?? experiment.exposureQueryIdentifierType,
-      // A project change alone that strands the current query is left to drift
-      // (outdated reason); only choosing a query is rejected.
-      project: req.body.project ?? experiment.project ?? "",
     });
   }
 

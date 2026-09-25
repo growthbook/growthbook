@@ -176,20 +176,11 @@ export function getNewExperimentDatasourceDefaults({
       )?.userIdType ?? "anonymous_id")
     : "anonymous_id";
 
-  let exposureQuery = getExposureQuery(
+  const exposureQuery = getExposureQuery(
     initialDatasource.settings,
     initialValue?.exposureQueryId,
     initialUserIdType,
   );
-  if (
-    exposureQuery &&
-    !isProjectListValidForProject(exposureQuery.projects, project)
-  ) {
-    exposureQuery =
-      initialDatasource.settings?.queries?.exposure?.find((q) =>
-        isProjectListValidForProject(q.projects, project),
-      ) ?? null;
-  }
 
   // Copies (duplicate, from template) keep what the source analyzes on, even
   // if the query dropped it: the form then looks for another query declaring
@@ -725,7 +716,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
-    project: selectedProject,
     hashAttribute: selectedHashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,
