@@ -45,9 +45,11 @@ import FeatureDiagnosticsControlBar, {
 import DataCardHeader from "@/components/Diagnostics/DataCardHeader";
 import FeatureEvaluationsCard from "@/components/Features/FeatureEvaluationsCard";
 import styles from "./FeatureDiagnostics.module.scss";
+import { dummyUserForRow } from "./featureDiagnosticsDummyUsers";
 import {
   formatStreamTimestamp,
   MANAGED_STREAM_TABLE_COLUMNS,
+  managedStreamColumnLabel,
   streamColumnLabel,
 } from "./featureDiagnosticsStream";
 
@@ -222,6 +224,8 @@ function getDummyDiagnosticsRows(feature: FeatureInterface): DiagnosticsRow[] {
       source: template.source,
       ruleId: template.ruleId,
       variationId: template.variationId,
+      // Fake identity and attributes — see featureDiagnosticsDummyUsers.
+      ...dummyUserForRow(i),
       id: String(i),
     };
   });
@@ -426,9 +430,9 @@ export default function FeatureDiagnostics({
    * not reach the query, so rows from every environment arrive and the values
    * genuinely differ. Dummy rows mirror the managed shape.
    *
-   * Variation shows only if some fetched row carries one. It is read from the
-   * whole result set, never the visible page, so it holds still while paging
-   * and changes only when the query re-runs.
+   * User ID and Variation each show only if some fetched row carries one. Read
+   * from the whole result set, never the visible page, so they hold still
+   * while paging and change only when the query re-runs.
    *
    * A generic data source wraps a query the customer wrote, where only
    * timestamp and feature_key are guaranteed, so its columns are still read
@@ -439,12 +443,14 @@ export default function FeatureDiagnostics({
 
   const columns = useMemo(() => {
     if (displayResults === null || displayResults.length === 0) return [];
-    const hasVariation = (key: string) =>
+    const hasValues = (key: string) =>
       displayResults.some((row) => (row[key] ?? "") !== "");
     if (managedStream) {
-      return hasVariation("variationId")
-        ? [...MANAGED_STREAM_TABLE_COLUMNS, "variationId"]
-        : MANAGED_STREAM_TABLE_COLUMNS;
+      return [
+        ...(hasValues("unit_id") ? ["unit_id"] : []),
+        ...MANAGED_STREAM_TABLE_COLUMNS,
+        ...(hasValues("variationId") ? ["variationId"] : []),
+      ];
     }
     const keysSet = new Set<string>();
     // Only iterate over the first row since all rows have the same structure
@@ -1002,7 +1008,9 @@ export default function FeatureDiagnostics({
                               : undefined
                           }
                         >
-                          {streamColumnLabel(key)}
+                          {managedStream
+                            ? managedStreamColumnLabel(key)
+                            : streamColumnLabel(key)}
                         </SortableTableColumnHeader>
                       ))}
                     </TableRow>

@@ -35,6 +35,16 @@ export function streamColumnLabel(key: string): string {
 }
 
 /**
+ * Headers for the managed warehouse's own columns, where we own the schema and
+ * know what each field means. `unit_id` is its identity column, shown as
+ * "User ID". Kept off the generic path, whose headers render the customer's
+ * query as it is.
+ */
+export function managedStreamColumnLabel(key: string): string {
+  return key === "unit_id" ? "User ID" : streamColumnLabel(key);
+}
+
+/**
  * The managed warehouse's table columns, in display order, after Timestamp.
  * Its projection is fixed (ClickHouse#getFeatureEvalDiagnosticsQuery), so the
  * set is known without reading the rows.
