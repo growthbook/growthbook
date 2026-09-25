@@ -674,14 +674,14 @@ export const POLICY_METADATA_MAP: Record<
   ProjectsFullAccess: {
     displayName: "Projects Full Access",
     description:
-      "Create, edit, and delete projects and change project roles for other members. Can be applied at the global or project level.",
+      "Create, edit, and delete projects, change project roles for other members, and manage project-scoped teams. Can be applied at the global or project level.",
     warning:
       "Can be used to create new project admins and adjust project roles for other members",
   },
   ProjectAdminAccess: {
     displayName: "Project Admin Access",
     description:
-      "Manage project settings and change project roles for other members.",
+      "Manage project settings, change project roles for other members, and manage project-scoped teams.",
     warning:
       "Can be used to create new project admins and adjust project roles for other members",
   },
@@ -836,6 +836,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
       "TagsFullAccess",
+      "SessionReplayViewAccess",
     ],
   },
   analyst: {
@@ -898,6 +899,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
       "GeneralDashboardsFullAccess",
+      "SessionReplayViewAccess",
     ],
   },
   gbDefault_projectAdmin: {
@@ -937,6 +939,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       // covered saved groups too, and a Project Admin relied on it.
       "FlagsBypassApprovals",
       "SavedGroupsBypassApprovals",
+      "SessionReplayViewAccess",
       "ProjectAdminAccess",
     ],
   },
@@ -1064,4 +1067,7 @@ export const READ_ONLY_PERMISSIONS = [
   "runQueries",
   "runSqlExplorerQueries",
   "addComments",
+  // A session's projects come from its SDK connection, which can span several.
+  // Read-only semantics let a user with access to any one of them see it.
+  "viewSessionReplay",
 ];

@@ -38,7 +38,15 @@ export class SessionReplayModel {
   private async getPermittedClientKeys(): Promise<Map<string, string[]>> {
     if (this._permittedKeys) return this._permittedKeys;
     const connections = await findSDKConnectionsByOrganization(this.context);
-    this._permittedKeys = new Map(connections.map((c) => [c.key, c.projects]));
+    this._permittedKeys = new Map(
+      connections
+        .filter((c) =>
+          this.context.permissions.canViewSessionReplay({
+            projects: c.projects,
+          }),
+        )
+        .map((c) => [c.key, c.projects]),
+    );
     return this._permittedKeys;
   }
 
@@ -80,6 +88,8 @@ export class SessionReplayModel {
     maxEventCount?: number;
     featureKey?: string;
     experimentKey?: string;
+    dateAfter?: string;
+    dateBefore?: string;
     project?: string;
     limit?: number;
     offset?: number;
@@ -97,7 +107,12 @@ export class SessionReplayModel {
       ...options,
       clientKeys,
     });
-    return rows.map((row) => this.toInterface(row));
+    return rows
+      .map((row) => this.toInterface(row))
+      .filter((doc) => {
+        const projects = permittedKeys.get(doc.clientKey) ?? [];
+        return this.canRead(doc, projects);
+      });
   }
 
   public async getBySessionId(
@@ -159,9 +174,17 @@ export class SessionReplayModel {
         base.lastEventAt = lastEventAt;
         base.dateUpdated = lastEventAt;
       }
-      if (row.duration_ms > base.durationMs) base.durationMs = row.duration_ms;
-      base.eventCount += row.event_count;
-      base.errorCount += row.error_count;
+      const ingestedAt = parseClickHouseDate(row.ingested_at);
+      if (ingestedAt > base.ingestedAt) base.ingestedAt = ingestedAt;
+
+      const durationMs = Number(row.duration_ms);
+      const eventCount = Number(row.event_count);
+      const keyEventCount = Number(row.key_event_count);
+      const errorCount = Number(row.error_count);
+      if (durationMs > base.durationMs) base.durationMs = durationMs;
+      base.eventCount += eventCount;
+      base.keyEventCount += keyEventCount;
+      base.errorCount += errorCount;
 
       for (const url of row.urls_visited ?? []) {
         if (!base.urlsVisited.includes(url)) base.urlsVisited.push(url);
@@ -191,6 +214,7 @@ export class SessionReplayModel {
     const startedAt = parseClickHouseDate(row.started_at);
     const endedAt = parseClickHouseDate(row.ended_at);
     const lastEventAt = parseClickHouseDate(row.last_event_at);
+    const ingestedAt = parseClickHouseDate(row.ingested_at);
     const createdAt = parseClickHouseDate(row.created_at);
 
     return {
@@ -205,14 +229,16 @@ export class SessionReplayModel {
       startedAt,
       endedAt,
       lastEventAt,
-      durationMs: row.duration_ms,
-      eventCount: row.event_count,
-      errorCount: row.error_count,
+      ingestedAt,
+      durationMs: Number(row.duration_ms),
+      eventCount: Number(row.event_count),
+      keyEventCount: Number(row.key_event_count) || 0,
+      errorCount: Number(row.error_count),
       urlFirst: row.url_first,
       urlsVisited: row.urls_visited ?? [],
       pageTitle: row.page_title ?? "",
-      viewportWidth: row.viewport_width ?? 0,
-      viewportHeight: row.viewport_height ?? 0,
+      viewportWidth: Number(row.viewport_width) || 0,
+      viewportHeight: Number(row.viewport_height) || 0,
       attributes: row.attributes ?? {},
       featureKeys: row.feature_keys ?? [],
       experimentKeys: row.experiment_keys ?? [],

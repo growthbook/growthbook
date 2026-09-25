@@ -213,6 +213,7 @@ export type SDKAttribute = {
   projects?: string[];
   disableEqualityConditions?: boolean;
   tags?: string[];
+  customFields?: Record<string, string>;
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -389,6 +390,8 @@ export interface OrganizationSettings {
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
   requireUniqueExperimentTrackingKeys?: boolean;
+  experimentKeyExample?: string;
+  experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
@@ -397,6 +400,8 @@ export interface OrganizationSettings {
   blockFileUploads?: boolean;
   defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
+  // Opt-in validation of Saved Group scope at consuming Feature Flags.
+  enforceSavedGroupProjectScope?: boolean;
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
@@ -566,6 +571,7 @@ export type DailyUsage = {
   requests: number;
   bandwidth: number;
   managedClickhouseEvents: number;
+  sessionReplays: number;
 };
 
 type UsageLimit = number | "unlimited";
@@ -581,6 +587,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    sessionReplaySessions?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
@@ -589,5 +596,12 @@ export type OrganizationUsage = {
   managedClickhouse?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
+  };
+  sessionReplay?: {
+    lastUpdated?: Date;
+    status?: "under" | "approaching" | "over";
+    sessions?: number;
+    events?: number;
+    errors?: number;
   };
 };

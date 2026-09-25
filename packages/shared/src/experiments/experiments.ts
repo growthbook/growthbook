@@ -63,6 +63,10 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import { stringToBoolean } from "../util";
+import {
+  getCappingTailState,
+  isCappableFactMetric,
+} from "../validators/fact-table";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -138,6 +142,71 @@ export function canInlineFilterColumn(
   }
 
   return true;
+}
+
+export function getInlineFilterPromptColumns(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  rowFilters: RowFilter[] = [],
+): string[] {
+  const columns: string[] = [];
+  const add = (c: string) => {
+    if (!columns.includes(c)) columns.push(c);
+  };
+  factTable.columns.forEach((c) => {
+    if (
+      !c.alwaysInlineFilter ||
+      c.deleted ||
+      !canInlineFilterColumn(factTable, c.column)
+    ) {
+      return;
+    }
+    add(c.column);
+    const mapping = c.conditionalInlineFilters;
+    if (!mapping) return;
+    rowFilters.forEach((rf) => {
+      if (rf.column !== c.column) return;
+      if (rf.operator !== "=" && rf.operator !== "in") return;
+      const values = (rf.values ?? []).filter((v) => v !== "");
+      if (values.length !== 1) return;
+      const mapped = mapping[values[0]];
+      if (mapped) add(mapped);
+    });
+  });
+  return columns;
+}
+
+export function isEmptyInlineFilterPlaceholder(rf: RowFilter): boolean {
+  return rf.operator === "=" && (rf.values ?? []).every((v) => v === "");
+}
+
+// Runs after a filter edit - add secondary filters if needed
+export function reconcileInlineFilterPrompts(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  previous: RowFilter[],
+  next: RowFilter[],
+): RowFilter[] {
+  const before = new Set(getInlineFilterPromptColumns(factTable, previous));
+  const after = new Set(getInlineFilterPromptColumns(factTable, next));
+  let result = next;
+  for (const column of before) {
+    if (after.has(column)) continue;
+    result = result.filter(
+      (rf) => !(rf.column === column && isEmptyInlineFilterPlaceholder(rf)),
+    );
+  }
+  for (const column of after) {
+    if (before.has(column)) continue;
+    if (!result.some((rf) => rf.column === column)) {
+      result = [...result, { column, operator: "=", values: [""] }];
+    }
+  }
+  return result;
 }
 
 // Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,
@@ -1043,6 +1112,8 @@ export function getRowFilterSQL({
         ? `(${comparisonColumn} IN ${list})`
         : `(${comparisonColumn} NOT IN ${list})`;
     }
+    case "matches_pattern":
+    case "not_matches_pattern":
     case "starts_with":
     case "ends_with":
     case "contains":
@@ -1171,6 +1242,9 @@ export function getMetricTemplateVariables(
 }
 
 export function isCappableMetricType(m: ExperimentMetricDefinition) {
+  if (isFactMetric(m)) {
+    return isCappableFactMetric(m.metricType);
+  }
   return !quantileMetricType(m) && !isBinomialMetric(m);
 }
 
@@ -1283,20 +1357,77 @@ export function isRegressionAdjusted(
   );
 }
 
-export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
+/**
+ * The optional independent lower-tail capping settings. Only fact metrics
+ * support a lower tail; legacy metrics never have this field.
+ */
+export function getLowerCappingSettings(metric: ExperimentMetricDefinition) {
+  return "lowerCappingSettings" in metric
+    ? metric.lowerCappingSettings
+    : undefined;
+}
+
+export function isUpperPercentileCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
   return (
-    metric.cappingSettings.type === "percentile" &&
-    !!metric.cappingSettings.value &&
-    metric.cappingSettings.value < 1 &&
+    getCappingTailState(metric.cappingSettings).upperPercentileCapped &&
     isCappableMetricType(metric)
   );
 }
 
-function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+/**
+ * Legacy alias for upper-tail percentile capping. The legacy (non-fact)
+ * experiment SQL path only supports upper-tail capping, so this maps to the
+ * upper tail.
+ */
+export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
+  return isUpperPercentileCappedMetric(metric);
+}
+
+/** Lower-tail percentile winsorization (e.g. 5th percentile floor). */
+export function isLowerPercentileCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
   return (
-    metric.cappingSettings.type === "absolute" &&
-    !!metric.cappingSettings.value &&
+    getCappingTailState(undefined, getLowerCappingSettings(metric))
+      .lowerPercentileCapped && isCappableMetricType(metric)
+  );
+}
+
+/** True if SQL needs a percentile subquery (upper and/or lower tail). */
+export function needsPercentileCapSubquery(metric: ExperimentMetricInterface) {
+  const t = getCappingTailState(
+    metric.cappingSettings,
+    getLowerCappingSettings(metric),
+  );
+  return (
+    (t.upperPercentileCapped || t.lowerPercentileCapped) &&
     isCappableMetricType(metric)
+  );
+}
+
+export function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+  return (
+    getCappingTailState(metric.cappingSettings).upperAbsoluteCapped &&
+    isCappableMetricType(metric)
+  );
+}
+
+export function isLowerAbsoluteCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
+  return (
+    getCappingTailState(undefined, getLowerCappingSettings(metric))
+      .lowerAbsoluteCapped && isCappableMetricType(metric)
+  );
+}
+
+/** Any upper or lower tail capping is active (SQL / experiment analysis). */
+export function hasActiveCappingTails(metric: ExperimentMetricDefinition) {
+  return (
+    getCappingTailState(metric.cappingSettings, getLowerCappingSettings(metric))
+      .anyCap && isCappableMetricType(metric)
   );
 }
 
@@ -1306,7 +1437,10 @@ export function isSliceMetric(metric: ExperimentMetricDefinition) {
 
 export function eligibleForUncappedMetric(metric: ExperimentMetricDefinition) {
   return (
-    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    (isUpperPercentileCappedMetric(metric) ||
+      isLowerPercentileCappedMetric(metric) ||
+      isAbsoluteCappedMetric(metric) ||
+      isLowerAbsoluteCappedMetric(metric)) &&
     !isSliceMetric(metric)
   );
 }
@@ -2976,4 +3110,45 @@ export function getEffectiveLookbackOverride(
     return lookbackOverride;
   }
   return undefined;
+}
+
+type ScheduledEndLike = {
+  startAt?: Date | string | null;
+  stopAt?: Date | string | null;
+  stopAfter?: { value: number; unit: string } | null;
+  scheduledStopPlan?: { mode?: string } | null;
+};
+
+// A schedule stages a status change when it starts the experiment or ends it
+// with a plan other than "notify" (stop or ship); no stop plan means "notify".
+export function scheduleStagesStatusChange(
+  schedule: ScheduledEndLike | null | undefined,
+): boolean {
+  if (!schedule) return false;
+  if (schedule.startAt) return true;
+  if (!(schedule.stopAt || schedule.stopAfter)) return false;
+  return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
+}
+
+// Stamps who staged a status update so the job can run it on their authority.
+export function withScheduledBy<T extends object>(
+  staged: T | null,
+  userId: string | undefined,
+): (T & { scheduledBy?: string }) | null {
+  return staged && userId ? { ...staged, scheduledBy: userId } : staged;
+}
+
+// True when the incoming schedule stages a status change, or a staged one is
+// still pending (a fired or abandoned one leaves no pointer and can be cleared).
+export function scheduleWriteNeedsRunPermission(
+  experiment: {
+    statusUpdateSchedule?: ScheduledEndLike | null;
+    nextScheduledStatusUpdate?: { type: string } | null;
+  },
+  incoming: ScheduledEndLike | null | undefined,
+): boolean {
+  const pending =
+    !!experiment.nextScheduledStatusUpdate &&
+    scheduleStagesStatusChange(experiment.statusUpdateSchedule);
+  return pending || scheduleStagesStatusChange(incoming);
 }

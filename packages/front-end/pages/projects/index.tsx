@@ -1,12 +1,12 @@
 import React, { useState, FC } from "react";
 import { PiDetective } from "react-icons/pi";
 import { ProjectInterface } from "shared/types/project";
-import Link from "next/link";
 import { ago } from "shared/dates";
 import { Box } from "@radix-ui/themes";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import ProjectModal from "@/components/Projects/ProjectModal";
-import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgLimits from "@/hooks/useOrgLimits";
@@ -25,13 +25,11 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import ProjectRowMenu from "@/components/Projects/ProjectRowMenu";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
 
-  const { apiCall } = useAuth();
   const { organization } = useUser();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
@@ -54,15 +52,6 @@ const ProjectsPage: FC = () => {
   const atProjectLimit =
     maxProjects !== null && nonDemoProjectCount >= maxProjects;
 
-  const [deleteProjectResources, setDeleteProjectResources] =
-    useState<boolean>(true);
-
-  // Enhance projects with computed publicId for sorting
-  const projectsWithComputedPublicId = projects.map((p) => ({
-    ...p,
-    computedPublicId: p.publicId || p.id,
-  }));
-
   const {
     items,
     searchInputProps,
@@ -70,11 +59,11 @@ const ProjectsPage: FC = () => {
     SortableTableColumnHeader,
     pagination,
   } = useSearch({
-    items: projectsWithComputedPublicId,
+    items: projects,
     localStorageKey: "projects",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
-    searchFields: ["name^3", "description^2", "computedPublicId"],
+    searchFields: ["name^3", "description^2", "publicId", "id"],
     pageSize: 50,
     updateSearchQueryOnChange: true,
   });
@@ -151,10 +140,10 @@ const ProjectsPage: FC = () => {
                     Project Name
                   </SortableTableColumnHeader>
                   <SortableTableColumnHeader
-                    field="computedPublicId"
+                    field="id"
                     style={{ width: "20%" }}
                   >
-                    Public ID
+                    ID
                   </SortableTableColumnHeader>
                   <TableColumnHeader width="30%">Description</TableColumnHeader>
                   <SortableTableColumnHeader
@@ -169,30 +158,16 @@ const ProjectsPage: FC = () => {
                   >
                     Date Updated
                   </SortableTableColumnHeader>
-                  <TableColumnHeader width="50px" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((p) => {
                   const canEdit = permissionsUtil.canUpdateProject(p.id);
-                  const canDelete =
-                    // If the project has the `managedBy` property, we block deletion.
-                    permissionsUtil.canDeleteProject(p.id) &&
-                    !p.managedBy?.type;
-                  const isDemoProject = isDemoDatasourceProject({
-                    projectId: p.id,
-                    organizationId: organization?.id,
-                  });
                   return (
-                    <TableRow key={p.id}>
+                    <TableRow key={p.id} style={{ verticalAlign: "middle" }}>
                       <TableCell>
                         {canEdit ? (
-                          <Link
-                            className="link-purple"
-                            href={`/project/${p.id}`}
-                          >
-                            {p.name}
-                          </Link>
+                          <Link href={`/project/${p.id}`}>{p.name}</Link>
                         ) : (
                           <span>{p.name}</span>
                         )}
@@ -215,9 +190,20 @@ const ProjectsPage: FC = () => {
                             />
                           </div>
                         ) : null}
+                        {p.publicId && (
+                          <Box
+                            style={{ color: "var(--gray-9)", opacity: 0.85 }}
+                          >
+                            <Text as="div" size="sm" mono>
+                              {p.publicId}
+                            </Text>
+                          </Box>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <code className="small">{p.publicId || p.id}</code>
+                        <Text size="sm" mono>
+                          {p.id}
+                        </Text>
                       </TableCell>
                       <TableCell>
                         {p.description && p.description.length > 80
@@ -226,45 +212,12 @@ const ProjectsPage: FC = () => {
                       </TableCell>
                       <TableCell>{ago(p.dateCreated)}</TableCell>
                       <TableCell>{ago(p.dateUpdated)}</TableCell>
-                      <TableCell>
-                        <ProjectRowMenu
-                          project={p}
-                          canEdit={canEdit}
-                          canDelete={canDelete}
-                          onEdit={() => setModalOpen(p)}
-                          onDelete={async () => {
-                            if (isDemoProject) {
-                              // The Sample Data project has a dedicated
-                              // endpoint that also removes legacy sample
-                              // resources; deleting it like a normal project
-                              // can leave sample data behind in a state
-                              // that's hard to clean up.
-                              await apiCall(`/demo-datasource-project`, {
-                                method: "DELETE",
-                              });
-                            } else {
-                              await apiCall(
-                                `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
-                                {
-                                  method: "DELETE",
-                                },
-                              );
-                            }
-                            mutateDefinitions();
-                          }}
-                          deleteProjectResources={
-                            // Sample data is always deleted with its project
-                            isDemoProject ? null : deleteProjectResources
-                          }
-                          setDeleteProjectResources={setDeleteProjectResources}
-                        />
-                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {!items.length && isFiltered && (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={5} align="center">
                       No matching projects
                     </TableCell>
                   </TableRow>

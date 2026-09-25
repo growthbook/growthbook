@@ -1,5 +1,6 @@
 import { isEqual } from "lodash";
 import { pruneApprovalRuleReferences } from "shared/util";
+import { TeamInterface } from "shared/types/team";
 import {
   ManagedBy,
   ProjectInterface,
@@ -10,12 +11,17 @@ import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 import {
   pruneDefinitionsVersionProject,
   touchDefinitionsVersion,
 } from "./DefinitionsVersionModel";
-import { updateOrganization } from "./OrganizationModel";
+import {
+  removeProjectRolesForProject,
+  updateOrganization,
+} from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
+import { ApiKeyModel } from "./ApiKeyModel";
 
 function slugify(text: string): string {
   return text
@@ -113,6 +119,28 @@ export class ProjectModel extends BaseClass {
     });
     if (!isEqual(pruned, settings)) {
       await updateOrganization(this.context.org.id, { settings: pruned });
+    }
+    // Project roles naming it are dead grants; drop them wherever they live.
+    // The project is already gone, so a cleanup failure is logged rather than
+    // turned into an error that would also skip the caller's remaining cleanup.
+    const cleanups = await Promise.allSettled([
+      removeProjectRolesForProject(this.context.org, doc.id),
+      getCollection<TeamInterface>("teams").updateMany(
+        { organization: this.context.org.id, "projectRoles.project": doc.id },
+        { $pull: { projectRoles: { project: doc.id } } },
+      ),
+      ApiKeyModel.dangerousRemoveProjectRolesForProject(
+        this.context.org.id,
+        doc.id,
+      ),
+    ]);
+    for (const result of cleanups) {
+      if (result.status === "rejected") {
+        logger.error(
+          result.reason,
+          `Failed to remove project roles for deleted project ${doc.id}`,
+        );
+      }
     }
   }
 
