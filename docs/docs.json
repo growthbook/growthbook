@@ -634,6 +634,8 @@
                   "api/fact-tables/operation/deleteFactTableVirtualColumn",
                   "api/fact-tables/operation/getAggregatedFactTables",
                   "api/fact-tables/operation/refreshAggregatedFactTable",
+                  "api/fact-tables/operation/cancelAggregatedFactTableRun",
+                  "api/fact-tables/operation/refreshFactTableColumns",
                   "api/fact-tables/operation/listAggregatedTableRuns",
                   "api/fact-tables/operation/getAggregatedTableRun",
                   "api/fact-tables/operation/postBulkImportFacts"
@@ -647,7 +649,10 @@
                   "api/fact-metrics/operation/getFactMetric",
                   "api/fact-metrics/operation/updateFactMetric",
                   "api/fact-metrics/operation/deleteFactMetric",
-                  "api/fact-metrics/operation/postFactMetricAnalysis"
+                  "api/fact-metrics/operation/getLatestFactMetricAnalysis",
+                  "api/fact-metrics/operation/postFactMetricAnalysis",
+                  "api/fact-metrics/operation/getMetricAnalysis",
+                  "api/fact-metrics/operation/postMetricAnalysisCancel"
                 ]
               },
               {
@@ -699,7 +704,11 @@
               },
               {
                 "group": "Experiment Snapshots",
-                "pages": ["api/snapshots/operation/getExperimentSnapshot"]
+                "pages": [
+                  "api/snapshots/operation/getExperimentSnapshot",
+                  "api/snapshots/operation/postSnapshotCancel",
+                  "api/snapshots/operation/postSnapshotAnalysis"
+                ]
               },
               {
                 "group": "Dimensions",
@@ -918,6 +927,17 @@
                 ]
               },
               {
+                "group": "Saved Queries",
+                "pages": [
+                  "api/saved-queries/operation/listSavedQueries",
+                  "api/saved-queries/operation/postSavedQuery",
+                  "api/saved-queries/operation/getSavedQuery",
+                  "api/saved-queries/operation/updateSavedQuery",
+                  "api/saved-queries/operation/deleteSavedQuery",
+                  "api/saved-queries/operation/postSavedQueryRefresh"
+                ]
+              },
+              {
                 "group": "Code References",
                 "pages": [
                   "api/code-references/operation/listCodeRefs",
@@ -996,7 +1016,8 @@
                   "api/Dashboards/operation/deleteDashboard",
                   "api/Dashboards/operation/listDashboards",
                   "api/Dashboards/operation/createDashboard",
-                  "api/Dashboards/operation/getDashboardsForExperiment"
+                  "api/Dashboards/operation/getDashboardsForExperiment",
+                  "api/Dashboards/operation/refreshDashboard"
                 ]
               },
               {
@@ -1213,6 +1234,7 @@
               "api/SavedGroupRevisionActivityLogEntry_model",
               "api/SavedGroupRevisionRef_model",
               "api/SavedGroupRevisionReview_model",
+              "api/SavedQuery_model",
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
