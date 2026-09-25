@@ -8,6 +8,8 @@ export * from "./constant-revisions";
 export * from "./custom-fields";
 export * from "./custom-hooks";
 export * from "./experiments";
+export * from "./experiment-lifecycle";
+export * from "./launch-checklists";
 export * from "./fact-table";
 export * from "./fact-metrics";
 export * from "./incremental-refresh";

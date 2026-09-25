@@ -1,5 +1,4 @@
 import { Response } from "express";
-import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -52,6 +51,7 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   assertCanRunExperimentInAffectedEnvironments,
+  deleteExperimentWithLinks,
   getExperimentAffectedEnvs,
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
@@ -86,8 +86,11 @@ import {
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
+  deleteExperimentPhase as deleteExperimentPhaseService,
+  getRestartChanges,
+} from "back-end/src/services/experimentChanges/phases";
+import {
   createExperiment,
-  deleteExperimentByIdForOrganization,
   generateExperimentEmbeddings,
   getAllExperiments,
   getExperimentById,
@@ -111,7 +114,6 @@ import {
   getLatestSuccessfulSnapshot,
   getLatestSnapshotStatus,
   updateSnapshot,
-  updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { addTagsDiff } from "back-end/src/models/TagModel";
@@ -120,7 +122,6 @@ import {
   getContextForAgendaJobByOrgId,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
 import {
   createPastExperiments,
   getPastExperimentsById,
@@ -136,7 +137,6 @@ import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancella
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
-  auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
@@ -181,8 +181,10 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
-import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
-import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import {
+  addNewExperimentToHoldout,
+  applyExperimentHoldoutChange,
+} from "back-end/src/services/holdouts";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -1428,20 +1430,11 @@ export async function postExperiments(
     });
 
     if (holdoutId) {
-      const canLinkFromFeature = await canLinkExperimentToHoldoutFromFeatures(
+      await addNewExperimentToHoldout(
         context,
+        experiment,
         holdoutId,
         data.linkedFeatures ?? [],
-      );
-      await getHoldoutAvailableForProject({
-        context,
-        holdoutId,
-        project: experiment.project,
-        bypassReadPermissionChecks: canLinkFromFeature,
-      });
-      await context.models.holdout.addExperimentToHoldout(
-        holdoutId,
-        experiment.id,
       );
     }
 
@@ -1793,64 +1786,10 @@ export async function postExperiment(
     }
   }
 
-  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
-    await getHoldoutAvailableForProject({
-      context,
-      holdoutId: data.holdoutId,
-      project: data.project ?? experiment.project,
-    });
-  } else if (data.project !== undefined && experiment.holdoutId) {
-    await getHoldoutAvailableForProject({
-      context,
-      holdoutId: experiment.holdoutId,
-      project: data.project,
-    });
-  }
-
-  // TODO(holdouts): allow changing holdout if the experiment is not linked to a feature
-  // in the live! feature revision
-  const experimentHasLinkedChanges =
-    experiment.hasURLRedirects ||
-    experiment.hasVisualChangesets ||
-    (experiment.linkedFeatures && experiment.linkedFeatures.length > 0);
-  if (
-    // Holdout change
-    data.holdoutId &&
-    data.holdoutId !== experiment.holdoutId &&
-    experiment.holdoutId
-  ) {
-    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
-      throw new Error(
-        "Cannot change holdout after experiment has been run or linked changes have been added",
-      );
-    }
-    await context.models.holdout.removeExperimentFromHoldout(
-      experiment.holdoutId,
-      experiment.id,
-    );
-  } else if (
-    // Holdout removal
-    data.holdoutId == "" &&
-    data.holdoutId !== experiment.holdoutId &&
-    experiment.holdoutId
-  ) {
-    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
-      throw new Error(
-        "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
-      );
-    }
-    await context.models.holdout.removeExperimentFromHoldout(
-      experiment.holdoutId,
-      experiment.id,
-    );
-  }
-
-  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
-    await context.models.holdout.addExperimentToHoldout(
-      data.holdoutId,
-      experiment.id,
-    );
-  }
+  await applyExperimentHoldoutChange(context, experiment, {
+    holdoutId: data.holdoutId,
+    project: data.project,
+  });
 
   if (data.defaultDashboardId) {
     const dashboard = await context.models.dashboards.getById(
@@ -2437,48 +2376,7 @@ export async function postExperimentStatus(
     (status === "running" || status === "draft") &&
     phases?.length > 0
   ) {
-    const clonedPhase = { ...phases[lastIndex] };
-
-    delete clonedPhase.dateEnded;
-    phases[lastIndex] = clonedPhase;
-
-    changes.phases = phases;
-
-    // Bandit-specific changes
-    if (experiment.type === "multi-armed-bandit") {
-      // We must create a new phase. No continuing old phases allowed
-      // If we had a previous phase, mark it as ended
-      if (phases.length) {
-        phases[phases.length - 1].dateEnded = new Date();
-      }
-
-      phases.push({
-        condition: clonedPhase.condition,
-        savedGroups: clonedPhase.savedGroups,
-        prerequisites: clonedPhase.prerequisites,
-        coverage: clonedPhase.coverage,
-        dateStarted: new Date(),
-        name: "Main",
-        namespace: clonedPhase.namespace,
-        reason: "",
-        variationWeights: clonedPhase.variationWeights,
-        variations: clonedPhase.variations,
-        seed: uuidv4(),
-      });
-
-      // flush the sticky existing buckets
-      changes.bucketVersion = (experiment.bucketVersion ?? 0) + 1;
-      changes.minBucketVersion = (experiment.bucketVersion ?? 0) + 1;
-
-      Object.assign(
-        changes,
-        resetExperimentBanditSettings({
-          experiment,
-          changes,
-          settings,
-        }),
-      );
-    }
+    Object.assign(changes, getRestartChanges(experiment, settings));
   }
 
   changes.status = status;
@@ -2646,112 +2544,20 @@ export async function deleteExperimentPhase(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
-  const { id, phase } = req.params;
-  const phaseIndex = parseInt(phase);
+  const { experiment, updated } = await deleteExperimentPhaseService({
+    context,
+    experimentId: req.params.id,
+    phaseIndex: parseInt(req.params.phase),
+  });
 
-  const experiment = await getExperimentById(context, id);
-  const changes: Changeset = {};
-
-  if (!experiment) {
-    res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (experiment.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (experiment.phases.length === 1) {
-    res.status(400).json({
-      status: 400,
-      message: "Cannot delete the only phase",
-    });
-  }
-
-  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
-
-  if (phaseIndex < 0 || phaseIndex >= experiment.phases?.length) {
-    throw new Error("Invalid phase id");
-  }
-
-  // Remove an element from an array without mutating the original
-  changes.phases = experiment.phases.filter((phase, i) => i !== phaseIndex);
-
-  if (!changes.phases.length) {
-    changes.status = "draft";
-    if (experiment.type === "multi-armed-bandit") {
-      changes.banditStage = "paused";
-    }
-  }
-
-  await validateExperimentChange({ context, experiment, changes });
-
-  const mutationToken = uniqid("irdel_");
-  const claimed =
-    await context.models.incrementalRefresh.acquirePhaseSlotForMutation(
-      id,
-      phaseIndex,
-      mutationToken,
-    );
-  if (!claimed) {
-    res.status(409).json({
-      status: 409,
-      message:
-        "An incremental refresh is running for this phase. Wait for it to finish before deleting the phase.",
-    });
-    return;
-  }
-
-  try {
-    const updated = await updateExperiment({
-      context,
-      experiment,
-      changes,
-    });
-
-    await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
-
-    await context.models.incrementalRefresh.deleteByExperimentIdAndPhase(
-      id,
-      phaseIndex,
-    );
-    await context.models.incrementalRefresh.shiftPhasesDownAfterDelete(
-      id,
-      phaseIndex,
-    );
-
-    // Add audit entry
-    await req.audit({
-      event: "experiment.phase.delete",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
-      details: auditDetailsUpdate(experiment, updated),
-    });
-  } finally {
-    // The delete removes a successful claim; otherwise release it.
-    await context.models.incrementalRefresh
-      .releaseLock(id, mutationToken)
-      .catch((e) =>
-        logger.warn(
-          e,
-          "Failed to release the incremental refresh phase mutation claim",
-        ),
-      );
-  }
+  await req.audit({
+    event: "experiment.phase.delete",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsUpdate(experiment, updated),
+  });
 
   res.status(200).json({
     status: 200,
@@ -3224,41 +3030,7 @@ export async function deleteExperiment(
     return;
   }
 
-  if (!context.permissions.canDeleteExperiment(experiment)) {
-    context.permissions.throwPermissionError();
-  }
-
-  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
-
-  const promises = [
-    // note: we might want to change this to change the status to
-    // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(context, experiment),
-    removeExperimentFromPresentations(experiment.id),
-  ];
-
-  await Promise.all(promises);
-
-  if (experiment.holdoutId) {
-    try {
-      await context.models.holdout.removeExperimentFromHoldout(
-        experiment.holdoutId,
-        experiment.id,
-      );
-    } catch (e) {
-      // This is not a fatal error, so don't block the request from happening
-      logger.warn(e, "Error removing experiment from holdout");
-    }
-  }
-
-  await req.audit({
-    event: "experiment.delete",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsDelete(experiment),
-  });
+  await deleteExperimentWithLinks(context, experiment);
 
   res.status(200).json({
     status: 200,

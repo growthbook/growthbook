@@ -39,6 +39,7 @@ import {
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { applyExperimentHoldoutChange } from "back-end/src/services/holdouts";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -411,6 +412,11 @@ export const updateExperiment = createApiRequestHandler(
       incoming: req.body.statusUpdateSchedule,
     });
   }
+
+  await applyExperimentHoldoutChange(req.context, experiment, {
+    holdoutId: req.body.holdoutId,
+    project: req.body.project,
+  });
 
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";

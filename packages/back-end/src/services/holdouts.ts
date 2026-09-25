@@ -48,7 +48,10 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import {
+  getHoldoutAvailableForProject,
+  isHoldoutAvailableForProject,
+} from "back-end/src/services/holdout-availability";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -266,6 +269,78 @@ export async function canLinkExperimentToHoldoutFromFeatures(
           Array.from(getEnabledEnvironments(feature, orgEnvs)),
         )),
   );
+}
+
+// Adds a just-created experiment to the holdout it was created in.
+export async function addNewExperimentToHoldout(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "id" | "project">,
+  holdoutId: string,
+  linkedFeatureIds: string[],
+) {
+  const canLinkFromFeature = await canLinkExperimentToHoldoutFromFeatures(
+    context,
+    holdoutId,
+    linkedFeatureIds,
+  );
+  await getHoldoutAvailableForProject({
+    context,
+    holdoutId,
+    project: experiment.project,
+    bypassReadPermissionChecks: canLinkFromFeature,
+  });
+  await context.models.holdout.addExperimentToHoldout(holdoutId, experiment.id);
+}
+
+/**
+ * Moves an experiment into, between or out of holdouts ("" leaves). Only a
+ * draft with no linked changes may leave or switch; the caller stores holdoutId.
+ */
+export async function applyExperimentHoldoutChange(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  { holdoutId, project }: { holdoutId?: string; project?: string },
+) {
+  const current = experiment.holdoutId;
+  if (holdoutId && holdoutId !== current) {
+    await getHoldoutAvailableForProject({
+      context,
+      holdoutId,
+      project: project ?? experiment.project,
+    });
+  } else if (project !== undefined && current) {
+    await getHoldoutAvailableForProject({
+      context,
+      holdoutId: current,
+      project,
+    });
+  }
+
+  if (holdoutId === undefined || holdoutId === current) return;
+
+  if (current) {
+    const hasLinkedChanges =
+      experiment.hasURLRedirects ||
+      experiment.hasVisualChangesets ||
+      !!experiment.linkedFeatures?.length;
+    if (experiment.status !== "draft" || hasLinkedChanges) {
+      throw new Error(
+        holdoutId
+          ? "Cannot change holdout after experiment has been run or linked changes have been added"
+          : "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
+      );
+    }
+    await context.models.holdout.removeExperimentFromHoldout(
+      current,
+      experiment.id,
+    );
+  }
+  if (holdoutId) {
+    await context.models.holdout.addExperimentToHoldout(
+      holdoutId,
+      experiment.id,
+    );
+  }
 }
 
 // Holdout-compatibility gate for adding an experiment-ref rule to a feature.
