@@ -765,6 +765,7 @@ export default function TrafficAllocationFunnel({
               experiment={experiment}
               linkedFeatures={linkedFeatures}
               canEdit={canEditFlagValues}
+              mutate={() => mutate?.()}
               showLive={hasDraftChanges && !preferDraft}
             />
           </>

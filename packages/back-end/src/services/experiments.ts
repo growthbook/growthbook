@@ -130,6 +130,7 @@ import {
   ExperimentPhase,
   LinkedChangeEnvState,
   LinkedChangeEnvStates,
+  LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
@@ -5499,6 +5500,26 @@ export async function getRefLinkedFeatureInfo({
         });
         return states;
       };
+      const buildEnvironmentInputs = (
+        from: MatchingRule[],
+        revision?: FeatureRevisionInterface,
+      ) => {
+        const inputs: Record<string, LinkedFeatureEnvInputs> = {};
+        environments.forEach(
+          (env) =>
+            (inputs[env] = {
+              flagEnabled: envEnabledIn(env, revision),
+              rule: "missing",
+            }),
+        );
+        from.forEach((match) => {
+          const input = inputs[match.environmentId];
+          if (!input) return;
+          if (match.rule.enabled !== false) input.rule = "on";
+          else if (input.rule !== "on") input.rule = "off";
+        });
+        return inputs;
+      };
       // Only a draft the feature actually resolved to stages its own enablement.
       const statesRevision =
         state === "draft" ? matchedDraftRevision : undefined;
@@ -5549,6 +5570,7 @@ export async function getRefLinkedFeatureInfo({
         feature,
         state,
         environmentStates,
+        environmentInputs: buildEnvironmentInputs(matches, statesRevision),
         attributeScopeProjects,
         values: refRuleValues(matches[0]?.rule),
         sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
@@ -5562,6 +5584,7 @@ export async function getRefLinkedFeatureInfo({
           liveAllEnvironments: !!(liveMatches[0]?.rule as ExperimentRefRule)
             ?.allEnvironments,
           liveEnvironmentStates: buildEnvironmentStates(liveMatches),
+          liveEnvironmentInputs: buildEnvironmentInputs(liveMatches),
         }),
         ...(hasPendingDraft &&
           matchedDraftRevision && {
@@ -5599,6 +5622,10 @@ export async function getRefLinkedFeatureInfo({
               staleApproval: draftStaleApproval,
               // From the draft's matches: where the unpublished edit would run.
               environmentStates: buildEnvironmentStates(
+                draftMatches,
+                matchedDraftRevision,
+              ),
+              environmentInputs: buildEnvironmentInputs(
                 draftMatches,
                 matchedDraftRevision,
               ),

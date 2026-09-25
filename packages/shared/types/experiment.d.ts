@@ -283,6 +283,14 @@ export type LinkedFeatureState =
   | "discarded"
   | "archived";
 
+/** The two settings that combine into a `LinkedFeatureEnvState`. */
+export type LinkedFeatureEnvInputs = {
+  /** The flag's own toggle for the environment. */
+  flagEnabled: boolean;
+  /** This experiment's rule in the environment. */
+  rule: "on" | "off" | "missing";
+};
+
 export type LinkedFeatureEnvState =
   | "missing"
   | "disabled-env"
@@ -311,6 +319,8 @@ export interface LinkedFeatureInfo {
   inconsistentValues: boolean;
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
+  /** What each of `environmentStates` is made of. */
+  environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   /**
    * Projects whose registered attributes are in scope for targeting through
    * this feature (primary + targeting projects, current ∪ draft-staged).
@@ -330,6 +340,7 @@ export interface LinkedFeatureInfo {
   liveAllEnvironments?: boolean;
   /** Where the live rule runs, keyed the same as `environmentStates`. */
   liveEnvironmentStates?: Record<string, LinkedFeatureEnvState>;
+  liveEnvironmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   /** The unpublished draft of this experiment's rule, if any. Populated regardless of `state`, which stays live-first. */
   pendingDraft?: {
     version: number;
@@ -368,6 +379,7 @@ export interface LinkedFeatureInfo {
     staleApproval: boolean;
     /** Where the draft would run once published, keyed the same as the live map. */
     environmentStates: Record<string, LinkedFeatureEnvState>;
+    environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   };
   /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
   pendingApproval?: boolean;

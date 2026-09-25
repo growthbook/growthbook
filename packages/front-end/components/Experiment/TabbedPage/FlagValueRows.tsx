@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -15,13 +15,27 @@ import {
   stripDefaultsForSparse,
   validateFeatureValue,
 } from "shared/util";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import {
+  PiCaretDownFill,
+  PiCheckCircle,
+  PiCheckCircleFill,
+  PiFlag,
+  PiWarningFill,
+  PiXCircle,
+  PiXCircleFill,
+} from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import ForceSummary from "@/components/Features/ForceSummary";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
+import { getEnvironmentStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
+import { useAuth } from "@/services/auth";
+import { Popover } from "@/ui/Popover";
 import {
   VARIATION_GRID_COLUMNS,
   variationGridMaxWidth,
@@ -29,10 +43,12 @@ import {
 import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import VariationLabel from "@/ui/VariationLabel";
+import Tooltip from "@/ui/Tooltip";
+import VariationNumber from "@/ui/VariationNumber";
 import { useRegisterExperimentEdit } from "./ExperimentEdits";
 
 const VALUE_TYPE_ORDER: FeatureValueType[] = [
@@ -41,6 +57,13 @@ const VALUE_TYPE_ORDER: FeatureValueType[] = [
   "number",
   "boolean",
 ];
+
+const ENVIRONMENT_STATE_LABELS: Record<string, string> = {
+  active: "Active",
+  "disabled-env": "Off",
+  "disabled-rule": "Off",
+  missing: "Not included",
+};
 
 type Staged = {
   values: Record<string, string>;
@@ -54,6 +77,7 @@ export interface Props {
   canEdit: boolean;
   /** Show what is live rather than the draft, read-only. */
   showLive?: boolean;
+  mutate: () => void;
 }
 
 /** One row per linked Feature Flag, a cell per variation, under the variation cards. */
@@ -62,6 +86,7 @@ export default function FlagValueRows({
   linkedFeatures,
   canEdit,
   showLive = false,
+  mutate,
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const cols = Math.min(variations.length, 3);
@@ -84,6 +109,7 @@ export default function FlagValueRows({
           info={info}
           canEdit={canEdit}
           showLive={showLive}
+          mutate={mutate}
         />
       ))}
     </Flex>
@@ -95,19 +121,27 @@ function FlagValueRow({
   info,
   canEdit,
   showLive,
+  mutate,
 }: {
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
   canEdit: boolean;
   showLive: boolean;
+  mutate: () => void;
 }) {
   const permissionsUtil = usePermissionsUtil();
+  const { apiCall } = useAuth();
+  const [editEnvironments, setEditEnvironments] = useState(false);
   const { configs } = useDefinitions();
   const variations = getLatestPhaseVariations(experiment);
   const { feature, pendingDraft } = info;
 
-  const fromDraft = !!pendingDraft && !showLive;
   const managed = isManagedByExperiment(feature, experiment.id);
+  // A managed flag keeps one draft, so only an unmanaged one can start another.
+  const [target, setTarget] = useState<"draft" | "new">(
+    pendingDraft ? "draft" : "new",
+  );
+  const fromDraft = !!pendingDraft && !showLive && target === "draft";
   const values = fromDraft
     ? pendingDraft.values
     : (info.liveValues ?? info.values);
@@ -166,7 +200,7 @@ function FlagValueRow({
     [info, variations, fromDraft],
   );
 
-  const lockedBySchedule = !!pendingDraft?.lockedBySchedule;
+  const lockedBySchedule = fromDraft && !!pendingDraft?.lockedBySchedule;
   const editable =
     canEdit &&
     !showLive &&
@@ -261,7 +295,7 @@ function FlagValueRow({
           ...(valueType !== storedType && { valueType }),
           ...(sparse !== storedSparse && { sparse }),
           // Writes into the draft the values came from; off live, starts one.
-          revision: pendingDraft
+          revision: fromDraft
             ? {
                 version: pendingDraft.version,
                 dateUpdated: pendingDraft.dateUpdated,
@@ -274,94 +308,425 @@ function FlagValueRow({
     discard: () => setStaged(null),
   });
 
-  return (
-    <Box>
-      <Flex align="center" gap="2" mb="2">
-        <Link href={`/features/${feature.id}`} weight="medium">
-          {feature.id}
-        </Link>
+  const draftLabel = pendingDraft
+    ? revisionLabelText(pendingDraft.version, pendingDraft.title)
+    : null;
+  const targetLabel = showLive ? "Live" : fromDraft ? draftLabel : "New draft";
+  const canChooseTarget =
+    editable || (!showLive && !!pendingDraft && !managed && canEdit);
+
+  const targetControl =
+    canChooseTarget && pendingDraft ? (
+      <DropdownMenu
+        trigger={
+          <Link>
+            <Flex align="center" gap="1">
+              <Text size="sm">{targetLabel}</Text>
+              <PiCaretDownFill size={10} />
+            </Flex>
+          </Link>
+        }
+        menuPlacement="end"
+      >
+        <DropdownMenuItem
+          onClick={() => {
+            setTarget("draft");
+            setStaged(null);
+          }}
+        >
+          {draftLabel}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            setTarget("new");
+            setStaged(null);
+          }}
+        >
+          New draft
+        </DropdownMenuItem>
+      </DropdownMenu>
+    ) : (
+      <Tooltip
+        enabled={lockedBySchedule || editable}
+        content={
+          lockedBySchedule
+            ? "Locked until its scheduled publish"
+            : "Saving writes to this draft; publishing it changes what the experiment serves."
+        }
+      >
         <Text size="sm" color="text-low">
-          {fromDraft
-            ? revisionLabelText(pendingDraft.version, pendingDraft.title)
-            : "Live"}
+          {targetLabel}
         </Text>
-        {editable &&
-        (experiment.status !== "draft" ||
-          experiment.nextScheduledStatusUpdate?.type === "start") ? (
-          <HelperText status="info" size="sm">
-            Saves to a draft. Publishing it changes what this experiment serves.
-          </HelperText>
+      </Tooltip>
+    );
+
+  // One headline state, most blocking first.
+  const status = pendingDraft?.hasMergeConflict
+    ? "Merge conflict"
+    : pendingDraft?.rebaseRequired
+      ? "Needs rebase"
+      : lockedBySchedule
+        ? "Locked for scheduled publish"
+        : pendingDraft?.pendingApproval &&
+            !(
+              pendingDraft.approval?.satisfied ??
+              pendingDraft.status === "approved"
+            )
+          ? "Pending approval"
+          : info.state === "discarded"
+            ? "Draft discarded"
+            : info.state === "archived"
+              ? "Archived"
+              : null;
+
+  const environmentStates = getEnvironmentStates(
+    (fromDraft
+      ? pendingDraft
+      : info.liveEnvironmentStates
+        ? { environmentStates: info.liveEnvironmentStates }
+        : info) ?? { environmentStates: {} },
+    {
+      future:
+        experiment.status !== "running"
+          ? "started"
+          : fromDraft
+            ? "published"
+            : false,
+    },
+  );
+  const activeEnvironments = environmentStates.filter((e) => e.isActive);
+  // When what the grid shows takes effect, said once for all of it.
+  const environmentsTiming =
+    experiment.status === "draft"
+      ? "Takes effect when the experiment starts."
+      : fromDraft
+        ? `From ${draftLabel}. Takes effect when it's published.`
+        : null;
+  const environmentInputs = fromDraft
+    ? pendingDraft?.environmentInputs
+    : (info.liveEnvironmentInputs ?? info.environmentInputs);
+  // What the draft moves, against live; before live has the rule, against the
+  // flag's own toggles with no rule.
+  const liveInput = (env: string) =>
+    info.liveEnvironmentInputs?.[env] ?? {
+      flagEnabled: !!feature.environmentSettings?.[env]?.enabled,
+      rule: "missing" as const,
+    };
+  const changedInputs = (env: string) => {
+    const input = environmentInputs?.[env];
+    if (!fromDraft || !input) return { flag: false, rule: false };
+    const live = liveInput(env);
+    return {
+      flag: input.flagEnabled !== live.flagEnabled,
+      rule: input.rule !== live.rule,
+    };
+  };
+  const environmentsChanged = environmentStates.some(({ env }) => {
+    const c = changedInputs(env);
+    return c.flag || c.rule;
+  });
+
+  const canEditFlag = canEdit && permissionsUtil.canEditFeatureDrafts(feature);
+  const removeFromExperiment = async () => {
+    if (!confirm(`Remove ${feature.id} from this experiment?`)) return;
+    await apiCall(`/experiment/${experiment.id}/linked-feature/${feature.id}`, {
+      method: "DELETE",
+    });
+    mutate();
+  };
+
+  const controls =
+    editable && (sparseEligible || managed) ? (
+      <>
+        {sparseEligible ? (
+          <SparsePatchToggle checked={sparse} onChange={toggleSparse} />
         ) : null}
-        {lockedBySchedule && !showLive ? (
-          <HelperText status="info" size="sm">
-            Locked until its scheduled publish
-          </HelperText>
+        {managed ? (
+          <Box width="160px">
+            <ValueTypeField
+              size="sm"
+              value={valueType}
+              order={VALUE_TYPE_ORDER}
+              disabledOptions={
+                variations.length > 2
+                  ? { boolean: "needs exactly two variations" }
+                  : undefined
+              }
+              onChange={(v) => {
+                if (v !== "config") changeType(v);
+              }}
+            />
+          </Box>
         ) : null}
-        <Flex align="center" gap="3" ml="auto">
-          {editable && sparseEligible ? (
-            <SparsePatchToggle checked={sparse} onChange={toggleSparse} />
+      </>
+    ) : null;
+
+  return (
+    // As wide as the variation grid, with the same columns, and the inset
+    // on each cell rather than the box, so every field sits inside its card.
+    <Box className="appbox mb-0" py="3">
+      {editEnvironments ? (
+        <EditExperimentEnvironmentsModal
+          experiment={experiment}
+          info={info}
+          close={() => setEditEnvironments(false)}
+          mutate={mutate}
+        />
+      ) : null}
+      {managed ? (
+        controls ? (
+          <Flex align="center" justify="end" gap="3" mb="3" px="3">
+            {controls}
+          </Flex>
+        ) : null
+      ) : (
+        <Flex
+          align="center"
+          gap="3"
+          px="3"
+          pb="3"
+          mb="3"
+          wrap="wrap"
+          style={{ borderBottom: "1px solid var(--gray-a5)" }}
+        >
+          <Flex align="center" gap="2" minWidth="0">
+            <PiFlag style={{ color: "var(--color-text-low)" }} />
+            <Link href={`/features/${feature.id}`} weight="medium">
+              {feature.id}
+            </Link>
+          </Flex>
+          {status ? (
+            <Flex align="center" gap="1" style={{ color: "var(--amber-11)" }}>
+              <PiWarningFill />
+              <Text size="sm" weight="medium">
+                {status}
+              </Text>
+            </Flex>
           ) : null}
-          {editable && managed ? (
-            <Box width="160px">
-              <ValueTypeField
-                size="sm"
-                value={valueType}
-                order={VALUE_TYPE_ORDER}
-                disabledOptions={
-                  variations.length > 2
-                    ? { boolean: "needs exactly two variations" }
-                    : undefined
+          <Flex align="center" gap="3" ml="auto">
+            {controls}
+            {environmentStates.length ? (
+              <Popover
+                openOnHover
+                showArrow={false}
+                side="bottom"
+                align="end"
+                trigger={
+                  // The trigger takes the hover handlers, so it must be a plain element.
+                  <span
+                    style={{
+                      cursor: "default",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "var(--space-1)",
+                    }}
+                  >
+                    {environmentsChanged ? <UnpublishedDot /> : null}
+                    <Text size="sm" color="text-low">
+                      Environments {activeEnvironments.length}/
+                      {environmentStates.length}
+                    </Text>
+                  </span>
                 }
-                onChange={(v) => {
-                  if (v !== "config") changeType(v);
-                }}
+                content={
+                  <Grid
+                    columns="auto auto auto auto"
+                    gapX="4"
+                    gapY="2"
+                    align="center"
+                  >
+                    <Box />
+                    <Text size="sm" color="text-low">
+                      Flag
+                    </Text>
+                    <Text size="sm" color="text-low">
+                      Rule
+                    </Text>
+                    <Box />
+                    {environmentStates.map(({ env, state, isActive }) => {
+                      const input = environmentInputs?.[env];
+                      const changed = changedInputs(env);
+                      // null: the rule is not in this environment at all.
+                      const setting = (
+                        value: boolean | null,
+                        moved: boolean,
+                      ) => (
+                        <Flex align="center" gap="1">
+                          {value === null ? (
+                            <Text size="sm" color="text-low">
+                              —
+                            </Text>
+                          ) : (
+                            <Box
+                              aria-label={value ? "On" : "Off"}
+                              style={{
+                                display: "flex",
+                                color: value
+                                  ? "var(--green-11)"
+                                  : "var(--red-9)",
+                              }}
+                            >
+                              {value ? <PiCheckCircle /> : <PiXCircle />}
+                            </Box>
+                          )}
+                          {moved ? (
+                            <UnpublishedDot tooltip="Changed in the draft" />
+                          ) : null}
+                        </Flex>
+                      );
+                      return (
+                        <Fragment key={env}>
+                          <Text weight="medium">{env}</Text>
+                          {setting(
+                            input ? input.flagEnabled : null,
+                            changed.flag,
+                          )}
+                          {setting(
+                            !input || input.rule === "missing"
+                              ? null
+                              : input.rule === "on",
+                            changed.rule,
+                          )}
+                          <Flex align="center" gap="1">
+                            <Box
+                              style={{
+                                display: "flex",
+                                color: isActive
+                                  ? "var(--green-11)"
+                                  : "var(--slate-9)",
+                              }}
+                            >
+                              {isActive ? (
+                                <PiCheckCircleFill />
+                              ) : (
+                                <PiXCircleFill />
+                              )}
+                            </Box>
+                            <Text size="sm" weight="medium">
+                              {ENVIRONMENT_STATE_LABELS[state] ?? state}
+                            </Text>
+                          </Flex>
+                        </Fragment>
+                      );
+                    })}
+                    {environmentsTiming ? (
+                      <Box gridColumn="1 / -1" mt="1">
+                        <Text size="sm" color="text-low">
+                          {environmentsTiming}
+                        </Text>
+                      </Box>
+                    ) : null}
+                  </Grid>
+                }
               />
-            </Box>
-          ) : null}
+            ) : null}
+            <Box
+              style={{
+                width: 1,
+                alignSelf: "stretch",
+                background: "var(--gray-a5)",
+              }}
+            />
+            {targetControl}
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="1"
+                  highContrast
+                  aria-label={`${feature.id} actions`}
+                >
+                  <BsThreeDotsVertical size={14} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              variant="soft"
+            >
+              <DropdownMenuItem
+                onClick={() => {
+                  window.open(`/features/${feature.id}`, "_blank");
+                }}
+              >
+                Open Feature Flag
+              </DropdownMenuItem>
+              {pendingDraft ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    window.open(
+                      `/features/${feature.id}?v=${pendingDraft.version}`,
+                      "_blank",
+                    );
+                  }}
+                >
+                  Review {draftLabel}
+                </DropdownMenuItem>
+              ) : null}
+              {canEditFlag ? (
+                <DropdownMenuItem onClick={() => setEditEnvironments(true)}>
+                  Edit environments
+                </DropdownMenuItem>
+              ) : null}
+              {canEditFlag && experiment.status === "draft" ? (
+                <DropdownMenuItem color="red" onClick={removeFromExperiment}>
+                  Remove from experiment
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenu>
+          </Flex>
         </Flex>
-      </Flex>
+      )}
       <Grid columns={VARIATION_GRID_COLUMNS} gap="4">
         {variations.map((v) => {
           const value = valueFor(v.id);
+          const block = valueType === "json";
           return (
-            <Box key={v.id} className="appbox mb-0" p="3" minWidth="0">
-              <Flex align="center" gap="2" mb="2">
-                <Box minWidth="0" flexGrow="1">
-                  <VariationLabel number={v.index} name={v.name} size="sm" />
-                </Box>
-                {draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
-                  <UnpublishedDot tooltip="Unpublished draft value" />
-                ) : null}
-              </Flex>
-              {editable ? (
-                <FeatureValueField
-                  id={`flag-${feature.id}-${v.id}`}
-                  value={value ?? ""}
-                  setValue={(next) => stage({ values: { [v.id]: next } })}
-                  valueType={valueType}
-                  feature={displayFeature}
-                  renderJSONInline
-                  useCodeInput
-                  showFullscreenButton
-                  sparse={sparse}
-                  allowConfigBacking={!!configKey}
-                  configBackingOptionKeys={configBackingOptionKeys}
-                  configBackingShowPatch={!!configKey}
-                  lockConfigBacking={!!configKey}
-                />
-              ) : value === undefined ? (
-                <HelperText status="warning">No value set</HelperText>
-              ) : (
-                <ForceSummary
-                  label={null}
-                  value={value}
-                  feature={displayFeature}
-                  sparse={sparse}
-                  fontSize="0.75rem"
-                  lineHeight={1.35}
-                />
-              )}
-            </Box>
+            <Flex
+              key={v.id}
+              align={block ? "start" : "center"}
+              gap="2"
+              px="3"
+              minWidth="0"
+            >
+              <Box flexShrink="0" mt={block ? "1" : "0"}>
+                <VariationNumber number={v.index} />
+              </Box>
+              <Box flexGrow="1" minWidth="0">
+                {editable ? (
+                  <FeatureValueField
+                    id={`flag-${feature.id}-${v.id}`}
+                    value={value ?? ""}
+                    setValue={(next) => stage({ values: { [v.id]: next } })}
+                    valueType={valueType}
+                    feature={displayFeature}
+                    renderJSONInline
+                    useDropdown
+                    useCodeInput
+                    showFullscreenButton
+                    sparse={sparse}
+                    allowConfigBacking={!!configKey}
+                    configBackingOptionKeys={configBackingOptionKeys}
+                    configBackingShowPatch={!!configKey}
+                    lockConfigBacking={!!configKey}
+                  />
+                ) : value === undefined ? (
+                  <HelperText status="warning">No value set</HelperText>
+                ) : (
+                  <ForceSummary
+                    label={null}
+                    value={value}
+                    feature={displayFeature}
+                    sparse={sparse}
+                    fontSize="0.75rem"
+                    lineHeight={1.35}
+                  />
+                )}
+              </Box>
+              {draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
+                <UnpublishedDot tooltip="Unpublished draft value" />
+              ) : null}
+            </Flex>
           );
         })}
       </Grid>
