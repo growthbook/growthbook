@@ -12,8 +12,8 @@ import {
   useState,
 } from "react";
 import { PiArrowLeft, PiCaretRight } from "react-icons/pi";
-import StepperNav from "@/components/Stepper/Stepper";
 import Button from "@/ui/Button";
+import StepperNav from "@/ui/Stepper";
 import Tooltip from "@/ui/Tooltip";
 import Modal, {
   Size,
@@ -472,7 +472,6 @@ function Done({ children }: { children: ReactNode }) {
 
 function Stepper() {
   const { steps, step, isDone, goToStep } = useMultiStepModalContext();
-  const { setError } = useModalContext();
   return (
     <Box pr="7" mt="4">
       <StepperNav
@@ -484,7 +483,6 @@ function Stepper() {
           label,
           enabled: enabled && !isDone,
         }))}
-        setError={setError}
       />
     </Box>
   );
