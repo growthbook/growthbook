@@ -1,5 +1,12 @@
+import { pick } from "lodash";
 import { getScopedSettings } from "shared/settings";
-import { getSettingsValidator } from "shared/validators";
+import {
+  API_READ_ONLY_SETTING_KEYS,
+  API_WRITABLE_SETTING_KEYS,
+  getSettingsValidator,
+} from "shared/validators";
+import { getRequireRegisteredAttributesSettings } from "shared/util";
+import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   toApiRequireReviews,
@@ -9,8 +16,14 @@ import {
 export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
   req,
 ) => {
+  return {
+    settings: toApiSettings(req.context.org),
+  };
+});
+
+export function toApiSettings(org: OrganizationInterface) {
   const { settings: scopedSettings } = getScopedSettings({
-    organization: req.context.org,
+    organization: org,
   });
 
   const settingsValues = extractSettingValues(scopedSettings);
@@ -22,26 +35,33 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
     ...filteredSettings
   } = settingsValues;
 
-  const settings = {
+  // Settings with no scoped resolver are read straight off the org.
+  const stored = org.settings ?? {};
+
+  return {
+    ...pick(stored, [
+      ...API_WRITABLE_SETTING_KEYS,
+      ...API_READ_ONLY_SETTING_KEYS,
+    ]),
+    requireRegisteredAttributes:
+      stored.requireRegisteredAttributes !== undefined
+        ? getRequireRegisteredAttributesSettings(
+            stored.requireRegisteredAttributes,
+          )
+        : undefined,
     ...filteredSettings,
     requireReviews: Array.isArray(filteredSettings.requireReviews)
       ? toApiRequireReviews(filteredSettings.requireReviews)
       : [],
-    // Not a scoped setting, so read it straight off the org.
     approvalFlows: {
       savedGroups: toApiSavedGroupApprovals(
-        req.context.org.settings?.approvalFlows?.savedGroups ?? [],
+        stored.approvalFlows?.savedGroups ?? [],
       ),
     },
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
-    preferredEnvironment:
-      req.context.org.settings?.preferredEnvironment ?? null,
+    preferredEnvironment: stored.preferredEnvironment ?? null,
   };
-
-  return {
-    settings,
-  };
-});
+}
 
 /**
  * Extracts the 'value' property from each Setting<T> in the provided object
