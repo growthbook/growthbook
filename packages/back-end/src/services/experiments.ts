@@ -164,7 +164,12 @@ import {
 } from "shared/enterprise";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  deleteExperimentByIdForOrganization,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
+import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
+import { auditDetailsDelete } from "back-end/src/services/audit";
 import {
   findVisualChangesetsByExperiment,
   syncVisualChangesWithVariations,
@@ -2527,6 +2532,40 @@ export async function assertCanRunExperimentInAffectedEnvironments(
       }
     }
   }
+}
+
+// Deletes an experiment and removes it from presentations and its holdout.
+export async function deleteExperimentWithLinks(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  if (!context.permissions.canDeleteExperiment(experiment)) {
+    context.permissions.throwPermissionError();
+  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
+
+  await Promise.all([
+    deleteExperimentByIdForOrganization(context, experiment),
+    removeExperimentFromPresentations(experiment.id),
+  ]);
+
+  if (experiment.holdoutId) {
+    try {
+      await context.models.holdout.removeExperimentFromHoldout(
+        experiment.holdoutId,
+        experiment.id,
+      );
+    } catch (e) {
+      // Not fatal: the experiment is already gone
+      logger.warn(e, "Error removing experiment from holdout");
+    }
+  }
+
+  await context.auditLog({
+    event: "experiment.delete",
+    entity: { object: "experiment", id: experiment.id },
+    details: auditDetailsDelete(experiment),
+  });
 }
 
 type ReleasedVariationFields = Pick<
