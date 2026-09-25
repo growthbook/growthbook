@@ -167,6 +167,13 @@ describe("computeContextualBanditWeights", () => {
     expect(w[1]).toBeGreaterThan(w[0]);
     expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
     expect(r.updateMessage).toContain("1 of 3 variations");
+
+    // The deficient arm's P(best) is unavailable (null), not a computed 0, while
+    // the healthy arms report real probabilities.
+    const probs = r.bestArmProbabilities as (number | null)[];
+    expect(probs[0]).toBeGreaterThan(0);
+    expect(probs[1]).toBeGreaterThan(0);
+    expect(probs[2]).toBeNull();
   });
 
   it("excludes under-powered variations from tree building", () => {

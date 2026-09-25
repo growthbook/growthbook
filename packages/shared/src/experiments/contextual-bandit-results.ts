@@ -70,7 +70,11 @@ export type ContextualBanditResultsLeaf = {
   contexts: ContextualBanditResultsContext[];
 };
 
-/** Total within-tree SSE at one stage of greedy tree growth. */
+/**
+ * Within-tree SSE at one stage of greedy tree growth, summed over eligible
+ * variations only (those with enough units to enter tree construction). This is
+ * an "eligible-only" error rather than a total across all observed variations.
+ */
 export type ContextualBanditSseStep = {
   numSplits: number;
   totalSse: number;

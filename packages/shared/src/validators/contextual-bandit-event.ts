@@ -69,7 +69,7 @@ export const contextualBanditResponseValidator = z.object({
   sampleMeans: z.array(z.number()).nullable().optional(),
   sampleVariances: z.array(z.number()).nullable().optional(),
   updatedWeights: z.array(z.number()).nullable().optional(),
-  bestArmProbabilities: z.array(z.number()).nullable().optional(),
+  bestArmProbabilities: z.array(z.number().nullable()).nullable().optional(),
   updateMessage: z.string().nullable().optional(),
   error: z.string().nullable().optional(),
 });

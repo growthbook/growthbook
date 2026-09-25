@@ -1,13 +1,14 @@
+import {
+  MIN_UNITS_PER_VARIATION,
+  MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY,
+} from "shared/constants";
 import { normCdf, randomNormal } from "./utils";
 
 const BANDIT_PRIOR_MEAN = 0;
 const BANDIT_PRIOR_VARIANCE = 1e4;
 const BANDIT_PRIOR_PRECISION = 1 / BANDIT_PRIOR_VARIANCE;
 const MIN_VARIATION_WEIGHT = 0.01;
-// Minimum units for a variation to be used for building contextual tree.
-export const MIN_UNITS_PER_VARIATION = 100;
-// Per-variation minimum applied within a single leaf.
-export const MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY = 50;
+export { MIN_UNITS_PER_VARIATION, MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY };
 // Minimum variance for a bandit variation.
 const BANDIT_MIN_VARIANCE = 1e-9;
 
@@ -19,7 +20,7 @@ export type BanditArmStatistic = {
 
 export type VariationWeightResult = {
   updatedWeights: number[];
-  bestArmProbabilities: number[] | null;
+  bestArmProbabilities: (number | null)[] | null;
   updateMessage: string;
   error: string;
 };
@@ -270,7 +271,7 @@ export function updateVariationWeights(
   const remainingMass = (numStats - numWithoutEnoughUsers) / numStats;
 
   const updatedWeights = new Array<number>(numStats).fill(1 / numStats);
-  const bestArmProbabilities = new Array<number>(numStats).fill(0);
+  const bestArmProbabilities = new Array<number | null>(numStats).fill(null);
   statsWithEnoughUsers.forEach((idx, j) => {
     updatedWeights[idx] = subsetWeights[j] * remainingMass;
     bestArmProbabilities[idx] = subsetProbs[j];

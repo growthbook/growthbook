@@ -37,8 +37,8 @@ export type AttributeSseReduction = {
 };
 
 /**
- * Aggregates the total SSE (within-context error) reduction each attribute
- * contributed.
+ * Aggregates the SSE (within-context error) reduction each
+ * attribute contributed, using data from variations with enough units to enter tree building.
  */
 export function attributeSseReductions(
   steps: ContextualBanditSseStep[],
@@ -90,8 +90,8 @@ export function attributeSseReductions(
 /**
  * Renders a single split's details, reused by the attribute detail modal.
  *
- * - `variant="tooltip"` (default): leads with the leaf count and total error at
- *   that growth stage, then the split.
+ * - `variant="tooltip"` (default): leads with the leaf count and
+ *   error at that growth stage, then the split.
  * - `variant="detail"`: leads with the split, then a footer showing the percent
  *   of error the split removed (`percentReducedLabel`) and the resulting leaf
  *   count.
@@ -171,7 +171,7 @@ export function SseSplitDetails({
         {leafCount(step)} {leafCount(step) === 1 ? "leaf" : "leaves"}
       </Text>
       <Text size="sm" color="text-low" as="div" mb="2">
-        Total error {numberFormatter.format(step.totalSse)}
+        Eligible-only error {numberFormatter.format(step.totalSse)}
       </Text>
       {splitBody}
     </Box>

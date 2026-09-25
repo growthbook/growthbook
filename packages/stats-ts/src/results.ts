@@ -71,7 +71,7 @@ export interface ContextualBanditResponse {
   variationMeans: number[] | null;
   variationVariances: number[] | null;
   updatedWeights: number[] | null;
-  bestArmProbabilities: number[] | null;
+  bestArmProbabilities: (number | null)[] | null;
   updateMessage: string | null;
   error: string | null;
 }
@@ -83,7 +83,7 @@ export interface ContextualBanditContextSummary {
   sampleMeans: number[] | null;
   sampleVariances: number[] | null;
   updatedWeights: number[] | null;
-  bestArmProbabilities: number[] | null;
+  bestArmProbabilities: (number | null)[] | null;
   updateMessage: string | null;
   error: string | null;
 }

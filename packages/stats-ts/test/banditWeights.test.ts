@@ -140,9 +140,12 @@ describe("updateVariationWeights", () => {
     expect(w[1]).toBeGreaterThan(w[0]);
     expect(sum(w)).toBeCloseTo(1, 6);
 
-    // Best-arm probabilities are reported for healthy arms and 0 for deficient.
+    // Best-arm probabilities are reported for healthy arms and null (unavailable)
+    // for the deficient arm, so it is not misread as a computed 0% chance.
     expect(result.bestArmProbabilities).not.toBeNull();
-    expect(result.bestArmProbabilities![2]).toBe(0);
+    expect(result.bestArmProbabilities![0]).toBeGreaterThan(0);
+    expect(result.bestArmProbabilities![1]).toBeGreaterThan(0);
+    expect(result.bestArmProbabilities![2]).toBeNull();
     expect(result.updateMessage).toContain("1 of 3 variations");
   });
 

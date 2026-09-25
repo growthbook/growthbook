@@ -678,7 +678,9 @@ type BuildTreeResult = {
   /** One entry per tree leaf, keyed by leaf id. */
   leafInfo: Map<number, LeafInfo>;
   /**
-   * SSE by (stage, variation).  stage = 0 is the root (before the first split)
+   * SSE by (stage, variation).  stage = 0 is the root (before the first split).
+   * Only eligible variations (>= MIN_UNITS_PER_VARIATION total units) are
+   * included.
    */
   sseTrajectory: number[][];
   /**
