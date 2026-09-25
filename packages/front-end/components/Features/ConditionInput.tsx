@@ -1,7 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import React, { useState, useEffect, useMemo } from "react";
-import { extractConditionAttributeKeys } from "shared/util";
+import {
+  isSavedGroupAvailableForProjects,
+  extractConditionAttributeKeys,
+} from "shared/util";
 import { some } from "lodash";
 import {
   PiBracketsCurly,
@@ -174,6 +177,7 @@ interface Props {
   onChange: (value: string) => void;
   project: string;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   labelClassName?: string;
   emptyText?: string;
@@ -197,6 +201,7 @@ export default function ConditionInput({
   onChange,
   project,
   attributeProjects,
+  savedGroupProjects,
   attributeSelectIndicator,
   labelClassName,
   emptyText = "Applied to everyone by default.",
@@ -677,6 +682,7 @@ export default function ConditionInput({
                 orGroupsCount={conds.length}
                 project={project}
                 attributeProjects={attributeProjects}
+                savedGroupProjects={savedGroupProjects}
                 attributeSelectIndicator={attributeSelectIndicator}
                 labelClassName={labelClassName}
                 emptyText={emptyText}
@@ -739,6 +745,7 @@ function ConditionAndGroupInput({
   orGroupsCount: number;
   project: string;
   attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
   attributeSelectIndicator?: React.ReactNode;
   labelClassName?: string;
   emptyText?: string;
@@ -897,6 +904,15 @@ function ConditionAndGroupInput({
         if (field === "$savedGroups" || field === "$notSavedGroups") {
           const groupOptions = savedGroups
             .filter((g) => g.id !== props.excludeSavedGroupId)
+            .filter(
+              (g) =>
+                props.savedGroupProjects === undefined ||
+                isSavedGroupAvailableForProjects(g, props.savedGroupProjects) ||
+                value
+                  .split(",")
+                  .map((id) => id.trim())
+                  .includes(g.id),
+            )
             .map((g) => ({
               label: g.groupName,
               value: g.id,
@@ -987,11 +1003,20 @@ function ConditionAndGroupInput({
         const savedGroupOptions = savedGroups
           .filter((g) => g.type === "list" && g.attributeKey === field)
           .filter((group) => {
-            return (
-              !props.project ||
-              !group.projects?.length ||
-              group.projects.includes(props.project)
-            );
+            // Preserve the selected group on existing out-of-scope conditions.
+            if (
+              (operator === "$inGroup" || operator === "$notInGroup") &&
+              group.id === value
+            )
+              return true;
+            return props.savedGroupProjects === undefined
+              ? !props.project ||
+                  !group.projects?.length ||
+                  group.projects.includes(props.project)
+              : isSavedGroupAvailableForProjects(
+                  group,
+                  props.savedGroupProjects,
+                );
           })
           .map((g) => ({ label: g.groupName, value: g.id }));
 

@@ -1,3 +1,4 @@
+import { isSavedGroupAvailableForProjects } from "shared/util";
 import { SavedGroupTargeting } from "shared/types/feature";
 import { PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React, { useEffect } from "react";
@@ -26,6 +27,8 @@ export interface Props {
   value: SavedGroupTargeting[];
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
   project: string;
+  // undefined preserves the default picker convenience; null targets all Projects.
+  savedGroupProjects?: string[] | null;
   slimMode?: boolean;
   emptyText?: string;
   label?: string;
@@ -43,6 +46,7 @@ export default function SavedGroupTargetingField({
   value,
   setValue,
   project,
+  savedGroupProjects,
   slimMode,
   emptyText,
   label = "Target by Saved Groups",
@@ -57,8 +61,14 @@ export default function SavedGroupTargetingField({
 }: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
-  const { unsupportedConnections, hasLargeSavedGroupFeature, connections } =
-    useLargeSavedGroupSupport(project);
+  const largeSavedGroupSupport = useLargeSavedGroupSupport(project);
+
+  // The picker below lists both kinds of Saved Group, so warn about whichever
+  // this rule actually targets. A Condition Group needs a newer SDK than an
+  // ID List does.
+  const targetsConditionGroup = value.some((v) =>
+    v.ids.some((id) => getSavedGroupById(id)?.type === "condition"),
+  );
 
   const savedGroupsLabel =
     label &&
@@ -106,9 +116,12 @@ export default function SavedGroupTargetingField({
     );
 
   const filteredSavedGroups = savedGroups.filter((group) => {
-    return (
-      !project || !group.projects?.length || group.projects.includes(project)
-    );
+    // Keep already selected references visible for grandfathered rules.
+    if (value.some((targeting) => targeting.ids.includes(group.id)))
+      return true;
+    return savedGroupProjects === undefined
+      ? !project || !group.projects?.length || group.projects.includes(project)
+      : isSavedGroupAvailableForProjects(group, savedGroupProjects);
   });
 
   const options = filteredSavedGroups.map((s) => ({
@@ -194,17 +207,15 @@ export default function SavedGroupTargetingField({
           {labelActions}
         </Flex>
       ) : (
-        savedGroupsLabel && (
-          <Box mb="1">
-            {savedGroupsLabel}
-            <LargeSavedGroupPerformanceWarning
-              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-              unsupportedConnections={unsupportedConnections}
-              connections={connections}
-            />
-          </Box>
-        )
+        savedGroupsLabel && <Box mb="1">{savedGroupsLabel}</Box>
       )}
+      {/* Outside the branch above: `label` has a default, so every call site
+          takes the first one. The warning renders itself away when there is
+          nothing to say. */}
+      <LargeSavedGroupPerformanceWarning
+        {...largeSavedGroupSupport}
+        type={targetsConditionGroup ? "condition" : "list"}
+      />
       {addRemoveSelector}
       <Box>
         {conflicts.length > 0 && (

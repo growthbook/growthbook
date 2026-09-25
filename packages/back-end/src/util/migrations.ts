@@ -7,6 +7,7 @@ import {
   DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
+import { stringifyFeatureValue } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -355,6 +356,20 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // feature. Pass nullish through; downstream callers filter via
   // `isPlausibleFeatureRule` before relying on the rule shape.
   if (rule == null || typeof rule !== "object") return rule;
+  // Ramp steps once wrote a rule's value as the raw JSON type their plan
+  // carried; rule values are strings, and the payload builder parses them.
+  const { value } = rule as { value?: unknown };
+  if (value !== undefined && typeof value !== "string") {
+    rule = { ...rule, value: stringifyFeatureValue(value) } as FeatureRule;
+  }
+  // A stored `environments: null` (an undefined key written through Mongo) is
+  // read as no environments, not as every environment; a rule whose list is
+  // wildcarded drops the key so the two spellings compare equal.
+  if (rule.environments === null) {
+    const scoped = { ...rule };
+    delete scoped.environments;
+    rule = rule.allEnvironments ? scoped : { ...scoped, environments: [] };
+  }
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
     const weights = rule.values

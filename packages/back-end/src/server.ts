@@ -5,6 +5,7 @@ import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
 import { uploadsInit } from "./init/uploads";
+import { KEEP_ALIVE_TIMEOUT_MS } from "./util/secrets";
 import {
   initializeGrowthBookClient,
   destroyGrowthBookClient,
@@ -25,6 +26,8 @@ const server = app.listen(app.get("port"), () => {
   // import app directly). Self-contained and warn-only.
   void uploadsInit();
 });
+
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
 
 export default server;
 
@@ -61,4 +64,8 @@ function onClose() {
     logger.info("Agenda closed");
     process.exit(0);
   });
+
+  // close() only reaps sockets that are already idle; one that goes idle after
+  // its in-flight request finishes would hold the server open for keepAliveTimeout
+  setInterval(() => server.closeIdleConnections(), 250).unref();
 }

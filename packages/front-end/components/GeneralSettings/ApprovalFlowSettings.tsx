@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus, PiTrash } from "react-icons/pi";
@@ -61,6 +62,22 @@ export default function ApprovalFlowSettings() {
   const nextTabId = useRef(0);
   const newTabId = () => `override-${nextTabId.current++}`;
   const [activeTab, setActiveTab] = useState(ALL_PROJECTS_TAB);
+
+  // Deep links (e.g. from a team's Required Approver list) name a Project;
+  // open the rule that governs it once its tab exists.
+  const router = useRouter();
+  const requestedProject = router.query.approvalProject;
+  const requestApplied = useRef(false);
+  useEffect(() => {
+    if (requestApplied.current || typeof requestedProject !== "string") return;
+    const tab = tabs.find((t) =>
+      scopeProjects(t.scope).includes(requestedProject),
+    );
+    if (tab) {
+      setActiveTab(tab.id);
+      requestApplied.current = true;
+    }
+  }, [tabs, requestedProject]);
 
   // Settings load after mount, so stored overrides get a tab when they arrive.
   const storedScopeKey = overrideScopes([flagRules, savedGroupRules]).join("|");

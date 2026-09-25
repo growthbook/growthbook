@@ -586,6 +586,7 @@ describe("computeRevisionPublishChanges", () => {
     const revision = makeRevision();
 
     const changes = computeRevisionPublishChanges(
+      FEATURE,
       revision,
       user,
       "publish comment",
@@ -600,7 +601,12 @@ describe("computeRevisionPublishChanges", () => {
   it("keeps the revision's own comment when present", () => {
     const revision = makeRevision({ comment: "original" });
 
-    const changes = computeRevisionPublishChanges(revision, user, "ignored");
+    const changes = computeRevisionPublishChanges(
+      FEATURE,
+      revision,
+      user,
+      "ignored",
+    );
 
     expect(changes.comment).toBe("original");
   });

@@ -26,6 +26,7 @@ const plan = (
   },
 ): HoldoutExperimentLinkagePlan => ({
   holdoutId,
+  featureId: "feat_1",
   toLink,
   toUnlink,
   prevExperimentHoldoutIds: prev,

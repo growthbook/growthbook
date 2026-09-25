@@ -126,6 +126,8 @@ Suppose your website integrates GrowthBook on the front end only. You would like
 
 In our JavaScript and React SDKs, we provide 2 different Sticky Bucket Services that make sense in this scenario: `LocalStorageStickyBucketService` and `BrowserCookieStickyBucketService`. You can instantiate either of these services and plug them into the GrowthBook SDK.
 
+If you use `BrowserCookieStickyBucketService` behind a Web Application Firewall, see [Sticky Bucket Cookies and WAF False Positives](/kb/sdks/sticky-bucket-cookie-encoding) — the cookie's default encoding can trigger generic SQL injection rules.
+
 ### Front-end and Back-end (Node.js)
 
 Let's expand the "front-end only" example above so that our back-end controllers also integrate with GrowthBook and can reference the same experiments. In this scenario, we would like both the front-end and back-end to perform bucketing and persist a sticky bucket that reliably crosses the front-end / back-end divide.
