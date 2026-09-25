@@ -6,6 +6,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
+import { BadRequestError } from "back-end/src/util/errors";
 import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
@@ -17,6 +18,17 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
     const attribute = attributes.find((attr) => attr.property === property);
     if (!attribute) {
       throw Error(`An attribute with property ${property} does not exists!`);
+    }
+
+    const newName = req.body.property;
+    if (
+      newName &&
+      newName !== property &&
+      attributes.some((attr) => attr.property === newName)
+    ) {
+      throw new BadRequestError(
+        `An attribute with property ${newName} already exists`,
+      );
     }
 
     const rawUpdatedAttribute = { ...attribute, ...req.body };

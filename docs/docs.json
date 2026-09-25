@@ -486,7 +486,9 @@
                   "api/features-v2/operation/toggleFeatureV2",
                   "api/features-v2/operation/revertFeatureV2",
                   "api/features-v2/operation/getFeatureKeysV2",
-                  "api/features-v2/operation/getFeatureStaleV2"
+                  "api/features-v2/operation/getFeatureStaleV2",
+                  "api/features-v2/operation/postFeatureEvaluate",
+                  "api/features-v2/operation/getFeatureDependents"
                 ]
               },
               {
@@ -952,7 +954,8 @@
                   "api/attributes/operation/listAttributes",
                   "api/attributes/operation/postAttribute",
                   "api/attributes/operation/putAttribute",
-                  "api/attributes/operation/deleteAttribute"
+                  "api/attributes/operation/deleteAttribute",
+                  "api/attributes/operation/getAttributeReferences"
                 ]
               },
               {
@@ -1168,6 +1171,7 @@
               "api/FeatureDefinition_model",
               "api/FeatureEnvironmentV1_model",
               "api/FeatureEnvironmentV2_model",
+              "api/FeatureEvaluation_model",
               "api/FeatureExperimentRefRule_model",
               "api/FeatureExperimentRule_model",
               "api/FeatureForceRule_model",

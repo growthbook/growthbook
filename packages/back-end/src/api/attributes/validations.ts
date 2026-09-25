@@ -8,11 +8,15 @@ export const validatePayload = async (
     datatype,
     enum: enumValue,
     projects = [],
+    format,
+    disableEqualityConditions,
   }: {
     property: string;
     datatype?: SDKAttributeType;
     enum?: string;
     projects?: string[];
+    format?: string;
+    disableEqualityConditions?: boolean;
   },
 ) => {
   if (property === "") throw Error("Attribute property cannot empty!");
@@ -35,9 +39,15 @@ export const validatePayload = async (
   const enumApplies =
     datatype === "enum" || (!!datatype && datatype.endsWith("[]"));
 
+  // Like the editor, equality can only be disabled on plain (unformatted) strings.
+  const equalityToggleApplies = datatype === "string" && !format;
+
   return {
     property,
     projects,
     ...(enumValue && !enumApplies ? { enum: "" } : {}),
+    ...(disableEqualityConditions && !equalityToggleApplies
+      ? { disableEqualityConditions: false }
+      : {}),
   };
 };

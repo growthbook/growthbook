@@ -25,6 +25,7 @@ import {
   getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
+  getDependentExperiments,
   getDependentFeatures,
   getSavedGroupsValuesFromGroupMap,
   getTargetingProjectIds,
@@ -70,7 +71,10 @@ import {
 } from "shared/types/saved-group";
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ArchetypeAttributeValues } from "shared/types/archetype";
+import {
+  ArchetypeAttributeValues,
+  ArchetypeInterface,
+} from "shared/types/archetype";
 import {
   AutoExperimentWithMetadata,
   ContextualBanditDefinitions,
@@ -171,7 +175,9 @@ import {
   featuresWithPrerequisiteClosure,
   getPrerequisiteIdsInFeatures,
   getReferenceIdsInFeatures,
+  buildFeatureLookups,
 } from "back-end/src/util/features";
+import { yieldEventLoop } from "back-end/src/util/yield";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
@@ -2082,6 +2088,87 @@ export function evaluateFeature({
     };
   }
   return results;
+}
+
+// Everything evaluateFeature reads from the org, loaded once per request.
+export async function getFeatureEvalDependencies(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+) {
+  const { org } = context;
+  const [groupMap, experimentMap, safeRolloutMap, constants] =
+    await Promise.all([
+      getSavedGroupMap(context),
+      getAllPayloadExperiments(context),
+      context.models.safeRollout.getAllPayloadSafeRollouts(),
+      getResolvableValues(context),
+    ]);
+  return {
+    groupMap,
+    experimentMap,
+    safeRolloutMap,
+    constants,
+    environments: filterEnvironmentsByFeature(getEnvironments(org), feature),
+    namespaces: namespacesToMap(org.settings?.namespaces),
+    organization: org,
+  };
+}
+
+// An archetype pinned to environments is only evaluated in those.
+export function filterArchetypeEnvironments(
+  environments: Environment[],
+  archetype: Pick<ArchetypeInterface, "environments">,
+) {
+  return archetype.environments?.length
+    ? environments.filter((e) => archetype.environments?.includes(e.id))
+    : environments;
+}
+
+// Flags and experiments that depend on each feature, keyed by feature id.
+export async function getFeatureDependents(
+  context: ReqContext | ApiReqContext,
+  featureIds: string[],
+) {
+  const dependents: Record<
+    string,
+    { features: string[]; experiments: { id: string; name: string }[] }
+  > = {};
+  if (!featureIds.length) return dependents;
+
+  const allEnvIds = getEnvironments(context.org).map((e) => e.id);
+  const [allFeatures, allExperiments] = await Promise.all([
+    getAllFeaturesWithoutEditorFields(context, { includeArchived: true }),
+    getAllExperimentsForStaleGraph(context, { includeArchived: true }),
+  ]);
+  const {
+    featuresMap,
+    reverseDependencyIndex,
+    experiments,
+    experimentDependencyIndex,
+  } = buildFeatureLookups(allFeatures, allExperiments);
+
+  for (let i = 0; i < featureIds.length; i++) {
+    await yieldEventLoop(i);
+    const featureId = featureIds[i];
+    const feature = featuresMap.get(featureId);
+    dependents[featureId] = feature
+      ? {
+          features: getDependentFeatures(
+            feature,
+            allFeatures,
+            allEnvIds,
+            reverseDependencyIndex,
+            featuresMap,
+          ),
+          experiments: getDependentExperiments(
+            feature,
+            experiments,
+            experimentDependencyIndex,
+          ).map((e) => ({ id: e.id, name: e.name })),
+        }
+      : { features: [], experiments: [] };
+  }
+  return dependents;
 }
 
 export async function evaluateAllFeatures({
