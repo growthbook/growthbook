@@ -151,17 +151,24 @@ export async function putTableData(
   >,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { tableId } = req.params;
 
   const table = await getInformationSchemaTableById(org.id, tableId);
+  const datasource =
+    table && (await getDataSourceById(context, table.datasourceId));
 
-  if (!table) {
+  if (!table || !datasource) {
     res.status(404).json({
       status: 404,
       message: "Unable to find table to update.",
     });
     return;
+  }
+
+  if (!context.permissions.canRunSchemaQueries(datasource)) {
+    context.permissions.throwPermissionError();
   }
 
   await queueUpdateStaleInformationSchemaTable(org.id, table.id);
