@@ -22,7 +22,7 @@ import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGrou
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator,
 )(async (req) => {
-  const { name, values, condition, owner, projects } = req.body;
+  const { name, values, condition, owner, projects, description } = req.body;
   const bypassApproval = req.body.bypassApproval === true;
 
   const { id } = req.params;
@@ -64,6 +64,12 @@ export const updateSavedGroup = createApiRequestHandler(
   }
   if (typeof owner !== "undefined") {
     fieldsToUpdate.owner = owner;
+  }
+  if (
+    typeof description !== "undefined" &&
+    description !== savedGroup.description
+  ) {
+    fieldsToUpdate.description = description;
   }
   if (
     savedGroup.type === "list" &&
