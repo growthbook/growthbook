@@ -1,17 +1,18 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Dialog, Flex, VisuallyHidden } from "@radix-ui/themes";
 import {
   Children,
+  cloneElement,
   createContext,
-  FC,
+  Fragment,
   isValidElement,
+  ReactElement,
   ReactNode,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import { PiArrowLeft, PiCaretRight } from "react-icons/pi";
-import Stepper from "@/components/Stepper/Stepper";
+import StepperNav from "@/components/Stepper/Stepper";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import Modal, {
@@ -22,160 +23,304 @@ import Modal, {
 import ModalForm, { useModalForm } from "./ModalForm";
 
 // ---------------------------------------------------------------------------
-// MultiStepModal — a multi-page ("wizard") modal built on the composable
-// Modal primitives.
+// MultiStepModal — composable primitives for multi-page ("wizard") modals,
+// built on the Modal primitives.
 //
-// Composability lives at the STEP level: a <MultiStepModal.Root> wraps an
-// ordered list of <MultiStepModal.Step> children, one per page. Everything
-// else — the frame, the Stepper, the Back / Cancel / Next|CTA footer, dismiss
-// behavior — is owned by Root and locked to one consistent behavior, so every
-// wizard in the app looks and behaves the same. Per-page variance (label,
-// validation, whether Next is enabled) is declared on each Step.
+// Like Modal, this is a set of parts the consumer arranges:
 //
-// The footer buttons are deliberately NOT composable: the primary button
-// carries the flow's behavior (validate, advance or submit, spinner,
-// auto-close), so handing it to consumers would break those invariants and let
-// footers drift. Reuses Modal.Root's sizes (md | lg | xl | fill) unchanged.
+//   <MultiStepModal.Root open onOpenChange onSubmit trackingEventModalType>
+//     <Modal.Header><Modal.Title>…</Modal.Title></Modal.Header>
+//     <MultiStepModal.Stepper />
+//     <MultiStepModal.Step label="…"><Modal.Body>…</Modal.Body></MultiStepModal.Step>
+//     <MultiStepModal.Step label="…"><Modal.Body>…</Modal.Body></MultiStepModal.Step>
+//     <MultiStepModal.Done><Modal.Body>…</Modal.Body></MultiStepModal.Done>
+//     <MultiStepModal.Footer submitLabel="Create" />
+//   </MultiStepModal.Root>
 //
-// For a single-page modal reach for <Modal.Root> primitives or the
-// ModalStandard pattern instead.
+// Layout is the consumer's; behavior lives in the parts. Next validates and
+// advances, Back skips disabled steps, and the Stepper and
+// useMultiStepModal() navigate through the same code path, so no arrangement
+// can skip validation. A step that needs a custom layout (e.g. a full-bleed
+// SQL editor) simply omits Modal.Body.
+//
+// Most wizards should use the pre-composed ui/Modal/Patterns/
+// MultiStepModalStandard instead, and drop to these parts only when the
+// layout is non-standard.
+//
+// Steps and Done must be direct children of Root (fragments, arrays, and
+// conditionals are fine): Root reads their props to build the step list.
 // ---------------------------------------------------------------------------
 
 export type StepProps = {
-  // The label shown in the Stepper for this step.
-  display: string;
-  // A disabled step is skipped when walking Next/Back and is not clickable in
-  // the Stepper. Defaults to true.
-  enabled?: boolean;
-  // Runs before leaving this step going forward — on Next, on a Stepper click
-  // that jumps past it, and as part of the sweep on final submit. Throw to
-  // block navigation: the modal snaps to the first step whose validator throws
-  // (derived from the validator's position, not the error) and shows the
-  // message. Keep validators cheap and idempotent — anything expensive/async
-  // re-runs on each forward move, so make re-running harmless or reserve it for
-  // the last step, where it only runs on submit.
-  validate?: () => Promise<void>;
-  // Gates the primary (Next / final CTA) button while this step is active.
+  // Label shown in the Stepper and used for page-change tracking.
+  label: string;
+  // A disabled step is skipped by Next/Back and ignored by the Stepper.
   // Defaults to true.
+  enabled?: boolean;
+  // Checks the step's own fields. Throw to block moving forward; the modal
+  // snaps to the first step whose validator throws and shows the message.
+  // Re-runs on every forward move past this step and on final submit, so it
+  // must be side-effect free. Put saves and fetches in onNext instead.
+  validate?: () => Promise<void>;
+  // Side effect that runs when the user moves forward past this step (Next,
+  // or a Stepper/goToStep jump past it), after validation passes. Use it for
+  // mid-flow commits and fetches. Throw to stay on this step and show the
+  // message. Not re-run by later steps' validation.
+  onNext?: () => void | Promise<void>;
+  // Gates the Next button while this step is active. Defaults to true.
   nextEnabled?: boolean;
-  // Tooltip shown on the disabled primary button when nextEnabled is false.
+  // Tooltip on the disabled Next button when nextEnabled is false.
   disabledMessage?: string;
+  // Overrides Root's size while this step is active, for pages that need
+  // more room (e.g. an editor).
+  size?: Size;
   children: ReactNode;
 };
 
-// Step is a declarative marker. Root reads its props and renders the active
-// step's children itself, so Step never renders on its own.
-const Step: FC<StepProps> = () => null;
-
-type StepMeta = {
-  display: string;
+type StepRecord = Omit<StepProps, "children" | "enabled" | "nextEnabled"> & {
   enabled: boolean;
-  validate?: () => Promise<void>;
   nextEnabled: boolean;
-  disabledMessage?: string;
 };
 
-// ---------------------------------------------------------------------------
-// Navigation context.
-//
-// Opt-in escape hatch for step content that needs to move the flow
-// programmatically — e.g. a "go back and edit" link in a later page, or a
-// field change in an early page that should restart the flow. Most wizards
-// never touch it; they rely on the footer + validate. Exposing navigation
-// this way (rather than controlled step/setStep props on Root) keeps Root's
-// surface small and keeps the validate-on-forward invariant enforced in one
-// place.
-// ---------------------------------------------------------------------------
+// Root wraps each Step / Done it finds in one of these, so the part knows
+// its position without registering itself.
+const StepIndexContext = createContext<number | null>(null);
+const DoneSlotContext = createContext(false);
 
-type MultiStepModalNav = {
+type MultiStepModalContextValue = {
+  steps: StepRecord[];
   step: number;
-  stepCount: number;
-  goToStep: (step: number) => void;
-  next: () => void;
+  prevStep: number | null;
+  isLastStep: boolean;
+  isDone: boolean;
+  goToStep: (target: number) => Promise<void>;
   back: () => void;
+  close: () => void;
 };
 
-const NavContext = createContext<MultiStepModalNav | null>(null);
+const MultiStepModalContext = createContext<MultiStepModalContextValue | null>(
+  null,
+);
 
-export function useMultiStepModal(): MultiStepModalNav {
-  const ctx = useContext(NavContext);
+function useMultiStepModalContext(): MultiStepModalContextValue {
+  const ctx = useContext(MultiStepModalContext);
   if (!ctx) {
     throw new Error(
-      "useMultiStepModal must be called inside a <MultiStepModal.Root>.",
+      "MultiStepModal parts must be rendered inside <MultiStepModal.Root>.",
     );
   }
   return ctx;
 }
 
+// Navigation for step content that needs to move the flow itself, such as a
+// "go back and edit" link or a restart when an early field changes. Forward
+// jumps run the same validate + onNext path as the Next button.
+export function useMultiStepModal() {
+  const { steps, step, isLastStep, isDone, goToStep, back, close } =
+    useMultiStepModalContext();
+  return {
+    step,
+    stepCount: steps.length,
+    isLastStep,
+    isDone,
+    goToStep,
+    back,
+    close,
+  };
+}
+
+// Expands fragments (Children.toArray already flattens arrays) so steps can be
+// grouped in conditional fragments. Keys are prefixed to stay unique.
+export function flattenChildren(
+  children: ReactNode,
+  keyPrefix = "",
+): ReactNode[] {
+  const out: ReactNode[] = [];
+  Children.toArray(children).forEach((child) => {
+    if (
+      isValidElement<{ children?: ReactNode }>(child) &&
+      child.type === Fragment
+    ) {
+      out.push(
+        ...flattenChildren(child.props.children, `${keyPrefix}${child.key}:`),
+      );
+    } else if (isValidElement(child) && keyPrefix) {
+      out.push(cloneElement(child, { key: `${keyPrefix}${child.key}` }));
+    } else {
+      out.push(child);
+    }
+  });
+  return out;
+}
+
+export function isStepElement(
+  node: ReactNode,
+): node is ReactElement<StepProps> {
+  return isValidElement(node) && node.type === Step;
+}
+
+export function isDoneElement(
+  node: ReactNode,
+): node is ReactElement<{ children: ReactNode }> {
+  return isValidElement(node) && node.type === Done;
+}
+
+function findEnabledStep(
+  steps: StepRecord[],
+  from: number,
+  dir: 1 | -1,
+): number | null {
+  for (let i = from + dir; i >= 0 && i < steps.length; i += dir) {
+    if (steps[i].enabled) return i;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Root
+// ---------------------------------------------------------------------------
+
 export type RootProps = TrackingEventModalProps & {
   open: boolean;
-  onClose: () => void;
-  title: string;
+  onOpenChange: (open: boolean) => void;
+  // Default size for every step; a Step may override it.
   size?: Size;
-  // Final-step CTA label. Intermediate steps always show "Next".
-  cta?: string;
-  // Called once, on the final step, after every step validates. Advancing
-  // between steps does not call this. The modal closes on success.
-  submit: () => void | Promise<void>;
-  // Step index to open on. Uncontrolled after mount — the modal owns the step
-  // from there (see useMultiStepModal for programmatic navigation).
+  // Step to open on. The step resets to this whenever the modal reopens.
   initialStep?: number;
+  // Runs when Next is pressed on the last step, after every step validates.
+  // On success the modal shows <MultiStepModal.Done> if there is one,
+  // otherwise it closes.
+  onSubmit?: () => void | Promise<void>;
   children: ReactNode;
 };
 
 function Root({
   open,
-  onClose,
-  title,
+  onOpenChange,
   size = "md",
-  cta = "Save",
-  submit,
   initialStep = 0,
+  onSubmit,
   trackingEventModalType,
   trackingEventModalSource,
-  allowlistedTrackingEventProps = {},
+  allowlistedTrackingEventProps,
   children,
 }: RootProps) {
   const [step, setStep] = useState(initialStep);
+  const [isDone, setIsDone] = useState(false);
 
-  // Parse the ordered Step children into metadata + the active step's content.
-  const steps: StepMeta[] = [];
-  let content: ReactNode = null;
-  Children.forEach(children, (child) => {
-    if (!isValidElement(child)) return;
-    const props = child.props as StepProps;
-    if (steps.length === step) content = props.children;
-    steps.push({
-      display: props.display,
-      enabled: props.enabled !== false,
-      validate: props.validate,
-      nextEnabled: props.nextEnabled !== false,
-      disabledMessage: props.disabledMessage,
-    });
+  // Reset when the modal reopens. Root stays mounted while `open` toggles, so
+  // without this a reopened wizard would resume where it was closed.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setStep(initialStep);
+      setIsDone(false);
+    }
+  }
+
+  const nodes = flattenChildren(children);
+  const steps: StepRecord[] = nodes.filter(isStepElement).map(({ props }) => ({
+    label: props.label,
+    enabled: props.enabled !== false,
+    validate: props.validate,
+    onNext: props.onNext,
+    nextEnabled: props.nextEnabled !== false,
+    disabledMessage: props.disabledMessage,
+    size: props.size,
+  }));
+  // Keep the index valid when conditional steps disappear.
+  const activeStep = Math.max(0, Math.min(step, steps.length - 1));
+  const hasDone = nodes.some(isDoneElement);
+  const hasOwnDescription = nodes.some(
+    (node) => isValidElement(node) && node.type === Modal.Description,
+  );
+
+  let stepIndex = 0;
+  const content = nodes.map((node) => {
+    if (isStepElement(node)) {
+      const index = stepIndex++;
+      return (
+        <StepIndexContext.Provider key={node.key ?? index} value={index}>
+          {node}
+        </StepIndexContext.Provider>
+      );
+    }
+    if (isDoneElement(node)) {
+      return (
+        <DoneSlotContext.Provider key={node.key ?? "done"} value>
+          {node}
+        </DoneSlotContext.Provider>
+      );
+    }
+    return node;
   });
 
-  // Next / previous enabled step, skipping any disabled steps between them.
-  let nextStep: number | undefined;
-  for (let i = step + 1; i < steps.length; i++) {
-    if (steps[i].enabled) {
-      nextStep = i;
-      break;
-    }
-  }
-  let prevStep: number | undefined;
-  for (let i = step - 1; i >= 0; i--) {
-    if (steps[i].enabled) {
-      prevStep = i;
-      break;
-    }
-  }
-  const isLastStep = nextStep === undefined;
-  const current = steps[step];
+  return (
+    <Modal.Root
+      open={open}
+      onOpenChange={onOpenChange}
+      size={isDone ? size : (steps[activeStep]?.size ?? size)}
+      // Always described: by the consumer's Modal.Description if present,
+      // otherwise by the hidden step-progress text Controller renders.
+      hasDescription
+      trackingEventModalType={trackingEventModalType}
+      trackingEventModalSource={trackingEventModalSource}
+      allowlistedTrackingEventProps={allowlistedTrackingEventProps}
+    >
+      <Controller
+        steps={steps}
+        step={activeStep}
+        setStep={setStep}
+        isDone={isDone}
+        setIsDone={setIsDone}
+        hasDone={hasDone}
+        onSubmit={onSubmit}
+        close={() => onOpenChange(false)}
+        describeProgress={!hasOwnDescription}
+      >
+        {content}
+      </Controller>
+    </Modal.Root>
+  );
+}
 
-  // Validate every enabled step before `before`, snapping to the first that
-  // fails so the user lands on the problem. The failing step is the index the
-  // loop is on, not anything the error carries.
-  async function validateSteps(before: number = steps.length) {
+// Rendered inside Modal.Root so it can use the Modal context (errors,
+// tracking). Owns the navigation logic and wraps everything in ModalForm so
+// Next is a real submit: Enter advances, and loading and errors are handled
+// the same way as a single-page modal.
+function Controller({
+  steps,
+  step,
+  setStep,
+  isDone,
+  setIsDone,
+  hasDone,
+  onSubmit,
+  close,
+  describeProgress,
+  children,
+}: {
+  steps: StepRecord[];
+  step: number;
+  setStep: (step: number) => void;
+  isDone: boolean;
+  setIsDone: (isDone: boolean) => void;
+  hasDone: boolean;
+  onSubmit?: () => void | Promise<void>;
+  close: () => void;
+  describeProgress: boolean;
+  children: ReactNode;
+}) {
+  const { setError, sendTrackingEvent } = useModalContext();
+  const prevStep = findEnabledStep(steps, step, -1);
+  const nextStep = findEnabledStep(steps, step, 1);
+  const isLastStep = nextStep === null;
+  const current: StepRecord | undefined = steps[step];
+
+  // Validate every enabled step before `before`. The failing step is the
+  // index the loop is on, so the modal snaps to it.
+  async function validateBefore(before: number) {
     for (let i = 0; i < before; i++) {
       if (!steps[i].enabled) continue;
       try {
@@ -187,92 +332,210 @@ function Root({
     }
   }
 
-  const handlePrimary = async () => {
-    if (isLastStep) {
-      await validateSteps();
-      await submit();
-      onClose();
+  // Run onNext for each enabled step being left, in order.
+  async function runOnNext(from: number, to: number) {
+    for (let i = from; i < to; i++) {
+      if (!steps[i].enabled) continue;
+      try {
+        await steps[i].onNext?.();
+      } catch (e) {
+        setStep(i);
+        throw e;
+      }
+    }
+  }
+
+  async function advanceTo(target: number) {
+    await validateBefore(target);
+    await runOnNext(step, target);
+    setStep(target);
+  }
+
+  // Programmatic / Stepper navigation. Backward is free; forward goes through
+  // validate + onNext. Errors surface in the modal's ErrorDisplay.
+  async function goToStep(target: number) {
+    if (isDone || target === step || !steps[target]?.enabled) return;
+    setError(null);
+    if (target < step) {
+      setStep(target);
       return;
     }
-    // Validate everything up to (and therefore including) the current step
-    // before advancing.
-    await validateSteps(nextStep);
-    if (nextStep !== undefined) setStep(nextStep);
-  };
+    try {
+      await advanceTo(target);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
-  const stepperSteps = steps.map(({ display, enabled }) => ({
-    label: display,
-    enabled,
-  }));
+  function back() {
+    if (isDone || prevStep === null) return;
+    setError(null);
+    setStep(prevStep);
+  }
+
+  // ModalForm's onSubmit. Throwing lets ModalForm show the error and stop the
+  // spinner.
+  async function handleNext() {
+    // Enter can submit the form even while Next is disabled.
+    if (isDone || !current || !current.nextEnabled) return;
+    if (nextStep !== null) {
+      await advanceTo(nextStep);
+      return;
+    }
+    await validateBefore(steps.length);
+    await runOnNext(step, step + 1);
+    await onSubmit?.();
+    if (hasDone) {
+      setIsDone(true);
+    } else {
+      close();
+    }
+  }
+
+  useEffect(() => {
+    sendTrackingEvent("modal-page-change", {
+      step: isDone ? steps.length + 1 : step + 1,
+      steps: steps.length,
+      pageName: isDone ? "Done" : steps[step]?.label,
+    });
+    // Fire on page changes only, matching the legacy PagedModal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, isDone]);
 
   return (
-    <Modal.Root
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) onClose();
+    <MultiStepModalContext.Provider
+      value={{
+        steps,
+        step,
+        prevStep,
+        isLastStep,
+        isDone,
+        goToStep,
+        back,
+        close,
       }}
-      size={size}
-      dismissible={false}
-      hasDescription={false}
-      trackingEventModalType={trackingEventModalType}
-      trackingEventModalSource={trackingEventModalSource}
-      allowlistedTrackingEventProps={allowlistedTrackingEventProps}
     >
-      <ModalForm onSubmit={handlePrimary} trackOnSubmit={isLastStep}>
-        <Content
-          title={title}
-          step={step}
-          setStep={setStep}
-          stepperSteps={stepperSteps}
-          stepCount={steps.length}
-          validateSteps={validateSteps}
-          content={content}
-          onClose={onClose}
-          showBack={prevStep !== undefined}
-          onBack={() => {
-            if (prevStep !== undefined) setStep(prevStep);
-          }}
-          cta={isLastStep ? cta : "Next"}
-          isLastStep={isLastStep}
-          nextEnabled={current?.nextEnabled ?? true}
-          disabledMessage={current?.disabledMessage}
-        />
+      <ModalForm onSubmit={handleNext} trackOnSubmit={isLastStep && !isDone}>
+        {describeProgress && current ? (
+          <VisuallyHidden asChild>
+            <Dialog.Description>
+              {isDone
+                ? "All steps complete"
+                : `Step ${step + 1} of ${steps.length}: ${current.label}`}
+            </Dialog.Description>
+          </VisuallyHidden>
+        ) : null}
+        {children}
       </ModalForm>
-    </Modal.Root>
+    </MultiStepModalContext.Provider>
   );
 }
 
-// The primary button reads pending state from the enclosing ModalForm, so Next
-// and the final CTA both show a spinner while validation/submit runs. When
-// disabled with a message, it is wrapped in a Tooltip explaining why.
-function PrimaryButton({
-  cta,
-  isLastStep,
-  nextEnabled,
-  disabledMessage,
+// ---------------------------------------------------------------------------
+// Step and Done
+// ---------------------------------------------------------------------------
+
+// Renders its children while it is the active step. Root reads the rest of
+// its props to build the step list.
+function Step({ children }: StepProps) {
+  const index = useContext(StepIndexContext);
+  const { step, isDone } = useMultiStepModalContext();
+  if (index === null) {
+    throw new Error(
+      "<MultiStepModal.Step> must be a direct child of <MultiStepModal.Root>.",
+    );
+  }
+  return !isDone && index === step ? <>{children}</> : null;
+}
+
+// Shown in place of the steps after onSubmit succeeds, for confirmation or
+// "what's next" content. Without it the modal closes on submit.
+function Done({ children }: { children: ReactNode }) {
+  const inSlot = useContext(DoneSlotContext);
+  const { isDone } = useMultiStepModalContext();
+  if (!inSlot) {
+    throw new Error(
+      "<MultiStepModal.Done> must be a direct child of <MultiStepModal.Root>.",
+    );
+  }
+  return isDone ? <>{children}</> : null;
+}
+
+// ---------------------------------------------------------------------------
+// Stepper — progress at the top of the modal, in the description slot.
+//
+// Visual only: the accessible description is the "Step 2 of 3: …" text
+// Controller renders, since Dialog.Description is a <p> and cannot contain
+// the Stepper's markup. Clicks route through goToStep, so they validate like
+// Next and ignore disabled steps. After submit every step shows as complete.
+// ---------------------------------------------------------------------------
+
+function Stepper() {
+  const { steps, step, isDone, goToStep } = useMultiStepModalContext();
+  const { setError } = useModalContext();
+  return (
+    <Box pr="7" mt="4">
+      <StepperNav
+        step={isDone ? steps.length : step}
+        setStep={(target) => {
+          void goToStep(target);
+        }}
+        steps={steps.map(({ label, enabled }) => ({
+          label,
+          enabled: enabled && !isDone,
+        }))}
+        setError={setError}
+      />
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Footer parts
+// ---------------------------------------------------------------------------
+
+// Hidden (but still occupying its slot, so a space-between footer keeps its
+// layout) on the first step and after submit.
+function Back() {
+  const { prevStep, isDone, back } = useMultiStepModalContext();
+  if (isDone || prevStep === null) return <Box />;
+  return (
+    <Button variant="ghost" icon={<PiArrowLeft />} onClick={back}>
+      Back
+    </Button>
+  );
+}
+
+// The primary button. "Next" on intermediate steps and `submitLabel` on the
+// last. Pass children to replace the label, e.g. with state-driven copy.
+// Hidden after submit.
+function Next({
+  submitLabel = "Save",
+  children,
 }: {
-  cta: string;
-  isLastStep: boolean;
-  nextEnabled: boolean;
-  disabledMessage?: string;
+  submitLabel?: string;
+  children?: string;
 }) {
+  const { steps, step, isLastStep, isDone } = useMultiStepModalContext();
   const { loading } = useModalForm();
+  if (isDone) return null;
+  const current: StepRecord | undefined = steps[step];
+  const enabled = current?.nextEnabled ?? true;
   const button = (
     <Button
       type="submit"
-      disabled={!nextEnabled}
+      disabled={!enabled}
       loading={loading}
-      icon={isLastStep ? undefined : <PiCaretRight />}
+      icon={isLastStep || children ? undefined : <PiCaretRight />}
       iconPosition="right"
     >
-      {cta}
+      {children ?? (isLastStep ? submitLabel : "Next")}
     </Button>
   );
-  if (!nextEnabled && disabledMessage) {
-    // Wrap in a span so the tooltip still triggers while the button is
-    // disabled (a disabled button does not emit pointer events itself).
+  if (!enabled && current?.disabledMessage) {
+    // The span keeps the tooltip working while the button is disabled.
     return (
-      <Tooltip content={disabledMessage}>
+      <Tooltip content={current.disabledMessage}>
         <span>{button}</span>
       </Tooltip>
     );
@@ -280,133 +543,42 @@ function PrimaryButton({
   return button;
 }
 
-// Rendered inside Modal.Root (and ModalForm) so it can read the Modal context:
-// setError feeds Stepper navigation errors into Modal.Body's ErrorDisplay, and
-// sendTrackingEvent records page changes. Also provides the navigation context
-// to step content via useMultiStepModal.
-function Content({
-  title,
-  step,
-  setStep,
-  stepperSteps,
-  stepCount,
-  validateSteps,
-  content,
-  onClose,
-  showBack,
-  onBack,
-  cta,
-  isLastStep,
-  nextEnabled,
-  disabledMessage,
-}: {
-  title: string;
-  step: number;
-  setStep: (step: number) => void;
-  stepperSteps: { label: string; enabled: boolean }[];
-  stepCount: number;
-  validateSteps: (before?: number) => Promise<void>;
-  content: ReactNode;
-  onClose: () => void;
-  showBack: boolean;
-  onBack: () => void;
-  cta: string;
-  isLastStep: boolean;
-  nextEnabled: boolean;
-  disabledMessage?: string;
-}) {
-  const { setError, sendTrackingEvent } = useModalContext();
-
-  useEffect(() => {
-    sendTrackingEvent("modal-page-change", {
-      step: step + 1,
-      steps: stepCount,
-      pageName: stepperSteps[step]?.label,
-    });
-    // Fire only on step change, matching the legacy PagedModal behavior.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
-  // goToStep runs the same validate-forward sweep as a Stepper click, so
-  // programmatic navigation can never skip validation. Backward moves are free.
-  // next/back mirror the footer: they skip disabled steps and no-op at the ends.
-  const nav = useMemo<MultiStepModalNav>(() => {
-    const goToStep = async (target: number) => {
-      if (target < 0 || target >= stepCount) return;
-      setError(null);
-      try {
-        if (target > step) await validateSteps(target);
-        setStep(target);
-      } catch (e) {
-        setError(e.message);
-      }
-    };
-    const nextEnabledFrom = (from: number, dir: 1 | -1) => {
-      for (let i = from + dir; i >= 0 && i < stepCount; i += dir) {
-        if (stepperSteps[i]?.enabled) return i;
-      }
-      return from;
-    };
-    return {
-      step,
-      stepCount,
-      goToStep,
-      next: () => goToStep(nextEnabledFrom(step, 1)),
-      back: () => goToStep(nextEnabledFrom(step, -1)),
-    };
-  }, [step, stepCount, stepperSteps, setError, validateSteps, setStep]);
-
+// The standard footer: Back on the left; Cancel + Next on the right; a single
+// Close after submit. Compose Modal.Footer with Back / Next yourself when a
+// wizard needs something else in the footer.
+function Footer({ submitLabel }: { submitLabel?: string }) {
+  const { isDone, close } = useMultiStepModalContext();
   return (
-    <NavContext.Provider value={nav}>
-      <Modal.Header>
-        <Modal.Title>{title}</Modal.Title>
-      </Modal.Header>
-      {/* The Stepper communicates progress at the top of the modal, in the
-          description region. It renders its own nav markup, so it lives in a
-          plain Box rather than Modal.Description (a <p>, which cannot legally
-          contain the interactive Stepper). */}
-      <Box pr="7" mt="4">
-        <Stepper
-          step={step}
-          setStep={setStep}
-          steps={stepperSteps}
-          setError={setError}
-          validateSteps={validateSteps}
-        />
-      </Box>
-      <Modal.Body>{content}</Modal.Body>
-      <Modal.Footer justify={showBack ? "between" : "end"}>
-        {showBack ? (
-          <Button variant="ghost" icon={<PiArrowLeft />} onClick={onBack}>
-            Back
-          </Button>
-        ) : null}
-        <Flex gap="3" align="center">
-          <Modal.Close>
-            <Button variant="ghost" onClick={onClose}>
+    <Modal.Footer justify="between">
+      <Back />
+      <Flex gap="3" align="center">
+        {isDone ? (
+          <Button onClick={close}>Close</Button>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={close}>
               Cancel
             </Button>
-          </Modal.Close>
-          <PrimaryButton
-            cta={cta}
-            isLastStep={isLastStep}
-            nextEnabled={nextEnabled}
-            disabledMessage={disabledMessage}
-          />
-        </Flex>
-      </Modal.Footer>
-    </NavContext.Provider>
+            <Next submitLabel={submitLabel} />
+          </>
+        )}
+      </Flex>
+    </Modal.Footer>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Namespace export, mirroring Modal: <MultiStepModal.Root> with one
-// <MultiStepModal.Step> per page.
+// Namespace export, mirroring Modal.
 // ---------------------------------------------------------------------------
 
 const MultiStepModal = {
   Root,
   Step,
+  Done,
+  Stepper,
+  Back,
+  Next,
+  Footer,
 };
 
 export default MultiStepModal;

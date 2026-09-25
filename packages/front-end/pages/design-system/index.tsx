@@ -126,7 +126,7 @@ export default function DesignSystemPage() {
     {
       name: "MultiStepModal",
       description:
-        "A multi-page modal built on the composable Modal primitives. Compose one MultiStepModal.Step per page; the Stepper communicates progress at the top and the footer walks Back / Next before turning into the final CTA. Reuses the Modal sizes (md, lg, xl, fill).",
+        "Composable primitives for multi-page modals, built on Modal: Root, Step, Done, Stepper, and the Back / Next / Footer parts. Behavior lives in the parts, so any layout keeps validation and navigation intact. Use the MultiStepModalStandard pattern for the common wizard, and compose the primitives for non-standard layouts. Reuses the Modal sizes (md, lg, xl, fill).",
       Stories: MultiStepModalStories,
     },
   ] satisfies StoryEntry[];
