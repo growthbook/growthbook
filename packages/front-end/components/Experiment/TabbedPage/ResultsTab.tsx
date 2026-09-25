@@ -14,6 +14,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
+import { FaQuestionCircle } from "react-icons/fa";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -35,6 +36,24 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
+
+function AnalysisSettingInfo({ description }: { description: string }) {
+  return (
+    <Tooltip
+      className="text-muted"
+      body={
+        <div className="text-left">
+          <div>{description}</div>
+          <div className="mt-2">
+            Click in the table to drill down and see the impact.
+          </div>
+        </div>
+      }
+    >
+      <FaQuestionCircle size={12} style={{ display: "block" }} />
+    </Tooltip>
+  );
+}
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -197,6 +216,22 @@ export default function ResultsTab({
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
+
+  // Each active adjustment (Bayesian prior/CUPED/post-stratification) alters
+  // every result column, not just the raw diff. Surface a per-setting tooltip.
+  const engineIsBayesian =
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) !== "frequentist";
+  const anyMetricUsesProperPrior =
+    snapshot?.settings?.metricSettings?.some(
+      (m) => m.computedSettings?.properPrior,
+    ) ?? false;
+  const priorUsed = hasData && engineIsBayesian && anyMetricUsesProperPrior;
+  const cupedUsed = hasData && !!analysis?.settings?.regressionAdjusted;
+  const postStratificationUsed =
+    hasData &&
+    !!analysis?.settings?.postStratificationEnabled &&
+    !organization?.settings?.disablePrecomputedDimensions;
+
   return (
     <div>
       {isBandit && hasResults ? (
@@ -222,31 +257,46 @@ export default function ResultsTab({
           ) : null}
           {hasData && (
             <>
-              <Metadata
-                label="Engine"
-                value={
-                  analysis?.settings?.statsEngine === "frequentist"
-                    ? "Frequentist"
-                    : "Bayesian"
-                }
-              />
-              <Metadata
-                label="CUPED"
-                value={
-                  analysis?.settings?.regressionAdjusted
-                    ? "Enabled"
-                    : "Disabled"
-                }
-              />
-              {!organization?.settings?.disablePrecomputedDimensions ? (
+              <Flex align="center" gap="1">
                 <Metadata
-                  label="Post-Stratification"
+                  label="Engine"
                   value={
-                    analysis?.settings?.postStratificationEnabled
+                    analysis?.settings?.statsEngine === "frequentist"
+                      ? "Frequentist"
+                      : "Bayesian"
+                  }
+                />
+                {priorUsed ? (
+                  <AnalysisSettingInfo description="A Bayesian prior shrinks metric estimates towards the prior mean." />
+                ) : null}
+              </Flex>
+              <Flex align="center" gap="1">
+                <Metadata
+                  label="CUPED"
+                  value={
+                    analysis?.settings?.regressionAdjusted
                       ? "Enabled"
                       : "Disabled"
                   }
                 />
+                {cupedUsed ? (
+                  <AnalysisSettingInfo description="CUPED adjusts for pre-exposure mean imbalances across variations to reduce variance." />
+                ) : null}
+              </Flex>
+              {!organization?.settings?.disablePrecomputedDimensions ? (
+                <Flex align="center" gap="1">
+                  <Metadata
+                    label="Post-Stratification"
+                    value={
+                      analysis?.settings?.postStratificationEnabled
+                        ? "Enabled"
+                        : "Disabled"
+                    }
+                  />
+                  {postStratificationUsed ? (
+                    <AnalysisSettingInfo description="Post-stratification adjusts for within-dimension imbalances to reduce variance." />
+                  ) : null}
+                </Flex>
               ) : null}
               {analysis?.settings?.statsEngine === "frequentist" ? (
                 <Metadata
