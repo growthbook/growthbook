@@ -251,16 +251,36 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
 // model stays flat.
 export function apiMonitoringConfigToInternal<
   T extends {
+    datasourceId?: string;
     exposureQuery?: { id: string; identifierType?: string };
     exposureQueryId?: string;
   },
->(mc: T | null | undefined) {
+>(
+  mc: T | null | undefined,
+  previous?: Pick<
+    RampMonitoringConfig,
+    "datasourceId" | "exposureQueryId" | "exposureQueryIdentifierType"
+  > | null,
+) {
   if (!mc) return null;
   const { exposureQueryId, ...flat } = flattenExposureQueryInput(mc);
   if (!exposureQueryId) {
     throw new Error("monitoringConfig.exposureQuery is required");
   }
-  return { ...flat, exposureQueryId };
+  // The config is replaced whole, so re-sending the same query without an
+  // identifier would otherwise drop the stored one for the legacy default.
+  const keepsIdentifier =
+    !flat.exposureQueryIdentifierType &&
+    !!previous?.exposureQueryIdentifierType &&
+    previous.datasourceId === mc.datasourceId &&
+    previous.exposureQueryId === exposureQueryId;
+  return {
+    ...flat,
+    exposureQueryId,
+    ...(keepsIdentifier
+      ? { exposureQueryIdentifierType: previous.exposureQueryIdentifierType }
+      : {}),
+  };
 }
 
 export function monitoringConfigToApi(
@@ -869,6 +889,7 @@ export class RampScheduleModel extends BaseClass {
       });
       const monitoringConfig = apiMonitoringConfigToInternal(
         body.monitoringConfig,
+        schedule.monitoringConfig,
       );
       updates.monitoringConfig =
         monitoringConfig && monitoringConfig.monitoringMode

@@ -1402,7 +1402,7 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
         req.context,
         fresh,
         // req.body is always present here, so the translation never returns null.
-        apiMonitoringConfigToInternal(req.body)!,
+        apiMonitoringConfigToInternal(req.body, fresh.monitoringConfig)!,
       ),
   );
   return rampScheduleToApiInterface(req.context, updated);
