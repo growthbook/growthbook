@@ -278,8 +278,8 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
-  // forces re-render when input is undefined
-  forceUndefinedValueToNull = false,
+  // An undefined react-select value leaves its previous selection uncontrolled.
+  forceUndefinedValueToNull = true,
   useMultilineLabels = false,
   containerStyles = {},
   extraIndicator,
