@@ -144,7 +144,7 @@ Day-to-day development uses `pnpm dev`, so you don't normally need to build the 
 
 ### Working on docs
 
-To start the docs site, `cd docs` and run `npx mint dev --port 3200`. You can view the site at http://localhost:3200. Before pushing, run `npx mint validate` and `npx mint broken-links --check-anchors` — the same checks the Docs workflow runs.
+Docs work needs the Mintlify CLI on your PATH, at the version the Docs workflow pins: `npm install -g mint@4.2.910` (`mint` publishes ~daily and a partial publish breaks `latest`). To start the docs site, `cd docs` and run `mint dev --port 3200`. You can view the site at http://localhost:3200. Before pushing, run the same checks the Docs workflow runs: `mint validate` and `mint broken-links --check-anchors --check-redirects` from `docs`, plus `node scripts/check-docs-frontmatter.mjs` and `node scripts/check-doclink-registry.mjs` from the repo root.
 
 ### Working on the SDKs
 
