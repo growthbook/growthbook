@@ -64,6 +64,7 @@ import {
   RevisionRampUpdateAction,
   RampStepAction,
 } from "shared/validators";
+import { getFeatureUsageBucketTimes } from "shared/featureUsageBuckets";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
   ContextualBanditRefRule,
@@ -6211,30 +6212,14 @@ export async function getFeatureUsage(
     Array.from(validEnvs),
   );
 
+  // Bucket edges come from the shared table, which the warehouse's
+  // toStartOfInterval and the front end's dummy generator also read. All three
+  // have to agree on which buckets exist, and stating it once is the only way
+  // that holds.
   function createTimeseries() {
-    const datapoints: FeatureUsageDataPoint[] = [];
-    for (let i = 0; i < 50; i++) {
-      const ts = new Date(start);
-      if (lookback === "15minute") {
-        ts.setMinutes(ts.getMinutes() + i);
-      } else if (lookback === "hour") {
-        ts.setMinutes(ts.getMinutes() + 5 * i);
-      } else if (lookback === "day") {
-        ts.setHours(ts.getHours() + i);
-      } else {
-        ts.setHours(ts.getHours() + 6 * i);
-      }
-
-      if (ts > new Date()) {
-        break;
-      }
-
-      datapoints.push({
-        t: ts.getTime(),
-        v: {},
-      });
-    }
-    return datapoints;
+    return getFeatureUsageBucketTimes(lookback, start).map(
+      (t: number): FeatureUsageDataPoint => ({ t, v: {} }),
+    );
   }
 
   const getTSIndex = (timestamp: Date, data: FeatureUsageDataPoint[]) => {

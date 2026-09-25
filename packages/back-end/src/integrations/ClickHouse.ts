@@ -1,3 +1,7 @@
+import {
+  FEATURE_USAGE_BUCKET_SECONDS,
+  getFeatureUsageWindowStart,
+} from "shared/featureUsageBuckets";
 import { createClient, ResponseJSON } from "@clickhouse/client";
 import {
   FeatureEvalDiagnosticsQueryParams,
@@ -27,7 +31,22 @@ import { LAST_RECEIVED_LOOKBACK_DAYS } from "back-end/src/util/warehouseLookback
  * engages routinely. Ordered by volume, so if it ever does engage it drops the
  * least significant groups first.
  */
-export const FEATURE_USAGE_MARGINAL_LIMIT = 5000;
+/**
+ * Caps the marginal scan's RESULT SET, not its read.
+ *
+ * It sits after GROUP BY / ORDER BY, so ClickHouse scans the same granules and
+ * runs the same aggregation whatever this is set to — bytes scanned, which is
+ * what the customer is billed on, do not move. What it bounds is the rows
+ * transferred, the top-N heap ClickHouse keeps while ranking, and the parse
+ * cost here. All three are cheap at this scale.
+ *
+ * Raised 5000 -> 15000 alongside the 2-hour week buckets. Finer buckets split
+ * the same evaluations across ~3x more rows, so at 5000 the truncation bit
+ * roughly three times deeper on a high-cardinality flag — the window would have
+ * gained resolution by losing coverage. This keeps 7 days at 2 hours as
+ * truthful as it was at 6.
+ */
+export const FEATURE_USAGE_MARGINAL_LIMIT = 15000;
 import {
   getFeatureEvalDiagnosticsNarrowingSql,
   resolveFeatureEvalDiagnosticsWindow,
@@ -214,28 +233,26 @@ export default class ClickHouse extends SqlIntegration {
     logger.info(
       `Getting feature usage for ${feature} with lookback ${lookback}`,
     );
-    const start = new Date();
-    start.setSeconds(0, 0);
-    let roundedTimestamp = "";
-    if (lookback === "15minute") {
-      roundedTimestamp = "toStartOfMinute(timestamp)";
-      start.setMinutes(start.getMinutes() - 15);
-    } else if (lookback === "hour") {
-      start.setHours(start.getHours() - 1);
-      start.setMinutes(0);
-      roundedTimestamp = "toStartOfFiveMinutes(timestamp)";
-    } else if (lookback === "day") {
-      start.setHours(start.getHours() - 24);
-      start.setMinutes(0);
-      roundedTimestamp = "toStartOfHour(timestamp)";
-    } else if (lookback === "week") {
-      start.setDate(start.getDate() - 7);
-      start.setHours(0);
-      start.setMinutes(0);
-      roundedTimestamp = "toStartOfInterval(timestamp, INTERVAL 6 HOUR)";
-    } else {
+    if (!(lookback in FEATURE_USAGE_BUCKET_SECONDS)) {
       throw new Error(`Invalid lookback: ${lookback}`);
     }
+
+    /**
+     * Window start and bucket width both come from the shared table, which the
+     * controller's bucket skeleton and the front end's dummy generator also
+     * read. These rows are placed INTO that skeleton, so the two agreeing is
+     * not a nicety — a mismatch of one bucket edge drops rows into a bucket
+     * that does not exist.
+     *
+     * One `toStartOfInterval … SECOND` for every lookback rather than the four
+     * named helpers this used (toStartOfMinute / FiveMinutes / Hour, and an
+     * explicit HOUR interval). They are equivalent at these widths — all of
+     * them align to epoch-anchored boundaries, and 30s, 5m, 1h and 2h divide
+     * the hour and the day evenly — and a single expression is what lets the
+     * width be read from the table instead of restated per branch.
+     */
+    const start = getFeatureUsageWindowStart(lookback);
+    const roundedTimestamp = `toStartOfInterval(timestamp, INTERVAL ${FEATURE_USAGE_BUCKET_SECONDS[lookback]} SECOND)`;
 
     // A true count for the window. Kept as its own aggregate rather than
     // summed from the marginals: a marginal is per dimension, so summing one of
