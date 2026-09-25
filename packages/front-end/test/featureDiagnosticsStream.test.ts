@@ -5,7 +5,6 @@ import {
   planStreamTimestamps,
   ruleAbsenceNote,
   streamColumnLabel,
-  timestampHeader,
 } from "@/components/Features/featureDiagnosticsStream";
 
 describe("streamColumnLabel", () => {
@@ -28,7 +27,7 @@ describe("streamColumnLabel", () => {
 describe("planStreamTimestamps", () => {
   const at = (iso: string) => ({ timestamp: iso });
 
-  it("shows time only, with the date in the header, when every row shares a day", () => {
+  it("shows time only, with the date in the caption, when every row shares a day", () => {
     const plan = planStreamTimestamps([
       at("2026-09-25T13:23:45"),
       at("2026-09-25T09:02:11"),
@@ -37,8 +36,7 @@ describe("planStreamTimestamps", () => {
     expect(plan.format("2026-09-25T13:23:45", date)).toBe(
       format(date, "h:mm:ss a"),
     );
-    expect(plan.headerDate).toBe(format(date, "PP"));
-    expect(timestampHeader(plan.headerDate)).toContain("Timestamp · ");
+    expect(plan.caption).toBe(format(date, "PP"));
   });
 
   it("drops only the year across several days of one year", () => {
@@ -50,7 +48,9 @@ describe("planStreamTimestamps", () => {
     expect(plan.format("2026-09-24T09:02:11", date)).toBe(
       `${format(date, "MMM d")}, ${format(date, "h:mm:ss a")}`,
     );
-    expect(plan.headerDate).toBeNull();
+    expect(plan.caption).toBe(
+      `${format(date, "MMM d")} – ${format(new Date("2026-09-25T13:23:45"), "PP")}`,
+    );
   });
 
   it("keeps the stream's original format across years", () => {
@@ -60,6 +60,9 @@ describe("planStreamTimestamps", () => {
     ]);
     const date = new Date("2025-12-31T23:59:59");
     expect(plan.format("2025-12-31T23:59:59", date)).toBe(format(date, "PPpp"));
+    expect(plan.caption).toBe(
+      `${format(date, "PP")} – ${format(new Date("2026-01-01T00:00:05"), "PP")}`,
+    );
   });
 
   it("shows milliseconds only when the raw value has them", () => {

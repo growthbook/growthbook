@@ -70,7 +70,6 @@ import {
   planStreamTimestamps,
   ruleAbsenceNote,
   streamColumnLabel,
-  timestampHeader,
 } from "./featureDiagnosticsStream";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
@@ -834,10 +833,14 @@ export default function FeatureDiagnostics({
     const hasValues = (key: string) =>
       displayResults.some((row) => (row[key] ?? "") !== "");
     if (managedStream) {
+      // Identity first (with Timestamp, what you scan to find a row), then
+      // the explanation chain, then Variation as its finest step. Environment
+      // qualifies all of it rather than being a step in it, so it goes last.
       return [
         ...(hasValues("unit_id") ? ["unit_id"] : []),
         ...MANAGED_STREAM_TABLE_COLUMNS,
         ...(hasValues("variationId") ? ["variationId"] : []),
+        "environment",
       ];
     }
     const keysSet = new Set<string>();
@@ -1409,7 +1412,7 @@ export default function FeatureDiagnostics({
                 </Heading>
               </Box>
 
-              {/* Search spans the table's width, 12px above it. A bar
+              {/* Search spans the table's width, 12px above the date caption. A bar
                   selection's chip, when there is one, takes its own width at
                   the end of the row and the search yields to it. */}
               <Flex align="center" gap="2" mb="3" wrap="wrap">
@@ -1464,6 +1467,17 @@ export default function FeatureDiagnostics({
                   </Flex>
                 ) : null}
               </Flex>
+              {/* The dates the rows cover, stated once for the whole fetched
+                  set: a fact about the data, so it sits outside the table and
+                  is set as a caption, not a heading. It keeps its line when
+                  empty so the table does not move between states. */}
+              <Box mb="2" style={{ minHeight: 16 }}>
+                {timestampPlan.caption && (
+                  <Text size="sm" color="text-low" as="div">
+                    {timestampPlan.caption}
+                  </Text>
+                )}
+              </Box>
               {error && errorSql ? (
                 <Box my="3">
                   <DisplayTestQueryResults
@@ -1541,7 +1555,7 @@ export default function FeatureDiagnostics({
                             field="timestampSort"
                             style={{ width: timestampPlan.width }}
                           >
-                            {timestampHeader(timestampPlan.headerDate)}
+                            Timestamp
                           </SortableTableColumnHeader>
                           {columns.map((key) => (
                             <SortableTableColumnHeader

@@ -48,16 +48,14 @@ export function managedStreamColumnLabel(key: string): string {
 }
 
 /**
- * The managed warehouse's table columns, in display order, after Timestamp.
- * Its projection is fixed (ClickHouse#getFeatureEvalDiagnosticsQuery), so the
- * set is known without reading the rows.
+ * The managed warehouse's always-on middle columns, in display order: the
+ * explanation chain, coarse to fine — what was served, by what kind of
+ * mechanism, by which rule. Its projection is fixed
+ * (ClickHouse#getFeatureEvalDiagnosticsQuery), so the set is known without
+ * reading the rows. User ID leads and Variation and Environment follow; see
+ * the columns memo in FeatureDiagnostics.
  */
-export const MANAGED_STREAM_TABLE_COLUMNS = [
-  "environment",
-  "value",
-  "source",
-  "ruleId",
-];
+export const MANAGED_STREAM_TABLE_COLUMNS = ["value", "source", "ruleId"];
 
 /** Whether a raw timestamp carries a sub-second part. */
 function hasSubSecond(raw: unknown): boolean {
@@ -80,8 +78,11 @@ const EMPTY_TIMESTAMP_WIDTH = 210;
 export interface StreamTimestampPlan {
   /** A row's timestamp, at the precision its raw value has. */
   format: (raw: unknown, date: Date) => string;
-  /** The one date every row shares, for the header; null when they differ. */
-  headerDate: string | null;
+  /**
+   * What the dates are, for the caption above the table: the one date every
+   * row shares, or the range they span. Null with no rows.
+   */
+  caption: string | null;
   /** Wide enough that no timestamp in the set truncates. */
   width: number;
 }
@@ -93,9 +94,9 @@ export interface StreamTimestampPlan {
  *
  * Never truncates: the column is sized to the longest string in the set. Parts
  * are dropped from least informative first: all rows on one calendar day show
- * time only, with the date stated once in the header; one year but several
- * days drops the year; several years keep everything (the format the stream
- * always used). Milliseconds only when the raw value has a sub-second part —
+ * time only, with the date stated once in the caption; one year but several
+ * days drops the year, and the caption gives the range; several years keep
+ * everything (the format the stream always used). Milliseconds only when the raw value has a sub-second part —
  * never padded to a ".000" that would claim precision the data does not have.
  */
 export function planStreamTimestamps(
@@ -114,27 +115,29 @@ export function planStreamTimestamps(
         ? `${format(date, "MMM d")}, ${time(raw, date)}`
         : `${format(date, "PP")}, ${time(raw, date)}`;
 
-  const headerDate = sameDay && dates.length ? format(dates[0], "PP") : null;
-
   if (!rows.length) {
-    return { format: formatRow, headerDate, width: EMPTY_TIMESTAMP_WIDTH };
+    return { format: formatRow, caption: null, width: EMPTY_TIMESTAMP_WIDTH };
   }
+
+  const times = dates.map((d) => d.getTime());
+  const first = new Date(Math.min(...times));
+  const last = new Date(Math.max(...times));
+  const caption = sameDay
+    ? format(first, "PP")
+    : sameYear
+      ? `${format(first, "MMM d")} – ${format(last, "PP")}`
+      : `${format(first, "PP")} – ${format(last, "PP")}`;
+
   const longest = Math.max(
     ...rows.map((r, i) => formatRow(r.timestamp, dates[i]).length),
   );
-  const header = timestampHeader(headerDate);
   const width = Math.ceil(
     Math.max(
       longest * MONO_CHAR_PX + CELL_PADDING_PX,
-      header.length * HEADER_CHAR_PX + HEADER_ICON_PX + CELL_PADDING_PX,
+      "Timestamp".length * HEADER_CHAR_PX + HEADER_ICON_PX + CELL_PADDING_PX,
     ),
   );
-  return { format: formatRow, headerDate, width };
-}
-
-/** The Timestamp header, carrying the shared date when there is one. */
-export function timestampHeader(headerDate: string | null): string {
-  return headerDate ? `Timestamp · ${headerDate}` : "Timestamp";
+  return { format: formatRow, caption, width };
 }
 
 /**
