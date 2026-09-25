@@ -54,6 +54,32 @@ export default class BigQuery extends SqlIntegration {
     return createBigQueryClient(this.params);
   }
 
+  // Resolved once per instance: the default dataset's region, used as the
+  // location for query jobs. `null` means the lookup already ran and failed.
+  private queryJobLocation: string | null | undefined;
+
+  private async getQueryJobLocation(client: bq.BigQuery) {
+    if (this.queryJobLocation !== undefined) {
+      return this.queryJobLocation ?? undefined;
+    }
+    let location: string | undefined;
+    const defaultDataset = this.params.defaultDataset?.trim();
+    if (defaultDataset) {
+      try {
+        const [metadata] = await client.dataset(defaultDataset).getMetadata();
+        if (typeof metadata?.location === "string" && metadata.location) {
+          location = metadata.location;
+        }
+      } catch (e) {
+        // Fall back to the library default (US multi-region), preserving
+        // historical behavior for datasets without readable metadata.
+        logger.debug(e, "Unable to determine BigQuery dataset location");
+      }
+    }
+    this.queryJobLocation = location ?? null;
+    return location;
+  }
+
   async cancelQuery(
     externalId: string,
     metadata?: Record<string, string>,
@@ -125,6 +151,11 @@ export default class BigQuery extends SqlIntegration {
 
     const labels = sanitizeQueryMetadataForBigQueryLabels(queryMetadata);
 
+    // Without an explicit location BigQuery runs the job in the US
+    // multi-region, where wildcard tables in single-region datasets match
+    // zero tables and return 0 rows with status "succeeded".
+    const location = await this.getQueryJobLocation(client);
+
     const [job] = await client.createQueryJob({
       labels: {
         ...labels,
@@ -132,6 +163,7 @@ export default class BigQuery extends SqlIntegration {
       },
       query: sql,
       useLegacySql: false,
+      ...(location ? { location } : {}),
       ...(this.params.reservation
         ? { reservation: this.params.reservation }
         : {}),
