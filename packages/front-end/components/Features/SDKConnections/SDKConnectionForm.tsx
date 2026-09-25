@@ -1,10 +1,11 @@
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
+  SavedGroupFormat,
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import {
   FaCheck,
@@ -19,6 +20,7 @@ import {
   getSDKCapabilityVersion,
   getSDKVersions,
   isSDKOutdated,
+  savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import {
   filterProjectsByEnvironment,
@@ -165,8 +167,13 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
-      savedGroupReferencesEnabled:
-        initialValue.savedGroupReferencesEnabled ?? false,
+      // Existing connections keep what they have; `savedGroupFormat` is
+      // derived from the old boolean by the model, so it is always set once a
+      // connection is saved. A new connection's default follows the chosen SDK
+      // in an effect below.
+      savedGroupFormat:
+        initialValue.savedGroupFormat ??
+        (edit ? savedGroupFormatFromConnection(initialValue) : "inline"),
       includeProjectIdInMetadata:
         initialValue.includeProjectIdInMetadata ??
         (initialValue as { includeProjectId?: boolean }).includeProjectId ??
@@ -251,12 +258,49 @@ export default function SDKConnectionForm({
     () => currentSdkCapabilities.includes("savedGroupReferences"),
     [currentSdkCapabilities],
   );
+  // v2 covers every Saved Group type. v1 covers ID Lists only, so Condition
+  // Groups keep shipping inline until the SDK is upgraded.
+  const supportsAllSavedGroupTypes = useMemo(
+    () => currentSdkCapabilities.includes("savedGroupReferencesV2"),
+    [currentSdkCapabilities],
+  );
+  // Offer v2 only when upgrading the SDK can reach it.
+  const allSavedGroupTypesAvailable = latestSdkCapabilities.includes(
+    "savedGroupReferencesV2",
+  );
+  const savedAsAllSavedGroupTypes =
+    edit && initialValue.savedGroupFormat === "referencesV2";
 
   useEffect(() => {
     if (!showSavedGroupSettings) {
-      form.setValue("savedGroupReferencesEnabled", false);
+      form.setValue("savedGroupFormat", "inline");
     }
   }, [showSavedGroupSettings, form]);
+
+  // On a new connection the SDK is usually picked after the form opens, so the
+  // default has to follow it: the most capable format the chosen SDK can read.
+  // Both reference formats need the plan. Stops once someone picks an option
+  // themselves.
+  const savedGroupFormatChosen = useRef(false);
+  useEffect(() => {
+    if (edit || savedGroupFormatChosen.current) return;
+    form.setValue(
+      "savedGroupFormat",
+      !hasLargeSavedGroupFeature
+        ? "inline"
+        : supportsAllSavedGroupTypes
+          ? "referencesV2"
+          : showSavedGroupSettings
+            ? "referencesV1"
+            : "inline",
+    );
+  }, [
+    edit,
+    hasLargeSavedGroupFeature,
+    supportsAllSavedGroupTypes,
+    showSavedGroupSettings,
+    form,
+  ]);
 
   const selectedProjects = form.watch("projects");
   const selectedEnvironment = environments.find(
@@ -1172,44 +1216,96 @@ export default function SDKConnectionForm({
       {showSavedGroupSettings && (
         <Box mt="5">
           <Heading as="h4" size="sm" mb="3">
-            Saved Groups
+            <PremiumTooltip
+              commercialFeature="large-saved-groups"
+              body={
+                <>
+                  <p>
+                    Passing Saved Groups by reference sends each group once in
+                    its own key instead of copying it into every rule that uses
+                    it, so re-using a group stops growing the payload.
+                  </p>
+                  <HelperText status="warning" size="sm">
+                    Older SDK versions
+                    {form.watch("remoteEvalEnabled")
+                      ? " and remote evaluation tools (e.g. GrowthBook Proxy)"
+                      : ""}{" "}
+                    cannot read references. Check your SDK is up to date before
+                    changing this.
+                  </HelperText>
+                </>
+              }
+            >
+              Saved Groups <PiInfo />
+            </PremiumTooltip>
           </Heading>
-          <Box>
-            <Checkbox
-              weight="regular"
-              value={form.watch("savedGroupReferencesEnabled")}
-              setValue={(val) =>
-                form.setValue("savedGroupReferencesEnabled", val)
+          <SelectField
+            label="Pass Saved Groups by reference"
+            sort={false}
+            isClearable={false}
+            isSearchable={false}
+            value={form.watch("savedGroupFormat") ?? "inline"}
+            onChange={(val) => {
+              savedGroupFormatChosen.current = true;
+              form.setValue("savedGroupFormat", val as SavedGroupFormat);
+            }}
+            options={[
+              { value: "inline", label: "Off" },
+              {
+                value: "referencesV1",
+                label: "ID Lists only",
+                isDisabled: !hasLargeSavedGroupFeature,
+              },
+              ...(allSavedGroupTypesAvailable || savedAsAllSavedGroupTypes
+                ? [
+                    {
+                      value: "referencesV2",
+                      label: "All Saved Groups",
+                      // An SDK downgrade on a saved connection keeps this
+                      // selectable, so the choice shows a warning rather than
+                      // being silently dropped, and re-upgrading the SDK
+                      // resumes v2. That only applies to a connection already
+                      // on v2, never to a new one, and never without the plan.
+                      isDisabled:
+                        !hasLargeSavedGroupFeature ||
+                        (!supportsAllSavedGroupTypes &&
+                          !savedAsAllSavedGroupTypes),
+                    },
+                  ]
+                : []),
+            ]}
+            formatOptionLabel={({ value, label }, { context }) => {
+              let note: string | null = null;
+              if (context === "menu" && value !== "inline") {
+                if (!hasLargeSavedGroupFeature) note = "Enterprise";
+                else if (value === "referencesV2")
+                  note = supportsAllSavedGroupTypes
+                    ? "Recommended"
+                    : allSavedGroupTypesAvailable
+                      ? "Needs a newer SDK"
+                      : null;
               }
-              disabled={!hasLargeSavedGroupFeature}
-              label={
-                <PremiumTooltip
-                  commercialFeature="large-saved-groups"
-                  body={
-                    <>
-                      <p>
-                        Reduce the size of your payload by moving ID List Saved
-                        Groups from inline evaluation to a separate key in the
-                        payload json. Re-using an ID List in multiple features
-                        or experiments will no longer meaningfully increase the
-                        size of your payload.
-                      </p>
-                      <HelperText status="warning" size="sm">
-                        This feature is not supported by old SDK versions
-                        {form.watch("remoteEvalEnabled")
-                          ? " or remote evaluation tools (e.g. GrowthBook Proxy)"
-                          : ""}
-                        . Ensure that your SDK implementation is up to date
-                        before enabling this feature.
-                      </HelperText>
-                    </>
-                  }
-                >
-                  Pass Saved Groups by reference <PiInfo />
-                </PremiumTooltip>
-              }
-            />
-          </Box>
+              return (
+                <Flex justify="between" gap="3">
+                  <span>{label}</span>
+                  {note && (
+                    <Text size="sm" color="text-low">
+                      {note}
+                    </Text>
+                  )}
+                </Flex>
+              );
+            }}
+            error={
+              form.watch("savedGroupFormat") === "referencesV2" &&
+              !supportsAllSavedGroupTypes
+                ? allSavedGroupTypesAvailable
+                  ? "This SDK version cannot pass all Saved Groups by reference, so it passes ID Lists by reference until you upgrade it."
+                  : "This SDK cannot pass all Saved Groups by reference, so it passes ID Lists by reference."
+                : undefined
+            }
+            errorLevel="warning"
+          />
         </Box>
       )}
 

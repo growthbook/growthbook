@@ -11,6 +11,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   assertCanRunExperimentChanges,
+  assertExperimentKeyFormat,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   getExperimentAttributeScopeProjects,
@@ -110,6 +111,17 @@ export const updateExperiment = createApiRequestHandler(
         `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`,
       );
     }
+  }
+
+  if (
+    req.body.trackingKey !== undefined &&
+    req.body.trackingKey !== experiment.trackingKey
+  ) {
+    await assertExperimentKeyFormat(
+      req.context,
+      req.body.trackingKey,
+      datasourceId,
+    );
   }
 
   // check if tracking key is unique
