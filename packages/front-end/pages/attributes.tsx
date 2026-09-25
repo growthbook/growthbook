@@ -430,12 +430,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </Tooltip>
           </>
         ),
-        align: "center",
         defaultWidth: 110,
         cellProps: () => ({ className: "text-gray" }),
-        render: (v) => (
-          <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
-        ),
+        render: (v) => (v.hashAttribute ? "yes" : null),
       },
       // Hidden by default so existing users see no change until they opt in.
       ...attributeCustomFields.map<TableColumnDef<AttributeRow>>((f) => ({

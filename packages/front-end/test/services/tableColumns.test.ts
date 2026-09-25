@@ -4,7 +4,6 @@ import {
   isColumnVisible,
   isLayoutCustomized,
   mergeLayoutForWrite,
-  minTableWidth,
   resolveTableColumns,
   TableColumnDef,
   TableColumnLayout,
@@ -344,84 +343,6 @@ describe("mergeLayoutForWrite", () => {
       stored,
     );
     expect(merged.columns.map((c) => c.id)).toEqual(["a"]);
-  });
-});
-
-describe("minTableWidth", () => {
-  it("counts columns fitting may shrink at their minimum", () => {
-    const defs = [
-      col("a", { defaultWidth: 300, minWidth: 100 }),
-      col("b", { defaultWidth: 300 }),
-      col("hidden", { minWidth: 500, defaultHidden: true }),
-      col("actions", { defaultWidth: 40, minWidth: 30, resizable: false }),
-    ];
-    // 100 + the shared 64 floor + the fixed column's own 40.
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(204);
-  });
-
-  it("counts a pinned column at its width", () => {
-    const defs = [
-      col("a", { defaultWidth: 300, minWidth: 100 }),
-      col("b", { defaultWidth: 300 }),
-    ];
-    const resolved = resolveTableColumns(
-      defs,
-      layout([{ id: "a", visible: true, width: 250 }]),
-    );
-    expect(minTableWidth(resolved)).toBe(314);
-  });
-
-  it("counts columns left of a pinned one at their width, as fitting won't shrink them", () => {
-    const defs = [
-      col("a", { defaultWidth: 300, minWidth: 100 }),
-      col("b", { defaultWidth: 300 }),
-    ];
-    const resolved = resolveTableColumns(
-      defs,
-      layout([{ id: "b", visible: true, width: 250 }]),
-    );
-    expect(minTableWidth(resolved)).toBe(550);
-  });
-
-  it("floors a slack column at its minWidth rather than counting it as zero", () => {
-    // The bug this guards: a fixed-layout column with no width takes only the
-    // leftover space, so without a floor it collapses once the others fill up.
-    const defs = [
-      col("a", { defaultWidth: 100, resizable: false }),
-      col("slack", { minWidth: 160 }),
-    ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(260);
-  });
-
-  it("uses the shared minimum for a slack column that declares no minWidth", () => {
-    const defs = [
-      col("a", { defaultWidth: 100, resizable: false }),
-      col("slack"),
-    ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(164);
-  });
-
-  it("lets a spacer column opt out of the floor with minWidth 0", () => {
-    const defs = [
-      col("a", { defaultWidth: 100, resizable: false }),
-      col("spacer", { minWidth: 0 }),
-    ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(100);
-  });
-
-  it("counts a resized slack column at its committed width", () => {
-    const defs = [
-      col("a", { defaultWidth: 100, resizable: false }),
-      col("slack", { minWidth: 160 }),
-    ];
-    const resolved = resolveTableColumns(
-      defs,
-      layout([
-        { id: "a", visible: true, width: 100 },
-        { id: "slack", visible: true, width: 400 },
-      ]),
-    );
-    expect(minTableWidth(resolved)).toBe(500);
   });
 });
 

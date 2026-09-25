@@ -13,7 +13,6 @@ import {
   fitColumnWidths,
   isLayoutCustomized,
   mergeLayoutForWrite,
-  minTableWidth,
   resolveTableColumns,
   ResolvedTableColumn,
   TableColumnDef,
@@ -24,6 +23,10 @@ import { SearchReturn } from "@/services/search";
 import { TableCell, TableColumnHeader } from "@/ui/Table";
 import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
 import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
+
+function total(widths: Map<string, number>): number {
+  return Array.from(widths.values()).reduce((sum, w) => sum + w, 0);
+}
 
 export interface TableColumnLayoutState {
   layout: TableColumnLayout | null;
@@ -92,25 +95,25 @@ export function useTableColumns<TRow>({
 }): UseTableColumnsReturn<TRow> {
   const colRefs = useRef<Map<string, HTMLTableColElement | null>>(new Map());
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const [borderX, setBorderX] = useState(0);
 
   const columns = useMemo(
     () => resolveTableColumns(defs, layout),
     [defs, layout],
   );
 
-  // The last resizable column fills what the others leave, so its edge is the
-  // row-actions column's rather than a stray handle beside an empty gap.
-  const visibleColumns = useMemo(() => {
-    const visible = columns.filter((col) => col.visible);
-    const fill = visible
-      .map((col) => col.resizable !== false)
-      .lastIndexOf(true);
-    return visible.map((col, i) =>
-      i === fill
-        ? { ...col, width: undefined, pinned: false, resizable: false }
-        : col,
-    );
-  }, [columns]);
+  const visibleColumns = useMemo(
+    () => columns.filter((col) => col.visible),
+    [columns],
+  );
+
+  // The last resizable column displays at least as wide as the room left over,
+  // so its edge is the row-actions column's. It keeps its own width for
+  // fitting, so that spare room is still free for an earlier column to take.
+  const fillId = useMemo(
+    () => visibleColumns.findLast((col) => col.resizable !== false)?.id,
+    [visibleColumns],
+  );
 
   // A layout effect, so a table that needs fitting never paints unfitted first.
   useLayoutEffect(() => {
@@ -123,11 +126,9 @@ export function useTableColumns<TRow>({
     // Columns share what's inside the table's own border.
     const measure = () => {
       const { borderLeftWidth, borderRightWidth } = getComputedStyle(table);
-      setContainerWidth(
-        wrapper.clientWidth -
-          parseFloat(borderLeftWidth) -
-          parseFloat(borderRightWidth),
-      );
+      const border = parseFloat(borderLeftWidth) + parseFloat(borderRightWidth);
+      setBorderX(border);
+      setContainerWidth(wrapper.clientWidth - border);
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -140,6 +141,11 @@ export function useTableColumns<TRow>({
     () => fitColumnWidths(visibleColumns, available),
     [visibleColumns, available],
   );
+  const renderedTotal = total(rendered);
+  // Room the fill column shows past its own width.
+  const fillExtra = Number.isFinite(available)
+    ? Math.max(0, available - renderedTotal)
+    : 0;
 
   const write = useCallback(
     (next: ResolvedTableColumn<TRow>[]) => {
@@ -213,15 +219,18 @@ export function useTableColumns<TRow>({
   // Mid-drag, re-fit around the dragged column as if it were already committed,
   // writing the <col> nodes directly rather than rendering every frame.
   const previewWidth = (id: string, width: number) => {
-    const preview = visibleColumns.map(resizeTo(id, width));
-    fitColumnWidths(preview, available).forEach((w, colId) => {
+    const fitted = fitColumnWidths(
+      visibleColumns.map(resizeTo(id, width)),
+      available,
+    );
+    fitted.forEach((w, colId) => {
       const el = colRefs.current.get(colId);
-      if (el) el.style.width = `${w}px`;
+      if (el && colId !== fillId) el.style.width = `${w}px`;
     });
     colRefs.current
       .get(id)
       ?.closest<HTMLElement>("[data-table-list]")
-      ?.style.setProperty("--table-min-width", `${minTableWidth(preview)}px`);
+      ?.style.setProperty("--table-min-width", `${total(fitted) + borderX}px`);
   };
 
   const ColGroup = useMemo<React.FC>(() => {
@@ -233,23 +242,31 @@ export function useTableColumns<TRow>({
             ref={(el) => {
               colRefs.current.set(col.id, el);
             }}
+            // The fill column takes whatever the others leave, down to the
+            // table floor, which counts its own width and the table's border.
             style={
-              rendered.has(col.id) ? { width: rendered.get(col.id) } : undefined
+              rendered.has(col.id) && col.id !== fillId
+                ? { width: rendered.get(col.id) }
+                : undefined
             }
           />
         ))}
       </colgroup>
     );
     return Group;
-  }, [visibleColumns, rendered]);
+  }, [visibleColumns, rendered, fillId]);
 
   const renderResizeHandle = (col: ResolvedTableColumn<TRow>) => {
     if (col.resizable === false) return null;
     const { min, max } = columnWidthBounds(col);
+    const width = rendered.get(col.id);
     return (
       <ColumnResizeHandle
         label={col.label}
-        width={rendered.get(col.id)}
+        // The fill column's handle sits at its displayed edge, so it resizes from there.
+        width={
+          col.id === fillId && width !== undefined ? width + fillExtra : width
+        }
         minWidth={min}
         maxWidth={max}
         onCommit={(w) => setWidth(col.id, w)}
@@ -295,7 +312,7 @@ export function useTableColumns<TRow>({
     colSpan: visibleColumns.length,
     tableProps: {
       layout: "fixed",
-      minTableWidth: minTableWidth(visibleColumns),
+      minTableWidth: renderedTotal + borderX,
       managedColumns: true,
     },
     settingsProps: {

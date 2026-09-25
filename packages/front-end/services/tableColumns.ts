@@ -130,28 +130,6 @@ function shrinkableColumns<TRow>(
 }
 
 /**
- * Narrowest the table can get: fitting has shrunk every column it may to its
- * minimum. Past this the table overflows its container and the page scrolls.
- *
- * Also floors a slack column: under `table-layout: fixed` a column with no width
- * takes only what the others leave over, so it would otherwise starve to zero.
- */
-export function minTableWidth<TRow>(
-  resolved: ResolvedTableColumn<TRow>[],
-): number {
-  const visible = resolved.filter((col) => col.visible);
-  const shrinkable = new Set(shrinkableColumns(visible).map((col) => col.id));
-  return visible.reduce(
-    (sum, col) =>
-      sum +
-      (shrinkable.has(col.id)
-        ? columnWidthBounds(col).min
-        : (col.width ?? columnWidthBounds(col).min)),
-    0,
-  );
-}
-
-/**
  * The widths visible columns render at in a container `available` px wide,
  * keyed by id. Columns with no width (the slack column) are left out: they take
  * whatever is left over.
