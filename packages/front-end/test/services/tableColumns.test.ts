@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  fitColumnWidths,
   isLayoutCustomized,
   mergeLayoutForWrite,
   minTableWidth,
+  resizeColumnWidth,
   resolveTableColumns,
   TableColumnDef,
   TableColumnLayout,
@@ -313,67 +315,75 @@ describe("mergeLayoutForWrite", () => {
 });
 
 describe("minTableWidth", () => {
-  it("sums the widths of visible columns", () => {
+  it("sums each visible column's minimum, not its width", () => {
     const defs = [
-      col("a", { defaultWidth: 100 }),
-      col("b", { defaultWidth: 80 }),
-    ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(180);
-  });
-
-  it("sums the clamped width, not the declared one", () => {
-    // 50 is below the shared minimum, so the column really occupies 64.
-    const defs = [
-      col("a", { defaultWidth: 100 }),
-      col("b", { defaultWidth: 50 }),
-    ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(164);
-  });
-
-  it("ignores hidden columns", () => {
-    const defs = [
-      col("a", { defaultWidth: 100 }),
-      col("b", { defaultWidth: 50, defaultHidden: true }),
-    ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(100);
-  });
-
-  it("floors a slack column at its minWidth rather than counting it as zero", () => {
-    // The bug this guards: a fixed-layout column with no width takes only the
-    // leftover space, so without a floor it collapses once the others fill up.
-    const defs = [
-      col("a", { defaultWidth: 100 }),
-      col("slack", { minWidth: 160 }),
-    ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(260);
-  });
-
-  it("uses the shared minimum for a slack column that declares no minWidth", () => {
-    const defs = [col("a", { defaultWidth: 100 }), col("slack")];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(164);
-  });
-
-  it("lets a spacer column opt out of the floor with minWidth 0", () => {
-    const defs = [
-      col("a", { defaultWidth: 100 }),
+      col("a", { defaultWidth: 300, minWidth: 100 }),
+      col("b", { defaultWidth: 300 }),
+      col("hidden", { minWidth: 500, defaultHidden: true }),
       col("spacer", { minWidth: 0 }),
+      col("actions", { defaultWidth: 40, minWidth: 30, resizable: false }),
     ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(100);
+    // 100 + the shared 64 floor + 0 + the fixed column's own 40.
+    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(204);
+  });
+});
+
+describe("fitColumnWidths", () => {
+  const defs = [
+    col("a", { defaultWidth: 300, minWidth: 100 }),
+    col("b", { defaultWidth: 100, minWidth: 100 }),
+    col("c", { defaultWidth: 200, minWidth: 100 }),
+    col("spacer", { minWidth: 0 }),
+    col("actions", { defaultWidth: 40, minWidth: 40, resizable: false }),
+  ];
+  const visible = resolveTableColumns(defs, null);
+  const fit = (available: number) =>
+    Object.fromEntries(fitColumnWidths(visible, available));
+
+  it("keeps saved widths while they fit, leaving the slack column out", () => {
+    expect(fit(1000)).toEqual({ a: 300, b: 100, c: 200, actions: 40 });
   });
 
-  it("counts a resized slack column at its committed width", () => {
-    const defs = [
-      col("a", { defaultWidth: 100 }),
-      col("slack", { minWidth: 160 }),
-    ];
-    const resolved = resolveTableColumns(
-      defs,
-      layout([
-        { id: "a", visible: true, width: 100 },
-        { id: "slack", visible: true, width: 400 },
-      ]),
+  it("shrinks resizable columns in proportion, sparing ones at their minimum", () => {
+    // 100 over: a and c give it up 3:2, b is already at its floor.
+    expect(fit(540)).toEqual({ a: 240, b: 100, c: 160, actions: 40 });
+  });
+
+  it("passes a floored column's share on, and stops at the minimums", () => {
+    // c floors at 100 first; a absorbs the rest.
+    expect(fit(360)).toEqual({ a: 120, b: 100, c: 100, actions: 40 });
+    expect(fit(100)).toEqual({ a: 100, b: 100, c: 100, actions: 40 });
+  });
+});
+
+describe("resizeColumnWidth", () => {
+  const defs = [
+    col("a", { defaultWidth: 200, minWidth: 100 }),
+    col("b", { defaultWidth: 200, minWidth: 100 }),
+    col("spacer", { minWidth: 0 }),
+    col("actions", { defaultWidth: 40, minWidth: 40, resizable: false }),
+  ];
+  const visible = resolveTableColumns(defs, null);
+  // 540 available, 440 used: 100 spare in the spacer.
+  const resize = (id: string, target: number, cols = visible) =>
+    Object.fromEntries(
+      resizeColumnWidth(cols, fitColumnWidths(cols, 540), id, target, 540),
     );
-    expect(minTableWidth(resolved)).toBe(500);
+
+  it("grows into spare room, then takes from the neighbour down to its minimum", () => {
+    expect(resize("a", 250)).toEqual({ a: 250, b: 200, actions: 40 });
+    expect(resize("a", 350)).toEqual({ a: 350, b: 150, actions: 40 });
+    expect(resize("a", 800)).toEqual({ a: 400, b: 100, actions: 40 });
+  });
+
+  it("never takes from a fixed column", () => {
+    expect(resize("b", 800)).toEqual({ a: 200, b: 300, actions: 40 });
+  });
+
+  it("hands shrunk room to the slack column, or the neighbour without one", () => {
+    expect(resize("a", 150)).toEqual({ a: 150, b: 200, actions: 40 });
+    const noSlack = visible.filter((c) => c.id !== "spacer");
+    expect(resize("a", 150, noSlack)).toEqual({ a: 150, b: 250, actions: 40 });
   });
 });
 

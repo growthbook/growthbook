@@ -189,7 +189,18 @@ export function TableColumnHeader({
 
 export function TableCell({
   children,
+  clip,
   ...props
-}: React.ComponentProps<typeof RadixTable.Cell>) {
-  return <RadixTable.Cell {...props}>{children}</RadixTable.Cell>;
+}: React.ComponentProps<typeof RadixTable.Cell> & {
+  /**
+   * Clip content to the cell on one line, with an ellipsis. On an inner box,
+   * not the cell, so in-cell poppers still escape it.
+   */
+  clip?: boolean;
+}) {
+  return (
+    <RadixTable.Cell {...props}>
+      {clip ? <div className={styles.clip}>{children}</div> : children}
+    </RadixTable.Cell>
+  );
 }

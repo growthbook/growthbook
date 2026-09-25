@@ -1,8 +1,16 @@
-import React, { useCallback, useMemo, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
+  fitColumnWidths,
   isLayoutCustomized,
   mergeLayoutForWrite,
   minTableWidth,
+  resizeColumnWidth,
   resolveTableColumns,
   ResolvedTableColumn,
   TableColumnDef,
@@ -17,14 +25,22 @@ export interface UseTableColumnsReturn<TRow> {
   colSpan: number;
   hiddenCount: number;
   isCustomized: boolean;
-  /** Pass to `<Table minTableWidth>` so a slack column can't starve to zero. */
+  /**
+   * Pass to `<Table minTableWidth>`: every column at its minimum. Past this the
+   * table overflows and the page scrolls horizontally.
+   */
   minTableWidth: number;
+  /** The width a column renders at once fitted to the table's container. */
+  renderedWidth: (id: string) => number | undefined;
   /** Apply order and visibility in a single write. */
   applySettings: (ordered: { id: string; visible: boolean }[]) => void;
-  setWidth: (id: string, width: number | undefined) => void;
+  /** Resize within the container, taking room from spare space or the neighbour. */
+  resizeColumn: (id: string, width: number) => void;
+  /** Written imperatively during a drag; no React render per frame. */
+  previewResize: (id: string, width: number) => void;
+  /** Clears the saved width, so the code default applies. */
+  resetWidth: (id: string) => void;
   reset: () => void;
-  /** Live `<col>` nodes, keyed by column id, for imperative width writes. */
-  colRefs: React.MutableRefObject<Map<string, HTMLTableColElement | null>>;
   /**
    * Renders the `<colgroup>`. Pass as the first child of `<Table>` — under a
    * fixed layout these widths are what make column sizes authoritative.
@@ -51,6 +67,7 @@ export function useTableColumns<TRow>({
   );
 
   const colRefs = useRef<Map<string, HTMLTableColElement | null>>(new Map());
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
 
   const columns = useMemo(
     () => resolveTableColumns(defs, layout),
@@ -60,6 +77,35 @@ export function useTableColumns<TRow>({
   const visibleColumns = useMemo(
     () => columns.filter((col) => col.visible),
     [columns],
+  );
+
+  useEffect(() => {
+    // Hidden columns leave null entries behind.
+    const table = Array.from(colRefs.current.values())
+      .find(Boolean)
+      ?.closest("table");
+    const wrapper = table?.closest<HTMLElement>("[data-table-list]");
+    if (!table || !wrapper) return;
+    // Columns share what's inside the table's own border.
+    const measure = () => {
+      const { borderLeftWidth, borderRightWidth } = getComputedStyle(table);
+      setContainerWidth(
+        wrapper.clientWidth -
+          parseFloat(borderLeftWidth) -
+          parseFloat(borderRightWidth),
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(wrapper);
+    return () => observer.disconnect();
+  }, [visibleColumns]);
+
+  // Unmeasured (first paint), nothing is squeezed.
+  const available = containerWidth ?? Infinity;
+  const rendered = useMemo(
+    () => fitColumnWidths(visibleColumns, available),
+    [visibleColumns, available],
   );
 
   const write = useCallback(
@@ -88,9 +134,45 @@ export function useTableColumns<TRow>({
     [columns, write],
   );
 
-  const setWidth = useCallback(
-    (id: string, width: number | undefined) => {
-      write(columns.map((col) => (col.id === id ? { ...col, width } : col)));
+  const nextWidths = useCallback(
+    (id: string, width: number) =>
+      resizeColumnWidth(visibleColumns, rendered, id, width, available),
+    [visibleColumns, rendered, available],
+  );
+
+  const previewResize = useCallback(
+    (id: string, width: number) => {
+      nextWidths(id, width).forEach((w, colId) => {
+        const el = colRefs.current.get(colId);
+        if (el) el.style.width = `${w}px`;
+      });
+    },
+    [nextWidths],
+  );
+
+  // Saves every column as rendered, not just the two that moved, or squeezed
+  // saved widths would squeeze the moved pair again on the next render.
+  const resizeColumn = useCallback(
+    (id: string, width: number) => {
+      const next = nextWidths(id, width);
+      write(
+        columns.map((col) =>
+          col.visible && col.resizable !== false && next.has(col.id)
+            ? { ...col, width: Math.round(next.get(col.id) as number) }
+            : col,
+        ),
+      );
+    },
+    [columns, nextWidths, write],
+  );
+
+  const resetWidth = useCallback(
+    (id: string) => {
+      write(
+        columns.map((col) =>
+          col.id === id ? { ...col, width: undefined } : col,
+        ),
+      );
     },
     [columns, write],
   );
@@ -108,13 +190,15 @@ export function useTableColumns<TRow>({
             ref={(el) => {
               colRefs.current.set(col.id, el);
             }}
-            style={col.width ? { width: col.width } : undefined}
+            style={
+              rendered.has(col.id) ? { width: rendered.get(col.id) } : undefined
+            }
           />
         ))}
       </colgroup>
     );
     return Group;
-  }, [visibleColumns]);
+  }, [visibleColumns, rendered]);
 
   return {
     columns,
@@ -123,10 +207,12 @@ export function useTableColumns<TRow>({
     hiddenCount: columns.length - visibleColumns.length,
     isCustomized: isLayoutCustomized(defs, columns),
     minTableWidth: minTableWidth(columns),
+    renderedWidth: (id) => rendered.get(id),
     applySettings,
-    setWidth,
+    resizeColumn,
+    previewResize,
+    resetWidth,
     reset,
-    colRefs,
     ColGroup,
   };
 }

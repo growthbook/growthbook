@@ -389,6 +389,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         id: "references",
         label: "References",
         defaultWidth: 130,
+        clip: true,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) => {
           const refs = references?.[v.property];
@@ -398,10 +399,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             (refs?.savedGroups.length ?? 0);
 
           return numReferences > 0 ? (
-            <Link
-              onClick={() => setReferencesProperty(v.property)}
-              style={{ whiteSpace: "nowrap" }}
-            >
+            <Link onClick={() => setReferencesProperty(v.property)}>
               <BiShow /> {numReferences} reference
               {numReferences === 1 ? "" : "s"}
             </Link>
@@ -409,7 +407,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
             <Tooltip body="No features, experiments, or condition groups reference this attribute.">
               <span
                 style={{
-                  whiteSpace: "nowrap",
                   color: "var(--gray-10)",
                   cursor: "not-allowed",
                 }}
@@ -467,8 +464,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
         },
       })),
       {
-        // The one column that absorbs leftover width, so a resize elsewhere
-        // only moves the columns to its right. Renders nothing.
+        // The one column that absorbs leftover width: a resize takes from it
+        // before taking from the neighbouring column. Renders nothing.
         id: "spacer",
         label: "",
         header: null,
@@ -483,7 +480,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
         header: null,
         locked: true,
         resizable: false,
-        // Fixed, so the pinned column can't grow over the data it covers.
         defaultWidth: 40,
         minWidth: 40,
         headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
@@ -508,9 +504,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
     hiddenCount,
     isCustomized,
     applySettings,
-    setWidth,
+    resizeColumn,
+    previewResize,
+    resetWidth,
     reset,
-    colRefs,
+    renderedWidth,
     minTableWidth,
     ColGroup,
   } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
@@ -551,22 +549,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
     return (
       <ColumnResizeHandle
         label={col.label}
-        width={col.width}
+        width={renderedWidth(col.id)}
         minWidth={min}
         maxWidth={max}
-        onCommit={(w) => setWidth(col.id, w)}
-        setLiveWidth={(w) => {
-          const el = colRefs.current.get(col.id);
-          if (!el) return;
-          el.style.width = `${w}px`;
-          // Move the floor with the drag, or the auto column squeezes mid-drag
-          // and snaps back to its minimum on release.
-          const committed = col.width ?? columnWidthBounds(col).min;
-          el.closest<HTMLElement>("[data-table-list]")?.style.setProperty(
-            "--table-min-width",
-            `${minTableWidth - committed + w}px`,
-          );
-        }}
+        onCommit={(w) =>
+          w === undefined ? resetWidth(col.id) : resizeColumn(col.id, w)
+        }
+        setLiveWidth={(w) => previewResize(col.id, w)}
       />
     );
   };
@@ -619,8 +608,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
             stickyHeader
             roundedCorners
             layout="fixed"
-            scrollX
-            stickyLastColumn
             minTableWidth={minTableWidth}
           >
             <ColGroup />
@@ -671,8 +658,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                             key={col.id}
                             className={className}
                             style={style}
+                            clip={col.clip}
                           >
-                            {col.render(v, col.width)}
+                            {col.render(v, renderedWidth(col.id))}
                           </TableCell>
                         );
                       })}

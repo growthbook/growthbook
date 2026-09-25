@@ -30,6 +30,8 @@ export interface TableColumnDef<TRow> {
   /** Starts hidden until the user opts in. */
   defaultHidden?: boolean;
   align?: "left" | "center" | "right";
+  /** Clip content to the cell on one line, with an ellipsis. */
+  clip?: boolean;
   headerProps?: { className?: string; style?: CSSProperties };
   cellProps?: (row: TRow) => { className?: string; style?: CSSProperties };
   /** `width` is the column's resolved width, for content that must size to it. */
@@ -74,20 +76,128 @@ export function columnWidthBounds<TRow>(def: TableColumnDef<TRow>): {
 }
 
 /**
- * Narrowest the table can get before a slack column starves.
- *
- * A `table-layout: fixed` column with no width takes only what the specified
- * widths leave over, so once they exceed the container it collapses to zero and
- * its content becomes unreachable. Flooring the table instead keeps the slack
- * column absorbing spare space when there is any, and pushes the table into
- * horizontal scroll when there isn't.
+ * Narrowest the table can get: every resizable column at its minimum. Past this
+ * the table overflows its container and the page scrolls horizontally.
  */
 export function minTableWidth<TRow>(
   resolved: ResolvedTableColumn<TRow>[],
 ): number {
   return resolved
     .filter((col) => col.visible)
-    .reduce((sum, col) => sum + (col.width ?? columnWidthBounds(col).min), 0);
+    .reduce(
+      (sum, col) =>
+        sum +
+        (col.resizable === false && col.width !== undefined
+          ? col.width
+          : columnWidthBounds(col).min),
+      0,
+    );
+}
+
+function slackMinWidth<TRow>(visible: ResolvedTableColumn<TRow>[]): number {
+  return visible
+    .filter((col) => col.width === undefined)
+    .reduce((sum, col) => sum + columnWidthBounds(col).min, 0);
+}
+
+function sumWidths(widths: Map<string, number>): number {
+  return Array.from(widths.values()).reduce((sum, w) => sum + w, 0);
+}
+
+/**
+ * The widths visible columns render at in a container `available` px wide,
+ * keyed by id. Columns with no width (the slack column) are left out: they take
+ * whatever is left over.
+ *
+ * Saved widths apply as-is while they fit. Past that, resizable columns shrink
+ * in proportion to their width, each stopping at its minimum, so the table
+ * stays inside its container until every column is at its minimum.
+ */
+export function fitColumnWidths<TRow>(
+  visible: ResolvedTableColumn<TRow>[],
+  available: number,
+): Map<string, number> {
+  const sized = visible.filter((col) => col.width !== undefined);
+  const widths = new Map(sized.map((col) => [col.id, col.width as number]));
+  let excess = sumWidths(widths) + slackMinWidth(visible) - available;
+  let shrinkable = sized.filter(
+    (col) =>
+      col.resizable !== false &&
+      (widths.get(col.id) as number) > columnWidthBounds(col).min,
+  );
+  // Each pass hands the remaining excess to the columns still above their
+  // minimum; one hitting its floor passes its share on to the next pass.
+  while (excess > 0.5 && shrinkable.length) {
+    const total = shrinkable.reduce(
+      (sum, col) => sum + (widths.get(col.id) as number),
+      0,
+    );
+    let taken = 0;
+    shrinkable = shrinkable.filter((col) => {
+      const width = widths.get(col.id) as number;
+      const { min } = columnWidthBounds(col);
+      const next = Math.max(min, width - (excess * width) / total);
+      widths.set(col.id, next);
+      taken += width - next;
+      return next > min;
+    });
+    excess -= taken;
+  }
+  return widths;
+}
+
+/**
+ * Resize one column to `target` px within its fitted layout, without letting
+ * the table outgrow its container. Growth takes the slack column's spare room
+ * first, then width from the nearest resizable column to the right, down to
+ * that column's minimum. Shrinking hands the room back to the slack column, or
+ * to the neighbour when there is none.
+ */
+export function resizeColumnWidth<TRow>(
+  visible: ResolvedTableColumn<TRow>[],
+  rendered: Map<string, number>,
+  id: string,
+  target: number,
+  available: number,
+): Map<string, number> {
+  const index = visible.findIndex((col) => col.id === id);
+  const current = rendered.get(id);
+  if (index < 0 || current === undefined) return rendered;
+
+  const { min, max } = columnWidthBounds(visible[index]);
+  const hasSlack = visible.some((col) => col.width === undefined);
+  const spare = hasSlack
+    ? Math.max(0, available - sumWidths(rendered) - slackMinWidth(visible))
+    : 0;
+  const neighbour = visible
+    .slice(index + 1)
+    .find((col) => col.resizable !== false && rendered.has(col.id));
+  const neighbourWidth = neighbour ? (rendered.get(neighbour.id) as number) : 0;
+  const neighbourBounds = neighbour ? columnWidthBounds(neighbour) : null;
+
+  let delta = Math.min(Math.max(target, min), max) - current;
+  let neighbourDelta = 0;
+  if (delta > 0) {
+    const fromSpare = Math.min(delta, spare);
+    const fromNeighbour = neighbourBounds
+      ? Math.min(delta - fromSpare, neighbourWidth - neighbourBounds.min)
+      : 0;
+    delta = fromSpare + fromNeighbour;
+    neighbourDelta = -fromNeighbour;
+  } else if (!hasSlack) {
+    const toNeighbour = neighbourBounds
+      ? Math.min(-delta, neighbourBounds.max - neighbourWidth)
+      : 0;
+    delta = -toNeighbour;
+    neighbourDelta = toNeighbour;
+  }
+
+  const next = new Map(rendered);
+  next.set(id, current + delta);
+  if (neighbour && neighbourDelta) {
+    next.set(neighbour.id, neighbourWidth + neighbourDelta);
+  }
+  return next;
 }
 
 function clampWidth<TRow>(
