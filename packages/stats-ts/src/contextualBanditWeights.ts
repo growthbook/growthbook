@@ -10,6 +10,7 @@ import type {
 } from "shared/types/stats";
 import { leafClausesFromContexts } from "shared/experiments";
 import {
+  MIN_UNITS_PER_VARIATION,
   updateVariationWeights,
   type VariationWeightResult,
 } from "./banditWeights";
@@ -274,18 +275,6 @@ function sumOfSquaredErrorsPerVariationFromArms(
     sse[v] = (stat.n - 1) * stat.variance;
   }
   return sse;
-}
-
-function sumOfSquaredErrorsPerVariation(
-  contexts: ContextEntry[],
-  metric: MetricSettingsForStatsEngine,
-  numVariations: number,
-): number[] {
-  return sumOfSquaredErrorsPerVariationFromArms(
-    contexts.map((ctx) => ctx.arms),
-    metric,
-    numVariations,
-  );
 }
 
 /**
@@ -779,19 +768,42 @@ function buildTree(
 
   const isBinomial = metric.main_metric_type === "binomial";
 
+  const armTotalSampleSizes = new Array<number>(numVariations).fill(0);
+  for (const ctx of contexts) {
+    for (let v = 0; v < numVariations; v++) {
+      armTotalSampleSizes[v] += ctx.arms[v].n;
+    }
+  }
+
+  // Variations with enough units to participate in tree construction.
+  const eligibleVariations: number[] = [];
+  for (let v = 0; v < numVariations; v++) {
+    if (armTotalSampleSizes[v] >= MIN_UNITS_PER_VARIATION) {
+      eligibleVariations.push(v);
+    }
+  }
+  const numEligible = eligibleVariations.length;
+
+  const armsByContext: ContextualBanditArm[][] = contexts.map((ctx) =>
+    eligibleVariations.map((v) => ctx.arms[v]),
+  );
+  const eligibleTotalSampleSizes = eligibleVariations.map(
+    (v) => armTotalSampleSizes[v],
+  );
+
   const totalSsePerVariation = (): number[] => {
-    const total = new Array<number>(numVariations).fill(0);
+    const total = new Array<number>(numEligible).fill(0);
     for (const leafId of new Set(currentLeaf)) {
-      const inLeaf: ContextEntry[] = [];
+      const inLeafArms: ContextualBanditArm[][] = [];
       for (let c = 0; c < contexts.length; c++) {
-        if (currentLeaf[c] === leafId) inLeaf.push(contexts[c]);
+        if (currentLeaf[c] === leafId) inLeafArms.push(armsByContext[c]);
       }
-      const leafSse = sumOfSquaredErrorsPerVariation(
-        inLeaf,
+      const leafSse = sumOfSquaredErrorsPerVariationFromArms(
+        inLeafArms,
         metric,
-        numVariations,
+        numEligible,
       );
-      for (let v = 0; v < numVariations; v++) total[v] += leafSse[v];
+      for (let v = 0; v < numEligible; v++) total[v] += leafSse[v];
     }
     return total;
   };
@@ -799,12 +811,12 @@ function buildTree(
   // Pooled within-leaf SSE over a set of contexts.
   const contextsSseDirect = (ctxIdxs: number[]): number => {
     let sse = 0;
-    for (let v = 0; v < numVariations; v++) {
+    for (let v = 0; v < numEligible; v++) {
       let n = 0;
       let sum = 0;
       let sumSquares = 0;
       for (const c of ctxIdxs) {
-        const arm = contexts[c].arms[v];
+        const arm = armsByContext[c][v];
         n += arm.n;
         sum += arm.main_sum;
         sumSquares += isBinomial ? arm.main_sum : arm.main_sum_squares;
@@ -819,8 +831,8 @@ function buildTree(
   // weighted k-means (Hartigan local search) as an approximate fallback.
   const partitionCategories = (cats: CompactCat[]): kMeansResult =>
     cats.length <= MAX_EXHAUSTIVE_CATEGORIES
-      ? bestExhaustiveBinarySplit(cats, numVariations)
-      : approximateBinaryKMeans(cats, numVariations, 100);
+      ? bestExhaustiveBinarySplit(cats, numEligible)
+      : approximateBinaryKMeans(cats, numEligible, 100);
 
   const evaluateLeafBestSplit = (leafId: number): LeafSplit | null => {
     const inLeaf: number[] = [];
@@ -840,11 +852,11 @@ function buildTree(
         const key = contexts[c].tuple[attrIndex];
         let compact = byCategory.get(key);
         if (!compact) {
-          compact = new Float64Array(3 * numVariations);
+          compact = new Float64Array(3 * numEligible);
           byCategory.set(key, compact);
         }
-        const arms = contexts[c].arms;
-        for (let v = 0; v < numVariations; v++) {
+        const arms = armsByContext[c];
+        for (let v = 0; v < numEligible; v++) {
           const base = v * 3;
           compact[base + CAT_N] += arms[v].n;
           compact[base + CAT_SUM] += arms[v].main_sum;
@@ -874,11 +886,11 @@ function buildTree(
       if (best === null || gain > best.gain) {
         const movingSse = compactGroupSsePerVariation(
           cats.filter((_, i) => labels[i] === 1),
-          numVariations,
+          numEligible,
         );
         const stayingSse = compactGroupSsePerVariation(
           cats.filter((_, i) => labels[i] === 0),
-          numVariations,
+          numEligible,
         );
         best = {
           attrIndex,
@@ -886,10 +898,7 @@ function buildTree(
           sseCurrent,
           splitSse: candidateSseSplit,
           gain,
-          parentSsePerVariation: compactGroupSsePerVariation(
-            cats,
-            numVariations,
-          ),
+          parentSsePerVariation: compactGroupSsePerVariation(cats, numEligible),
           childrenSsePerVariation: movingSse.map((m, v) => m + stayingSse[v]),
         };
       }
@@ -903,18 +912,12 @@ function buildTree(
   // has no split, so this stays one shorter than `sseTrajectory`).
   const bicTrajectory: ContextualBicTrajectoryEntry[] = [];
 
-  // Per-variation total sample size across all contexts, and the BIC
-  // complexity penalty K*ln(N). Used to gate each split by whether it lowers
+  // BIC complexity penalty K*ln(N), where K is the number of eligible variations
+  // and N their total sample size. Used to gate each split by whether it lowers
   // BIC (deltaBic < 0).
-  const armTotalSampleSizes = new Array<number>(numVariations).fill(0);
-  for (const ctx of contexts) {
-    for (let v = 0; v < numVariations; v++) {
-      armTotalSampleSizes[v] += ctx.arms[v].n;
-    }
-  }
   const bicPenaltyValue = bicPenalty(
-    numVariations,
-    armTotalSampleSizes.reduce((a, b) => a + b, 0),
+    numEligible,
+    eligibleTotalSampleSizes.reduce((total, n) => total + n, 0),
   );
 
   const splitCache = new Map<number, LeafSplit | null>();
@@ -959,7 +962,7 @@ function buildTree(
     const { logLikelihoodRatio, deltaBic } = bicDeltaForSplit(
       beforePerVariation,
       afterPerVariation,
-      armTotalSampleSizes,
+      eligibleTotalSampleSizes,
       bicPenaltyValue,
     );
     if (deltaBic >= 0) {

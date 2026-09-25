@@ -131,15 +131,91 @@ describe("computeContextualBanditWeights", () => {
     expect(weights[0]).toBeGreaterThan(weights[1]);
   });
 
-  it("falls back to the analysis weights when an arm has < 100 units", () => {
-    const data = [countryObs("US", 0, 50, 1), countryObs("US", 1, 50, 2)];
+  it("keeps the analysis weights when fewer than 2 arms have enough units", () => {
+    // Both arms are below the leaf threshold, so H = 0 < 2 and we cannot reweight.
+    const data = [countryObs("US", 0, 30, 1), countryObs("US", 1, 30, 2)];
 
     const result = computeContextualBanditWeights(input(data));
     const r = result.responses[0];
     expect(r.updatedWeights).toEqual([0.5, 0.5]);
     expect(r.bestArmProbabilities).toBeNull();
     expect(r.updateMessage).toBe(
-      "total sample size must be at least 100 per variation",
+      "requires at least 2 variations with sufficient units to update weights",
+    );
+  });
+
+  it("assigns 1/K to deficient arms and splits the rest among healthy arms", () => {
+    // v0 and v1 are healthy (H = 2), v2 is deficient (< 50 units), so v2 gets a
+    // fixed 1/K weight and v0/v1 share the remaining (K - L)/K = 2/3 mass.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("US", 2, 30, 1),
+    ];
+
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      varIds: ["v0", "v1", "v2"],
+      analysisWeights: [1 / 3, 1 / 3, 1 / 3],
+    });
+
+    const r = result.responses[0];
+    const w = r.updatedWeights as number[];
+    expect(w).toHaveLength(3);
+    expect(w[2]).toBeCloseTo(1 / 3, 6);
+    expect(w[0] + w[1]).toBeCloseTo(2 / 3, 6);
+    expect(w[1]).toBeGreaterThan(w[0]);
+    expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    expect(r.updateMessage).toContain("1 of 3 variations");
+  });
+
+  it("excludes under-powered variations from tree building", () => {
+    // v0 and v1 are healthy but carry no country signal (identical US/CA means),
+    // so on their own the tree has no reason to split. v2 has a strong country
+    // signal but is under-powered (< 100 units), so it must not drive a split.
+    // v2 has 30 + 30 = 60 total units, below the 100-unit threshold.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("US", 2, 30, 1),
+      countryObs("CA", 0, 200, 1),
+      countryObs("CA", 1, 200, 2),
+      countryObs("CA", 2, 30, 9),
+    ];
+
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      varIds: ["v0", "v1", "v2"],
+      analysisWeights: [1 / 3, 1 / 3, 1 / 3],
+    });
+
+    // A single leaf: the under-powered v2's country signal was ignored.
+    expect(result.leaf_map).toHaveLength(1);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+  });
+
+  it("lets a sufficiently-powered variation drive a tree split", () => {
+    // Same shape as the previous test, but v2 now has enough units, so its
+    // strong country signal splits US from CA. This confirms the previous test's
+    // single leaf was caused by v2's low unit count, not the data shape.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("US", 2, 200, 1),
+      countryObs("CA", 0, 200, 1),
+      countryObs("CA", 1, 200, 2),
+      countryObs("CA", 2, 200, 9),
+    ];
+
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      varIds: ["v0", "v1", "v2"],
+      analysisWeights: [1 / 3, 1 / 3, 1 / 3],
+    });
+
+    expect(result.leaf_map!.length).toBeGreaterThan(1);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBeGreaterThan(
+      1,
     );
   });
 
