@@ -1,8 +1,7 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
-  assertValidAssignmentQuerySelection,
-  getExposureQueryIdentifierTypes,
-  assertAssignmentQueryRefIdentifierType,
+  isSameAssignmentQuerySelection,
+  parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
@@ -115,33 +114,43 @@ export const updateExperiment = createApiRequestHandler(
     if (!datasource) {
       throw new Error("Datasource not found.");
     }
-    const assignmentQueryId =
-      req.body.assignmentQueryId ?? experiment.exposureQueryId;
     const exposureQueries = datasource.settings.queries?.exposure ?? [];
-    assertAssignmentQueryRefIdentifierType({
-      ref: req.body.assignmentQuery,
-      field: "assignmentQuery",
-      exposureQueries,
-      currentExposureQueryId: experiment.exposureQueryId,
-    });
-    // Repointing to a different query without naming an identifier defaults to
-    // the new query's first declared identifier.
-    if (
-      assignmentQueryIdentifierType === undefined &&
-      req.body.assignmentQueryId !== undefined &&
-      req.body.assignmentQueryId !== experiment.exposureQueryId
-    ) {
-      const newQuery = exposureQueries.find((q) => q.id === assignmentQueryId);
-      assignmentQueryIdentifierType = newQuery
-        ? getExposureQueryIdentifierTypes(newQuery)[0]
-        : undefined;
-    }
-    assertValidAssignmentQuerySelection({
-      exposureQueries,
-      exposureQueryId: assignmentQueryId,
+    const exposureQueryId =
+      req.body.assignmentQueryId ?? experiment.exposureQueryId;
+    const next = {
+      datasource: datasource.id,
+      exposureQueryId,
+      // A partial update naming the same query keeps its stored identifier.
       identifierType:
-        assignmentQueryIdentifierType ?? experiment.exposureQueryIdentifierType,
-    });
+        assignmentQueryIdentifierType ??
+        (exposureQueryId === experiment.exposureQueryId
+          ? experiment.exposureQueryIdentifierType
+          : undefined),
+    };
+    // Re-sending an unchanged selection isn't re-validated, so a query that
+    // drifted since doesn't block the update.
+    if (
+      !isSameAssignmentQuerySelection(
+        {
+          datasource: experiment.datasource ?? "",
+          exposureQueryId: experiment.exposureQueryId,
+          identifierType: experiment.exposureQueryIdentifierType,
+        },
+        next,
+        exposureQueries,
+      )
+    ) {
+      const parsed = parseAssignmentQuerySelection(exposureQueries, {
+        exposureQueryId,
+        identifierType: next.identifierType,
+        onOmitted: req.body.assignmentQuery
+          ? "requireUnambiguous"
+          : "defaultToFirst",
+        field: "assignmentQuery",
+      });
+      if (!parsed.ok) throw new Error(parsed.error);
+      assignmentQueryIdentifierType = parsed.identifierType;
+    }
   }
 
   // check if tracking key is unique

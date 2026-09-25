@@ -109,7 +109,16 @@ describe("experiments API", () => {
             id: "ds_123",
             type: "postgres",
             settings: {
-              queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+              queries: {
+                exposure: [
+                  {
+                    id: "user_id",
+                    name: "User ID",
+                    userIdType: "user_id",
+                    userIdTypes: ["user_id"],
+                  },
+                ],
+              },
             },
           }),
         },
@@ -890,7 +899,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
@@ -925,7 +943,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
       const res = await request(app)
@@ -968,7 +995,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
       const res = await request(app)
@@ -1003,7 +1039,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
@@ -1049,7 +1094,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
@@ -1914,6 +1968,81 @@ describe("experiments API", () => {
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
+    describe("assignment query selection", () => {
+      const withSelection = {
+        ...experiment,
+        datasource: "ds_123",
+        exposureQueryId: "eq_single",
+        exposureQueryIdentifierType: "company_id",
+      };
+      beforeEach(() => {
+        (getExperimentById as jest.Mock).mockResolvedValue(withSelection);
+        (updateExperiment as jest.Mock).mockImplementation(
+          ({ experiment, changes }) => ({ ...experiment, ...changes }),
+        );
+        (getDataSourceById as jest.Mock).mockResolvedValue({
+          id: "ds_123",
+          type: "postgres",
+          settings: {
+            queries: {
+              exposure: [
+                {
+                  id: "eq_single",
+                  name: "Single",
+                  userIdType: "user_id",
+                  userIdTypes: ["user_id"],
+                },
+                {
+                  id: "eq_multi",
+                  name: "Multi",
+                  userIdType: "anonymous_id",
+                  userIdTypes: ["anonymous_id", "user_id"],
+                },
+              ],
+            },
+          },
+        });
+      });
+
+      it("accepts re-sending a selection whose query no longer declares it", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            assignmentQuery: { id: "eq_single", identifierType: "company_id" },
+          })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+      });
+
+      it("stores the new query's first identifier when repointing by flat id", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ assignmentQueryId: "eq_multi" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+        expect(
+          (updateExperiment as jest.Mock).mock.calls[0][0].changes,
+        ).toMatchObject({
+          exposureQueryId: "eq_multi",
+          exposureQueryIdentifierType: "anonymous_id",
+        });
+      });
+
+      it("rejects the grouped field without an identifier on an ambiguous query", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ assignmentQuery: { id: "eq_multi" } })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain(
+          "declares several identifier types (anonymous_id, user_id)",
+        );
+      });
+    });
+
     it("revalidates and rejects when changing project to one with required custom fields", async () => {
       const getCustomFieldsBySectionAndProject = jest
         .fn()
@@ -2175,7 +2304,16 @@ describe("experiments API", () => {
         id: "ds_123",
         type: "postgres",
         settings: {
-          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
         },
       });
 
