@@ -60,6 +60,7 @@ import {
 import HelperText from "@/ui/HelperText";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
+import useApi from "@/hooks/useApi";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
 import TargetingAttributesSettings from "@/components/GeneralSettings/TargetingAttributesSettings";
 import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
@@ -82,6 +83,10 @@ function hasChanges(
 const GeneralSettingsPage = (): React.ReactElement => {
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
+  // Shares the composer's cache key, so revalidating here updates its `/` menu.
+  const { mutate: mutateAgentSkills } = useApi("/agent/skills", {
+    shouldRun: () => !!settings.aiEnabled,
+  });
   const [saveMsg, setSaveMsg] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
@@ -507,7 +512,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings: transformedOrgSettings,
       }),
     });
-    await refreshOrganization();
+    await Promise.all([refreshOrganization(), mutateAgentSkills()]);
 
     // show the user that the settings have saved:
     setSaveMsg(true);
