@@ -304,6 +304,27 @@ describe("mergeLayoutForWrite", () => {
     ).toEqual(["a"]);
   });
 
+  it("saves only widths that differ from the default, so a changed default still applies", () => {
+    const merged = mergeLayoutForWrite(
+      resolveTableColumns(
+        [col("a", { defaultWidth: 200 }), col("b", { defaultWidth: 200 })],
+        layout([{ id: "a", visible: true, width: 260 }]),
+      ),
+      null,
+    );
+    expect(merged.columns.map((c) => [c.id, c.width])).toEqual([
+      ["a", 260],
+      ["b", undefined],
+    ]);
+
+    // Next deploy moves b's default: b takes it and stays free to fit.
+    const b = resolveTableColumns(
+      [col("a", { defaultWidth: 200 }), col("b", { defaultWidth: 150 })],
+      merged,
+    )[1];
+    expect([b.width, b.pinned]).toEqual([150, false]);
+  });
+
   it("does not carry orphans across a version mismatch", () => {
     const defs = [col("a")];
     const stored = layout([{ id: "old", visible: true }], 99);

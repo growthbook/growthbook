@@ -329,7 +329,15 @@ export function mergeLayoutForWrite<TRow>(
   return {
     v: TABLE_COLUMN_LAYOUT_VERSION,
     columns: [
-      ...resolved.map(({ id, visible, width }) => ({ id, visible, width })),
+      ...resolved.map((col) => ({
+        id: col.id,
+        visible: col.visible,
+        // Only a width the user chose, so later changes to the default still reach them.
+        width:
+          col.width === clampWidth(col, col.defaultWidth)
+            ? undefined
+            : col.width,
+      })),
       ...orphans,
     ],
   };
