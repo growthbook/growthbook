@@ -35,6 +35,11 @@ export type TableProps = Omit<
    * the specified widths fill the container. `useTableColumns` computes this.
    */
   minTableWidth?: number;
+  /**
+   * Set by `useTableColumns`: widths are authoritative, so cells clip at the
+   * column edge, and the trailing row-actions column draws its own edge.
+   */
+  managedColumns?: boolean;
 };
 
 export default function Table({
@@ -47,6 +52,7 @@ export default function Table({
   scrollX,
   stickyLastColumn,
   minTableWidth,
+  managedColumns,
   className,
   ...props
 }: TableProps) {
@@ -136,6 +142,7 @@ export default function Table({
       data-scroll-x={scrollX ? "true" : undefined}
       data-sticky-last-column={scrollX && stickyLastColumn ? "true" : undefined}
       data-overflow-x={overflowX ? "true" : undefined}
+      data-managed-columns={managedColumns ? "true" : undefined}
     >
       {tableElement}
     </div>

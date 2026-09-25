@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  fitColumnWidths,
+  isColumnVisible,
   isLayoutCustomized,
   mergeLayoutForWrite,
   minTableWidth,
   resolveTableColumns,
   TableColumnDef,
   TableColumnLayout,
+  withSpacerColumn,
 } from "@/services/tableColumns";
 
 type Row = { id: string };
@@ -313,49 +316,50 @@ describe("mergeLayoutForWrite", () => {
 });
 
 describe("minTableWidth", () => {
-  it("sums the widths of visible columns", () => {
+  it("counts columns fitting may shrink at their minimum", () => {
     const defs = [
-      col("a", { defaultWidth: 100 }),
-      col("b", { defaultWidth: 80 }),
+      col("a", { defaultWidth: 300, minWidth: 100 }),
+      col("b", { defaultWidth: 300 }),
+      col("hidden", { minWidth: 500, defaultHidden: true }),
+      col("actions", { defaultWidth: 40, minWidth: 30, resizable: false }),
     ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(180);
+    // 100 + the shared 64 floor + the fixed column's own 40.
+    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(204);
   });
 
-  it("sums the clamped width, not the declared one", () => {
-    // 50 is below the shared minimum, so the column really occupies 64.
+  it("counts a pinned column at its width", () => {
     const defs = [
-      col("a", { defaultWidth: 100 }),
-      col("b", { defaultWidth: 50 }),
+      col("a", { defaultWidth: 300, minWidth: 100 }),
+      col("b", { defaultWidth: 300 }),
     ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(164);
-  });
-
-  it("ignores hidden columns", () => {
-    const defs = [
-      col("a", { defaultWidth: 100 }),
-      col("b", { defaultWidth: 50, defaultHidden: true }),
-    ];
-    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(100);
+    const resolved = resolveTableColumns(
+      defs,
+      layout([{ id: "a", visible: true, width: 250 }]),
+    );
+    expect(minTableWidth(resolved)).toBe(314);
   });
 
   it("floors a slack column at its minWidth rather than counting it as zero", () => {
     // The bug this guards: a fixed-layout column with no width takes only the
     // leftover space, so without a floor it collapses once the others fill up.
     const defs = [
-      col("a", { defaultWidth: 100 }),
+      col("a", { defaultWidth: 100, resizable: false }),
       col("slack", { minWidth: 160 }),
     ];
     expect(minTableWidth(resolveTableColumns(defs, null))).toBe(260);
   });
 
   it("uses the shared minimum for a slack column that declares no minWidth", () => {
-    const defs = [col("a", { defaultWidth: 100 }), col("slack")];
+    const defs = [
+      col("a", { defaultWidth: 100, resizable: false }),
+      col("slack"),
+    ];
     expect(minTableWidth(resolveTableColumns(defs, null))).toBe(164);
   });
 
   it("lets a spacer column opt out of the floor with minWidth 0", () => {
     const defs = [
-      col("a", { defaultWidth: 100 }),
+      col("a", { defaultWidth: 100, resizable: false }),
       col("spacer", { minWidth: 0 }),
     ];
     expect(minTableWidth(resolveTableColumns(defs, null))).toBe(100);
@@ -363,7 +367,7 @@ describe("minTableWidth", () => {
 
   it("counts a resized slack column at its committed width", () => {
     const defs = [
-      col("a", { defaultWidth: 100 }),
+      col("a", { defaultWidth: 100, resizable: false }),
       col("slack", { minWidth: 160 }),
     ];
     const resolved = resolveTableColumns(
@@ -374,6 +378,121 @@ describe("minTableWidth", () => {
       ]),
     );
     expect(minTableWidth(resolved)).toBe(500);
+  });
+});
+
+describe("pinned", () => {
+  it("marks only columns whose width differs from the default", () => {
+    const defs = [
+      col("a", { defaultWidth: 200 }),
+      col("b", { defaultWidth: 200 }),
+      col("c", { defaultWidth: 200 }),
+      col("fixed", { defaultWidth: 40, resizable: false }),
+    ];
+    // b's stored width is a default carried along by an unrelated write.
+    const resolved = resolveTableColumns(
+      defs,
+      layout([
+        { id: "a", visible: true, width: 260 },
+        { id: "b", visible: true, width: 200 },
+        { id: "fixed", visible: true, width: 90 },
+      ]),
+    );
+    expect(resolved.map((c) => [c.id, c.pinned])).toEqual([
+      ["a", true],
+      ["b", false],
+      ["c", false],
+      ["fixed", false],
+    ]);
+    expect(resolveTableColumns(defs, null).some((c) => c.pinned)).toBe(false);
+  });
+});
+
+describe("isColumnVisible", () => {
+  it("agrees with resolveTableColumns", () => {
+    const defs = [
+      col("shown"),
+      col("hiddenByUser"),
+      col("optIn", { defaultHidden: true }),
+      col("optedIn", { defaultHidden: true }),
+      col("locked", { locked: true }),
+      col("unsaved"),
+    ];
+    const stored = layout([
+      { id: "shown", visible: true },
+      { id: "hiddenByUser", visible: false },
+      { id: "optedIn", visible: true },
+      { id: "locked", visible: false },
+    ]);
+    const resolved = new Map(
+      resolveTableColumns(defs, stored).map((c) => [c.id, c.visible]),
+    );
+    defs.forEach((def) => {
+      expect(isColumnVisible(stored, def)).toBe(resolved.get(def.id));
+    });
+  });
+
+  it("falls back to the default for a missing or foreign layout", () => {
+    expect(isColumnVisible(null, col("a"))).toBe(true);
+    expect(isColumnVisible(null, col("a", { defaultHidden: true }))).toBe(
+      false,
+    );
+    const future = layout([{ id: "a", visible: false }], 2);
+    expect(isColumnVisible(future, col("a"))).toBe(true);
+  });
+});
+
+describe("withSpacerColumn", () => {
+  it("goes ahead of trailing locked columns, or last without any", () => {
+    const ids = (defs: TableColumnDef<Row>[]) =>
+      withSpacerColumn(defs).map((c) => c.id);
+    expect(
+      ids([
+        col("a", { locked: true }),
+        col("b"),
+        col("actions", { locked: true }),
+      ]),
+    ).toEqual(["a", "b", "spacer", "actions"]);
+    expect(ids([col("a"), col("b")])).toEqual(["a", "b", "spacer"]);
+  });
+});
+
+describe("fitColumnWidths", () => {
+  const defs = [
+    col("a", { defaultWidth: 300, minWidth: 100 }),
+    col("b", { defaultWidth: 100, minWidth: 100 }),
+    col("c", { defaultWidth: 200, minWidth: 100 }),
+    col("spacer", { minWidth: 0 }),
+    col("actions", { defaultWidth: 40, minWidth: 40, resizable: false }),
+  ];
+  const fit = (available: number, stored: TableColumnLayout | null = null) =>
+    Object.fromEntries(
+      fitColumnWidths(
+        resolveTableColumns(defs, stored).filter((c) => c.visible),
+        available,
+      ),
+    );
+
+  it("keeps widths while they fit, leaving the slack column out", () => {
+    expect(fit(1000)).toEqual({ a: 300, b: 100, c: 200, actions: 40 });
+  });
+
+  it("shrinks columns in proportion, sparing ones at their minimum", () => {
+    // 100 over: a and c give it up 3:2, b is already at its floor.
+    expect(fit(540)).toEqual({ a: 240, b: 100, c: 160, actions: 40 });
+  });
+
+  it("passes a floored column's share on, and stops at the minimums", () => {
+    // c floors at 100 first; a absorbs the rest.
+    expect(fit(360)).toEqual({ a: 120, b: 100, c: 100, actions: 40 });
+    expect(fit(100)).toEqual({ a: 100, b: 100, c: 100, actions: 40 });
+  });
+
+  it("leaves a pinned column at its width and squeezes the rest around it", () => {
+    const widened = layout([{ id: "c", visible: true, width: 400 }]);
+    expect(fit(740, widened)).toEqual({ a: 200, b: 100, c: 400, actions: 40 });
+    // Nothing left to give: the table overflows rather than undoing the resize.
+    expect(fit(300, widened)).toEqual({ a: 100, b: 100, c: 400, actions: 40 });
   });
 });
 

@@ -212,12 +212,31 @@
     &[data-sticky-header="true"] :global(.rt-TableHeader) {
       top: 0;
     }
+  }
 
-    // Widths are authoritative here, so content clips at the column edge rather
-    // than spilling into its neighbour. The pinned last column keeps its shadow.
+  // Widths are authoritative here, so content clips at the column edge rather
+  // than spilling into its neighbour. The last column keeps its edge and shadow.
+  &[data-scroll-x="true"],
+  &[data-managed-columns="true"] {
     :global(.rt-TableRow > :not(:last-child)) {
       overflow: hidden !important;
       text-overflow: ellipsis;
+    }
+  }
+
+  // The row-actions column's own edge, drawn like a resize handle's line.
+  &[data-sticky-last-column="true"],
+  &[data-managed-columns="true"] {
+    :global(.rt-TableHeader .rt-TableRow > *:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 20%;
+      left: 0;
+      width: 2px;
+      height: 60%;
+      border-radius: 1px;
+      background-color: var(--gray-a5);
+      pointer-events: none;
     }
   }
 
@@ -265,19 +284,6 @@
       // The same slate-alpha family as the table's own borders: it inverts for
       // dark mode, where black leaves no cue and neutral grey doesn't blend.
       background: linear-gradient(to right, transparent, var(--slate-a3));
-    }
-
-    // The pinned column's own edge, drawn like a resize handle's line.
-    :global(.rt-TableHeader .rt-TableRow > *:last-child)::after {
-      content: "";
-      position: absolute;
-      top: 20%;
-      left: 0;
-      width: 2px;
-      height: 60%;
-      border-radius: 1px;
-      background-color: var(--gray-a5);
-      pointer-events: none;
     }
   }
 
