@@ -1,5 +1,6 @@
 import {
   apiCreateDashboardBody,
+  apiCreateDashboardBodyV2,
   apiUpdateDashboardBody,
 } from "../../src/enterprise/validators/dashboard";
 
@@ -120,7 +121,7 @@ describe("dashboard API block validation", () => {
   });
 
   it("keeps an owner on create and drops the response-only fields", () => {
-    const parsed = apiCreateDashboardBody.parse({
+    const parsed = apiCreateDashboardBodyV2.parse({
       title: "D",
       editLevel: "private",
       shareLevel: "private",
