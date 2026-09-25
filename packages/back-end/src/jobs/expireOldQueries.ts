@@ -163,6 +163,7 @@ const expireOldQueries = async () => {
     );
     updateQueryStatus(metricAnalysis.queries, queryIds);
     await context.models.metricAnalysis.update(metricAnalysis, {
+      status: "error",
       queries: metricAnalysis.queries,
       error: "Queries were interupted. Please try refreshing the results.",
     });

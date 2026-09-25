@@ -40,6 +40,9 @@ const DimensionSlicesModel = mongoose.model<DimensionSlicesInterface>(
   dimensionSlicesSchema,
 );
 
+export const DIMENSION_SLICES_COLLECTION =
+  DimensionSlicesModel.collection.collectionName;
+
 function toInterface(doc: DimensionSlicesDocument): DimensionSlicesInterface {
   const ret = doc.toJSON<DimensionSlicesDocument>();
   return omit(ret, ["__v", "_id"]);

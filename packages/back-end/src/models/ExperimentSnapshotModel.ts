@@ -266,6 +266,9 @@ const ExperimentSnapshotModel =
     experimentSnapshotSchema,
   );
 
+export const EXPERIMENT_SNAPSHOT_COLLECTION =
+  ExperimentSnapshotModel.collection.collectionName;
+
 const toInterface = (
   doc: ExperimentSnapshotDocument,
 ): ExperimentSnapshotInterface =>

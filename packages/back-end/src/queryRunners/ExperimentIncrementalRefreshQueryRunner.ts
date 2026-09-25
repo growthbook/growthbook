@@ -36,6 +36,7 @@ import {
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  EXPERIMENT_SNAPSHOT_COLLECTION,
   errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
@@ -1215,6 +1216,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   ExperimentIncrementalRefreshQueryParams,
   SnapshotResult
 > {
+  protected readonly modelCollectionName = EXPERIMENT_SNAPSHOT_COLLECTION;
+
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
