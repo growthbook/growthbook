@@ -22,7 +22,7 @@ export default function EventForwarderTableNameField({
   placeholder: string;
   tooltip: string;
   subTitle?: ReactNode;
-  helpText?: string;
+  helpText?: ReactNode;
   readOnly?: boolean;
   required?: boolean;
 }) {

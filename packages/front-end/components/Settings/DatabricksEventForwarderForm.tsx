@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
+import { DocLink } from "@/components/DocLink";
 import EventForwarderTableNameField from "./EventForwarderTableNameField";
 
 const DatabricksEventForwarderForm: FC<{
@@ -73,7 +74,14 @@ const DatabricksEventForwarderForm: FC<{
         onChange={(zerobusEndpoint) => updateConfig({ zerobusEndpoint })}
         placeholder={zerobusPlaceholder}
         tooltip="Zerobus Ingest endpoint for your workspace."
-        helpText="<workspace-id> is the numeric id in your workspace URL (after ?o=, or after adb- on Azure); <region> is the workspace's cloud region (e.g. us-east-1, eastus, us-central1)."
+        helpText={
+          <>
+            Built from your workspace ID and cloud region.{" "}
+            <DocLink docSection="eventForwarder" useRadix={false}>
+              How to find these
+            </DocLink>
+          </>
+        }
       />
     </Flex>
   );
