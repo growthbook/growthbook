@@ -914,7 +914,34 @@
                 "pages": [
                   "api/members/operation/listMembers",
                   "api/members/operation/updateMemberRole",
-                  "api/members/operation/deleteMember"
+                  "api/members/operation/deleteMember",
+                  "api/members/operation/listInvites",
+                  "api/members/operation/postInvite",
+                  "api/members/operation/putInvite",
+                  "api/members/operation/deleteInvite",
+                  "api/members/operation/postInviteResend",
+                  "api/members/operation/listPendingMembers",
+                  "api/members/operation/postPendingMemberApprove"
+                ]
+              },
+              {
+                "group": "Roles",
+                "pages": [
+                  "api/roles/operation/listRoles",
+                  "api/roles/operation/postRole",
+                  "api/roles/operation/putRole",
+                  "api/roles/operation/deleteRole",
+                  "api/roles/operation/postRoleActivate",
+                  "api/roles/operation/postRoleDeactivate"
+                ]
+              },
+              {
+                "group": "API Keys",
+                "pages": [
+                  "api/api-keys/operation/listApiKeys",
+                  "api/api-keys/operation/postApiKeyDisable",
+                  "api/api-keys/operation/postApiKeyEnable",
+                  "api/api-keys/operation/deleteApiKey"
                 ]
               },
               {
@@ -1118,6 +1145,7 @@
             "pages": [
               "api/AggregatedFactTable_model",
               "api/AnalyticsExploration_model",
+              "api/ApiKey_model",
               "api/Archetype_model",
               "api/Attribute_model",
               "api/AutoRun_model",
@@ -1186,6 +1214,7 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/Invite_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",
@@ -1197,6 +1226,7 @@
               "api/NamespaceExperimentMember_model",
               "api/Organization_model",
               "api/PaginationFields_model",
+              "api/PendingMember_model",
               "api/Project_model",
               "api/Query_model",
               "api/RampSchedule_model",
@@ -1205,6 +1235,7 @@
               "api/RequireReviewRule_model",
               "api/RequireReviewRuleInput_model",
               "api/RevisionIdRef_model",
+              "api/Role_model",
               "api/Safe Rollout Rule_model",
               "api/SavedGroup_model",
               "api/SavedGroupApprovalRule_model",

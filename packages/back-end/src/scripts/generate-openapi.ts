@@ -40,6 +40,8 @@ const openApiTags = [
   "custom-hooks",
   "organizations",
   "members",
+  "roles",
+  "api-keys",
   "code-references",
   "archetypes",
   "queries",
@@ -184,7 +186,18 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   },
   members: {
     display: "Members",
-    description: "Members are users who have been invited to an organization.",
+    description:
+      "Members are users who have been invited to an organization. Also covers pending invites and users waiting for approval to join.",
+  },
+  roles: {
+    display: "Roles",
+    description:
+      "Built-in and custom roles that can be given to members, teams and API keys. Managing custom roles requires an Enterprise plan.",
+  },
+  "api-keys": {
+    display: "API Keys",
+    description:
+      "Organization secret API keys. Key values are never returned; keys are created in the app.",
   },
   organizations: {
     display: "Organizations",
