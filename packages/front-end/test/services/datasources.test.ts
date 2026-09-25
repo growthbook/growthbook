@@ -5,6 +5,7 @@ import {
   getDefaultIdentifierType,
   getIdentifierTypeForHashAttribute,
   getAssignmentQueryDrift,
+  getCopiedAssignmentQueryNotice,
   getExposureQueriesForProject,
   getExposureQueriesInScope,
   getDefaultIdentifierTypeForQuery,
@@ -337,6 +338,74 @@ describe("getAssignmentQueryDrift", () => {
       outOfScope: false,
       identifierUndeclared: false,
     });
+  });
+});
+
+describe("getCopiedAssignmentQueryNotice", () => {
+  const dropped = makeExposureQuery({
+    id: "exq_dropped",
+    name: "Dropped",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id"],
+  });
+  const other = makeExposureQuery({
+    id: "exq_other",
+    name: "Other",
+    userIdType: "anonymous_id",
+    userIdTypes: ["anonymous_id"],
+  });
+  const datasource = {
+    id: "ds_1",
+    settings: { queries: { exposure: [dropped, other] } },
+  };
+  const legacySource = { datasource: "ds_1", exposureQueryId: "exq_dropped" };
+
+  it("explains a switch to another query declaring the source's identifier", () => {
+    expect(
+      getCopiedAssignmentQueryNotice(datasource, legacySource, {
+        exposureQueryId: "exq_other",
+        identifierType: "anonymous_id",
+      }),
+    ).toBe(
+      '"Dropped" no longer declares the "anonymous_id" identifier type the source analyzed on, so this copy uses "Other", which does.',
+    );
+  });
+
+  it("explains a switch to a different identifier", () => {
+    expect(
+      getCopiedAssignmentQueryNotice(datasource, legacySource, {
+        exposureQueryId: "exq_dropped",
+        identifierType: "user_id",
+      }),
+    ).toBe(
+      'The source analyzed on "anonymous_id", which "Dropped" no longer declares. This copy analyzes on "user_id" instead, so it measures different units than the source.',
+    );
+  });
+
+  it("is null when the source's selection still works", () => {
+    expect(
+      getCopiedAssignmentQueryNotice(
+        datasource,
+        { datasource: "ds_1", exposureQueryId: "exq_other" },
+        { exposureQueryId: "exq_dropped", identifierType: "user_id" },
+      ),
+    ).toBeNull();
+  });
+
+  it("is null without a source, or for a source on another data source", () => {
+    expect(
+      getCopiedAssignmentQueryNotice(datasource, null, {
+        exposureQueryId: "exq_other",
+        identifierType: "anonymous_id",
+      }),
+    ).toBeNull();
+    expect(
+      getCopiedAssignmentQueryNotice(
+        datasource,
+        { ...legacySource, datasource: "ds_2" },
+        { exposureQueryId: "exq_other", identifierType: "anonymous_id" },
+      ),
+    ).toBeNull();
   });
 });
 

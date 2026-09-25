@@ -28,7 +28,10 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getCopiedAssignmentQueryNotice,
+  getExposureQuery,
+} from "@/services/datasources";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -635,6 +638,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 <AssignmentQueryFields
                   selection={assignmentQuerySelection}
                   size="legacy"
+                  notice={getCopiedAssignmentQueryNotice(
+                    datasource ?? null,
+                    initialExperiment ?? null,
+                    {
+                      exposureQueryId,
+                      identifierType: exposureQueryIdentifierType,
+                    },
+                  )}
                 />
               ) : null}
             </div>

@@ -32,6 +32,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  getCopiedAssignmentQueryNotice,
   getExposureQuery,
   getDefaultIdentifierTypeForQuery,
 } from "@/services/datasources";
@@ -190,23 +191,26 @@ export function getNewExperimentDatasourceDefaults({
       ) ?? null;
   }
 
-  // Copies (duplicate, from template) keep what the source analyzes on.
-  const initialIdentifierType =
+  // Copies (duplicate, from template) keep what the source analyzes on, even
+  // if the query dropped it: the form then looks for another query declaring
+  // it before falling back, and explains the change.
+  const copiedIdentifierType =
     exposureQuery && exposureQuery.id === initialValue?.exposureQueryId
       ? getAnalysisIdentifierType(
           exposureQuery,
           initialValue.exposureQueryIdentifierType,
         )
-      : initialValue?.exposureQueryIdentifierType;
+      : undefined;
 
   return {
     datasource: initialDatasource.id,
     exposureQueryId: exposureQuery?.id || "",
     exposureQueryIdentifierType: exposureQuery
-      ? getDefaultIdentifierTypeForQuery(
+      ? (copiedIdentifierType ??
+        getDefaultIdentifierTypeForQuery(
           exposureQuery,
-          initialIdentifierType ?? initialUserIdType,
-        )
+          initialValue?.exposureQueryIdentifierType ?? initialUserIdType,
+        ))
       : undefined,
   };
 }
@@ -1582,6 +1586,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <AssignmentQueryFields
                   selection={assignmentQuerySelection}
                   initialOption="Choose..."
+                  notice={getCopiedAssignmentQueryNotice(
+                    datasource ?? null,
+                    initialValue ?? null,
+                    {
+                      exposureQueryId,
+                      identifierType: exposureQueryIdentifierType,
+                    },
+                  )}
                 />
               )}
 

@@ -8,6 +8,7 @@ import {
 } from "shared/types/datasource";
 import { MetricType } from "shared/types/metric";
 import {
+  getAnalysisIdentifierType,
   getExposureQueryIdentifierTypes,
   isExposureQueryAvailableForProjects,
   isProjectListValidForProject,
@@ -858,6 +859,53 @@ export function getAssignmentQueryDrift(
       !!identifierType &&
       !getExposureQueryIdentifierTypes(query).includes(identifierType),
   };
+}
+
+/**
+ * New-record forms silently repair a selection the query no longer allows, so
+ * when a copy's source analyzed on an identifier its query dropped, explain
+ * what the copy uses instead. Null when the source's selection still works.
+ */
+export function getCopiedAssignmentQueryNotice(
+  datasource: Pick<DataSourceInterfaceWithParams, "id" | "settings"> | null,
+  source: {
+    datasource?: string;
+    exposureQueryId?: string;
+    exposureQueryIdentifierType?: string;
+  } | null,
+  selection: { exposureQueryId?: string; identifierType?: string },
+): string | null {
+  if (!datasource || !source?.exposureQueryId) return null;
+  if (source.datasource !== datasource.id) return null;
+  const queries = datasource.settings?.queries?.exposure ?? [];
+  const sourceQuery = queries.find((q) => q.id === source.exposureQueryId);
+  if (!sourceQuery) return null;
+  const sourceIdentifierType = getAnalysisIdentifierType(
+    sourceQuery,
+    source.exposureQueryIdentifierType,
+  );
+  if (
+    !sourceIdentifierType ||
+    getExposureQueryIdentifierTypes(sourceQuery).includes(sourceIdentifierType)
+  ) {
+    return null;
+  }
+  const sourceQueryName = sourceQuery.name || sourceQuery.id;
+  if (
+    selection.identifierType === sourceIdentifierType &&
+    selection.exposureQueryId &&
+    selection.exposureQueryId !== sourceQuery.id
+  ) {
+    const query = queries.find((q) => q.id === selection.exposureQueryId);
+    return `"${sourceQueryName}" no longer declares the "${sourceIdentifierType}" identifier type the source analyzed on, so this copy uses "${query?.name || selection.exposureQueryId}", which does.`;
+  }
+  if (
+    selection.identifierType &&
+    selection.identifierType !== sourceIdentifierType
+  ) {
+    return `The source analyzed on "${sourceIdentifierType}", which "${sourceQueryName}" no longer declares. This copy analyzes on "${selection.identifierType}" instead, so it measures different units than the source.`;
+  }
+  return null;
 }
 
 /**

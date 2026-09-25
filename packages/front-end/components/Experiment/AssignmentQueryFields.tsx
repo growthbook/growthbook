@@ -263,12 +263,14 @@ export default function AssignmentQueryFields({
   placeholder,
   size,
   disabled,
+  notice,
 }: {
   selection: Selection;
   initialOption?: string;
   placeholder?: string;
   size?: "legacy";
   disabled?: boolean;
+  notice?: string | null;
 }) {
   const {
     exposureQueryId,
@@ -283,6 +285,11 @@ export default function AssignmentQueryFields({
   return (
     <>
       <AssignmentQueryDriftWarning selection={selection} />
+      {notice ? (
+        <Callout status="info" mb="3">
+          {notice}
+        </Callout>
+      ) : null}
       <SelectField
         size={size}
         label={

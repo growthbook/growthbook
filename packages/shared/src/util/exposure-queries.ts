@@ -35,7 +35,7 @@ export function getAnalysisIdentifierType(
 ): string | undefined {
   if (storedIdentifierType) return storedIdentifierType;
   return query
-    ? query.userIdType || getExposureQueryIdentifierTypes(query)[0]
+    ? query.userIdType || getExposureQueryIdentifierTypes(query)[0] || ""
     : undefined;
 }
 
