@@ -21,6 +21,7 @@ import { LearningModel } from "back-end/src/models/LearningModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { AutoRunModel } from "back-end/src/models/AutoRunModel";
 import { PopulationModel } from "back-end/src/models/PopulationModel";
+import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -65,6 +66,8 @@ import { reportRoutes } from "./reports/reports.router";
 import { namespacesRoutes } from "./namespaces/namespaces.router";
 import { rolesRoutes } from "./roles/roles.router";
 import { apiKeysRoutes } from "./api-keys/api-keys.router";
+import { eventWebhooksRoutes } from "./event-webhooks/event-webhooks.router";
+import { auditsRoutes } from "./audits/audits.router";
 import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
 
 const API_MODELS: ModelClass[] = [
@@ -83,6 +86,7 @@ const API_MODELS: ModelClass[] = [
   HoldoutModel,
   AutoRunModel,
   PopulationModel,
+  WebhookSecretDataModel,
 ];
 
 const router = Router();
@@ -209,6 +213,8 @@ export const allRoutes = [
   ...namespacesRoutes,
   ...rolesRoutes,
   ...apiKeysRoutes,
+  ...eventWebhooksRoutes,
+  ...auditsRoutes,
   ...openaiRoutes,
   ...visualEditorAiRoutes,
 ];
