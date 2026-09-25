@@ -2,7 +2,6 @@ import {
   ColumnInterface,
   CreateColumnProps,
   CreateFactFilterProps,
-  CreateFactMetricProps,
   CreateFactTableProps,
   FactTableInterface,
 } from "shared/types/fact-table";
@@ -18,7 +17,10 @@ import {
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseUserIdTypes,
 } from "shared/util";
-import { getDefaultFactMetricProps } from "@/services/metrics";
+import {
+  CreateStandardFactMetricProps,
+  getDefaultFactMetricProps,
+} from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
 import { getTablePrefix } from "@/services/datasources";
 
@@ -45,7 +47,7 @@ export interface InitialDatasourceResources {
     filters: CreateFactFilterProps[];
     metrics: Partial<
       Pick<
-        CreateFactMetricProps,
+        CreateStandardFactMetricProps,
         | "name"
         | "description"
         | "numerator"
@@ -828,7 +830,7 @@ export async function createInitialResources({
             metric.denominator.factTableId = factTableId;
           }
 
-          const metricBody: CreateFactMetricProps = getDefaultFactMetricProps({
+          const metricBody = getDefaultFactMetricProps({
             metricDefaults,
             settings,
             datasources: [datasource],

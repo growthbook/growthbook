@@ -40,7 +40,7 @@ const EditProjectsForm: FC<{
       cta="Save"
     >
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         label={label}
         placeholder="All Projects"
         value={form.watch("projects")}

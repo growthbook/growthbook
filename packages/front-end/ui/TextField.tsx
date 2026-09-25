@@ -2,10 +2,11 @@ import { Flex, TextField as RadixTextField } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactNode, useId } from "react";
 import clsx from "clsx";
+import { radixSize, Size } from "@/ui/sizes";
 import HelperText from "./HelperText";
 import Text, { TextSizes, TextWeights } from "./Text";
 
-export type TextFieldSize = "x-small" | "small" | "legacy" | "medium";
+export type TextFieldSize = Size<"sm" | "md" | "lg">;
 
 /** Supported native input `type` values (passed through to the underlying `<input>`). */
 export type TextFieldType =
@@ -45,18 +46,6 @@ export type TextFieldProps = {
 > &
   MarginProps;
 
-function toRadixSize(size: TextFieldSize): "1" | "2" | "3" {
-  switch (size) {
-    case "x-small":
-      return "1";
-    case "small":
-    case "legacy":
-      return "2";
-    case "medium":
-      return "3";
-  }
-}
-
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
   function TextField(
     {
@@ -67,7 +56,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
       error,
       errorLevel = "error",
       helpText,
-      size = "small",
+      size = "md",
       variant = "surface",
       type = "text",
       prepend,
@@ -113,7 +102,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           <Text
             as="label"
             htmlFor={inputId}
-            size={labelSize ?? "medium"}
+            size={labelSize ?? "md"}
             weight={labelWeight}
           >
             {label}
@@ -133,7 +122,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           id={inputId}
           ref={ref}
           type={type}
-          size={toRadixSize(size)}
+          size={radixSize(size)}
           variant={variant}
           className={clsx(className, inputClassName, statusClass)}
         >
@@ -149,7 +138,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             {error}
           </HelperText>
         ) : helpText ? (
-          <Text as="div" size="small" color="text-mid" mt="1">
+          <Text as="div" size="sm" color="text-mid" mt="1">
             {helpText}
           </Text>
         ) : null}

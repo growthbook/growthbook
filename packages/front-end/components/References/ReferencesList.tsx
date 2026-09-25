@@ -47,7 +47,7 @@ const ReferencesListSection: FC<ReferenceSection> = ({
         trigger={
           <Flex align="center" gap="1">
             <PiCaretRightFill className="chevron" />
-            <Heading as="h3" size="small" mb="0">
+            <Heading as="h3" size="sm" mb="0">
               {title}
             </Heading>
             <Badge radius="full" label={items.length.toString()} />

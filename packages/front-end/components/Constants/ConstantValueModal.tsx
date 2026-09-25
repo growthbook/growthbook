@@ -238,7 +238,7 @@ export default function ConstantValueModal({
                 menuPlacement="end"
                 variant="soft"
                 trigger={
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="md">
                     <Flex align="center" gap="1">
                       <PiPlus /> Add override <PiCaretDownFill size={10} />
                     </Flex>
@@ -257,7 +257,7 @@ export default function ConstantValueModal({
             )}
           </Flex>
           {overrideEnvIds.length === 0 ? (
-            <Text as="div" size="small" color="text-mid">
+            <Text as="div" size="sm" color="text-mid">
               No overrides yet.
             </Text>
           ) : (

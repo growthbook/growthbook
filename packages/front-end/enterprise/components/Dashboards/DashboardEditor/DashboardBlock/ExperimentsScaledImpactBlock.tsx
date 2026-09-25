@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ExperimentsScaledImpactBlockInterface } from "shared/enterprise";
+import {
+  ExperimentsScaledImpactBlockInterface,
+  getEffectiveExperimentBlock,
+} from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import ExecExperimentImpact from "@/enterprise/components/ExecReports/ExecExperimentImpact";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -9,12 +12,17 @@ import { useCompletedExperiments } from "./completedExperiments";
 import { BlockProps } from ".";
 
 export default function ExperimentsScaledImpactBlock({
-  block,
+  block: rawBlock,
+  dashboardGlobalControls,
 }: BlockProps<ExperimentsScaledImpactBlockInterface>) {
   const { hasCommercialFeature } = useUser();
   // The impact table's won/lost/other filter is interactive (not persisted).
   const [experimentsToShow, setExperimentsToShow] = useState("all");
 
+  // Apply any dashboard-wide global filters the block has opted into.
+  const block = getEffectiveExperimentBlock(rawBlock, {
+    globalControls: dashboardGlobalControls,
+  });
   const { experiments, loading, filters } = useCompletedExperiments(block);
 
   if (!hasCommercialFeature("experiment-impact")) {

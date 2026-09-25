@@ -4,7 +4,7 @@ import { findVisualChangesetById } from "back-end/src/models/VisualChangesetMode
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForModel,
 } from "back-end/src/enterprise/services/ai";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -54,6 +54,18 @@ const bodySchema = z
     source: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("figma"), fileUrl: z.string().url() }),
       z.object({ kind: z.literal("image"), image: designImageSchema }),
+      // Already uploaded, so a URL rather than bytes. The model places it and
+      // never sees it — dimensions stand in, which also covers SVG.
+      z.object({
+        kind: z.literal("asset"),
+        asset: z.object({
+          url: z.string().url(),
+          mimeType: z.string().max(100),
+          width: z.number().int().positive().max(20000).optional(),
+          height: z.number().int().positive().max(20000).optional(),
+          alt: z.string().max(300).optional(),
+        }),
+      }),
     ]),
     // Client-formatted token summary for the mockup-image path (the Figma
     // path derives its own from the node tree). Bounded to keep prompt
@@ -156,6 +168,70 @@ Fidelity guidance:
 
 If the requested design is too large or structural to be a single in-page component — for example a full new page, a complete navigation/header overhaul, or many independent page sections — do NOT attempt a partial DOM injection. Instead set "tooLargeWarning" to a one-sentence explanation and return html=null and css=null.`;
 
+const ASSET_SENTINEL = "{{ASSET}}";
+
+const escapeAttr = (v: string): string =>
+  v
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+function assetImgTag(asset: {
+  url: string;
+  width?: number;
+  height?: number;
+  alt?: string;
+}): string {
+  const attrs = [
+    `src="${escapeAttr(asset.url)}"`,
+    `alt="${escapeAttr(asset.alt ?? "")}"`,
+    ...(asset.width ? [`width="${asset.width}"`] : []),
+    ...(asset.height ? [`height="${asset.height}"`] : []),
+  ];
+  return `<img ${attrs.join(" ")} />`;
+}
+
+// Swap the model's sentinel for the real asset, or return null when the
+// response can't be trusted to place it exactly once in element content:
+// two sentinels would duplicate the image, and one inside a tag or a
+// comment would produce malformed or invisible markup.
+export function composeAssetHtml(
+  rawHtml: string,
+  asset: { url: string; width?: number; height?: number; alt?: string },
+): string | null {
+  const at = rawHtml.indexOf(ASSET_SENTINEL);
+  if (at === -1) return null;
+  if (rawHtml.includes(ASSET_SENTINEL, at + ASSET_SENTINEL.length)) return null;
+
+  const before = rawHtml.slice(0, at);
+  const insideTag = before.lastIndexOf("<") > before.lastIndexOf(">");
+  const insideComment = before.lastIndexOf("<!--") > before.lastIndexOf("-->");
+  if (insideTag || insideComment) return null;
+
+  // Sliced rather than String.replace: a URL containing `$&` would
+  // otherwise be treated as a replacement pattern.
+  return (
+    before + assetImgTag(asset) + rawHtml.slice(at + ASSET_SENTINEL.length)
+  );
+}
+
+const assetInstructions = `You are GrowthBook's Visual Editor asset-placement assistant. The user has supplied an image asset to place on a live page as an A/B test variation. You decide how it is positioned and styled. You do NOT recreate, redraw, or describe the image.
+
+Output a JSON object matching the schema. Build the component as:
+1. "html": markup wrapped in EXACTLY ONE root element carrying the scope class provided below. Inside that root, write the literal token ${ASSET_SENTINEL} exactly once where the image belongs. Never write an <img> tag, a URL, a data: URI, or an inline <svg> — ${ASSET_SENTINEL} is replaced with the real asset. Add surrounding markup only when the request calls for it (a caption, a link wrapper, a flex row).
+2. "css": a stylesheet scoped under the scope class, same rules as always — every selector descendant-scoped, no bare element selectors, no :root/html/body, no global resets. Style the image with ".SCOPE_CLASS img { … }".
+3. "js": almost always null.
+
+Sizing:
+- The asset's intrinsic dimensions are given below when known. An asset placed at intrinsic size can overwhelm the page, so constrain it: set an explicit width or max-width, and height:auto to preserve aspect ratio.
+- If the request names a size, honor it exactly. Otherwise pick something sensible for the destination — an icon next to a heading is a line-height-ish square, not a full-width block.
+
+Placement:
+- The destination element and placement mode given below are authoritative. The request may refine how the asset renders within that destination — alignment, spacing, order relative to existing content, a caption, a link wrapper — but must NOT relocate it or target anything else.
+
+Never set "tooLargeWarning" on this path.`;
+
 type InjectionMode = "append" | "set" | "before" | "after";
 
 // insertAdjacentHTML position for each insert mode. (A narrow subset of the
@@ -193,18 +269,36 @@ function buildFigmaUserPrompt({
   injectionMode,
   targetSelector,
   tokenSummary,
+  asset,
 }: {
   prompt: string;
   scopeClass: string;
   injectionMode: InjectionMode;
   targetSelector: string;
   tokenSummary: string;
+  asset?: {
+    mimeType: string;
+    width?: number;
+    height?: number;
+    alt?: string;
+  };
 }): string {
   const parts: string[] = [];
   parts.push(
     `Scope class to use on the component's single root element and as the prefix for every CSS rule: ${scopeClass}`,
   );
   parts.push(placementSentence(injectionMode, targetSelector));
+  if (asset) {
+    const dims =
+      asset.width && asset.height
+        ? `${asset.width}×${asset.height}px`
+        : "unknown";
+    parts.push(
+      `Asset to place (write ${ASSET_SENTINEL} where it belongs):\n- Type: ${asset.mimeType}\n- Intrinsic size: ${dims}${
+        asset.alt ? `\n- Alt text: ${asset.alt}` : ""
+      }`,
+    );
+  }
   if (tokenSummary.trim()) {
     parts.push(
       `Design tokens extracted from the source:\n${tokenSummary.trim()}`,
@@ -264,13 +358,7 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
     );
   }
 
-  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
-    throw new Error(
-      "Daily AI usage limit reached. Try again later or upgrade your plan.",
-    );
-  }
-
-  const settings = getAISettingsForOrg(context, true);
+  const settings = await getAISettingsForOrg(context, true);
   if (!settings.aiEnabled) {
     throw new Error(
       "AI features are disabled for this organization. Enable them in Settings → AI Settings.",
@@ -284,13 +372,24 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
     );
   }
 
-  // Resolve the design image (+ optional token summary).
+  // Checked after the model is resolved: an org on its own key for this
+  // provider is paying its own bill, so the managed cap doesn't apply to it.
+  if (await secondsUntilAICanBeUsedAgainForModel(context, visionModel)) {
+    throw new Error(
+      "Daily AI usage limit reached. Try again later or upgrade your plan.",
+    );
+  }
+
+  // Resolve the design image (+ optional token summary). The asset source
+  // has neither — it's already uploaded and the model never sees it.
   let designImage: {
     data: string;
     mimeType: "image/png" | "image/jpeg" | "image/webp";
-  };
+  } | null = null;
   let tokenSummary = "";
-  if (source.kind === "figma") {
+  if (source.kind === "asset") {
+    // nothing to resolve
+  } else if (source.kind === "figma") {
     if (!figmaOAuthConfigured()) {
       throw new Error(
         "Figma isn't configured for this GrowthBook instance. Paste a mockup image instead, or ask an admin to set up the Figma integration.",
@@ -319,7 +418,9 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
   const scopeToken = makeScopeToken();
   const scopeClass = `.${scopeToken}`;
 
-  let instructions = baseInstructions.replace(/SCOPE_CLASS/g, scopeToken);
+  let instructions = (
+    source.kind === "asset" ? assetInstructions : baseInstructions
+  ).replace(/SCOPE_CLASS/g, scopeToken);
   if (settings.visualEditorAIContext) {
     instructions = `${instructions}\n\nAdditional brand guidelines / context provided by the organization (respect these unless they conflict with the JSON output schema):\n${settings.visualEditorAIContext}`;
   }
@@ -338,7 +439,9 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
       targetSelector,
       visionModel,
       hasTokenSummary: !!tokenSummary,
-      designImageBytes: Math.floor((designImage.data.length * 3) / 4),
+      designImageBytes: designImage
+        ? Math.floor((designImage.data.length * 3) / 4)
+        : 0,
       promptLength: prompt.length,
     },
     "[visual-editor-ai/figma-to-variant] request",
@@ -353,8 +456,11 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
       injectionMode,
       targetSelector,
       tokenSummary,
+      ...(source.kind === "asset" ? { asset: source.asset } : {}),
     }),
-    images: [{ data: designImage.data, mimeType: designImage.mimeType }],
+    ...(designImage
+      ? { images: [{ data: designImage.data, mimeType: designImage.mimeType }] }
+      : {}),
     temperature: 0.2,
     type: "visual-editor-ai-figma",
     isDefaultPrompt: true,
@@ -389,10 +495,26 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
     };
   }
 
+  // Asset mode: the model writes a sentinel, never the image. Swapping it
+  // here is what makes "the asset is untouched" structural rather than a
+  // matter of the model following instructions.
+  let composedHtml = rawHtml;
+  if (source.kind === "asset") {
+    const composed = composeAssetHtml(rawHtml, source.asset);
+    if (!composed) {
+      return {
+        mutations: [],
+        explanation:
+          "The assistant didn't place the image. Try describing where it should go.",
+      };
+    }
+    composedHtml = composed;
+  }
+
   // Guarantee the injected markup's root carries the scope class so the
   // scoped CSS actually applies (the model is told to wrap it, but wrap
   // defensively when it didn't).
-  const html = wrapWithScope(rawHtml, scopeToken);
+  const html = wrapWithScope(composedHtml, scopeToken);
 
   const scopedCss = result.css ? scopeCss(result.css, scopeClass) : "";
 

@@ -114,7 +114,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               {metric && factTable && (
                 <Select
                   label="Unit"
-                  size="small"
+                  size="md"
                   value={block.analysisSettings.userIdType}
                   placeholder="Select unit"
                   setValue={(v) =>
@@ -159,7 +159,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               {metric && metric?.metricType !== "ratio" && (
                 <Select
                   label="Metric Value"
-                  size="small"
+                  size="md"
                   value={block.valueType}
                   placeholder="Select value"
                   setValue={(v) =>
@@ -178,7 +178,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               )}
               <Select
                 label="Date Range"
-                size="small"
+                size="md"
                 value={
                   isCustomLookback
                     ? "-1"
@@ -266,7 +266,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
 
               <Select
                 label="Graph Type"
-                size="small"
+                size="md"
                 value={block.visualizationType}
                 placeholder="Select value"
                 setValue={(v) =>
@@ -390,7 +390,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
           <Box p="4" height="fit-content">
             <Flex direction="column" gap="4">
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 label={
                   <Flex align="center" gap="1">
                     <Text as="label" size="3" weight="medium">
@@ -430,7 +430,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               />
               {metric?.denominator?.factTableId ? (
                 <MultiSelectField
-                  size="legacy"
+                  legacyHeight
                   label={
                     <Flex align="center" gap="1">
                       <Text as="label" size="3" weight="medium">

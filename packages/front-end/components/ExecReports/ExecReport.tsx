@@ -290,7 +290,7 @@ export default function ExecReport() {
           </Box>
           {(syntaxFilters.length > 0 || !!searchInputProps.value) && (
             <Link
-              size="1"
+              size="sm"
               onClick={() => setSearchValue("")}
               style={{ whiteSpace: "nowrap" }}
             >

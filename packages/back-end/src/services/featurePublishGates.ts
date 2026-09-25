@@ -1,6 +1,6 @@
 import {
   autoMerge,
-  checkIfRevisionNeedsReview,
+  getRevisionReviewRequirement,
   draftDiffersFromLive,
   evaluatePublishGovernance,
   fillRevisionFromFeature,
@@ -9,10 +9,18 @@ import {
   getLiveChangesSinceBase,
   liveRevisionFromFeature,
   MergeResultChanges,
+  getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
+import {
+  assessGoverningApprovalCoverage,
+  assessRequiredApproverTeamsByProject,
+  bypassApprovalPermission,
+} from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { EventUser } from "shared/types/events/event-types";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -36,8 +44,18 @@ import {
   collectFeatureArchiveDependents,
   archiveDependentsGateMessage,
 } from "back-end/src/services/archiveDependentsGuard";
-import { getEnvironments } from "back-end/src/util/organization.util";
+import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDependentsGuard";
 import { MergeConflictError } from "back-end/src/util/errors";
+import { pendingScheduleGate } from "back-end/src/revisions/pendingScheduleGuard";
+import {
+  resolveRevertRampStopsForRevision,
+  revertRampStopGate,
+} from "back-end/src/revisions/revertRampGuard";
+import {
+  assertFeatureSavedGroupScope,
+  collectSavedGroupScopeGate,
+} from "back-end/src/services/savedGroupProjectScope";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
   PublishGate,
   hookResultsToGates,
@@ -62,10 +80,179 @@ export type FeatureMergePlan = {
   /** A ramp schedule is armed to activate when this revision publishes. */
   hasLinkedPendingRamp: boolean;
   requiresReview: boolean;
+  uncoveredApprovers: string[];
+  hasCoveringApproval: boolean;
+  requiredApproverTeams: {
+    satisfied: boolean;
+    unmet: { id: string; name: string }[][];
+  };
+  requiredProjectApprovers: RequiredProjectApprovers;
   rebaseRequired: boolean;
   /** The governance explanation when rebaseRequired (for error copy). */
   rebaseBlockReason: string | null;
 };
+
+// Targeting projects still owed a covering approval from one of their own reviewers.
+export type RequiredProjectApprovers = {
+  satisfied: boolean;
+  unmet: { id: string; name: string }[];
+};
+
+export type RevisionApprovalState = {
+  requiresReview: boolean;
+  uncoveredApprovers: string[];
+  hasCoveringApproval: boolean;
+  requiredApproverTeams: {
+    satisfied: boolean;
+    unmet: { id: string; name: string }[][];
+  };
+  requiredProjectApprovers: RequiredProjectApprovers;
+  /** Approved, covered, every named team has signed, and every governing project too. */
+  satisfied: boolean;
+};
+
+// The set every feature publish/review decision expands "all" markers against:
+// org environments filtered to the feature. One definition, no drift.
+export function featurePublishEnvironmentIds(
+  org: Context["org"],
+  feature: FeatureInterface,
+): string[] {
+  return filterEnvironmentsByFeature(getEnvironments(org), feature).map(
+    (e) => e.id,
+  );
+}
+
+// The approval half of a publish decision, without the merge or ramp lookups a
+// full plan needs. Every publish flow — manual or automatic — asks this.
+// A ramp `update` replaces the live schedule, whose step patches may touch
+// environments the new version drops — those live only on the stored schedule.
+async function loadLiveRampScheduleEnvs(
+  context: Context,
+  revision: FeatureRevisionInterface,
+): Promise<Map<string, string[] | "all">> {
+  const map = new Map<string, string[] | "all">();
+  for (const action of revision.rampActions ?? []) {
+    if (action.mode !== "update") continue;
+    const liveSchedule = await context.models.rampSchedules.getById(
+      action.rampScheduleId,
+    );
+    if (liveSchedule) {
+      map.set(action.rampScheduleId, getEnvsFromRampSchedule(liveSchedule));
+    }
+  }
+  return map;
+}
+
+export async function assessRevisionApproval({
+  context,
+  feature,
+  revision,
+  effectiveRevision,
+  filledLive,
+  base,
+}: {
+  context: Context;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  effectiveRevision: FeatureRevisionInterface;
+  filledLive: FeatureRevisionInterface;
+  base: FeatureRevisionInterface;
+}): Promise<RevisionApprovalState> {
+  // Both derived here, never caller-supplied: the autostart path once passed
+  // the org's full environment list and omitted the live ramp-schedule map.
+  const liveRampScheduleEnvs = await loadLiveRampScheduleEnvs(
+    context,
+    revision,
+  );
+  const environmentIds = featurePublishEnvironmentIds(context.org, feature);
+  const reviewRequirement = getRevisionReviewRequirement({
+    feature,
+    baseRevision: filledLive,
+    revision: effectiveRevision,
+    orgEnvironments: getEnvironments(context.org),
+    settings: context.org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    liveRampScheduleEnvs,
+  });
+  const requiresReview = reviewRequirement.required;
+
+  // Re-check standing approvals against what the draft changes NOW, using each
+  // approver's current permissions. Status was materialized at approval time.
+  const reviewFootprint = getReviewAuthorityFootprint({
+    revision: effectiveRevision,
+    bases: [filledLive, base],
+    allEnvironments: environmentIds,
+    settings: context.org.settings,
+    governingProjects: governingReviewProjectsForFeature({
+      feature,
+      revision: effectiveRevision,
+      settings: context.org.settings,
+    }),
+    liveRampScheduleEnvs,
+  });
+  const approvers = (revision.reviews ?? [])
+    .filter((r) => r.status === "approved")
+    .map((r) => r.userId)
+    .filter((id): id is string => !!id)
+    .map((id) => ({
+      id,
+      roleInfo: context.org.members.find((m) => m.id === id) ?? null,
+    }));
+  const coverage = assessGoverningApprovalCoverage({
+    org: context.org,
+    teams: context.teams,
+    model: "feature",
+    projects: feature.project ? [feature.project] : [],
+    approverProjects: reviewRequirement.approverProjects ?? [],
+    footprint: reviewFootprint,
+    approvers,
+  });
+  const { hasCoveringApproval, uncoveredApprovers } = coverage;
+  const requiredProjectApprovers = await nameProjects(
+    context,
+    coverage.requiredProjects,
+  );
+
+  const requiredTeams = assessRequiredApproverTeamsByProject({
+    governing: reviewRequirement.governing ?? [],
+    primaryProject: feature.project ?? "",
+    coverage,
+    org: context.org,
+    teams: context.teams,
+  });
+
+  const satisfied =
+    !requiresReview ||
+    (revision.status === "approved" &&
+      hasCoveringApproval &&
+      requiredTeams.satisfied &&
+      requiredProjectApprovers.satisfied);
+
+  return {
+    requiresReview,
+    uncoveredApprovers,
+    hasCoveringApproval,
+    requiredApproverTeams: requiredTeams,
+    requiredProjectApprovers,
+    satisfied,
+  };
+}
+
+// Named for the refusal message; a publisher may lack read access to a
+// targeting project, in which case the id has to do.
+async function nameProjects(
+  context: Context,
+  { satisfied, unmet }: { satisfied: boolean; unmet: string[] },
+): Promise<RequiredProjectApprovers> {
+  if (!unmet.length) return { satisfied, unmet: [] };
+  const names = new Map(
+    (await context.getProjects()).map((p) => [p.id, p.name] as const),
+  );
+  return {
+    satisfied,
+    unmet: unmet.map((id) => ({ id, name: names.get(id) ?? id })),
+  };
+}
 
 export async function planFeatureRevisionMerge({
   context,
@@ -76,11 +263,7 @@ export async function planFeatureRevisionMerge({
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
 }): Promise<FeatureMergePlan> {
-  const allEnvironments = getEnvironments(context.org);
-  const environmentIds = filterEnvironmentsByFeature(
-    allEnvironments,
-    feature,
-  ).map((e) => e.id);
+  const environmentIds = featurePublishEnvironmentIds(context.org, feature);
 
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
@@ -133,31 +316,19 @@ export async function planFeatureRevisionMerge({
     rampActions: revision.rampActions,
   };
 
-  // For ramp `update` actions, the live schedule's step patches may include
-  // environments that the new draft removes. Build a map so the review check
-  // can union old+new environments and catch the "removing env" direction.
-  const liveRampScheduleEnvs = new Map<string, string[] | "all">();
-  for (const action of revision.rampActions ?? []) {
-    if (action.mode !== "update") continue;
-    const liveSchedule = await context.models.rampSchedules.getById(
-      action.rampScheduleId,
-    );
-    if (liveSchedule) {
-      liveRampScheduleEnvs.set(
-        action.rampScheduleId,
-        getEnvsFromRampSchedule(liveSchedule),
-      );
-    }
-  }
-
-  const requiresReview = checkIfRevisionNeedsReview({
+  const {
+    requiresReview,
+    uncoveredApprovers,
+    hasCoveringApproval,
+    requiredApproverTeams: requiredTeams,
+    requiredProjectApprovers,
+  } = await assessRevisionApproval({
+    context,
     feature,
-    baseRevision: filledLive,
-    revision: effectiveRevision,
-    allEnvironments: environmentIds,
-    settings: context.org.settings,
-    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    liveRampScheduleEnvs,
+    revision,
+    effectiveRevision,
+    filledLive,
+    base,
   });
 
   const hasLinkedPendingRamp =
@@ -168,15 +339,26 @@ export async function planFeatureRevisionMerge({
       )
     ).length > 0;
 
+  // A revert whose only effect is removing ramps its target predates still
+  // changes something, like a draft that only activates a ramp.
+  const detachesRevertRamps =
+    (await resolveRevertRampStopsForRevision(context, feature, revision))
+      .detaches.length > 0;
+
   return {
     environmentIds,
     mergeResult: merged.result,
     filledLiveRules: filledLive.rules,
     hasChanges:
       draftDiffersFromLive(revision, live, feature, environmentIds) ||
-      hasLinkedPendingRamp,
+      hasLinkedPendingRamp ||
+      detachesRevertRamps,
     hasLinkedPendingRamp,
     requiresReview,
+    uncoveredApprovers,
+    hasCoveringApproval,
+    requiredApproverTeams: requiredTeams,
+    requiredProjectApprovers,
     rebaseRequired: !!rebaseGovernance?.rebaseRequired,
     rebaseBlockReason: rebaseGovernance?.rebaseRequired
       ? rebaseGovernance.blockReason
@@ -184,14 +366,12 @@ export async function planFeatureRevisionMerge({
   };
 }
 
-/**
- * The interactive publish handler's gate set: stale-base, approval-required,
- * holdout transition, and (when `includeValidationGates`) publish-time value
- * validation, custom hooks, and archive-dependents. Throws on a config-backed
- * default carrying its own override patch — a structural payload error no
- * override clears (the bulk adapter catches it and reports it as a no-override
- * gate).
- */
+// The interactive publish handler's gate set: stale-base, approval-required,
+// holdout transition, Saved Group Project scope, and (when
+// `includeValidationGates`) value validation, custom hooks, and archive-dependents. Throws on a config-backed
+// default carrying its own override patch — a structural payload error no
+// override clears (the bulk adapter catches it and reports it as a no-override
+// gate).
 export async function collectFeaturePublishGates({
   context,
   feature,
@@ -217,12 +397,10 @@ export async function collectFeaturePublishGates({
    * is an identity-less scan context).
    */
   publisher?: EventUser;
-  /**
-   * Interactive publishes surface value + hook failures as gates (and skip
-   * the throwing re-run in publishRevision). Armed/scheduled publishes leave
-   * this false and keep the original throwing checks, whose block-vs-suppress
-   * behavior relies on the background context's always-true ignoreWarnings.
-   */
+  // Interactive publishes surface value + hook failures as gates (and skip
+  // the throwing re-run in publishRevision). Armed/scheduled publishes leave
+  // this false and keep the original throwing checks, whose block-vs-suppress
+  // behavior relies on the background context's always-true ignoreWarnings.
   includeValidationGates: boolean;
 }): Promise<PublishGate[]> {
   const gates: PublishGate[] = [];
@@ -234,7 +412,7 @@ export async function collectFeaturePublishGates({
         type: "stale-base",
         messages: ["This revision was created against an older version."],
         override: "ignoreWarnings",
-        requiresPermission: "bypassApprovalChecks",
+        requiresPermission: bypassApprovalPermission("feature"),
         resolution: {
           action: "rebase",
           method: "POST",
@@ -243,14 +421,54 @@ export async function collectFeaturePublishGates({
       }),
     );
   }
-  if (plan.requiresReview && revision.status !== "approved") {
+  const approvedAndCovered =
+    revision.status === "approved" && plan.hasCoveringApproval;
+  if (plan.requiresReview && !approvedAndCovered) {
     gates.push(
       makeBlockingGate({
         type: "approval-required",
         messages: [
-          `Requires approval before publishing (status: "${revision.status}").`,
+          revision.status === "approved" && plan.uncoveredApprovers.length
+            ? `This draft now changes environments its approvers cannot approve. Needs approval from someone with review rights across everything it changes.`
+            : `Requires approval before publishing (status: "${revision.status}").`,
         ],
-        requiresPermission: "bypassApprovalChecks",
+        requiresPermission: bypassApprovalPermission("feature"),
+        resolution: {
+          action: "request-review",
+          method: "POST",
+          path: `/features/${feature.id}/revisions/${version}/request-review`,
+        },
+      }),
+    );
+  }
+
+  // Separate gate: a properly approved draft can still miss the named team.
+  if (plan.requiresReview && !plan.requiredApproverTeams.satisfied) {
+    gates.push(
+      makeBlockingGate({
+        type: "required-approvers-missing",
+        messages: plan.requiredApproverTeams.unmet.map(
+          (teams) =>
+            `Requires approval from ${teams.map((t) => t.name).join(" or ")}.`,
+        ),
+        requiresPermission: bypassApprovalPermission("feature"),
+        resolution: {
+          action: "request-review",
+          method: "POST",
+          path: `/features/${feature.id}/revisions/${version}/request-review`,
+        },
+      }),
+    );
+  }
+
+  if (plan.requiresReview && !plan.requiredProjectApprovers.satisfied) {
+    gates.push(
+      makeBlockingGate({
+        type: "required-project-approvers-missing",
+        messages: plan.requiredProjectApprovers.unmet.map(
+          (p) => `Requires approval from a reviewer in the ${p.name} Project.`,
+        ),
+        requiresPermission: bypassApprovalPermission("feature"),
         resolution: {
           action: "request-review",
           method: "POST",
@@ -271,7 +489,24 @@ export async function collectFeaturePublishGates({
     })),
   );
 
-  if (!includeValidationGates) return gates;
+  // Above the validation-gate cutoff: values that cannot be the feature's type
+  // are refused outright on every path. The proposed feature computed below
+  // normalizes JSON values and would throw on them, and the schema-family
+  // checks would report the same value again as a schema failure.
+  const typeErrors = collectFeatureValueErrorsForPublish(
+    { valueType: feature.valueType },
+    plan.mergeResult,
+    feature,
+  );
+  if (typeErrors.length) {
+    gates.push(
+      makeBlockingGate({
+        type: "invalid-feature-value",
+        messages: typeErrors,
+      }),
+    );
+    return gates;
+  }
 
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(
@@ -280,6 +515,22 @@ export async function collectFeaturePublishGates({
       revision,
       plan.mergeResult,
     );
+
+  gates.push(
+    ...(await collectSavedGroupScopeGate(() =>
+      assertFeatureSavedGroupScope(context, proposedFeature, [
+        feature,
+        featureForSavedGroupValidation(feature, revision),
+      ]),
+    )),
+  );
+
+  if (!includeValidationGates) return gates;
+
+  const scheduleGate = pendingScheduleGate(revision);
+  if (scheduleGate) gates.push(scheduleGate);
+  const rampStopGate = await revertRampStopGate(context, feature, revision);
+  if (rampStopGate) gates.push(rampStopGate);
 
   // Structural payload guard: a config-backed default carrying its own override
   // patch breaks the SDK payload (the override ships verbatim, the backing
@@ -293,10 +544,14 @@ export async function collectFeaturePublishGates({
   // override chosen by the org's blockPublishOnSchemaError setting: block ->
   // validation-class (skipSchemaValidation); warn -> acknowledge-class.
   const schemaErrors = [
-    ...collectFeatureValueErrorsForPublish(feature, {
-      defaultValue: plan.mergeResult.defaultValue,
-      rules: plan.mergeResult.rules,
-    }),
+    ...collectFeatureValueErrorsForPublish(
+      feature,
+      {
+        defaultValue: plan.mergeResult.defaultValue,
+        rules: plan.mergeResult.rules,
+      },
+      feature,
+    ),
     ...(defaultToCheck !== undefined || rulesToCheck.length
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {
           defaultValue: defaultToCheck,
@@ -311,6 +566,7 @@ export async function collectFeaturePublishGates({
       messages: ["Invalid feature value:", ...schemaErrors],
       ...schemaFailureGateOverride(
         context.org.settings?.blockPublishOnSchemaError !== false,
+        bypassApprovalPermission("feature"),
       ),
       resolution: null,
     });
@@ -332,6 +588,7 @@ export async function collectFeaturePublishGates({
     revision: {
       ...revision,
       ...computeRevisionPublishChanges(
+        feature,
         revision,
         publisher ?? context.auditUser,
         comment ?? "",
@@ -348,10 +605,13 @@ export async function collectFeaturePublishGates({
     ...revisionHookResults.warnings,
   ];
   gates.push(
-    ...hookResultsToGates({
-      hardErrors: hookHardErrors,
-      warnings: hookWarnings,
-    }),
+    ...hookResultsToGates(
+      {
+        hardErrors: hookHardErrors,
+        warnings: hookWarnings,
+      },
+      bypassApprovalPermission("feature"),
+    ),
   );
 
   // Archiving a feature that live features/experiments still reference as a
@@ -373,6 +633,13 @@ export async function collectFeaturePublishGates({
       });
     }
   }
+
+  const moveGate = await collectFeatureMoveDependentsGate(
+    context,
+    feature,
+    plan.mergeResult.metadata,
+  );
+  if (moveGate) gates.push(moveGate);
 
   return gates;
 }

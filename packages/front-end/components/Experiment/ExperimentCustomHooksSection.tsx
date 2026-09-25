@@ -10,7 +10,11 @@ import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
-import CustomHooksTable from "@/components/CustomHooks/CustomHooksTable";
+import CustomHooksTable, {
+  HookScope,
+  hookScopeColumn,
+  isHookScopedTo,
+} from "@/components/CustomHooks/CustomHooksTable";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Text from "@/ui/Text";
 import LinkButton from "@/ui/LinkButton";
@@ -48,6 +52,12 @@ export default function ExperimentCustomHooksSection({
     [data, experiment.id, experiment.project],
   );
 
+  const scope: HookScope = {
+    entityType: "experiment",
+    entityId: experiment.id,
+    label: "Experiment",
+  };
+
   let disableReason = "";
   if (!hasAccessToCustomHooks) {
     disableReason = "Custom Hooks require an Enterprise plan.";
@@ -66,7 +76,7 @@ export default function ExperimentCustomHooksSection({
           onSave={() => mutate()}
         />
       )}
-      <Heading as="h3" size="medium" mb="1">
+      <Heading as="h3" size="md" mb="1">
         Custom Hooks
       </Heading>
       <Box mb="3">
@@ -87,11 +97,12 @@ export default function ExperimentCustomHooksSection({
       ) : (
         <>
           <Flex align="center" justify="between" gap="1" mb="1">
-            <Heading as="h4" size="small" mb="0">
+            <Heading as="h4" size="sm" mb="0">
               Experiment-specific Hooks
             </Heading>
             <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
               <Button
+                mb="2"
                 onClick={() => setModalData(true)}
                 disabled={!hasAccessToCustomHooks || !canManage}
               >
@@ -101,16 +112,15 @@ export default function ExperimentCustomHooksSection({
           </Flex>
           <CustomHooksTable
             hooks={applicableHooks.filter((hook) => !!hook.entityId)}
-            entityType="experiment"
-            entityId={experiment.id}
-            scopeLabel="Experiment"
-            canManage={canManage}
-            setModalData={setModalData}
+            column={hookScopeColumn(scope)}
+            showIncremental
+            canManage={(hook) => canManage && isHookScopedTo(hook, scope)}
+            onEdit={setModalData}
             mutate={mutate}
           />
 
           <Flex align="center" justify="between" gap="1" mb="1" mt="5" pt="5">
-            <Heading as="h4" size="small" mb="0">
+            <Heading as="h4" size="sm" mb="0">
               Global/Project Hooks
             </Heading>
             <LinkButton
@@ -124,11 +134,9 @@ export default function ExperimentCustomHooksSection({
 
           <CustomHooksTable
             hooks={applicableHooks.filter((hook) => !hook.entityId)}
-            entityType="experiment"
-            entityId={experiment.id}
-            scopeLabel="Experiment"
-            canManage={canManage}
-            setModalData={setModalData}
+            column={hookScopeColumn(scope)}
+            showIncremental
+            canManage={() => false}
             mutate={mutate}
           />
         </>

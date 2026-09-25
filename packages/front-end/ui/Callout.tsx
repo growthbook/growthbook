@@ -8,9 +8,10 @@ import {
 } from "@radix-ui/themes";
 import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { PiX } from "react-icons/pi";
+import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { radixSize } from "@/ui/sizes";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
 import styles from "./Callout.module.scss";
 
@@ -26,21 +27,13 @@ type UndismissibleProps = {
   renderWhenDismissed?: never;
 };
 
-export function getRadixSize(size: Size): Responsive<"1" | "2"> {
-  switch (size) {
-    case "sm":
-      return "1";
-    case "md":
-      return "2";
-  }
-}
-
 export default forwardRef<
   HTMLDivElement,
   {
     children: ReactNode;
     status: Status;
-    size?: "sm" | "md";
+    size?: Size;
+    style?: React.CSSProperties;
     icon?: ReactNode | null;
     action?: ReactNode;
     role?: string;
@@ -51,6 +44,7 @@ export default forwardRef<
     children,
     status,
     size = "md",
+    style,
     icon,
     action,
     dismissible = false,
@@ -92,13 +86,14 @@ export default forwardRef<
         role ??
         (status === "error" || status === "attention" ? "alert" : undefined)
       }
-      size={getRadixSize(size)}
+      size={radixSize(size)}
       {...containerProps}
       style={
         {
           display: "flex",
           position: "relative",
           "--callout-line-height": lineHeight,
+          ...style,
         } as React.CSSProperties
       }
       variant="soft"
@@ -112,13 +107,18 @@ export default forwardRef<
         wrap="wrap"
         align="start"
         gapX="3"
-        gapY="2"
+        gapY="3"
         flexGrow="1"
         minWidth="0"
+        justify={action ? "between" : undefined}
       >
         {/* Rendered as a div (not the default <p>) so block-level children
             and nested layout don't produce invalid <div>-inside-<p> nesting. */}
-        <Text as="div" size={getRadixSize(size)} className={styles.body}>
+        <Text
+          as="div"
+          size={radixSize(size)}
+          className={clsx(styles.body, action && styles.bodyWithAction)}
+        >
           {children}
         </Text>
         {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}

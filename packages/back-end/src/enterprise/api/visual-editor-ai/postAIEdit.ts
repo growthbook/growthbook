@@ -1,19 +1,38 @@
 import { z } from "zod";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
+import type { ModelMessage } from "ai";
+import { pickVisionModel } from "shared/ai";
+import {
+  findVisualChangesetById,
+  updateVisualChange,
+} from "back-end/src/models/VisualChangesetModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
+  DeferredToolCallsError,
   parsePrompt,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForModel,
 } from "back-end/src/enterprise/services/ai";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { IS_CLOUD, JWT_SECRET } from "back-end/src/util/secrets";
+import {
+  answeredToolCalls,
+  generatedImagesIn,
+  pendingToolCalls,
+  requestHash,
+  signEnvelope,
+  toolLoopEnvelopeSchema,
+  toolResultsMessage,
+  verifyEnvelope,
+} from "back-end/src/api/visual-editor-ai/toolLoopEnvelope";
+import { clientToolArgs } from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
 import {
   buildVisualEditorTools,
+  newImageTurnState,
   VISUAL_EDITOR_MAX_STEPS,
 } from "back-end/src/api/visual-editor-ai/aiTools";
+import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 import {
   buildInsertJs,
@@ -21,14 +40,20 @@ import {
   normalizeInsertPlacement,
   wrapWithScope,
 } from "back-end/src/api/visual-editor-ai/insertPrimitive";
+import {
+  appendSkipped,
+  hasUnguardedDomInsert,
+  isUserNamedSelector,
+  mergeGlobalCss,
+  movePlacementProblem,
+  selectorsFoundByTool,
+} from "back-end/src/api/visual-editor-ai/editOutput";
+import { renderPageOutline } from "back-end/src/api/visual-editor-ai/pageStructure";
 
-// Output-token cap for the edit generation. Above the 8000 parsePrompt
-// default because an edit can REPLACE the variation's entire global CSS/JS
-// (the model must re-emit all existing rules) — on a large stylesheet that
-// blows past 8000 and truncates mid-JSON (NoObjectGeneratedError). 16000
-// stays under modern model ceilings; only very old/small self-hosted models
-// (8192 cap) could over-shoot. Used for both the main and retry generations.
+// A `css` rewrite plus a multi-part edit truncates at parsePrompt's 8000 default.
 const EDIT_MAX_OUTPUT_TOKENS = 16000;
+// Only for models with a documented ceiling; not higher, since the call isn't streamed.
+const EDIT_EXTENDED_MAX_OUTPUT_TOKENS = 32000;
 
 const elementContextSchema = z.object({
   selector: z.string(),
@@ -44,16 +69,11 @@ const elementContextSchema = z.object({
 
 // One container in the page's structural snapshot (sections, layout
 // wrappers, ancestors of catalog headings), captured client-side with a
-// durable selector precomputed per node. Carried inside domDigest but NEVER
-// rendered into the prompt (formatDigest ignores it) — the `findElements`
-// tool reads it on demand, so it costs prompt tokens only when the model
-// actually needs to locate a container the curated catalog doesn't list
-// (e.g. "move the Trusted-by section"). The tool runs server-side over this
-// in-request data, so it works on Cloud with no client round-trip.
+// durable selector precomputed per node. Backs the page outline and the
+// server-side `findElements` / `describeContainer` tools.
 const structureNodeSchema = z.object({
   selector: z.string(),
-  // Durable selector of the nearest significant ancestor — lets the model
-  // build a sibling move (parentSelector + insertBefore) from one lookup.
+  // The direct parent element — the destination of a sibling move.
   parentSelector: z.string().optional(),
   tag: z.string(),
   id: z.string().optional(),
@@ -61,7 +81,14 @@ const structureNodeSchema = z.object({
   role: z.string().optional(),
   // Short trimmed text label for matching by visible content.
   label: z.string().optional(),
+  // Newer extensions only; the siblings are the nearest visible ones.
+  docOrder: z.number().int().nonnegative().optional(),
+  prevSiblingSelector: z.string().optional(),
+  nextSiblingSelector: z.string().optional(),
+  layout: z.enum(["flex-row", "flex-column", "grid"]).optional(),
 });
+
+const layoutSchema = z.enum(["flex-row", "flex-column", "grid"]).optional();
 
 // Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
 // gives the LLM real selectors to pick from rather than guessing.
@@ -79,15 +106,18 @@ const domDigestSchema = z.object({
       }),
     )
     .default([]),
+  // `sectionSelector` (newer extensions): the enclosing snapshot container.
   headings: z
     .array(
       z.object({
         selector: z.string(),
         tag: z.string(),
         text: z.string(),
+        sectionSelector: z.string().optional(),
       }),
     )
     .default([]),
+  // `parentLayout` (newer extensions) lets an insert below a row anchor to the row.
   buttons: z
     .array(
       z.object({
@@ -95,6 +125,9 @@ const domDigestSchema = z.object({
         tag: z.string(),
         text: z.string(),
         href: z.string().optional(),
+        sectionSelector: z.string().optional(),
+        parentSelector: z.string().optional(),
+        parentLayout: layoutSchema,
       }),
     )
     .default([]),
@@ -104,6 +137,9 @@ const domDigestSchema = z.object({
         selector: z.string(),
         text: z.string(),
         href: z.string(),
+        sectionSelector: z.string().optional(),
+        parentSelector: z.string().optional(),
+        parentLayout: layoutSchema,
       }),
     )
     .default([]),
@@ -115,6 +151,7 @@ const domDigestSchema = z.object({
         name: z.string().optional(),
         placeholder: z.string().optional(),
         label: z.string().optional(),
+        sectionSelector: z.string().optional(),
       }),
     )
     .default([]),
@@ -124,12 +161,29 @@ const domDigestSchema = z.object({
         selector: z.string(),
         alt: z.string().optional(),
         src: z.string(),
+        sectionSelector: z.string().optional(),
+        parentSelector: z.string().optional(),
+        parentLayout: layoutSchema,
       }),
     )
     .default([]),
-  // On-demand container map for the `findElements` tool — not rendered into
-  // the prompt (formatDigest ignores it).
+  // Rendered as the page outline when it carries document order.
   pageStructure: z.array(structureNodeSchema).max(400).optional(),
+  // Flat alternative to the typed arrays above; both may be populated.
+  elements: z
+    .array(
+      z.object({
+        selector: z.string(),
+        tag: z.string(),
+        text: z.string().optional(),
+        href: z.string().optional(),
+        src: z.string().optional(),
+        alt: z.string().optional(),
+        placeholder: z.string().optional(),
+      }),
+    )
+    .max(300)
+    .optional(),
 });
 
 // Capped at 12 turns + 4000 chars/turn to bound prompt size.
@@ -165,6 +219,44 @@ const bodySchema = z
     // When omitted/false, the response is the original unwrapped shape
     // and only server-side tools (generateImage, etc.) are available.
     streamingMode: z.boolean().optional(),
+    // Save the result rather than returning it for the caller to persist.
+    persist: z.boolean().optional(),
+    // Bytes so the back-end never fetches; `url` is the hosted copy for placing it.
+    attachments: z
+      .array(
+        z.object({
+          data: z
+            .string()
+            .min(1)
+            // Two at this cap, plus the rest of the body, fit the 10mb limit.
+            .max(3 * 1024 * 1024),
+          mimeType: z.enum([
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/webp",
+          ]),
+          url: z.string().url().max(2000).optional(),
+          name: z.string().max(200).optional(),
+        }),
+      )
+      .max(2)
+      .optional(),
+    // Stateless tool loop, round 2+: the signed envelope plus the pending DOM-tool results.
+    resume: z
+      .object({
+        envelope: toolLoopEnvelopeSchema,
+        results: z
+          .array(
+            z.object({
+              toolCallId: z.string().min(1).max(200),
+              toolName: z.string().min(1).max(100),
+              result: z.unknown(),
+            }),
+          )
+          .max(10),
+      })
+      .optional(),
   })
   .strict();
 
@@ -212,6 +304,11 @@ const mutationSchema = z.object({
   options: z
     .array(z.string())
     .nullable()
+    // Models routinely omit this key entirely rather than sending null — it
+    // reads as inapplicable on a normal edit. `.catch` treats a missing key
+    // as null while keeping the property in the schema's `required` list, so
+    // OpenAI strict mode is unaffected (it rejects optional properties).
+    .catch(null)
     .describe(
       'Alternative candidate values for `value`, shown to the user as a pick-one chooser in the UI. Populate ONLY when the user explicitly asks for multiple options/alternatives to choose from (e.g. "give me some alternative titles", "a few hero image options"). Include 2-5 entries. `value` must be your top recommendation AND must also be the first entry of this array. For text, each entry is an alternative string (plain text or HTML, matching the attribute). For images, each entry is a separate generated image URL — call generateImage once per option, never a collage. Null when not offering a choice.',
     ),
@@ -221,11 +318,19 @@ const outputSchema = z.object({
   mutations: z
     .array(mutationSchema)
     .describe("DOM mutations to apply. Return an empty array when none apply."),
+  cssAppend: z
+    .string()
+    .nullable()
+    // Missing key → null; see `options`.
+    .catch(null)
+    .describe(
+      "NEW global CSS rules to add after the variation's existing global CSS, which is kept as-is. Use this for every ADD. Null when adding nothing.",
+    ),
   css: z
     .string()
     .nullable()
     .describe(
-      "Complete global CSS for this variation. REPLACES any prior CSS — to add, modify, or remove a rule, return the rest of the existing CSS verbatim alongside your change. Set to null when the user's request doesn't touch global CSS (the existing CSS stays as-is). Do NOT return a partial fragment or an empty string when CSS exists; that wipes it.",
+      "Complete REPLACEMENT for the variation's global CSS: existing rules verbatim, with your edits. Use it to MODIFY or REMOVE an existing rule, edited in place. Never use it just to add rules. Null otherwise — null never changes anything; a partial fragment here wipes the rest.",
     ),
   js: z
     .string()
@@ -249,16 +354,36 @@ const outputSchema = z.object({
         html: z
           .string()
           .describe(
-            "Complete HTML markup for the NEW content only — never include the page's existing DOM. Put styling inline or in the global `css` field. Keep it a single logical block (wrap multiple elements in one container).",
+            "Complete HTML markup for the NEW content only — never include the page's existing DOM. Put styling inline or in `cssAppend`. Keep it a single logical block (wrap multiple elements in one container).",
           ),
       }),
     )
     .describe(
       "New elements to INSERT into the page — use this for ANY request to ADD, insert, prepend, or append NEW content (banners, notices, sections, blocks, buttons that don't exist yet). This is the ONLY correct way to add content: NEVER add content by setting/appending \"html\" on body/html or another container (that replaces its entire contents and crashes the page). Return an empty array when the request doesn't add any new elements.",
     ),
+  skipped: z
+    .array(
+      z.object({
+        request: z
+          .string()
+          .describe("The part of the request you did not do, in a few words."),
+        reason: z
+          .string()
+          .describe(
+            "One line: why, and what would unblock it (e.g. click the element so its selector can be captured).",
+          ),
+      }),
+    )
+    .nullable()
+    .catch(null)
+    .describe(
+      "Parts of the request you did NOT do, one entry each. Fill this instead of abandoning the whole request when one part is blocked. Null when everything was done.",
+    ),
   explanation: z
     .string()
-    .describe("One-paragraph summary of the changes for the editor user."),
+    .describe(
+      "One-paragraph summary of what you changed, for the editor user. Parts you could not do belong in `skipped`, not here.",
+    ),
 });
 
 // Selectors whose innerHTML must never be replaced.
@@ -295,32 +420,35 @@ Inserting new elements (banners, notices, sections, new blocks) — use the \`in
 - When the user asks to ADD, insert, prepend, append, or place NEW content on the page (a promotional banner, an announcement bar, a new section, a CTA that doesn't exist yet), return it in the \`insert\` array. Do NOT try to add content by setting or appending "html" on "body"/"html"/a container — that replaces the container's entire contents and crashes the page.
 - Each insert entry has: \`targetSelector\` (an existing element from the catalog to anchor to), \`position\` (beforebegin / afterbegin / beforeend / afterend, relative to that element), and \`html\` (the NEW markup ONLY — never the page's existing content).
 - "A full-width banner at the TOP of the page" → { targetSelector: "body", position: "afterbegin", html: "<div …>…</div>" }. "At the very bottom" → targetSelector "body", position "beforeend". Directly before/after a specific section → that section's selector with "beforebegin"/"afterend".
-- Style the inserted markup with inline styles, or add rules to the global \`css\` field. Give your new elements their own class names so your CSS can target them. (If the request wants a photographic image inside the banner, call \`generateImage\` and place the returned URL in the markup.)
-- You may return \`insert\` alongside \`mutations\` and \`css\` in one response. Inserts are applied idempotently and are safe on "body". Return an empty \`insert\` array when the request doesn't add any new elements.
+- BELOW or ABOVE a row of items — buttons in a row, cards in a grid, nav links: anchor to the items' CONTAINER (\`afterend\` / \`beforebegin\` on the container), never to one of the items. An item's parent is almost always a flex row or a grid, so a sibling inserted next to an item lands on the same row no matter what width you give it. The catalog shows each button's and image's direct parent with its layout — e.g. \`parent: .hero-buttons (flex-row)\` — and the Page outline marks containers \`<div flex-row>\` / \`<div grid>\`; when the parent is one of those, target the parent. \`describeContainer\` and \`getComputedStyles\` (display) answer it for anything else.
+- Style the inserted markup with inline styles, or add rules in \`cssAppend\`. Give your new elements their own class names so your CSS can target them. (If the request wants a photographic image inside the banner, call \`generateImage\` and place the returned URL in the markup.)
+- You may return \`insert\` alongside \`mutations\` and \`cssAppend\` in one response. Inserts are applied idempotently and are safe on "body". Return an empty \`insert\` array when the request doesn't add any new elements.
 
 Position-move rules (critical):
 - A move is applied as parentSelector.insertBefore(element, insertBeforeSelector). The hard DOM requirement is on insertBeforeSelector ONLY: it must resolve to a DIRECT CHILD of parentSelector — it's the reference node the browser inserts before, and insertBefore fails if it isn't a direct child of the parent. The moved element (selector) can live ANYWHERE in the DOM — it's detached from its current spot and re-inserted — so relocating an element into a different container is perfectly valid. The common mistake is naming a deeper descendant as insertBeforeSelector (e.g. a link nested inside a list item), which is NOT a direct child of the parent, so the insert fails.
 - parentSelector MUST be a real selector from the Page elements catalog.
 - insertBeforeSelector (when provided) MUST also be from the catalog AND be a DIRECT child of parentSelector. If you can't be sure it's a direct child, omit it (null) — appending at the end is safer than guessing.
-- Reordering nav / menu / list items — do NOT use a position move on the inner link or text. These items are almost always wrapped (\`<li><a href="…">…</a></li>\`), and the catalog lists the INNER element (e.g. \`[href="#deals"]\`), which is NOT a direct child of the list container — moving it, or naming it as insertBeforeSelector, rips the link out of its \`<li>\` and breaks the nav (this is a common failure). Instead, reorder with a CSS \`order\` rule in the global \`css\` field: the \`css\` field is NOT restricted to catalog selectors, so you can target the wrapper with \`:has()\`, and \`order\` works on flex/grid containers (navs usually are one) without restructuring the DOM. Example — put "Flight Deals" before "Destinations":
-    css: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
+- Reordering nav / menu / list items — do NOT use a position move on the inner link or text. These items are almost always wrapped (\`<li><a href="…">…</a></li>\`), and the catalog lists the INNER element (e.g. \`[href="#deals"]\`), which is NOT a direct child of the list container — moving it, or naming it as insertBeforeSelector, rips the link out of its \`<li>\` and breaks the nav (this is a common failure). Instead, reorder with a CSS \`order\` rule in \`cssAppend\`: global CSS is NOT restricted to catalog selectors, so you can target the wrapper with \`:has()\`, and \`order\` works on flex/grid containers (navs usually are one) without restructuring the DOM. Example — put "Flight Deals" before "Destinations":
+    cssAppend: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
 - Real position moves are well-suited to relocating a block-level element into a different container (e.g. moving a <section> to before another <section> under <main>) and to reordering siblings that are themselves direct children of the parent. They're a poor fit for reordering items wrapped in <li>/<div> (nav menus, lists) — prefer the CSS \`order\` approach above for those.
+- Reordering a SET of sibling items — pricing plans, feature cards, columns, steps: one \`findElements\` on an item's title gives its \`selector\` and \`parentSelector\`; one \`describeContainer\` on that parentSelector lists every sibling in page order. That is all the lookup this needs — the shared parent is parentSelector for every move, and each sibling's selector is a valid insertBeforeSelector. Emit the new order as position moves that each insert an item before the one that should follow it (Starter, Pro, Enterprise → Enterprise, Pro, Starter: move Enterprise before Starter, then move Pro before Starter), or, when the parent is flex-row / grid, as one \`order\` rule per item in \`cssAppend\`. Don't re-describe each item or verify what a tool already told you. If the shared parent is NOT a captured container (findElements says \`parentCaptured: false\`, or describeContainer only knows it by selector), don't hunt for it and never guess a selector from a class name: emit one \`order\` rule per ITEM in \`cssAppend\` — card rows are almost always flex or grid — or list the reorder in \`skipped\` and ask the user to click one of the items. \`order\` only moves the flex/grid items themselves, the direct children of the shared row, so target the item and not something inside it: a findElements match with \`parentCaptured: false\` is usually an inner wrapper and the item is its \`parentSelector\`; in describeContainer's \`descendants\`, the items are the nearest entries with \`captured: false\`. A rule on a wrapper inside the item does nothing.
 - The source selector and parentSelector must NOT match the same element — that's a no-op or, worse, a self-cycle.
+- The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT element, a sibling. To move an element UP, insertBeforeSelector is the sibling currently ABOVE it; to move it above section Y, insertBeforeSelector is Y's selector. Get them from \`describeContainer\` (its prevSiblingSelector / nextSiblingSelector) or \`findElements\`. If you can't identify the destination sibling, don't guess — leave the move out and list it in \`skipped\`, asking the user to click the element it should go before.
 - For every move you propose, set value to null. Do not put position data in value.
 - Never combine position with action "append" or "remove". Always action "set".
 
 SELECTOR GROUNDING — this is critical:
-- You will be given a "Page elements" catalog with the actual selectors present on the page. It includes a "Page structure" section (html, body, header, main, footer, etc.) plus catalogs of headings, buttons, links, inputs, and images.
+- You will be given a "Page elements" catalog with the actual selectors present on the page. It includes a "Page structure" section (html, body, header, main, footer, etc.) plus catalogs of headings, buttons, links, inputs, and images. When a "Page outline" block is present it lists the page's containers in document order with nesting shown by indentation, and catalog entries end with \`(in \`…\`)\` naming their enclosing container — use it to resolve "the button in the hero" or "the section after Features" directly, and pass any outline selector to \`describeContainer\` for its siblings and children.
 - You MUST pick selectors verbatim from this catalog or from the user's picked elementContext. Do NOT invent selectors like ".cta", ".hero-cta", "h1.headline" unless you can see them in the catalog.
 - PICKED ELEMENTS WIN — when the user has selected element(s) (the elementContext block, shown below as "selected the following elements … as context"), they are the DEFAULT target: apply the request to the picked element(s) or on an element inside of the context if it makes sense- unless the user's message explicitly names a different one. This takes PRECEDENCE over the keyword/semantic heuristics below. Example: the user picked an \`<div>\` that contains an \`<h2>\` and says "rewrite the heading to be funnier" → edit THAT \`<h2>\`, NOT the page's \`<h1>\`. If the user selects directly a \`<p>\` that contains text, and says to "make it shorter", it should apply directly to that text of the container. Using "this" or other pronouns in the prompt when the context or picked element is passed, refer to that picked element. Only fall back to the keyword/catalog rules when nothing relevant inside the context found or is picked.
 - EXCEPTION — selectors the USER names explicitly: when the user's own message contains a concrete class, id, or attribute selector (e.g. "elements with the \`section_bg-gradient-2\` class", "the \`#pricing\` section", "everything matching \`[data-card]\`"), treat it as ground truth and use it verbatim — even if it is NOT in the catalog. The catalog is a NON-EXHAUSTIVE sample: it only lists structural nodes (html/body/header/main/footer…) plus headings, buttons, links, inputs, and images. A class on a \`<section>\`, \`<div>\`, \`<li>\`, etc. will routinely be absent from it. Never refuse or ask for clarification just because a user-supplied class/id isn't in the catalog. The grounding rule above exists to stop you HALLUCINATING selectors from vague descriptions — not to override a selector the user handed you directly.
-- Apply any "style every element matching this class / id / attribute" request through GLOBAL CSS (the \`css\` field), not DOM mutations. A CSS rule targets any selector regardless of catalog membership, and styling a whole class of elements is exactly what global CSS is for.
+- Apply any "style every element matching this class / id / attribute" request through GLOBAL CSS (\`cssAppend\`), not DOM mutations. A CSS rule targets any selector regardless of catalog membership, and styling a whole class of elements is exactly what global CSS is for.
 - When the user's request matches a semantic concept (e.g. "the hero CTA", "the signup button"), find the closest match by text content or position in the catalog and use that exact selector.
 - "Title" / "the title" / "page title" / "headline" / "heading" → when the user has NOT picked a relevant element (a picked element always wins — see "PICKED ELEMENTS WIN" above), interpret this as the visible main heading on the page — pick the first \`h1\` from the catalog (or the most prominent heading if no h1 is present). NEVER target the \`<title>\` element in \`<head>\`, \`document.title\`, or set the HTML "title" attribute (tooltip) for these requests. Users running an A/B test want to test what readers see on the page, not the browser tab text. The same applies to "subtitle" / "subheading" → the visible \`h2\` (or first heading below the h1), not anything in \`<head>\`.
 - For "the page", "the background", "the whole site", "globally", and similar broad requests, prefer "body" or "html" from the Page structure section. These are always valid targets — never refuse a global styling request because the more-specific catalogs only list components.
 - "html" and "body" are ALWAYS valid selectors even if the Page structure section is missing (e.g. older content scripts). Treat them as if they were in the catalog.
 - If the target is a section or container that isn't in the catalog (e.g. "the Trusted-by section", a named wrapper), call the \`findElements\` tool (when available) to look it up by text or class BEFORE giving up — sections are deliberately absent from the catalog. Only if findElements also finds nothing, the user named no explicit selector, AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess invented selectors.
-- Prefer PARTIAL completion over wholesale refusal. When a request has several targets and only some are grounded, fulfill the parts you can — the global/body portion, and any user-named class via global CSS — and note any genuinely unverifiable target in the explanation. Do not refuse the entire request because one target couldn't be confirmed.
+- Prefer PARTIAL completion over wholesale refusal. When a request has several targets and only some are grounded, fulfill the parts you can — the global/body portion, and any user-named class via global CSS — and list any genuinely unverifiable target in \`skipped\`. Do not refuse the entire request because one target couldn't be confirmed.
 
 Other rules:
 - Prefer the smallest, most targeted mutation.
@@ -351,16 +479,22 @@ DOM mutations vs global JS precedence — critical:
 - Example B — "show a countdown timer in the headline that updates every second": JS only — the timer needs to keep writing. Do NOT also emit a mutation setting the headline text, or the mutation will fight the timer.
 - Example C — "when the button is clicked, swap its label": JS only — the label change is event-driven. Do NOT emit a class/text mutation on the button.
 
+Global JS that adds elements must be idempotent:
+- The SDK re-runs variation JS every time it re-applies the variation (SPA navigation, re-evaluation), and removing the <script> doesn't undo what it did. JS that inserts nodes without checking first duplicates them on the live site.
+- Prefer \`insert\` for new content — it is already guarded. When JS must create DOM, stamp a marker attribute on what you insert (e.g. \`data-gb-promo\`) and return early if \`document.querySelector('[data-gb-promo]')\` already exists.
+
 Tools you may call before producing the final JSON output:
-- \`generateImage\` — generate a single AI image and get a hosted URL. Call when the user asks to replace, set, or insert any image (or any background-image). The URL you get back can be placed directly into a mutation's \`value\` — as a \`src\` for <img>, inside a \`background-image: url(...)\` style, or as part of HTML markup for a new <img>. Pick the aspectRatio that matches where the image will appear (16:9 hero, 1:1 avatar, etc.). Call once per image; for multi-image requests (e.g. "build a carousel of 3 slides"), call multiple times. You are budgeted up to 3 image generations per turn.
+- \`generateImage\` — generate a single AI image and get a hosted URL. Call when the user asks to replace, set, or insert an image that does not exist yet (or any background-image). Never call it to recreate or approximate an image the user ATTACHED this turn — place the attachment's hosted URL from the Attached images block instead. A request for a distinct NEW image alongside an attachment ("place this logo and generate a hero background") still generates the new one. The URL you get back can be placed directly into a mutation's \`value\` — as a \`src\` for <img>, inside a \`background-image: url(...)\` style, or as part of HTML markup for a new <img>. Pick the aspectRatio that matches where the image will appear (16:9 hero, 1:1 avatar, etc.). Call once per image; for multi-image requests (e.g. "build a carousel of 3 slides"), call multiple times. You are budgeted up to 3 image generations per turn.
 - \`searchImageLibrary\` — list recent images the user has previously uploaded or generated. Useful when the user says "use one of my existing images" or references a prior visual. The results don't include visual content, only URLs and dates — prefer \`generateImage\` when the user describes a specific look.
 - \`getDesignTokens\` — fetch the organization's brand guidelines. Call when the user asks for changes that should be "on brand", "match our style", or "use our colors". Skip for purely tactical edits.
 - \`searchPastExperiments\` — search the user's previous A/B tests by name, hypothesis, or description. Call when the user references prior work ("similar to the pricing test", "what's worked here before", "try what we did on signup"). Returns experiment names + hypotheses + ids — never raw conversion numbers or revenue. Use the results to inform DIRECTION ("similar prior tests have leaned warmer/bolder/shorter"), not as a source of quoted numeric claims.
 - \`getExperimentVariations\` — given an experimentId from searchPastExperiments, fetch the variations' actual mutations + CSS + JS. Call this when the user explicitly wants to mirror or adapt the changes from a prior experiment. Long mutation values are truncated — treat them as patterns, not as verbatim source.
-- \`findElements\` — locate a container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list \`<section>\`s or layout wrapper \`<div>\`s. When the user refers to a whole section to move, reorder, hide, or restyle (e.g. "move the Trusted-by section above the features section"), call \`findElements\` with a word from the section's visible text or class name to get its durable \`selector\` and \`parentSelector\`. Use those verbatim (they're real, captured from the live DOM). Prefer this over asking the user to click. (Not available on every deployment; if it returns nothing useful, fall back to asking the user to click.)
+- \`findElements\` — locate a container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list \`<section>\`s or layout wrapper \`<div>\`s. When the user refers to a whole section to move, reorder, hide, or restyle (e.g. "move the Trusted-by section above the features section"), call \`findElements\` with a word from the section's visible text or class name to get its durable \`selector\`, \`parentSelector\`, and \`prevSiblingSelector\` / \`nextSiblingSelector\`. Use those verbatim (they're real, captured from the live DOM). Prefer this over asking the user to click. (Not available on every deployment; if it returns nothing useful, fall back to asking the user to click.)
+- \`describeContainer\` — given a container selector from the Page outline or a findElements match, returns its parentSelector, its visible previous/next siblings, and its direct child containers in page order. This is how you build a move: up one place → insertBeforeSelector = its prevSiblingSelector; above Y → insertBeforeSelector = Y's selector; after Y → Y's nextSiblingSelector (null appends). Prefer it over guessing or asking the user to click. (Only offered when the extension sent the page in document order; when it's absent, ask the user to click the destination element.)
 
 Tool-use guidance:
 - Don't call tools just because they're available. If the user request can be fulfilled with information already in the prompt, return mutations directly without any tool calls.
+- Tool budget: at most ${VISUAL_EDITOR_MAX_STEPS - 1} tool calls per request, and the request FAILS for the user if you're still looking things up when it runs out. Decide the lookups you need up front, use each result the first time you get it, and stop looking once you have selectors for everything the request names.
 - ALWAYS finish your turn by emitting the final JSON output that matches the schema — this is mandatory and there is no other valid way to end. Never stop on a tool call, and never reply with prose alone: a turn that ends without the JSON object produces NO output and the whole request fails with an error the user can't act on. This holds even when you cannot complete the request — if a target can't be found (findElements returned nothing, nothing was picked, no explicit selector was given), still return the JSON with mutations: [] and an \`explanation\` saying what you need (e.g. ask the user to click the element). A declined request expressed as valid JSON is a success; a perfect plan left in prose or a dangling tool call is a failure.
 - When you place a generated image URL into a mutation, make sure the surrounding markup makes sense: <img> needs src + alt; CSS \`background-image: url(...)\` needs background-size and background-position too; an inserted <img> in an HTML mutation should be wrapped in an appropriate container.
 - Past-experiment data is sensitive. When you call \`searchPastExperiments\` or \`getExperimentVariations\`, the chat that contains your explanation persists with the changeset and may later be read by users with different permissions. Never quote specific experiment names, IDs, hypotheses, or numeric outcomes in the \`explanation\` field. Use only directional language ("Similar past tests in this account have favored a warmer color", "Previous attempts have leaned toward shorter copy"). The mutations + CSS + JS you emit are fine — those don't surface raw experiment metadata.
@@ -394,22 +528,21 @@ Iterating on existing mutations:
 - This dedupe only applies when the (selector, attribute, action) triple matches exactly. If the user asks for a genuinely additive change (e.g. existing mutation sets the color; user now wants to also change the font-size), emit a separate mutation for the new property — those won't collide.
 
 Iterating on existing global CSS / JS (different rule from mutations — read carefully):
-- The \`css\` and \`js\` fields you return REPLACE the variation's prior global CSS / JS entirely on the back-end. There is NO merge or dedupe (unlike mutations).
-- The "Current variation global CSS" / "Current variation global JS" blocks above are the AUTHORITATIVE record of what is currently applied. ALWAYS build your returned CSS/JS from those blocks — never from earlier in the conversation. A rule you proposed in a previous turn is only actually applied if it appears in the Current block; if it doesn't (e.g. the user rejected or undid it), it is NOT applied, so do NOT re-add it. When the Current block says "(none)", return only your new rules.
-- When your change ADDS, MODIFIES, or REMOVES a rule in global CSS/JS, return the COMPLETE intended new global CSS/JS — existing rules verbatim, plus/minus/edited rules:
-  • ADD a new rule → echo the existing CSS, then append your new rule.
-  • MODIFY an existing rule (change a color, swap a value, retarget a selector) → echo the existing CSS with that rule edited in place.
-  • REMOVE a rule → echo the existing CSS with that rule omitted.
-- Make a best-effort judgment about which intent the user means based on the prior CSS. Examples (assume existing CSS is \`body { background: red; }\`):
-  • "Make the background blue instead" → MODIFY: return \`body { background: blue; }\`.
-  • "Also make buttons pink" → ADD: return \`body { background: red; }\\n\\nbutton { color: pink; }\`.
-  • "Take out the background" → REMOVE: return \`\` (empty string is fine when you intend to wipe the CSS) or the rest of the CSS without that rule.
-- Only set \`css\` (or \`js\`) to null when the user's request doesn't involve global CSS (or JS) at all and existing CSS/JS should stay untouched. Returning null when CSS exists is SAFE (no change). Returning a partial fragment when CSS exists is UNSAFE (clobbers it).
+- Two ways to change global CSS. \`cssAppend\` ADDS rules: they are appended after the current stylesheet, which is kept as-is. \`css\` REPLACES the whole stylesheet: return the complete intended CSS — existing rules verbatim, with your edits. ADD a rule → \`cssAppend\`. MODIFY or REMOVE an existing rule → \`css\`, edited in place; don't append an overriding copy, it leaves the old rule behind. Adding a rule through \`css\` forces you to re-emit everything and risks dropping rules — never do that.
+- \`js\` REPLACES the variation's prior global JS entirely — return the complete intended JS (existing code verbatim plus/minus your change). There is NO merge for js.
+- The "Current variation global CSS" / "Current variation global JS" blocks above are the AUTHORITATIVE record of what is currently applied. Build \`css\`/\`js\` from those blocks — never from earlier in the conversation. A rule you proposed in a previous turn is only applied if it appears in the Current block; if it doesn't (e.g. the user rejected or undid it), do NOT re-add it.
+- Examples (assume existing CSS is \`body { background: red; }\`):
+  • "Also make buttons pink" → cssAppend: \`button { color: pink; }\`, css: null.
+  • "Make the background blue instead" → css: \`body { background: blue; }\`, cssAppend: null.
+  • "Take out the background" → css: the rest of the stylesheet without that rule, cssAppend: null. If nothing would remain, leave css null and put it in \`skipped\` — clearing all CSS needs the manual editor.
+- Set \`cssAppend\`, \`css\`, and \`js\` to null when the request doesn't touch them. Null is always SAFE (no change). A partial fragment in \`css\` when CSS exists is UNSAFE (it clobbers the rest).
 
 Bias toward action when grounded:
 - If the catalog contains plausible targets and the request describes a visible change, ALWAYS attempt at least one mutation, with the rationale in the explanation.
 - If the request is ambiguous (e.g. "make it pop"), pick the most likely concrete change against a catalog element and call out that choice in the explanation.
-- The ONLY cases where you may return an empty mutations array are: (a) the request is unrelated to visual changes (e.g. "how do A/B tests work?"), (b) the request is unsafe, or (c) no catalog element plausibly matches the requested target. In those cases explain in detail what would be needed to proceed.`;
+- Multi-part requests ("swap the images, move the pricing section up, and fix the padding") are the norm. Do every part you can in this one response. Never return mutations: [] because ONE part is blocked — complete the others and list the blocked part in \`skipped\`.
+- \`explanation\` covers what you DID. \`skipped\` covers what you did NOT do: one entry per undone part, with a one-line reason and what would unblock it (e.g. "click the section so I can capture its selector"). The user sees \`skipped\` rendered below your explanation, so don't repeat it there. Null when everything was done.
+- The ONLY cases where you may return an empty mutations array are: (a) the request is unrelated to visual changes (e.g. "how do A/B tests work?"), (b) the request is unsafe, or (c) NO part of the request has a plausible target. In those cases explain in detail what would be needed to proceed.`;
 
 // Bulleted text rather than JSON — fewer tokens, easier for LLMs to scan.
 // Selectors wrapped in backticks so the model treats them as opaque strings.
@@ -420,6 +553,21 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
     lines.push(`\n${label}:`);
     for (const it of items) lines.push(`- ${it}`);
   };
+  const inSection = (s?: string) => (s ? ` (in \`${s}\`)` : "");
+  // Section plus the direct parent and its layout.
+  const where = (e: {
+    sectionSelector?: string;
+    parentSelector?: string;
+    parentLayout?: string;
+  }) => {
+    const parts = [
+      e.sectionSelector ? `in \`${e.sectionSelector}\`` : "",
+      e.parentSelector
+        ? `parent: \`${e.parentSelector}\`${e.parentLayout ? ` (${e.parentLayout})` : ""}`
+        : "",
+    ].filter(Boolean);
+    return parts.length ? ` (${parts.join("; ")})` : "";
+  };
   // Structural section first so the model treats body/html/main as
   // first-class targets for global styling requests, not fallbacks.
   section(
@@ -428,20 +576,36 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
       (s) => `\`${s.selector}\` <${s.tag}>${s.note ? ` — ${s.note}` : ""}`,
     ),
   );
+  const outline = digest.pageStructure
+    ? renderPageOutline(digest.pageStructure)
+    : "";
+  if (outline) {
+    lines.push(
+      "\nPage outline (containers in document order; indentation = nesting; call describeContainer for a container's siblings and children):",
+    );
+    lines.push(outline);
+  }
   section(
     "Headings",
-    digest.headings.map((h) => `\`${h.selector}\` <${h.tag}> "${h.text}"`),
+    digest.headings.map(
+      (h) =>
+        `\`${h.selector}\` <${h.tag}> "${h.text}"${inSection(h.sectionSelector)}`,
+    ),
   );
   section(
     "Buttons / CTAs",
     digest.buttons.map(
       (b) =>
-        `\`${b.selector}\` <${b.tag}> "${b.text}"${b.href ? ` → ${b.href}` : ""}`,
+        `\`${b.selector}\` <${b.tag}> "${b.text}"${
+          b.href ? ` → ${b.href}` : ""
+        }${where(b)}`,
     ),
   );
   section(
     "Links",
-    digest.links.map((l) => `\`${l.selector}\` "${l.text}" → ${l.href}`),
+    digest.links.map(
+      (l) => `\`${l.selector}\` "${l.text}" → ${l.href}${where(l)}`,
+    ),
   );
   section(
     "Form fields",
@@ -453,15 +617,35 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
       ]
         .filter(Boolean)
         .join(" ");
-      return `\`${i.selector}\` <${i.type}>${meta ? ` ${meta}` : ""}`;
+      return `\`${i.selector}\` <${i.type}>${meta ? ` ${meta}` : ""}${inSection(
+        i.sectionSelector,
+      )}`;
     }),
   );
   section(
     "Images",
     digest.images.map(
       (img) =>
-        `\`${img.selector}\`${img.alt ? ` alt="${img.alt}"` : ""} src=${img.src}`,
+        `\`${img.selector}\`${img.alt ? ` alt="${img.alt}"` : ""} src=${
+          img.src
+        }${where(img)}`,
     ),
+  );
+  section(
+    "Other elements",
+    (digest.elements ?? []).map((el) => {
+      const meta = [
+        el.href ? `→ ${el.href}` : "",
+        el.src ? `src=${el.src}` : "",
+        el.alt ? `alt="${el.alt}"` : "",
+        el.placeholder ? `placeholder="${el.placeholder}"` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return `\`${el.selector}\` <${el.tag}>${
+        el.text ? ` "${el.text}"` : ""
+      }${meta ? ` ${meta}` : ""}`;
+    }),
   );
   if (lines.length === 0) {
     return "\n(No editable elements were detected on the page.)\n";
@@ -477,10 +661,20 @@ const allDigestSelectors = (
   const out = new Set<string>();
   for (const s of digest.structural) out.add(s.selector);
   for (const h of digest.headings) out.add(h.selector);
-  for (const b of digest.buttons) out.add(b.selector);
-  for (const l of digest.links) out.add(l.selector);
+  for (const b of digest.buttons) {
+    out.add(b.selector);
+    if (b.parentSelector) out.add(b.parentSelector);
+  }
+  for (const l of digest.links) {
+    out.add(l.selector);
+    if (l.parentSelector) out.add(l.parentSelector);
+  }
   for (const i of digest.inputs) out.add(i.selector);
-  for (const img of digest.images) out.add(img.selector);
+  for (const img of digest.images) {
+    out.add(img.selector);
+    if (img.parentSelector) out.add(img.parentSelector);
+  }
+  for (const el of digest.elements ?? []) out.add(el.selector);
   // html/body always resolve, even without a content-script digest.
   out.add("html");
   out.add("body");
@@ -495,6 +689,7 @@ const buildPrompt = ({
   existingJs,
   domDigest,
   conversationHistory,
+  attachments,
   retryHint,
 }: {
   prompt: string;
@@ -509,8 +704,23 @@ const buildPrompt = ({
   existingJs?: string;
   domDigest?: z.infer<typeof domDigestSchema>;
   conversationHistory?: z.infer<typeof conversationTurnSchema>[];
+  attachments?: Array<{ url?: string; mimeType: string; name?: string }>;
   retryHint?: string;
 }): string => {
+  // The bytes ride as image parts on this message; this block names them.
+  const attachmentsBlock =
+    attachments && attachments.length > 0
+      ? `\nAttached images (${attachments.length}, included above in this message):\n${attachments
+          .map(
+            (a, i) =>
+              `${i + 1}. ${a.name ?? "image"} (${a.mimeType})${
+                a.url ? ` — hosted at ${a.url}` : ""
+              }`,
+          )
+          .join(
+            "\n",
+          )}\nDecide from the request what each is for. To PLACE it on the page (replace an image, set a background, insert it), use its hosted URL verbatim as the src / background-image / <img> in inserted markup — never a data: URI. As a REFERENCE ("make it look like this", "match this layout"), read it for colors, layout, and copy, and don't put it on the page unless asked. Never call generateImage to recreate an attached image — the attachment already has a hosted URL.\n`
+      : "";
   const historyBlock =
     conversationHistory && conversationHistory.length > 0
       ? `\nPrevious conversation (most recent last):\n${conversationHistory
@@ -542,7 +752,7 @@ const buildPrompt = ({
   // `a{color:red}` on the next turn). The model is instructed to build its
   // returned CSS/JS from THIS block, not from the chat history.
   const existingCssBlock = existingCss
-    ? `\nCurrent variation global CSS (authoritative — build on this, not the conversation):\n\`\`\`css\n${existingCss}\n\`\`\`\n`
+    ? `\nCurrent variation global CSS (authoritative — kept as-is unless you return \`css\`; add rules with \`cssAppend\`):\n\`\`\`css\n${existingCss}\n\`\`\`\n`
     : `\nCurrent variation global CSS: (none — this variation has no global CSS applied. Do not re-add CSS from earlier in the conversation; it may have been rejected.)\n`;
   const existingJsBlock = existingJs
     ? `\nCurrent variation global JS (authoritative — build on this, not the conversation):\n\`\`\`js\n${existingJs}\n\`\`\`\n`
@@ -550,7 +760,7 @@ const buildPrompt = ({
 
   const retryBlock = retryHint ? `\n${retryHint}\n` : "";
 
-  return `${historyBlock}${digestBlock}${contextBlock}${existingBlock}${existingCssBlock}${existingJsBlock}${retryBlock}
+  return `${historyBlock}${digestBlock}${contextBlock}${attachmentsBlock}${existingBlock}${existingCssBlock}${existingJsBlock}${retryBlock}
 User request:
 """
 ${prompt}
@@ -567,14 +777,22 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     domDigest,
     conversationHistory,
     locale,
+    persist,
+    attachments,
+    resume,
   } = req.body;
 
-  // Carried inside domDigest (sent in the body, kept out of the prompt) and
-  // surfaced to the model only via the server-side findElements tool.
   const pageStructure = domDigest?.pageStructure;
 
   const context = req.context;
   requireUserAuth(context);
+
+  // Streaming finalizes in postAIEditResume; one write path, not two.
+  if (persist && req.body.streamingMode) {
+    context.throwBadRequestError(
+      "`persist` cannot be combined with `streamingMode`.",
+    );
+  }
 
   const changeset = await findVisualChangesetById(
     visualChangesetId,
@@ -588,8 +806,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   if (!context.permissions.canUpdateVisualChange(experiment)) {
     context.permissions.throwPermissionError();
   }
+  // Before the generation, so a doomed save doesn't burn AI quota first.
+  if (persist) requireDraftExperiment(context, experiment);
 
-  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
+  // Gated on the model this request will actually run: an org on its own key
+  // for that provider pays its own bill, so the managed cap doesn't apply.
+  const { visualEditorAIModel: cappedModel } =
+    await getAISettingsForOrg(context);
+  if (await secondsUntilAICanBeUsedAgainForModel(context, cappedModel)) {
     throw new Error(
       "Daily AI usage limit reached. Try again later or upgrade your plan.",
     );
@@ -605,6 +829,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       conversationTurns: conversationHistory?.length ?? 0,
       elementContextCount: elementContext.length,
       hasDomDigest: !!domDigest,
+      attachmentCount: attachments?.length ?? 0,
       prompt,
     },
     "[visual-editor-ai/edit] user prompt",
@@ -638,22 +863,51 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     for (const n of pageStructure) {
       trustedSelectors.add(n.selector);
       if (n.parentSelector) trustedSelectors.add(n.parentSelector);
+      if (n.prevSiblingSelector) trustedSelectors.add(n.prevSiblingSelector);
+      if (n.nextSiblingSelector) trustedSelectors.add(n.nextSiblingSelector);
     }
   }
+  // Live findElements matches are added as the tool answers (onStepFinish).
+  const isTrusted = (s: string) =>
+    trustedSelectors.has(s) || isUserNamedSelector(prompt, s);
 
   // visualEditorAIContext is the free-text brand guidelines admins set in
   // Settings → AI Settings. Appended to the system prompt (not the user
   // message) so the LLM treats it as instructions, not ignorable input.
-  const { visualEditorAIModel, visualEditorAIContext } = getAISettingsForOrg(
-    context,
-    true,
-  );
+  const aiSettings = await getAISettingsForOrg(context, true);
+  const { visualEditorAIModel, visualEditorAIContext } = aiSettings;
+
+  // Attachments need a vision model; fail clearly when the org's keys offer none.
+  const images = attachments?.map((a) => ({
+    data: a.data,
+    mimeType: a.mimeType,
+  }));
+  let editModel = visualEditorAIModel;
+  if (images && images.length > 0) {
+    const visionModel = pickVisionModel(aiSettings);
+    if (!visionModel) {
+      return context.throwBadRequestError(
+        "No vision-capable AI model is available for image attachments. Configure a Google (Gemini), OpenAI (GPT-4o/5), or Anthropic (Claude) API key, or set the Visual Editor model to a vision-capable one in Settings → AI Settings.",
+      );
+    }
+    editModel = visionModel;
+  }
+  const attachmentMeta = attachments?.map(({ url, mimeType, name }) => ({
+    url,
+    mimeType,
+    name,
+  }));
   let effectiveInstructions = visualEditorAIContext
     ? `${instructions}\n\nAdditional brand guidelines / context provided by the organization (these MUST be respected unless they conflict with the JSON output schema):\n${visualEditorAIContext}`
     : instructions;
 
+  // No chooser without a preview, so alternatives cost a paid call and are binned.
+  if (persist) {
+    effectiveInstructions = `${effectiveInstructions}\n\nThis request is saved directly, with no preview and no way for the user to pick between alternatives:\n- NEVER populate \`options\`. Return your single best \`value\`, even if the user asked for a few choices — say in the \`explanation\` that you picked one, and that they can ask again for a different take.\n- Call \`generateImage\` at most once per element you are changing. Never generate variants of the same image to choose from.`;
+  }
+
   if (locale && !locale.toLowerCase().startsWith("en")) {
-    effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` field in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation prose is localized.`;
+    effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` and \`skipped\` fields in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation and skipped prose is localized.`;
   }
 
   // Single-shot retry without tools — fired by finalize() if the LLM
@@ -672,15 +926,18 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         existingJs: currentChange?.js,
         domDigest,
         conversationHistory,
+        attachments: attachmentMeta,
         retryHint,
       }),
       temperature: 0.2,
       type: "visual-editor-ai-edit",
       isDefaultPrompt: true,
       zodObjectSchema: outputSchema,
-      overrideModel: visualEditorAIModel,
+      overrideModel: editModel,
+      images,
       cacheSystemPrompt: true,
       maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
+      extendedMaxOutputTokens: EDIT_EXTENDED_MAX_OUTPUT_TOKENS,
       // This is itself a retry (selector self-correction), so disable
       // parsePrompt's no-object retry — otherwise one request could fan
       // out to 4 LLM calls. finalizeOutput's try/catch already keeps the
@@ -723,29 +980,45 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     explanation: string;
   }> => {
     let result = raw;
+    // One self-correct retry covers both uncatalogued selectors and bad moves.
+    const hints: string[] = [];
     if (domDigest && trustedSelectors.size > 0 && result.mutations.length > 0) {
       const misses = result.mutations
         .flatMap(requiredSelectors)
-        .filter((s) => !trustedSelectors.has(s));
+        .filter((s) => !isTrusted(s));
       if (misses.length > 0) {
         const uniqueMisses = Array.from(new Set(misses));
-        const retryHint = `RETRY: Your previous attempt used selectors that are NOT in the page-elements catalog: ${uniqueMisses
-          .map((s) => `\`${s}\``)
-          .join(
-            ", ",
-          )}. For position moves, the parent and insert-before targets count too — they must be in the catalog. Resolve this ONE of two ways: (1) if the user NAMED one of these selectors explicitly in their request (a class/id/attribute), it's valid — don't drop it, move that change into the global \`css\` field instead (a CSS rule can target selectors the catalog doesn't list); (2) otherwise pick a matching selector verbatim from the catalog. Only return mutations = [] if neither applies and no catalog entry plausibly matches — and even then, still complete any global/body or user-named-class portion via \`css\`.`;
-        try {
-          result = await runRetry(retryHint);
-        } catch (e) {
-          logger.warn(
-            { err: e },
-            "[visual-editor-ai] self-correct retry failed",
-          );
-        }
+        hints.push(
+          `RETRY: Your previous attempt used selectors that are NOT in the page-elements catalog: ${uniqueMisses
+            .map((s) => `\`${s}\``)
+            .join(
+              ", ",
+            )}. For position moves, the parent and insert-before targets count too — they must be in the catalog. Resolve this ONE of two ways: (1) if the user NAMED one of these selectors explicitly in their request (a class/id/attribute), it's valid — don't drop it, move that change into \`cssAppend\` instead (a CSS rule can target selectors the catalog doesn't list); (2) otherwise pick a matching selector verbatim from the catalog. Only return mutations = [] if neither applies and no catalog entry plausibly matches — and even then, still complete any global/body or user-named-class portion via \`cssAppend\`.`,
+        );
+      }
+    }
+    const badMoves = result.mutations.flatMap((m) => {
+      const problem = movePlacementProblem(m);
+      return problem ? [`\`${m.selector}\`: ${problem}`] : [];
+    });
+    if (badMoves.length > 0) {
+      hints.push(
+        `RETRY: These position moves can't be applied — ${badMoves.join("; ")}. The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT sibling (the one currently above it to move up; section Y's selector to move above Y) and parentSelector must be its container. Get them from \`describeContainer\` (its prevSiblingSelector) or \`findElements\`. If you can't identify the destination, leave the move out and list it in \`skipped\`.`,
+      );
+    }
+    if (hints.length > 0) {
+      try {
+        result = await runRetry(hints.join("\n\n"));
+      } catch (e) {
+        logger.warn({ err: e }, "[visual-editor-ai] self-correct retry failed");
       }
     }
 
     let droppedUnsafeHtml = false;
+    const droppedMoves: Array<{ selector: string; problem: string }> = [];
+    const droppedUnknown: Array<{ selector: string; missing: string[] }> = [];
+    // The retry's selectors get the same check: an uncatalogued one silently no-ops.
+    const canJudgeSelectors = !!domDigest && trustedSelectors.size > 0;
     const sanitizedMutations = result.mutations.filter((m) => {
       const attr = m.attribute === "text" ? "html" : m.attribute;
       // Guard (#3): never let an html mutation replace a page-root container
@@ -760,27 +1033,25 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         );
         return false;
       }
-      if (m.attribute !== "position") return true;
-      if (!m.parentSelector) {
+      const problem = movePlacementProblem(m);
+      if (problem) {
+        droppedMoves.push({ selector: m.selector, problem });
         logger.warn(
-          { selector: m.selector },
-          "[visual-editor-ai] dropping position mutation: missing parentSelector",
+          { selector: m.selector, problem },
+          "[visual-editor-ai] dropping position mutation",
         );
         return false;
       }
-      if (m.parentSelector === m.selector) {
-        logger.warn(
-          { selector: m.selector },
-          "[visual-editor-ai] dropping self-targeting position mutation",
-        );
-        return false;
-      }
-      if (m.insertBeforeSelector && m.insertBeforeSelector === m.selector) {
-        logger.warn(
-          { selector: m.selector },
-          "[visual-editor-ai] dropping position mutation: insertBefore == selector",
-        );
-        return false;
+      if (canJudgeSelectors) {
+        const missing = requiredSelectors(m).filter((s) => !isTrusted(s));
+        if (missing.length > 0) {
+          droppedUnknown.push({ selector: m.selector, missing });
+          logger.warn(
+            { selector: m.selector, missing },
+            "[visual-editor-ai] dropping mutation with uncatalogued selectors after retry",
+          );
+          return false;
+        }
       }
       return true;
     });
@@ -841,6 +1112,39 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       explanation +=
         " (Skipped an unsafe change that would have replaced the entire page. To add content to the page, ask me to insert a banner or section instead.)";
     }
+    if (
+      result.js &&
+      result.js !== currentChange?.js &&
+      hasUnguardedDomInsert(result.js)
+    ) {
+      logger.warn(
+        { visualChangesetId, variationId },
+        "[visual-editor-ai] js inserts DOM without an existence guard",
+      );
+      explanation +=
+        " (This change adds elements with custom JavaScript that doesn't check whether they already exist, so they may duplicate when the page re-renders. If you see duplicates, ask me to make it idempotent.)";
+    }
+    explanation = appendSkipped(explanation, [
+      ...(result.skipped ?? []),
+      ...droppedMoves.map((d) => ({
+        request: `Move \`${d.selector}\``,
+        reason: `${d.problem}. Click the element it should go before and ask again.`,
+      })),
+      ...droppedUnknown.map((d) => ({
+        request: `Change \`${d.selector}\``,
+        reason: `${d.missing
+          .map((s) => `\`${s}\``)
+          .join(
+            ", ",
+          )} isn't among the captured page elements. Click the element on the page and ask again.`,
+      })),
+    ]);
+
+    const css = mergeGlobalCss({
+      existing: currentChange?.css,
+      replace: result.css,
+      append: result.cssAppend,
+    });
 
     return {
       mutations: sanitizedMutations.map((m) => {
@@ -852,7 +1156,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         // chooser of one. Dedupe defensively (the model occasionally
         // repeats its top pick).
         const opts =
-          !isPosition && m.options
+          !isPosition && !persist && m.options
             ? Array.from(new Set(m.options.filter((o) => o && o.length > 0)))
             : [];
         return {
@@ -869,47 +1173,40 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
             : {}),
         };
       }),
-      // Drop css/js that's byte-identical to what's already saved. The model
-      // is told to return null when it isn't touching global CSS/JS, but
-      // stronger models (e.g. Sonnet) often re-emit the full UNCHANGED
-      // stylesheet instead — which would surface as a phantom "global CSS
-      // change" on every follow-up turn. Treat identical = no change.
-      //
-      // The leading truthiness check ALSO drops a falsy result (""/null), so
-      // CLEARING global CSS/JS via the AI is intentionally not supported: the
-      // schema instructs the model never to return an empty string when CSS
-      // exists (it would wipe the variation), and we'd rather no-op than risk
-      // an accidental wipe. To delete all global CSS/JS, use the manual
-      // CSS/JS editor. If deliberate AI clearing is ever wanted, gate it on an
-      // explicit signal (e.g. an `intent: "clear"` field) rather than ""/null.
-      ...(result.css && result.css !== currentChange?.css
-        ? { css: result.css }
-        : {}),
+      // Clearing CSS or JS through the AI is unsupported, so empty means no change.
+      ...(css !== undefined ? { css } : {}),
       ...(finalJs ? { js: finalJs } : {}),
       ...(insertDescriptors.length > 0 ? { insert: insertDescriptors } : {}),
       explanation,
     };
   };
 
-  // ---- Run the LLM (with tools) via the job-based race. Streaming
-  // mode includes DOM-side tools and yields tool-call responses to the
-  // client; non-streaming mode runs without DOM tools so the race only
-  // ever resolves to "final".
+  // Three shapes: stateless (signed transcript, works on Cloud), streaming
+  // (in-memory job, self-hosted only), and plain (server-side tools only).
   const streamingMode = !!req.body.streamingMode;
-  // The streaming tool loop parks an in-memory job and resumes it via a
-  // follow-up /edit/resume request — which only works if the resume hits
-  // the SAME process. On Cloud (multi-instance, no affinity) it can hit
-  // another instance → "AI edit session not found", and an in-flight
-  // generation can't be shared. So skip the DOM-side tool loop on Cloud:
-  // run a single-shot generation (server-side tools only) and answer
-  // immediately, still returning the {kind:"final"} envelope so the
-  // extension's handling is unchanged.
-  const useToolLoop = streamingMode && !IS_CLOUD;
+  const stateless = req.headers["x-gb-tool-loop"] === "stateless";
+  if (resume && !stateless) {
+    return context.throwBadRequestError(
+      "`resume` requires the stateless tool loop.",
+    );
+  }
+  // Tool-call rounds are `{ kind }` envelopes, so the final answer must be too.
+  if (stateless && !streamingMode) {
+    return context.throwBadRequestError(
+      "The stateless tool loop requires `streamingMode`.",
+    );
+  }
+  const useToolLoop = streamingMode && !IS_CLOUD && !stateless;
   const job = aiEditJobStore.create();
+  const imageState = newImageTurnState();
   const tools = buildVisualEditorTools({
     context,
     job: useToolLoop ? job : undefined,
+    deferDomTools: stateless,
     pageStructure,
+    imageState,
+    quarantineImages: !persist,
+    attachmentCount: attachments?.length ?? 0,
   });
   // Cast through unknown — the job store is invariant in TFinal for
   // type-erasure reasons but each job is used with one schema only.
@@ -919,7 +1216,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     }
   ).finalize = finalizeOutput;
 
-  const generation = parsePrompt({
+  const parsePromptArgs = {
     context,
     instructions: effectiveInstructions,
     prompt: buildPrompt({
@@ -930,21 +1227,40 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       existingJs: currentChange?.js,
       domDigest,
       conversationHistory,
+      attachments: attachmentMeta,
     }),
     temperature: 0.2,
-    type: "visual-editor-ai-edit",
+    type: "visual-editor-ai-edit" as const,
     isDefaultPrompt: true,
     zodObjectSchema: outputSchema,
-    overrideModel: visualEditorAIModel,
+    overrideModel: editModel,
+    images,
     tools,
     maxSteps: VISUAL_EDITOR_MAX_STEPS,
     cacheSystemPrompt: true,
     maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
-    // Attach the picked-element selectors to the structured-output failure
-    // logs so we can see which selectors (e.g. hashed classes) correlate
-    // with "couldn't format a valid response" errors. Diagnostic only.
-    logContext: { pickedSelectors: elementContext.map((e) => e.selector) },
-    onStepFinish: ({ toolCalls }) => {
+    extendedMaxOutputTokens: EDIT_EXTENDED_MAX_OUTPUT_TOKENS,
+    // Diagnostic context for structured-output failure logs: which changeset
+    // and which selectors (e.g. hashed classes) correlate with failures.
+    logContext: {
+      visualChangesetId,
+      variationId,
+      pickedSelectors: elementContext.map((e) => e.selector),
+    },
+    onStepFinish: ({
+      toolCalls,
+      toolResults,
+    }: {
+      toolCalls?: Array<{ toolName: string }>;
+      toolResults?: Array<{
+        toolName: string;
+        input: unknown;
+        output: unknown;
+      }>;
+    }) => {
+      for (const r of toolResults ?? []) {
+        for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
+      }
       if (toolCalls && toolCalls.length > 0) {
         logger.debug(
           {
@@ -955,7 +1271,103 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         );
       }
     },
-  });
+  };
+
+  // The tail every path shares.
+  const completeTurn = async (raw: z.infer<typeof outputSchema>) => {
+    const finalized = await finalizeOutput(raw);
+    if (persist) {
+      const change = currentChange;
+      await updateVisualChange({
+        context,
+        changesetId: visualChangesetId,
+        visualChangeId: change.id,
+        payload: {
+          // The model returns only new mutations, but complete css/js.
+          domMutations: [
+            ...(change.domMutations ?? []),
+            ...(finalized.mutations as typeof change.domMutations),
+          ],
+          ...(finalized.css !== undefined ? { css: finalized.css } : {}),
+          ...(finalized.js !== undefined ? { js: finalized.js } : {}),
+        },
+      });
+      return {
+        ...finalized,
+        saved: true as const,
+        visualChangeId: change.id,
+        images: imageState.generated,
+        warnings: imageState.warnings,
+      };
+    }
+    return streamingMode
+      ? { kind: "final" as const, payload: finalized }
+      : finalized;
+  };
+
+  if (stateless) {
+    aiEditJobStore.delete(job.id);
+    const scope = {
+      orgId: req.organization.id,
+      userId: context.userId ?? "",
+      visualChangesetId,
+      variationId,
+      requestHash: requestHash({ ...req.body, resume: undefined }),
+    };
+    let priorMessages: ModelMessage[] | undefined;
+    let stepsAlreadyUsed = 0;
+    if (resume) {
+      if (!verifyEnvelope(JWT_SECRET, scope, resume.envelope)) {
+        return context.throwBadRequestError(
+          "The AI edit transcript failed verification. Start the prompt again.",
+        );
+      }
+      // Signed by us last round, so it is the SDK's own shape.
+      const transcript = resume.envelope.transcript as ModelMessage[];
+      const answered = toolResultsMessage(
+        pendingToolCalls(transcript),
+        resume.results,
+      );
+      if (!answered.ok) return context.throwBadRequestError(answered.error);
+      priorMessages = [...transcript, answered.message];
+      for (const r of answeredToolCalls(priorMessages)) {
+        for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
+      }
+      stepsAlreadyUsed = resume.envelope.stepsUsed;
+      // Re-seed the image budget from the transcript so a resume can't buy three more.
+      const priorImages = generatedImagesIn(transcript);
+      imageState.count = priorImages.length;
+      imageState.generated.push(...priorImages);
+    }
+    try {
+      const raw = await parsePrompt({
+        ...parsePromptArgs,
+        priorMessages,
+        stepsAlreadyUsed,
+        deferToolCalls: true,
+      });
+      return await completeTurn(raw);
+    } catch (e) {
+      if (!(e instanceof DeferredToolCallsError)) throw e;
+      const { transcript, pending, stepsUsed } = e.deferred;
+      return {
+        kind: "tool-call" as const,
+        envelope: signEnvelope(
+          JWT_SECRET,
+          scope,
+          [...(priorMessages ?? []), ...transcript],
+          stepsAlreadyUsed + stepsUsed,
+        ),
+        calls: pending.map((c) => ({
+          toolCallId: c.toolCallId,
+          toolName: c.toolName,
+          args: clientToolArgs(c.toolName, c.input),
+        })),
+      };
+    }
+  }
+
+  const generation = parsePrompt(parsePromptArgs);
   (
     job as unknown as {
       setGenerationPromise: (p: Promise<unknown>) => void;
@@ -997,9 +1409,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   }
 
   // outcome.kind === "final"
-  const finalized = await finalizeOutput(outcome.payload);
   aiEditJobStore.delete(job.id);
-  return streamingMode
-    ? { kind: "final" as const, payload: finalized }
-    : finalized;
+  return await completeTurn(outcome.payload);
 });

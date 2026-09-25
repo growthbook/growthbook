@@ -1,4 +1,6 @@
 import { ExperimentInterface } from "shared/types/experiment";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { expandMetricGroups, withScheduledBy } from "shared/experiments";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import {
   ExperimentType,
@@ -16,6 +18,9 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
+import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
@@ -86,6 +91,7 @@ async function computeScheduledVerdict(
   context: Context,
   experiment: ExperimentInterface,
   tiebreakerMetricId: string | undefined,
+  metricGroups: MetricGroupInterface[],
 ): Promise<ScheduledVerdict | null> {
   if (!canAutoShip(context)) return null;
 
@@ -101,12 +107,17 @@ async function computeScheduledVerdict(
   };
 
   const resultsStatus = experiment.analysisSummary?.resultsStatus;
-  if (!experiment.goalMetrics.length || !resultsStatus) return inconclusive;
+  const expandedGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups,
+  );
+  if (!expandedGoalMetrics.length || !resultsStatus) return inconclusive;
 
   const overallStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings: getHealthSettings(context.org.settings, true),
     decisionCriteria,
+    metricGroups,
   });
   if (
     overallStatus?.status === "unhealthy" &&
@@ -122,8 +133,11 @@ async function computeScheduledVerdict(
   const resultStatus = getDecisionFrameworkStatus({
     resultsStatus,
     decisionCriteria,
-    goalMetrics: experiment.goalMetrics,
-    guardrailMetrics: experiment.guardrailMetrics,
+    goalMetrics: expandedGoalMetrics,
+    guardrailMetrics: expandMetricGroups(
+      experiment.guardrailMetrics,
+      metricGroups,
+    ),
     scheduledEndPassed: true,
   });
   if (!resultStatus) return inconclusive;
@@ -189,9 +203,11 @@ const resolveForceShipTarget = (
 export async function applyScheduledExperimentStop({
   context,
   experiment,
+  metricGroups,
 }: {
   context: Context;
   experiment: ExperimentInterface;
+  metricGroups: MetricGroupInterface[];
 }): Promise<ScheduledStopOutcome> {
   const plan = experiment.statusUpdateSchedule?.scheduledStopPlan;
   const mode = plan?.mode ?? "notify";
@@ -206,6 +222,7 @@ export async function applyScheduledExperimentStop({
       context,
       experiment,
       tiebreakerMetricId,
+      metricGroups,
     );
     if (verdict?.results === "won" && verdict.winnerVariationId) {
       await stopExperiment({
@@ -274,6 +291,7 @@ export async function applyScheduledExperimentStop({
       context,
       experiment,
       tiebreakerMetricId,
+      metricGroups,
     );
     await stopExperiment({
       context,
@@ -299,6 +317,7 @@ export async function applyScheduledExperimentStop({
       context,
       experiment,
       tiebreakerMetricId,
+      metricGroups,
     );
     await stopExperiment({
       context,
@@ -319,6 +338,7 @@ export async function applyScheduledExperimentStop({
     context,
     experiment,
     tiebreakerMetricId,
+    metricGroups,
   );
   logger.info(
     `Scheduled end reached; keeping experiment ${experiment.id} running (notify).`,
@@ -443,7 +463,7 @@ export function validateScheduleUpdate({
 
 // Validate the scheduled-stop plan against the experiment and the end this update
 // is setting. Throws on hard config errors; returns soft warnings.
-export function validateScheduledStopPlan(
+function validateScheduledStopPlan(
   context: Context,
   experiment: Pick<ExperimentInterface, "variations" | "goalMetrics">,
   plan: ScheduledStopPlan,
@@ -458,6 +478,10 @@ export function validateScheduledStopPlan(
     throw new BadRequestError(
       "Auto-ship requires the Decision Framework (Pro+ and enabled in org settings)",
     );
+  }
+  // Auto-ship requires a fallback to specify what to do when there's no winner.
+  if (mode === "auto-ship" && !plan.fallback) {
+    throw new BadRequestError('fallback is required when mode is "auto-ship".');
   }
   // force-ship/stop work without EDF, but no win/loss verdict is recorded.
   if ((mode === "force-ship" || mode === "stop") && !hasEDF) {
@@ -571,9 +595,26 @@ export async function setExperimentSchedule({
     statusUpdateSchedule: schedule,
     // Running experiments stage the stop now; drafts stage nothing here. Either
     // way any previously-staged action is reset to match the new schedule.
-    nextScheduledStatusUpdate: stagedStop,
+    nextScheduledStatusUpdate: withScheduledBy(
+      stagedStop,
+      context.userId || undefined,
+    ),
   };
 
   const updated = await updateExperiment({ context, experiment, changes });
   return { experiment: updated, warnings };
+}
+
+// The context a staged status change runs as: whoever staged it, else the
+// owner (as a scheduled publish falls back to the draft's author).
+export async function getScheduledStatusContext(
+  context: Context,
+  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate" | "owner">,
+): Promise<ReqContext | ApiReqContext | null> {
+  const userId =
+    experiment.nextScheduledStatusUpdate?.scheduledBy || experiment.owner;
+  if (!userId) return null;
+  return getContextForUserIdInOrg(context.org, userId, {
+    applyProjectRestrictions: false,
+  });
 }

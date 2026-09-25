@@ -91,7 +91,7 @@ const AddLinkedChangeRow = ({
           >
             <Icon />
           </Avatar>
-          <Text size="large" weight="semibold" color="text-high">
+          <Text size="lg" weight="semibold" color="text-high">
             {header}
           </Text>
         </Box>

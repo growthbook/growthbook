@@ -209,12 +209,12 @@ const RevisionList: React.FC<RevisionListProps> = ({
 
       {/* Approval Requests Section */}
       <Box mb="6">
-        <Heading size="medium" as="h4" mb="3">
+        <Heading size="md" as="h4" mb="3">
           Approval Requests
         </Heading>
 
         {paginatedRequests.length === 0 ? (
-          <Text size="medium" color="text-low">
+          <Text size="md" color="text-low">
             No approval requests found.
           </Text>
         ) : (
@@ -243,7 +243,7 @@ const RevisionList: React.FC<RevisionListProps> = ({
                     <td>{datetime(revision.dateCreated)}</td>
                     <td>
                       {revision.title || (
-                        <Text color="text-low" size="small">
+                        <Text color="text-low" size="sm">
                           Untitled
                         </Text>
                       )}
@@ -287,12 +287,12 @@ const RevisionList: React.FC<RevisionListProps> = ({
       {/* History Section */}
       {showHistory && (
         <Box>
-          <Heading size="medium" as="h4" mb="3">
+          <Heading size="md" as="h4" mb="3">
             History
           </Heading>
 
           {paginatedHistory.length === 0 ? (
-            <Text size="medium" color="text-low">
+            <Text size="md" color="text-low">
               No history found.
             </Text>
           ) : (
@@ -322,7 +322,7 @@ const RevisionList: React.FC<RevisionListProps> = ({
                       </td>
                       <td>
                         {revision.title || (
-                          <Text color="text-low" size="small">
+                          <Text color="text-low" size="sm">
                             Untitled
                           </Text>
                         )}

@@ -180,7 +180,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
           background: color,
         }}
       />
-      <Text size="small">{label}</Text>
+      <Text size="sm">{label}</Text>
     </Flex>
   );
 }

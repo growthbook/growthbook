@@ -272,7 +272,7 @@ const ExposureDebuggerPage = () => {
                                   <VariationLabel
                                     number={variationIndex}
                                     name={variation.name}
-                                    size="medium"
+                                    size="md"
                                   />
                                 ) : (
                                   <span>

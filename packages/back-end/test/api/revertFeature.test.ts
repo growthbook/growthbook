@@ -14,9 +14,23 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentMapForFeature: jest.fn(),
 }));
 
+jest.mock("back-end/src/services/moveDependentsGuard", () => ({
+  assertFeatureMoveDependentsGuard: jest.fn(),
+}));
+jest.mock("back-end/src/services/archiveDependentsGuard", () => ({
+  assertFeatureArchiveDependentsGuard: jest.fn(),
+}));
+jest.mock("back-end/src/revisions/revertRampGuard", () => ({
+  assertRevertRampStopsAcknowledged: jest.fn(),
+  resolveRevertRampStops: jest
+    .fn()
+    .mockResolvedValue({ detaches: [], warning: null }),
+}));
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
-  getSavedGroupMap: jest.fn(),
+  getFeatureDefinitionLookups: jest
+    .fn()
+    .mockResolvedValue({ groupMap: new Map(), safeRolloutMap: new Map() }),
 }));
 
 jest.mock("back-end/src/services/audit", () => ({
@@ -50,6 +64,7 @@ jest.mock("back-end/src/util/features", () => ({
 }));
 
 jest.mock("back-end/src/util/organization.util", () => ({
+  ...jest.requireActual("back-end/src/util/organization.util"),
   getEnvironmentIdsFromOrg: jest.fn(() => ["production", "dev"]),
 }));
 
@@ -61,6 +76,7 @@ import {
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
@@ -73,18 +89,24 @@ const mockGetExperimentMap = getExperimentMapForFeature as jest.MockedFunction<
 const mockDispatchEvent = dispatchFeatureRevisionEvent as jest.MockedFunction<
   typeof dispatchFeatureRevisionEvent
 >;
+const mockArchiveDependentsGuard =
+  assertFeatureArchiveDependentsGuard as jest.MockedFunction<
+    typeof assertFeatureArchiveDependentsGuard
+  >;
 
 const ctx = {
   org: { id: "org_1", settings: {} },
   permissions: {
-    canUpdateFeature: jest.fn(() => true),
     canPublishFeature: jest.fn(() => true),
-    canBypassApprovalChecks: jest.fn(() => true),
+    canRevertFeature: jest.fn(() => true),
+    canDeleteFeature: jest.fn(() => true),
+    canBypassFlagApprovalChecks: jest.fn(() => true),
     throwPermissionError: jest.fn(() => {
       throw new Error("forbidden");
     }),
   },
   hasPremiumFeature: jest.fn(() => true),
+  getTargetingOptOutProjectIds: jest.fn().mockResolvedValue([]),
   models: {
     safeRollout: {
       getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
@@ -198,18 +220,28 @@ describe("revertFeatureCore revision events", () => {
       revision: { version: 6, status: "draft" } as never,
       updatedFeature,
     });
-    return { targetRevision, updatedFeature };
+    // The live revision the approval check reads; identical in shape to the
+    // target so `checkIfRevisionNeedsReview` sees a real base either way.
+    const liveRevision = {
+      version: 5,
+      status: "published",
+      defaultValue: "current-default",
+      rules: [],
+    } as never;
+    return { targetRevision, updatedFeature, liveRevision };
   }
 
   it("dispatches revision.reverted and revision.published with the re-read published revision", async () => {
-    const { targetRevision } = setupSuccessfulRevert();
+    const { targetRevision, liveRevision } = setupSuccessfulRevert();
     const publishedRevision = { version: 6, status: "published" } as never;
-    // First getRevision call resolves the target revision; the second is the
-    // post-publish re-read. (The approval-check read in between is skipped
-    // because ctx mocks canBypassApprovalChecks to true — if that changes,
-    // queue a third value here.)
+    // Three reads, in order: the target revision, the LIVE revision the approval
+    // check reads, then the post-publish re-read. The approval read happens even
+    // for a caller who can bypass — the answer is what the response reports as a
+    // bypassed gate — so a two-value queue would hand the re-read's value to the
+    // approval check and leave the dispatch reading `undefined`.
     mockGetRevision
       .mockResolvedValueOnce(targetRevision)
+      .mockResolvedValueOnce(liveRevision)
       .mockResolvedValueOnce(publishedRevision);
 
     await revertFeatureCore(
@@ -232,9 +264,10 @@ describe("revertFeatureCore revision events", () => {
   });
 
   it("falls back to the in-memory revision with a corrected published status when the post-publish read returns nothing", async () => {
-    const { targetRevision } = setupSuccessfulRevert();
+    const { targetRevision, liveRevision } = setupSuccessfulRevert();
     mockGetRevision
       .mockResolvedValueOnce(targetRevision)
+      .mockResolvedValueOnce(liveRevision)
       .mockResolvedValueOnce(null);
 
     await revertFeatureCore(
@@ -261,9 +294,10 @@ describe("revertFeatureCore revision events", () => {
   });
 
   it("falls back and still succeeds when the post-publish read fails", async () => {
-    const { targetRevision } = setupSuccessfulRevert();
+    const { targetRevision, liveRevision } = setupSuccessfulRevert();
     mockGetRevision
       .mockResolvedValueOnce(targetRevision)
+      .mockResolvedValueOnce(liveRevision)
       .mockRejectedValueOnce(new Error("mongo unavailable"));
 
     // Must not throw — the revert already committed by the time the re-read runs.
@@ -306,5 +340,203 @@ describe("revertFeatureCore revision events", () => {
     ).rejects.toThrow(/Nothing to revert/);
 
     expect(mockDispatchEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("revertFeatureCore metadata-only revert authority floor", () => {
+  // A revert whose only change is inert metadata (description/owner/tags/…) takes
+  // the `metadataTouchesPayload` short-circuit, so every per-field revert check
+  // below the coarse floor is skipped. Without the floor this path publishes with
+  // no authority check at all. The deny/allow pair pins both directions: removing
+  // the floor makes the deny case publish (green→red), and a floor that demanded
+  // more than the weakest env-unbound atom would fail the allow case.
+  const inertMetadataRevision = {
+    version: 3,
+    status: "published",
+    defaultValue: "live-default",
+    rules: [],
+    metadata: { description: "old description" },
+  } as never;
+
+  it("denies a zero-revert caller and publishes nothing", async () => {
+    mockGetFeature.mockResolvedValue(
+      makeFeature({ description: "live description" }),
+    );
+    mockGetRevision.mockResolvedValue(inertMetadataRevision);
+    (ctx.permissions.canRevertFeature as jest.Mock).mockReturnValue(false);
+
+    try {
+      await expect(
+        revertFeatureCore(
+          ctx,
+          org,
+          eventAudit,
+          { id: "feat_1" },
+          { revision: 3 },
+          jest.fn(),
+          false,
+        ),
+      ).rejects.toThrow(/forbidden/);
+    } finally {
+      (ctx.permissions.canRevertFeature as jest.Mock).mockReturnValue(true);
+    }
+
+    // The floor asks the weakest question — the revert atom, env-unbound (`[]`) —
+    // so an environment-limited reverter still passes and only a caller holding
+    // no revert authority at all is refused.
+    expect(ctx.permissions.canRevertFeature).toHaveBeenCalledWith(
+      expect.anything(),
+      [],
+    );
+    expect(mockCreateAndPublish).not.toHaveBeenCalled();
+  });
+
+  it("allows a reverter and publishes the restored metadata", async () => {
+    mockGetFeature.mockResolvedValue(
+      makeFeature({ description: "live description" }),
+    );
+    mockGetRevision.mockResolvedValue(inertMetadataRevision);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6, status: "draft" } as never,
+      updatedFeature: makeFeature({
+        version: 6,
+        description: "old description",
+      }),
+    });
+
+    // canRevertFeature defaults to true on ctx, so the floor passes.
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      metadata: { description: "old description" },
+    });
+  });
+});
+
+describe("revertFeatureCore archived restore", () => {
+  // A published revision that predates full snapshots: it never recorded
+  // `archived`, and its content matches the live (now archived) flag.
+  const legacyTarget = {
+    version: 3,
+    status: "published",
+    defaultValue: "live-default",
+    rules: [],
+  } as never;
+
+  it("restores an active flag from a target that predates archived snapshots", async () => {
+    mockGetFeature.mockResolvedValue(makeFeature({ archived: true }));
+    mockGetRevision.mockResolvedValue(legacyTarget);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6, status: "draft" } as never,
+      updatedFeature: makeFeature({ version: 6, archived: false }),
+    });
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      archived: false,
+    });
+    // Unarchiving returns the flag to service; only the archive direction is
+    // guarded for dependents.
+    expect(mockArchiveDependentsGuard).not.toHaveBeenCalled();
+  });
+
+  // Restoring a recorded archived state takes the flag out of service again, so
+  // it is delete-class like any other archive. The deny/allow pair pins both
+  // directions.
+  const archivedTarget = {
+    ...(legacyTarget as object),
+    archived: true,
+  } as never;
+
+  it("refuses to restore an archived state without delete authority", async () => {
+    mockGetFeature.mockResolvedValue(makeFeature({ archived: false }));
+    mockGetRevision.mockResolvedValue(archivedTarget);
+    (ctx.permissions.canDeleteFeature as jest.Mock).mockReturnValue(false);
+
+    try {
+      await expect(
+        revertFeatureCore(
+          ctx,
+          org,
+          eventAudit,
+          { id: "feat_1" },
+          { revision: 3 },
+          jest.fn(),
+          false,
+        ),
+      ).rejects.toThrow(/forbidden/);
+    } finally {
+      (ctx.permissions.canDeleteFeature as jest.Mock).mockReturnValue(true);
+    }
+    expect(mockCreateAndPublish).not.toHaveBeenCalled();
+  });
+
+  it("restores an archived state for a caller with delete authority", async () => {
+    mockGetFeature.mockResolvedValue(makeFeature({ archived: false }));
+    mockGetRevision.mockResolvedValue(archivedTarget);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6, status: "draft" } as never,
+      updatedFeature: makeFeature({ version: 6, archived: true }),
+    });
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockArchiveDependentsGuard).toHaveBeenCalledTimes(1);
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      archived: true,
+    });
+  });
+
+  it("leaves archived alone when the target's state already matches live", async () => {
+    mockGetFeature.mockResolvedValue(makeFeature({ archived: false }));
+    mockGetRevision.mockResolvedValue({
+      ...(legacyTarget as object),
+      defaultValue: "old-default",
+    } as never);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6, status: "draft" } as never,
+      updatedFeature: makeFeature({ version: 6, defaultValue: "old-default" }),
+    });
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      defaultValue: "old-default",
+    });
   });
 });

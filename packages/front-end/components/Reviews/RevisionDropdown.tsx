@@ -212,7 +212,7 @@ export default function RevisionDropdown({
       {remaining > 0 && (
         <DropdownMenuLabel>
           <Link
-            size="2"
+            size="md"
             onClick={() => setExtraShown((prev) => prev + remaining)}
           >
             Show all ({remaining} more)

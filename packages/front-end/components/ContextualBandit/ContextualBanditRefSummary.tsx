@@ -5,27 +5,44 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
+import { hasTargetingConfigured } from "shared/experiments";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import Text from "@/ui/Text";
-import { getVariationColor } from "@/services/features";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import VariationLabel from "@/ui/VariationLabel";
 import ConfigBackedSummary from "@/components/Features/ConfigBackedSummary";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
 
-/** Summary card for a `contextual-bandit-ref` feature rule (status, variation values, weights). */
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
+export function isContextualBanditRefRuleSkipped(
+  cb: ApiContextualBanditInterface,
+  isDraft: boolean,
+): boolean {
+  if (cb.archived) return true;
+  if (cb.status === "stopped") return true;
+  if (cb.status === "draft") return !isDraft;
+  return false;
+}
+
 export default function ContextualBanditRefSummary({
   rule,
   feature,
   environment,
+  isDraft,
 }: {
   rule: ContextualBanditRefRule;
   feature: FeatureInterface;
-  // Environment this rule is shown for, so a config-backed arm previews its
-  // matching env flavor. Absent (all-environments view) = the base value.
   environment?: string;
+  isDraft?: boolean;
 }) {
   const { contextualBanditsMap, loading } = useContextualBandits();
   const cb: ApiContextualBanditInterface | undefined =
@@ -49,7 +66,7 @@ export default function ContextualBanditRefSummary({
     return (
       <Callout status="info">
         This Contextual Bandit is archived and will be skipped.{" "}
-        <Link href={detailHref}>View CB</Link>
+        <Link href={detailHref}>View Contextual Bandit</Link>
       </Callout>
     );
   }
@@ -58,100 +75,125 @@ export default function ContextualBanditRefSummary({
     return (
       <Callout status="info">
         This Contextual Bandit is stopped and will be skipped.{" "}
-        <Link href={detailHref}>View CB</Link>
+        <Link href={detailHref}>View Contextual Bandit</Link>
       </Callout>
     );
   }
 
-  const variationWeights = cb.variations.map(
-    (v) =>
-      cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ?? 0,
-  );
-
   return (
     <Box>
-      <Flex align="center" gap="2" mb="2" wrap="wrap">
-        <Text size="medium" weight="medium">
-          <Link href={detailHref}>{cb.name}</Link>
-        </Text>
-        <Badge
-          color={cb.status === "running" ? "green" : "gray"}
-          label={cb.status}
-        />
-        {cb.contextualAttributes.length > 0 && (
-          <Text size="small" color="text-low">
-            Context: {cb.contextualAttributes.join(", ")}
-          </Text>
-        )}
+      {cb.status === "draft" && !isDraft && (
+        <Callout status="warning" mb="3">
+          This Contextual Bandit is in a <strong>draft</strong> state and has
+          not been started yet. This rule will be skipped.
+        </Callout>
+      )}
+      {hasTargetingConfigured({
+        condition: cb.condition,
+        savedGroups: cb.savedGroups,
+        prerequisites: cb.prerequisites,
+      }) && (
+        <Flex direction="row" gap="2" mb="3">
+          <Text weight="medium">IF</Text>
+          <Box>
+            <ConditionDisplay
+              condition={cb.condition || ""}
+              savedGroups={cb.savedGroups}
+              prerequisites={cb.prerequisites}
+            />
+          </Box>
+        </Flex>
+      )}
+
+      <Flex direction="row" gap="2" mb="3">
+        <Text weight="medium">SPLIT</Text>
+        by
+        <AttributeBadge attributeId={cb.hashAttribute || "id"} />
       </Flex>
 
-      <Table>
-        <TableBody>
-          {cb.variations.map((v, i) => {
-            const ruleVariation = rule.variations.find(
-              (rv) => rv.variationId === v.id,
-            );
-            const weight = variationWeights[i];
-            return (
-              <TableRow key={v.id}>
-                <TableCell>
-                  <Box
-                    style={{
-                      display: "inline-block",
-                      width: 10,
-                      height: 10,
-                      borderRadius: 2,
-                      background: getVariationColor(i, true),
-                      marginRight: 6,
-                    }}
-                  />
-                  {v.name || v.key}
-                </TableCell>
-                <TableCell>
-                  {ruleVariation ? (
-                    (() => {
-                      // Config-backed arms render "SERVE ConfigName" + resolved
-                      // payload (per-env flavor when an environment is set),
-                      // never the raw `@config:` directive — matching the
-                      // experiment-ref arms table. Arms are sparse patches when
-                      // the feature is config-backed (mirrors getFeatureDefinition's
-                      // `!!defaultConfigKey`).
-                      const defaultConfigKey = getFeatureBaseConfigKey(feature);
-                      // Only a config-backed feature resolves configs — a stray
-                      // `@config:` on a plain flag is stripped at serve time.
-                      const configKey =
-                        defaultConfigKey !== null
-                          ? (getConfigBackingKey(ruleVariation.value) ??
-                            defaultConfigKey)
-                          : null;
-                      return configKey !== null ? (
-                        <ConfigBackedSummary
-                          value={ruleVariation.value}
-                          configKey={configKey}
-                          feature={feature}
-                          sparse={defaultConfigKey !== null}
-                          environment={environment}
-                        />
-                      ) : (
-                        <ValueDisplay value={ruleVariation.value} type={type} />
-                      );
-                    })()
-                  ) : (
-                    <em>not set</em>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {weight != null ? (
-                    `${Math.round(weight * 10000) / 100}%`
-                  ) : (
-                    <em>—</em>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+      <Flex direction="row" gap="2" mb="3">
+        <Text weight="medium">INCLUDE</Text>
+        <Badge
+          color="gray"
+          label={
+            <Text color="text-high">
+              {percentFormatter.format(cb.coverage ?? 1)}
+            </Text>
+          }
+        />
+        of units in the Contextual Bandit
+      </Flex>
+
+      {cb.contextualAttributes.length > 0 && (
+        <Flex direction="row" gap="2" mb="3" wrap="wrap" align="center">
+          <Text weight="medium">CONTEXT</Text>
+          {cb.contextualAttributes.map((a) => (
+            <AttributeBadge key={a} attributeId={a} />
+          ))}
+        </Flex>
+      )}
+
+      <Flex gap="2">
+        <Text weight="medium">SERVE</Text>
+      </Flex>
+
+      <Box
+        mt="3"
+        px="3"
+        style={{
+          border: "1px solid var(--gray-a5)",
+          borderRadius: "var(--radius-2)",
+        }}
+      >
+        <Table>
+          <TableBody>
+            {cb.variations.map((v, i) => {
+              const ruleVariation = rule.variations.find(
+                (rv) => rv.variationId === v.id,
+              );
+              return (
+                <TableRow
+                  key={v.id}
+                  style={{ color: "var(--color-text-high)" }}
+                >
+                  <TableCell style={{ whiteSpace: "nowrap" }}>
+                    <VariationLabel number={i} name={v.name || v.key} />
+                  </TableCell>
+                  <TableCell width="100%">
+                    {ruleVariation ? (
+                      (() => {
+                        const defaultConfigKey =
+                          getFeatureBaseConfigKey(feature);
+                        const configKey =
+                          defaultConfigKey !== null
+                            ? (getConfigBackingKey(ruleVariation.value) ??
+                              defaultConfigKey)
+                            : null;
+                        return configKey !== null ? (
+                          <ConfigBackedSummary
+                            value={ruleVariation.value}
+                            configKey={configKey}
+                            feature={feature}
+                            sparse={defaultConfigKey !== null}
+                            environment={environment}
+                          />
+                        ) : (
+                          <ValueDisplay
+                            value={ruleVariation.value}
+                            type={type}
+                          />
+                        );
+                      })()
+                    ) : (
+                      <em>not set</em>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Box>
     </Box>
   );
 }

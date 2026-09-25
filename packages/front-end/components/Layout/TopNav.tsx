@@ -316,8 +316,19 @@ const TopNav: FC<{
       </DropdownSubMenu>
     );
   };
+  const canAddOrganization =
+    !isCloud() &&
+    isMultiOrg() &&
+    (showMultiOrgSelfSelector() || allowSelfOrgCreation());
+
   const renderOrganizationDropDown = () => {
-    if (organizations && organizations.length === 1) {
+    if (!organizations || organizations.length === 0) {
+      return null;
+    }
+
+    const showOrgPicker = organizations.length > 1 || canAddOrganization;
+
+    if (!showOrgPicker) {
       return (
         <Flex direction="row" align="center" gap="1" mr="2">
           <PiBuildingFill className="text-muted" />
@@ -326,65 +337,61 @@ const TopNav: FC<{
       );
     }
 
-    if (organizations && organizations.length > 1) {
-      return (
-        <DropdownMenu
-          open={orgDropdownOpen}
-          onOpenChange={(open) => {
-            setOrgDropdownOpen(open);
-          }}
-          trigger={
-            <Flex direction="row" align="center" gap="1" mr="2">
-              <PiBuildingFill className="text-muted" />
-              <span className="d-none d-lg-inline">
-                <OverflowText maxWidth={200}>{orgName}</OverflowText>
-              </span>
-              <PiCaretDownFill />
-            </Flex>
-          }
-        >
-          <DropdownMenuLabel>Organization</DropdownMenuLabel>
-          {organizations.map((o) => (
-            <DropdownMenuItem
-              key={o.id}
-              onClick={() => {
-                if (setOrgId) {
-                  setOrgId(o.id);
+    return (
+      <DropdownMenu
+        open={orgDropdownOpen}
+        onOpenChange={(open) => {
+          setOrgDropdownOpen(open);
+        }}
+        trigger={
+          <Flex direction="row" align="center" gap="1" mr="2">
+            <PiBuildingFill className="text-muted" />
+            <span className="d-none d-lg-inline">
+              <OverflowText maxWidth={200}>{orgName}</OverflowText>
+            </span>
+            <PiCaretDownFill />
+          </Flex>
+        }
+      >
+        <DropdownMenuLabel>Organization</DropdownMenuLabel>
+        {organizations.map((o) => (
+          <DropdownMenuItem
+            key={o.id}
+            onClick={() => {
+              if (setOrgId) {
+                setOrgId(o.id);
 
-                  try {
-                    localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
-                  } catch (e) {
-                    console.warn("Unable to save last org in localStorage");
-                  }
+                try {
+                  localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+                } catch (e) {
+                  console.warn("Unable to save last org in localStorage");
                 }
+              }
 
+              setOrgDropdownOpen(false);
+            }}
+          >
+            {o.name}
+          </DropdownMenuItem>
+        ))}
+        {canAddOrganization && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
                 setOrgDropdownOpen(false);
+                router.push("/settings/organizations");
               }}
             >
-              {o.name}
+              <Flex align="center" gap="1">
+                <PiPlusBold />
+                Add organization
+              </Flex>
             </DropdownMenuItem>
-          ))}
-          {!isCloud() &&
-            isMultiOrg() &&
-            (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOrgDropdownOpen(false);
-                    router.push("/settings/organizations");
-                  }}
-                >
-                  <Flex align="center" gap="1">
-                    <PiPlusBold />
-                    Add Organization
-                  </Flex>
-                </DropdownMenuItem>
-              </>
-            )}
-        </DropdownMenu>
-      );
-    }
+          </>
+        )}
+      </DropdownMenu>
+    );
   };
 
   const renderTitleOrBreadCrumb = () => {
@@ -419,7 +426,6 @@ const TopNav: FC<{
       </Head>
       {editUserOpen && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
@@ -534,6 +540,14 @@ const TopNav: FC<{
             <DropdownMenuSeparator />
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}
+            <DropdownMenuItem
+              onClick={() => {
+                setDropdownOpen(false);
+                router.push("/account/slack");
+              }}
+            >
+              My Slack links
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             {renderChangePassword()}
             {renderLogoutDropDown()}

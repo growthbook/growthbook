@@ -76,7 +76,7 @@ export default function VariationStatsTable({
   }
 
   return (
-    <Table size="1">
+    <Table size="sm">
       <TableHeader>
         <TableRow style={{ color: "var(--color-text-mid)", fontSize: "12px" }}>
           <TableColumnHeader pl="0">Variation</TableColumnHeader>

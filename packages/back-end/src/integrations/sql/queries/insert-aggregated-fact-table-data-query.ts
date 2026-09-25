@@ -13,7 +13,7 @@ import { getAggregatedFactTableSchema } from "back-end/src/integrations/sql/fact
 // `(idType, event_date)`. Each output row is a disjoint partial of one event
 // slice (multiple rows per key across runs), re-aggregated by the read path.
 // Correctness relies on serial arrival: events arrive in event-time order, so
-// the `timestamp > watermark` slice sees each event exactly once.
+// the slice after the watermark sees each event exactly once.
 export function getInsertAggregatedFactTableDataQuery(
   dialect: SqlDialect,
   params: InsertAggregatedFactTableDataQueryParams,
@@ -45,7 +45,8 @@ export function getInsertAggregatedFactTableDataQuery(
     idJoinMap: {},
     factTable,
     startDate: params.windowStartDate,
-    endDate: params.windowEndDate ?? null,
+    startDateRaw: params.windowStartDateRaw,
+    endDate: params.windowEndDate,
     metricsWithIndices: sortedMetrics.map((metric, index) => ({
       metric,
       index,
@@ -61,7 +62,7 @@ export function getInsertAggregatedFactTableDataQuery(
   // Per-metric column shape, computed once so the partial / merge / final
   // projections stay aligned.
   const metricCols = sortedMetrics.map((metric, index) => {
-    const includeNumerator = metric.numerator.factTableId === factTable.id;
+    const includeNumerator = metric.numerator?.factTableId === factTable.id;
     const includeDenominator =
       isRatioMetric(metric) && metric.denominator?.factTableId === factTable.id;
     const enc = encodeMetricIdForColumnName(metric.id);
@@ -101,7 +102,7 @@ export function getInsertAggregatedFactTableDataQuery(
       // the paired count; otherwise COUNT the contributing values.
       const nEventsCol =
         numeratorMeta && quantileMetricType(metric) === "event"
-          ? metric.numerator.aggregation === "kll merge"
+          ? metric.numerator?.aggregation === "kll merge"
             ? `, SUM(COALESCE(m${index}_n_events, 0)) AS ${enc}_n_events`
             : `, COUNT(m${index}_value) AS ${enc}_n_events`
           : "";

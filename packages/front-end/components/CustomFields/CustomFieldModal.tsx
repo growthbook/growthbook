@@ -53,6 +53,7 @@ export default function CustomFieldModal({
       name: existing.name || "",
       description: existing.description || "",
       values: existing.values || "",
+      creatable: existing.creatable ?? false,
       type: existing.type || "text",
       placeholder: existing.placeholder || "",
       defaultValue: existing.defaultValue
@@ -134,6 +135,10 @@ export default function CustomFieldModal({
           value.placeholder = "";
         }
 
+        if (value.type !== "multiselect" && value.type !== "enum") {
+          value.creatable = false;
+        }
+
         if (
           (value.type === "multiselect" || value.type === "enum") &&
           value.defaultValue
@@ -144,7 +149,7 @@ export default function CustomFieldModal({
             ? value.values.split(",").map((k) => k.trim())
             : [];
           // check the array of values to see if the default value exists as one of the options:
-          if (!possibleValues.includes(defaultValue)) {
+          if (!value.creatable && !possibleValues.includes(defaultValue)) {
             throw new Error("Default value must be one of the options");
           }
           // unset any placeholder value, as this is not applicable to boolean fields
@@ -156,6 +161,7 @@ export default function CustomFieldModal({
           edit.name = value?.name ?? "";
           edit.required = value?.required ?? false;
           edit.values = value.values;
+          edit.creatable = value.creatable;
           edit.defaultValue = value.defaultValue;
           edit.description = value?.description ?? "";
           edit.placeholder = value?.placeholder ?? "";
@@ -175,6 +181,7 @@ export default function CustomFieldModal({
             id: value.id ?? "",
             name: value.name ?? "",
             values: value.values,
+            creatable: value.creatable,
             description: value.description ?? "",
             placeholder: value.placeholder ?? "",
             defaultValue: value.defaultValue,
@@ -264,7 +271,7 @@ export default function CustomFieldModal({
         />
         <Box>
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             label="Applies to"
             value={form.watch("sections") ?? defaultSections}
             options={APPLIES_TO_OPTIONS}
@@ -282,7 +289,7 @@ export default function CustomFieldModal({
         {projects?.length > 0 && (
           <Box>
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label="Projects"
               value={form.watch("projects") ?? []}
               placeholder="All Projects"
@@ -323,7 +330,7 @@ export default function CustomFieldModal({
           form.watch("type") === "multiselect") && (
           <Box>
             <StringArrayField
-              size="legacy"
+              legacyHeight
               label="Values"
               value={
                 form
@@ -333,7 +340,11 @@ export default function CustomFieldModal({
                   .filter(Boolean) || []
               }
               onChange={(values) => form.setValue("values", values.join(","))}
-              helpText="List of possible values"
+              helpText={
+                form.watch("creatable")
+                  ? "List of suggested values"
+                  : "List of possible values"
+              }
               placeholder="Add value..."
               containerClassName="mb-0"
             />
@@ -342,6 +353,21 @@ export default function CustomFieldModal({
                 {optionsChangeInfo}
               </Callout>
             )}
+            <Box mt="3">
+              <Checkbox
+                id="creatable"
+                label="Allow custom values"
+                description={
+                  existing.creatable && !form.watch("creatable")
+                    ? "Custom values already entered on Feature Flags and experiments are kept."
+                    : undefined
+                }
+                value={!!form.watch("creatable")}
+                setValue={(value) => {
+                  form.setValue("creatable", value);
+                }}
+              />
+            </Box>
           </Box>
         )}
         {form.watch("type") !== "boolean" ? (
@@ -364,6 +390,8 @@ export default function CustomFieldModal({
               <SelectField
                 size="legacy"
                 label="Default value"
+                sort={false}
+                createable={!!form.watch("creatable")}
                 value={(form.watch("defaultValue") as string) || ""}
                 onChange={(v) => form.setValue("defaultValue", v)}
                 options={

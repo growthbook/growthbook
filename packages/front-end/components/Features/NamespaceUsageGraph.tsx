@@ -100,30 +100,30 @@ export default function NamespaceUsageGraph({
     <Box className={styles.card}>
       <Flex align="center" gap="4" mb="1">
         <Box flexGrow="1">
-          <Text as="label" size="medium" weight="medium">
+          <Text as="label" size="md" weight="medium">
             {title}
           </Text>{" "}
-          <Text as="span" size="medium" color="text-low">
+          <Text as="span" size="md" color="text-low">
             ({percentFormatter.format(headerTotal)} total)
           </Text>
         </Box>
         {ranges && (
           <Flex align="center" gap="2">
             <Box className={clsx(styles.legend_box, styles.legend_active)} />
-            <Text size="small" color="text-mid">
+            <Text size="sm" color="text-mid">
               Active
             </Text>
           </Flex>
         )}
         <Flex align="center" gap="2">
           <Box className={clsx(styles.legend_box, styles.legend_available)} />
-          <Text size="small" color="text-mid">
+          <Text size="sm" color="text-mid">
             Available
           </Text>
         </Flex>
         <Flex align="center" gap="2">
           <Box className={clsx(styles.legend_box, styles.legend_inUse)} />
-          <Text size="small" color="text-mid">
+          <Text size="sm" color="text-mid">
             In use
           </Text>
         </Flex>

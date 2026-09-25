@@ -120,7 +120,7 @@ export default function ScheduleInputs({
 
   return (
     <Flex direction="column" gap="1">
-      <Heading as="h3" size="small" mb="2">
+      <Heading as="h3" size="sm" mb="2">
         Schedule
       </Heading>
 

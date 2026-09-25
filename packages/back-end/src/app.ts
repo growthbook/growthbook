@@ -14,6 +14,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { parseEnvInt, stringToBoolean } from "shared/util";
+import { AI_PROVIDERS } from "shared/ai";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { revisionRouter } from "back-end/src/routers/revision/revision.router";
@@ -113,7 +114,6 @@ import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
 import {
   ApiError,
-  ExperimentIncrementalPipelineRequiresFullRefreshError,
   shouldSkipErrorLog,
   SoftWarningError,
   SQLExecutionError,
@@ -126,6 +126,7 @@ import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.rou
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
+import { learningsRouter } from "./routers/learnings/learnings.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import {
@@ -144,6 +145,7 @@ import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
@@ -152,7 +154,10 @@ import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router"
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
-import { getContextFromReq } from "./services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextFromReq,
+} from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
@@ -161,6 +166,7 @@ import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ram
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
+import { autoRunRouter } from "./routers/auto-run/auto-run.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
@@ -309,8 +315,15 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// 2mb default; 10mb for screenshot upload and visual-editor AI image
-// gen (the latter accepts a base64-encoded reference image).
+// Inbound Slack traffic (Events API + Interactivity). Mounted ahead of the
+// global JSON parser because Slack signs the raw request bytes (see the
+// router). It only registers /events and /interactions; everything else under
+// this prefix falls through to the session-authed slackIntegrationRouter below.
+// Never add those two paths to that router.
+app.use("/integrations/slack", slackActionsRouter);
+
+// 2mb default; 10mb for screenshot upload and the visual-editor AI routes
+// that accept base64-encoded images.
 app.use((req, res, next) => {
   const isScreenshotUpload =
     req.method === "POST" &&
@@ -324,10 +337,14 @@ app.use((req, res, next) => {
   const isVisualEditorFigmaToVariant =
     req.method === "POST" &&
     req.path === "/api/v1/visual-editor/ai/figma-to-variant";
+  // AI edits carry up to two base64 image attachments.
+  const isVisualEditorEdit =
+    req.method === "POST" && req.path === "/api/v1/visual-editor/ai/edit";
   const needsLargeBody =
     isScreenshotUpload ||
     isVisualEditorImageGen ||
-    isVisualEditorFigmaToVariant;
+    isVisualEditorFigmaToVariant ||
+    isVisualEditorEdit;
   bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
@@ -586,6 +603,7 @@ if (OAUTH_AS_ENABLED) {
 app.use(organizationsRouter);
 
 app.use("/environment", environmentRouter);
+app.use("/auto-runs", autoRunRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
@@ -663,6 +681,8 @@ app.use("/tag", tagRouter);
 app.use("/saved-groups", savedGroupRouter);
 
 app.use("/archetype", ArchetypeRouter);
+
+app.use("/learnings", learningsRouter);
 
 app.use("/attribute", AttributeRouter);
 
@@ -1035,7 +1055,7 @@ app.post(
 app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
 app.get("/features/status", featuresController.getFeaturesStatus);
 app.get("/features/draft-states", featuresController.getFeatureDraftStates);
-app.get("/features/stale", featuresController.getFeaturesStaleStates);
+app.get("/features/health", featuresController.getFeaturesHealth);
 app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.get("/features/content-search", featuresController.getFeatureContentSearch);
 app.get(
@@ -1043,10 +1063,6 @@ app.get(
   featuresController.getFeatureDependencyIndex,
 );
 app.get("/features/ramp-states", featuresController.getFeatureRampStates);
-app.get(
-  "/features/experiment-states",
-  featuresController.getFeatureExperimentStates,
-);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
@@ -1166,7 +1182,8 @@ app.get(
 app.use("/events", eventsRouter);
 app.use(eventWebHooksRouter);
 
-// Slack integration
+// Slack integration settings (session-authed). /events and /interactions on
+// this prefix belong to slackActionsRouter, mounted before the JSON parser.
 app.use("/integrations/slack", slackIntegrationRouter);
 
 // Data Export
@@ -1216,6 +1233,10 @@ app.delete(
   discussionsController.deleteComment,
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
+app.get(
+  "/discussions/counts/:parentType",
+  discussionsController.getDiscussionCounts,
+);
 app.use("/upload", uploadRouter);
 
 app.use("/session-replay", sessionReplayRouter);
@@ -1291,11 +1312,19 @@ app.use("/product-analytics", productAnalyticsRouter);
 app.use("/agent", agentRouter);
 
 // Meta info
-app.get("/meta/ai", (req, res) => {
-  res.json({
-    enabled: !!process.env.OPENAI_API_KEY,
+app.get("/meta/ai", (async (
+  req: express.Request,
+  res: express.Response,
+  _next: express.NextFunction,
+) => {
+  // Any reachable provider, stored key included. This read OPENAI_API_KEY, so
+  // the Visual Editor extension saw "no AI" for a BYOK org.
+  const context = getContextFromReq(req as AuthRequest);
+  const { keySource } = await getAISettingsForOrg(context);
+  return res.json({
+    enabled: AI_PROVIDERS.some((p) => keySource[p] !== "none"),
   });
-});
+}) as unknown as RequestHandler);
 
 app.use("/ai", aiRouter);
 
@@ -1350,10 +1379,7 @@ const errorHandler: ErrorRequestHandler = (
   }
   // Structured errors carry a machine-readable code + details so the front-end
   // can render richer error states.
-  if (
-    err instanceof ApiError ||
-    err instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
-  ) {
+  if (err instanceof ApiError) {
     body.code = err.code;
     body.details = err.details;
   }

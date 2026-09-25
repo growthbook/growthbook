@@ -1,3 +1,8 @@
+import {
+  isLowerPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
+  isFactFunnelMetric,
+} from "shared/experiments";
 import type {
   DimensionColumnData,
   FactMetricData,
@@ -8,6 +13,10 @@ import type { SqlDialect } from "shared/types/sql";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
+import {
+  funnelStepSumColumn,
+  funnelStepValueColumn,
+} from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 
 export function getExperimentFactMetricStatisticsCTE(
   dialect: SqlDialect,
@@ -17,6 +26,9 @@ export function getExperimentFactMetricStatisticsCTE(
     eventQuantileData,
     baseIdType,
     joinedMetricTableName,
+    statisticsSourceTableName,
+    flattenedSources = false,
+    funnelsResolvedOnSource = false,
     eventQuantileTableName,
     capValueTableName,
     factTablesWithIndices,
@@ -26,7 +38,17 @@ export function getExperimentFactMetricStatisticsCTE(
     metricData: FactMetricData[];
     eventQuantileData: FactMetricQuantileData[];
     baseIdType: string;
+    /** Per-source per-user aggregate; source i is suffixed with `i` (0 is bare). */
     joinedMetricTableName: string;
+    /** Table read as `m`. Defaults to source 0's per-user aggregate. */
+    statisticsSourceTableName?: string;
+    /**
+     * Set when the source table already carries every source's columns, so no
+     * source needs joining a second time.
+     */
+    flattenedSources?: boolean;
+    /** Set when the source table carries resolved funnel step values. */
+    funnelsResolvedOnSource?: boolean;
     eventQuantileTableName: string;
     capValueTableName: string;
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
@@ -34,14 +56,69 @@ export function getExperimentFactMetricStatisticsCTE(
   },
 ): string {
   const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
+  const sourceTableName = statisticsSourceTableName ?? joinedMetricTableName;
+  // Funnel step values come from the resolution chain, not a per-source
+  // aggregate.
+  const hasFunnelMetrics = metricData.some((d) => isFactFunnelMetric(d.metric));
+  if (hasFunnelMetrics && !funnelsResolvedOnSource) {
+    throw new Error(
+      "ImplementationError: funnel metrics require a resolved funnel table",
+    );
+  }
   return `SELECT
         m.variation AS variation
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
         , COUNT(*) AS users
         ${metricData
           .map((data) => {
+            // A funnel emits its own set of statistics
+            if (isFactFunnelMetric(data.metric)) {
+              return `
+           , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
+            ${data.metric.funnelSettings.steps
+              .map(
+                (step, stepIndex) => `-- ${step.name}
+            , SUM(COALESCE(m.${funnelStepValueColumn(data.alias, stepIndex)}, 0)) AS ${funnelStepSumColumn(data.alias, stepIndex)}`,
+              )
+              .join("\n            ")}
+          `;
+            }
+
             //TODO test numerator suffix capping
             const numeratorSuffix = `${data.numeratorSourceIndex === 0 ? "" : data.numeratorSourceIndex}`;
+            const denominatorCapSuffix = `${
+              data.denominatorSourceIndex === 0
+                ? ""
+                : data.denominatorSourceIndex
+            }`;
+            const numeratorUpperPct = isUpperPercentileCappedMetric(
+              data.metric,
+            );
+            const numeratorLowerPct = isLowerPercentileCappedMetric(
+              data.metric,
+            );
+            const numeratorPercentileCapCols = [
+              numeratorUpperPct
+                ? `
+                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
+                : "",
+              numeratorLowerPct
+                ? `
+                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap_lower, 0)) as ${data.alias}_main_cap_value_lower`
+                : "",
+            ].join("");
+            const ratioDenominatorPercentileCapCols = data.ratioMetric
+              ? [
+                  numeratorUpperPct
+                    ? `
+                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value`
+                    : "",
+                  numeratorLowerPct
+                    ? `
+                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap_lower, 0)) as ${data.alias}_denominator_cap_value_lower`
+                    : "",
+                ].join("")
+              : "";
             return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
@@ -49,16 +126,9 @@ export function getExperimentFactMetricStatisticsCTE(
                 ? `
                 , SUM(${data.uncappedCoalesceMetric}) AS ${data.alias}_main_sum_uncapped 
                 , SUM(POWER(${data.uncappedCoalesceMetric}, 2)) AS ${data.alias}_main_sum_squares_uncapped
-                ${
-                  data.isPercentileCapped
-                    ? `
-                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value 
-                    `
-                    : ""
-                }
                 `
                 : ""
-            }
+            }${numeratorPercentileCapCols}
             , SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum
             , SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${
               data.alias
@@ -110,16 +180,9 @@ export function getExperimentFactMetricStatisticsCTE(
                     , SUM(${data.uncappedCoalesceDenominator}) AS ${data.alias}_denominator_sum_uncapped 
                     , SUM(POWER(${data.uncappedCoalesceDenominator}, 2)) AS ${data.alias}_denominator_sum_squares_uncapped
                     , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product_uncapped                    
-                    ${
-                      data.isPercentileCapped
-                        ? `
-                    , MAX(COALESCE(cap${data.denominatorSourceIndex === 0 ? "" : data.denominatorSourceIndex}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value
-                    `
-                        : ""
-                    }
                     `
                     : ""
-                }
+                }${ratioDenominatorPercentileCapCols}
                 , SUM(${data.capCoalesceDenominator}) AS 
                   ${data.alias}_denominator_sum
                 , SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 
@@ -181,9 +244,10 @@ export function getExperimentFactMetricStatisticsCTE(
           })
           .join("\n")}
       FROM
-        ${joinedMetricTableName} m
+        ${sourceTableName} m
         ${
-          eventQuantileData.length // TODO(sql): error if event quantiles have two tables
+          // Event quantiles never span sources (enforced by the query builder)
+          eventQuantileData.length
             ? `LEFT JOIN ${eventQuantileTableName} qm ON (
           qm.variation = m.variation 
           ${dimensionCols
@@ -197,7 +261,7 @@ export function getExperimentFactMetricStatisticsCTE(
           const suffix = `${index === 0 ? "" : index}`;
           return `
         ${
-          index === 0
+          index === 0 || flattenedSources
             ? ""
             : `LEFT JOIN ${joinedMetricTableName}${suffix} m${suffix} ON (
           m${suffix}.${baseIdType} = m.${baseIdType}

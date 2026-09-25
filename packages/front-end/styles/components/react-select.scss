@@ -16,7 +16,7 @@
   font-size: var(--font-size-2) !important;
 }
 
-.gb-multi-select--small {
+.gb-multi-select--md {
   .gb-multi-select__control {
     min-height: 32px !important;
     border-radius: var(--radius-2) !important;
@@ -38,7 +38,7 @@
   }
 }
 
-.gb-multi-select--medium {
+.gb-multi-select--lg {
   .gb-multi-select__control {
     min-height: 40px !important;
     border-radius: var(--radius-3) !important;
@@ -100,7 +100,8 @@
   }
 }
 
-.gb-select-wrapper--small {
+.gb-select-wrapper--small,
+.gb-select-wrapper--md {
   .gb-select__control {
     min-height: 32px !important;
     border-radius: var(--radius-2) !important;
@@ -114,7 +115,8 @@
   }
 }
 
-.gb-select-wrapper--medium {
+.gb-select-wrapper--medium,
+.gb-select-wrapper--lg {
   .gb-select__control {
     min-height: 40px !important;
     border-radius: var(--radius-3) !important;
@@ -234,7 +236,7 @@
   // This one is dynamic. Style it in JS.
 }
 
-.gb-multi-select--small .gb-multi-select__multi-value {
+.gb-multi-select--md .gb-multi-select__multi-value {
   height: 22px;
   border-radius: var(--radius-1);
 }
@@ -243,7 +245,7 @@
   height: 24px;
   border-radius: var(--radius-1);
 }
-.gb-multi-select--medium .gb-multi-select__multi-value {
+.gb-multi-select--lg .gb-multi-select__multi-value {
   height: 26px;
   border-radius: var(--radius-2);
 }
@@ -270,11 +272,13 @@
   height: 24px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--small .gb-select__multi-value {
+.gb-select-wrapper--small .gb-select__multi-value,
+.gb-select-wrapper--md .gb-select__multi-value {
   height: 22px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--medium .gb-select__multi-value {
+.gb-select-wrapper--medium .gb-select__multi-value,
+.gb-select-wrapper--lg .gb-select__multi-value {
   height: 26px;
   border-radius: var(--radius-2);
 }
@@ -284,7 +288,8 @@
   font-weight: 500;
   font-size: var(--font-size-1) !important;
 }
-.gb-select-wrapper--medium .gb-select__multi-value__label {
+.gb-select-wrapper--medium .gb-select__multi-value__label,
+.gb-select-wrapper--lg .gb-select__multi-value__label {
   font-size: var(--font-size-2) !important;
 }
 
@@ -339,7 +344,8 @@
 .gb-select__clear-indicator,
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
-.gb-multi-select__copy-button {
+.gb-multi-select__copy-button,
+.gb-select__scope-toggle {
   width: 22px;
   height: 22px;
   margin: 0 1px;
@@ -361,7 +367,8 @@
 // Raw text / token mode toggle button inside creatable multiselect (StringArrayField)
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
-.gb-multi-select__copy-button {
+.gb-multi-select__copy-button,
+.gb-select__scope-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -385,10 +392,22 @@
 .gb-select__control--is-focused .gb-select__raw-text-mode-indicator,
 .gb-multi-select__control--is-focused .gb-select__raw-text-mode-indicator,
 .gb-select__control--is-focused .gb-select__copy-button,
-.gb-multi-select__control--is-focused .gb-multi-select__copy-button {
+.gb-multi-select__control--is-focused .gb-multi-select__copy-button,
+.gb-select__control--is-focused .gb-select__scope-toggle {
   color: hsl(0, 0%, 40%);
   &:hover {
     color: hsl(0, 0%, 20%);
+  }
+}
+
+// Always visible, unlike the hover-only indicators — it carries state.
+.gb-select__control .gb-select__scope-toggle--filtering,
+.gb-select__control--is-focused .gb-select__scope-toggle--filtering {
+  color: var(--violet-11);
+  background-color: var(--violet-a3) !important;
+  &:hover {
+    color: var(--violet-11);
+    background-color: var(--violet-a4) !important;
   }
 }
 

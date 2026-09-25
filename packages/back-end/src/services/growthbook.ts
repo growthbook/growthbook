@@ -1,10 +1,19 @@
-import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
+import { createHash } from "crypto";
+import {
+  EventProperties,
+  GrowthBookClient,
+  setPolyfills,
+} from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { NextFunction, Request, Response } from "express";
+import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { AppFeatures } from "shared/types/app-features";
+import { OrganizationInterface } from "shared/types/organization";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import {
   GB_SDK_ID,
   IS_CLOUD,
@@ -118,6 +127,7 @@ export function getGrowthBookTrackingAttributes(
 }
 
 const EVENT_REQUEST_COMPLETED = "Request Completed";
+const EVENT_AI_USAGE = "AI Usage";
 
 export function parseContentLength(
   value: string | undefined,
@@ -185,6 +195,78 @@ export function trackRequestCompletion(
   res.on("finish", onComplete);
   res.on("close", onComplete);
   next();
+}
+
+export function hashOrganizationId(orgId: string): string {
+  if (!orgId) return "";
+  return createHash("sha256")
+    .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
+    .digest("hex");
+}
+
+// How the call ended, so a cancelled or failed one is visible rather than simply
+// absent. Defaults to "success", leaving existing callers unchanged.
+export type AIUsageOutcome = "success" | "aborted" | "error";
+
+// One event per AI call, whichever key paid. `usedOwnKey` separates BYOK traffic
+// from managed-key traffic — only the latter is metered, so without it the event
+// stream can't be reconciled against the cap counter.
+//
+// Fire and forget, never throws: analytics must not fail an AI request. Callers
+// hold a `context`, not a `req`, so it builds its own scoped SDK instance.
+export function trackAIUsage({
+  organizationId,
+  userId,
+  type,
+  model,
+  provider,
+  numPromptTokensUsed,
+  numCompletionTokensUsed,
+  numRetriedTokensUsed,
+  usedDefaultPrompt,
+  usedOwnKey,
+  outcome = "success",
+}: {
+  organizationId: string;
+  userId?: string;
+  type: string;
+  model: string;
+  provider?: string;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
+  // Spent on attempts that produced nothing usable, but still billed.
+  numRetriedTokensUsed?: number;
+  usedDefaultPrompt: boolean;
+  usedOwnKey: boolean;
+  outcome?: AIUsageOutcome;
+}): void {
+  try {
+    const client = getGrowthBookClient();
+    if (!client) return;
+
+    const gb = client.createScopedInstance({
+      attributes: {
+        id: userId || "",
+        user_id: userId || "",
+        organizationId: hashOrganizationId(organizationId),
+        cloudOrgId: IS_CLOUD ? organizationId : "",
+      },
+    });
+
+    gb.logEvent(EVENT_AI_USAGE, {
+      type,
+      model,
+      provider,
+      numPromptTokensUsed,
+      numCompletionTokensUsed,
+      numRetriedTokensUsed,
+      usedDefaultPrompt,
+      usedOwnKey,
+      outcome,
+    });
+  } catch (e) {
+    logger.warn(e, "Failed to log AI usage event");
+  }
 }
 
 function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
@@ -264,6 +346,61 @@ export function getBackendFeatureValue<K extends string & keyof AppFeatures>(
   return client.getFeatureValue(key, fallback, {
     attributes,
   }) as AppFeatures[K];
+}
+
+// Server-derived attributes only — never request context, whose url would
+// enable query-string variation overrides. Names mirror the front-end.
+export function getTrustedOrgAttributes(
+  org: OrganizationInterface,
+): Record<string, unknown> {
+  return {
+    organizationId: hashOrganizationId(org.id),
+    cloudOrgId: IS_CLOUD ? org.id : "",
+    orgDateCreated: org.dateCreated
+      ? new Date(org.dateCreated).toISOString()
+      : "",
+    accountPlan: getEffectiveAccountPlan(org),
+    hasLicenseKey: !!org.licenseKey,
+  };
+}
+
+/**
+ * Log a telemetry event from a background job, where there is no `req.gb`.
+ * Sets org attributes so the accountPlan filter doesn't drop the event, and
+ * never throws — callers fire these inside business-logic try/catch blocks.
+ */
+export function trackEventForOrganization(
+  org: OrganizationInterface,
+  eventName: string,
+  properties: EventProperties = {},
+): void {
+  try {
+    const client = getGrowthBookClient();
+    if (!client) return;
+
+    client.logEvent(eventName, properties, {
+      attributes: getTrustedOrgAttributes(org),
+    });
+  } catch (e) {
+    logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
+  }
+}
+
+export function trackEventForContext(
+  context: ReqContext,
+  eventName: string,
+  properties: EventProperties = {},
+): void {
+  const gb = (context.req as AuthRequest | undefined)?.gb;
+  if (gb) {
+    try {
+      gb.logEvent(eventName, properties);
+    } catch (e) {
+      logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
+    }
+    return;
+  }
+  trackEventForOrganization(context.org, eventName, properties);
 }
 
 /**

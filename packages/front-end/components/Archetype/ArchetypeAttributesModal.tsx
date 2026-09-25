@@ -67,7 +67,6 @@ const ArchetypeAttributesModal: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="add-edit-archetype"
       trackingEventModalSource={source}
       open={true}
@@ -121,7 +120,7 @@ const ArchetypeAttributesModal: FC<{
           {projects?.length > 0 && (
             <div className="form-group">
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 label={<>Projects </>}
                 placeholder="All Projects"
                 value={form.watch("projects")}

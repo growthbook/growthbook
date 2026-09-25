@@ -172,7 +172,7 @@ export default function FeatureSettings() {
             <Checkbox
               id="toggle-defaultFeatureRulesInAllEnvs"
               label="Create rules in all environments by default"
-              description="If enabled, new feature rules will be created in all environments by default."
+              description="If enabled, new Feature Flag rules will be created in all environments by default."
               value={!!form.watch("defaultFeatureRulesInAllEnvs")}
               setValue={(value) =>
                 form.setValue("defaultFeatureRulesInAllEnvs", value, {
@@ -199,8 +199,8 @@ export default function FeatureSettings() {
           <Box mb="6" width="100%">
             <Checkbox
               id="toggle-configsExtensibleByDefault"
-              label="Allow configs to be extended by default"
-              description="New base configs permit child configs and feature rules to add keys beyond the declared schema. Each config can override this from its own settings."
+              label="Allow Configs to be extended by default"
+              description="New base Configs permit child Configs and Feature Flag rules to add keys beyond the declared schema. Each Config can override this from its own settings."
               value={!!form.watch("configsExtensibleByDefault")}
               setValue={(value) =>
                 form.setValue("configsExtensibleByDefault", value, {
@@ -213,8 +213,8 @@ export default function FeatureSettings() {
           <Box mb="6" width="100%">
             <Checkbox
               id="toggle-configExperimentGuardDefault"
-              label="Guard configs used by running experiments by default"
-              description="New configs enable the experiment guard: publishing a change served to a running experiment soft-blocks until acknowledged. Each config can override this from its own settings."
+              label="Guard Configs used by running experiments by default"
+              description="New Configs enable the experiment guard: publishing a change served to a running experiment soft-blocks until acknowledged. Each Config can override this from its own settings."
               value={!!form.watch("configExperimentGuardDefault")}
               setValue={(value) =>
                 form.setValue("configExperimentGuardDefault", value, {
@@ -228,7 +228,7 @@ export default function FeatureSettings() {
             <Checkbox
               id="toggle-blockPublishOnSchemaError"
               label="Block publishing on JSON schema errors"
-              description={`When publishing a revision, re-check feature and config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless the request body passes "skipSchemaValidation": true.`}
+              description={`When publishing a revision, re-check Feature Flag and Config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless the request body passes "skipSchemaValidation": true.`}
               value={form.watch("blockPublishOnSchemaError") ?? true}
               setValue={(value) =>
                 form.setValue("blockPublishOnSchemaError", value, {

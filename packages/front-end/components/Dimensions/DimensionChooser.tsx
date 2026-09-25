@@ -10,9 +10,21 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { IncrementalRefreshInterface } from "shared/validators";
 import { PiCaretDownFill } from "react-icons/pi";
+import {
+  COMBO_DIMENSION_LENGTH,
+  buildComboDimensionId,
+  buildDateCutoffDimensionId,
+  formatDateCutoffLabel,
+  isCustomDimensionId,
+  parseDimensionId,
+} from "shared/experiments";
+import { getValidDate } from "shared/dates";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import { analysisUpdate } from "@/services/snapshots";
@@ -22,6 +34,12 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import CustomDimensionFields, {
+  CustomDimensionDraft,
+  CustomDimensionKind,
+  isCustomDimensionDraftValid,
+} from "@/components/Dimensions/CustomDimensionFields";
+import CustomDimensionModal from "@/components/Dimensions/CustomDimensionModal";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -31,6 +49,10 @@ import {
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+
+// UI-only sentinel values for the two configurable dimensions; never persisted
+export const CUSTOM_CUTOFF_OPTION = "custom:cutoff";
+export const CUSTOM_COMBO_OPTION = "custom:combo";
 
 export interface Props {
   value: string;
@@ -55,6 +77,49 @@ export interface Props {
   ) => void;
   disabled?: boolean;
   ssrPolyfills?: SSRPolyfills;
+  enableCustomDimensions?: boolean;
+  // Valid range for the "First exposed after..." cutoff. Derived from the
+  // snapshot context's experiment phase when omitted.
+  cutoffBounds?: { min?: Date; max?: Date };
+}
+
+export function getCombinationConstituentOptions({
+  incrementalRefresh,
+  datasource,
+  dimensions,
+  exposureQueryId,
+  userIdType,
+}: {
+  incrementalRefresh: IncrementalRefreshInterface | null;
+  datasource: DataSourceInterfaceWithParams | null;
+  dimensions: DimensionInterface[];
+  exposureQueryId?: string;
+  userIdType?: string;
+}): SingleValue[] {
+  const options: SingleValue[] = [];
+
+  const exposureQuery = datasource?.settings
+    ? getExposureQuery(datasource.settings, exposureQueryId, userIdType)
+    : null;
+  const experimentDimensions = exposureQuery
+    ? exposureQuery.dimensions
+    : (datasource?.settings?.experimentDimensions ?? []);
+  experimentDimensions.forEach((d) => {
+    // With incremental refresh, experiment dimensions must be materialized
+    // on the units table to be usable inside a combination
+    if (incrementalRefresh && !incrementalRefresh.unitsDimensions.includes(d)) {
+      return;
+    }
+    options.push({ label: d, value: "exp:" + d });
+  });
+
+  dimensions
+    .filter((d) => d.datasource === datasource?.id)
+    .forEach((d) => {
+      options.push({ label: d.name, value: d.id });
+    });
+
+  return options;
 }
 
 export function getDimensionOptions({
@@ -67,6 +132,7 @@ export function getDimensionOptions({
   activationMetric,
   exposureQueryId,
   userIdType,
+  includeCustomDimensions = false,
 }: {
   incrementalRefresh: IncrementalRefreshInterface | null;
   precomputedDimensions?: string[];
@@ -77,6 +143,7 @@ export function getDimensionOptions({
   exposureQueryId?: string;
   userIdType?: string;
   activationMetric?: boolean;
+  includeCustomDimensions?: boolean;
 }): GroupedValue[] {
   // Include unit dimensions tied to the datasource
   const filteredUnitDimensions = dimensions
@@ -168,6 +235,27 @@ export function getDimensionOptions({
 
   const onDemandDimensions = [...builtInDimensions, ...unitDimensions];
 
+  const customDimensionOptions: SingleValue[] = [];
+  if (includeCustomDimensions) {
+    customDimensionOptions.push({
+      label: "First exposed after...",
+      value: CUSTOM_CUTOFF_OPTION,
+    });
+    const constituentOptions = getCombinationConstituentOptions({
+      incrementalRefresh,
+      datasource,
+      dimensions,
+      exposureQueryId,
+      userIdType,
+    });
+    if (constituentOptions.length >= COMBO_DIMENSION_LENGTH) {
+      customDimensionOptions.push({
+        label: "Combination of dimensions...",
+        value: CUSTOM_COMBO_OPTION,
+      });
+    }
+  }
+
   return [
     ...(precomputedDimensionOptions.length > 0
       ? [
@@ -185,7 +273,60 @@ export function getDimensionOptions({
           },
         ]
       : []),
+    ...(customDimensionOptions.length > 0
+      ? [
+          {
+            label: "Custom",
+            options: customDimensionOptions,
+          },
+        ]
+      : []),
   ];
+}
+
+export function getDimensionDisplayName(
+  dimValue: string,
+  resolveDimensionName: (id: string) => string | undefined,
+): string {
+  if (!dimValue) return "None";
+  const resolved = resolveDimensionName(dimValue);
+  if (resolved) return resolved;
+  if (dimValue === "pre:date") return "Date Cohorts (First Exposure)";
+  if (dimValue === "pre:activation") return "Activation status";
+  const parsed = parseDimensionId(dimValue);
+  if (parsed.kind === "datecutoff") {
+    return `First exposed after ${formatDateCutoffLabel(parsed.cutoff)}`;
+  }
+  if (parsed.kind === "combo") {
+    return parsed.constituentIds
+      .map((c) => {
+        const constituent = parseDimensionId(c);
+        return constituent.kind === "experiment"
+          ? constituent.column
+          : resolveDimensionName(c) || c;
+      })
+      .join(" & ");
+  }
+  return dimValue?.split(":")?.[1] || "None";
+}
+
+export function draftFromDimensionId(
+  dimValue: string,
+): CustomDimensionDraft | null {
+  const parsed = parseDimensionId(dimValue);
+  if (parsed.kind === "datecutoff") {
+    return { kind: "cutoff", cutoff: parsed.cutoff, constituentIds: [] };
+  }
+  if (parsed.kind === "combo") {
+    return { kind: "combo", constituentIds: [...parsed.constituentIds] };
+  }
+  return null;
+}
+
+export function buildCustomDimensionId(draft: CustomDimensionDraft): string {
+  return draft.kind === "cutoff" && draft.cutoff
+    ? buildDateCutoffDimensionId(draft.cutoff)
+    : buildComboDimensionId(draft.constituentIds);
 }
 
 export default function DimensionChooser({
@@ -206,16 +347,24 @@ export default function DimensionChooser({
   setAnalysisSettings,
   disabled,
   ssrPolyfills,
+  enableCustomDimensions = true,
+  cutoffBounds,
 }: Props) {
   const { apiCall } = useAuth();
 
   const [postLoading, setPostLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [customModalKind, setCustomModalKind] =
+    useState<CustomDimensionKind | null>(null);
+  const [draftCustom, setDraftCustom] = useState<CustomDimensionDraft | null>(
+    null,
+  );
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const {
     dimensionless: standardSnapshot,
     experiment,
+    phase,
     precomputedUnitDimensionIds,
   } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
@@ -263,19 +412,45 @@ export default function DimensionChooser({
     datasource,
     dimensions,
     activationMetric,
+    includeCustomDimensions: enableCustomDimensions && !disabled,
   });
 
-  const getDimensionDisplayName = (dimValue: string): string => {
-    if (!dimValue) return "None";
-    return (
-      ssrPolyfills?.getDimensionById?.(dimValue)?.name ||
-      getDimensionById(dimValue)?.name ||
-      (dimValue === "pre:date" ? "Date Cohorts (First Exposure)" : "") ||
-      (dimValue === "pre:activation" ? "Activation status" : "") ||
-      dimValue?.split(":")?.[1] ||
-      "None"
-    );
-  };
+  const constituentOptions = useMemo(
+    () =>
+      getCombinationConstituentOptions({
+        incrementalRefresh,
+        datasource,
+        dimensions,
+        exposureQueryId,
+        userIdType,
+      }),
+    [incrementalRefresh, datasource, dimensions, exposureQueryId, userIdType],
+  );
+
+  const { cutoffMin, cutoffMax } = useMemo(() => {
+    if (cutoffBounds) {
+      return { cutoffMin: cutoffBounds.min, cutoffMax: cutoffBounds.max };
+    }
+    const phaseObj = experiment?.phases?.[phase];
+    if (!phaseObj) return { cutoffMin: undefined, cutoffMax: undefined };
+    return {
+      cutoffMin: getValidDate(phaseObj.dateStarted),
+      cutoffMax: phaseObj.dateEnded
+        ? getValidDate(phaseObj.dateEnded)
+        : new Date(),
+    };
+  }, [cutoffBounds, experiment, phase]);
+
+  const resolveDimensionName = useCallback(
+    (id: string): string | undefined =>
+      ssrPolyfills?.getDimensionById?.(id)?.name ||
+      getDimensionById(id)?.name ||
+      undefined,
+    [ssrPolyfills, getDimensionById],
+  );
+
+  const displayName = (dimValue: string): string =>
+    getDimensionDisplayName(dimValue, resolveDimensionName);
 
   const handleDimensionChange = useCallback(
     async (v: string) => {
@@ -358,7 +533,7 @@ export default function DimensionChooser({
   );
 
   if (disabled) {
-    const dimensionName = getDimensionDisplayName(value);
+    const dimensionName = displayName(value);
     return (
       <div>
         <div className="uppercase-title text-muted">Dimension</div>
@@ -367,29 +542,87 @@ export default function DimensionChooser({
     );
   }
 
+  const sentinelForKind = (kind: CustomDimensionKind): string =>
+    kind === "cutoff" ? CUSTOM_CUTOFF_OPTION : CUSTOM_COMBO_OPTION;
+  const valueDraft =
+    enableCustomDimensions && isCustomDimensionId(value)
+      ? draftFromDimensionId(value)
+      : null;
+
   if (!newUi) {
+    // A configured custom dimension is not among the standard options, so
+    // add it for react-select to render its label
+    const selectOptions =
+      valueDraft && !draftCustom
+        ? [
+            ...dimensionOptions,
+            {
+              label: "Selected",
+              options: [{ label: displayName(value), value }],
+            },
+          ]
+        : dimensionOptions;
+    const selectValue = draftCustom ? sentinelForKind(draftCustom.kind) : value;
+    const activeDraft = draftCustom ?? valueDraft;
+
+    const handleSelectChange = (v: string) => {
+      if (v === CUSTOM_CUTOFF_OPTION || v === CUSTOM_COMBO_OPTION) {
+        const kind: CustomDimensionKind =
+          v === CUSTOM_CUTOFF_OPTION ? "cutoff" : "combo";
+        setDraftCustom(
+          valueDraft?.kind === kind ? valueDraft : { kind, constituentIds: [] },
+        );
+        return;
+      }
+      setDraftCustom(null);
+      handleDimensionChange(v);
+    };
+
+    // Keep invalid drafts local; commit to the form as soon as they are valid
+    const handleDraftChange = (next: CustomDimensionDraft) => {
+      if (isCustomDimensionDraftValid(next, cutoffMin, cutoffMax)) {
+        setDraftCustom(null);
+        handleDimensionChange(buildCustomDimensionId(next));
+      } else {
+        setDraftCustom(next);
+      }
+    };
+
     return (
-      <Flex direction="row" gap="2" align="center">
-        <SelectField
-          size="legacy"
-          label="Unit Dimension"
-          labelClassName={labelClassName}
-          options={dimensionOptions}
-          initialOption="None"
-          value={value}
-          onChange={handleDimensionChange}
-          sort={false}
-          helpText={
-            showHelp ? "Break down results for each metric by a dimension" : ""
-          }
-          disabled={disabled}
-        />
-        {postLoading && <LoadingSpinner className="ml-1" />}
+      <Flex direction="column" gap="1">
+        <Flex direction="row" gap="2" align="center">
+          <SelectField
+            size="legacy"
+            label="Unit Dimension"
+            labelClassName={labelClassName}
+            options={selectOptions}
+            initialOption="None"
+            value={selectValue}
+            onChange={handleSelectChange}
+            sort={false}
+            helpText={
+              showHelp
+                ? "Break down results for each metric by a dimension"
+                : ""
+            }
+            disabled={disabled}
+          />
+          {postLoading && <LoadingSpinner className="ml-1" />}
+        </Flex>
+        {activeDraft && (
+          <CustomDimensionFields
+            draft={activeDraft}
+            setDraft={handleDraftChange}
+            constituentOptions={constituentOptions}
+            cutoffMin={cutoffMin}
+            cutoffMax={cutoffMax}
+          />
+        )}
       </Flex>
     );
   }
 
-  const currentDimensionName = getDimensionDisplayName(value);
+  const currentDimensionName = displayName(value);
 
   const renderMenuItems = () => {
     const items: React.ReactNode[] = [];
@@ -403,18 +636,28 @@ export default function DimensionChooser({
         items.push(
           <DropdownMenuLabel
             key={`label-${groupIndex}`}
-            textSize="1"
+            textSize="sm"
             textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
           >
             {group.label}
           </DropdownMenuLabel>,
         );
         group.options.forEach((option) => {
+          const customKind: CustomDimensionKind | null =
+            option.value === CUSTOM_CUTOFF_OPTION
+              ? "cutoff"
+              : option.value === CUSTOM_COMBO_OPTION
+                ? "combo"
+                : null;
           items.push(
             <DropdownMenuItem
               key={option.value}
               onClick={async () => {
-                handleDimensionChange(option.value);
+                if (customKind) {
+                  setCustomModalKind(customKind);
+                } else {
+                  handleDimensionChange(option.value);
+                }
                 setDropdownOpen(false);
               }}
             >
@@ -476,6 +719,22 @@ export default function DimensionChooser({
         <DropdownMenuGroup>{renderMenuItems()}</DropdownMenuGroup>
       </DropdownMenu>
       {postLoading && <LoadingSpinner className="ml-1" />}
+      {customModalKind && (
+        <CustomDimensionModal
+          initialDraft={
+            valueDraft?.kind === customModalKind
+              ? valueDraft
+              : { kind: customModalKind, constituentIds: [] }
+          }
+          constituentOptions={constituentOptions}
+          cutoffMin={cutoffMin}
+          cutoffMax={cutoffMax}
+          close={() => setCustomModalKind(null)}
+          onApply={(draft) =>
+            handleDimensionChange(buildCustomDimensionId(draft))
+          }
+        />
+      )}
     </Flex>
   );
 }

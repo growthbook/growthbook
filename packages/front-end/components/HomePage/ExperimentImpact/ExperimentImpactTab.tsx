@@ -51,7 +51,7 @@ export default function ExperimentImpactTab({
             <VariationLabel
               number={i}
               name={v.name}
-              size="medium"
+              size="md"
               maxWidth="220px"
             />
           </Box>,

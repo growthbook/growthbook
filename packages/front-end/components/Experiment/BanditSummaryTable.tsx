@@ -353,7 +353,7 @@ export default function BanditSummaryTable({
                       <VariationLabel
                         number={v.index}
                         name={v.name}
-                        size="medium"
+                        size="md"
                       />
                     </td>
                     <td className="text-center px-0">

@@ -157,7 +157,7 @@ export default function DraftSelectorDropdown({
       >
         <PiLockSimple style={{ flexShrink: 0 }} />
         <Box style={{ flex: 1, minWidth: 0 }}>
-          <Text size="small" color="text-high">
+          <Text size="sm" color="text-high">
             <span
               style={{
                 display: "block",
@@ -213,7 +213,7 @@ export default function DraftSelectorDropdown({
       height="24px"
     >
       <Box style={{ flex: 1, minWidth: 0 }}>
-        <Text size="small" color="text-high">
+        <Text size="sm" color="text-high">
           <span
             style={{
               display: "block",
@@ -350,7 +350,7 @@ function DraftRow({
         style={{ textOverflow: "ellipsis" }}
       >
         {revDate && (
-          <Text size="small" color="text-low" whiteSpace="nowrap">
+          <Text size="sm" color="text-low" whiteSpace="nowrap">
             {"Created " + date(revDate)}
           </Text>
         )}

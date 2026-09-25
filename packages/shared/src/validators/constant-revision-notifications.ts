@@ -71,6 +71,23 @@ export type ConstantRevisionReopenedPayload = z.infer<
   typeof constantRevisionReopenedPayload
 >;
 
+export const constantRevisionRecalledPayload = constantRevisionWebhookPayload;
+export type ConstantRevisionRecalledPayload = z.infer<
+  typeof constantRevisionRecalledPayload
+>;
+
+export const constantRevisionReviewRetractedPayload =
+  constantRevisionWebhookPayload;
+export type ConstantRevisionReviewRetractedPayload = z.infer<
+  typeof constantRevisionReviewRetractedPayload
+>;
+
+export const constantRevisionPublishScheduleChangedPayload =
+  constantRevisionWebhookPayload;
+export type ConstantRevisionPublishScheduleChangedPayload = z.infer<
+  typeof constantRevisionPublishScheduleChangedPayload
+>;
+
 // `change` indicates which kind of constant field was mutated, derived from the
 // revision's proposed-changes patch op paths when the event is dispatched.
 export const constantRevisionUpdatedPayload = constantRevisionWebhookPayload

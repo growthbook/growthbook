@@ -14,5 +14,10 @@
 
 .body {
   flex: 1 1 0%;
-  min-width: min(100%, 16rem);
+}
+
+.bodyWithAction {
+  flex-basis: 16rem;
+  min-width: 0;
+  max-width: max-content;
 }

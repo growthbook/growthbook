@@ -354,9 +354,7 @@ const ConfigReviews: FC = () => {
                           background: draftStatusDotColor(row.status),
                         }}
                       />
-                      <Text size="medium">
-                        {revisionStatusLabel(row.status)}
-                      </Text>
+                      <Text size="md">{revisionStatusLabel(row.status)}</Text>
                     </Flex>
                   </TableCell>
                 </TableRow>

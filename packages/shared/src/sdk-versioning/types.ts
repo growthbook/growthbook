@@ -15,7 +15,9 @@ export type SDKCapability =
   | "caseInsensitiveRegex"
   | "caseInsensitiveMembership"
   | "namespacesV2"
-  | "contextualBandits";
+  | "contextualBandits"
+  | "trackingPlugin"
+  | "savedGroupReferencesV2";
 
 export type CapabilityStrategy =
   | "min-ver-intersection" // intersection of capabilities using default SDK versions

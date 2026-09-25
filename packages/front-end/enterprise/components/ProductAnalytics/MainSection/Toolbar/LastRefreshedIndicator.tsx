@@ -68,7 +68,7 @@ export default function LastRefreshedIndicator({
       }}
     >
       <PiClockClockwise style={{ color: "var(--gray-11)", flexShrink: 0 }} />
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         {formatShortAgo(lastRefreshedAt)}
       </Text>
     </Flex>

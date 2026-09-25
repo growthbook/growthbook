@@ -45,7 +45,6 @@ export default function EditHoldoutInfoModal({
 
   return (
     <Modal
-      useRadixButton={false}
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
@@ -88,7 +87,7 @@ export default function EditHoldoutInfoModal({
         />
       </div>
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         label={
           <>
             Projects

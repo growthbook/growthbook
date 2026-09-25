@@ -1,6 +1,9 @@
 import { ReqContext } from "back-end/types/request";
 import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
-import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
+import {
+  getDataSourcesByOrganization,
+  getEventIngestorRegionForOrganization,
+} from "back-end/src/models/DataSourceModel";
 import { getDataSourcesWithParams } from "back-end/src/services/datasourceResponse";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { getAllTags } from "back-end/src/models/TagModel";
@@ -36,6 +39,8 @@ export async function getDefinitionsData(context: ReqContext) {
     factMetrics,
     decisionCriteria,
     webhookSecrets,
+    eventIngestorRegion,
+    targetingOptOutProjectIds,
   ] = await Promise.all([
     getMetricsForDefinitions(context),
     getDataSourcesByOrganization(context).then((ds) =>
@@ -54,6 +59,10 @@ export async function getDefinitionsData(context: ReqContext) {
     context.models.factMetrics.getAll(),
     context.models.decisionCriteria.getAll(),
     context.models.webhookSecrets.getAllForFrontEnd(),
+    getEventIngestorRegionForOrganization(context),
+    // Unfiltered: a project the viewer cannot read still refuses targeting,
+    // so the editor must know to disable "All Projects".
+    context.getTargetingOptOutProjectIds(),
   ]);
 
   // A dimension inherits project access from its datasource, so drop any whose
@@ -79,5 +88,7 @@ export async function getDefinitionsData(context: ReqContext) {
     factMetrics,
     decisionCriteria,
     webhookSecrets,
+    eventIngestorRegion,
+    targetingOptOutProjectIds,
   };
 }

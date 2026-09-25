@@ -6,7 +6,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForModel,
 } from "back-end/src/enterprise/services/ai";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -46,18 +46,30 @@ const MIN_SUGGESTIONS = 3;
 const MAX_SUGGESTIONS = 4;
 const MAX_SUGGESTION_LENGTH = 140;
 
-// Deliberately free of size constraints. Anthropic's structured-output
-// (`output_format`) JSON Schema subset rejects `minItems` values other than
-// 0 or 1, so an `.array(...).min(3)` here fails the whole request with
-// "output_format.schema: For 'array' type, 'minItems' values other than 0
-// or 1 are not supported" before the model ever runs. The 3-to-4 count and
-// the length limit are already stated in the instructions and the
-// description below, and we enforce them on the response instead — that
-// keeps the schema inside every provider's supported subset. Matches the
-// plain-`z.string()`/`z.array(z.string())` shape the AI edit endpoint uses.
+// No size constraints in the schema: Anthropic's output_format subset
+// rejects minItems > 1, so count and length are enforced on the response.
+// preprocess recovers the case where a model serializes the whole answer
+// into `suggestions` as a JSON string; the emitted schema stays array-only.
+const unwrapSerialized = (v: unknown): unknown => {
+  if (typeof v !== "string") return v;
+  try {
+    const parsed = JSON.parse(v);
+    if (Array.isArray(parsed)) return parsed;
+    if (
+      parsed &&
+      Array.isArray((parsed as { suggestions?: unknown }).suggestions)
+    ) {
+      return (parsed as { suggestions: unknown }).suggestions;
+    }
+  } catch {
+    // not JSON — let validation reject it
+  }
+  return v;
+};
+
 const outputSchema = z.object({
   suggestions: z
-    .array(z.string())
+    .preprocess(unwrapSerialized, z.array(z.string()))
     .describe(
       "3 to 4 short, action-oriented test ideas for the current page. Each is a single imperative sentence under 14 words.",
     ),
@@ -138,8 +150,22 @@ function buildPrompt({
       }`
     : "";
 
+  // Plain list, not fenced JSON: models were mirroring the JSON back and
+  // returning the whole answer as a serialized string in `suggestions`.
   const pastBlock = pastExperiments.length
-    ? `\nPast experiments in this organization (most recent first):\n\`\`\`json\n${JSON.stringify(pastExperiments, null, 2)}\n\`\`\`\n`
+    ? `\nPast experiments in this organization (most recent first):\n${pastExperiments
+        .map((e) =>
+          [
+            `- Name: ${e.name}`,
+            `  Status: ${e.status}`,
+            e.hypothesis ? `  Hypothesis: ${e.hypothesis}` : "",
+            e.description ? `  Description: ${e.description}` : "",
+            e.analysis ? `  Analysis: ${e.analysis}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        )
+        .join("\n")}\n`
     : "\n(No past experiments to ground suggestions in — generate sensible defaults.)\n";
 
   return `${currentBlock}${pageBlock}${pastBlock}
@@ -171,7 +197,11 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     context.permissions.throwPermissionError();
   }
 
-  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
+  // Gated on the model this request will actually run: an org on its own key
+  // for that provider pays its own bill, so the managed cap doesn't apply.
+  const { visualEditorAIModel: cappedModel } =
+    await getAISettingsForOrg(context);
+  if (await secondsUntilAICanBeUsedAgainForModel(context, cappedModel)) {
     throw new Error(
       "Daily AI usage limit reached. Try again later or upgrade your plan.",
     );
@@ -219,7 +249,7 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     );
   }
 
-  const { visualEditorAIModel } = getAISettingsForOrg(context, true);
+  const { visualEditorAIModel } = await getAISettingsForOrg(context, true);
 
   const result = await parsePrompt({
     context,

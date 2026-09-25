@@ -11,9 +11,11 @@ import useExplorationTableData from "./useExplorationTableData";
 export default function SimpleExplorationTable({
   exploration,
   config,
+  maxHeight = 360,
 }: {
   exploration: ProductAnalyticsExploration | null;
   config: ExplorationConfig;
+  maxHeight?: number;
 }) {
   const {
     rowData,
@@ -28,7 +30,7 @@ export default function SimpleExplorationTable({
       return <ManagedWarehouseNoEventsCallout />;
     }
     return (
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         {exploration.error}
       </Text>
     );
@@ -36,7 +38,7 @@ export default function SimpleExplorationTable({
 
   if (explorationReturnedNoData) {
     return (
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         The query ran successfully, but no data was returned.
       </Text>
     );
@@ -47,14 +49,14 @@ export default function SimpleExplorationTable({
   return (
     <Box
       style={{
-        maxHeight: 360,
+        maxHeight,
         overflow: "auto",
         borderRadius: "var(--radius-2)",
         border: "1px solid var(--gray-a4)",
       }}
     >
       <Flex align="center" gap="2" px="3" py="2">
-        <Text size="small" color="text-low" weight="medium">
+        <Text size="sm" color="text-low" weight="medium">
           {rowData.length} {rowData.length === 1 ? "row" : "rows"}
         </Text>
       </Flex>

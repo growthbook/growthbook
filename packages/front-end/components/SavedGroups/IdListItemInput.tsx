@@ -39,8 +39,7 @@ export const IdListItemInput: FC<{
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
-  const { unsupportedConnections, hasLargeSavedGroupFeature, connections } =
-    useLargeSavedGroupSupport();
+  const largeSavedGroupSupport = useLargeSavedGroupSupport();
 
   const resetFile = () => {
     setValues([]);
@@ -53,9 +52,7 @@ export const IdListItemInput: FC<{
     <>
       <LargeSavedGroupPerformanceWarning
         openUpgradeModal={openUpgradeModal}
-        hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-        unsupportedConnections={unsupportedConnections}
-        connections={connections}
+        {...largeSavedGroupSupport}
       />
       <label className="form-group font-weight-bold">
         Choose how to enter items for this group:
@@ -79,7 +76,7 @@ export const IdListItemInput: FC<{
         <Container mb="2">
           <Checkbox
             disabled={!canBypassSavedGroupSizeLimit(projects)}
-            disabledMessage="You don't have permission to bypass the size limit for this saved group"
+            disabledMessage="You don't have permission to bypass the size limit for this Saved Group"
             description={`Bypass the size limit of ${savedGroupSizeLimit} items`}
             value={bypassSizeLimit}
             setValue={setBypassSizeLimit}
@@ -184,7 +181,7 @@ export const IdListItemInput: FC<{
       )}
       {importMethod === "values" && (
         <StringArrayField
-          size="legacy"
+          legacyHeight
           containerClassName="mb-0"
           label="List Values to Include"
           labelClassName="font-weight-bold"

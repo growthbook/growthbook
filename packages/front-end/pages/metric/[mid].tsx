@@ -60,6 +60,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
+import { ReplacedByCallout } from "@/components/Metrics/MetricReplacement";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -427,10 +428,11 @@ const MetricPage: FC = () => {
           experiments.
         </Callout>
       )}
+      <ReplacedByCallout metricId={metric.id} />
 
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-          <Heading size="x-large" as="h1" mb="0">
+          <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
             <MetricName id={metric.id} />
           </Heading>
         </Flex>
@@ -659,9 +661,13 @@ const MetricPage: FC = () => {
                       <div style={{ flex: 1 }} />
                       <div className="col-auto">
                         {canRunMetricQuery && (
-                          <form
-                            onSubmit={async (e) => {
-                              e.preventDefault();
+                          <RunQueriesButton
+                            icon="refresh"
+                            cta={analysis ? "Refresh Data" : "Run Analysis"}
+                            mutate={mutate}
+                            model={metric}
+                            cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                            onSubmit={async () => {
                               try {
                                 await apiCall(`/metric/${metric.id}/analysis`, {
                                   method: "POST",
@@ -671,17 +677,7 @@ const MetricPage: FC = () => {
                                 console.error(e);
                               }
                             }}
-                          >
-                            <RunQueriesButton
-                              useRadixButton={false}
-                              icon="refresh"
-                              cta={analysis ? "Refresh Data" : "Run Analysis"}
-                              mutate={mutate}
-                              model={metric}
-                              cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                              color="outline-primary"
-                            />
-                          </form>
+                          />
                         )}
                       </div>
                     </div>
@@ -1191,9 +1187,9 @@ const MetricPage: FC = () => {
                           {metric.cappingSettings.type === "percentile" ? (
                             <span className="text-gray">{`(${
                               100 * metric.cappingSettings.value
-                            } pctile${
+                            }%${
                               metric.cappingSettings.ignoreZeros
-                                ? ", ignoring zeros"
+                                ? ", ignore zeros"
                                 : ""
                             })`}</span>
                           ) : (

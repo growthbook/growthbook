@@ -1,14 +1,13 @@
-import {
-  includeExperimentInPayload,
-  getSnapshotAnalysis,
-  ensureAndReturn,
-} from "shared/util";
+import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
+import { daysBetween } from "shared/dates";
 import {
   expandMetricGroups,
   getMetricResultStatus,
+  parseFunnelStepMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getLatestPhaseVariations,
+  resolveSnapshotVariation,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -18,6 +17,12 @@ import {
   getHealthSettings,
 } from "shared/enterprise";
 import { ExperimentAnalysisSummary } from "shared/validators";
+import type { QueryRunnerFailureCause } from "shared/types/query";
+import {
+  getExperimentSRMValue,
+  getExperimentTotalUnitsFromHealth,
+  getExperimentVariationUnitsFromHealth,
+} from "shared/health";
 import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
@@ -26,14 +31,22 @@ import {
   ExperimentResultStatusData,
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
+import { countVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { logger } from "back-end/src/util/logger";
+import {
+  getGoalMetricNames,
+  getStoppedGoalMetricResults,
+} from "back-end/src/services/experimentChanges/experimentStoppedResults";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { getOwnerEmail } from "back-end/src/services/owner";
+import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
 import {
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
@@ -41,35 +54,58 @@ import {
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 
+// Holdout backing experiments announce themselves through the holdout.*
+// events, so every experiment alert skips them here.
+const isNotifiableExperiment = (experiment: ExperimentInterface): boolean =>
+  experiment.type !== "holdout";
+
 // This ensures that the two types remain equal.
 const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   context,
   experiment,
   event,
   data,
+  notify = true,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   event: T;
   data: CreateEventData<"experiment", T>;
+  notify?: boolean;
 }) => {
+  if (!isNotifiableExperiment(experiment)) return;
   const changedEnvs = includeExperimentInPayload(experiment)
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
+
+  // Every experiment payload carries the owner so deliveries can name them
+  // without reading the experiment back. Each payload schema declares the
+  // optional field; the cast is only because `T` is generic here.
+  const ownerEmail = await getOwnerEmail(experiment.owner, context);
+  const payload = ownerEmail
+    ? ({
+        ...data,
+        object: { ...(data.object as object), ownerEmail },
+      } as CreateEventData<"experiment", T>)
+    : data;
 
   await createEvent({
     context,
     object: "experiment",
     event,
-    data,
+    data: payload,
     objectId: experiment.id,
     projects: experiment.project ? [experiment.project] : [],
     environments: changedEnvs,
     tags: experiment.tags || [],
     containsSecrets: false,
+    notify,
   });
 };
 
+// Sends an alert once per streak: `dispatch` runs when the condition first
+// becomes true, and the marker in pastNotifications is cleared when it ends.
+// Returns whether `dispatch` ran.
 export const memoizeNotification = async ({
   context,
   experiment,
@@ -82,25 +118,502 @@ export const memoizeNotification = async ({
   type: ExperimentNotification;
   triggered: boolean;
   dispatch: () => Promise<void>;
-}) => {
-  if (triggered && experiment.pastNotifications?.includes(type)) return;
-  if (!triggered && !experiment.pastNotifications?.includes(type)) return;
+}): Promise<boolean> => {
+  const alreadySent = experiment.pastNotifications?.includes(type) ?? false;
+  if (triggered === alreadySent) return false;
 
-  await dispatch();
+  if (triggered) await dispatch();
 
-  const pastNotifications = triggered
-    ? [...(experiment.pastNotifications || []), type]
-    : (experiment.pastNotifications || []).filter((t) => t !== type);
-
-  await updateExperiment({
-    experiment,
+  await setExperimentNotificationState({
     context,
-    changes: {
-      pastNotifications,
+    experiment,
+    type,
+    triggered,
+  });
+  return triggered;
+};
+
+export const notifyExperimentStarted = async ({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}) => {
+  const [visualChangesetCount, urlRedirectCount, goalMetricNames] =
+    await Promise.all([
+      experiment.hasVisualChangesets
+        ? countVisualChangesetsByExperiment(experiment.id, context.org.id)
+        : 0,
+      experiment.hasURLRedirects
+        ? context.models.urlRedirects.countByExperiment(experiment.id)
+        : 0,
+      getGoalMetricNames(context, experiment),
+    ]);
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+
+  await dispatchEvent({
+    context,
+    experiment,
+    event: "status.started",
+    data: {
+      object: {
+        type: "started",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        phaseName: latestPhase?.name,
+        ...(goalMetricNames.length ? { goalMetricNames } : {}),
+        linkedFeatureCount: new Set(experiment.linkedFeatures || []).size,
+        visualChangesetCount,
+        urlRedirectCount,
+      },
     },
   });
 };
 
+const DAY_MS = 86400000;
+
+// Whole days the latest phase ran, from its start to its end (or now when the
+// stop has not stamped an end date yet).
+const getExperimentDurationDays = (
+  experiment: ExperimentInterface,
+): number | undefined => {
+  const phase = experiment.phases[experiment.phases.length - 1];
+  const start = getSafeDate(phase?.dateStarted);
+  if (!start) return undefined;
+  // Complete days, but a phase that ran at all counts as one.
+  return Math.max(
+    1,
+    daysBetween(start, getSafeDate(phase?.dateEnded) ?? new Date()),
+  );
+};
+
+// Units exposed in the latest phase per its latest successful snapshot;
+// undefined before one has run. A failed read costs the count, not the alert.
+const getExperimentTotalUsers = async (
+  context: Context,
+  experiment: ExperimentInterface,
+): Promise<number | undefined> => {
+  try {
+    const snapshot = await getLatestSuccessfulSnapshot({
+      context,
+      experiment: experiment.id,
+      phase: experiment.phases.length - 1,
+    });
+    return snapshot ? getExperimentTotalUnitsFromHealth(snapshot) : undefined;
+  } catch (error) {
+    logger.warn(error, "Failed to read experiment units for notification");
+    return undefined;
+  }
+};
+
+export const notifyExperimentStopped = async ({
+  context,
+  experiment,
+  type,
+  results,
+  enableTemporaryRollout,
+  releasedVariationName,
+  reason,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  type: "stopped";
+  results?: ExperimentInterface["results"];
+  enableTemporaryRollout: boolean;
+  releasedVariationName?: string;
+  reason?: string;
+}) => {
+  const winner =
+    experiment.results === "won" && experiment.winner !== undefined
+      ? experiment.variations[experiment.winner]
+      : undefined;
+  const evidence = await getStoppedGoalMetricResults(context, experiment);
+  const durationDays = getExperimentDurationDays(experiment);
+  await dispatchEvent({
+    context,
+    experiment,
+    event: "status.stopped",
+    data: {
+      object: {
+        type,
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        results,
+        releasedVariationName,
+        enableTemporaryRollout,
+        reason,
+        ...(winner
+          ? {
+              winningVariationName: winner.name,
+              winningVariationIndex: experiment.winner,
+            }
+          : {}),
+        ...(evidence?.totalUsers !== undefined
+          ? { totalUsers: evidence.totalUsers }
+          : {}),
+        ...(durationDays !== undefined ? { durationDays } : {}),
+        ...(evidence ? { goalMetric: evidence.goalMetric } : {}),
+      },
+    },
+  });
+};
+
+// An experiment created already running (the REST API allows it) never
+// passes through a status transition, so announce its start on creation.
+export const notifyExperimentCreated = async ({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}) => {
+  if (experiment.status !== "running") return;
+  await notifyExperimentStarted({ context, experiment });
+};
+
+export const notifyExperimentStatusTransition = async ({
+  context,
+  previous,
+  experiment,
+}: {
+  context: Context;
+  previous: ExperimentInterface;
+  experiment: ExperimentInterface;
+}) => {
+  if (previous.status === experiment.status) return;
+  if (experiment.status === "running") {
+    await notifyExperimentStarted({ context, experiment });
+  } else if (experiment.status === "stopped") {
+    // Only a rollout releases a variation; the winner is reported separately.
+    const enableTemporaryRollout =
+      !experiment.excludeFromPayload && !!experiment.releasedVariationId;
+    const releasedVariation = enableTemporaryRollout
+      ? experiment.variations.find(
+          (variation) => variation.id === experiment.releasedVariationId,
+        )
+      : undefined;
+    await notifyExperimentStopped({
+      context,
+      experiment,
+      type: "stopped",
+      results: experiment.results,
+      enableTemporaryRollout,
+      releasedVariationName: releasedVariation?.name,
+      reason: experiment.phases[experiment.phases.length - 1]?.reason,
+    });
+  }
+};
+
+export const notifyExperimentEndingSoon = async ({
+  context,
+  experiment,
+  windowDays = 3,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  windowDays?: number;
+}) => {
+  const endsAt = getSafeDate(experiment.statusUpdateSchedule?.stopAt);
+  const msRemaining = endsAt ? endsAt.getTime() - Date.now() : -1;
+  // Rounded up: an experiment ending in 2.5 days has 3 days left, and the
+  // window is exactly `windowDays` from now.
+  const daysRemaining = Math.max(0, Math.ceil(msRemaining / DAY_MS));
+  const triggered =
+    experiment.status === "running" &&
+    msRemaining >= 0 &&
+    msRemaining <= windowDays * DAY_MS;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "ending-soon",
+    triggered,
+    dispatch: async () => {
+      if (!endsAt) return;
+      const durationDays = getExperimentDurationDays(experiment);
+      const totalUsers = await getExperimentTotalUsers(context, experiment);
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "status.endingSoon",
+        data: {
+          object: {
+            type: "ending-soon",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            endsAt: endsAt.toISOString(),
+            daysRemaining,
+            ...(durationDays !== undefined ? { durationDays } : {}),
+            ...(totalUsers !== undefined ? { totalUsers } : {}),
+          },
+        },
+      });
+    },
+  });
+};
+
+export const notifyExperimentStale = async ({
+  context,
+  experiment,
+  staleAfterDays = 90,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  staleAfterDays?: number;
+}) => {
+  // The current phase, so a restarted experiment is not stale on day one.
+  const daysRunning = getExperimentDurationDays(experiment) ?? 0;
+  const triggered =
+    experiment.status === "running" && daysRunning >= staleAfterDays;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "stale",
+    triggered,
+    dispatch: async () => {
+      const totalUsers = await getExperimentTotalUsers(context, experiment);
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "status.stale",
+        data: {
+          object: {
+            type: "stale",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            daysRunning,
+            ...(totalUsers !== undefined ? { totalUsers } : {}),
+            reason:
+              "This experiment has been running for a long time. Review whether it should ship, roll back, or be extended.",
+          },
+        },
+      });
+    },
+  });
+};
+
+const getSafeDate = (value: Date | string | undefined): Date | null => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export const notifyExperimentUpdateFailed = async ({
+  context,
+  experiment,
+  cause,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  cause: QueryRunnerFailureCause | null;
+}) => {
+  if (cause === "cancelled") return;
+  const triggered = experiment.status === "running" && cause !== null;
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "query-failed",
+    triggered,
+    dispatch: async () => {
+      if (cause === null) return;
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "update-failed",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            cause,
+          },
+        },
+      });
+    },
+  });
+};
+
+const getSrmVariationBalance = (
+  experiment: ExperimentInterface,
+  snapshot: ExperimentSnapshotInterface,
+) => {
+  const units = getExperimentVariationUnitsFromHealth(snapshot);
+  if (!units?.length) return undefined;
+  const weights =
+    experiment.phases[experiment.phases.length - 1]?.variationWeights ?? [];
+  return experiment.variations.map((v, i) => ({
+    name: v.name,
+    users: units[i] ?? 0,
+    weight: weights[i] ?? 0,
+  }));
+};
+
+export const notifySrm = async ({
+  context,
+  experiment,
+  snapshot,
+  currentStatus,
+  healthSettings,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
+  currentStatus: ExperimentResultStatusData;
+  healthSettings: ExperimentHealthSettings;
+}) => {
+  const triggered =
+    currentStatus.status === "unhealthy" && !!currentStatus.unhealthyData.srm;
+
+  return memoizeNotification({
+    context,
+    experiment,
+    type: "srm",
+    triggered,
+    dispatch: async () => {
+      const pValue = getExperimentSRMValue(snapshot);
+      const variations = getSrmVariationBalance(experiment, snapshot);
+      const durationDays = getExperimentDurationDays(experiment);
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "srm",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            threshold: healthSettings.srmThreshold,
+            ...(pValue !== undefined ? { pValue } : {}),
+            ...(variations ? { variations } : {}),
+            ...(durationDays !== undefined ? { durationDays } : {}),
+          },
+        },
+      });
+    },
+  });
+};
+
+export const notifyMultipleExposures = async ({
+  context,
+  experiment,
+  currentStatus,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  currentStatus: ExperimentResultStatusData;
+}) => {
+  const multipleExposureData =
+    currentStatus.status === "unhealthy" &&
+    currentStatus.unhealthyData.multipleExposures;
+  const triggered = !!multipleExposureData;
+
+  return memoizeNotification({
+    context,
+    experiment,
+    type: "multiple-exposures",
+    triggered,
+    dispatch: async () => {
+      if (!multipleExposureData) return;
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "multiple-exposures",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            usersCount: multipleExposureData.multipleExposedUsers,
+            percent: multipleExposureData.rawDecimal,
+          },
+        },
+      });
+    },
+  });
+};
+
+const getFailedGuardrailMetrics = async ({
+  context,
+  experiment,
+  analysisSummary,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  analysisSummary?: ExperimentAnalysisSummary;
+}) => {
+  const failedMetrics: {
+    id: string;
+    name: string;
+    variationName: string;
+  }[] = [];
+  const variations = getLatestPhaseVariations(experiment);
+
+  for (const variationStatus of analysisSummary?.resultsStatus?.variations ||
+    []) {
+    for (const [metricId, metricStatus] of Object.entries(
+      variationStatus.guardrailMetrics || {},
+    )) {
+      if (metricStatus.status !== "lost") continue;
+
+      const metric = await getExperimentMetricById(context, metricId);
+      const variation = variations.find(
+        (v) => v.id === variationStatus.variationId,
+      );
+
+      failedMetrics.push({
+        id: metricId,
+        name: metric?.name || metricId,
+        variationName: variation?.name || variationStatus.variationId,
+      });
+    }
+  }
+
+  return failedMetrics;
+};
+
+export const notifyGuardrailFailed = async ({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}) => {
+  const failedMetrics = await getFailedGuardrailMetrics({
+    context,
+    experiment,
+    analysisSummary: experiment.analysisSummary,
+  });
+  const triggered = experiment.status === "running" && failedMetrics.length > 0;
+
+  return memoizeNotification({
+    context,
+    experiment,
+    type: "guardrail-failed",
+    triggered,
+    dispatch: async () => {
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "guardrailFailed",
+        data: {
+          object: {
+            type: "guardrail-failed",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            failedMetrics,
+          },
+        },
+      });
+    },
+  });
+};
+
+// Sent by the scheduled refresh when a failure makes it turn automatic
+// updates off for the experiment. `success` is whether that write landed;
+// false means updates stay on despite the failure. Fires every time, alongside
+// the update-failed warning for the refresh itself.
 export const notifyAutoUpdate = ({
   context,
   experiment,
@@ -110,25 +623,18 @@ export const notifyAutoUpdate = ({
   experiment: ExperimentInterface;
   success: boolean;
 }) =>
-  memoizeNotification({
+  dispatchEvent({
     context,
     experiment,
-    type: "auto-update",
-    triggered: !success,
-    dispatch: () =>
-      dispatchEvent({
-        context,
-        experiment,
-        event: "warning",
-        data: {
-          object: {
-            type: "auto-update",
-            success,
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-          },
-        },
-      }),
+    event: "warning",
+    data: {
+      object: {
+        type: "auto-update",
+        success,
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+      },
+    },
   });
 
 // Fires on every failed attempt of the scheduled-status-update job (not
@@ -169,6 +675,79 @@ export const notifyScheduledStatusUpdateFailed = ({
       },
     },
   });
+
+export const notifyUnderpowered = async ({
+  context,
+  experiment,
+  currentStatus,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  currentStatus: ExperimentResultStatusData;
+}) => {
+  const triggered =
+    currentStatus.status === "unhealthy" &&
+    !!currentStatus.unhealthyData.lowPowered;
+
+  return memoizeNotification({
+    context,
+    experiment,
+    type: "underpowered",
+    triggered,
+    dispatch: async () => {
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "underpowered",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      });
+    },
+  });
+};
+
+export const notifyNoData = async ({
+  context,
+  experiment,
+  snapshot,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
+}) => {
+  // Mirror the front-end "No data yet" check: the snapshot ran successfully but
+  // the default analysis returned no variation rows.
+  const analysis = getSnapshotAnalysis(snapshot);
+  const triggered =
+    snapshot.status === "success" &&
+    (analysis?.results?.[0]?.variations?.length ?? 0) === 0;
+
+  return memoizeNotification({
+    context,
+    experiment,
+    type: "no-data",
+    triggered,
+    dispatch: async () => {
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "no-data",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      });
+    },
+  });
+};
 
 // Emitted when the scheduled-status-update job applies a start/stop. Not
 // memoized — each scheduled transition fires once. Flows to org webhooks/Slack
@@ -213,172 +792,6 @@ export const notifyScheduledStatusUpdateApplied = ({
       },
     },
   });
-};
-
-export const notifyMultipleExposures = async ({
-  context,
-  experiment,
-  currentStatus,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-  currentStatus: ExperimentResultStatusData;
-}) => {
-  const multipleExposureData =
-    currentStatus.status === "unhealthy" &&
-    currentStatus.unhealthyData.multipleExposures;
-  const triggered = !!multipleExposureData;
-
-  await memoizeNotification({
-    context,
-    experiment,
-    type: "multiple-exposures",
-    triggered,
-    dispatch: async () => {
-      if (!triggered) return;
-
-      await dispatchEvent({
-        context,
-        experiment,
-        event: "warning",
-        data: {
-          object: {
-            type: "multiple-exposures",
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-            usersCount: multipleExposureData.multipleExposedUsers,
-            percent: multipleExposureData.rawDecimal,
-          },
-        },
-      });
-    },
-  });
-
-  return (
-    triggered && !experiment.pastNotifications?.includes("multiple-exposures")
-  );
-};
-
-export const notifySrm = async ({
-  context,
-  experiment,
-  currentStatus,
-  healthSettings,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-  currentStatus: ExperimentResultStatusData;
-  healthSettings: ExperimentHealthSettings;
-}) => {
-  const triggered =
-    currentStatus.status === "unhealthy" && !!currentStatus.unhealthyData.srm;
-
-  await memoizeNotification({
-    context,
-    experiment,
-    type: "srm",
-    triggered,
-    dispatch: async () => {
-      if (!triggered) return;
-
-      await dispatchEvent({
-        context,
-        experiment,
-        event: "warning",
-        data: {
-          object: {
-            type: "srm",
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-            threshold: healthSettings.srmThreshold,
-          },
-        },
-      });
-    },
-  });
-
-  return triggered && !experiment.pastNotifications?.includes("srm");
-};
-
-export const notifyUnderpowered = async ({
-  context,
-  experiment,
-  currentStatus,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-  currentStatus: ExperimentResultStatusData;
-}) => {
-  const triggered =
-    currentStatus.status === "unhealthy" &&
-    !!currentStatus.unhealthyData.lowPowered;
-
-  await memoizeNotification({
-    context,
-    experiment,
-    type: "underpowered",
-    triggered,
-    dispatch: async () => {
-      if (!triggered) return;
-
-      await dispatchEvent({
-        context,
-        experiment,
-        event: "warning",
-        data: {
-          object: {
-            type: "underpowered",
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-          },
-        },
-      });
-    },
-  });
-
-  return triggered && !experiment.pastNotifications?.includes("underpowered");
-};
-
-export const notifyNoData = async ({
-  context,
-  experiment,
-  snapshot,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-  snapshot: ExperimentSnapshotInterface;
-}) => {
-  // Mirror the front-end "No data yet" check: the snapshot ran successfully but
-  // the default analysis returned no variation rows.
-  const analysis = getSnapshotAnalysis(snapshot);
-  const triggered =
-    snapshot.status === "success" &&
-    (analysis?.results?.[0]?.variations?.length ?? 0) === 0;
-
-  await memoizeNotification({
-    context,
-    experiment,
-    type: "no-data",
-    triggered,
-    dispatch: async () => {
-      if (!triggered) return;
-
-      await dispatchEvent({
-        context,
-        experiment,
-        event: "warning",
-        data: {
-          object: {
-            type: "no-data",
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-          },
-        },
-      });
-    },
-  });
-
-  return triggered && !experiment.pastNotifications?.includes("no-data");
 };
 
 type ExperimentSignificanceChange = {
@@ -469,7 +882,6 @@ export const computeExperimentChanges = async ({
     experiment.goalMetrics,
     metricGroups,
   );
-
   const currentResults = cloneDeep(currentAnalysis.results);
   setAdjustedPValuesOnResults(
     currentResults,
@@ -509,11 +921,18 @@ export const computeExperimentChanges = async ({
 
       const criticalValue =
         statsEngine === "frequentist"
-          ? curMetric.pValue
+          ? (curMetric.pValueAdjusted ?? curMetric.pValue)
           : curMetric.chanceToWin;
       if (criticalValue === undefined) continue;
 
-      const metric = ensureAndReturn(await getExperimentMetricById(context, m));
+      // Skip notifying on funnel step metrics
+      if (parseFunnelStepMetricId(m).isFunnelStepMetric) continue;
+
+      // A snapshot's results can carry metric ids with no resolvable definition
+      // (e.g. a slice metric since removed from the org), so skip those rather
+      // than failing the update.
+      const metric = await getExperimentMetricById(context, m);
+      if (!metric) continue;
 
       const { resultsStatus: curResultsStatus } = getMetricResultStatus({
         metric,
@@ -555,9 +974,13 @@ export const computeExperimentChanges = async ({
 
       if (winning === null) continue;
 
-      const { id: variationId, name: variationName } = getLatestPhaseVariations(
-        experiment,
-      )?.[i] || { id: i + "", name: "" };
+      const resolved = resolveSnapshotVariation(
+        experiment.variations,
+        currentSnapshot.settings.variations,
+        i,
+      );
+      if (!resolved) continue;
+      const { id: variationId, name: variationName } = resolved.variation;
 
       experimentChanges.push({
         experimentId: experiment.id,
@@ -604,18 +1027,101 @@ export const notifySignificance = async ({
     await sendSignificanceEmail(context, experiment, experimentChanges);
   }
 
+  const notify = await hasEventSubscribers({
+    organizationId: context.org.id,
+    eventName: "experiment.info.significance",
+    projects: experiment.project ? [experiment.project] : [],
+    tags: experiment.tags || [],
+    environments: includeExperimentInPayload(experiment)
+      ? getEnvironmentIdsFromOrg(context.org)
+      : [],
+  });
+
   await Promise.all(
     experimentChanges.map((change) =>
       dispatchEvent({
         context,
         experiment,
         event: "info.significance",
+        notify,
         data: {
           object: change,
         },
       }),
     ),
   );
+};
+
+export async function notifyExperimentBanditWeightsTransition({
+  context,
+  previous,
+  experiment,
+}: {
+  context: Context;
+  previous: ExperimentInterface;
+  experiment: ExperimentInterface;
+}) {
+  // Only a live reallocation of the phase that is running: draft edits,
+  // resets, and new phases change weights without moving traffic.
+  const before = previous.phases[previous.phases.length - 1];
+  const after = experiment.phases[experiment.phases.length - 1];
+  if (
+    experiment.type !== "multi-armed-bandit" ||
+    experiment.status !== "running" ||
+    previous.status !== "running" ||
+    previous.phases.length !== experiment.phases.length ||
+    !before ||
+    !after ||
+    getSafeDate(before.dateStarted)?.getTime() !==
+      getSafeDate(after.dateStarted)?.getTime()
+  )
+    return;
+  await notifyBanditWeightsChanged({
+    context,
+    experiment,
+    currentWeights: before.variationWeights ?? [],
+    updatedWeights: after.variationWeights ?? [],
+  });
+}
+
+export const notifyBanditWeightsChanged = async ({
+  context,
+  experiment,
+  currentWeights,
+  updatedWeights,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  currentWeights: number[];
+  updatedWeights: number[];
+}) => {
+  if (
+    !currentWeights.length ||
+    currentWeights.length !== updatedWeights.length ||
+    [...currentWeights, ...updatedWeights].some(
+      (weight) => !Number.isFinite(weight),
+    )
+  )
+    return;
+  const maxDelta = Math.max(
+    ...updatedWeights.map((weight, i) => Math.abs(weight - currentWeights[i])),
+  );
+  if (maxDelta < 0.05) return;
+
+  await dispatchEvent({
+    context,
+    experiment,
+    event: "bandit.weightsChanged",
+    data: {
+      object: {
+        type: "bandit-weights-changed",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        currentWeights,
+        updatedWeights,
+      },
+    },
+  });
 };
 
 export const notifyDecision = async ({
@@ -648,7 +1154,7 @@ export const notifyDecision = async ({
     })();
 
     if (currentStatus.status !== lastStatus?.status) {
-      dispatchEvent({
+      await dispatchEvent({
         context,
         experiment,
         event: `decision.${eventType}`,
@@ -702,9 +1208,11 @@ async function getDecisionCriteria(
 export const notifyScheduledEndDecision = async ({
   context,
   experiment,
+  metricGroups,
 }: {
   context: Context;
   experiment: ExperimentInterface;
+  metricGroups: MetricGroupInterface[];
 }) => {
   const healthSettings = getHealthSettings(
     context.org.settings,
@@ -720,6 +1228,7 @@ export const notifyScheduledEndDecision = async ({
     experimentData: experiment,
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
   if (!currentStatus) return false;
 
@@ -727,6 +1236,7 @@ export const notifyScheduledEndDecision = async ({
     experimentData: { ...experiment, statusUpdateSchedule: null },
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
 
   return notifyDecision({
@@ -767,11 +1277,19 @@ export const notifyExperimentChange = async ({
     experiment.decisionFrameworkSettings?.decisionCriteriaId ??
       context.org.settings?.defaultDecisionCriteriaId,
   );
+  const metricGroups = await context.models.metricGroups.getAll();
 
   const currentStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings,
     decisionCriteria,
+    metricGroups,
+  });
+
+  await notifyExperimentUpdateFailed({
+    context,
+    experiment,
+    cause: null,
   });
 
   const triggeredNoData = await notifyNoData({
@@ -796,11 +1314,20 @@ export const notifyExperimentChange = async ({
     const triggeredSrm = await notifySrm({
       context,
       experiment,
+      snapshot,
       currentStatus,
       healthSettings,
     });
     if (triggeredSrm) {
       notificationsTriggered.push("srm");
+    }
+
+    const triggeredGuardrailFailure = await notifyGuardrailFailed({
+      context,
+      experiment,
+    });
+    if (triggeredGuardrailFailure) {
+      notificationsTriggered.push("guardrail-failed");
     }
 
     const triggeredUnderpowered = await notifyUnderpowered({
@@ -823,6 +1350,7 @@ export const notifyExperimentChange = async ({
       },
       healthSettings,
       decisionCriteria,
+      metricGroups,
     });
     const triggeredDecision = await notifyDecision({
       context,

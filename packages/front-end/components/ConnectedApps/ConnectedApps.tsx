@@ -29,7 +29,7 @@ export const ConnectedApps: FC<ConnectedAppsProps> = ({ apps, onRevoke }) => {
 
   return (
     <div className="mb-4">
-      <Heading as="h2" size="x-large" mb="2">
+      <Heading as="h2" size="xl" mb="2">
         Connected Apps
       </Heading>
       <p className="text-gray">

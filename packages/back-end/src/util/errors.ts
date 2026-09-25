@@ -55,6 +55,13 @@ export class InvalidStatusError extends ApiError<"invalid_status"> {
   }
 }
 
+export class InvalidTrackingKeyError extends ApiError<"invalid_tracking_key"> {
+  constructor(message: string, pattern: string, example: string) {
+    super("invalid_tracking_key", message, { pattern, example });
+    this.name = "InvalidTrackingKeyError";
+  }
+}
+
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
     super(message);
@@ -174,6 +181,24 @@ export class BulkPublishCommitError extends Error {
   }
 }
 
+export class BulkImportPartialFailureError extends Error {
+  status: number;
+  counts: Record<string, number>;
+  errors: unknown[];
+  constructor(
+    message: string,
+    counts: Record<string, number>,
+    errors: unknown[],
+    status = 400,
+  ) {
+    super(message);
+    this.name = "BulkImportPartialFailureError";
+    this.status = status;
+    this.counts = counts;
+    this.errors = errors;
+  }
+}
+
 export class SoftWarningError extends Error {
   status = 422;
   warnings: string[];
@@ -240,14 +265,21 @@ export class RampAdvanceLockBusyError extends Error {
   }
 }
 
-export class ExperimentIncrementalPipelineRequiresFullRefreshError extends Error {
-  readonly status = 409;
-  readonly code = "requires_full_refresh";
-  readonly details: { reason: string };
+export class ExperimentIncrementalPipelineRequiresFullRefreshError extends ApiError<"requires_full_refresh"> {
   constructor(reason: string) {
-    super(reason);
+    super("requires_full_refresh", reason, {
+      reason,
+    });
     this.name = "ExperimentIncrementalPipelineRequiresFullRefreshError";
-    this.details = { reason };
+  }
+}
+
+export class DimensionAlreadyUpToDateError extends ApiError<"dimension_already_up_to_date"> {
+  constructor(message: string, overallResultsAsOf: string) {
+    super("dimension_already_up_to_date", message, {
+      overallResultsAsOf,
+    });
+    this.name = "DimensionAlreadyUpToDateError";
   }
 }
 

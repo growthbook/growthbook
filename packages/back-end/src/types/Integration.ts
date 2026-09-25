@@ -61,9 +61,11 @@ import {
 import {
   AutoFactTableSchemas,
   DataSourceInterface,
+  DataSourceType,
   DataSourceProperties,
   SchemaFormat,
 } from "shared/types/datasource";
+import type { DataSourceParamsForType } from "shared/util";
 import {
   AdditionalQueryMetadata,
   QueryType,
@@ -77,17 +79,31 @@ import { ReqContext } from "back-end/types/request";
 
 export type { MetricAnalysisParams };
 
-export interface SourceIntegrationInterface {
-  datasource: DataSourceInterface;
+export type ExternalQueryStatus =
+  | { state: "running" }
+  | { state: "succeeded" }
+  | { state: "failed"; error: string }
+  // expired: the warehouse no longer knows the id. unreachable: the status
+  // call itself failed. unrecognized: the warehouse answered with a payload or
+  // state we cannot classify.
+  | { state: "unknown"; reason: "expired" | "unreachable" | "unrecognized" };
+
+type DataSourceByType = {
+  [DataSource in DataSourceInterface as DataSource["type"]]: DataSource;
+};
+
+export interface SourceIntegrationInterface<
+  T extends DataSourceType = DataSourceType,
+> {
+  datasource: DataSourceByType[T] & { type: T };
   context: ReqContext;
   additionalQueryMetadata?: AdditionalQueryMetadata;
   decryptionError: boolean;
-  // eslint-disable-next-line
-  params: any;
+  columnNamesAreCaseSensitive: boolean;
+  params: DataSourceParamsForType<T>;
   setAdditionalQueryMetadata?(
     additionalQueryMetadata: AdditionalQueryMetadata,
   ): void;
-  getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
     metricDocs: ExperimentMetricInterface[],
@@ -108,6 +124,9 @@ export interface SourceIntegrationInterface {
     tableName: string,
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
+  estimateQueryCost?(
+    sql: string,
+  ): Promise<{ bytesProcessed: number; costEstimateUsd?: number }>;
   supportsLimitZeroColumnValidation?(): boolean;
   getTestValidityQuery?(
     query: string,
@@ -310,6 +329,10 @@ export interface SourceIntegrationInterface {
     externalId: string,
     metadata?: Record<string, string>,
   ): Promise<void>;
+  getExternalQueryStatus?(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<ExternalQueryStatus>;
   getFeatureUsage?(
     feature: string,
     lookback: FeatureUsageLookback,

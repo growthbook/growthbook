@@ -280,7 +280,7 @@ const SavedGroupReviews: FC = () => {
       {isLoading ? (
         <LoadingOverlay />
       ) : statusFilteredItems.length === 0 ? (
-        <Callout status="info">No drafts for saved groups.</Callout>
+        <Callout status="info">No drafts for Saved Groups.</Callout>
       ) : (
         <>
           <Table variant="list" stickyHeader roundedCorners>
@@ -356,9 +356,7 @@ const SavedGroupReviews: FC = () => {
                           background: draftStatusDotColor(row.status),
                         }}
                       />
-                      <Text size="medium">
-                        {revisionStatusLabel(row.status)}
-                      </Text>
+                      <Text size="md">{revisionStatusLabel(row.status)}</Text>
                     </Flex>
                   </TableCell>
                 </TableRow>

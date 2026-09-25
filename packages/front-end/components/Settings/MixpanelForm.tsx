@@ -2,6 +2,7 @@ import { FC, ChangeEventHandler } from "react";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 
 const MixpanelForm: FC<{
   params: Partial<MixpanelConnectionParams>;
@@ -44,7 +45,7 @@ const MixpanelForm: FC<{
             required={!existing}
             value={params.secret || ""}
             onChange={onParamChange}
-            placeholder={existing ? "(Keep existing)" : ""}
+            placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
         </div>
         <div className="form-group col-md-12">

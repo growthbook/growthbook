@@ -6,6 +6,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { createReportSnapshot } from "back-end/src/services/reports";
 import { toSnapshotApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { toReportApiInterface } from "./toReportApiInterface";
 
@@ -64,9 +65,12 @@ export const postReportRefresh = createApiRequestHandler(
       details: JSON.stringify({ report: report.id }),
     });
 
-    const apiReport = toReportApiInterface(
-      { ...report, snapshot: newSnapshot.id },
-      newSnapshot,
+    const apiReport = await resolveOwnerEmail(
+      toReportApiInterface(
+        { ...report, snapshot: newSnapshot.id },
+        newSnapshot,
+      ),
+      req.context,
     );
 
     if (newSnapshot.status === "success" && experiment) {
@@ -82,7 +86,7 @@ export const postReportRefresh = createApiRequestHandler(
   } catch (e) {
     return {
       report: {
-        ...toReportApiInterface(report),
+        ...(await resolveOwnerEmail(toReportApiInterface(report), req.context)),
         snapshotStatus: "error" as const,
         snapshotError: (e as Error).message,
       },

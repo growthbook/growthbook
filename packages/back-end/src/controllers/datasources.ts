@@ -1,6 +1,6 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
-import * as bq from "@google-cloud/bigquery";
+import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
@@ -33,6 +33,7 @@ import {
   GrowthbookClickhouseDataSource,
   GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { SDKAttributeSchema } from "shared/types/organization";
@@ -100,6 +101,9 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   removeManagedWarehouseLegacyIdentifier,
@@ -107,7 +111,9 @@ import {
 } from "back-end/src/services/clickhouse";
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -293,7 +299,7 @@ export async function postDataSources(
 }
 
 export async function postManagedWarehouse(
-  req: AuthRequest,
+  req: AuthRequest<{ region?: string }>,
   res: Response<
     | {
         status: 200;
@@ -322,6 +328,9 @@ export async function postManagedWarehouse(
     context.permissions.throwPermissionError();
   }
 
+  const region: GrowthbookClickhouseSettings["region"] =
+    req.body?.region === "eu-west-1" ? "eu-west-1" : "us-east-1";
+
   const params: ClickHouseConnectionParams = {
     url: "https://managed-warehouse-placeholder.invalid",
     port: 443,
@@ -333,7 +342,7 @@ export async function postManagedWarehouse(
   // queries are derived from the org's hashAttribute attributes.
   const datasourceSettings = getManagedWarehouseJsonSettings(
     context.org.settings?.attributeSchema,
-    { hasBeenProvisioned: false },
+    { hasBeenProvisioned: false, region },
   );
 
   const datasource = await createDataSource(
@@ -485,9 +494,6 @@ export async function putDataSource(
     }
 
     if (settings) {
-      // Event Forwarder managed identifier types (`ef_` prefixed) used to be
-      // rejected here. They're intentionally editable and deletable for now —
-      // restore the guard if we need to lock them down again.
       updates.settings = settings;
     }
 
@@ -630,7 +636,7 @@ export async function putEventForwarderForDataSource(
     if (parsed.data.params) {
       mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
       await integration.testConnection();
-      updates.params = encryptParams(integration.params as DataSourceParams);
+      updates.params = encryptParams(integration.params);
     }
 
     await updateDataSource(context, datasource, updates);
@@ -641,7 +647,7 @@ export async function putEventForwarderForDataSource(
     };
     const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
       updatedDatasource.type,
-      integration.params as DataSourceParams,
+      integration.params,
     );
     const restartAfterProvision =
       !!existingEventForwarderConfig?.connectorName?.trim();
@@ -894,11 +900,11 @@ export async function postTestEventForwarderAccessForDatasource(
 
   const candidateDatasource = {
     ...datasource,
-    params: encryptParams(integration.params as DataSourceParams),
+    params: encryptParams(integration.params),
   } as DataSourceInterface;
   const result = await runEventForwarderAccessTest(context, {
     datasource: candidateDatasource,
-    params: integration.params as DataSourceParams,
+    params: integration.params,
     draft,
     existingModel: existingEventForwarderConfig,
   });
@@ -1325,13 +1331,20 @@ export async function testLimitedQuery(
     templateVariables?: TemplateVariables;
     timestampColumn?: string;
     limit?: number;
+    detectColumns?: boolean;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
 
-  const { query, datasourceId, templateVariables, timestampColumn, limit } =
-    req.body;
+  const {
+    query,
+    datasourceId,
+    templateVariables,
+    timestampColumn,
+    limit,
+    detectColumns,
+  } = req.body;
 
   // Sanity check to prevent potential abuse
   if (limit && limit > SQL_ROW_LIMIT) {
@@ -1341,7 +1354,9 @@ export async function testLimitedQuery(
     });
   }
 
-  const maxLimit = limit || SQL_ROW_LIMIT;
+  // Nullish, not falsy: 0 is a meaningful limit -- it reads the query's output
+  // schema without reading any rows.
+  const maxLimit = limit ?? SQL_ROW_LIMIT;
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
@@ -1351,13 +1366,14 @@ export async function testLimitedQuery(
     });
   }
 
-  const { results, sql, duration, error } = await testQuery(
+  const { results, sql, duration, error, columns } = await testQuery(
     context,
     datasource,
     query,
     templateVariables,
     maxLimit,
     timestampColumn,
+    detectColumns,
   );
 
   res.status(200).json({
@@ -1366,6 +1382,7 @@ export async function testLimitedQuery(
     results,
     sql,
     error,
+    columns,
   });
 }
 
@@ -1574,14 +1591,15 @@ export async function cancelDataSourceQuery(
     true,
   );
 
-  if (integration.cancelQuery && query.externalId) {
-    try {
-      await integration.cancelQuery(query.externalId, query.externalIdMetadata);
-    } catch (e: unknown) {
-      // Log but continue - we'll still mark the query as failed
-      const msg = e instanceof Error ? e.message : String(e);
-      logger.debug(e, `Failed to cancel query on warehouse: ${msg}`);
-    }
+  if (query.externalId) {
+    await cancelQueryAndConfirm(
+      integration,
+      {
+        externalId: query.externalId,
+        metadata: query.externalIdMetadata,
+      },
+      { datasourceId, queryId: query.id },
+    );
   }
 
   const cancelledBy =
@@ -1590,7 +1608,7 @@ export async function cancelDataSourceQuery(
   const updated = await updateQueryIfRunning(context, query, {
     status: "failed",
     finishedAt: new Date(),
-    error: `Query cancelled by user (${cancelledBy})`,
+    error: `${QUERY_CANCELLED_BY_USER_ERROR} (${cancelledBy})`,
   });
   if (!updated) {
     throw new Error(
@@ -1685,31 +1703,79 @@ export async function cancelDimensionSlices(
   });
 }
 
+const bigQueryDatasetRequestSchema = z.object({
+  projectId: z.string().optional(),
+  apiEndpoint: z.string().optional(),
+  client_email: z.string().optional(),
+  private_key: z.string().optional(),
+  datasourceId: z.string().optional(),
+  projects: z.array(z.string()).optional(),
+});
+
 export async function fetchBigQueryDatasets(
-  req: AuthRequest<{
-    projectId: string;
-    client_email: string;
-    private_key: string;
-  }>,
+  req: AuthRequest<unknown>,
   res: Response,
 ) {
-  const { projectId, client_email, private_key } = req.body;
-
-  try {
-    const client = new bq.BigQuery({
-      projectId,
-      credentials: { client_email, private_key },
-    });
-
-    const [datasets] = await client.getDatasets();
-
-    res.status(200).json({
-      status: 200,
-      datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
-    });
-  } catch (e) {
-    throw new Error(e.message);
+  const parsed = bigQueryDatasetRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new BadRequestError(
+      `Invalid BigQuery connection parameter format: ${errorStringFromZodResult(parsed)}`,
+    );
   }
+  const {
+    projectId,
+    apiEndpoint,
+    client_email,
+    private_key,
+    datasourceId,
+    projects: proposedProjects,
+  } = parsed.data;
+  const context = getContextFromReq(req);
+  const submittedParams: Partial<BigQueryConnectionParams> = {
+    ...(projectId !== undefined ? { projectId } : {}),
+    ...(apiEndpoint !== undefined ? { apiEndpoint } : {}),
+    ...(client_email !== undefined ? { clientEmail: client_email } : {}),
+    ...(private_key !== undefined ? { privateKey: private_key } : {}),
+  };
+
+  let connectionParams: Partial<BigQueryConnectionParams>;
+  if (datasourceId) {
+    const datasource = await getDataSourceById(context, datasourceId);
+    if (!datasource || datasource.type !== "bigquery") {
+      throw new Error("Cannot find BigQuery data source");
+    }
+    // Authorize against the stored projects before reusing saved credentials.
+    if (
+      !context.permissions.canUpdateDataSourceSettings(datasource) ||
+      !context.permissions.canUpdateDataSourceParams(datasource)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
+    const integration = getSourceIntegrationObject(context, datasource);
+    mergeParams(integration, submittedParams);
+    connectionParams = integration.params;
+  } else {
+    if (
+      !context.permissions.canCreateDataSource({
+        type: "bigquery",
+        projects: proposedProjects,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    connectionParams = submittedParams;
+  }
+
+  const client = createBigQueryClient({
+    ...connectionParams,
+    authType: "json",
+  });
+  const [datasets] = await client.getDatasets();
+  res.status(200).json({
+    status: 200,
+    datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
+  });
 }
 
 export async function postRecreateManagedWarehouse(

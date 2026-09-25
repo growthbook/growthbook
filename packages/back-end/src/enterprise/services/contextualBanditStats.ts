@@ -1,4 +1,7 @@
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  metricRowAttributeReader,
+} from "shared/experiments";
 import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -7,6 +10,8 @@ import {
 import type { ContextualBanditSnapshot } from "shared/types/stats";
 import {
   computeContextualBanditWeights,
+  type ContextualBanditArm,
+  type ContextualBanditObservation,
   ContextualBanditWeightsInput,
 } from "stats-ts";
 import {
@@ -14,8 +19,10 @@ import {
   getMetricSettingsForStatsEngine,
 } from "back-end/src/services/stats";
 
+export type ContextualBanditVariationRef = { id: string; key: string };
+
 export type ContextualBanditStatsSettings = {
-  varIds: string[];
+  variations: ContextualBanditVariationRef[];
   contextualAttributes: string[];
   maxLeaves: number;
   minUsersPerLeaf: number;
@@ -35,18 +42,79 @@ export type RunContextualStatsEngineOptions = {
   phaseLengthDays: number;
 };
 
-/** SQL rows often use variation keys (`"0"`, `"1"`); gbstats expects variation ids. */
-export function canonicalizeVariationIdsInRows(
-  rows: ExperimentMetricQueryResponseRows,
-  varIds: string[],
-): ExperimentMetricQueryResponseRows {
-  return rows.map((row) => {
-    const idx = variationIndexFromRow(row, varIds);
-    if (idx === null) {
-      return row;
+function num(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Fact-metric rows report units as `count`; snapshot metric rows use `users`. */
+function unitsFromRow(row: ExperimentMetricQueryResponseRows[number]): number {
+  if ((row.count ?? null) !== null) return num(row.count);
+  if ((row.users ?? null) !== null) return num(row.users);
+  return 0;
+}
+
+function armFromRow(
+  row: ExperimentMetricQueryResponseRows[number],
+): ContextualBanditArm {
+  return {
+    n: unitsFromRow(row),
+    main_sum: num(row.main_sum),
+    main_sum_squares: num(row.main_sum_squares),
+    denominator_sum: num(row.denominator_sum),
+    denominator_sum_squares: num(row.denominator_sum_squares),
+    main_denominator_sum_product: num(row.main_denominator_sum_product),
+    covariate_sum: num(row.covariate_sum),
+    covariate_sum_squares: num(row.covariate_sum_squares),
+    main_covariate_sum_product: num(row.main_covariate_sum_product),
+  };
+}
+
+/**
+ * Attribute values keyed by their configured name.
+ */
+function contextFromRow(
+  row: ExperimentMetricQueryResponseRows[number],
+  attributes: string[],
+): Record<string, string> {
+  const attributeValue = metricRowAttributeReader(row);
+  const context: Record<string, string> = {};
+  for (const attribute of attributes) {
+    const value = attributeValue(attribute);
+    if ((value ?? null) !== null) {
+      context[attribute] = String(value);
     }
-    return { ...row, variation: varIds[idx] };
-  });
+  }
+  return context;
+}
+
+/**
+ * Resolve query rows into the observations the stats engine consumes.
+ */
+export function buildContextualBanditObservations(
+  rows: ExperimentMetricQueryResponseRows,
+  {
+    variations,
+    attributes,
+  }: {
+    variations: ContextualBanditVariationRef[];
+    attributes: string[];
+  },
+): ContextualBanditObservation[] {
+  const observations: ContextualBanditObservation[] = [];
+  for (const row of prepareRowsForContextualStats(rows)) {
+    const variationIndex = variationIndexFromRow(row, variations);
+    if (variationIndex === null) {
+      continue;
+    }
+    observations.push({
+      variationIndex,
+      context: contextFromRow(row, attributes),
+      arm: armFromRow(row),
+    });
+  }
+
+  return observations;
 }
 
 export async function runContextualStatsEngine(
@@ -54,18 +122,18 @@ export async function runContextualStatsEngine(
   rows: ExperimentMetricQueryResponseRows,
   runParams?: RunContextualStatsEngineOptions,
 ): Promise<ContextualBanditResult> {
-  const normalizedRows = canonicalizeVariationIdsInRows(
-    prepareRowsForContextualStats(rows),
-    settings.varIds,
-  );
   if (!runParams) {
     throw new Error(
       "Contextual stats engine requires runParams when mock stats are disabled",
     );
   }
+  const observations = buildContextualBanditObservations(rows, {
+    variations: settings.variations,
+    attributes: settings.contextualAttributes,
+  });
   const input = buildContextualBanditWeightsInput(
     settings,
-    normalizedRows,
+    observations,
     runParams,
   );
   return computeContextualBanditWeights(input);
@@ -73,7 +141,7 @@ export async function runContextualStatsEngine(
 
 function buildContextualBanditWeightsInput(
   settings: ContextualBanditStatsSettings,
-  rows: ExperimentMetricQueryResponseRows,
+  observations: ContextualBanditObservation[],
   runParams: RunContextualStatsEngineOptions,
 ): ContextualBanditWeightsInput {
   const {
@@ -111,13 +179,15 @@ function buildContextualBanditWeightsInput(
   );
 
   return {
-    varIds: settings.varIds,
+    // The engine treats varIds positionally (numVariations = varIds.length); it
+    // never matches on them, so the internal ids are the right choice here.
+    varIds: settings.variations.map((v) => v.id),
     attributes: settings.contextualAttributes,
     maxLeaves: settings.maxLeaves,
     minUsersPerLeaf: settings.minUsersPerLeaf,
     metricSettings,
     analysisWeights: analysisForEngine.weights,
-    rows,
+    observations,
   };
 }
 
@@ -149,16 +219,9 @@ export function prepareRowsForContextualStats(
 
 function variationIndexFromRow(
   row: ExperimentMetricQueryResponseRows[number],
-  varIds: string[],
+  variations: ContextualBanditVariationRef[],
 ): number | null {
-  const key = String(row.variation ?? "");
-  const byId = varIds.indexOf(key);
-  if (byId >= 0) {
-    return byId;
-  }
-  const asNum = Number(key);
-  if (Number.isInteger(asNum) && asNum >= 0 && asNum < varIds.length) {
-    return asNum;
-  }
-  return null;
+  const value = String(row.variation ?? "");
+  const byKey = variations.findIndex((v) => v.key === value);
+  return byKey >= 0 ? byKey : null;
 }

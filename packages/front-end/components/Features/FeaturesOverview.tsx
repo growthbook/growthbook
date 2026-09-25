@@ -83,13 +83,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Markdown from "@/components/Markdown/Markdown";
 import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
-import CustomFieldDisplay, {
-  CustomFieldDraftInfo,
-} from "@/components/CustomFields/CustomFieldDisplay";
-import {
-  useCustomFields,
-  filterCustomFieldsForSectionAndProject,
-} from "@/hooks/useCustomFields";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
+import { CustomFieldDraftInfo } from "@/components/CustomFields/CustomFieldEditModal";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
@@ -145,7 +142,7 @@ function environmentKillSwitchTooltipBody(
         ? "in this revision"
         : "in this environment";
   return (
-    <Text as="div" size="small" color="text-high">
+    <Text as="div" size="sm" color="text-high">
       {enabled ? (
         <>
           The current feature is{" "}
@@ -179,7 +176,7 @@ function environmentKillSwitchTooltipBody(
         </>
       )}
       {showChangeHint && (
-        <Text as="div" mt="2" size="small" color="text-high">
+        <Text as="div" mt="2" size="sm" color="text-high">
           Click <strong>Change</strong> to turn traffic on or off for each
           environment.
         </Text>
@@ -523,8 +520,16 @@ export default function FeaturesOverview({
     approvalsEngaged &&
     featureReviewConfig?.featureRequireMetadataReview !== false;
 
-  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
-  const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
+  // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
+  // projection, so a draft staging a project move judged the wrong project.
+  const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
+  // An env change can be staged in a draft or published straight out. Offer the
+  // control when either route is open; the modal narrows it to the ones that are.
+  const canChangeEnvironments =
+    canEditDrafts ||
+    envs.some((envId) =>
+      permissionsUtil.canPublishFeature(baseFeature, [envId]),
+    );
 
   const featureCustomFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,
@@ -847,7 +852,7 @@ export default function FeaturesOverview({
                           flexShrink: 0,
                         }}
                       >
-                        <Text as="span" color="text-mid" size="medium">
+                        <Text as="span" color="text-mid" size="md">
                           {revision.version}.
                         </Text>
                       </span>
@@ -885,7 +890,7 @@ export default function FeaturesOverview({
                         }}
                       />
                     ) : (
-                      <Text weight="semibold" size="large">
+                      <Text weight="semibold" size="lg">
                         <OverflowText
                           maxWidth={250}
                           title={revisionLabelText(
@@ -924,9 +929,9 @@ export default function FeaturesOverview({
                   {isDraft &&
                     baseRevision &&
                     baseRevision.version !== feature.version && (
-                      <Text as="span" size="small" color="text-low">
+                      <Text as="span" size="sm" color="text-low">
                         based on{" "}
-                        <Text as="span" size="small" weight="medium">
+                        <Text as="span" size="sm" weight="medium">
                           Revision {baseRevision.version}
                         </Text>
                       </Text>
@@ -999,16 +1004,16 @@ export default function FeaturesOverview({
                 py="2"
                 style={{ cursor: "pointer", userSelect: "none" }}
               >
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   {hasCustomFields && !descriptionExpanded
                     ? "Description & Additional Fields"
                     : "Description"}
                 </Heading>
                 <Flex align="center" gap="2">
-                  {canEdit && canEditDrafts && !isReadOnly && (
+                  {canEditDrafts && !isReadOnly && (
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="md"
                       onClick={async (e) => {
                         e?.stopPropagation();
                         setShowDescriptionModal(true);
@@ -1039,7 +1044,7 @@ export default function FeaturesOverview({
               </Box>
               <CustomFieldDisplay
                 target={feature}
-                canEdit={canEdit && !isReadOnly}
+                canEdit={canEditDrafts && !isReadOnly}
                 mutate={mutate}
                 section={"feature"}
                 mt="4"
@@ -1063,7 +1068,7 @@ export default function FeaturesOverview({
         </Box>
         <Frame mb="4" px="6" py="4">
           <Flex align="center" justify="between" gap="2" mb="2">
-            <Heading as="h4" size="small" mb="0">
+            <Heading as="h4" size="sm" mb="0">
               Environment Status
             </Heading>
             {showFeatureUsage && (
@@ -1077,7 +1082,7 @@ export default function FeaturesOverview({
           {prerequisites.length > 0 ? (
             /* Grid layout: env icons column-aligned with prereq rows */
             <>
-              {!isReadOnly && (
+              {!isReadOnly && canChangeEnvironments && (
                 <Flex
                   justify="end"
                   style={{
@@ -1090,7 +1095,7 @@ export default function FeaturesOverview({
                 >
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => setKillSwitchTarget({})}
                     style={{ position: "relative", zIndex: 1 }}
                   >
@@ -1140,11 +1145,11 @@ export default function FeaturesOverview({
                               flipTheme={false}
                               body={environmentKillSwitchTooltipBody(
                                 enabled,
-                                !isReadOnly,
+                                !isReadOnly && canChangeEnvironments,
                                 envAndSummaryTooltipNonLiveDisclaimer,
                               )}
                             >
-                              {!isReadOnly ? (
+                              {!isReadOnly && canChangeEnvironments ? (
                                 <IconButton
                                   variant="ghost"
                                   radius="full"
@@ -1254,7 +1259,7 @@ export default function FeaturesOverview({
                   </Flex>
                 </Flex>
               </div>
-              {canEdit && canEditDrafts && !isReadOnly && (
+              {canEditDrafts && !isReadOnly && (
                 <PremiumTooltip
                   commercialFeature="prerequisites"
                   className="d-inline-flex align-items-center mt-2"
@@ -1291,10 +1296,10 @@ export default function FeaturesOverview({
                 <span>
                   <span className="font-weight-bold">Enabled Environments</span>
                 </span>
-                {!isReadOnly && (
+                {!isReadOnly && canChangeEnvironments && (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => setKillSwitchTarget({})}
                   >
                     Change
@@ -1329,11 +1334,11 @@ export default function FeaturesOverview({
                           flipTheme={false}
                           body={environmentKillSwitchTooltipBody(
                             enabled,
-                            !isReadOnly,
+                            !isReadOnly && canChangeEnvironments,
                             envAndSummaryTooltipNonLiveDisclaimer,
                           )}
                         >
-                          {!isReadOnly ? (
+                          {!isReadOnly && canChangeEnvironments ? (
                             <IconButton
                               variant="ghost"
                               radius="full"
@@ -1391,7 +1396,7 @@ export default function FeaturesOverview({
                   </Box>
                 )}
               </Flex>
-              {canEdit && canEditDrafts && !isReadOnly && (
+              {canEditDrafts && !isReadOnly && (
                 <PremiumTooltip
                   commercialFeature="prerequisites"
                   className="d-inline-flex align-items-center mt-2"
@@ -1437,7 +1442,7 @@ export default function FeaturesOverview({
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">
-              <Heading size="small" as="h4" mb="0">
+              <Heading size="sm" as="h4" mb="0">
                 Dependents
               </Heading>
               <Badge label={dependents + ""} color="gray" />
@@ -1525,14 +1530,14 @@ export default function FeaturesOverview({
             <Frame mt="4" px="6" py="4">
               <Flex align="center" justify="between">
                 <Flex align="center" gap="1" mb="3">
-                  <Heading as="h4" size="small" mb="0">
+                  <Heading as="h4" size="sm" mb="0">
                     Default Value
                   </Heading>
                 </Flex>
-                {canEdit && canEditDrafts && !isReadOnly && (
+                {canEditDrafts && !isReadOnly && (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => setEdit(true)}
                   >
                     Edit
@@ -1563,7 +1568,7 @@ export default function FeaturesOverview({
                 pt="4"
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
-                <Heading as="h4" size="small" mb="2">
+                <Heading as="h4" size="sm" mb="2">
                   Rules
                 </Heading>
                 {environments.length > 0 ? (
@@ -1611,7 +1616,7 @@ export default function FeaturesOverview({
         )}
 
         <Frame mb="4" px="6" py="4">
-          <Heading as="h4" size="small" mb="3">
+          <Heading as="h4" size="sm" mb="3">
             Comments
           </Heading>
           <DiscussionThread
@@ -1655,7 +1660,7 @@ export default function FeaturesOverview({
               </>
             }
             permissionRequired={(project) =>
-              permissionsUtil.canUpdateFeature({ project }, {})
+              permissionsUtil.canEditFeatureDrafts({ project })
             }
             apiEndpoint={`/feature/${feature.id}`}
             cancel={() => setEditProjectModal(false)}
@@ -1745,12 +1750,7 @@ export default function FeaturesOverview({
                     borderRadius: "var(--radius-2)",
                   }}
                 >
-                  <Text
-                    as="span"
-                    size="medium"
-                    weight="semibold"
-                    color="text-high"
-                  >
+                  <Text as="span" size="md" weight="semibold" color="text-high">
                     <OverflowText
                       maxWidth={200}
                       title={revisionLabelText(
@@ -1787,7 +1787,7 @@ export default function FeaturesOverview({
                         flexShrink: 0,
                       }}
                     >
-                      <Text as="span" color="text-mid" size="small">
+                      <Text as="span" color="text-mid" size="sm">
                         {Math.max(0, ...revisionList.map((r) => r.version)) + 1}
                         .
                       </Text>

@@ -1,5 +1,5 @@
 import React, { FC, useCallback, useState } from "react";
-import { FaPlus } from "react-icons/fa";
+import { PiPlus } from "react-icons/pi";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
@@ -38,17 +38,14 @@ export const DataSourceJupyterNotebookQuery: FC<
           <Box>
             <Button
               variant={dataSource.settings.notebookRunQuery ? "ghost" : "solid"}
+              icon={
+                dataSource.settings.notebookRunQuery ? undefined : <PiPlus />
+              }
               onClick={() => {
                 setUiMode("edit");
               }}
             >
-              {dataSource.settings.notebookRunQuery ? (
-                <>Edit</>
-              ) : (
-                <>
-                  <FaPlus className="mr-1" /> Add
-                </>
-              )}
+              {dataSource.settings.notebookRunQuery ? "Edit" : "Add"}
             </Button>
           </Box>
         )}

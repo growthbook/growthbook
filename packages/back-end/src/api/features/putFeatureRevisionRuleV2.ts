@@ -1,8 +1,9 @@
 import isEqual from "lodash/isEqual";
 import {
-  resetReviewOnChange,
+  getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
+  isScheduledRule,
 } from "shared/util";
 import {
   RevisionRampCreateAction,
@@ -29,14 +30,21 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  assertValidRuleEnvironments,
   discardIfJustCreated,
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
-  validateRuleConditions,
+  assertValidRevisionRulePrerequisites,
+  validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  stagedFeature,
+  validateRampPlanPatches,
+  withTemplatePlan,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
 import {
@@ -44,6 +52,9 @@ import {
   assertValidRuleConfigKeys,
   composeConfigBacking,
   resolveScopeFromInput,
+  assertCanUseRuleScheduling,
+  assertValidExperimentRefRule,
+  experimentRefChanged,
 } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
@@ -52,10 +63,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -68,6 +76,23 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       "rampSchedule and schedule are mutually exclusive. Provide one or the other, not both.",
     );
   }
+  // Same environment-id check as the add endpoint, before a draft is created.
+  assertValidRuleEnvironments(req.context, [patch]);
+  const staged = await stagedFeature(req.context, feature, req.params.version);
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      staged,
+      {
+        ...(staged.rules ?? []).find((r) => r.id === req.params.ruleId),
+        ...patch,
+        id: req.params.ruleId,
+      },
+    ),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -98,7 +123,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       [patch.config, ...(patch.variations?.map((v) => v.config) ?? [])],
       revision.defaultValue ?? feature.defaultValue,
       feature.baseConfig,
-      feature.project,
+      revision.metadata?.project ?? feature.project,
     );
 
     // Config backing comes only through the dedicated `config` field; a raw
@@ -164,6 +189,14 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
           undefined,
         );
     }
+    // Only newly introduced scheduling is plan-gated; an already-scheduled
+    // rule can be edited or cleared on any plan.
+    if (!isScheduledRule(oldRule) && liveSchedulesForRule.length === 0) {
+      assertCanUseRuleScheduling(req.context, {
+        schedule,
+        rampSchedule: inlineRampSchedule,
+      });
+    }
 
     // Apply patch including v2 scope fields.
     const { allEnvironments, environments, ...basePatch } = patch;
@@ -221,6 +254,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
             : v.value,
       }));
     }
+    if (
+      updatedRule.type === "experiment-ref" &&
+      experimentRefChanged(updatedRule, oldRule)
+    ) {
+      await assertValidExperimentRefRule(req.context, updatedRule);
+    }
 
     // A coverage patch can convert a force rule to a rollout, which arrives
     // seedless. Existing rollouts already carry a seed and are left untouched.
@@ -229,9 +268,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values, whose schema lives on the config). Opt out with
     // ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
-      rules: [updatedRule as FeatureRule],
-    });
+    assertFeatureValuesValid(
+      req.context,
+      feature,
+      { rules: [updatedRule as FeatureRule] },
+      { rules: [oldRule] },
+    );
     // Config-backed rule values additionally validate against the backing
     // config's schema + invariants. Same check the publish path runs; a no-op
     // for non-config values.
@@ -239,12 +281,9 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       rules: [updatedRule as FeatureRule],
     });
 
-    validateRuleConditions({
-      condition:
-        basePatch.condition !== undefined ? updatedRule.condition : undefined,
-      prerequisites:
-        basePatch.prerequisites !== undefined ? updatedRule.prerequisites : [],
-    });
+    if (basePatch.prerequisites !== undefined) {
+      validatePrerequisiteConditions(updatedRule.prerequisites ?? []);
+    }
     // Opt-in registered-attribute check, only on fields the patch actually
     // touches. Validate `changedAttributes` (not `updatedRule`) so an
     // unchanged condition referencing a now-archived attribute doesn't
@@ -262,12 +301,19 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     if (attrPatch.fallbackAttribute !== undefined)
       changedAttributes.fallbackAttribute = attrPatch.fallbackAttribute;
     if (Object.keys(changedAttributes).length > 0) {
-      validateRuleAttributes(changedAttributes, req.context, feature.project);
+      validateRuleAttributes(
+        changedAttributes,
+        req.context,
+        getRuleAttributeScopeProjectIds(
+          feature,
+          revision.metadata,
+          updatedRule,
+        ) ?? undefined,
+      );
     }
     if (
       basePatch.condition !== undefined ||
-      basePatch.savedGroups !== undefined ||
-      basePatch.prerequisites !== undefined
+      basePatch.savedGroups !== undefined
     ) {
       await validateRuleReferences(
         {
@@ -277,10 +323,6 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
               : undefined,
           savedGroups:
             basePatch.savedGroups !== undefined ? updatedRule.savedGroups : [],
-          prerequisites:
-            basePatch.prerequisites !== undefined
-              ? updatedRule.prerequisites
-              : [],
         },
         req.context,
       );
@@ -289,6 +331,10 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // Fold updated rule back into flat array at the same index.
     const newRules = flatRules.map((r, i) => (i === idx ? updatedRule : r));
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: flatRules,
+      after: newRules,
+    });
 
     const usesLegacyScheduling =
       oldRule.type === "experiment-ref" || oldRule.type === "safe-rollout";
@@ -306,6 +352,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       resolvedRampAction = normalizeInlineRampSchedule(
         inlineRampSchedule,
         updatedRule.id,
+        feature,
       );
       updatedRule.scheduleRules = [];
       updatedRule.scheduleType = "none";
@@ -350,29 +397,17 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       changes.rampActions = nextRampActions;
     }
 
-    // Affected envs for review reset.
+    // Affected envs for the revision-update record.
     const ruleEnvs = updatedRule.allEnvironments
       ? Object.keys(feature.environmentSettings ?? {})
       : (updatedRule.environments ?? []);
 
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "edit rule",
-        subject: req.params.ruleId,
-        value: JSON.stringify(updatedRule),
-      },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ruleEnvs,
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
-    );
+    await updateRevision(req.context, feature, revision, changes, {
+      user: req.context.auditUser,
+      action: "edit rule",
+      subject: req.params.ruleId,
+      value: JSON.stringify(updatedRule),
+    });
 
     const updated = await getRevision({
       context: req.context,

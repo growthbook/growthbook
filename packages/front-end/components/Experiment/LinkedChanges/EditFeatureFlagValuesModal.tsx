@@ -58,7 +58,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
-import { getDefaultVariationValue } from "@/services/features";
+import { getDefaultValue, getDefaultVariationValue } from "@/services/features";
 import Button from "@/ui/Button";
 import track from "@/services/track";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
@@ -194,11 +194,19 @@ export default function EditFeatureFlagValuesModal({
         key: v.key,
         screenshots: v.screenshots,
         weight: latestPhase?.variationWeights?.[i] ?? 0,
+        // A variation with no value on the linked rule (e.g. added to the
+        // experiment after the rule, or no matching rule at all) must still
+        // seed a valid value for the feature's type — "" is not one.
         value:
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
-          "",
+          getDefaultValue(feature.valueType),
       })),
-    [phaseVariations, latestPhase?.variationWeights, linkedFeatureInfo.values],
+    [
+      phaseVariations,
+      latestPhase?.variationWeights,
+      linkedFeatureInfo.values,
+      feature.valueType,
+    ],
   );
 
   const form = useForm<FormValues>({
@@ -427,9 +435,13 @@ export default function EditFeatureFlagValuesModal({
         const rows = values.variations;
 
         const updatedRefVariations: ExperimentRefVariation[] = rows.map(
-          (r) => ({
+          (r, i) => ({
             variationId: r.id,
-            value: validateFeatureValue(feature, r.value ?? "", ""),
+            value: validateFeatureValue(
+              feature,
+              r.value ?? "",
+              r.name || `Variation ${i + 1}`,
+            ),
           }),
         );
 
@@ -542,7 +554,7 @@ export default function EditFeatureFlagValuesModal({
                 >
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="sm"
                     onClick={setEqualWeights}
                     icon={<PiArrowsClockwise size={12} />}
                   >
@@ -659,7 +671,7 @@ export default function EditFeatureFlagValuesModal({
                       <VariationLabel
                         number={i}
                         name={row.name}
-                        size="large"
+                        size="lg"
                         maxWidth="320px"
                       />
                       <Box as="span">&middot;</Box>

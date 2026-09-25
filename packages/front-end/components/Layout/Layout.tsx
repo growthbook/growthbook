@@ -46,6 +46,10 @@ const otherPageTitles = [
     title: "Personal Access Tokens",
   },
   {
+    path: /^account\/slack/,
+    title: "My Slack Links",
+  },
+  {
     path: /^getstarted/,
     title: "Get Started",
   },
@@ -244,8 +248,8 @@ const Layout = (): React.ReactElement => {
                   </button>
                 </li>
                 <ProjectSelector />
-                {navlinks.map((v, i) => (
-                  <SidebarLink {...v} key={i} />
+                {navlinks.map((v) => (
+                  <SidebarLink key={v.href} {...v} />
                 ))}
               </ul>
             </div>

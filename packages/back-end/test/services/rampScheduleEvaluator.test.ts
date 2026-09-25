@@ -1,9 +1,15 @@
-import { RampScheduleInterface, SafeRolloutInterface } from "shared/validators";
 import {
+  RampScheduleInterface,
+  SafeRolloutInterface,
+  SafeRolloutSnapshotAnalysis,
+} from "shared/validators";
+import {
+  applyRampEvaluationDecision,
   evaluateCurrentStep,
   evaluateRampScheduleAfterSafeRolloutSnapshot,
 } from "back-end/src/services/rampScheduleEvaluator";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
+import { createEvent } from "back-end/src/models/EventModel";
 
 jest.mock("back-end/src/services/safeRolloutSnapshots", () => ({
   createSafeRolloutSnapshot: jest.fn(),
@@ -23,6 +29,13 @@ jest.mock("back-end/src/util/logger", () => ({
     warn: jest.fn(),
     error: jest.fn(),
   },
+}));
+
+// The post-snapshot evaluator swaps to the org's job context; hand it the
+// test's own mocked context so assertions keep seeing the same models.
+let mockLastContext: unknown;
+jest.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgObject: jest.fn(() => mockLastContext),
 }));
 
 const mockCreateSafeRolloutSnapshot =
@@ -117,13 +130,15 @@ function makeSafeRollout(snapshotId: string): SafeRolloutInterface {
 function makeContext({
   safeRollout,
   snapshotDate,
+  snapshotAnalysis,
   schedule,
 }: {
   safeRollout: SafeRolloutInterface;
   snapshotDate: Date;
+  snapshotAnalysis?: SafeRolloutSnapshotAnalysis;
   schedule?: RampScheduleInterface;
 }) {
-  return {
+  const context = {
     org: { id: "org_1", settings: {} },
     models: {
       rampSchedules: {
@@ -149,6 +164,7 @@ function makeContext({
           id: safeRollout.analysisSummary?.snapshotId,
           status: "success",
           dateCreated: snapshotDate,
+          analyses: snapshotAnalysis ? [snapshotAnalysis] : [],
         }),
       },
       metricGroups: {
@@ -156,7 +172,66 @@ function makeContext({
       },
     },
   };
+  mockLastContext = context;
+  return context;
 }
+
+describe("applyRampEvaluationDecision: health holds", () => {
+  const mockCreateEvent = createEvent as jest.Mock;
+  const hold = (reason: string, health?: "srm" | "noTraffic") =>
+    ({ action: "hold", reason, health }) as const;
+
+  beforeEach(() => mockCreateEvent.mockClear());
+
+  it("reports a health hold once per check per step, whatever the reason text says", async () => {
+    const schedule = makeSchedule({ currentStepIndex: 1 });
+    const context = makeContext({
+      safeRollout: makeSafeRollout("srsnp_hold"),
+      snapshotDate: new Date(),
+      schedule,
+    });
+    const ctx = context as unknown as Parameters<
+      typeof applyRampEvaluationDecision
+    >[0];
+
+    const held = await applyRampEvaluationDecision(
+      ctx,
+      schedule,
+      hold("SRM check failed (p=0.0010)", "srm"),
+    );
+    expect(held.healthHold).toEqual({ stepIndex: 1, kind: "srm" });
+    expect(mockCreateEvent).toHaveBeenCalledTimes(1);
+    expect(mockCreateEvent.mock.calls[0][0]).toMatchObject({
+      event: "rampSchedule.actions.stepHeld",
+      data: {
+        object: { reason: "SRM check failed (p=0.0010)", currentStepIndex: 1 },
+      },
+    });
+
+    // The next snapshot's p-value is the same check; another check is news.
+    await applyRampEvaluationDecision(
+      ctx,
+      held,
+      hold("SRM check failed (p=0.0007)", "srm"),
+    );
+    expect(mockCreateEvent).toHaveBeenCalledTimes(1);
+    await applyRampEvaluationDecision(
+      ctx,
+      held,
+      hold("No traffic detected", "noTraffic"),
+    );
+    expect(mockCreateEvent).toHaveBeenCalledTimes(2);
+
+    // A timing hold clears the record without reporting.
+    const waiting = await applyRampEvaluationDecision(
+      ctx,
+      held,
+      hold("Waiting for the step interval to elapse"),
+    );
+    expect(waiting.healthHold).toBeNull();
+    expect(mockCreateEvent).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("evaluateCurrentStep: 0-step simple schedules", () => {
   it("holds when a 0-step schedule has a future cutoffDate", async () => {
@@ -339,6 +414,53 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
     expect(mockCreateSafeRolloutSnapshot).not.toHaveBeenCalled();
   });
 
+  it("holds when the SafeRollout analysis contains a compute failure", async () => {
+    const schedule = makeSchedule();
+    const safeRollout = makeSafeRollout("srsnp_compute_failure");
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+      snapshotAnalysis: {
+        settings: { statsEngine: "bayesian" },
+        dateCreated: new Date("2026-01-01T01:05:00Z"),
+        status: "success",
+        results: [
+          {
+            name: "All",
+            srm: 1,
+            variations: [
+              {
+                users: 100,
+                metrics: {
+                  m_guard: {
+                    value: 0,
+                    cr: 0,
+                    users: 0,
+                    computeFailed: true,
+                    errorMessage: "analysis failed",
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "hold",
+      reason:
+        "Guardrail metric m_guard failed to compute — holding step until it recovers",
+      health: "guardrailCompute",
+    });
+  });
+
   it("holds when SafeRollout analysis is older than the rolling analysis floor", async () => {
     const schedule = makeSchedule();
     // Floor bumped (e.g. ramp restart) after the snapshot was taken.
@@ -405,9 +527,7 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
     expect(context.models.rampSchedules.getById).toHaveBeenCalledWith("rs_1");
     expect(context.models.rampSchedules.updateById).toHaveBeenCalledWith(
       "rs_1",
-      {
-        nextProcessAt: null,
-      },
+      { nextProcessAt: null, healthHold: null },
     );
     expect(mockCreateSafeRolloutSnapshot).not.toHaveBeenCalled();
   });
@@ -581,6 +701,7 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
     expect(decision).toEqual({
       action: "hold",
       reason: expect.stringMatching(/SRM check failed/),
+      health: "srm",
     });
   });
 
@@ -752,6 +873,7 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
       expect(decision).toEqual({
         action: "hold",
         reason: expect.stringMatching(/No traffic detected.*hold/i),
+        health: "noTraffic",
       });
     });
 

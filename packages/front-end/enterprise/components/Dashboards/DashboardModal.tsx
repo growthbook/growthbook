@@ -191,7 +191,6 @@ export default function DashboardModal({
 
   return (
     <Modal
-      useRadixButton={false}
       open={true}
       size="md"
       trackingEventModalType={`${mode}-dashboard`}
@@ -227,7 +226,7 @@ export default function DashboardModal({
         {isGeneralDashboard ? (
           <>
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label="Projects"
               placeholder="All projects"
               options={projectsOptions}

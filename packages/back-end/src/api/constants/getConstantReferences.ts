@@ -10,11 +10,11 @@ export const getConstantReferences = createApiRequestHandler(
   // references lookup uses.
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant with that key");
+    throw new NotFoundError("Could not find Constant with that key");
   }
   const refs = await loadConstantReferences(req.context, constant.id);
   if (!refs) {
-    throw new NotFoundError("Could not find constant with that key");
+    throw new NotFoundError("Could not find Constant with that key");
   }
   return { features: refs.features, constants: refs.constants };
 });

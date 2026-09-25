@@ -189,7 +189,6 @@ const DataSourceForm: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       inline={inline}
       open={true}
@@ -291,7 +290,7 @@ const DataSourceForm: FC<{
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             label={
               <>
                 Projects{" "}

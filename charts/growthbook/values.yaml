@@ -30,23 +30,19 @@ frontend:
     # targetMemoryUtilizationPercentage: 80
   service:
     port: 3000
-  # The hardened image is distroless (no shell), so launch pm2-runtime via node
-  # directly — its node_modules/.bin shim is #!/bin/sh and won't exec. --only
+  # The hardened image is distroless (no shell), so launch the supervisor via node
+  # directly. --only
   # runs just this pod's app.
-  command: [/usr/local/bin/node, node_modules/pm2/bin/pm2-runtime, start, ecosystem.config.js, --only, front-end]
+  command: [/usr/local/bin/node, scripts/run-apps.js, start, ecosystem.config.js, --only, front-end]
   args: []
-  # readOnlyRootFilesystem requires writable mounts for the paths the front-end
-  # writes at runtime: /tmp and Next.js's on-disk cache.
+  # readOnlyRootFilesystem requires a writable mount for the one path the
+  # front-end writes at runtime: /tmp.
   volumes:
     - name: tmp
-      emptyDir: {}
-    - name: next-cache
       emptyDir: {}
   volumeMounts:
     - name: tmp
       mountPath: /tmp
-    - name: next-cache
-      mountPath: /usr/local/src/app/packages/front-end/.next/cache
   env:
     - name: API_HOST
       # full URL of your backend, e.g. https://gb-api.example.com
@@ -88,10 +84,10 @@ backend:
       mountPath: /tmp
   # For use when providing an existing MongoDB instance
   # mongodbUri:
-  # The hardened image is distroless (no shell), so launch pm2-runtime via node
-  # directly — its node_modules/.bin shim is #!/bin/sh and won't exec. --only
+  # The hardened image is distroless (no shell), so launch the supervisor via node
+  # directly. --only
   # runs just this pod's app.
-  command: [/usr/local/bin/node, node_modules/pm2/bin/pm2-runtime, start, ecosystem.config.js, --only, back-end]
+  command: [/usr/local/bin/node, scripts/run-apps.js, start, ecosystem.config.js, --only, back-end]
   # To enable tracing set TRACING_PROVIDER env var to "datadog" or "opentelemetry"
   args: []
   # Reference: https://docs.growthbook.io/self-host/env

@@ -82,7 +82,7 @@ export function findScopedOverrideStructuralErrors(
   entries.forEach((entry, j) => {
     if (entry.config === selfKey) {
       errors.push(
-        `A config can't reference itself as a scoped override ("${selfKey}").`,
+        `A Config can't reference itself as a scoped override ("${selfKey}").`,
       );
     }
     if ((entry.environments?.length ?? 0) !== 1 || entry.projects?.length) {

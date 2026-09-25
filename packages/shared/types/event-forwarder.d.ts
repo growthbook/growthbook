@@ -1,8 +1,8 @@
 /**
- * Event forwarder sink types backed by Confluent Cloud managed connectors.
- * Reference implementations: bigquery, snowflake.
+ * Event forwarder sink types. bigquery and snowflake are Confluent Cloud managed
+ * connectors; databricks is written by the GrowthBook-owned consumer (Zerobus).
  */
-export type EventForwarderSinkType = "bigquery" | "snowflake";
+export type EventForwarderSinkType = "bigquery" | "snowflake" | "databricks";
 
 export type EventForwarderStatus =
   | "pending"
@@ -57,14 +57,46 @@ export interface SnowflakeEventForwarderStoredConfig {
   warehouse?: string;
 }
 
+/** Databricks sink settings edited in the event forwarder UI. */
+export interface DatabricksEventForwarderConfigDraft {
+  catalog: string;
+  schema: string;
+  tablePrefix: string;
+  zerobusEndpoint: string;
+}
+
+/** Encrypted payload read by the consumer; connection fields are copied from datasource params at sync time. */
+export interface DatabricksEventForwarderStoredConfig {
+  catalog: string;
+  schema: string;
+  tablePrefix: string;
+  zerobusEndpoint: string;
+  /** Fully qualified `catalog.schema.table`, no backticks. */
+  tables: { events: string; experiment_viewed: string; feature_usage: string };
+  host: string;
+  path: string;
+  oauthClientId: string;
+  oauthClientSecret: string;
+}
+
 export type EventForwarderConfigDraft =
   | {
       sinkType: "bigquery";
       config: BigQueryEventForwarderConfigDraft;
+      /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
+      region?: "us-east-1" | "eu-west-1";
     }
   | {
       sinkType: "snowflake";
       config: SnowflakeEventForwarderConfigDraft;
+      /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
+      region?: "us-east-1" | "eu-west-1";
+    }
+  | {
+      sinkType: "databricks";
+      config: DatabricksEventForwarderConfigDraft;
+      /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
+      region?: "us-east-1" | "eu-west-1";
     };
 
 export type EventForwarderConfigWithMetadata = EventForwarderConfigDraft & {

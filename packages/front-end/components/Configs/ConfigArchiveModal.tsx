@@ -1,10 +1,20 @@
 import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
+import { configPublishEnvironments } from "shared/util";
+import {
+  canStageArchiveDraft,
+  canWriteArchiveIntoDraft,
+  archiveFootprintForControl,
+  canLandArchiveToggle,
+} from "shared/permissions";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import Link from "@/ui/Link";
 
 // Thin wrapper around the entity-agnostic ArchiveModal for configs (mirrors
@@ -28,6 +38,9 @@ export default function ConfigArchiveModal({
   const { mutateDefinitions } = useDefinitions();
   const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
     revisionCtx;
+  const permissionsUtil = usePermissionsUtil();
+  const { userId } = useUser();
+  const environments = useEnvironments();
 
   const isArchived = !!config.archived;
   const { references, loading, error } = useConfigFamilyReferences(
@@ -53,6 +66,17 @@ export default function ConfigArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
+      // Archive requires delete authority; unarchive requires publish authority.
+      canLand={canLandArchiveToggle(
+        permissionsUtil,
+        "config",
+        config,
+        archiveFootprintForControl({
+          environments,
+          entity: config,
+          scoped: configPublishEnvironments(config),
+        }),
+      )}
       referenceCount={features.length}
       referencesLoading={loading}
       referencesError={(error ?? null) !== null}
@@ -72,6 +96,21 @@ export default function ConfigArchiveModal({
           ))}
         </ul>
       }
+      canStageDraft={canStageArchiveDraft({
+        permissions: permissionsUtil,
+        model: "config",
+        entity: config,
+        archived: !config.archived,
+      })}
+      canWriteIntoDraft={(r) =>
+        canWriteArchiveIntoDraft({
+          permissions: permissionsUtil,
+          model: "config",
+          entity: config,
+          revision: r,
+          userId,
+        })
+      }
       renderDraftSelector={({
         mode,
         setMode,
@@ -79,10 +118,14 @@ export default function ConfigArchiveModal({
         setSelectedDraftId,
         canAutoPublish,
         approvalRequired: gated,
+        canWriteIntoDraft,
+        canDraft,
       }) => (
         <RevisionDraftSelectorForChanges
           entityId={config.id}
           openRevisions={openRevisions}
+          canWriteIntoDraft={canWriteIntoDraft}
+          canDraft={canDraft}
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

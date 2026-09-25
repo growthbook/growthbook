@@ -103,6 +103,7 @@ export async function createDashboard(
     blocks,
     projects,
     globalControls,
+    comparison,
     userId,
   } = req.body;
 
@@ -127,6 +128,7 @@ export async function createDashboard(
     title,
     projects,
     globalControls,
+    comparison,
     blocks: blocksWithGlobalControls,
   });
 
@@ -371,6 +373,7 @@ export async function getDashboardSnapshots(
           block.type !== "metric-exploration" &&
           block.type !== "fact-table-exploration" &&
           block.type !== "data-source-exploration" &&
+          block.type !== "sql-exploration" &&
           block.type !== "funnel-exploration"
         ) {
           return [];
@@ -381,6 +384,7 @@ export async function getDashboardSnapshots(
       }),
     ),
   ];
+
   const explorations: ProductAnalyticsExploration[] =
     explorerAnalysisIds.length > 0
       ? (

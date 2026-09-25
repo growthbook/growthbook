@@ -300,11 +300,14 @@ export function scrollToRevisionLogEntry(logId: string): void {
 
 // After posting a new timeline comment, scroll to the newest rendered entry.
 // Retries while the log refetch re-renders (same pattern as scrollToDiffRef).
+//
+// No flash here, unlike the two navigation helpers above: those highlight an entry
+// the reader did NOT just create, so the colour answers "where did I land?". You know
+// where your own comment went the moment it appears, and flashing it reads as though
+// something needs attention.
 export function scrollToLatestRevisionLogEntry(): void {
   const scrollTo = (el: Element) => {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("gb-log-entry-flash");
-    setTimeout(() => el.classList.remove("gb-log-entry-flash"), 1800);
   };
   const find = () => {
     const entries = document.querySelectorAll("[data-revision-log-id]");

@@ -1,3 +1,5 @@
+import { validateCappingSettingsValueEntered } from "shared/validators";
+import isEqual from "lodash/isEqual";
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -516,6 +518,9 @@ const MetricForm: FC<MetricFormProps> = ({
   };
 
   const onSubmit = form.handleSubmit(async (value) => {
+    if (!edit || !isEqual(value.cappingSettings, current.cappingSettings)) {
+      validateCappingSettingsValueEntered(value.cappingSettings, false);
+    }
     const {
       winRisk,
       loseRisk,
@@ -639,7 +644,6 @@ const MetricForm: FC<MetricFormProps> = ({
         />
       )}
       <PagedModal
-        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}
@@ -726,7 +730,7 @@ const MetricForm: FC<MetricFormProps> = ({
           {projects?.length > 0 && (
             <div className="form-group">
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 label={
                   <>
                     Projects{" "}
@@ -862,7 +866,7 @@ const MetricForm: FC<MetricFormProps> = ({
               {supportsSQL && value.queryFormat === "sql" ? (
                 <div>
                   <MultiSelectField
-                    size="legacy"
+                    legacyHeight
                     value={value.userIdTypes}
                     onChange={(types) => {
                       form.setValue("userIdTypes", types);
@@ -1144,7 +1148,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   {customizeUserIds && (
                     <MultiSelectField
-                      size="legacy"
+                      legacyHeight
                       value={value.userIdTypes}
                       onChange={(types) => {
                         form.setValue("userIdTypes", types);

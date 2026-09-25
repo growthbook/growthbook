@@ -33,14 +33,14 @@ export default function ContextualBanditEmptyState({
         <Flex direction="column" align="center" gap="8px">
           <Heading
             as="h2"
-            size="x-large"
+            size="xl"
             weight="medium"
             color="text-high"
             align="center"
           >
             Automatically Personalize Experiences with Contextual Bandits
           </Heading>
-          <Text size="large" color="text-mid" align="center">
+          <Text size="lg" color="text-mid" align="center">
             Drive more traffic to variants that perform best for groups of users
           </Text>
 
@@ -76,7 +76,7 @@ export default function ContextualBanditEmptyState({
       </Box>
 
       {footnote && (
-        <Text as="p" size="small" color="text-low" mt="3" align="center">
+        <Text as="p" size="sm" color="text-low" mt="3" align="center">
           {footnote}
         </Text>
       )}

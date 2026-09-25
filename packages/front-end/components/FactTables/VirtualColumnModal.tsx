@@ -314,7 +314,7 @@ export default function VirtualColumnModal({
 
           <Button
             variant="solid"
-            size="sm"
+            size="md"
             icon={<PiPlay />}
             onClick={async () => {
               await testQuery(form.watch("sql"));

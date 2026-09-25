@@ -1,0 +1,9 @@
+// `@/ui/Button` wraps its children in a <Text> span, so a `width: 100%` on our
+// own content resolves against that span rather than the button. Left to
+// itself the span stays content-sized and the button's `space-between` shoves
+// it to the right edge — visible as a right-aligned label at full width.
+// The icon renders as an <svg>, so `> span` matches only the Text wrapper.
+.trigger > span {
+  flex: 1;
+  min-width: 0;
+}

@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -12,6 +13,9 @@ import PrerequisiteInput, {
 
 export interface TargetingFieldsGroupProps {
   project: string;
+  attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
+  attributeSelectIndicator?: ReactNode;
   environments: string[];
   // When set, `PrerequisiteInput` will use the feature's project + linked-feature
   // metadata. Pass `feature` from rule modals; leave undefined for experiment-level
@@ -34,6 +38,9 @@ export interface TargetingFieldsGroupProps {
 
 export default function TargetingFieldsGroup({
   project,
+  attributeProjects,
+  savedGroupProjects,
+  attributeSelectIndicator,
   environments,
   feature,
   savedGroups,
@@ -49,6 +56,7 @@ export default function TargetingFieldsGroup({
   return (
     <>
       <SavedGroupTargetingField
+        savedGroupProjects={savedGroupProjects}
         value={savedGroups}
         setValue={setSavedGroups}
         project={project}
@@ -59,6 +67,9 @@ export default function TargetingFieldsGroup({
         onChange={setCondition}
         key={conditionKey}
         project={project}
+        attributeProjects={attributeProjects}
+        savedGroupProjects={savedGroupProjects}
+        attributeSelectIndicator={attributeSelectIndicator}
       />
       <Separator size="4" my="5" />
       <PrerequisiteInput

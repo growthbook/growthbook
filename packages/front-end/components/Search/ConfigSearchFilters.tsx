@@ -14,7 +14,6 @@ const ConfigSearchFilters: FC<
   BaseSearchFiltersProps & {
     configs: { owner?: string; archived?: boolean }[];
     hasArchived: boolean;
-    hasDraftStates: boolean;
   }
 > = ({
   searchInputProps,
@@ -22,7 +21,6 @@ const ConfigSearchFilters: FC<
   setSearchValue,
   configs,
   hasArchived,
-  hasDraftStates,
 }) => {
   const {
     dropdownFilterOpen,
@@ -92,12 +90,11 @@ const ConfigSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived configs"
+            item="Archived Configs"
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>
         <DropdownMenuItem
-          disabled={!hasDraftStates}
           onClick={() => {
             updateQuery({
               field: "has",

@@ -1,3 +1,4 @@
+import type { Queries, QueryRunnerFailureCause } from "shared/types/query";
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
@@ -6,7 +7,11 @@ import {
   blockHasFieldOfType,
   DashboardInterface,
 } from "shared/enterprise";
-import { isString } from "shared/util";
+import {
+  findAnalysisComputeFailure,
+  getSnapshotAnalysis,
+  isString,
+} from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -20,6 +25,8 @@ import {
   AnalysisMetaEntry,
   buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
+import type { ExperimentSnapshotReportInterface } from "shared/types/report";
+import { notifySnapshotUpdateFailure } from "back-end/src/services/experimentSnapshotNotifications";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
@@ -163,6 +170,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
         of: [experimentSnapshotTrafficObject],
       },
       error: String,
+      multipleExposures: Number,
     },
     power: {
       _id: false,
@@ -232,6 +240,20 @@ const experimentSnapshotSchema = new mongoose.Schema({
 });
 experimentSnapshotSchema.index({
   experiment: 1,
+  dateCreated: -1,
+});
+// Backs the bulk-results export: organization + experiment equality, then
+// status (bounded by both branches of the query's $or), then dateCreated for
+// the window filter and the descending sort.
+experimentSnapshotSchema.index({
+  organization: 1,
+  experiment: 1,
+  status: 1,
+  dateCreated: -1,
+});
+// Backs the cross-org stalled-snapshot reaper scan, which runs every minute.
+experimentSnapshotSchema.index({
+  status: 1,
   dateCreated: -1,
 });
 
@@ -409,11 +431,13 @@ export async function updateSnapshot({
   context,
   id,
   updates,
+  failureCause,
   experimentUpdateExecutionLogger,
 }: {
   context: Context;
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
+  failureCause?: QueryRunnerFailureCause;
   experimentUpdateExecutionLogger?: ExperimentUpdateExecutionLogger | null;
 }) {
   const organization = context.org.id;
@@ -519,9 +543,23 @@ export async function updateSnapshot({
       await populateSnapshotAnalyses(context, experimentSnapshot);
     }
 
+    if (
+      (experimentSnapshot.status === "error" &&
+        existingInterface.status !== "error") ||
+      (hasAnalysisUpdates && experimentSnapshot.status === "success")
+    ) {
+      await notifySnapshotUpdateFailure({
+        context,
+        snapshot: experimentSnapshot,
+        failureCause,
+      });
+    }
+
     const shouldUpdateExperimentAnalysisSummary =
       experimentSnapshot.type === "standard" &&
-      experimentSnapshot.status === "success";
+      experimentSnapshot.status === "success" &&
+      findAnalysisComputeFailure(getSnapshotAnalysis(experimentSnapshot)) ===
+        null;
 
     shouldRunEagerDimensionAnalyses =
       shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
@@ -865,6 +903,20 @@ export async function deleteSnapshotById(context: Context, id: string) {
   });
 }
 
+export async function deleteSnapshotIfRunning(
+  context: Context,
+  id: string,
+): Promise<boolean> {
+  const { deletedCount } = await ExperimentSnapshotModel.deleteOne({
+    organization: context.org.id,
+    id,
+    status: "running",
+  });
+  if (!deletedCount) return false;
+  await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(id);
+  return true;
+}
+
 export async function deleteAllSnapshotsForExperiment(
   context: Context,
   experimentId: string,
@@ -909,6 +961,75 @@ export async function findSnapshotsByIds(
   return populateSnapshotAnalyses(context, snapshots);
 }
 
+export async function findSnapshotsByExperiment(
+  context: ReqContext | ApiReqContext,
+  {
+    experiment,
+    dateStart,
+    dateEnd,
+    phase,
+    type,
+    limit,
+    offset,
+  }: {
+    experiment: string;
+    dateStart: Date;
+    dateEnd: Date;
+    phase?: number;
+    type?: SnapshotType;
+    limit: number;
+    offset: number;
+  },
+): Promise<{ snapshots: ExperimentSnapshotInterface[]; total: number }> {
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    organization: context.org.id,
+    experiment,
+    dateCreated: { $gte: dateStart, $lte: dateEnd },
+    // `status` is derived at read time by migrateSnapshot, so snapshots
+    // written before the field existed need the legacy results check too.
+    // Both branches pin `status` so the index below can bound them; without
+    // that, `status` stops being an equality match and the dateCreated range
+    // and sort fall out of the index.
+    $or: [
+      { status: "success" },
+      {
+        status: { $exists: false },
+        results: { $exists: true, $type: "array", $ne: [] },
+      },
+    ],
+  };
+  if (phase !== undefined) {
+    query.phase = phase;
+  }
+  // Only filter by type when requested; by default include every type
+  // (standard, exploratory, and report) since this endpoint dumps all runs.
+  if (type === "standard") {
+    // `type` was added in Oct 2024 and never backfilled; the serializer reads
+    // a missing type as "standard", so the filter has to match that.
+    query.type = { $in: ["standard", null] };
+  } else if (type) {
+    query.type = type;
+  }
+
+  const total = await ExperimentSnapshotModel.countDocuments(query);
+
+  // Paginate over snapshots at the DB level (backed by the
+  // { organization, experiment, status, dateCreated } index) since hydrating
+  // chunked analyses per snapshot is expensive.
+  const docs = await ExperimentSnapshotModel.find(query, null, {
+    sort: { dateCreated: -1 },
+    skip: offset,
+    limit,
+  }).exec();
+
+  const snapshots = await populateSnapshotAnalyses(
+    context,
+    docs.map(toInterface),
+  );
+
+  return { snapshots, total };
+}
+
 export async function findRunningSnapshotsByQueryId(ids: string[]) {
   // Only look for matches in the past 24 hours to make the query more efficient
   // Older snapshots should not still be running anyway
@@ -928,21 +1049,67 @@ export async function errorSnapshotIfStillRunning(
   context: Context,
   id: string,
   updates: Partial<ExperimentSnapshotInterface>,
+  failureCause: QueryRunnerFailureCause,
 ): Promise<boolean> {
-  const res = await ExperimentSnapshotModel.updateOne(
+  const updated = await ExperimentSnapshotModel.findOneAndUpdate(
     {
       organization: context.org.id,
       id,
       status: "running",
     },
     { $set: { ...updates, status: "error" } },
+    { new: true },
   );
-  return res.modifiedCount > 0;
+  if (!updated) return false;
+  await notifySnapshotUpdateFailure({
+    context,
+    snapshot: toInterface(updated),
+    failureCause,
+  });
+  return true;
+}
+
+/** Rewrites only the pointers of a concluded snapshot; status, error and results are left alone. */
+export async function reconcileSnapshotQueryPointers(
+  context: Context,
+  id: string,
+  queries: Queries,
+): Promise<boolean> {
+  const { modifiedCount } = await ExperimentSnapshotModel.updateOne(
+    {
+      organization: context.org.id,
+      id,
+      status: { $in: ["success", "error"] },
+    },
+    { $set: { queries } },
+  );
+  return modifiedCount > 0;
+}
+
+/** Newest successful snapshot a report owns. `experiment` is in the filter so the experiment indexes serve it. */
+export async function findLatestSuccessfulReportSnapshotId(
+  context: Context,
+  report: Pick<ExperimentSnapshotReportInterface, "id" | "experimentId">,
+): Promise<string | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization: context.org.id,
+      report: report.id,
+      ...(report.experimentId ? { experiment: report.experimentId } : {}),
+      status: "success",
+    },
+    { id: 1 },
+    { sort: { dateCreated: -1 } },
+  )
+    .lean<{ id: string }>()
+    .exec();
+  return doc?.id ?? null;
 }
 
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
+  excludeIds: string[] = [],
 ) {
   // Only look back 24 hours to keep the scan bounded
   const earliestDate = new Date();
@@ -951,29 +1118,12 @@ export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   const docs = await ExperimentSnapshotModel.find({
     status: "running",
     dateCreated: { $gt: earliestDate, $lt: stalledBefore },
-  }).limit(limit);
+    ...(excludeIds.length ? { id: { $nin: excludeIds } } : {}),
+  })
+    .sort({ dateCreated: 1 })
+    .limit(limit);
 
   return docs.map((doc) => toInterface(doc));
-}
-
-export async function findLatestRunningSnapshotByReportId(
-  context: Context,
-  report: string,
-) {
-  // Only look for match in the past 24 hours to make the query more efficient
-  // Older snapshots should not still be running anyway
-  const earliestDate = new Date();
-  earliestDate.setDate(earliestDate.getDate() - 1);
-
-  const doc = await ExperimentSnapshotModel.findOne({
-    organization: context.org.id,
-    report,
-    status: "running",
-    dateCreated: { $gt: earliestDate },
-    queries: { $elemMatch: { status: "running" } },
-  });
-
-  return doc ? toInterface(doc) : null;
 }
 
 export async function getLatestSuccessfulSnapshot({
@@ -983,6 +1133,7 @@ export async function getLatestSuccessfulSnapshot({
   dimension,
   beforeSnapshot,
   type,
+  metricIds,
 }: {
   context: Context;
   experiment: string;
@@ -990,6 +1141,8 @@ export async function getLatestSuccessfulSnapshot({
   dimension?: string;
   beforeSnapshot?: Pick<ExperimentSnapshotInterface, "dateCreated">;
   type?: SnapshotType;
+  // Load only these metrics' analysis chunks; omit for the full snapshot.
+  metricIds?: string[];
 }): Promise<ExperimentSnapshotInterface | null> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,
@@ -1023,7 +1176,11 @@ export async function getLatestSuccessfulSnapshot({
   if (all[0]) {
     const mostRecentSnapshot = all[0];
 
-    return populateSnapshotAnalyses(context, toInterface(mostRecentSnapshot));
+    return populateSnapshotAnalyses(
+      context,
+      toInterface(mostRecentSnapshot),
+      metricIds,
+    );
   }
 
   // Otherwise, try getting old snapshot records
@@ -1034,7 +1191,9 @@ export async function getLatestSuccessfulSnapshot({
     limit: 1,
   }).exec();
 
-  return all[0] ? populateSnapshotAnalyses(context, toInterface(all[0])) : null;
+  return all[0]
+    ? populateSnapshotAnalyses(context, toInterface(all[0]), metricIds)
+    : null;
 }
 
 // Mongo projection limited to fields needed for SnapshotStatusSummary.

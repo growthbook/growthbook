@@ -61,8 +61,10 @@ const rampScheduleInputV2 = standaloneRampScheduleInput.extend({
     .describe(
       "The rule state to roll back to (the rollback/jump-to-start anchor). " +
         'Merged onto the rule\'s current state, so `{ "coverage": 0 }` keeps ' +
-        "existing targeting but rolls back to 0%. This affects rollbacks only — " +
-        "it is NOT applied when the ramp starts. On create, omitting it infers " +
+        "existing targeting but rolls back to 0%. Steps accumulate on it, and it " +
+        "is the only place a plan sets `hashAttribute` (plus optional `seed` and " +
+        "`hashVersion`), which a partial-coverage step on a force rule requires " +
+        "unless the rule has one. On create, omitting it infers " +
         "the anchor from the rule's current coverage (and returns a warning if " +
         "that isn't 0%); on update of a live schedule, omitting it leaves the " +
         "existing anchor unchanged.",
@@ -148,13 +150,13 @@ const ruleScopeInput = {
     .boolean()
     .optional()
     .describe(
-      "When true the rule applies to all environments. Defaults to false.",
+      "When true the rule applies to all environments. Omit both scope fields to apply to all environments.",
     ),
   environments: z
     .array(z.string())
     .optional()
     .describe(
-      "Specific environment IDs this rule applies to. Used when allEnvironments is false.",
+      "Environment IDs the rule applies to. Ignored when allEnvironments is true; with allEnvironments false, an omitted or empty list scopes the rule to no environment.",
     ),
 };
 
@@ -347,8 +349,16 @@ const rulePatchSchemaV2 = z
     controlValue: z.string().optional(),
     variationValue: z.string().optional(),
     // V2: scope can be updated via patch
-    allEnvironments: z.boolean().optional(),
-    environments: z.array(z.string()).optional(),
+    allEnvironments: z
+      .boolean()
+      .optional()
+      .describe("Omit both scope fields to keep the current scope."),
+    environments: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Environment IDs the rule applies to. Ignored when allEnvironments is true.",
+      ),
   })
   .strict();
 
@@ -458,7 +468,7 @@ export const postFeatureRevisionPublishV2Validator = {
   operationId: "postFeatureRevisionPublishV2",
   summary: "Publish a draft revision",
   description:
-    "Immediately publishes a draft revision, making it the live version of the feature. Any pending ramp actions (`pendingRamp` on rules) are executed atomically — ramp schedules are created or detached as queued.",
+    "Publishes the draft and makes its changes live. The caller needs Publish access for every affected environment. When approval is required, the draft must be approved unless the caller has Bypass draft approvals access. If the organization requires rebasing, an out-of-date draft must be rebased first; an authorized caller can instead send `ignoreWarnings: true` to force-publish it. Any pending ramp actions in `pendingRamp` are applied as part of the same operation. A 422 response lists every blocking gate and the available resolution.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -487,10 +497,16 @@ export const postFeatureRevisionRevertV2Validator = {
       strategy: z.enum(["draft", "publish"]).optional(),
       comment: z.string().optional(),
       title: z.string().optional(),
+      // Same reason as the Saved Group and Config reverts: publishing a revert
+      // that restores `archived` runs the bypassable dependent guard, and a
+      // strict body without these rejects the acknowledgment it asks for.
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
   version: "v2" as const,
 };
 
@@ -555,7 +571,7 @@ export const getFeatureRevisionMergeStatusV2Validator = {
     rebaseRequired: z
       .boolean()
       .describe(
-        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, callers with bypass-approval permission can still publish with `ignoreWarnings: true`; others must rebase first.",
+        "Whether the draft must be rebased before it can be published. This is true when the merge has conflicts, or when the organization requires rebasing and the draft or its approval is out of date. If there are no conflicts, a caller with Bypass draft approvals access can send `ignoreWarnings: true` to force-publish instead.",
       ),
   }),
   version: "v2" as const,
@@ -698,8 +714,9 @@ export const postFeatureRevisionRequestReviewV2Validator = {
     .object({
       comment: z.string().optional(),
       autoPublishOnApproval: z.boolean().optional(),
+      // Same field, same rule as the schedule-publish endpoint below.
       scheduledPublishAt: z
-        .union([z.string().meta({ format: "date-time" }), z.null()])
+        .union([z.iso.datetime({ offset: true }), z.null()])
         .optional(),
       scheduledPublishLockEdits: z.boolean().optional(),
       scheduledPublishLockOthers: z.boolean().optional(),
@@ -716,15 +733,20 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
   operationId: "postFeatureRevisionSchedulePublishV2",
   summary: "Schedule (or cancel) a deferred publish for a draft revision",
   description:
-    "Arms a deferred publish: the revision publishes automatically on/after `scheduledPublishAt` (and, when review is required, only once also approved). Send `scheduledPublishAt: null` to cancel the schedule.\n\nUse `lockEdits` to freeze content edits to this draft while the schedule is pending (rebasing is still allowed), and `lockOthers` to block publishing other drafts of this feature until the schedule fires or is canceled. Requires publish permission; the publish executes with the caller's authority. An admin with bypass-approval permission can schedule even without approval — pass `bypassApproval: true` to mark it as an admin override, which locks the schedule to cancel-and-re-arm only.",
+    "Schedules the draft to publish on or after `scheduledPublishAt`. When approval is required, publishing waits until the draft is also approved. Send `scheduledPublishAt: null` to cancel the schedule.\n\nSet `lockEdits` to prevent content changes while the schedule is pending; rebasing remains allowed. Set `lockOthers` to prevent other drafts of this Feature Flag from being published until this schedule runs or is canceled. The caller needs Publish access, and that access is checked again when the schedule runs. A caller with Bypass draft approvals access can schedule an unapproved draft by sending `bypassApproval: true`. That schedule must be canceled and recreated before it can be changed.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      scheduledPublishAt: z.union([
-        z.string().meta({ format: "date-time" }),
-        z.null(),
-      ]),
+      // Accept RFC3339 numeric offsets for backward compatibility.
+      scheduledPublishAt: z
+        .union([z.iso.datetime({ offset: true }), z.null()])
+        .describe(
+          "When to publish, as an RFC3339 timestamp (e.g. `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or `null` to cancel a pending schedule.",
+        ),
+      // Accepted so a caller retrying a bypassable 422 raised anywhere in this
+      // request isn't turned away by the body schema itself.
+      ...publishOverrideBodyFields,
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),
       bypassApproval: z.boolean().optional(),
@@ -967,6 +989,18 @@ export const putFeatureRevisionMetadataV2Validator = {
       description: z.string().optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),
+      targetingAllProjects: z
+        .boolean()
+        .describe(
+          "Stage delivering this feature to every project. Requires the `targetFeatures` permission unscoped to any project.",
+        )
+        .optional(),
+      targetingProjects: z
+        .array(z.string())
+        .describe(
+          "Stage the secondary project IDs this feature is delivered to. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project.",
+        )
+        .optional(),
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),

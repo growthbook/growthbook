@@ -7,13 +7,16 @@ import {
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiLinkBold } from "react-icons/pi";
+import { PiDotsThreeVertical, PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
+import {
+  getDataRegionLabel,
+  DEFAULT_DATA_REGION,
+} from "@/services/dataRegions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import { DocLink, DocSection } from "@/components/DocLink";
@@ -28,6 +31,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
+import AskDataSettings from "@/components/Settings/EditDataSource/AskDataSettings/AskDataSettings";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -98,8 +102,9 @@ const DataSourcePage: FC = () => {
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
 
   const { apiCall, orgId } = useAuth();
-  const { hasCommercialFeature } = useUser();
-  const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
+  const { hasCommercialFeature, settings: orgSettings } = useUser();
+  // Default ON; the remote flag only turns this off for specific orgs.
+  const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   // Only the never-provisioned state replaces the settings UI with the onboarding
@@ -218,7 +223,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="x-large" mb="0">
+          <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
             {d.name}
           </Heading>
           <Badge
@@ -252,8 +257,9 @@ const DataSourcePage: FC = () => {
                   radius="full"
                   size="2"
                   highContrast
+                  aria-label="Data source actions"
                 >
-                  <BsThreeDotsVertical size={16} />
+                  <PiDotsThreeVertical size={18} />
                 </IconButton>
               }
               menuPlacement="end"
@@ -364,6 +370,12 @@ const DataSourcePage: FC = () => {
           <Text weight="medium">Type:</Text>{" "}
           {d.type === "growthbook_clickhouse" ? "managed" : d.type}
         </Text>
+        {d.type === "growthbook_clickhouse" && (
+          <Text color="text-mid">
+            <Text weight="medium">Region:</Text>{" "}
+            {getDataRegionLabel(d.settings.region ?? DEFAULT_DATA_REGION)}
+          </Text>
+        )}
         <Box>
           <Text color="text-mid" weight="medium">
             Fact Tables:
@@ -417,18 +429,18 @@ const DataSourcePage: FC = () => {
       <Box mt="4" mb="4">
         {supportsEvents && (
           <>
-            <div className="my-5">
+            <Box my="5">
               <DataSourceViewEditExperimentProperties
                 dataSource={d}
                 onSave={updateDataSourceSettings}
                 onCancel={() => undefined}
                 canEdit={canUpdateDataSourceSettings}
               />
-            </div>
+            </Box>
 
             {d.type === "mixpanel" && (
               <div>
-                <Heading size="small" as="h3" mb="1">
+                <Heading size="sm" as="h3" mb="1">
                   Mixpanel Tracking Instructions
                 </Heading>
                 <p>
@@ -479,7 +491,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               ) : (
                 <>
                   <Frame>
-                    <Heading as="h3" size="medium" mb="2">
+                    <Heading as="h3" size="md" mb="2">
                       Sending Events
                     </Heading>
                     <Text>
@@ -505,6 +517,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       }}
                     />
                   </Frame>
+
+                  {contextualBanditsEnabled &&
+                    hasCommercialFeature("contextual-bandits") && (
+                      <Frame id={CBAQ_ANCHOR_ID}>
+                        <ContextualBanditAssignmentQueries
+                          dataSource={d}
+                          canEdit={canUpdateDataSourceSettings}
+                        />
+                      </Frame>
+                    )}
                 </>
               )
             ) : (
@@ -605,13 +627,19 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 />
               </Frame>
             ) : null}
+
+            {supportsSQL && orgSettings?.aiAskDataEnabled && (
+              <Frame>
+                <AskDataSettings
+                  dataSource={d}
+                  onSave={updateDataSourceSettings}
+                  canEdit={canUpdateDataSourceSettings}
+                />
+              </Frame>
+            )}
           </>
         )}
       </Box>
-      <div className="row">
-        <div className="col-md-12"></div>
-      </div>
-
       {editConn && (
         <DataSourceForm
           existing={true}

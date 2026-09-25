@@ -12,9 +12,13 @@ export const accountPlans: Set<AccountPlan> = new Set([
 
 export type CommercialFeature =
   | "ai-suggestions"
+  | "ai-byok"
   | "scim"
   | "sso"
   | "advanced-permissions"
+  | "role-management"
+  | "unlimited-projects"
+  | "custom-environments"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
   | "events-forwarder"
@@ -49,6 +53,7 @@ export type CommercialFeature =
   | "custom-roles"
   | "quantile-metrics"
   | "retention-metrics"
+  | "funnel-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -68,6 +73,7 @@ export type CommercialFeature =
   | "saveSqlExplorerQueries"
   | "metric-effects"
   | "metric-correlations"
+  | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
   | "share-product-analytics-dashboards"
@@ -103,6 +109,7 @@ export type SubscriptionInfo = {
   cancelationDate: string;
   pendingCancelation: boolean;
   isVercelIntegration: boolean;
+  stripeCustomerId?: string;
 };
 
 export interface LicenseInterface {
@@ -127,6 +134,7 @@ export interface LicenseInterface {
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
   vercelInstallationId?: string;
+  stripeCustomerId?: string;
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -204,6 +212,7 @@ export type LicenseData = {
 
 const commercialFeaturesPro: CommercialFeature[] = [
   "advanced-permissions",
+  "role-management",
   "encrypt-features-endpoint",
   "schedule-feature-flag",
   "events-forwarder",
@@ -224,6 +233,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "multiple-sdk-webhooks",
   "quantile-metrics",
   "retention-metrics",
+  "funnel-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",
@@ -243,6 +253,9 @@ const commercialFeaturesProSso: CommercialFeature[] = [
 
 const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "ai-suggestions",
+  "unlimited-projects",
+  "custom-environments",
+  "ai-byok",
   "scim",
   "audit-logging",
   "custom-metadata",
@@ -269,6 +282,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "holdouts",
   "metric-effects",
   "metric-correlations",
+  "learnings",
   "dashboards",
   "custom-hooks",
   "metric-slices",

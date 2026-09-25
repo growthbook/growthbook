@@ -1,10 +1,10 @@
-import type { DataType } from "shared/types/integrations";
-import { createLikeStringMatchFn } from "shared/sql";
+import type {
+  DataType,
+  FactMetricPercentileData,
+} from "shared/types/integrations";
+import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
-import {
-  defaultPercentileCapSelectClause,
-  PercentileCapSelectClauseValue,
-} from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
@@ -18,9 +18,10 @@ const APPROX_QUANTILES_MULTIPLIER = 10000;
 const PERCENTILE_CAP_RESHAPE_THRESHOLD = 10;
 
 /**
- * BigQuery-specific __capValue body: UNPIVOT value columns to long form, compute
- * one APPROX_QUANTILES sketch per column via GROUP BY, then PIVOT the extracted
- * scalar caps back to the wide one-row shape downstream expects.
+ * BigQuery-specific __capValue body: reshape value columns to long form via a
+ * labeled UNNEST, compute one APPROX_QUANTILES sketch per group with GROUP BY,
+ * then extract each requested percentile from its group's sketch back into the
+ * wide one-row shape downstream expects.
  *
  * The default wide form emits one APPROX_QUANTILES per capped column in a single
  * ungrouped SELECT. Each sketch carries ~1.5MB of intermediate state at ~40M input
@@ -28,19 +29,26 @@ const PERCENTILE_CAP_RESHAPE_THRESHOLD = 10;
  * 100MB-per-row limit. chunkMetrics() doesn't see this because it budgets by
  * output-column count, not intermediate sketch state.
  *
- * Reshaping to GROUP BY col_name keeps exactly one sketch per aggregation row, so
- * the per-row footprint is constant regardless of how many capped columns there are.
- * Per-column `percentile` is handled by indexing the per-group sketch array at a
- * CASE-driven offset; per-column `ignoreZeros` is handled by nulling zeros inside
- * the aggregate argument for the opted-in columns.
+ * Reshaping to GROUP BY keeps exactly one sketch per aggregation row, so the
+ * per-row footprint is constant regardless of how many capped columns there are.
+ *
+ * A single source column can require MORE THAN ONE cap: a metric with percentile
+ * capping on both tails contributes an upper `_cap` and a lower `_cap_lower` for
+ * the same `valueCol` at different percentiles, and those two tails can even have
+ * different `ignoreZeros`. So we can't key the reshape on the raw column name —
+ * emitting the column once per cap (the older UNPIVOT form) produced duplicate
+ * projected/UNPIVOT columns and a "Column name ... is ambiguous" BigQuery error.
+ * Instead we group inputs into one sketch per distinct (valueCol, ignoreZeros)
+ * pair under a synthetic label, keep each group's full quantile array, and index
+ * it at every requested percentile's offset.
  */
 function bigQueryPercentileCapSelectClause(
-  values: PercentileCapSelectClauseValue[],
+  values: FactMetricPercentileData[],
   metricTable: string,
   where: string = "",
 ): string {
   // Below the threshold: the wide single-pass form is faster on both wall and
-  // slot time (one scan of metricTable, no UNPIVOT row multiplication, no
+  // slot time (one scan of metricTable, no UNNEST row multiplication, no
   // shuffle for GROUP BY). The reshape only pays off once the per-row sketch
   // total approaches BigQuery's 100MB row limit.
   if (values.length < PERCENTILE_CAP_RESHAPE_THRESHOLD) {
@@ -52,54 +60,57 @@ function bigQueryPercentileCapSelectClause(
     );
   }
 
-  const colsByOffset = new Map<number, string[]>();
-  for (const { valueCol, percentile } of values) {
-    const offset = Math.trunc(APPROX_QUANTILES_MULTIPLIER * percentile);
-    const list = colsByOffset.get(offset) ?? [];
-    list.push(valueCol);
-    colsByOffset.set(offset, list);
+  const escape = (s: string) => bigQueryDialect.escapeStringLiteral(s);
+  const groupKey = (valueCol: string, ignoreZeros: boolean) =>
+    `${valueCol}\u0000${ignoreZeros ? 1 : 0}`;
+
+  // One sketch per distinct (valueCol, ignoreZeros) pair. Each pair gets a
+  // stable synthetic label so two caps sharing a source column never collide.
+  const labelByGroup = new Map<string, string>();
+  const groups: { label: string; valueCol: string; ignoreZeros: boolean }[] =
+    [];
+  for (const { valueCol, ignoreZeros } of values) {
+    const key = groupKey(valueCol, ignoreZeros);
+    if (!labelByGroup.has(key)) {
+      const label = `s${groups.length}`;
+      labelByGroup.set(key, label);
+      groups.push({ label, valueCol, ignoreZeros });
+    }
   }
-  const offsetCase = `CAST(CASE ${[...colsByOffset.entries()]
-    .map(
-      ([offset, cols]) =>
-        `WHEN col_name IN (${cols
-          .map((c) => `'${bigQueryDialect.escapeStringLiteral(c)}'`)
-          .join(", ")}) THEN ${offset}`,
-    )
-    .join(" ")} END AS INT64)`;
 
-  const ignoreZeroCols = values
-    .filter((v) => v.ignoreZeros)
-    .map((v) => `'${bigQueryDialect.escapeStringLiteral(v.valueCol)}'`);
-  const valExpr =
-    ignoreZeroCols.length > 0
-      ? `IF(col_name IN (${ignoreZeroCols.join(", ")}) AND val = 0, NULL, val)`
-      : `val`;
-
-  // Project + cast to FLOAT64 so UNPIVOT sees a uniform column type and so no
-  // unrelated columns from metricTable are carried through the long-form rows.
-  const sourceProjection = values
-    .map(({ valueCol }) => `CAST(${valueCol} AS FLOAT64) AS ${valueCol}`)
+  // One labeled STRUCT per sketch group; cast to FLOAT64 for a uniform type and
+  // bake `ignoreZeros` into the value so zeros drop out of that group's sketch.
+  const structs = groups
+    .map(({ label, valueCol, ignoreZeros }) => {
+      const cast = `CAST(${valueCol} AS FLOAT64)`;
+      const val = ignoreZeros ? `IF(${valueCol} = 0, NULL, ${cast})` : cast;
+      return `STRUCT('${escape(label)}' AS col_name, ${val} AS val)`;
+    })
     .join(", ");
 
-  const unpivotCols = values.map((v) => v.valueCol).join(", ");
-  const pivotCols = values
-    .map(
-      (v) =>
-        `'${bigQueryDialect.escapeStringLiteral(v.valueCol)}' AS ${v.outputCol}`,
-    )
-    .join(", ");
+  // Each requested cap extracts its percentile offset from its group's sketch.
+  const outputs = values
+    .map(({ valueCol, outputCol, percentile, ignoreZeros }) => {
+      const label = labelByGroup.get(groupKey(valueCol, ignoreZeros))!;
+      const offset = Math.trunc(APPROX_QUANTILES_MULTIPLIER * percentile);
+      return `MAX(IF(col_name = '${escape(
+        label,
+      )}', q[OFFSET(${offset})], NULL)) AS ${outputCol}`;
+    })
+    .join(",\n        ");
 
   return `
-      SELECT * FROM (
+      SELECT
+        ${outputs}
+      FROM (
         SELECT
-          col_name,
-          APPROX_QUANTILES(${valExpr}, ${APPROX_QUANTILES_MULTIPLIER} IGNORE NULLS)[OFFSET(${offsetCase})] AS cap
-        FROM (SELECT ${sourceProjection} FROM ${metricTable} ${where})
-        UNPIVOT (val FOR col_name IN (${unpivotCols}))
-        GROUP BY col_name
+          pair.col_name AS col_name,
+          APPROX_QUANTILES(pair.val, ${APPROX_QUANTILES_MULTIPLIER} IGNORE NULLS) AS q
+        FROM ${metricTable}
+        CROSS JOIN UNNEST([${structs}]) AS pair
+        ${where}
+        GROUP BY pair.col_name
       )
-      PIVOT (ANY_VALUE(cap) FOR col_name IN (${pivotCols}))
       `;
 }
 
@@ -108,6 +119,7 @@ const bigQueryEscapeStringLiteral = (value: string) =>
 
 export const bigQueryDialect: SqlDialect = {
   ...baseDialect,
+  concatStrings: (parts: string[]) => parts.join(" || "),
   identifierQuote: "`",
   formatDialect: "bigquery",
   addTime: (
@@ -125,8 +137,19 @@ export const bigQueryDialect: SqlDialect = {
     `date_diff(${endCol}, ${startCol}, DAY)`,
   formatDate: (col: string) => `format_date("%F", ${col})`,
   formatDateTimeString: (col: string) => `format_datetime("%F %T", ${col})`,
+  // TIMESTAMP holds microseconds; %E6S prints all six, in UTC.
+  formatTimestampExact: (col: string) =>
+    `format_timestamp("%F %H:%M:%E6S", ${col})`,
+  // A fact table's timestamp column may be TIMESTAMP or DATETIME and BigQuery
+  // has no implicit coercion between the two: `datetime_col > CAST('…' AS TIMESTAMP)`
+  // is a type error.
+  // A bare string literal instead coerces to whichever type the column has, at microsecond
+  // precision, like every other date bound this dialect renders (toTimestamp).
+  // The watermark is CAST(MAX(col) AS TIMESTAMP) printed in UTC, which for a
+  // DATETIME column is its own wall-clock value, so it round-trips exactly.
+  exactTimestampLiteral: (quoted: string) => quoted,
   castToString: (col: string) => `cast(${col} as string)`,
-  stringMatch: createLikeStringMatchFn({
+  ...createLikeMatchFns({
     escapeStringLiteral: bigQueryEscapeStringLiteral,
     emitEscapeClause: false,
   }),
@@ -172,13 +195,19 @@ export const bigQueryDialect: SqlDialect = {
       : `${multiplier} * ${quantile}`;
     return `APPROX_QUANTILES(${value}, ${multiplier} IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))]`;
   },
+  // Needed so products of per-unit INT64 totals (e.g. CUPED cross products)
+  // don't overflow in the statistics CTEs.
+  castToFloat: (col: string) => `CAST(${col} AS FLOAT64)`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
-    return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
+    return isNumeric ? bigQueryDialect.castToFloat(raw) : raw;
   },
   // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
   arrayAggSorted: (col: string) =>
     `ARRAY_AGG(${col} IGNORE NULLS ORDER BY ${col})`,
+  // Concatenate all per-row arrays in the group into one array (incremental
+  // funnel read-step merge of per-day step arrays).
+  arrayConcatAgg: (col: string) => `ARRAY_CONCAT_AGG(${col})`,
   // BQ supports `ANY_VALUE(x HAVING MIN y)` natively — picks an `x` value from
   // the row that has the minimum `y`. `IGNORE NULLS` is NOT valid in this form
   // (syntax error) and is unnecessary: aggregate functions ignore NULL inputs,
@@ -210,10 +239,19 @@ export const bigQueryDialect: SqlDialect = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // BigQuery event timestamps are DATETIME (castUserDateCol casts to
+        // DATETIME). Funnel step caches store these, and the resolver's
+        // DATETIME_ADD/SUB arithmetic requires DATETIME operands.
+        return "DATETIME";
       case "hll":
         return "BYTES";
       case "quantileSketch":
         return "BYTES";
+      case "arrayTimestamp":
+        // Element type must match `datetime` (DATETIME) — the funnel step
+        // arrays hold event timestamps.
+        return "ARRAY<DATETIME>";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);

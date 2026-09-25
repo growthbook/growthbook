@@ -1,4 +1,5 @@
 import { generateDimensionExpression } from "shared/enterprise";
+import { staticDimensionValidator } from "shared/validators";
 import { ColumnInterface } from "shared/types/fact-table";
 import { SqlDialect } from "shared/types/sql";
 
@@ -12,6 +13,7 @@ const helpers: SqlDialect = {
     `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
   evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
   dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
+  concatStrings: (parts) => parts.join(" || "),
   percentileApprox: (col, quantile) => `APPROX_PERCENTILE(${col}, ${quantile})`,
   hllReaggregate: (col) => `HLL_MERGE(${col})`,
   hllCardinality: (col) => `HLL_COUNT(${col})`,
@@ -21,6 +23,7 @@ const helpers: SqlDialect = {
   toTimestamp: (d: Date) => `'${d.toISOString().substring(0, 10)} 00:00:00'`,
   formatDialect: "bigquery",
   castToFloat: (col) => `CAST(${col} AS FLOAT)`,
+  castToString: (col) => `CAST(${col} AS STRING)`,
 };
 
 function makeColumn(overrides: Partial<ColumnInterface>): ColumnInterface {
@@ -53,7 +56,10 @@ const columns: ColumnInterface[] = [
 
 // generateDimensionExpression only reads `factTableGroup.factTable`, so a
 // minimal group with no metrics/units is enough.
-function makeFactTableGroup(timestampColumn = "event_time") {
+function makeFactTableGroup(
+  timestampColumn = "event_time",
+  quoteTimestampColumn = false,
+) {
   return {
     index: 0,
     factTable: {
@@ -62,6 +68,7 @@ function makeFactTableGroup(timestampColumn = "event_time") {
       filters: [],
       userIdTypes: ["user_id"],
       timestampColumn,
+      quoteTimestampColumn,
     },
     metrics: [],
     units: [],
@@ -96,6 +103,37 @@ describe("generateDimensionExpression", () => {
         dateRange,
       );
       expect(result).toBe("date_trunc('day', timestamp)");
+    });
+
+    it("quotes SQL-exploration timestamps with the dialect identifier fold", () => {
+      const snowflakeHelpers: SqlDialect = {
+        ...helpers,
+        identifierQuote: '"',
+        unquotedIdentifierFold: "upper",
+      };
+      const result = generateDimensionExpression(
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+        0,
+        makeFactTableGroup("timestamp", true),
+        snowflakeHelpers,
+        dateRange,
+      );
+      expect(result).toBe("date_trunc('day', \"TIMESTAMP\")");
+    });
+
+    it("quotes SQL-exploration timestamps as stored when the dialect does not fold", () => {
+      const quotedHelpers: SqlDialect = {
+        ...helpers,
+        identifierQuote: '"',
+      };
+      const result = generateDimensionExpression(
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+        0,
+        makeFactTableGroup("timestamp", true),
+        quotedHelpers,
+        dateRange,
+      );
+      expect(result).toBe("date_trunc('day', \"timestamp\")");
     });
   });
 
@@ -137,6 +175,32 @@ describe("generateDimensionExpression", () => {
       );
     });
 
+    it("casts a non-string column so the CASE and its 'other' fallback agree", () => {
+      const result = generateDimensionExpression(
+        { dimensionType: "dynamic", column: "event_time", maxValues: 5 },
+        0,
+        makeFactTableGroup(),
+        helpers,
+        dateRange,
+      );
+      expect(norm(result)).toBe(
+        "CASE WHEN CAST(event_time AS STRING) IN (SELECT value FROM _dimension0_top) THEN CAST(event_time AS STRING) ELSE 'other' END",
+      );
+    });
+
+    it("casts a numeric JSON field, which is also compared against 'other'", () => {
+      const result = generateDimensionExpression(
+        { dimensionType: "dynamic", column: "props.amount", maxValues: 5 },
+        0,
+        makeFactTableGroup(),
+        helpers,
+        dateRange,
+      );
+      expect(norm(result)).toBe(
+        "CASE WHEN CAST(props:'amount'::float AS STRING) IN (SELECT value FROM _dimension0_top) THEN CAST(props:'amount'::float AS STRING) ELSE 'other' END",
+      );
+    });
+
     it("marks a numeric JSON field as numeric in jsonExtract", () => {
       const result = generateDimensionExpression(
         { dimensionType: "dynamic", column: "props.amount", maxValues: 5 },
@@ -150,7 +214,10 @@ describe("generateDimensionExpression", () => {
   });
 
   describe("static dimension", () => {
-    it("builds a CASE over the configured values for a top-level column", () => {
+    // Rows outside the pinned value list are dropped via a WHERE filter
+    // built elsewhere (generateFactTableCTE / buildFunnelSql), so the
+    // expression itself is just the raw column — no CASE/'other' fallback.
+    it("returns the raw column expression for a top-level column", () => {
       const result = generateDimensionExpression(
         { dimensionType: "static", column: "country", values: ["US", "CA"] },
         0,
@@ -158,9 +225,7 @@ describe("generateDimensionExpression", () => {
         helpers,
         dateRange,
       );
-      expect(norm(result)).toBe(
-        "CASE WHEN country IN ('US', 'CA') THEN country ELSE 'other' END",
-      );
+      expect(norm(result)).toBe("country");
     });
 
     it("expands a JSON field when used as a static dimension", () => {
@@ -171,20 +236,7 @@ describe("generateDimensionExpression", () => {
         helpers,
         dateRange,
       );
-      expect(norm(result)).toBe(
-        "CASE WHEN props:'plan'::text IN ('free') THEN props:'plan'::text ELSE 'other' END",
-      );
-    });
-
-    it("escapes single quotes in static values", () => {
-      const result = generateDimensionExpression(
-        { dimensionType: "static", column: "country", values: ["O'Brien"] },
-        0,
-        makeFactTableGroup(),
-        helpers,
-        dateRange,
-      );
-      expect(norm(result)).toContain("IN ('O''Brien')");
+      expect(norm(result)).toBe("props:'plan'::text");
     });
   });
 
@@ -234,5 +286,45 @@ describe("generateDimensionExpression", () => {
       );
       expect(norm(result)).toContain("props:'plan'::text = 'free'");
     });
+  });
+});
+
+describe("staticDimensionValidator", () => {
+  // Intentionally unbounded: this schema also parses already-persisted and
+  // URL-encoded explorations (not just fresh writes from the editor), so it
+  // must keep accepting configs that predate the editor's own 1-20 cap —
+  // an empty or oversized `values` array must not fail to parse. The editor
+  // enforces 1-20 pins at authoring time; the SQL layer skips the filter
+  // entirely for an empty values array (see sql.ts) rather than emitting
+  // invalid SQL.
+  it("accepts an empty pinned values array", () => {
+    expect(() =>
+      staticDimensionValidator.parse({
+        dimensionType: "static",
+        column: "country",
+        values: [],
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts more than 20 pinned values", () => {
+    const values = Array.from({ length: 21 }, (_, i) => `v${i}`);
+    expect(() =>
+      staticDimensionValidator.parse({
+        dimensionType: "static",
+        column: "country",
+        values,
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts a typical pinned values array", () => {
+    expect(() =>
+      staticDimensionValidator.parse({
+        dimensionType: "static",
+        column: "country",
+        values: ["US"],
+      }),
+    ).not.toThrow();
   });
 });

@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
+import { scheduleStagesStatusChange } from "shared/experiments";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
@@ -45,10 +46,14 @@ export default function EditScheduleModal({
   experiment,
   mutate,
   close,
+  envs,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
+  // Environments the experiment reaches; a scheduled start, stop or ship is
+  // only offered to viewers who could run the experiment there.
+  envs?: string[];
 }) {
   const { hasCommercialFeature } = useUser();
   const { getExperimentMetricById } = useDefinitions();
@@ -60,6 +65,18 @@ export default function EditScheduleModal({
     experiment,
     {},
   );
+  // A scheduled start, stop or ship needs run permission; without it only a
+  // "notify" end can be chosen and a pending one cannot be re-timed or cleared.
+  // Fail closed when an opener did not resolve the environments.
+  const canScheduleStatusChange =
+    envs !== undefined &&
+    (!envs.length || permissionsUtil.canRunExperiment(experiment, envs));
+  const runPermissionReason =
+    "Requires permission to start and stop experiments in this experiment's environments.";
+  const pendingChangeLocked =
+    !canScheduleStatusChange &&
+    !!experiment.nextScheduledStatusUpdate &&
+    scheduleStagesStatusChange(experiment.statusUpdateSchedule);
 
   const decisionCriteria = getDecisionCriteria(
     experiment.decisionFrameworkSettings?.decisionCriteriaId,
@@ -148,7 +165,7 @@ export default function EditScheduleModal({
           <Text color="text-high" weight="semibold" mb="0">
             Tiebreaker metric
           </Text>
-          <Text as="div" color="text-mid" mb="0" size="small">
+          <Text as="div" color="text-mid" mb="0" size="sm">
             {helper}
           </Text>
         </>
@@ -177,17 +194,17 @@ export default function EditScheduleModal({
   // in its own box so that distinction is clear.
   const renderVerdictSection = () => (
     <Callout status="info" icon={null} mt="4">
-      <Text as="div" size="medium" weight="semibold" color="text-high" mb="1">
+      <Text as="div" size="md" weight="semibold" color="text-high" mb="1">
         Record a result
       </Text>
-      <Text as="div" color="text-mid" size="medium" mb="3">
+      <Text as="div" color="text-mid" size="md" mb="3">
         Even though you have selected a forced fallback or shipped variation,
         the Decision Framework will still record metadata about whether this
         experiment was won/lost/inconclusive.
       </Text>
       {showTiebreaker && (
         <>
-          <Text as="div" color="text-mid" size="medium" mb="3">
+          <Text as="div" color="text-mid" size="md" mb="3">
             The tiebreaker metric will break ties when multiple variations
             qualify.
           </Text>
@@ -206,7 +223,7 @@ export default function EditScheduleModal({
             onChange={(v) => form.setValue("tiebreakerMetricId", v)}
           />
           {!decisionFrameworkAvailable && (
-            <Text as="div" color="text-mid" size="small" mt="1">
+            <Text as="div" color="text-mid" size="sm" mt="1">
               Enable the Decision Framework in your organization settings to
               record a verdict.
             </Text>
@@ -230,6 +247,11 @@ export default function EditScheduleModal({
   // Shipping automation is tied to a scheduled end — it never runs on a manual
   // stop — so the "when the experiment ends" controls only apply with an end date.
   const hasEndDate = endMode !== "manual";
+  // Without run permission, never submit a plan that stops or ships.
+  const statusChangeLocked =
+    pendingChangeLocked ||
+    (!canScheduleStatusChange &&
+      (!!startAt || (hasEndDate && mode !== "notify")));
   // "On date" requires an actual date. Block save (rather than silently
   // discarding the shipping config on submit) if the picker was left empty.
   const endDateMissing = endMode === "on-date" && !stopAt;
@@ -305,7 +327,8 @@ export default function EditScheduleModal({
           !stopBeforeStart &&
           !endDateMissing &&
           !stopInThePast &&
-          !stopAfterInThePast
+          !stopAfterInThePast &&
+          !statusChangeLocked
         }
         size="lg"
         secondaryAction={
@@ -406,7 +429,14 @@ export default function EditScheduleModal({
                   }
                 }}
                 containerStyle={{ width: 150 }}
-                disabled={experiment.status !== "draft"}
+                disabled={
+                  experiment.status !== "draft" || !canScheduleStatusChange
+                }
+                helpText={
+                  experiment.status === "draft" && !canScheduleStatusChange
+                    ? runPermissionReason
+                    : undefined
+                }
               />
               {startAt && (
                 <DatePicker
@@ -493,7 +523,7 @@ export default function EditScheduleModal({
                     onChange={(v) => setEndAfterUnit(v as "days" | "hours")}
                     containerStyle={{ width: 110 }}
                   />
-                  <Text color="text-mid" size="small">
+                  <Text color="text-mid" size="sm">
                     from start
                   </Text>
                 </Flex>
@@ -503,6 +533,9 @@ export default function EditScheduleModal({
 
           {scheduleIsInThePast && experiment.status === "draft" && (
             <Helpertext status="warning">Scheduled start has passed</Helpertext>
+          )}
+          {statusChangeLocked && (
+            <Helpertext status="warning">{runPermissionReason}</Helpertext>
           )}
           {stopBeforeStart && (
             <Helpertext status="warning">
@@ -555,13 +588,22 @@ export default function EditScheduleModal({
                 ]}
                 isOptionDisabled={(o) =>
                   "value" in o &&
-                  o.value === "auto-ship" &&
-                  !decisionFrameworkAvailable
+                  ((o.value === "auto-ship" && !decisionFrameworkAvailable) ||
+                    (o.value !== "notify" && !canScheduleStatusChange))
                 }
                 containerStyles={{
                   option: (base) => ({ ...base, opacity: 1 }),
                 }}
                 formatOptionLabel={(o) => {
+                  if (o.value !== "notify" && !canScheduleStatusChange) {
+                    return (
+                      <Tooltip content={runPermissionReason}>
+                        <Box>
+                          <Text color="text-disabled">{o.label}</Text>
+                        </Box>
+                      </Tooltip>
+                    );
+                  }
                   if (o.value !== "auto-ship" || decisionFrameworkAvailable) {
                     return <>{o.label}</>;
                   }
@@ -607,19 +649,19 @@ export default function EditScheduleModal({
                 }}
               >
                 <Flex align="center" justify="between" mb="1" gap="2">
-                  <Text size="small" weight="semibold" color="text-high">
+                  <Text size="sm" weight="semibold" color="text-high">
                     Decision Criteria
                   </Text>
                   <Link onClick={() => setDecisionCriteriaModal(true)}>
                     <Flex align="center" gap="1" as="span">
-                      <Text size="small" weight="semibold">
+                      <Text size="sm" weight="semibold">
                         {canEditDecisionCriteria ? "Edit" : "View"}
                       </Text>
                       <PiArrowSquareOut size={12} />
                     </Flex>
                   </Link>
                 </Flex>
-                <Text as="div" size="small" color="text-mid" mb="2">
+                <Text as="div" size="sm" color="text-mid" mb="2">
                   {decisionCriteria.name}
                   {decisionCriteria.description
                     ? `: ${decisionCriteria.description}`

@@ -26,7 +26,11 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { RampScheduleInterface, HoldoutInterface } from "shared/validators";
+import {
+  RampScheduleInterface,
+  HoldoutInterface,
+  RevisionRampDetachAction,
+} from "shared/validators";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
@@ -153,7 +157,7 @@ export function DiffFormatToggle({
   const segment = (target: DiffFormat) => (
     <Button
       key={target}
-      size="sm"
+      size="md"
       variant={value === target ? "solid" : "outline"}
       onClick={() => setValue(target)}
     >
@@ -411,7 +415,7 @@ export function CopyAsButton({
       variant="soft"
       color="violet"
       trigger={
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="md">
           <Flex align="center" gap="1">
             {copySuccess ? <PiCheckBold /> : <PiCopy />}
             {/* Fixed width so swapping "Copy as" ↔ "Copied!" doesn't shift the
@@ -562,6 +566,30 @@ function DiffCommentCell({
           <PiChatCircleTextFill />
         </button>
       }
+    />
+  );
+}
+
+export function CompactInlineDiff({
+  a,
+  b,
+  leftTitle,
+  rightTitle,
+}: {
+  a: string;
+  b: string;
+  leftTitle?: string;
+  rightTitle?: string;
+}) {
+  if (a === b) return null;
+  return (
+    <ReactDiffViewer
+      oldValue={a}
+      newValue={b}
+      compareMethod={DiffMethod.LINES}
+      leftTitle={leftTitle}
+      rightTitle={rightTitle}
+      styles={COMPACT_DIFF_STYLES}
     />
   );
 }
@@ -792,7 +820,7 @@ export function ExpandableConflict({
             >
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
-                  <Heading as="h4" size="x-small" mb="0">
+                  <Heading as="h4" size="xs" mb="0">
                     {liveRevision ? (
                       <OverflowText
                         maxWidth={200}
@@ -818,7 +846,7 @@ export function ExpandableConflict({
                     />
                   )}
                   {liveRevision?.createdBy && (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       <EventUser
                         user={liveRevision.createdBy}
                         display="name-email"
@@ -826,7 +854,7 @@ export function ExpandableConflict({
                     </Text>
                   )}
                   {liveRevision && (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       {datetime(
                         liveRevision.datePublished ?? liveRevision.dateUpdated,
                       )}
@@ -834,7 +862,7 @@ export function ExpandableConflict({
                   )}
                 </Flex>
                 <Button
-                  size="sm"
+                  size="md"
                   variant={strategy === "discard" ? "solid" : "outline"}
                   style={{ flexShrink: 0 }}
                   preventDefault
@@ -856,7 +884,7 @@ export function ExpandableConflict({
             <Box px="3" pt="2" pb="3">
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
-                  <Heading as="h4" size="x-small" mb="0">
+                  <Heading as="h4" size="xs" mb="0">
                     {draftRevision ? (
                       <OverflowText
                         maxWidth={200}
@@ -882,7 +910,7 @@ export function ExpandableConflict({
                     />
                   )}
                   {draftRevision?.createdBy && (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       <EventUser
                         user={draftRevision.createdBy}
                         display="name-email"
@@ -890,13 +918,13 @@ export function ExpandableConflict({
                     </Text>
                   )}
                   {draftRevision && (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       {datetime(draftRevision.dateUpdated)}
                     </Text>
                   )}
                 </Flex>
                 <Button
-                  size="sm"
+                  size="md"
                   variant={strategy === "overwrite" ? "solid" : "outline"}
                   style={{ flexShrink: 0 }}
                   preventDefault
@@ -931,11 +959,14 @@ export function buildRampDiffs({
   revision,
   rampSchedules,
   holdoutsMap,
+  revertDetaches = [],
 }: {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   rampSchedules?: RampScheduleInterface[];
   holdoutsMap: Map<string, HoldoutInterface>;
+  // Ramps a revert draft removes because its target predates them.
+  revertDetaches?: RevisionRampDetachAction[];
 }): FeatureRevisionDiff[] {
   // Ramps that this revision's publication will move into the start lifecycle.
   const activatingRamps = (rampSchedules ?? []).filter(
@@ -1001,7 +1032,7 @@ export function buildRampDiffs({
         ],
       } as FeatureRevisionDiff;
     }),
-    ...(revision.rampActions ?? [])
+    ...[...(revision.rampActions ?? []), ...revertDetaches]
       .filter((action) => {
         const ruleId = (action as { ruleId?: string }).ruleId;
         if (!ruleId) return true;
@@ -1168,7 +1199,7 @@ export function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="large">
+            <Text weight="semibold" size="lg">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionA, revA?.title)}
@@ -1193,7 +1224,7 @@ export function RevisionCompareLabel({
                 based on: Revision {revA.baseVersion}
               </HelperText>
             ) : (
-              <Text as="div" size="small" color="text-low">
+              <Text as="div" size="sm" color="text-low">
                 based on: Revision {revA.baseVersion}
               </Text>
             );
@@ -1231,7 +1262,7 @@ export function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="large">
+            <Text weight="semibold" size="lg">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionB, revB?.title)}
@@ -1256,7 +1287,7 @@ export function RevisionCompareLabel({
                 based on: Revision {revB.baseVersion}
               </HelperText>
             ) : (
-              <Text as="div" size="small" color="text-low">
+              <Text as="div" size="sm" color="text-low">
                 based on: Revision {revB.baseVersion}
               </Text>
             );
@@ -1320,7 +1351,7 @@ function RevisionCommentItem({
   // When comparing multiple revisions, label which revision the notes belong to.
   showLabel?: boolean;
   // Mirrors the overview page gating: isDraft = active draft status,
-  // canEdit = canManageFeatureDrafts permission.
+  // canEdit = canEditFeatureDrafts permission.
   isDraft?: boolean;
   canEdit?: boolean;
   onSaved?: () => void;
@@ -1383,7 +1414,7 @@ function RevisionCommentItem({
               wrap={true}
             />
             {logEntry?.timestamp && (
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 {" · "}
                 {datetime(logEntry.timestamp)}
               </Text>
@@ -1393,7 +1424,7 @@ function RevisionCommentItem({
       }
       label={
         showLabel ? (
-          <Text size="small" color="text-mid">
+          <Text size="sm" color="text-mid">
             <OverflowText
               maxWidth={200}
               title={revisionLabelText(version, title)}
@@ -1421,7 +1452,7 @@ export function RevisionCommentSection({
     title?: string | null;
   }>;
   // Mirrors the overview page gating: isDraft = active draft status,
-  // canEdit = canManageFeatureDrafts permission.
+  // canEdit = canEditFeatureDrafts permission.
   isDraft?: boolean;
   canEdit?: boolean;
   onSaved?: () => void;
@@ -1490,13 +1521,13 @@ export function FormattedChanges({
         d.customRender || !jsonFallback ? (
           <Box key={d.title} p="3" my="3" className="rounded bg-light">
             <Flex align="center" gap="2" mb="2" wrap="wrap">
-              <Heading as="h6" size="small" color="text-mid" mb="0">
+              <Heading as="h6" size="sm" color="text-mid" mb="0">
                 {formatSectionTitle(d.title)}
               </Heading>
               {d.titleSuffix}
             </Flex>
             {d.customRender ?? (
-              <Text size="medium" as="div" color="text-low">
+              <Text size="md" as="div" color="text-low">
                 This section changed.{" "}
                 <Link onClick={() => requestReviewSubTab("changes")}>
                   View the diff on the Changes tab
@@ -1560,7 +1591,7 @@ export function DiffContent({
   // to the per-section JSON diffs.
   raw?: { before: unknown; after: unknown; title?: string };
   // Mirrors the overview page gating for the notes edit pencil:
-  // isDraftNotes = active draft status, canEditNotes = canManageFeatureDrafts.
+  // isDraftNotes = active draft status, canEditNotes = canEditFeatureDrafts.
   isDraftNotes?: boolean;
   canEditNotes?: boolean;
   onNotesSaved?: () => void;
@@ -1643,7 +1674,7 @@ export function DiffContent({
             >
               <Heading
                 as="h4"
-                size="medium"
+                size="md"
                 color="text-mid"
                 mt="0"
                 mb={

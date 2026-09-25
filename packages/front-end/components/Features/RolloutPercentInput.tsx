@@ -13,8 +13,8 @@ import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVe
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
 export interface RolloutHashingOptionsProps {
@@ -37,6 +37,7 @@ export interface RolloutHashingOptionsProps {
   hashVersion?: 1 | 2;
   setHashVersion?: (v: 1 | 2) => void;
   project?: string;
+  extraIndicator?: React.ReactNode;
 }
 
 export function RolloutHashingOptions({
@@ -54,6 +55,7 @@ export function RolloutHashingOptions({
   hashVersion,
   setHashVersion,
   project,
+  extraIndicator,
 }: RolloutHashingOptionsProps) {
   const filteredAttributes = attributeSchema?.filter(
     (s) => !hasHashAttributes || s.hashAttribute,
@@ -87,24 +89,9 @@ export function RolloutHashingOptions({
           <SelectField
             value={hashAttribute ?? ""}
             onChange={(v) => setHashAttribute(v)}
-            options={filteredAttributes.map(
-              (a): AttributeOptionForTooltip => ({
-                value: a.property,
-                label: a.property,
-                description: a.description,
-                tags: a.tags,
-                datatype: a.datatype,
-                hashAttribute: a.hashAttribute,
-              }),
-            )}
-            formatOptionLabel={(o, meta) => (
-              <AttributeOptionWithTooltip
-                option={o as AttributeOptionForTooltip}
-                context={meta.context}
-              >
-                {o.label}
-              </AttributeOptionWithTooltip>
-            )}
+            extraIndicator={extraIndicator}
+            options={filteredAttributes.map(toAttributeOption)}
+            formatOptionLabel={formatAttributeOptionLabel}
             containerStyle={{ minHeight: 38, width: 150 }}
           />
         </Flex>
@@ -181,6 +168,7 @@ export interface Props {
   hashVersion?: 1 | 2;
   setHashVersion?: (v: 1 | 2) => void;
   project?: string;
+  extraIndicator?: React.ReactNode;
   // Advanced options
   seed?: string;
   setSeed?: (v: string) => void;
@@ -207,6 +195,7 @@ export default function RolloutPercentInput({
   hashVersion,
   setHashVersion,
   project,
+  extraIndicator,
   seed,
   setSeed,
   ruleId,
@@ -251,7 +240,7 @@ export default function RolloutPercentInput({
     <Box>
       {(label || labelActions) && (
         <Flex justify="between" align="center" mb="2">
-          <Text as="div" size="medium" weight="semibold">
+          <Text as="div" size="md" weight="semibold">
             {label}
           </Text>
           {labelActions}
@@ -300,6 +289,7 @@ export default function RolloutPercentInput({
           isLive={isLiveRule}
           hashAttribute={hashAttribute}
           setHashAttribute={setHashAttribute}
+          extraIndicator={extraIndicator}
           attributeSchema={attributeSchema}
           hasHashAttributes={hasHashAttributes}
           hashVersion={hashVersion}

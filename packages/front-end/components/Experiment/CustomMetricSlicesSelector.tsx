@@ -10,6 +10,7 @@ import { Text, Flex, IconButton } from "@radix-ui/themes";
 import {
   isFactMetric,
   expandMetricGroups,
+  getFactMetricPrimaryFactTableId,
   SliceLevelsData,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
@@ -22,7 +23,7 @@ import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import { DocLink } from "@/components/DocLink";
 
-interface MetricWithStringColumns extends FactMetricInterface {
+type MetricWithStringColumns = FactMetricInterface & {
   stringColumns: Array<{
     column: string;
     name: string;
@@ -31,7 +32,7 @@ interface MetricWithStringColumns extends FactMetricInterface {
     autoSlices?: string[];
     topValues?: string[];
   }>;
-}
+};
 
 export interface CustomMetricSlicesSelectorProps {
   goalMetrics: string[];
@@ -90,13 +91,15 @@ export default function CustomMetricSlicesSelector({
       .map((id) => factMetrics.find((m) => m.id === id))
       .filter((metric) => {
         const factTable = metric
-          ? factTableMap.get(metric.numerator?.factTableId)
+          ? factTableMap.get(getFactMetricPrimaryFactTableId(metric))
           : null;
         const hasColumns = !!factTable?.columns;
         return !!metric && isFactMetric(metric) && hasColumns;
       })
       .map((metric) => {
-        const factTable = factTableMap.get(metric!.numerator?.factTableId);
+        const factTable = factTableMap.get(
+          getFactMetricPrimaryFactTableId(metric!),
+        );
         const stringColumns = factTable?.columns?.filter(
           (col) =>
             (col.datatype === "string" || col.datatype === "boolean") &&
@@ -721,7 +724,7 @@ function EditingInterface({
 
       <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
         <Button
-          size="xs"
+          size="sm"
           onClick={saveEditing}
           disabled={
             editingSliceLevels.length === 0 ||

@@ -24,6 +24,7 @@ import {
   GCS_DOMAIN,
   AWS_ASSUME_ROLE,
   S3_SESSION_REPLAY_BUCKET,
+  S3_SESSION_REPLAY_BUCKET_EU,
   S3_SESSION_REPLAY_ASSUME_ROLE,
   VISUAL_EDITOR_ASSETS_S3_BUCKET,
   VISUAL_EDITOR_ASSETS_S3_REGION,
@@ -125,22 +126,35 @@ function getS3Client(region: string): S3Client {
   return client;
 }
 
-let sessionReplayS3Client: S3Client | null = null;
+// Which AWS region an org's managed warehouse (and therefore its
+// session-replay data) is provisioned in. Mirrors `GrowthbookClickhouseSettings.region`.
+export type SessionReplayRegion = "us-east-1" | "eu-west-1";
+
+function getSessionReplayBucket(region: SessionReplayRegion): string {
+  return region === "eu-west-1"
+    ? S3_SESSION_REPLAY_BUCKET_EU
+    : S3_SESSION_REPLAY_BUCKET;
+}
+
+const sessionReplayS3Clients = new Map<SessionReplayRegion, S3Client>();
 
 /**
- * S3 client scoped to the session-replay bucket. May use a different role
- * (via `S3_SESSION_REPLAY_ASSUME_ROLE`) than the uploads client so that read
- * access to replay payloads can be granted independently of write access to
- * the general uploads bucket.
+ * S3 client scoped to the session-replay bucket for the given region. May use
+ * a different role (via `S3_SESSION_REPLAY_ASSUME_ROLE`) than the uploads
+ * client so that read access to replay payloads can be granted independently
+ * of write access to the general uploads bucket.
  */
-function getSessionReplayS3Client(): S3Client {
-  if (!sessionReplayS3Client) {
-    sessionReplayS3Client = buildS3Client({
+function getSessionReplayS3Client(region: SessionReplayRegion): S3Client {
+  let client = sessionReplayS3Clients.get(region);
+  if (!client) {
+    client = buildS3Client({
       assumeRoleArn: S3_SESSION_REPLAY_ASSUME_ROLE,
       roleSessionName: "growthbook-session-replay-reads",
+      region,
     });
+    sessionReplayS3Clients.set(region, client);
   }
-  return sessionReplayS3Client;
+  return client;
 }
 
 // --- Low-level S3 primitives ---
@@ -375,6 +389,9 @@ export async function getSignedUploadUrl(
   // The Cache-Control header the client must send with its PUT/POST.
   // `null` when no cache header is configured for this destination.
   cacheControl: string | null;
+  // Content-Disposition the client must echo on the GCS PUT (S3 gets it as
+  // a signed form field). `null` when none applies.
+  contentDisposition: string | null;
   // Echoes the size cap so the client can do an early-error check.
   maxBytes: number | null;
 }> {
@@ -384,6 +401,13 @@ export async function getSignedUploadUrl(
   }
 
   const cfg = getDestinationConfig(destination);
+
+  // An SVG opened directly renders as a document and runs any <script> it
+  // carries, in this bucket's origin. `attachment` makes a direct link
+  // download instead; <img> embedding ignores it, so rendering is
+  // unaffected. Defence in depth behind the CDN's CSP header.
+  const contentDisposition =
+    contentType === "image/svg+xml" ? "attachment" : null;
 
   if (UPLOAD_METHOD === "s3") {
     const client = getS3Client(cfg.s3Region);
@@ -402,6 +426,10 @@ export async function getSignedUploadUrl(
     if (cfg.cacheControl) {
       conditions.push(["eq", "$Cache-Control", cfg.cacheControl]);
       fields["Cache-Control"] = cfg.cacheControl;
+    }
+    if (contentDisposition) {
+      conditions.push(["eq", "$Content-Disposition", contentDisposition]);
+      fields["Content-Disposition"] = contentDisposition;
     }
     // content-length-range is the actual server-side size enforcement;
     // any client-side check is just UX.
@@ -425,6 +453,7 @@ export async function getSignedUploadUrl(
       fileUrl,
       fields: signedFields as Record<string, string>,
       cacheControl: cfg.cacheControl ?? null,
+      contentDisposition,
       maxBytes: maxBytes ?? null,
     };
   } else if (UPLOAD_METHOD === "google-cloud") {
@@ -440,9 +469,12 @@ export async function getSignedUploadUrl(
       action: "write",
       expires: Date.now() + expiresInMinutes * 60 * 1000,
       contentType,
-      ...(cfg.cacheControl
-        ? { extensionHeaders: { "cache-control": cfg.cacheControl } }
-        : {}),
+      extensionHeaders: {
+        ...(cfg.cacheControl ? { "cache-control": cfg.cacheControl } : {}),
+        ...(contentDisposition
+          ? { "content-disposition": contentDisposition }
+          : {}),
+      },
     });
 
     const fileUrl =
@@ -452,6 +484,7 @@ export async function getSignedUploadUrl(
       signedUrl,
       fileUrl,
       cacheControl: cfg.cacheControl ?? null,
+      contentDisposition,
       // FOOTGUN: GCS V4 signed URLs don't support content-length-range,
       // so the size cap is client-side only here — a known enforcement
       // gap to revisit (e.g., delete oversize uploads post-hoc).
@@ -476,26 +509,30 @@ export async function getSignedUploadUrl(
  * `S3_SESSION_REPLAY_BUCKET` set). Use this in the controller to short-circuit
  * with a clean 4xx when the deployment hasn't enabled session-replay reads.
  */
-export function isSessionReplayStorageConfigured(): boolean {
-  return UPLOAD_METHOD === "s3" && !!S3_SESSION_REPLAY_BUCKET;
+export function isSessionReplayStorageConfigured(
+  region: SessionReplayRegion,
+): boolean {
+  return UPLOAD_METHOD === "s3" && !!getSessionReplayBucket(region);
 }
 
 /**
- * Lists every object key under `storagePrefix` in the session-replay bucket.
- * Returns the raw S3 keys (in S3 ordering, which is lexicographic — callers
- * that need numeric chunk-index ordering should sort after parsing).
+ * Lists every object key under `storagePrefix` in the session-replay bucket
+ * for the given region. Returns the raw S3 keys (in S3 ordering, which is
+ * lexicographic — callers that need numeric chunk-index ordering should sort
+ * after parsing).
  */
 export async function listSessionReplayChunks(
   storagePrefix: string,
+  region: SessionReplayRegion,
 ): Promise<string[]> {
-  if (!isSessionReplayStorageConfigured()) {
+  if (!isSessionReplayStorageConfigured(region)) {
     throw new Error(
-      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET)",
+      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET / S3_SESSION_REPLAY_BUCKET_EU)",
     );
   }
   return s3ListByPrefix(
-    getSessionReplayS3Client(),
-    S3_SESSION_REPLAY_BUCKET,
+    getSessionReplayS3Client(region),
+    getSessionReplayBucket(region),
     storagePrefix,
   );
 }
@@ -508,15 +545,16 @@ export async function listSessionReplayChunks(
  */
 export async function getSessionReplayObjectBuffer(
   key: string,
+  region: SessionReplayRegion,
 ): Promise<Buffer> {
-  if (!isSessionReplayStorageConfigured()) {
+  if (!isSessionReplayStorageConfigured(region)) {
     throw new Error(
-      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET)",
+      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET / S3_SESSION_REPLAY_BUCKET_EU)",
     );
   }
   return s3GetObjectBuffer(
-    getSessionReplayS3Client(),
-    S3_SESSION_REPLAY_BUCKET,
+    getSessionReplayS3Client(region),
+    getSessionReplayBucket(region),
     key,
   );
 }

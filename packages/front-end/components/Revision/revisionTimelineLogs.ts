@@ -1,13 +1,6 @@
 import { Revision } from "shared/enterprise";
 import { RevisionLog } from "shared/types/feature-revision";
 
-// Maps a generic Revision's baked reviews[] + activityLog[] into the shared
-// <RevisionTimeline>'s RevisionLog shape (the source-of-truth feature log
-// format). Reviews become Comment / Approved / Requested Changes entries;
-// lifecycle activity maps to the equivalent feature action verbs. Content
-// edits map to "update" (collapsed under the Conversation tab). Activity
-// actions already represented by reviews[] are dropped to avoid double-counting.
-
 type ResolveUser = (id: string) => { name?: string; email?: string };
 
 const ACTIVITY_ACTION_MAP: Record<string, string> = {
@@ -16,10 +9,12 @@ const ACTIVITY_ACTION_MAP: Record<string, string> = {
   merged: "publish",
   discarded: "discard",
   reopened: "reopen",
+  recalled: "Recall Review",
   "review-requested": "Review Requested",
   "scheduled-publish": "schedule publish",
   "scheduled-publish-updated": "update scheduled publish",
   "scheduled-publish-canceled": "cancel scheduled publish",
+  "merge-recovered": "re-publish",
 };
 
 // Activity actions that duplicate entries already surfaced from reviews[].
@@ -151,23 +146,7 @@ export function revisionTimelineLogs(
       timestamp: iso(a.dateCreated),
       action,
       subject: "",
-      // No "Details" JSON disclosure for generic (saved-group / constant)
-      // activity entries. Features populate `value` with a clean domain
-      // snapshot per entry (FeatureRevisionModel: the "new revision" log bakes
-      // defaultValue/rules/environmentsEnabled/prerequisites at creation time),
-      // but the generic model persists no equivalent:
-      //   - "new revision" (created): only `proposedChangesSnapshot` (a raw
-      //     JSON-Patch op array) + an entity-specific `targetSnapshot` baseline
-      //     are available — i.e. the diff/raw-JSON the disclosure was scoped to
-      //     exclude, not a domain payload.
-      //   - "schedule publish": the backend writes a static
-      //     description: "Scheduled publish" string (RevisionModel.armSchedule)
-      //     and stores the date/lock targets/bypass flags only on the revision's
-      //     current top-level fields, with no per-entry snapshot. Reconstructing
-      //     them from current state would misattribute the latest schedule to
-      //     superseded historical entries.
-      // Populating `value` here would require backend changes (persist a
-      // per-entry snapshot) rather than guesswork, so it's deferred.
+      // Generic activity lacks per-entry snapshots, so no safe Details payload exists.
       value: "",
     });
   }

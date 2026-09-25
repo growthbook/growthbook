@@ -4,6 +4,7 @@ import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
+  featureMetadataEnvelope,
   fillRevisionFromFeature,
   getDraftAffectedEnvironments,
   getEffectiveRevisionHoldout,
@@ -17,6 +18,8 @@ import {
   liveRevisionFromFeature,
   reconcileMergeBaselines,
 } from "../../src/util";
+
+const toEnvs = (ids: string[]) => ids.map((id) => ({ id, description: "" }));
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -95,7 +98,7 @@ describe("checkIfRevisionNeedsReview", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -121,7 +124,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(false);
@@ -146,7 +149,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(true);
@@ -171,7 +174,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(false);
@@ -193,7 +196,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(true);
@@ -215,7 +218,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(false);
@@ -242,7 +245,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(true);
@@ -262,7 +265,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments,
+          orgEnvironments: toEnvs(allEnvironments),
           settings,
         }),
       ).toBe(false);
@@ -299,7 +302,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(false);
@@ -331,7 +334,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(true);
@@ -375,7 +378,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(true);
@@ -399,7 +402,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(false);
@@ -425,7 +428,7 @@ describe("checkIfRevisionNeedsReview", () => {
           feature: baseFeature,
           baseRevision: base,
           revision,
-          allEnvironments: allEnvs,
+          orgEnvironments: toEnvs(allEnvs),
           settings,
         }),
       ).toBe(true);
@@ -923,7 +926,7 @@ describe("backward compatibility — old revisions without envelopes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments: ["production", "staging"],
+        orgEnvironments: toEnvs(["production", "staging"]),
         settings,
       }),
     ).toBe(false);
@@ -992,6 +995,42 @@ describe("reconcileMergeBaselines", () => {
       // Without reconciliation this would be swallowed (draft === stale base).
       expect(result.result.environmentsEnabled).toEqual({ staging: true });
     }
+  });
+});
+
+// Baselines seed from this and snapshots write it, so a key it omits is a key
+// a draft can record and then diff against nothing. The `Required` return type
+// is the real guard; this pins the same contract at runtime.
+describe("featureMetadataEnvelope", () => {
+  it("covers every key the revision metadata schema defines", () => {
+    const schemaKeys = [
+      "description",
+      "owner",
+      "project",
+      "targetingAllProjects",
+      "targetingProjects",
+      "tags",
+      "neverStale",
+      "customFields",
+      "jsonSchema",
+      "valueType",
+      "baseConfig",
+    ].sort();
+
+    expect(Object.keys(featureMetadataEnvelope(baseFeature)).sort()).toEqual(
+      schemaKeys,
+    );
+  });
+
+  it("carries the feature's targeting scope, which drafts record", () => {
+    const envelope = featureMetadataEnvelope({
+      ...baseFeature,
+      targetingAllProjects: true,
+      targetingProjects: ["p1"],
+    } as FeatureInterface);
+
+    expect(envelope.targetingAllProjects).toBe(true);
+    expect(envelope.targetingProjects).toEqual(["p1"]);
   });
 });
 
@@ -1414,7 +1453,9 @@ describe("getDraftAffectedEnvironments", () => {
     ).toBe("all");
   });
 
-  it('returns "all" for archived change', () => {
+  // Archiving only reaches the environments the flag serves in — unlike the
+  // other global changes, which reach every environment.
+  it("returns the serving environments for an archived change", () => {
     const revision: RevisionFields = {
       ...base,
       version: 4,
@@ -1422,7 +1463,25 @@ describe("getDraftAffectedEnvironments", () => {
     };
     expect(
       getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
-    ).toBe("all");
+    ).toEqual(["production"]);
+  });
+
+  it("returns no environments when archiving a flag that serves nowhere", () => {
+    const servesNowhere: RevisionFields = {
+      ...base,
+      environmentsEnabled: { production: false, staging: false },
+    };
+    const revision: RevisionFields = {
+      ...servesNowhere,
+      version: 4,
+      archived: true,
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, servesNowhere, [
+        "production",
+        "staging",
+      ]),
+    ).toEqual([]);
   });
 
   it('returns "all" for holdout add', () => {
@@ -1827,7 +1886,7 @@ describe("checkIfRevisionNeedsReview — holdout changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);
@@ -1844,7 +1903,7 @@ describe("checkIfRevisionNeedsReview — holdout changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);
@@ -1863,7 +1922,7 @@ describe("checkIfRevisionNeedsReview — holdout changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -1874,18 +1933,76 @@ describe("checkIfRevisionNeedsReview — archived changes", () => {
   const allEnvironments = ["production"];
   const settings = makeSettings(makeReviewSetting());
 
-  it("requires review when feature is archived", () => {
-    const base = makeRevision({ version: 3, archived: false });
-    const revision = makeRevision({ archived: true });
+  it("requires review when archiving a flag that is serving", () => {
+    const serving = { production: true };
+    const base = makeRevision({
+      version: 3,
+      archived: false,
+      environmentsEnabled: serving,
+    });
+    const revision = makeRevision({
+      archived: true,
+      environmentsEnabled: serving,
+    });
     expect(
       checkIfRevisionNeedsReview({
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);
+  });
+
+  // Archiving a flag that serves nowhere removes it from no payload, so there
+  // is nothing for a reviewer to weigh.
+  it("does NOT require review when archiving a flag that serves nowhere", () => {
+    const dormant = { production: false };
+    const base = makeRevision({
+      version: 3,
+      archived: false,
+      environmentsEnabled: dormant,
+    });
+    const revision = makeRevision({
+      archived: true,
+      environmentsEnabled: dormant,
+    });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        orgEnvironments: toEnvs(allEnvironments),
+        settings,
+      }),
+    ).toBe(false);
+  });
+
+  // Serving only outside the rule's protected environments is equally
+  // inconsequential to that rule.
+  it("does NOT require review when the served environments are unprotected", () => {
+    const serving = { production: false, dev: true };
+    const base = makeRevision({
+      version: 3,
+      archived: false,
+      environmentsEnabled: serving,
+    });
+    const revision = makeRevision({
+      archived: true,
+      environmentsEnabled: serving,
+    });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        orgEnvironments: toEnvs(["production", "dev"]),
+        settings: makeSettings(
+          makeReviewSetting({ environments: ["production"] }),
+        ),
+      }),
+    ).toBe(false);
   });
 
   it("does NOT require review when archived is unchanged", () => {
@@ -1896,7 +2013,7 @@ describe("checkIfRevisionNeedsReview — archived changes", () => {
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -1957,7 +2074,7 @@ describe("checkIfRevisionNeedsReview — legacy/sparse base revision (no false p
         feature: baseFeature,
         baseRevision: filledBase,
         revision: filledDraft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings,
       }),
     ).toBe(false);
@@ -2006,7 +2123,7 @@ describe("checkIfRevisionNeedsReview — legacy/sparse base revision (no false p
         feature: baseFeature,
         baseRevision: filledBase,
         revision: filledDraft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings,
       }),
     ).toBe(true);
@@ -2030,7 +2147,7 @@ describe("checkIfRevisionNeedsReview — metadata normalization (no false positi
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -2047,7 +2164,7 @@ describe("checkIfRevisionNeedsReview — metadata normalization (no false positi
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(false);
@@ -2064,7 +2181,7 @@ describe("checkIfRevisionNeedsReview — metadata normalization (no false positi
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);
@@ -2089,7 +2206,7 @@ describe("checkIfRevisionNeedsReview — metadata-only vs non-metadata global ch
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings: settingsNoMetaReview,
       }),
     ).toBe(false);
@@ -2099,7 +2216,7 @@ describe("checkIfRevisionNeedsReview — metadata-only vs non-metadata global ch
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings: settingsWithMetaReview,
       }),
     ).toBe(true);
@@ -2120,7 +2237,7 @@ describe("checkIfRevisionNeedsReview — metadata-only vs non-metadata global ch
         feature: baseFeature,
         baseRevision: base,
         revision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toBe(true);
@@ -2172,7 +2289,9 @@ describe("getReviewSetting", () => {
     expect(getReviewSetting([ruleA], featureNoProject)).toBeUndefined();
   });
 
-  it("returns the first matching rule when multiple rules match (project-scoped before catch-all)", () => {
+  // Not toBe: with two layers the result is the project rule merged over the
+  // catch-all, so it is an equal-but-distinct object.
+  it("prefers the project-scoped rule over the catch-all", () => {
     const projectRule = makeReviewSetting({
       projects: ["proj-a"],
       requireReviewOn: true,
@@ -2181,7 +2300,7 @@ describe("getReviewSetting", () => {
       projects: [],
       requireReviewOn: false,
     });
-    expect(getReviewSetting([projectRule, catchAll], featureInProjA)).toBe(
+    expect(getReviewSetting([projectRule, catchAll], featureInProjA)).toEqual(
       projectRule,
     );
   });

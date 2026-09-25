@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { groupBy, values } from "lodash";
 import { postCodeRefsValidator } from "shared/validators";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -49,9 +50,11 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
       if (featureProjects.has(featureId)) {
         // Existing feature: require write access to its project.
         const project = featureProjects.get(featureId);
-        return !req.context.permissions.canUpdateFeature(
-          { project },
-          { project },
+        return !req.context.permissions.canRevisionAction(
+          "feature",
+          "draft",
+          { projects: project ? [project] : [] },
+          NO_ENVIRONMENT_BINDING,
         );
       }
       // No matching feature in the org. When upserting, this is a flag key with
@@ -59,7 +62,10 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
       // clearing (deleteMissing), the feature was deleted and we're just removing
       // its dangling refs — there's no project to gate on, so allow it.
       if (requestedFeatures.has(featureId)) {
-        return !req.context.permissions.canCreateFeature({});
+        return !req.context.permissions.canCreateFeature(
+          {},
+          NO_ENVIRONMENT_BINDING,
+        );
       }
       return false;
     });

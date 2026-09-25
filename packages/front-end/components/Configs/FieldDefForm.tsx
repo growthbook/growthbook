@@ -12,6 +12,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import Field from "@/components/Forms/Field";
 import CodeTextArea, {
@@ -328,7 +329,7 @@ export default function FieldDefForm({
     );
 
   const modeToggle = (
-    <Link size="1" onClick={() => setMode(advanced ? "simple" : "schema")}>
+    <Link size="sm" onClick={() => setMode(advanced ? "simple" : "schema")}>
       {advanced ? "Use simple editor" : "Edit as JSON Schema"}
     </Link>
   );
@@ -364,7 +365,7 @@ export default function FieldDefForm({
         showFullscreenButton
         containerStyle={{ marginBottom: 0 }}
       />
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         Enter a JSON Schema for this field&apos;s value. See{" "}
         <Link href="https://json-schema.org/" target="_blank" rel="noreferrer">
           https://json-schema.org/
@@ -395,7 +396,7 @@ export default function FieldDefForm({
         {canEnum && !showEnum && (
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             icon={<PiPlus />}
             onClick={() => {
               setShowEnum(true);
@@ -408,7 +409,7 @@ export default function FieldDefForm({
         {canValidate && !showValidation && (
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             icon={<PiPlus />}
             onClick={() => setShowValidation(true)}
           >
@@ -418,7 +419,7 @@ export default function FieldDefForm({
       </Flex>
       {canEnum && showEnum && (
         <Box mt="3">
-          <Text as="label" size="small" weight="medium">
+          <Text as="label" size="sm" weight="medium">
             Allowed values
           </Text>
           <Flex gap="3" align="start">
@@ -504,10 +505,10 @@ export default function FieldDefForm({
 
   const saveCancel = (
     <Flex gap="3" align="center">
-      <Button size="sm" onClick={save} disabled={saving}>
+      <Button size="md" onClick={save} disabled={saving}>
         Save
       </Button>
-      <Link size="2" onClick={saving ? undefined : onCancel}>
+      <Link size="md" onClick={saving ? undefined : onCancel}>
         Cancel
       </Link>
     </Flex>
@@ -632,7 +633,7 @@ export default function FieldDefForm({
       )}
       {err && (
         <Callout status="error" mt="2" size="sm">
-          {err}
+          <MarkdownLinks text={err} />
         </Callout>
       )}
     </Box>

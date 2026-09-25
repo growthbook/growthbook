@@ -428,7 +428,7 @@ const HoldoutTimeline: React.FC<{
                         <VariationLabel
                           number={tooltipData.shippedVariation.index}
                           name={tooltipData.shippedVariation.name}
-                          size="medium"
+                          size="md"
                           maxWidth="170px"
                           disableTooltip
                         />

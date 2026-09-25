@@ -301,7 +301,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
             <VariationLabel
               number={e.variationIndex}
               name={e.variationName}
-              size="medium"
+              size="md"
               maxWidth="220px"
             />
             {e.shipped ? (

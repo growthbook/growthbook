@@ -21,7 +21,7 @@ const SnowflakeEventForwarderForm: FC<{
     patch: Partial<typeof snowflakeEventForwarderConfig.config>,
   ) => {
     setEventForwarderConfig({
-      sinkType: "snowflake",
+      ...snowflakeEventForwarderConfig,
       config: {
         ...snowflakeEventForwarderConfig.config,
         ...patch,

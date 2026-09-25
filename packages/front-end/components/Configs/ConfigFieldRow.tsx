@@ -17,6 +17,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import { Popover } from "@/ui/Popover";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -279,7 +280,7 @@ export default function ConfigFieldRow({
                 })()}
                 {editError && (
                   <HelperText status="error" size="sm">
-                    {editError}
+                    <MarkdownLinks text={editError} />
                   </HelperText>
                 )}
               </>
@@ -455,7 +456,7 @@ export default function ConfigFieldRow({
                   {f.source ? (
                     <Link
                       href={`/configs/${f.source}`}
-                      title={`View config: ${sourceName}`}
+                      title={`View Config: ${sourceName}`}
                       className="hover-underline"
                       style={{
                         display: "flex",
@@ -504,10 +505,10 @@ export default function ConfigFieldRow({
       >
         {isEditing ? (
           <Flex gap="3" align="center">
-            <Button size="sm" onClick={onSubmit}>
+            <Button size="md" onClick={onSubmit}>
               Save
             </Button>
-            <Link size="2" onClick={onCancelEdit}>
+            <Link size="md" onClick={onCancelEdit}>
               Cancel
             </Link>
           </Flex>
@@ -517,7 +518,7 @@ export default function ConfigFieldRow({
               {isOwnField || here ? (
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="md"
                   title={isOwnField ? "Edit field" : "Edit override"}
                   icon={<PiPencilSimpleFill />}
                   onClick={isOwnField ? onEditDefinition : onStartEdit}
@@ -527,7 +528,7 @@ export default function ConfigFieldRow({
               ) : (
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="md"
                   title="Add override"
                   icon={<PiPlusBold />}
                   onClick={onStartEdit}

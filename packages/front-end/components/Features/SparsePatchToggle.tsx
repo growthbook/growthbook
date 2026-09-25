@@ -22,7 +22,7 @@ export const SPARSE_PATCH_HELP = (
 export function SparsePatchIndicator() {
   return (
     <Flex align="center" gap="1">
-      <Text size="small" weight="medium" color="text-low">
+      <Text size="sm" weight="medium" color="text-low">
         Sparse patch
       </Text>
       <Tooltip content={SPARSE_PATCH_HELP}>
@@ -52,7 +52,7 @@ export default function SparsePatchToggle({
         onChange={onChange}
         disabled={disabled}
         label="Sparse patch"
-        size="1"
+        size="sm"
       />
       <Tooltip content={SPARSE_PATCH_HELP}>
         <span style={{ display: "inline-flex", color: "var(--gray-11)" }}>

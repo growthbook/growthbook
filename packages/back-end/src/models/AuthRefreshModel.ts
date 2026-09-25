@@ -55,7 +55,8 @@ export async function getUserIdFromAuthRefreshToken(
   token: string,
 ): Promise<string> {
   const doc = await AuthRefreshModel.findOne({
-    token,
+    // $eq + String() so a non-string token can never act as a Mongo operator
+    token: { $eq: String(token) },
   });
 
   if (doc) {

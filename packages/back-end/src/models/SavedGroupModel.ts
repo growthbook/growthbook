@@ -1,17 +1,25 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
   SavedGroupWithoutValues,
   SavedGroupForDefinitions,
+  SavedGroupMetadata,
 } from "shared/types/saved-group";
 import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logSavedGroupCreatedEvent,
   logSavedGroupUpdatedEvent,
@@ -25,6 +33,7 @@ import { MakeModelClass } from "./BaseModel";
 // or archived from the org schema. Normal create/update paths leave it unset.
 type WriteOptions = {
   skipAttributeValidation?: boolean;
+  isCompensation?: boolean;
 };
 
 const BaseClass = MakeModelClass({
@@ -50,8 +59,10 @@ const BaseClass = MakeModelClass({
   additionalIndexes: [{ fields: { organization: 1 } }],
 });
 
+const idsQuery = (ids?: string[]) => (ids ? { id: { $in: ids } } : {});
+
 export class SavedGroupModel extends BaseClass<WriteOptions> {
-  // Substitutes proposed (unwritten) saved-group docs into getAll() reads so a
+  // Substitutes proposed (unwritten) saved-group docs into full and metadata reads so a
   // publish-time scan (the archive-dependents gate resolves saved-group →
   // saved-group condition references) sees the batch's combined end-state.
   // Only ever set on a dedicated plan-scoped scan context — never a request
@@ -79,7 +90,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     _updates: UpdateProps<SavedGroupInterface>,
     newDoc: SavedGroupInterface,
   ): boolean {
-    return this.context.permissions.canUpdateSavedGroup(existing, newDoc);
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "saved-group",
+      existing,
+      newDoc,
+      environments: NO_ENVIRONMENT_BINDING,
+    });
   }
 
   protected canDelete(doc: SavedGroupInterface): boolean {
@@ -132,6 +149,9 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     previousDoc?: SavedGroupInterface,
     writeOptions?: WriteOptions,
   ) {
+    if (!this.context.bulkPublishApplying && !writeOptions?.isCompensation) {
+      await assertSavedGroupProjectScope(this.context, doc, previousDoc);
+    }
     if (writeOptions?.skipAttributeValidation) return;
     if (doc.type === "condition" && doc.condition) {
       assertRegisteredAttributes(
@@ -160,7 +180,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     // If the values, condition, projects, or archived state change, we need to
     // invalidate cached feature rules. `archived` IS refreshed: the archive
     // guard is only a bypassable warning, so a still-referenced group can be
-    // archived (ignoreWarnings) — `filterUsedSavedGroups` then drops it from
+    // archived (ignoreWarnings) — `getUsedSavedGroupIds` then drops it from
     // every referencing feature's payload, and unarchiving restores it, both
     // of which change served values.
     if (
@@ -185,8 +205,10 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await emitOrDeferBulkPublishEvent(this.context, () =>
-        logSavedGroupUpdatedEvent(this.context, previous, current),
+      await emitOrDeferBulkPublishEvent(
+        () => logSavedGroupUpdatedEvent(this.context, previous, current),
+        entityKey("saved-group", newDoc.id),
+        captureEventBuffer(this.context),
       );
     }
   }
@@ -207,9 +229,47 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     await touchDefinitionsVersion(this.context.org.id);
   }
 
-  public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
-    const groups = await this._find({}, { projection: { values: 0 } });
-    return groups as SavedGroupWithoutValues[];
+  /** Everything but the ID lists, which can be enormous. All groups, or `ids`. */
+  public async getAllWithoutValues(
+    ids?: string[],
+  ): Promise<SavedGroupWithoutValues[]> {
+    if (ids && !ids.length) return [];
+    const groups = await this._find(idsQuery(ids), {
+      projection: { values: 0 },
+    });
+    const overlay =
+      ids && this.scanOverlay
+        ? new Map([...this.scanOverlay].filter(([id]) => ids.includes(id)))
+        : this.scanOverlay;
+    return overlayDocsById(
+      groups as SavedGroupWithoutValues[],
+      overlay,
+      (group) => omit(group, "values"),
+    );
+  }
+
+  /** As `getAllWithoutValues`, with whether each ID list is non-empty. */
+  public async getMetadata(ids: string[]): Promise<SavedGroupMetadata[]> {
+    if (!ids.length) return [];
+    const [groups, withValues] = await Promise.all([
+      this.getAllWithoutValues(ids),
+      this._find(
+        { ...idsQuery(ids), values: { $type: "array", $ne: [] } } as Parameters<
+          typeof this._find
+        >[0],
+        { projection: { values: 0, condition: 0 } },
+      ),
+    ]);
+    const nonEmpty = new Set(withValues.map((group) => group.id));
+    return groups.map((group) => {
+      const proposed = this.scanOverlay?.get(group.id);
+      return {
+        ...group,
+        hasValues: proposed
+          ? !!proposed.values?.length
+          : nonEmpty.has(group.id),
+      };
+    });
   }
 
   /**
@@ -239,5 +299,18 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       archived: !!savedGroup.archived,
       useEmptyListGroup: savedGroup.useEmptyListGroup,
     };
+  }
+  /**
+   * Project scope only, for the given ids — what a read check consults.
+   * Revision listings ask this for every target in a filtered scan, so the
+   * heavy value fields are projected out (`values` can be enormous).
+   * Read-filtered like any other find, so what comes back is what may be read.
+   */
+  public async getReadScopesByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this._find(
+      { id: { $in: ids } } as Parameters<typeof this._find>[0],
+      { projection: { values: 0, condition: 0 } },
+    );
   }
 }

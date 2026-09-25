@@ -1,6 +1,7 @@
 import {
   MetricExperimentsBlockInterface,
   calculateProductAnalyticsDateRange,
+  getEffectiveExperimentBlock,
 } from "shared/enterprise";
 import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 import { useMemo } from "react";
@@ -12,9 +13,16 @@ import Callout from "@/ui/Callout";
 import { BlockProps } from ".";
 
 export default function MetricExperimentsBlock({
-  block,
+  block: rawBlock,
+  dashboardGlobalControls,
 }: BlockProps<MetricExperimentsBlockInterface>) {
   const { getExperimentMetricById } = useDefinitions();
+  // Apply any dashboard-wide global filters (metric / projects / experiment
+  // search) the block has opted into. Date range is intentionally not applied to
+  // this block — it keeps its own start/end phase-date windows.
+  const block = getEffectiveExperimentBlock(rawBlock, {
+    globalControls: dashboardGlobalControls,
+  });
   const metric = getExperimentMetricById(block.metricId);
 
   // Memoize the query string. `calculateProductAnalyticsDateRange` resolves

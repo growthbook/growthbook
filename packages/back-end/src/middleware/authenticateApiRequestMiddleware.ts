@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
-import { hasPermission } from "shared/permissions";
+import { getRolePermissions, hasPermission } from "shared/permissions";
 import {
   EventUserApiKey,
   EventUserLoggedIn,
@@ -19,10 +19,7 @@ import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
 } from "back-end/src/util/api-key.util";
-import {
-  getUserPermissions,
-  getRolePermissions,
-} from "back-end/src/util/organization.util";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
@@ -30,6 +27,7 @@ import {
 } from "back-end/src/services/licenseData";
 import { ReqContextClass } from "back-end/src/services/context";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getAuthConnection, processJWT } from "back-end/src/services/auth";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -140,6 +138,7 @@ function authenticateWithJwt(
           },
           context.org,
           authReq.teams,
+          authReq.restrictedProjects,
         );
 
         for (const p of checkProjects) {
@@ -267,6 +266,14 @@ function authenticateWithApiKey(
       }
       req.organization = org;
 
+      // Turning the org setting on revokes every user-attributed token
+      // immediately, without touching the stored docs.
+      if (userId && org.settings?.disablePersonalAccessTokens) {
+        throw new Error(
+          "Personal access tokens are disabled for this organization",
+        );
+      }
+
       if (org.suspended && !req.user?.superAdmin) {
         return res.status(403).json({
           message:
@@ -284,7 +291,10 @@ function authenticateWithApiKey(
         throw new Error("Could not find user attached to this API key");
       }
 
-      const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
+      const [teams, restrictedProjects] = await Promise.all([
+        TeamModel.dangerousGetTeamsForOrganization(org.id),
+        ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+      ]);
 
       const eventAudit: EventUserApiKey = {
         type: "api_key",
@@ -309,6 +319,7 @@ function authenticateWithApiKey(
         apiKey: id,
         apiKeyData: apiKeyDoc,
         req,
+        restrictedProjects,
       });
 
       // Check permissions for user API keys
@@ -333,6 +344,7 @@ function authenticateWithApiKey(
             environments: envs ? [...envs] : undefined,
             teams,
             superAdmin: req.user?.superAdmin,
+            restrictedProjects,
           });
         }
       };
@@ -366,6 +378,7 @@ function doesUserHavePermission(
   apiKeyDoc: ApiKeyInterface,
   teams: TeamInterface[],
   superAdmin: boolean | undefined,
+  restrictedProjects: string[],
   project?: string,
   envs?: string[],
 ): boolean {
@@ -380,6 +393,7 @@ function doesUserHavePermission(
       { id: userId, superAdmin },
       org,
       teams,
+      restrictedProjects,
     );
 
     // Check if the user has the permission
@@ -397,6 +411,7 @@ type VerifyApiKeyPermissionOptions = {
   environments?: string[];
   teams: TeamInterface[];
   superAdmin: boolean | undefined;
+  restrictedProjects?: string[];
 };
 
 /**
@@ -414,6 +429,7 @@ export function verifyApiKeyPermission({
   project,
   teams,
   superAdmin,
+  restrictedProjects,
 }: VerifyApiKeyPermissionOptions) {
   if (apiKey.userId) {
     if (
@@ -423,6 +439,7 @@ export function verifyApiKeyPermission({
         apiKey,
         teams,
         superAdmin,
+        restrictedProjects || [],
         project,
         environments,
       )
@@ -438,6 +455,7 @@ export function verifyApiKeyPermission({
       apiKey as ApiKeyWithRole,
       organization,
       teams,
+      restrictedProjects,
     );
 
     if (!hasPermission(apiKeyPermissions, permission, project, environments)) {

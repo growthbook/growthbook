@@ -1,3 +1,4 @@
+import { PermissionError } from "shared/util";
 import request from "supertest";
 import { FeatureInterface } from "shared/types/feature";
 import {
@@ -10,11 +11,9 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import {
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
   getApiFeatureObj,
   createInterfaceEnvSettingsFromApiEnvSettings,
-  updateInterfaceEnvSettingsFromApiEnvSettings,
-  getNextScheduledUpdate,
   addIdsToFlatRules,
   buildFeatureRulesFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -25,6 +24,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   createFeature: jest.fn(),
   updateFeature: jest.fn(),
   createAndPublishRevision: jest.fn(),
+  getAllFeaturesWithoutEditorFields: jest.fn(async () => []),
 }));
 
 jest.mock("back-end/src/models/TagModel", () => ({
@@ -34,6 +34,7 @@ jest.mock("back-end/src/models/TagModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentMapForFeature: jest.fn(),
+  getAllExperimentsForStaleGraph: jest.fn(async () => []),
 }));
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
@@ -44,8 +45,9 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
-  getSavedGroupMap: jest.fn(),
-  getNextScheduledUpdate: jest.fn(),
+  getFeatureDefinitionLookups: jest
+    .fn()
+    .mockResolvedValue({ groupMap: new Map(), safeRolloutMap: new Map() }),
   addIdsToRules: jest.fn(),
   addIdsToFlatRules: jest.fn(),
   inheritStoredRolloutSeeds: jest.fn(),
@@ -114,6 +116,7 @@ describe("features API", () => {
   });
 
   const defaultModels = () => ({
+    savedGroups: { getAllWithoutValues: jest.fn().mockResolvedValue([]) },
     safeRollout: {
       getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
     },
@@ -122,9 +125,14 @@ describe("features API", () => {
 
   const defaultPermissions = (extra = {}) => ({
     canPublishFeature: () => true,
-    canUpdateFeature: () => true,
+    canEditFeatureDrafts: () => true,
     canCreateFeature: () => true,
-    canBypassApprovalChecks: () => false,
+    // Archiving is delete-class, so the update paths consult this too.
+    canDeleteFeature: () => true,
+    canBypassFlagApprovalChecks: () => false,
+    throwPermissionError: () => {
+      throw new PermissionError("permission denied");
+    },
     ...extra,
   });
 
@@ -135,16 +143,21 @@ describe("features API", () => {
       models: defaultModels(),
       permissions: defaultPermissions(),
       getProjects: async () => [{ id: "project" }],
+      getTargetingOptOutProjectIds: async () => [],
       getUserByEmail: jest.fn().mockResolvedValue(null),
       getUsersByIds: jest.fn().mockResolvedValue([]),
       ...overrides,
     });
 
+  const savedGroupMap = new Map();
+
   beforeEach(() => {
     (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
-    (getSavedGroupMap as jest.Mock).mockResolvedValue("savedGroupMap");
+    (getFeatureDefinitionLookups as jest.Mock).mockResolvedValue({
+      groupMap: savedGroupMap,
+      safeRolloutMap: new Map(),
+    });
     (getExperimentMapForFeature as jest.Mock).mockResolvedValue(new Map());
-    (getNextScheduledUpdate as jest.Mock).mockReturnValue(null);
 
     (getRevision as jest.Mock).mockImplementation(({ version }) =>
       version !== undefined
@@ -234,7 +247,8 @@ describe("features API", () => {
             valueType: "string",
             version: 1,
           }),
-          groupMap: "savedGroupMap",
+          // the (empty) group map, JSON-serialized
+          groupMap: {},
         }),
       }),
     );
@@ -468,7 +482,7 @@ describe("features API", () => {
         .send({ description: "new description" });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
+      expect(createAndPublishRevision).toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -500,7 +514,7 @@ describe("features API", () => {
         .send({ description: "new description", customFields: {} });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
+      expect(createAndPublishRevision).toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -537,7 +551,7 @@ describe("features API", () => {
       expect(response.body.message).toContain(
         'Custom field "Owning Team" is required.',
       );
-      expect(updateFeature).not.toHaveBeenCalled();
+      expect(createAndPublishRevision).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
     });
 
@@ -570,7 +584,7 @@ describe("features API", () => {
         .send({ description: "new description", project: "project" });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
+      expect(createAndPublishRevision).toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -612,7 +626,7 @@ describe("features API", () => {
       expect(response.body.message).toContain(
         'Custom field "Owning Team" is required.',
       );
-      expect(updateFeature).not.toHaveBeenCalled();
+      expect(createAndPublishRevision).not.toHaveBeenCalled();
     });
 
     it("revalidates and rejects when changing project and customFields payload is changed", async () => {
@@ -659,102 +673,16 @@ describe("features API", () => {
       expect(response.body.message).toContain(
         'Custom field "Owning Team" is required.',
       );
-      expect(updateFeature).not.toHaveBeenCalled();
+      expect(createAndPublishRevision).not.toHaveBeenCalled();
     });
   });
 
   // ---------------------------------------------------------------------------
-  // nextScheduledUpdate
+  // One write per request: the revision landing
   // ---------------------------------------------------------------------------
 
-  describe("nextScheduledUpdate", () => {
-    it("writes nextScheduledUpdate when scheduleRules are updated via API", async () => {
-      defaultContext({
-        permissions: defaultPermissions({
-          canBypassApprovalChecks: () => true,
-        }),
-        hasPremiumFeature: () => true,
-        getProjects: async () => [{ id: "project_1" }],
-      });
-
-      const startTs = "2026-02-20T08:00:00.000Z";
-      const endTs = "2026-02-25T08:00:00.000Z";
-      const nextScheduledUpdate = new Date(startTs);
-      const updatedEnvironmentSettings = {
-        production: {
-          enabled: true,
-          rules: [
-            {
-              id: "fr_test",
-              type: "force",
-              description: "scheduled force",
-              condition: "",
-              value: "true",
-              enabled: true,
-              savedGroups: [],
-              scheduleRules: [
-                { enabled: true, timestamp: startTs },
-                { enabled: false, timestamp: endTs },
-              ],
-            },
-          ],
-        },
-      };
-
-      const existingFeature = makeFeature({
-        project: "project_1",
-        version: 10,
-        environmentSettings: { production: { enabled: true, rules: [] } },
-      });
-
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (
-        updateInterfaceEnvSettingsFromApiEnvSettings as jest.Mock
-      ).mockReturnValue(updatedEnvironmentSettings);
-      (getNextScheduledUpdate as jest.Mock).mockReturnValue(
-        nextScheduledUpdate,
-      );
-      (createAndPublishRevision as jest.Mock).mockResolvedValue({
-        revision: makeRevisionDoc(11, existingFeature.id),
-        updatedFeature: { ...existingFeature, version: 11 },
-      });
-
-      const response = await request(app)
-        .post(`/api/v1/features/${existingFeature.id}`)
-        .send({
-          environments: {
-            production: {
-              enabled: true,
-              rules: [
-                {
-                  id: "fr_test",
-                  type: "force",
-                  description: "scheduled force",
-                  condition: "",
-                  value: "true",
-                  enabled: true,
-                  scheduleRules: [
-                    { enabled: true, timestamp: startTs },
-                    { enabled: false, timestamp: endTs },
-                  ],
-                },
-              ],
-            },
-          },
-        });
-
-      expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        expect.objectContaining({
-          environmentSettings: updatedEnvironmentSettings,
-          nextScheduledUpdate,
-        }),
-      );
-    });
-
-    it("does not modify nextScheduledUpdate if there are no environment updates", async () => {
+  describe("direct feature writes", () => {
+    it("lands a change through the revision only and answers with the landed feature", async () => {
       defaultContext({
         getProjects: async () => [{ id: "project_1" }, { id: "project_2" }],
       });
@@ -762,40 +690,40 @@ describe("features API", () => {
       const existingFeature = makeFeature({
         project: "project_1",
         version: 10,
-        environmentSettings: {
-          production: {
-            enabled: true,
-            rules: [
-              {
-                id: "fr_schedule",
-                type: "force",
-                condition: "",
-                value: "true",
-                savedGroups: [],
-                scheduleRules: [
-                  { enabled: true, timestamp: "2026-02-20T08:00:00.000Z" },
-                ],
-              },
-            ],
-          },
-        },
+      });
+      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      const landedFeature = {
+        ...existingFeature,
+        project: "project_2",
+        version: 11,
+      };
+      (createAndPublishRevision as jest.Mock).mockResolvedValue({
+        revision: makeRevisionDoc(11, existingFeature.id),
+        updatedFeature: landedFeature,
       });
 
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (getNextScheduledUpdate as jest.Mock).mockImplementation((envSettings) =>
-        envSettings ? new Date("2026-02-20T08:00:00.000Z") : null,
-      );
-
-      const originalVersion = existingFeature.version;
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
         .send({ project: "project_2" });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
-      const updateFeatureCall = (updateFeature as jest.Mock).mock.calls[0];
-      const updatesArg = updateFeatureCall[2];
-      expect(updatesArg).toEqual({ version: originalVersion + 1 });
+      expect(createAndPublishRevision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: expect.objectContaining({
+            metadata: expect.objectContaining({ project: "project_2" }),
+          }),
+        }),
+      );
+      expect(updateFeature).not.toHaveBeenCalled();
+      expect(response.body.feature.feature.version).toBe(11);
+      expect(response.body.feature.feature.project).toBe("project_2");
+      const details = JSON.parse(
+        auditMock.mock.calls.find(
+          ([entry]) => entry.event === "feature.update",
+        )[0].details,
+      );
+      expect(details.pre.version).toBe(10);
+      expect(details.post.version).toBe(11);
     });
   });
 
@@ -854,13 +782,13 @@ describe("features API", () => {
       );
     });
 
-    it("role-based bypassApprovalChecks permission bypasses when restApiBypassesReviews=false", async () => {
-      // Tokens/roles that grant bypassApprovalChecks for the feature's project
+    it("role-based FlagsBypassApprovals permission bypasses when restApiBypassesReviews=false", async () => {
+      // Tokens/roles that grant FlagsBypassApprovals for the feature's project
       // can still publish through the REST API even when the org-level
       // restApiBypassesReviews setting is disabled.
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => true },
+        { canBypassFlagApprovalChecks: () => true },
       );
       const response = await request(app)
         .post("/api/v1/features/myfeature")
@@ -872,10 +800,36 @@ describe("features API", () => {
       );
     });
 
+    it("refuses to archive without delete authority, even for a publisher", async () => {
+      // Archiving takes the flag out of service, so it is delete-class on every
+      // path that can land it — this endpoint included.
+      setupUpdateTest({}, { canDeleteFeature: () => false });
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: true });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("still lets a publisher unarchive without delete authority", async () => {
+      const existing = setupUpdateTest({}, { canDeleteFeature: () => false });
+      (getFeature as jest.Mock).mockResolvedValue({
+        ...existing,
+        archived: true,
+      });
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: false });
+
+      expect(response.status).toBe(200);
+    });
+
     it("throws when approvals required and neither restApiBypassesReviews nor role permission allow bypass", async () => {
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => false },
+        { canBypassFlagApprovalChecks: () => false },
       );
       (createAndPublishRevision as jest.Mock).mockRejectedValue(
         Object.assign(
@@ -991,7 +945,7 @@ describe("features API", () => {
           ],
           restApiBypassesReviews: false,
         },
-        { canBypassApprovalChecks: () => false },
+        { canBypassFlagApprovalChecks: () => false },
       );
 
       const response = await request(app)

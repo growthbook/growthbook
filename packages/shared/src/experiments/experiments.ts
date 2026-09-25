@@ -23,9 +23,11 @@ import {
   FactTableDefinitionMap,
   FactTableInterface,
   FactTableMap,
+  FunnelFactMetricInterface,
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import {
   MetricDefaults,
@@ -55,11 +57,16 @@ import {
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
+  SqlDialect,
   SqlIdentifierQuote,
   StringMatchFn,
   TemplateVariables,
 } from "shared/types/sql";
 import { stringToBoolean } from "../util";
+import {
+  getCappingTailState,
+  isCappableFactMetric,
+} from "../validators/fact-table";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -115,11 +122,14 @@ export function isLegacyMetric(m: ExperimentMetricDefinition): boolean {
 }
 
 export function canInlineFilterColumn(
-  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
   column: string,
 ): boolean {
   // If the column is one of the identifier columns, it is not eligible for prompting
-  if (factTable.userIdTypes.includes(column)) return false;
+  if (getFactTableIdColumns(factTable).includes(column)) return false;
 
   const dataType = getSelectedColumnDatatype({
     factTable,
@@ -132,6 +142,71 @@ export function canInlineFilterColumn(
   }
 
   return true;
+}
+
+export function getInlineFilterPromptColumns(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  rowFilters: RowFilter[] = [],
+): string[] {
+  const columns: string[] = [];
+  const add = (c: string) => {
+    if (!columns.includes(c)) columns.push(c);
+  };
+  factTable.columns.forEach((c) => {
+    if (
+      !c.alwaysInlineFilter ||
+      c.deleted ||
+      !canInlineFilterColumn(factTable, c.column)
+    ) {
+      return;
+    }
+    add(c.column);
+    const mapping = c.conditionalInlineFilters;
+    if (!mapping) return;
+    rowFilters.forEach((rf) => {
+      if (rf.column !== c.column) return;
+      if (rf.operator !== "=" && rf.operator !== "in") return;
+      const values = (rf.values ?? []).filter((v) => v !== "");
+      if (values.length !== 1) return;
+      const mapped = mapping[values[0]];
+      if (mapped) add(mapped);
+    });
+  });
+  return columns;
+}
+
+export function isEmptyInlineFilterPlaceholder(rf: RowFilter): boolean {
+  return rf.operator === "=" && (rf.values ?? []).every((v) => v === "");
+}
+
+// Runs after a filter edit - add secondary filters if needed
+export function reconcileInlineFilterPrompts(
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
+  previous: RowFilter[],
+  next: RowFilter[],
+): RowFilter[] {
+  const before = new Set(getInlineFilterPromptColumns(factTable, previous));
+  const after = new Set(getInlineFilterPromptColumns(factTable, next));
+  let result = next;
+  for (const column of before) {
+    if (after.has(column)) continue;
+    result = result.filter(
+      (rf) => !(rf.column === column && isEmptyInlineFilterPlaceholder(rf)),
+    );
+  }
+  for (const column of after) {
+    if (before.has(column)) continue;
+    if (!result.some((rf) => rf.column === column)) {
+      result = [...result, { column, operator: "=", values: [""] }];
+    }
+  }
+  return result;
 }
 
 // Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,
@@ -1037,6 +1112,8 @@ export function getRowFilterSQL({
         ? `(${comparisonColumn} IN ${list})`
         : `(${comparisonColumn} NOT IN ${list})`;
     }
+    case "matches_pattern":
+    case "not_matches_pattern":
     case "starts_with":
     case "ends_with":
     case "contains":
@@ -1092,6 +1169,55 @@ export function getFactTableTemplateVariables(
   };
 }
 
+export function getFactTableTimestampColumn(
+  factTable: Pick<FactTableInterface, "timestampColumn"> | undefined | null,
+): string {
+  return factTable?.timestampColumn || "timestamp";
+}
+
+export function getFactTableIdColumn(
+  factTable: Pick<FactTableInterface, "userIdColumns"> | undefined | null,
+  idType: string,
+): string {
+  return factTable?.userIdColumns?.[idType] || idType;
+}
+
+export function getFactTableIdColumnExpression(
+  factTable:
+    | Pick<FactTableInterface, "userIdColumns" | "columns">
+    | undefined
+    | null,
+  idType: string,
+  dialect: Pick<SqlDialect, "jsonExtract" | "identifierQuote">,
+  alias = "",
+): string {
+  const column = getFactTableIdColumn(factTable, idType);
+  if (!factTable || column === idType) {
+    return alias ? `${alias}.${idType}` : idType;
+  }
+  // Use getColumnExpression to support virtual columns and JSON field paths
+  return getColumnExpression(
+    column,
+    factTable,
+    dialect.jsonExtract,
+    alias,
+    dialect.identifierQuote,
+  );
+}
+
+function getFactTableIdColumns(
+  factTable: Pick<FactTableInterface, "userIdTypes" | "userIdColumns">,
+): string[] {
+  return [
+    ...new Set(
+      factTable.userIdTypes.flatMap((idType) => [
+        idType,
+        getFactTableIdColumn(factTable, idType),
+      ]),
+    ),
+  ];
+}
+
 // TODO(sql): refactor to remove factTableMap
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,
@@ -1099,10 +1225,12 @@ export function getMetricTemplateVariables(
   useDenominator?: boolean,
 ): TemplateVariables {
   if (isFactMetric(m)) {
-    const columnRef = useDenominator ? m.denominator : m.numerator;
-    if (!columnRef) return {};
+    const factTableId = useDenominator
+      ? m.denominator?.factTableId
+      : getFactMetricPrimaryFactTableId(m);
+    if (!factTableId) return {};
 
-    const factTable = factTableMap.get(columnRef.factTableId);
+    const factTable = factTableMap.get(factTableId);
     if (!factTable) return {};
 
     return {
@@ -1114,13 +1242,62 @@ export function getMetricTemplateVariables(
 }
 
 export function isCappableMetricType(m: ExperimentMetricDefinition) {
+  if (isFactMetric(m)) {
+    return isCappableFactMetric(m.metricType);
+  }
   return !quantileMetricType(m) && !isBinomialMetric(m);
 }
 
 export function isBinomialMetric(m: ExperimentMetricDefinition) {
   if (isFactMetric(m))
-    return ["proportion", "retention"].includes(m.metricType);
+    return ["proportion", "retention", "funnel"].includes(m.metricType);
   return m.type === "binomial";
+}
+
+/**
+ * Fact table the metric's primary events come from: the numerator's for most
+ * metric types, the first step's for funnels (which have no numerator).
+ */
+export function getFactMetricPrimaryFactTableId(
+  m: FactMetricInterface,
+): string {
+  return isFactFunnelMetric(m)
+    ? (m.funnelSettings.steps[0]?.factTableId ?? "")
+    : m.numerator.factTableId;
+}
+
+/**
+ * Every fact table the metric reads from, de-duplicated and in definition
+ * order (funnel step order; numerator before denominator). Order is load
+ * bearing: the SQL layer assigns source indices from it and source 0 is
+ * privileged.
+ */
+export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
+  const ids = isFactFunnelMetric(m)
+    ? m.funnelSettings.steps.map((step) => step.factTableId)
+    : [
+        m.numerator.factTableId,
+        ...(isRatioMetric(m) && m.denominator?.factTableId
+          ? [m.denominator.factTableId]
+          : []),
+      ];
+  return Array.from(new Set(ids.filter((id) => !!id)));
+}
+
+/**
+ * Every ColumnRef the metric reads from, for dependency scans over fact table
+ * columns and filters. Funnel steps have no column of their own, so they are
+ * surfaced as column-less refs that still carry their row filters.
+ */
+export function getFactMetricColumnRefs(m: FactMetricInterface): ColumnRef[] {
+  if (isFactFunnelMetric(m)) {
+    return m.funnelSettings.steps.map((step) => ({
+      factTableId: step.factTableId,
+      column: "",
+      rowFilters: step.rowFilters,
+    }));
+  }
+  return m.denominator ? [m.numerator, m.denominator] : [m.numerator];
 }
 
 export function isRetentionMetric(m: ExperimentMetricDefinition) {
@@ -1144,12 +1321,26 @@ export function quantileMetricType(
   return "";
 }
 
-export function isFunnelMetric(
+/**
+ * LEGACY funnel metric: a non-fact metric whose (binomial) denominator metric
+ * gates the numerator (denominator chaining). This is NOT the new fact-metric
+ * funnel type — see isFactFunnelMetric.
+ */
+export function isLegacyFunnelMetric(
   m: ExperimentMetricDefinition,
   denominatorMetric?: ExperimentMetricDefinition,
 ): boolean {
   if (isFactMetric(m)) return false;
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
+}
+
+/**
+ * fact-metric funnel: a fact metric with metricType === "funnel"
+ */
+export function isFactFunnelMetric(
+  m: ExperimentMetricDefinition,
+): m is FunnelFactMetricInterface {
+  return isFactMetric(m) && m.metricType === "funnel";
 }
 
 export function isRegressionAdjusted(
@@ -1166,20 +1357,77 @@ export function isRegressionAdjusted(
   );
 }
 
-export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
+/**
+ * The optional independent lower-tail capping settings. Only fact metrics
+ * support a lower tail; legacy metrics never have this field.
+ */
+export function getLowerCappingSettings(metric: ExperimentMetricDefinition) {
+  return "lowerCappingSettings" in metric
+    ? metric.lowerCappingSettings
+    : undefined;
+}
+
+export function isUpperPercentileCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
   return (
-    metric.cappingSettings.type === "percentile" &&
-    !!metric.cappingSettings.value &&
-    metric.cappingSettings.value < 1 &&
+    getCappingTailState(metric.cappingSettings).upperPercentileCapped &&
     isCappableMetricType(metric)
   );
 }
 
-function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+/**
+ * Legacy alias for upper-tail percentile capping. The legacy (non-fact)
+ * experiment SQL path only supports upper-tail capping, so this maps to the
+ * upper tail.
+ */
+export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
+  return isUpperPercentileCappedMetric(metric);
+}
+
+/** Lower-tail percentile winsorization (e.g. 5th percentile floor). */
+export function isLowerPercentileCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
   return (
-    metric.cappingSettings.type === "absolute" &&
-    !!metric.cappingSettings.value &&
+    getCappingTailState(undefined, getLowerCappingSettings(metric))
+      .lowerPercentileCapped && isCappableMetricType(metric)
+  );
+}
+
+/** True if SQL needs a percentile subquery (upper and/or lower tail). */
+export function needsPercentileCapSubquery(metric: ExperimentMetricInterface) {
+  const t = getCappingTailState(
+    metric.cappingSettings,
+    getLowerCappingSettings(metric),
+  );
+  return (
+    (t.upperPercentileCapped || t.lowerPercentileCapped) &&
     isCappableMetricType(metric)
+  );
+}
+
+export function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+  return (
+    getCappingTailState(metric.cappingSettings).upperAbsoluteCapped &&
+    isCappableMetricType(metric)
+  );
+}
+
+export function isLowerAbsoluteCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
+  return (
+    getCappingTailState(undefined, getLowerCappingSettings(metric))
+      .lowerAbsoluteCapped && isCappableMetricType(metric)
+  );
+}
+
+/** Any upper or lower tail capping is active (SQL / experiment analysis). */
+export function hasActiveCappingTails(metric: ExperimentMetricDefinition) {
+  return (
+    getCappingTailState(metric.cappingSettings, getLowerCappingSettings(metric))
+      .anyCap && isCappableMetricType(metric)
   );
 }
 
@@ -1189,7 +1437,10 @@ export function isSliceMetric(metric: ExperimentMetricDefinition) {
 
 export function eligibleForUncappedMetric(metric: ExperimentMetricDefinition) {
   return (
-    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    (isUpperPercentileCappedMetric(metric) ||
+      isLowerPercentileCappedMetric(metric) ||
+      isAbsoluteCappedMetric(metric) ||
+      isLowerAbsoluteCappedMetric(metric)) &&
     !isSliceMetric(metric)
   );
 }
@@ -1256,7 +1507,7 @@ export function getUserIdTypes(
     const factTable = factTableMap.get(
       useDenominator
         ? metric.denominator?.factTableId || ""
-        : metric.numerator.factTableId,
+        : getFactMetricPrimaryFactTableId(metric),
     );
     return factTable?.userIdTypes || [];
   }
@@ -1283,8 +1534,9 @@ export function parseSliceQueryString(
 
   for (const [key, value] of params.entries()) {
     if (key.startsWith("dim:")) {
-      const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
-      const level = value === "" ? null : decodeURIComponent(value);
+      // URLSearchParams already percent-decodes keys and values
+      const column = key.substring(4); // Remove 'dim:' prefix
+      const level = value === "" ? null : value;
       // Look up datatype from factTableMap if available
       let datatype: "string" | "boolean" = "string";
       if (factTableMap) {
@@ -1358,6 +1610,87 @@ export function parseSliceMetricId(
     baseMetricId,
     sliceLevels: sliceLevels,
   };
+}
+
+export interface FunnelStepMetricInfo {
+  isFunnelStepMetric: boolean;
+  baseMetricId: string;
+  stepIndex: number | null;
+}
+
+/**
+ * Id of the ephemeral binomial metric representing "did the unit reach step k".
+ * These never exist as saved fact metrics; the stats-engine packaging layer
+ * mints them when it splits a funnel's multi-column query block, and results,
+ * snapshots, and time series are keyed by them.
+ */
+export function funnelStepMetricId(
+  baseMetricId: string,
+  stepIndex: number,
+): string {
+  return `${baseMetricId}?step=${stepIndex}`;
+}
+
+export function parseFunnelStepMetricId(
+  metricId: string,
+): FunnelStepMetricInfo {
+  const match = metricId.match(/^(.+)\?step=(\d+)$/);
+  if (!match) {
+    return {
+      isFunnelStepMetric: false,
+      baseMetricId: metricId,
+      stepIndex: null,
+    };
+  }
+  return {
+    isFunnelStepMetric: true,
+    baseMetricId: match[1],
+    stepIndex: parseInt(match[2], 10),
+  };
+}
+
+/**
+ * One proportion metric per funnel step, cloned from the parent funnel. Each
+ * counts the units that reached that step, so the step's own fact table and row
+ * filters become an ordinary `$$distinctUsers` numerator.
+ *
+ * These are never queried — the parent funnel is queried once and its result
+ * block split per step (see `splitFunnelMetricBlock`). They exist so step ids
+ * resolve to a real definition for names, snapshot settings, and result
+ * lookups, the same way slice metrics do.
+ *
+ * Note: you cannot use these metrics to generate SQL standalone, as the condition
+ * for which units reach that step of the funnel are not contained in this metric
+ * definition.
+ */
+export function getFunnelStepMetrics(
+  metric: FunnelFactMetricInterface,
+): StandardFactMetricInterface[] {
+  return metric.funnelSettings.steps.map((step, stepIndex) => ({
+    ...metric,
+    id: funnelStepMetricId(metric.id, stepIndex),
+    name: `${metric.name}: ${step.name}`,
+    description: `Units reaching "${step.name}" in the ${metric.name} funnel.`,
+    metricType: "proportion" as const,
+    numerator: {
+      factTableId: step.factTableId,
+      column: "$$distinctUsers",
+      rowFilters: step.rowFilters,
+    },
+    denominator: null,
+    funnelSettings: null,
+  }));
+}
+
+/**
+ * A single funnel step metric, or null when the step no longer exists: results
+ * and snapshots outlive edits that remove a step.
+ */
+export function getFunnelStepMetric(
+  metric: FunnelFactMetricInterface,
+  stepIndex: number,
+): StandardFactMetricInterface | null {
+  return getFunnelStepMetrics(metric)[stepIndex] ?? null;
 }
 
 export function dedupeMetricIdsPreserveOrder(ids: string[]): string[] {
@@ -1552,6 +1885,17 @@ export function getMetricSnapshotSettings<
       regressionAdjustmentEnabled = false;
       regressionAdjustmentAvailable = false;
       regressionAdjustmentReason = "custom aggregation";
+    }
+    // The funnel SQL does not emit covariate columns yet, so neither the funnel
+    // nor its per-step proportions can be regression adjusted. Gating both here
+    // keeps the snapshot settings honest about what the query computed.
+    if (
+      isFactFunnelMetric(metric) ||
+      parseFunnelStepMetricId(metric.id).isFunnelStepMetric
+    ) {
+      regressionAdjustmentEnabled = false;
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentReason = "funnel metrics not supported";
     }
   }
 
@@ -1956,7 +2300,8 @@ export function chanceToWinFlatPrior(
   return 1 - ctwInverse;
 }
 
-// get all metric ids from an experiment, excluding ephemeral metrics (slices)
+// get all metric ids from an experiment, excluding derived metrics (slices and
+// funnel steps)
 export function getAllMetricIdsFromExperiment(
   exp: {
     goalMetrics?: string[];
@@ -1984,8 +2329,10 @@ export function getAllMetricIdsFromExperiment(
   );
 }
 
-// Extracts all metric ids from an experiment, including ephemeral metrics (slices)
-// NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllSliceMetricsInMap() before calling this function
+// Extracts all metric ids from an experiment, including derived metrics (slices
+// and funnel steps)
+// NOTE: The expandedMetricMap should be expanded via expandDerivedMetricsInMap()
+// before calling this function
 export function getAllExpandedMetricIdsFromExperiment({
   exp,
   expandedMetricMap,
@@ -2009,11 +2356,18 @@ export function getAllExpandedMetricIdsFromExperiment({
   );
   const expandedMetricIds = new Set<string>(baseMetricIds);
 
-  // Add all slice metrics that are already in the expandedMetricMap
-  // This includes both standard and custom dimension metrics
+  // Scoop up expanded metric ids that only exist in the map, not in the base
+  // experiment: slice metrics (dim:, standard and custom) and funnel step
+  // metrics (step=). The map is often expanded from a wider set of metrics than
+  // `exp` (e.g. before unjoinable metrics were scrubbed), so only take derived
+  // metrics whose parent is actually being analyzed.
   expandedMetricMap.forEach((_, metricId) => {
-    // Check if this is a dimension metric (contains dim: parameter)
-    if (/[?&]dim:/.test(metricId)) {
+    const step = parseFunnelStepMetricId(metricId);
+    if (!step.isFunnelStepMetric && !/[?&]dim:/.test(metricId)) return;
+    const parentId = step.isFunnelStepMetric
+      ? step.baseMetricId
+      : parseSliceMetricId(metricId).baseMetricId;
+    if (expandedMetricIds.has(parentId)) {
       expandedMetricIds.add(metricId);
     }
   });
@@ -2119,7 +2473,7 @@ export function createAutoSliceDataForMetric({
 
 // Auto-slice metric variants of a base fact metric (clones with slice-encoded
 // ids `<baseId>?dim:col=value`, plus an "other" bucket). Experiment-independent
-// so it can be reused outside `expandAllSliceMetricsInMap`.
+// so it can be reused outside `expandDerivedMetricsInMap`.
 export function getAutoSliceMetrics({
   metric,
   factTable,
@@ -2426,6 +2780,26 @@ export function isMetricJoinable(
   return false;
 }
 
+export function isFactMetricJoinable(
+  metric: FactMetricInterface,
+  userIdType: string,
+  getFactTable: (
+    id: string,
+  ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined,
+  settings?: DataSourceSettings,
+): boolean {
+  const factTableIds = getFactMetricFactTableIds(metric);
+  // A malformed metric with no resolvable fact tables can't be queried.
+  if (!factTableIds.length) return false;
+  return factTableIds.every((factTableId) =>
+    isMetricJoinable(
+      getFactTable(factTableId)?.userIdTypes ?? [],
+      userIdType,
+      settings,
+    ),
+  );
+}
+
 export function adjustPValuesBenjaminiHochberg(
   indexedPValues: IndexedPValue[],
 ): IndexedPValue[] {
@@ -2598,7 +2972,13 @@ export function dedupeSliceMetrics(
   });
 }
 
-export function expandAllSliceMetricsInMap({
+/**
+ * Adds every metric derived from the experiment's stored metrics to the map:
+ * slice metrics (auto and custom) and funnel step metrics. These only ever
+ * exist in the map, so analysis, naming, and result lookups by id all depend on
+ * this having run.
+ */
+export function expandDerivedMetricsInMap({
   metricMap,
   factTableMap,
   experiment,
@@ -2627,6 +3007,14 @@ export function expandAllSliceMetricsInMap({
   for (const metric of baseMetrics) {
     if (!metric) continue;
     if (!isFactMetric(metric)) continue;
+    // A funnel expands into its per-step proportions instead of slices, which
+    // are not supported for funnel metrics yet.
+    if (isFactFunnelMetric(metric)) {
+      getFunnelStepMetrics(metric).forEach((stepMetric) => {
+        metricMap.set(stepMetric.id, stepMetric);
+      });
+      continue;
+    }
 
     const factTable = factTableMap.get(metric.numerator.factTableId);
     if (!factTable) continue;
@@ -2653,7 +3041,7 @@ export function expandAllSliceMetricsInMap({
             column &&
             !column.deleted &&
             (column.datatype === "string" || column.datatype === "boolean") &&
-            !factTable.userIdTypes.includes(column.column)
+            !getFactTableIdColumns(factTable).includes(column.column)
           );
         });
 
@@ -2722,4 +3110,45 @@ export function getEffectiveLookbackOverride(
     return lookbackOverride;
   }
   return undefined;
+}
+
+type ScheduledEndLike = {
+  startAt?: Date | string | null;
+  stopAt?: Date | string | null;
+  stopAfter?: { value: number; unit: string } | null;
+  scheduledStopPlan?: { mode?: string } | null;
+};
+
+// A schedule stages a status change when it starts the experiment or ends it
+// with a plan other than "notify" (stop or ship); no stop plan means "notify".
+export function scheduleStagesStatusChange(
+  schedule: ScheduledEndLike | null | undefined,
+): boolean {
+  if (!schedule) return false;
+  if (schedule.startAt) return true;
+  if (!(schedule.stopAt || schedule.stopAfter)) return false;
+  return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
+}
+
+// Stamps who staged a status update so the job can run it on their authority.
+export function withScheduledBy<T extends object>(
+  staged: T | null,
+  userId: string | undefined,
+): (T & { scheduledBy?: string }) | null {
+  return staged && userId ? { ...staged, scheduledBy: userId } : staged;
+}
+
+// True when the incoming schedule stages a status change, or a staged one is
+// still pending (a fired or abandoned one leaves no pointer and can be cleared).
+export function scheduleWriteNeedsRunPermission(
+  experiment: {
+    statusUpdateSchedule?: ScheduledEndLike | null;
+    nextScheduledStatusUpdate?: { type: string } | null;
+  },
+  incoming: ScheduledEndLike | null | undefined,
+): boolean {
+  const pending =
+    !!experiment.nextScheduledStatusUpdate &&
+    scheduleStagesStatusChange(experiment.statusUpdateSchedule);
+  return pending || scheduleStagesStatusChange(incoming);
 }

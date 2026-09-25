@@ -33,6 +33,8 @@ function getReasonText(statusData: NonDecisiveStatusData): string {
       return statusData.tooltip
         ? `${statusData.tooltip}.`
         : "There is no data yet.";
+    case "data-incomplete":
+      return "One or more goal or guardrail metrics could not be computed, so no decision recommendation is available.";
     case "scheduled-end-review":
       return statusData.tooltip ?? "No decision recommendation is available.";
     case "days-left":
@@ -96,24 +98,22 @@ export default function ScheduledEndPassedBanner({
           <Separator size="4" mt="3" />
           <Box mt="4" ml="3">
             <Flex direction="column" gap="4">
-              <Text as="p" size="medium">
+              <Text as="p" size="md">
                 This experiment passed its scheduled end date on{" "}
                 {format(new Date(stopAt), "MMM d, yyyy 'at' h:mm a (z)")} and
                 was kept running as requested by the experiment schedule.
               </Text>
-              <Text as="p" size="medium">
+              <Text as="p" size="md">
                 There is no clear decision recommendation for the following
                 reason(s):
               </Text>
             </Flex>
             <Flex direction="column" gap="2" mt="2">
               <Flex gap="2" align="center">
-                <Text size="medium" color="text-mid">
+                <Text size="md" color="text-mid">
                   •
                 </Text>
-                <Text size="medium">
-                  {getReasonText(runningExperimentStatus)}
-                </Text>
+                <Text size="md">{getReasonText(runningExperimentStatus)}</Text>
               </Flex>
             </Flex>
             {editSchedule ? (

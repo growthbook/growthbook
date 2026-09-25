@@ -1,17 +1,23 @@
 import { promisify } from "util";
 import zlib from "zlib";
-import { getSessionReplayObjectBuffer, listSessionReplayChunks } from "./files";
+import {
+  getSessionReplayObjectBuffer,
+  listSessionReplayChunks,
+  SessionReplayRegion,
+} from "./files";
 
 const gunzip = promisify(zlib.gunzip);
 
 export async function getSessionReplayEventsByStoragePrefix(
   storagePrefix: string,
+  region: SessionReplayRegion,
 ): Promise<unknown[]> {
-  // Routed through the session-replay bucket (S3_SESSION_REPLAY_BUCKET) using
-  // the session-replay S3 client/role, not the general uploads bucket. The
-  // back-end proxies these bytes to the browser so replay payloads stay
-  // entirely behind authenticated REST endpoints.
-  const chunkKeys = await listSessionReplayChunks(storagePrefix);
+  // Routed through the session-replay bucket (S3_SESSION_REPLAY_BUCKET /
+  // S3_SESSION_REPLAY_BUCKET_EU) using the session-replay S3 client/role, not
+  // the general uploads bucket. The back-end proxies these bytes to the
+  // browser so replay payloads stay entirely behind authenticated REST
+  // endpoints.
+  const chunkKeys = await listSessionReplayChunks(storagePrefix, region);
   const sortedChunkKeys = sortReplayChunkKeysByChunkIndex(chunkKeys);
 
   if (!sortedChunkKeys.length) {
@@ -20,7 +26,7 @@ export async function getSessionReplayEventsByStoragePrefix(
 
   const eventsByChunk = await Promise.all(
     sortedChunkKeys.map(async (chunkKey) => {
-      const gzippedChunk = await getSessionReplayObjectBuffer(chunkKey);
+      const gzippedChunk = await getSessionReplayObjectBuffer(chunkKey, region);
       const decompressed = await gunzip(gzippedChunk);
       return JSON.parse(decompressed.toString("utf-8"));
     }),

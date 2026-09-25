@@ -183,7 +183,7 @@ export default function AttributeForm({
               />
             ) : attribute.datatype === "string[]" ? (
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 options={options}
                 value={Array.isArray(value) ? value : []}
                 onChange={(value) => {
@@ -194,7 +194,7 @@ export default function AttributeForm({
               />
             ) : attribute.datatype === "number[]" ? (
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 options={options}
                 value={Array.isArray(value) ? value.map(String) : []}
                 onChange={(value) => {

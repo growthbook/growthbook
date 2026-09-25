@@ -1,5 +1,7 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import { Dimension } from "shared/types/integrations";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
@@ -75,6 +77,94 @@ describe("BigQuery reservation job config", () => {
   });
 });
 
+describe("BigQuery getExternalQueryStatus (status-only)", () => {
+  let integration: BigQuery;
+  let mockJob: { getMetadata: jest.Mock };
+  let mockClientJob: jest.Mock;
+
+  beforeEach(() => {
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    integration = new BigQuery("", {});
+
+    mockJob = { getMetadata: jest.fn() };
+    mockClientJob = jest.fn().mockReturnValue(mockJob);
+
+    jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .spyOn(integration as any, "getClient")
+      .mockReturnValue({ job: mockClientJob });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("maps DONE + errorResult to failed with the warehouse message", async () => {
+    mockJob.getMetadata.mockResolvedValue([
+      {
+        status: {
+          state: "DONE",
+          errorResult: { message: "Query exceeded resource limits" },
+        },
+      },
+    ]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "failed",
+      error: "Query exceeded resource limits",
+    });
+  });
+
+  it("maps a clean DONE to succeeded", async () => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state: "DONE" } }]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "succeeded",
+    });
+  });
+
+  it.each(["RUNNING", "PENDING"])("maps %s to running", async (state) => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state } }]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "running",
+    });
+  });
+
+  it.each([
+    ["missing status", {}],
+    ["missing state", { status: {} }],
+    ["unfamiliar state", { status: { state: "SOMETHING_NEW" } }],
+  ])("maps %s to unknown/unrecognized", async (_, metadata) => {
+    mockJob.getMetadata.mockResolvedValue([metadata]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "unrecognized",
+    });
+  });
+
+  it("maps a 404 to unknown/expired", async () => {
+    mockJob.getMetadata.mockRejectedValue(
+      Object.assign(new Error("Job x: not found"), { code: 404 }),
+    );
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "expired",
+    });
+  });
+
+  it("maps a thrown request error to unknown/unreachable", async () => {
+    mockJob.getMetadata.mockRejectedValue(new Error("network exploded"));
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "unreachable",
+    });
+  });
+
+  it("passes location through to client.job when metadata has one", async () => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state: "DONE" } }]);
+    await integration.getExternalQueryStatus("job_1", { location: "EU" });
+    expect(mockClientJob).toHaveBeenCalledWith("job_1", { location: "EU" });
+  });
+});
+
 describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
   let integration: BigQuery;
 
@@ -134,7 +224,7 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
     );
   });
 
-  it("reshapes to UNPIVOT/GROUP BY/PIVOT once the column count crosses the threshold", () => {
+  it("reshapes to UNNEST/GROUP BY/per-group extraction once the column count crosses the threshold", () => {
     const RESHAPE_THRESHOLD = 20;
     const cols = Array.from({ length: RESHAPE_THRESHOLD }, (_, i) => ({
       valueCol: `m${i}_value`,
@@ -148,14 +238,116 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
         .getSqlDialect()
         .percentileCapSelectClause(cols, "__userMetricAgg"),
     );
-    const unpivotList = cols.map((c) => c.valueCol).join(", ");
-    const pivotList = cols
-      .map((c) => `'${c.valueCol}' AS ${c.outputCol}`)
-      .join(", ");
-    expect(sql).toContain(`UNPIVOT (val FOR col_name IN (${unpivotList}))`);
-    expect(sql).toContain("GROUP BY col_name");
+    // One sketch per group, grouped instead of one sketch per output column.
     expect(sql).toContain(
-      `PIVOT (ANY_VALUE(cap) FOR col_name IN (${pivotList}))`,
+      "APPROX_QUANTILES(pair.val, 10000 IGNORE NULLS) AS q",
+    );
+    expect(sql).toContain("CROSS JOIN UNNEST(");
+    expect(sql).toContain("GROUP BY pair.col_name");
+    // Each output extracts its percentile offset from its group's sketch. m0
+    // is the first distinct (valueCol, ignoreZeros) group → label s0 at 0.99.
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(9900)], NULL)) AS m0_value_cap",
+    );
+    // m1 opts into ignoreZeros and uses 0.999 → its own group with an IF guard.
+    expect(sql).toContain("IF(m1_value = 0, NULL, CAST(m1_value AS FLOAT64))");
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's1', q[OFFSET(9990)], NULL)) AS m1_value_cap",
+    );
+    // The old ambiguity-prone UNPIVOT/PIVOT form is gone.
+    expect(sql).not.toContain("UNPIVOT");
+    expect(sql).not.toContain("PIVOT");
+  });
+
+  it("shares one sketch across both tails of a both-tails-percentile column (no ambiguous column)", () => {
+    // Regression: a metric with percentile capping on BOTH tails contributes
+    // two caps for the same source column (upper `_cap` + lower `_cap_lower`).
+    // The old reshape emitted that column twice and BigQuery rejected it with
+    // "Column name m0_value is ambiguous". Now the shared (valueCol,
+    // ignoreZeros) group is projected once and indexed at both offsets.
+    const cols = [
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap",
+        percentile: 0.99,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      },
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap_lower",
+        percentile: 0.01,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      },
+      // Pad past the reshape threshold so we exercise the UNNEST path.
+      ...Array.from({ length: 10 }, (_, i) => ({
+        valueCol: `m${i + 1}_value`,
+        outputCol: `m${i + 1}_value_cap`,
+        percentile: 0.99,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      })),
+    ];
+    const sql = norm(
+      integration
+        .getSqlDialect()
+        .percentileCapSelectClause(cols, "__userMetricAgg"),
+    );
+    // m0_value appears exactly once as a projected STRUCT value (one sketch).
+    const projectionCount = (
+      sql.match(/CAST\(m0_value AS FLOAT64\) AS val/g) || []
+    ).length;
+    expect(projectionCount).toBe(1);
+    // Both tails read the same group (s0) at their respective offsets.
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(9900)], NULL)) AS m0_value_cap",
+    );
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(100)], NULL)) AS m0_value_cap_lower",
+    );
+  });
+
+  it("uses separate sketches when the two tails of a column differ in ignoreZeros", () => {
+    // ignoreZeros nulls zeros inside the sketch, so an upper tail that ignores
+    // zeros and a lower tail that doesn't cannot share one sketch. They must
+    // resolve to distinct (valueCol, ignoreZeros) groups.
+    const cols = [
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap",
+        percentile: 0.99,
+        ignoreZeros: true,
+        sourceIndex: 0,
+      },
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap_lower",
+        percentile: 0.01,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      },
+      ...Array.from({ length: 10 }, (_, i) => ({
+        valueCol: `m${i + 1}_value`,
+        outputCol: `m${i + 1}_value_cap`,
+        percentile: 0.99,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      })),
+    ];
+    const sql = norm(
+      integration
+        .getSqlDialect()
+        .percentileCapSelectClause(cols, "__userMetricAgg"),
+    );
+    // Two distinct groups for m0_value: the ignoreZeros one (s0, with IF guard)
+    // and the plain one (s1).
+    expect(sql).toContain("IF(m0_value = 0, NULL, CAST(m0_value AS FLOAT64))");
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(9900)], NULL)) AS m0_value_cap",
+    );
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's1', q[OFFSET(100)], NULL)) AS m0_value_cap_lower",
     );
   });
 
@@ -173,8 +365,8 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
         .getSqlDialect()
         .percentileCapSelectClause(cols, "__userMetricAgg"),
     );
-    expect(sql).toContain("APPROX_QUANTILES(val, 10000 IGNORE NULLS)");
-    expect(sql).not.toContain("val = 0");
+    expect(sql).toContain("APPROX_QUANTILES(pair.val, 10000 IGNORE NULLS)");
+    expect(sql).not.toContain("= 0, NULL");
   });
 });
 
@@ -491,6 +683,77 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     });
   });
 
+  it.each(["raw events", "daily aggregates"])(
+    "materializes uncapped covariates from %s when both tails are configured",
+    (source) => {
+      const metrics = [
+        factMetricFactory.build({
+          id: "fact_capped_mean",
+          metricType: "mean",
+          numerator: { factTableId: factTable.id, column: "amount" },
+          cappingSettings: { type: "percentile", value: 0.99 },
+          lowerCappingSettings: { type: "absolute", value: 0 },
+          regressionAdjustmentEnabled: true,
+        }),
+        factMetricFactory.build({
+          id: "fact_capped_ratio",
+          metricType: "ratio",
+          numerator: { factTableId: factTable.id, column: "amount" },
+          denominator: { factTableId: factTable.id, column: "orders" },
+          cappingSettings: { type: "percentile", value: 0.99 },
+          lowerCappingSettings: { type: "percentile", value: 0.05 },
+          regressionAdjustmentEnabled: true,
+        }),
+      ];
+      const params = {
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
+        activationMetric: null,
+        factTableMap,
+        factTableId: factTable.id,
+        metricSourceCovariateTableFullName: "proj.ds.covariates",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics,
+        lastCovariateSuccessfulMaxTimestamp: null,
+      };
+      const sql = (
+        source === "raw events"
+          ? integration.getInsertMetricSourceCovariateDataQuery({
+              ...params,
+              alignLegacyScanToDailyGrain: false,
+            })
+          : integration.getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+              {
+                ...params,
+                aggregatedTableFullName: "proj.ds.daily",
+                idType: "user_id",
+              },
+            )
+      ).replace(/\s+/g, " ");
+
+      expect(sql).not.toContain("value_cap");
+      expect(sql).not.toContain("GREATEST(");
+      expect(sql).not.toContain("LEAST(");
+      expect(sql).toContain(
+        "COALESCE(c.m0_covariate_value, 0) AS fact_capped_mean_value",
+      );
+      expect(sql).toContain(
+        "COALESCE(c.m1_covariate_value, 0) AS fact_capped_ratio_value",
+      );
+      expect(sql).toContain(
+        "COALESCE(c.m1_covariate_denominator, 0) AS fact_capped_ratio_denominator_value",
+      );
+      expect(metrics[0].lowerCappingSettings).toEqual({
+        type: "absolute",
+        value: 0,
+      });
+      expect(metrics[1].lowerCappingSettings).toEqual({
+        type: "percentile",
+        value: 0.05,
+      });
+    },
+  );
+
   it("getCreateMetricSourceTableQuery emits BYTES sketch + INT64 n_events columns", () => {
     const sql = integration.getCreateMetricSourceTableQuery({
       settings,
@@ -517,6 +780,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [eventQuantileMetric],
       lastMaxTimestamp: null,
+      incrementalRefreshStartTime: settings.endDate,
     });
     // Partial aggregation builds the sketch
     expect(sql).toContain("KLL_QUANTILES.INIT_FLOAT64");
@@ -545,6 +809,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [prebuiltSketchMetric],
       lastMaxTimestamp: null,
+      incrementalRefreshStartTime: settings.endDate,
     });
     // Partial aggregation merges the pre-built sketch; must not INIT.
     expect(sql).toContain("KLL_QUANTILES.MERGE_PARTIAL");
@@ -572,6 +837,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [prebuiltSketchMetric],
       lastMaxTimestamp: null,
+      incrementalRefreshStartTime: settings.endDate,
     });
     // The paired count column must be projected from the source fact table
     // and SUM-aggregated for n_events. COUNT(<col>_value) would be wrong:
@@ -612,6 +878,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [overrideMetric],
       lastMaxTimestamp: null,
+      incrementalRefreshStartTime: settings.endDate,
     });
     // Override column is projected as the n_events source.
     expect(sql).toContain("rollup_event_count");
@@ -829,6 +1096,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [crossFtMetric],
         lastMaxTimestamp: null,
+        incrementalRefreshStartTime: settings.endDate,
       });
       // Only the numerator `_value` column appears in the SELECT projection.
       expect(sql).toMatch(/fact_xft_ratio_value\b/);
@@ -846,6 +1114,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [crossFtMetric],
         lastMaxTimestamp: null,
+        incrementalRefreshStartTime: settings.endDate,
       });
       // Only the denominator column appears in the SELECT projection.
       expect(sql).toMatch(/fact_xft_ratio_denominator_value\b/);
@@ -1255,9 +1524,8 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // Hub pipeline: two cross-FT ratios share ft_events as their
       // numerator side, with denominators on two different FTs. The
       // ft_events group ends up holding both metrics, so its data/covariate
-      // inserts see metrics that collectively reference 3 FTs. Without
-      // scoping FT discovery to the target FT, this would blow up on the
-      // 2-FT cap inside `getFactTablesForMetrics`.
+      // inserts see metrics that collectively reference 3 FTs. Scoping FT
+      // discovery to the target FT keeps each insert writing one cache.
       const paymentsFactTable = factTableFactory.build({
         id: "ft_payments",
         name: "Payments",
@@ -1318,6 +1586,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [ratioAB, ratioAC],
         lastMaxTimestamp: null,
+        incrementalRefreshStartTime: settings.endDate,
       });
       expect(hubInsertSql).toMatch(/fact_ratio_a_b_value\b/);
       expect(hubInsertSql).toMatch(/fact_ratio_a_c_value\b/);
@@ -1361,6 +1630,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [ratioAB, ratioAC],
         lastMaxTimestamp: null,
+        incrementalRefreshStartTime: settings.endDate,
       });
       // FT_subscriptions hosts the denominator of ratioAB only.
       expect(subsInsertSql).toMatch(/fact_ratio_a_b_denominator_value\b/);
@@ -1411,5 +1681,145 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // selection logic.
     expect(sql).toContain("m0_quantile");
     expect(sql).toContain("m0_quantile_n");
+  });
+});
+
+describe("BigQuery incremental refresh statistics query with custom dimensions", () => {
+  let integration: BigQuery;
+
+  const exposureQuery: ExposureQuery = {
+    id: "exposure",
+    name: "Exposure",
+    description: "",
+    query: "*",
+    userIdType: "user_id",
+    dimensions: ["country"],
+  };
+
+  const resolvedExposureQuery = {
+    query: exposureQuery.query,
+    userIdType: exposureQuery.userIdType,
+  };
+
+  const factTable = factTableFactory.build({
+    id: "ft_events",
+    name: "Events",
+    sql: "SELECT * FROM events",
+    userIdTypes: ["user_id"],
+  });
+
+  const meanMetric = factMetricFactory.build({
+    id: "fact_mean1",
+    metricType: "mean",
+    numerator: {
+      factTableId: "ft_events",
+      column: "amount",
+      aggregation: "sum",
+    },
+  });
+
+  const factTableMap = new Map([["ft_events", factTable]]);
+
+  const settings: ExperimentSnapshotSettings = {
+    manual: false,
+    dimensions: [],
+    metricSettings: [],
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    activationMetric: null,
+    defaultMetricPriorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: 0,
+    },
+    regressionAdjustmentEnabled: false,
+    attributionModel: "firstExposure",
+    experimentId: "exp_1",
+    queryFilter: "",
+    segment: "",
+    skipPartialData: false,
+    datasourceId: "ds_1",
+    exposureQueryId: "exposure",
+    startDate: new Date("2024-01-01"),
+    endDate: new Date("2024-01-31"),
+    variations: [],
+  };
+
+  beforeEach(() => {
+    // @ts-expect-error -- context not needed for this unit test
+    integration = new BigQuery("", {
+      settings: {
+        queries: {
+          exposure: [exposureQuery],
+        },
+      },
+    });
+  });
+
+  const buildSql = (dimensionsForAnalysis: Dimension[]): string =>
+    integration.getIncrementalRefreshStatisticsQuery({
+      settings,
+      exposureQuery: resolvedExposureQuery,
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis,
+      factTableMap,
+      metricSources: [
+        { factTableId: "ft_events", tableFullName: "proj.ds.metric_source" },
+      ],
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [meanMetric],
+      lastMaxTimestamp: null,
+    });
+
+  it("computes a datecutoff dimension from the units table timestamp", () => {
+    const sql = buildSql([
+      { type: "datecutoff", cutoff: new Date("2024-01-15T00:12:00.000Z") },
+    ]);
+
+    expect(sql).toContain("AS dim_cutoff");
+    expect(sql).toContain("'Before 2024-01-15 00:12 UTC'");
+    expect(sql).toContain("'After 2024-01-15 00:12 UTC'");
+    // No wrapper CTE needed; the CASE reads first_exposure_timestamp directly
+    expect(sql).not.toContain("__experimentUnitsFinal");
+  });
+
+  it("computes a combo dimension in a wrapper CTE and analyzes only the combined column", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_u1",
+      organization: "org1",
+      owner: "",
+      datasource: "ds_1",
+      userIdType: "user_id",
+      name: "Browser",
+      sql: "SELECT user_id, browser AS value FROM users",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([
+      {
+        type: "combo",
+        dimensions: [
+          { type: "experiment", id: "country" },
+          { type: "user", dimension: userDimension },
+        ],
+      },
+    ]);
+
+    // Constituents materialize inside __experimentUnits
+    expect(sql).toContain("dim_exp_country");
+    expect(sql).toContain("__dim_unit_dim_u1");
+
+    // The concat lives in a wrapper CTE that downstream CTEs read from
+    expect(sql).toContain("__experimentUnitsFinal");
+    expect(sql).toContain("AS dim_combo");
+    expect(sql).toMatch(/FROM\s+__experimentUnitsFinal\s+u/);
+
+    // Only the combined column reaches the statistics grouping
+    const statsSection = sql.substring(sql.indexOf("__joinedData"));
+    expect(statsSection).toContain("dim_combo");
+    expect(statsSection).not.toContain("dim_exp_country");
   });
 });

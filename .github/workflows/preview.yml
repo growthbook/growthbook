@@ -2,19 +2,47 @@ name: PR Preview Environment
 
 on:
   pull_request:
-    branches:
-      - main
     paths:
       - "packages/**"
       - "!**.md"
       - "pnpm-lock.yaml"
       - "Dockerfile"
       - ".dockerignore"
-    types: [opened, reopened, closed, synchronize, ready_for_review]
+      - ".github/workflows/preview.yml"
+    types: [opened, reopened, closed, synchronize]
 
 jobs:
+  check-stack:
+    if: >-
+      github.repository == 'growthbook/growthbook' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      should-preview: ${{ steps.stack.outputs.result }}
+    steps:
+      - name: Check whether this PR is the stack tip
+        id: stack
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Gate builds during stack rebases; do not reconcile other PRs' previews.
+            // Existing previews live until closure; new tips build on their next PR event.
+            // Always allow closed PRs through to preview cleanup.
+            if (context.payload.action === "closed") return true;
+
+            const { data } = await github.rest.pulls.list({
+              ...context.repo,
+              state: "open",
+              base: context.payload.pull_request.head.ref,
+              per_page: 1,
+            });
+            return data.length === 0;
+
   preview:
-    if: ${{ github.repository == 'growthbook/growthbook' }}
+    needs: check-stack
+    if: needs.check-stack.outputs.should-preview == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,6 +62,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Checkout agent skills
+        if: ${{ github.event.action != 'closed' }}
+        uses: ./.github/actions/checkout-agent-skills
 
       - name: Generate Fly Dockerfile
         run: cat Dockerfile preview/Dockerfile.append > preview/Dockerfile.generated

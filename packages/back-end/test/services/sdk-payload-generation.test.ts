@@ -8,16 +8,29 @@ import cloneDeep from "lodash/cloneDeep";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
-import { HoldoutInterface } from "shared/validators";
+import { ContextualBanditInterface, HoldoutInterface } from "shared/validators";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  SDKAttributeSchema,
+} from "shared/types/organization";
 import { FeatureDefinition } from "shared/types/sdk";
-import { getSDKCapabilities } from "shared/sdk-versioning";
+import { ConditionInterface } from "@growthbook/growthbook";
+import {
+  getSDKCapabilities,
+  savedGroupFormatFromConnection,
+} from "shared/sdk-versioning";
+import { SavedGroupFormat } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  hashStrings,
   buildSDKPayloadForConnection,
   getFeatureDefinitionsResponse,
+  applySavedGroupHashing,
+  getUsedSavedGroupIds,
+  getApiFeatureObj,
+  generateHoldoutsPayload,
   type SDKPayloadRawData,
   type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
@@ -144,7 +157,7 @@ function basicMatrixData(): SDKPayloadRawData {
     groupName: "G1",
     type: "list",
     values: ["a", "b"],
-    attributeKey: "x",
+    attributeKey: "id",
   } as SavedGroupInterface;
   const groupMap: GroupMap = new Map([
     [
@@ -152,7 +165,7 @@ function basicMatrixData(): SDKPayloadRawData {
       {
         id: "sg1",
         type: "list",
-        attributeKey: "x",
+        attributeKey: "id",
         useEmptyListGroup: false,
         values: ["a", "b"],
       },
@@ -174,7 +187,7 @@ const CONNECTION_PRESETS: Array<{
   connection: ConnectionPayloadOptions;
 }> = [];
 
-// Capability sets from javascript.json: everything (undefined), 0.0.0, 0.23.0, 0.34.0, 1.1.0, 0.36.0, 1.6.5, legacy
+// Capability sets from javascript.json: everything (undefined), 0.0.0, 0.23.0, 0.34.0, 1.1.0, 0.36.0, 1.6.5, 1.7.0, legacy
 const CAPABILITY_SETS: Array<{ label: string; capabilities: string[] }> = [
   {
     label: "javascript default (everything)",
@@ -201,8 +214,12 @@ const CAPABILITY_SETS: Array<{ label: string; capabilities: string[] }> = [
     capabilities: getSDKCapabilities("javascript", "0.36.0"),
   },
   {
-    label: "javascript 1.6.5 (latest)",
+    label: "javascript 1.6.5",
     capabilities: getSDKCapabilities("javascript", "1.6.5"),
+  },
+  {
+    label: "javascript 1.7.0 (+ contextualBandits)",
+    capabilities: getSDKCapabilities("javascript", "1.7.0"),
   },
   { label: "legacy API key (bucketingV2 only)", capabilities: ["bucketingV2"] },
 ];
@@ -222,7 +239,7 @@ for (const { label, capabilities } of CAPABILITY_SETS) {
       includeRedirectExperiments: false,
       includeRuleIds: false,
       hashSecureAttributes: false,
-      savedGroupReferencesEnabled: false,
+      savedGroupFormat: "inline",
     },
   });
   CONNECTION_PRESETS.push({
@@ -245,9 +262,9 @@ for (const { label, capabilities } of CAPABILITY_SETS) {
       includeVisualExperiments: false,
       includeDraftExperiments: false,
       includeRedirectExperiments: false,
-      savedGroupReferencesEnabled: capabilities.includes(
-        "savedGroupReferences",
-      ),
+      savedGroupFormat: capabilities.includes("savedGroupReferences")
+        ? "referencesV1"
+        : "inline",
     },
   });
 }
@@ -267,24 +284,40 @@ CONNECTION_PRESETS.push({
 });
 
 CONNECTION_PRESETS.push({
-  name: "savedGroupReferences + savedGroupReferencesEnabled true",
+  name: "savedGroupReferences + savedGroupFormat referencesV1",
   connection: {
     capabilities: ["savedGroupReferences", "bucketingV2"],
     environment: "production",
     projects: ["p1"],
-    savedGroupReferencesEnabled: true,
+    savedGroupFormat: "referencesV2",
     includeRuleIds: false,
     includeExperimentNames: false,
   },
 });
 
 CONNECTION_PRESETS.push({
-  name: "savedGroupReferences + savedGroupReferencesEnabled false (expand $inGroup)",
+  name: "savedGroupReferencesV2 + savedGroupFormat referencesV2",
+  connection: {
+    capabilities: [
+      "savedGroupReferences",
+      "savedGroupReferencesV2",
+      "bucketingV2",
+    ],
+    environment: "production",
+    projects: ["p1"],
+    savedGroupFormat: "referencesV2",
+    includeRuleIds: false,
+    includeExperimentNames: false,
+  },
+});
+
+CONNECTION_PRESETS.push({
+  name: "savedGroupReferences + savedGroupFormat inline (expand $inGroup)",
   connection: {
     capabilities: ["looseUnmarshalling", "bucketingV2"],
     environment: "production",
     projects: ["p1"],
-    savedGroupReferencesEnabled: false,
+    savedGroupFormat: "inline",
   },
 });
 
@@ -381,7 +414,8 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
         connection.capabilities.includes("looseUnmarshalling");
       const hasSavedGroupRefs =
         connection.capabilities.includes("savedGroupReferences") &&
-        connection.savedGroupReferencesEnabled === true;
+        connection.savedGroupFormat !== undefined &&
+        connection.savedGroupFormat !== "inline";
 
       if (
         connection.projects &&
@@ -408,7 +442,9 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
       const forceRule = rules.find(
         (r) =>
           r.id === "r1" ||
-          (r.condition as Record<string, unknown>)?.browser === F1_FINGERPRINT,
+          // The fingerprint is unique, and v2 nests the browser check inside
+          // an $and, so match anywhere in the condition
+          JSON.stringify(r.condition ?? null).includes(F1_FINGERPRINT),
       );
 
       if (!expRefRule) {
@@ -455,7 +491,23 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
       }
 
       const cond = forceRule.condition as Record<string, unknown>;
-      if (hasSavedGroupRefs) {
+      if (
+        hasSavedGroupRefs &&
+        connection.capabilities.includes("savedGroupReferencesV2")
+      ) {
+        // The rule is stored with $inGroup, which v2 rewrites
+        expect(cond).not.toHaveProperty("id");
+        expect(cond.$and).toEqual([
+          { browser: F1_FINGERPRINT },
+          { $savedGroup: { id: "sg1" } },
+        ]);
+        expect(JSON.stringify(out.features)).not.toContain("$inGroup");
+        expect(out.savedGroups?.sg1).toEqual({
+          type: "list",
+          attributeKey: "id",
+          values: ["a", "b"],
+        });
+      } else if (hasSavedGroupRefs) {
         expect(cond).toHaveProperty("id");
         expect((cond.id as Record<string, unknown>).$inGroup).toBe("sg1");
         expect(out.savedGroups).toHaveProperty("sg1");
@@ -1594,6 +1646,227 @@ describe("SDK payload generation (scenario-specific)", () => {
     expect(outIncluded.experiments?.length).toBe(1);
   });
 
+  describe("includeDraftExperimentRefs", () => {
+    // Draft experiment linked only via a feature flag (no visual changesets or redirects)
+    function draftRefData(): SDKPayloadRawData {
+      const exp: ExperimentInterface = {
+        id: "exp-draft-ref",
+        organization: "org-1",
+        project: "",
+        name: "Draft Ref Exp",
+        hypothesis: "",
+        status: "draft",
+        hashVersion: 2,
+        archived: false,
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+        linkedFeatures: ["fd"],
+        trackingKey: "tk-draft",
+        phases: [
+          {
+            phase: "main",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            seed: "draft-ref-seed",
+          },
+        ],
+        variations: [
+          { id: "v0", key: "0", name: "Control" },
+          { id: "v1", key: "1", name: "Treatment" },
+        ],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      } as ExperimentInterface;
+      const feature: FeatureInterface = {
+        id: "fd",
+        project: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "false",
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "experiment-ref",
+                id: "rule-draft-ref",
+                enabled: true,
+                experimentId: "exp-draft-ref",
+                variations: [
+                  { variationId: "v0", value: "false" },
+                  { variationId: "v1", value: "true" },
+                ],
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      return minimalRawData({
+        features: [feature],
+        experimentMap: new Map([[exp.id, exp]]),
+      });
+    }
+
+    it("excludes feature-only draft experiment-ref rules by default", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: [],
+        },
+        data: draftRefData(),
+      });
+      expect(out.features["fd"]?.rules ?? []).toEqual([]);
+    });
+
+    it("includes feature-only draft experiment-ref rules when enabled", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: [],
+          includeDraftExperimentRefs: true,
+        },
+        data: draftRefData(),
+      });
+      const rules = out.features["fd"]?.rules ?? [];
+      expect(rules.length).toBe(1);
+      expect(rules[0].variations).toEqual([false, true]);
+    });
+  });
+
+  describe("contextual bandits gated by SDK version", () => {
+    const cbDoc = {
+      id: "cb1",
+      organization: "org-1",
+      name: "CB One",
+      status: "running",
+      trackingKey: "cb-track",
+      hashAttribute: "id",
+      seed: "cb-seed",
+      coverage: 1,
+      variations: [
+        { id: "v0", key: "0", name: "Control" },
+        { id: "v1", key: "1", name: "Treatment" },
+      ],
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v1", weight: 0.5 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 1,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.6 },
+            { variationId: "v1", weight: 0.4 },
+          ],
+        },
+      ],
+      banditVersion: 3,
+    } as unknown as ContextualBanditInterface;
+
+    function cbContext(): ApiReqContext {
+      const ctx = minimalContext();
+      ctx.models = {
+        contextualBandits: {
+          getById: async (id: string) => (id === "cb1" ? cbDoc : null),
+        },
+      } as unknown as ApiReqContext["models"];
+      return ctx;
+    }
+
+    function cbData(): SDKPayloadRawData {
+      const feature: FeatureInterface = {
+        id: "f-cb",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "x",
+        organization: "org-1",
+        owner: "",
+        valueType: "string",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        rules: [
+          {
+            type: "contextual-bandit-ref",
+            id: "r-cb",
+            description: "",
+            enabled: true,
+            contextualBanditId: "cb1",
+            variations: [
+              { variationId: "v0", value: "a" },
+              { variationId: "v1", value: "b" },
+            ],
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      } as FeatureInterface;
+      return minimalRawData({ features: [feature] });
+    }
+
+    const connectionForVersion = (
+      version: string,
+    ): ConnectionPayloadOptions => ({
+      capabilities: getSDKCapabilities(
+        "javascript",
+        version,
+      ) as ConnectionPayloadOptions["capabilities"],
+      environment: "production",
+      projects: [],
+    });
+
+    it("javascript 1.6.5: no contextualBandits map; rule has no contextualBanditRef and no variations (SDK skips it)", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: cbContext(),
+        connection: connectionForVersion("1.6.5"),
+        data: cbData(),
+      });
+      expect(out.contextualBandits).toBeUndefined();
+      const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+      expect(rules?.length).toBe(1);
+      expect(rules[0].contextualBanditRef).toBeUndefined();
+      expect(rules[0].variations).toBeUndefined();
+    });
+
+    it("javascript 1.7.0: contextualBandits map and CB rule keys included", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: cbContext(),
+        connection: connectionForVersion("1.7.0"),
+        data: cbData(),
+      });
+      expect(out.contextualBandits).toEqual({
+        cb1: {
+          banditVersion: 3,
+          contexts: [
+            { leafId: 1, condition: { country: "US" }, weights: [0.6, 0.4] },
+          ],
+        },
+      });
+      const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+      expect(rules?.length).toBe(1);
+      expect(rules[0].contextualBanditRef).toBe("cb1");
+      expect(rules[0].contextualVariations).toEqual(["a", "b"]);
+      expect(rules[0].weights).toEqual([0.5, 0.5]);
+      expect(rules[0].key).toBe("cb-track");
+      expect(rules[0].hashVersion).toBe(2);
+      expect(rules[0].disableStickyBucketing).toBe(true);
+      expect(rules[0].variations).toBeUndefined();
+    });
+  });
+
   // Regression: the legacy SDK payload path read per-env rule arrays, so a
   // feature with the unified top-level `rules: FeatureRule[]` and empty
   // env-rules bucket emitted no rules at all. These cases pin the flat read path.
@@ -1880,6 +2153,537 @@ describe("SDK payload generation (scenario-specific)", () => {
         organization,
       });
       expect(devDef?.rules ?? []).toEqual([]);
+    });
+  });
+});
+
+function savedGroupFixture(
+  props: Pick<SavedGroupInterface, "id" | "type"> &
+    Partial<SavedGroupInterface>,
+): SavedGroupInterface {
+  return {
+    organization: "org-1",
+    groupName: props.id,
+    owner: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    ...props,
+  };
+}
+
+describe("applySavedGroupHashing with condition groups", () => {
+  const attributes: SDKAttributeSchema = [
+    { property: "email", datatype: "secureString" },
+    { property: "country", datatype: "string" },
+  ];
+
+  it("hashes secure attributes inside a condition group's condition", () => {
+    const groups: SavedGroupInterface[] = [
+      savedGroupFixture({
+        id: "cond_1",
+        type: "condition",
+        condition: JSON.stringify({ email: "a@b.com", country: "US" }),
+      }),
+    ];
+
+    const [hashed] = applySavedGroupHashing(groups, attributes, "salt");
+    const condition = JSON.parse(hashed.condition as string);
+    // secure attribute is hashed, non-secure is untouched
+    expect(condition.email).not.toBe("a@b.com");
+    expect(condition.country).toBe("US");
+  });
+
+  it("leaves an unparseable condition untouched rather than throwing", () => {
+    const groups: SavedGroupInterface[] = [
+      savedGroupFixture({
+        id: "cond_bad",
+        type: "condition",
+        condition: "{not json",
+      }),
+    ];
+
+    expect(() =>
+      applySavedGroupHashing(groups, attributes, "salt"),
+    ).not.toThrow();
+    expect(
+      applySavedGroupHashing(groups, attributes, "salt")[0].condition,
+    ).toBe("{not json");
+  });
+
+  it("still hashes list group values", () => {
+    const groups: SavedGroupInterface[] = [
+      savedGroupFixture({
+        id: "list_1",
+        type: "list",
+        attributeKey: "email",
+        values: ["a@b.com"],
+      }),
+    ];
+
+    const [hashed] = applySavedGroupHashing(groups, attributes, "salt");
+    expect(hashed.values?.[0]).not.toBe("a@b.com");
+  });
+});
+
+describe("getUsedSavedGroupIds", () => {
+  const groupMap: GroupMap = new Map([
+    ["list_1", { type: "list", attributeKey: "country", values: ["US"] }],
+    [
+      "cond_1",
+      {
+        type: "condition",
+        condition: JSON.stringify({ $savedGroups: ["list_1"] }),
+      },
+    ],
+    ["unused", { type: "list", attributeKey: "x", values: ["1"] }],
+  ]);
+
+  const featureWith = (
+    condition: ConditionInterface,
+  ): Record<string, FeatureDefinition> => ({
+    f: { defaultValue: "a", rules: [{ condition }] },
+  });
+
+  it("collects ids from the wire operator", () => {
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ $savedGroup: { id: "list_1" } }),
+        [],
+        groupMap,
+      ),
+    ).toEqual(new Set(["list_1"]));
+  });
+
+  it("collects ids from the legacy list operators", () => {
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ country: { $inGroup: "list_1" } }),
+        [],
+        groupMap,
+      ),
+    ).toEqual(new Set(["list_1"]));
+  });
+
+  it("includes groups reachable only through a shipped condition", () => {
+    // cond_1 references list_1, which no walk of the feature tree can see
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ $savedGroup: { id: "cond_1" } }),
+        [],
+        groupMap,
+      ),
+    ).toEqual(new Set(["cond_1", "list_1"]));
+  });
+
+  it("excludes groups nothing references", () => {
+    const used = getUsedSavedGroupIds(
+      featureWith({ $savedGroup: { id: "list_1" } }),
+      [],
+      groupMap,
+    );
+    expect(used.has("unused")).toBe(false);
+  });
+});
+
+describe("the connection's savedGroupFormat decides the payload", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
+  ]);
+  const organization = { id: "org", settings: {} } as OrganizationInterface;
+
+  const feature = {
+    id: "f",
+    organization: "org",
+    defaultValue: "off",
+    valueType: "string",
+    environmentSettings: {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            id: "r1",
+            type: "force",
+            value: "on",
+            enabled: true,
+            description: "",
+            savedGroups: [{ match: "all", ids: ["grp_list"] }],
+          },
+        ],
+      },
+    },
+  } as unknown as FeatureInterface;
+
+  const conditionFor = (
+    savedGroupFormat: SavedGroupFormat | undefined,
+    capabilities: string[],
+  ) =>
+    getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap: new Map(),
+      organization,
+      capabilities: capabilities as ConnectionPayloadOptions["capabilities"],
+      savedGroupFormat,
+    })?.rules?.[0]?.condition;
+
+  const V1 = ["savedGroupReferences"];
+  const V2 = ["savedGroupReferences", "savedGroupReferencesV2"];
+
+  it("writes each format to an SDK that can read it", () => {
+    expect(conditionFor("inline", V2)).toEqual({ id: { $in: ["u_1"] } });
+    expect(conditionFor("referencesV1", V1)).toEqual({
+      id: { $inGroup: "grp_list" },
+    });
+    expect(conditionFor("referencesV2", V2)).toEqual({
+      $savedGroup: { id: "grp_list" },
+    });
+  });
+
+  it("steps v2 down to v1 when the SDK cannot read v2", () => {
+    expect(conditionFor("referencesV2", V1)).toEqual({
+      id: { $inGroup: "grp_list" },
+    });
+  });
+
+  it("steps references down to inline when the SDK can read neither", () => {
+    expect(conditionFor("referencesV2", ["bucketingV2"])).toEqual({
+      id: { $in: ["u_1"] },
+    });
+  });
+
+  // A connection that predates the setting has it derived by the model, and
+  // that derivation never picks v2.
+  it("inlines for a connection with no format at all", () => {
+    expect(conditionFor(undefined, V2)).toEqual({ id: { $in: ["u_1"] } });
+  });
+
+  it("gives a migrated connection v1, never v2, even on a v2 SDK", () => {
+    const migrated = savedGroupFormatFromConnection({
+      savedGroupReferencesEnabled: true,
+    });
+    expect(migrated).toBe("referencesV1");
+    expect(conditionFor(migrated, V2)).toEqual({
+      id: { $inGroup: "grp_list" },
+    });
+  });
+});
+
+describe("applySavedGroupHashing leaves saved group ids alone", () => {
+  it("does not hash ids nested in a Condition Group's own condition", () => {
+    // A secure attribute earlier in the same object turns hashing on, and the
+    // walk carries that into the ids unless they are exempt.
+    const [hashed] = applySavedGroupHashing(
+      [
+        savedGroupFixture({
+          id: "cond_1",
+          type: "condition",
+          condition: JSON.stringify({
+            email: "a@b.com",
+            $savedGroups: ["grp_a"],
+            $not: { $savedGroups: ["grp_b"] },
+          }),
+        }),
+      ],
+      [{ property: "email", datatype: "secureString" }] as SDKAttributeSchema,
+      "salt",
+    );
+    const condition = JSON.parse(hashed.condition as string);
+    expect(condition.email).not.toBe("a@b.com");
+    expect(condition.$savedGroups).toEqual(["grp_a"]);
+    expect(condition.$not.$savedGroups).toEqual(["grp_b"]);
+  });
+});
+
+describe("hashStrings leaves saved group references alone", () => {
+  it("does not hash a $savedGroup id, even when `id` is a secure attribute", () => {
+    // The reference's own key is `id`, so a walk that inherits attributes by
+    // key name would hash the group id and break the lookup.
+    const attributes: SDKAttributeSchema = [
+      { property: "id", datatype: "secureString" },
+    ];
+    expect(
+      hashStrings({
+        obj: {
+          $savedGroup: { id: "grp_1", attributeKey: "backup_id" },
+          $and: [{ id: { $notInGroup: "grp_2" } }],
+        },
+        salt: "salt",
+        attributes,
+      }),
+    ).toEqual({
+      $savedGroup: { id: "grp_1", attributeKey: "backup_id" },
+      $and: [{ id: { $notInGroup: "grp_2" } }],
+    });
+  });
+});
+
+describe("a v2 payload carries no v1 saved group operators", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
+    ["grp_other", { type: "list", attributeKey: "country", values: ["US"] }],
+    [
+      "grp_cond",
+      { type: "condition", condition: JSON.stringify({ plan: "pro" }) },
+    ],
+  ]);
+  const organization = { id: "org", settings: {} } as OrganizationInterface;
+
+  // Every shape the rewrite has to deal with, in one feature
+  const feature = {
+    id: "f",
+    organization: "org",
+    defaultValue: "off",
+    valueType: "string",
+    prerequisites: [
+      {
+        id: "parent",
+        condition: JSON.stringify({ value: { $inGroup: "grp_list" } }),
+      },
+    ],
+    environmentSettings: {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            id: "r1",
+            type: "force",
+            value: "on",
+            enabled: true,
+            description: "",
+            condition: JSON.stringify({
+              // matching attribute, mismatched attribute, Condition Group,
+              // unknown id, and both operators
+              id: { $inGroup: "grp_list" },
+              country: { $notInGroup: "grp_other" },
+              $and: [
+                { backup_id: { $inGroup: "grp_other" } },
+                { plan: { $inGroup: "grp_cond" } },
+                { region: { $notInGroup: "grp_missing" } },
+              ],
+            }),
+            savedGroups: [{ match: "all", ids: ["grp_list", "grp_cond"] }],
+          },
+        ],
+      },
+    },
+  } as unknown as FeatureInterface;
+
+  it("rewrites every $inGroup and $notInGroup", () => {
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap: new Map(),
+      organization,
+      capabilities: [
+        "prerequisites",
+        "savedGroupReferences",
+        "savedGroupReferencesV2",
+      ] as ConnectionPayloadOptions["capabilities"],
+      savedGroupFormat: "referencesV2",
+    });
+
+    const serialized = JSON.stringify(def);
+    expect(serialized).not.toContain("$inGroup");
+    expect(serialized).not.toContain("$notInGroup");
+    expect(serialized).not.toContain("$savedGroups");
+  });
+});
+
+describe("feature-level prerequisites saved groups", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_value", { type: "list", attributeKey: "value", values: ["on"] }],
+  ]);
+  const organization = { id: "org", settings: {} } as OrganizationInterface;
+
+  const feature = {
+    id: "f",
+    organization: "org",
+    defaultValue: "off",
+    valueType: "string",
+    prerequisites: [
+      {
+        id: "parent",
+        condition: JSON.stringify({ value: { $inGroup: "grp_value" } }),
+      },
+    ],
+    environmentSettings: { production: { enabled: true, rules: [] } },
+  } as unknown as FeatureInterface;
+
+  // These rules are assembled outside the map that finalizes every other rule,
+  // so they are easy to miss.
+  const parentConditionFor = (capabilities: string[]) =>
+    getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap: new Map(),
+      organization,
+      capabilities: capabilities as ConnectionPayloadOptions["capabilities"],
+      savedGroupFormat: "referencesV2",
+    })?.rules?.[0]?.parentConditions?.[0]?.condition;
+
+  it("rewrites a stored $inGroup under v2", () => {
+    expect(
+      parentConditionFor([
+        "prerequisites",
+        "savedGroupReferences",
+        "savedGroupReferencesV2",
+      ]),
+    ).toEqual({ $savedGroup: { id: "grp_value" } });
+  });
+
+  it("keeps a stored $inGroup under v1", () => {
+    expect(
+      parentConditionFor(["prerequisites", "savedGroupReferences"]),
+    ).toEqual({ value: { $inGroup: "grp_value" } });
+  });
+});
+
+describe("generateHoldoutsPayload saved groups", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
+  ]);
+
+  const holdoutsMap = (condition: string) =>
+    new Map([
+      [
+        "ho_1",
+        {
+          holdout: { id: "ho_1" } as HoldoutInterface,
+          holdoutExperiment: {
+            trackingKey: "ho-key",
+            hashAttribute: "id",
+            phases: [{ coverage: 0.5, seed: "s", condition }],
+          } as unknown as ExperimentInterface,
+        },
+      ],
+    ]);
+
+  const conditionFor = (
+    capabilities: string[],
+    condition: string,
+  ): ConditionInterface | undefined =>
+    generateHoldoutsPayload({
+      holdoutsMap: holdoutsMap(condition),
+      groupMap,
+      capabilities: capabilities as ConnectionPayloadOptions["capabilities"],
+      savedGroupFormat: "referencesV2",
+    })["$holdout:ho_1"]?.rules?.[0]?.condition;
+
+  const V1 = ["savedGroupReferences"];
+  const V2 = ["savedGroupReferences", "savedGroupReferencesV2"];
+  const inGroup = JSON.stringify({ id: { $inGroup: "grp_list" } });
+
+  it("rewrites a stored $inGroup under v2, like every other rule path", () => {
+    expect(conditionFor(V2, inGroup)).toEqual({
+      $savedGroup: { id: "grp_list" },
+    });
+  });
+
+  it("keeps a stored $inGroup under v1", () => {
+    expect(conditionFor(V1, inGroup)).toEqual({ id: { $inGroup: "grp_list" } });
+  });
+
+  it("rewrites $savedGroups under v2", () => {
+    expect(
+      conditionFor(V2, JSON.stringify({ $savedGroups: ["grp_list"] })),
+    ).toEqual({ $savedGroup: { id: "grp_list" } });
+  });
+
+  it("leaves a condition with no saved groups alone", () => {
+    expect(conditionFor(V2, JSON.stringify({ country: "US" }))).toEqual({
+      country: "US",
+    });
+  });
+});
+
+describe("getApiFeatureObj saved groups", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
+    [
+      "grp_cond",
+      { type: "condition", condition: JSON.stringify({ plan: "pro" }) },
+    ],
+  ]);
+
+  const organization = {
+    id: "org",
+    settings: { environments: [{ id: "production" }] },
+  } as OrganizationInterface;
+
+  const featureWithRule = (rule: Record<string, unknown>) =>
+    ({
+      id: "f",
+      organization: "org",
+      defaultValue: "off",
+      valueType: "string",
+      owner: "",
+      description: "",
+      project: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      version: 1,
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "r1",
+              type: "force",
+              value: "on",
+              description: "",
+              enabled: true,
+              ...rule,
+            },
+          ],
+        },
+      },
+    }) as unknown as FeatureInterface;
+
+  const definitionFor = (feature: FeatureInterface) =>
+    getApiFeatureObj({
+      feature,
+      organization,
+      groupMap,
+      experimentMap: new Map(),
+      revision: null,
+      safeRolloutMap: new Map(),
+    }).environments.production.definition;
+
+  // REST always serves referencesV1. There is no way for a caller to ask for
+  // another format, so these assert the one shape the endpoint can return.
+  it("keeps $inGroup and inlines Condition Groups", () => {
+    const feature = featureWithRule({
+      savedGroups: [{ match: "all", ids: ["grp_list", "grp_cond"] }],
+    });
+    expect(JSON.parse(definitionFor(feature) || "{}")).toEqual({
+      defaultValue: "off",
+      rules: [
+        {
+          condition: {
+            $and: [{ id: { $inGroup: "grp_list" } }, { plan: "pro" }],
+          },
+          force: "on",
+        },
+      ],
+    });
+  });
+
+  it("leaves a stored $inGroup as it is", () => {
+    const feature = featureWithRule({
+      condition: JSON.stringify({
+        id: { $inGroup: "grp_list" },
+        country: "US",
+      }),
+    });
+    expect(JSON.parse(definitionFor(feature) || "{}").rules[0]).toEqual({
+      condition: { id: { $inGroup: "grp_list" }, country: "US" },
+      force: "on",
     });
   });
 });

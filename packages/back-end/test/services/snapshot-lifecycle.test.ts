@@ -453,7 +453,12 @@ describe("snapshot lifecycle", () => {
 
         expect(
           context.models.incrementalRefresh.acquireLock,
-        ).toHaveBeenCalledWith(experiment.id, plan.snapshot.id);
+        ).toHaveBeenCalledWith({
+          experimentId: experiment.id,
+          phase: plan.snapshot.phase,
+          snapshotId: plan.snapshot.id,
+          legacyExperimentSettingsHash: expect.any(String),
+        });
       },
     );
 

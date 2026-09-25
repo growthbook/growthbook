@@ -18,7 +18,7 @@ export default function SDKConnectionSettings() {
         <Frame>
           <Flex gap="4">
             <Box width="220px" flexShrink="0">
-              <Heading size="medium" as="h4">
+              <Heading size="md" as="h4">
                 Project Scoping
               </Heading>
             </Box>

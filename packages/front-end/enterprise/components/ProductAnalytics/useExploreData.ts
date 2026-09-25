@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ExplorationDateRange,
   ProductAnalyticsExploration,
@@ -13,6 +14,8 @@ export type CacheOption = "preferred" | "required" | "never";
 export type ProductAnalyticsRunComparisonResponse =
   ProductAnalyticsRunComparisonPayload & {
     query: QueryInterface | null;
+    /** Set when the comparison leg failed but the primary one succeeded. */
+    error?: string | null;
   };
 
 export function useExploreData() {
@@ -25,6 +28,7 @@ export function useExploreData() {
       options?: {
         cache?: CacheOption;
         previousTimeFrame?: ExplorationDateRange | null;
+        comparisonMode?: ComparisonMode | null;
       },
     ): Promise<{
       data: ProductAnalyticsExploration | null;
@@ -42,9 +46,13 @@ export function useExploreData() {
       const body: {
         config: ExplorationConfig;
         previousTimeFrame?: ExplorationDateRange;
+        comparisonMode?: ComparisonMode;
       } = { config };
       if (options?.previousTimeFrame) {
         body.previousTimeFrame = options.previousTimeFrame;
+        if (options.comparisonMode) {
+          body.comparisonMode = options.comparisonMode;
+        }
       }
 
       try {

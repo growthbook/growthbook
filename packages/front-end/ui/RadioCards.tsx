@@ -8,6 +8,7 @@ import {
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactElement } from "react";
 import Badge from "@/ui/Badge";
+import { radixSize, Size } from "@/ui/sizes";
 
 export type RadioOptions = {
   value: string;
@@ -29,9 +30,9 @@ export type Props = {
   value: string;
   setValue: (value: string) => void;
   onClick?: () => void;
-  labelSize?: TextProps["size"];
+  labelSize?: Size<"sm" | "md" | "lg" | "xl">;
   labelWeight?: TextProps["weight"];
-  descriptionSize?: TextProps["size"];
+  descriptionSize?: Size<"sm" | "md" | "lg" | "xl">;
   descriptionWeight?: TextProps["weight"];
   truncateDescription?: boolean;
 } & MarginProps;
@@ -46,9 +47,9 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     setValue,
     align,
     onClick,
-    labelSize = "3",
+    labelSize = "lg",
     labelWeight = "bold",
-    descriptionSize = "2",
+    descriptionSize = "md",
     descriptionWeight = "regular",
     truncateDescription = true,
     ...containerProps
@@ -92,9 +93,10 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                       <Flex direction="row" gap="3">
                         <Text
                           weight={labelWeight}
-                          size={labelSize}
+                          size={radixSize(labelSize)}
                           className="main-text truncate"
                           style={{ minWidth: 0 }}
+                          title={typeof label === "string" ? label : undefined}
                         >
                           {label || value}
                         </Text>
@@ -103,7 +105,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                       {description ? (
                         <Text
                           weight={descriptionWeight}
-                          size={descriptionSize}
+                          size={radixSize(descriptionSize)}
                           className={
                             truncateDescription ? "truncate" : undefined
                           }

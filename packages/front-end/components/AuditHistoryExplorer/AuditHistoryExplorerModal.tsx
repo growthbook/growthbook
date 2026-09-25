@@ -172,16 +172,16 @@ function RawAuditLogTab<T>({
   return (
     <Box>
       <Flex align="center" gap="3" mb="3">
-        <Heading as="h5" size="medium">
+        <Heading as="h5" size="md">
           Audit Log
         </Heading>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {total} total event{total !== 1 ? "s" : ""}
         </Text>
         <Box ml="auto">
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             disabled={refreshing}
             onClick={async () => {
               await refresh();
@@ -279,7 +279,6 @@ export default function AuditHistoryExplorerModal<T>({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="audit-history-explorer"
       open={true}
       header={`${entityName} Audit History`}

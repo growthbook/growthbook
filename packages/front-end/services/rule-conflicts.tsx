@@ -848,6 +848,12 @@ function rangeHardConflicts<T extends number | string>(
   };
 }
 
+// An insensitive `in` escapes a case-sensitive `notIn` via other casings.
+function notInExcludesAll(n: NotInAtom, i: InAtom): boolean {
+  if (i.insensitive && !n.insensitive) return false;
+  return [...i.values].every((v) => setHasValue(n, v));
+}
+
 // Can we *prove* two atoms target disjoint populations? Used for soft overlap:
 // when we can't prove they're disjoint, a rule above might consume some of this
 // rule's users. Unhandled combinations conservatively return false (might overlap).
@@ -855,12 +861,8 @@ function provablyDisjoint(a: Atom, b: Atom): boolean {
   if (a.op === "in" && b.op === "in") {
     return !inSetsOverlap(a, b);
   }
-  if (a.op === "in" && b.op === "notIn") {
-    return [...a.values].every((v) => setHasValue(b, v));
-  }
-  if (a.op === "notIn" && b.op === "in") {
-    return [...b.values].every((v) => setHasValue(a, v));
-  }
+  if (a.op === "in" && b.op === "notIn") return notInExcludesAll(b, a);
+  if (a.op === "notIn" && b.op === "in") return notInExcludesAll(a, b);
   if (a.op === "in") return ![...a.values].some((v) => atomMatchesValue(b, v));
   if (b.op === "in") return ![...b.values].some((v) => atomMatchesValue(a, v));
   if (a.op === "num" && b.op === "num") {
@@ -875,6 +877,17 @@ function provablyDisjoint(a: Atom, b: Atom): boolean {
     return !rangesOverlap(a, b, cmp);
   }
   return false; // notIn/notIn, mismatched range types, … → can't prove disjoint
+}
+
+// Two rules can't share a user when any pair of their top-level AND atoms is disjoint.
+function rulesProvablyDisjoint(
+  a: ParsedTargeting,
+  b: ParsedTargeting,
+): boolean {
+  return a.constraints.some((ac) => {
+    const bc = b.constraints.find((c) => c.attr === ac.attr);
+    return !!bc && provablyDisjoint(ac.atom, bc.atom);
+  });
 }
 
 // Intersect two atoms on the same attribute into a single atom meaning "matches
@@ -1250,6 +1263,7 @@ export function getRuleReachability(
         // Only traffic-serving rules above that also reference this attribute
         // can overlap — every other rule is irrelevant, so we never scan them.
         for (const r of trafficByAttr.get(attr) ?? []) {
+          if (rulesProvablyDisjoint(target, r.parsed)) continue;
           const consumerOpaque = !r.parsed.modeledAttrs.has(attr);
           // Can't prove this rule above leaves our targeted users alone?
           let overlaps = targetOpaque || consumerOpaque;
@@ -1655,12 +1669,12 @@ export function ConflictCallout({
         {open && hasDetails && (
           <Flex mt="1" direction="column" gap="1">
             {conflicts.hard.map((c, i) => (
-              <Text as="div" size="small" key={`h${i}`}>
+              <Text as="div" size="sm" key={`h${i}`}>
                 - {hardSentence(c)}
               </Text>
             ))}
             {conflicts.soft.map((c, i) => (
-              <Text as="div" size="small" key={`s${i}`}>
+              <Text as="div" size="sm" key={`s${i}`}>
                 - {softSentence(c)}
               </Text>
             ))}

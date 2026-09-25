@@ -1,5 +1,6 @@
+import { isSavedGroupAvailableForProjects } from "shared/util";
 import { SavedGroupTargeting } from "shared/types/feature";
-import { PiArrowSquareOut, PiPlusCircleBold, PiXBold } from "react-icons/pi";
+import { PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React, { useEffect } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -12,6 +13,7 @@ import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import Link from "@/ui/Link";
+import { formatSavedGroupOptionLabel } from "@/components/Features/SavedGroupOptionTooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import {
@@ -25,6 +27,8 @@ export interface Props {
   value: SavedGroupTargeting[];
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
   project: string;
+  // undefined preserves the default picker convenience; null targets all Projects.
+  savedGroupProjects?: string[] | null;
   slimMode?: boolean;
   emptyText?: string;
   label?: string;
@@ -42,6 +46,7 @@ export default function SavedGroupTargetingField({
   value,
   setValue,
   project,
+  savedGroupProjects,
   slimMode,
   emptyText,
   label = "Target by Saved Groups",
@@ -56,17 +61,23 @@ export default function SavedGroupTargetingField({
 }: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
-  const { unsupportedConnections, hasLargeSavedGroupFeature, connections } =
-    useLargeSavedGroupSupport(project);
+  const largeSavedGroupSupport = useLargeSavedGroupSupport(project);
+
+  // The picker below lists both kinds of Saved Group, so warn about whichever
+  // this rule actually targets. A Condition Group needs a newer SDK than an
+  // ID List does.
+  const targetsConditionGroup = value.some((v) =>
+    v.ids.some((id) => getSavedGroupById(id)?.type === "condition"),
+  );
 
   const savedGroupsLabel =
     label &&
     (slimMode ? (
-      <Text as="div" size="medium" weight="semibold" color="text-mid">
+      <Text as="div" size="md" weight="semibold" color="text-mid">
         {label}
       </Text>
     ) : (
-      <Text as="div" size="medium" weight="semibold">
+      <Text as="div" size="md" weight="semibold">
         {label}
       </Text>
     ));
@@ -82,7 +93,7 @@ export default function SavedGroupTargetingField({
         { value: "set", label: setModeLabel ?? "Set targeting" },
         { value: "remove", label: removeModeLabel ?? "Remove targeting" },
       ]}
-      labelSize="2"
+      labelSize="md"
     />
   ) : null;
   useEffect(() => {
@@ -105,9 +116,12 @@ export default function SavedGroupTargetingField({
     );
 
   const filteredSavedGroups = savedGroups.filter((group) => {
-    return (
-      !project || !group.projects?.length || group.projects.includes(project)
-    );
+    // Keep already selected references visible for grandfathered rules.
+    if (value.some((targeting) => targeting.ids.includes(group.id)))
+      return true;
+    return savedGroupProjects === undefined
+      ? !project || !group.projects?.length || group.projects.includes(project)
+      : isSavedGroupAvailableForProjects(group, savedGroupProjects);
   });
 
   const options = filteredSavedGroups.map((s) => ({
@@ -150,7 +164,7 @@ export default function SavedGroupTargetingField({
               color="text-low"
               fontStyle="italic"
               mb="2"
-              size={slimMode ? "small" : undefined}
+              size={slimMode ? "sm" : undefined}
             >
               {emptyText || "No saved group targeting applied."}
             </Text>
@@ -171,7 +185,7 @@ export default function SavedGroupTargetingField({
               >
                 <Text
                   weight="semibold"
-                  size="medium"
+                  size="md"
                   color={locked ? "text-low" : undefined}
                 >
                   <PiPlusCircleBold className="mr-1" />
@@ -193,17 +207,15 @@ export default function SavedGroupTargetingField({
           {labelActions}
         </Flex>
       ) : (
-        savedGroupsLabel && (
-          <Box mb="1">
-            {savedGroupsLabel}
-            <LargeSavedGroupPerformanceWarning
-              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-              unsupportedConnections={unsupportedConnections}
-              connections={connections}
-            />
-          </Box>
-        )
+        savedGroupsLabel && <Box mb="1">{savedGroupsLabel}</Box>
       )}
+      {/* Outside the branch above: `label` has a default, so every call site
+          takes the first one. The warning renders itself away when there is
+          nothing to say. */}
+      <LargeSavedGroupPerformanceWarning
+        {...largeSavedGroupSupport}
+        type={targetsConditionGroup ? "condition" : "list"}
+      />
       {addRemoveSelector}
       <Box>
         {conflicts.length > 0 && (
@@ -279,7 +291,7 @@ export default function SavedGroupTargetingField({
                   }
                   valueSlot={
                     <MultiSelectField
-                      size="legacy"
+                      legacyHeight
                       disabled={locked}
                       value={v.ids}
                       onChange={(ids) => {
@@ -289,35 +301,8 @@ export default function SavedGroupTargetingField({
                         setValue(newValue);
                       }}
                       options={options}
-                      formatOptionLabel={(o, meta) => {
-                        if (meta.context !== "value") return o.label;
-                        const group = getSavedGroupById(o.value);
-                        if (!group) return o.label;
-                        return (
-                          <Link
-                            href={`/saved-groups/${group.id}`}
-                            target="_blank"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              overflow: "hidden",
-                            }}
-                          >
-                            <span
-                              style={{
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                maxWidth: "200px",
-                              }}
-                            >
-                              {o.label}
-                            </span>
-                            <PiArrowSquareOut style={{ flexShrink: 0 }} />
-                          </Link>
-                        );
-                      }}
+                      formatOptionLabel={formatSavedGroupOptionLabel}
+                      valueTitles={false}
                       required
                       placeholder="Select groups..."
                       closeMenuOnSelect={true}

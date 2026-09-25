@@ -91,7 +91,7 @@ export default function DashboardUpdateScheduleSelector({
             },
           ]}
           gap="2"
-          descriptionSize="2"
+          descriptionSize="md"
           value={currentUpdateSchedule?.type ?? "stale"}
           setValue={(v) =>
             onScheduleTypeChange(v as keyof typeof defaultUpdateSchedules)

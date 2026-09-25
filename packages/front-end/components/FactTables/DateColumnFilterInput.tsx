@@ -56,7 +56,7 @@ export function DateColumnFilterInput({
           />
         )}
       </Box>
-      <Text size="small" color="text-low" whiteSpace="nowrap">
+      <Text size="sm" color="text-low" whiteSpace="nowrap">
         UTC
       </Text>
     </Flex>

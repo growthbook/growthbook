@@ -23,7 +23,7 @@ import {
   optionalOwnerInputField,
 } from "./owner-field";
 
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -178,6 +178,10 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "guardrail-failed",
+  "query-failed",
+  "ending-soon",
+  "stale",
   "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
@@ -318,10 +322,15 @@ export type ExperimentAnalysisSummaryHealth = z.infer<
   typeof experimentAnalysisSummaryHealth
 >;
 
-export const goalMetricStatus = ["won", "lost", "neutral"] as const;
+export const goalMetricStatus = ["won", "lost", "neutral", "errored"] as const;
 export type GoalMetricStatus = (typeof goalMetricStatus)[number];
 
-export const guardrailMetricStatus = ["safe", "lost", "neutral"] as const;
+export const guardrailMetricStatus = [
+  "safe",
+  "lost",
+  "neutral",
+  "errored",
+] as const;
 export type GuardrailMetricStatus = (typeof guardrailMetricStatus)[number];
 
 export const goalMetricResult = z.object({
@@ -388,7 +397,7 @@ export type ScheduleStopAfter = z.infer<typeof scheduleStopAfterValidator>;
 // not just the dedicated scheduled-stop-plan service.
 const forceShipCriteriaHasVariation = (c: {
   mode: string;
-  fallback: string;
+  fallback?: string;
   fallbackVariationId?: string;
 }) =>
   !(
@@ -401,13 +410,27 @@ const forceShipVariationRefine = {
   path: ["fallbackVariationId"] as string[],
 };
 
+// `fallback` is only required when `mode` is "auto-ship" — it specifies what
+// happens when there's no clear winner. Other modes ignore this field.
+const autoShipRequiresFallback = (c: { mode: string; fallback?: string }) =>
+  !(c.mode === "auto-ship" && !c.fallback);
+const autoShipFallbackRefine = {
+  message: 'fallback is required when mode is "auto-ship".',
+  path: ["fallback"] as string[],
+};
+
 export const scheduledStopPlanValidator = z
   .object({
     mode: z.enum(SCHEDULED_STOP_MODES),
     tiebreakerMetricId: z.string().optional(),
-    fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
+    /**
+     * What to do at the scheduled end when there is no clear winner. Required
+     * when `mode` is `"auto-ship"`; ignored for other modes.
+     */
+    fallback: z.enum(SCHEDULED_STOP_FALLBACKS).optional(),
     fallbackVariationId: z.string().optional(),
   })
+  .refine(autoShipRequiresFallback, autoShipFallbackRefine)
   .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
 export type ScheduledStopPlan = z.infer<typeof scheduledStopPlanValidator>;
 
@@ -434,6 +457,9 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
+  // User who staged it; the job runs the change on their authority, as the
+  // scheduled feature publish runs on its arming user's. Absent for org keys.
+  scheduledBy: z.string().optional(),
 });
 
 export const experimentInterface = z
@@ -481,6 +507,7 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
+    attributeScopeAllProjects: z.boolean().optional(),
     // Drafts queued for auto-publish on `status -> running`. Each
     // (featureId, revisionVersion) pair is its own row — multiple drafts of
     // the same feature can be queued and are merged sequentially at start.
@@ -748,6 +775,24 @@ const apiExperimentVariation = z.object({
   screenshots: z.array(z.string()),
 });
 
+const apiPhaseSavedGroupTargeting = z
+  .array(
+    z.object({
+      matchType: z.enum(["all", "any", "none"]),
+      savedGroups: z.array(z.string()),
+    }),
+  )
+  .optional();
+
+const phaseSavedGroupInput = {
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: apiPhaseSavedGroupTargeting
+    .describe(
+      "Deprecated — use `savedGroups`. Accepted so a GET response can be posted back unchanged; `savedGroups` takes precedence if both are sent.",
+    )
+    .meta({ deprecated: true }),
+};
+
 // Phase sub-schema for API responses
 const apiExperimentPhase = z.object({
   name: z.string(),
@@ -780,14 +825,7 @@ const apiExperimentPhase = z.object({
       }),
     )
     .optional(),
-  savedGroupTargeting: z
-    .array(
-      z.object({
-        matchType: z.enum(["all", "any", "none"]),
-        savedGroups: z.array(z.string()),
-      }),
-    )
-    .optional(),
+  savedGroupTargeting: apiPhaseSavedGroupTargeting,
 });
 
 // Result summary sub-schema
@@ -831,9 +869,16 @@ export const apiScheduledStopPlanValidator = namedSchema(
     .object({
       mode: z.enum(SCHEDULED_STOP_MODES),
       tiebreakerMetricId: z.string().optional(),
-      fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
+      fallback: z
+        .enum(SCHEDULED_STOP_FALLBACKS)
+        .describe(
+          "What to do at the scheduled end when there is no clear winner. " +
+            'Required when `mode` is `"auto-ship"`; ignored for other modes.',
+        )
+        .optional(),
       fallbackVariationId: z.string().optional(),
     })
+    .refine(autoShipRequiresFallback, autoShipFallbackRefine)
     .refine(forceShipCriteriaHasVariation, forceShipVariationRefine)
     .describe(
       "What happens at the scheduled end date. `notify` keeps the experiment " +
@@ -942,6 +987,7 @@ const apiExperimentShape = z.object({
   banditConversionWindowValue: z.coerce.number().optional(),
   banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
   linkedFeatures: z.array(z.string()).optional(),
+  attributeScopeAllProjects: z.boolean().optional(),
   hasVisualChangesets: z.boolean().optional(),
   hasURLRedirects: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
@@ -1019,6 +1065,10 @@ export const apiExperimentResultsValidator = namedSchema(
       dimension: z.object({
         type: z.string(),
         id: z.string().optional(),
+        // Constituents of a "combo" dimension, in the order they were combined
+        dimensions: z
+          .array(z.object({ type: z.string(), id: z.string().optional() }))
+          .optional(),
       }),
       settings: apiExperimentAnalysisSettingsValidator,
       queryIds: z.array(z.string()),
@@ -1046,11 +1096,17 @@ export const apiExperimentResultsValidator = namedSchema(
                       mean: z.coerce.number(),
                       stddev: z.coerce.number(),
                       percentChange: z.coerce.number(),
+                      effectStandardError: z.coerce
+                        .number()
+                        .describe(
+                          "Standard error of the estimated effect (`percentChange`).",
+                        ),
                       ciLow: z.coerce.number(),
                       ciHigh: z.coerce.number(),
                       pValue: z.coerce.number().optional(),
                       risk: z.coerce.number().optional(),
                       chanceToBeatControl: z.coerce.number().optional(),
+                      errorMessage: z.string().optional(),
                     }),
                   ),
                 }),
@@ -1065,6 +1121,161 @@ export const apiExperimentResultsValidator = namedSchema(
 
 export type ApiExperimentResults = z.infer<
   typeof apiExperimentResultsValidator
+>;
+
+// ---------------------------------------------------------------------------
+// Bulk experiment results (dedicated to GET /experiments/:id/bulk-results)
+//
+// Unlike ExperimentResults (which is enriched from the current experiment),
+// this schema is snapshot-authoritative: settings, metric lists, effective
+// metric settings, the analysis window, and variation identity all come from
+// the stored snapshot and the specific analysis that produced the numbers.
+// Human-readable names remain best-effort current display metadata.
+// ---------------------------------------------------------------------------
+
+// Snapshot-time effective metric settings, copied from
+// snapshot.settings.metricSettings[].computedSettings.
+const apiBulkResultMetricEffectiveSettings = z.object({
+  windowType: z.enum(["conversion", "lookback", ""]),
+  windowValue: z.number(),
+  windowUnit: z.enum(["minutes", "hours", "days", "weeks"]),
+  delayValue: z.number(),
+  delayUnit: z.enum(["minutes", "hours", "days", "weeks"]),
+  properPrior: z.boolean(),
+  properPriorMean: z.number(),
+  properPriorStdDev: z.number(),
+  regressionAdjustmentEnabled: z.boolean(),
+  regressionAdjustmentDays: z.number(),
+  targetMDE: z.number().optional(),
+});
+
+// Metric role entry. We return a hefty effective settings object rather than
+// an overrides object because the snapshot only stores computed settings.
+const apiBulkResultMetric = z.object({
+  metricId: z.string(),
+  effectiveSettings: apiBulkResultMetricEffectiveSettings.optional(),
+});
+
+// Snapshot-authoritative analysis settings.
+const apiBulkResultSettings = z.object({
+  datasourceId: z.string(),
+  assignmentQueryId: z.string(),
+  experimentId: z.string(),
+  segmentId: z.string(),
+  queryFilter: z.string(),
+  inProgressConversions: z.enum(["include", "exclude"]),
+  attributionModel: z.enum([
+    "firstExposure",
+    "experimentDuration",
+    "lookbackOverride",
+  ]),
+  lookbackOverride: apiLookbackOverride.optional(),
+  statsEngine: z.enum(["bayesian", "frequentist"]),
+  regressionAdjustmentEnabled: z.boolean(),
+  sequentialTestingEnabled: z.boolean().optional(),
+  sequentialTestingTuningParameter: z.number().optional(),
+  postStratificationEnabled: z.boolean().optional(),
+  pValueThreshold: z.number().optional(),
+  goals: z.array(apiBulkResultMetric),
+  secondaryMetrics: z.array(apiBulkResultMetric),
+  guardrails: z.array(apiBulkResultMetric),
+  activationMetric: apiBulkResultMetric.optional(),
+});
+
+const apiBulkResultVariation = z.object({
+  // Position in the snapshot's stored variation array; the authoritative
+  // join key for statistics.
+  variationIndex: z.number(),
+  // snapshot.settings.variations[i].id (the warehouse/SDK variation key).
+  // Synthetic index strings ("0", "1", ...) on legacy migrated snapshots.
+  variationKey: z.string(),
+  // Current internal experiment variation id/name, present only when
+  // variationKey matches a current variation. Best-effort display metadata;
+  // may reflect post-snapshot renames.
+  variationId: z.string().optional(),
+  variationName: z.string().optional(),
+  users: z.number(),
+  analyses: z.array(
+    z.object({
+      engine: z.enum(["bayesian", "frequentist"]),
+      differenceType: z.enum(["relative", "absolute", "scaled"]),
+      // All statistics are null when missing or non-finite.
+      numerator: z.number().nullable(),
+      denominator: z.number().nullable(),
+      mean: z.number().nullable(),
+      stddev: z.number().nullable(),
+      // Estimated effect expressed according to differenceType.
+      effect: z.number().nullable(),
+      effectStandardError: z
+        .number()
+        .nullable()
+        .describe("Standard error of `effect`, on the same scale."),
+      ciLow: z.number().nullable(),
+      ciHigh: z.number().nullable(),
+      pValue: z.number().nullable().optional(),
+      chanceToBeatControl: z.number().nullable().optional(),
+      errorMessage: z.string().optional(),
+    }),
+  ),
+});
+
+// `componentSchema` rather than `namedSchema` keeps this out of the docs
+// "Models" section while its only endpoint is gated and excluded from the spec.
+export const apiExperimentBulkResultValidator = componentSchema(
+  "ExperimentBulkResult",
+  z
+    .object({
+      // Unique per item: `${snapshotId}:overall` or
+      // `${snapshotId}:dimension:${encodedDimensionId}`.
+      id: z.string(),
+      // Shared by items expanded from the same snapshot run.
+      snapshotId: z.string(),
+      experimentId: z.string(),
+      phase: z.string(),
+      type: z.enum(["standard", "exploratory", "report"]),
+      triggeredBy: z.string().optional(),
+      // Report id when type === "report".
+      reportId: z.string().optional(),
+      // When the snapshot was generated.
+      dateCreated: z.iso.datetime(),
+      // Analysis window frozen at snapshot time
+      // (snapshot.settings.startDate/endDate, not current phase dates).
+      // Plain strings, not datetimes: both are empty for legacy snapshots that
+      // stored neither settings dates nor phase dates.
+      dateStart: z.string(),
+      dateEnd: z.string(),
+      dimension: z.object({
+        type: z.string(),
+        id: z.string().optional(),
+        precomputed: z.boolean(),
+        // Constituents of a "combo" dimension, in the order they were combined
+        dimensions: z
+          .array(z.object({ type: z.string(), id: z.string().optional() }))
+          .optional(),
+      }),
+      settings: apiBulkResultSettings,
+      results: z.array(
+        z.object({
+          dimensionValue: z.string(),
+          totalUsers: z.number(),
+          checks: z.object({ srm: z.number() }),
+          metrics: z.array(
+            z.object({
+              metricId: z.string(),
+              // Best-effort current display name; omitted when the metric no
+              // longer resolves. May reflect post-snapshot renames.
+              metricName: z.string().optional(),
+              variations: z.array(apiBulkResultVariation),
+            }),
+          ),
+        }),
+      ),
+    })
+    .strict(),
+);
+
+export type ApiExperimentBulkResult = z.infer<
+  typeof apiExperimentBulkResultValidator
 >;
 
 // ---------------------------------------------------------------------------
@@ -1125,7 +1336,12 @@ const apiMetricOverrideEntryInput = z
 
 // Variation for input payloads
 const apiVariationInput = z.object({
-  id: z.string().optional(),
+  id: z
+    .string()
+    .describe(
+      "Stable variation id. On update, an omitted id is filled from the stored variation with the same key, or the same position, when the number of variations is unchanged.",
+    )
+    .optional(),
   variationId: z
     .string()
     .describe(
@@ -1155,7 +1371,7 @@ const apiPhaseInput = z.object({
   dateEnded: z.string().meta({ format: "date-time" }).optional(),
   reasonForStopping: z.string().optional(),
   seed: z.string().optional(),
-  coverage: z.number().optional(),
+  coverage: z.number().min(0).max(1).optional(),
   namespace: z
     .object({
       namespaceId: z.string(),
@@ -1187,21 +1403,16 @@ const apiPhaseInput = z.object({
     .string()
     .describe("Targeting condition as a JSON string. Mirrors the GET response.")
     .optional(),
-  savedGroupTargeting: z
-    .array(
-      z.object({
-        matchType: z.enum(["all", "any", "none"]),
-        savedGroups: z.array(z.string()),
-      }),
-    )
-    .optional(),
+  ...phaseSavedGroupInput,
   variationWeights: z
-    .array(z.number())
+    .array(z.number().min(0).max(1))
     .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
     .meta({ deprecated: true })
     .optional(),
   trafficSplit: z
-    .array(z.object({ variationId: z.string(), weight: z.number() }))
+    .array(
+      z.object({ variationId: z.string(), weight: z.number().min(0).max(1) }),
+    )
     .describe("Per-variation weights. Mirrors the GET response.")
     .optional(),
 });
@@ -1268,10 +1479,21 @@ const postExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    attributeScopeAllProjects: z
+      .boolean()
+      .describe(
+        "Picker preference: show attributes from all projects in this experiment's targeting UI instead of only those in scope for its project and linked features. Does not loosen enforcement — when the organization requires registered attributes with project scoping, out-of-scope attributes are still rejected.",
+      )
+      .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
-    disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    disableStickyBucketing: z
+      .boolean()
+      .describe(
+        "When true, disables Sticky Bucketing for this experiment. If omitted, defaults to your organization's Sticky Bucketing setting for new experiments. Sticky Bucketing only takes effect when it is also enabled at the organization level.",
+      )
+      .optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     releasedVariationId: z.string().optional(),
     excludeFromPayload: z.boolean().optional(),
     inProgressConversions: z.enum(["loose", "strict"]).optional(),
@@ -1386,10 +1608,16 @@ const updateExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    attributeScopeAllProjects: z
+      .boolean()
+      .describe(
+        "Picker preference: show attributes from all projects in this experiment's targeting UI instead of only those in scope for its project and linked features. Does not loosen enforcement — when the organization requires registered attributes with project scoping, out-of-scope attributes are still rejected.",
+      )
+      .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     results: z
       .enum(["dnf", "won", "lost", "inconclusive"])
       .describe(
@@ -1438,7 +1666,7 @@ const updateExperimentBody = z
           dateEnded: z.string().meta({ format: "date-time" }).optional(),
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
-          coverage: z.number().optional(),
+          coverage: z.number().min(0).max(1).optional(),
           namespace: z
             .object({
               namespaceId: z.string(),
@@ -1474,23 +1702,21 @@ const updateExperimentBody = z
               "Targeting condition as a JSON string. Mirrors the GET response.",
             )
             .optional(),
-          savedGroupTargeting: z
-            .array(
-              z.object({
-                matchType: z.enum(["all", "any", "none"]),
-                savedGroups: z.array(z.string()),
-              }),
-            )
-            .optional(),
+          ...phaseSavedGroupInput,
           variationWeights: z
-            .array(z.number())
+            .array(z.number().min(0).max(1))
             .describe(
               "Deprecated: use `trafficSplit`. Takes precedence if set.",
             )
             .meta({ deprecated: true })
             .optional(),
           trafficSplit: z
-            .array(z.object({ variationId: z.string(), weight: z.number() }))
+            .array(
+              z.object({
+                variationId: z.string(),
+                weight: z.number().min(0).max(1),
+              }),
+            )
             .describe("Per-variation weights. Mirrors the GET response.")
             .optional(),
         }),
@@ -1816,6 +2042,12 @@ const startChecklistItemStatusValidator = z
     status: checklistStatusValidator,
     manual: z.boolean(),
     reason: z.string(),
+    hardBlock: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, this item cannot be bypassed with `skipChecklist` — the experiment cannot be started until it is resolved.",
+      ),
   })
   .strict();
 
@@ -1896,6 +2128,29 @@ export const postExperimentStartValidator = {
     "pending_draft_publish_failed",
     "invalid_status",
   ] as const,
+};
+
+const postExperimentCommentBody = z
+  .object({
+    comment: z.string().trim().min(1, "Comment cannot be empty"),
+  })
+  .strict();
+
+export const postExperimentCommentValidator = {
+  bodySchema: postExperimentCommentBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.strictObject({ status: z.number() }),
+  summary: "Post a comment on an experiment",
+  description: "Adds a new comment to an experiment's discussion thread.",
+  operationId: "postExperimentComment",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/comment",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: { comment: "This looks good to ship." },
+  },
 };
 
 export const postExperimentStartChecklistManualCompleteValidator = {
@@ -2048,7 +2303,7 @@ export const postExperimentSnapshotValidator = {
       dimension: z
         .string()
         .describe(
-          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". Omit this field to create a standard snapshot.',
+          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". Use "cutoff:<ISO datetime>" (e.g. "cutoff:2026-01-15T00:12:00.000Z") to split units by whether they were first exposed before or after the cutoff; it must fall within the phase dates. Use "combo:<dimA>::<dimB>" (e.g. "combo:exp:country::dim_abc123") to break down by the intersection of two dimensions, each an Experiment Dimension or Unit Dimension id; values beyond the top 20 combined slices are merged into "(other)". Omit this field to create a standard snapshot.',
         )
         .optional(),
       phase: z
@@ -2079,6 +2334,10 @@ export const postExperimentSnapshotValidator = {
   method: "post" as const,
   path: "/experiments/:id/snapshot",
   exampleRequest: { body: { triggeredBy: "schedule" } } as const,
+  possibleErrors: [
+    "requires_full_refresh",
+    "dimension_already_up_to_date",
+  ] as const,
 };
 
 export const postVariationImageUploadValidator = {
@@ -2166,6 +2425,77 @@ export const getExperimentResultsValidator = {
   tags: ["experiments"],
   method: "get" as const,
   path: "/experiments/:id/results",
+};
+
+export const getExperimentBulkResultsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+      dateStart: z.iso
+        .datetime({ offset: true })
+        .describe(
+          "Return snapshots generated on or after this date (ISO 8601 date-time).",
+        )
+        .meta({ format: "date-time" }),
+      dateEnd: z.iso
+        .datetime({ offset: true })
+        .describe(
+          "Return snapshots generated on or before this date (ISO 8601 date-time).",
+        )
+        .meta({ format: "date-time" }),
+      phase: z
+        .string()
+        .describe("Filter to a single experiment phase index.")
+        .optional(),
+      snapshotType: z
+        .enum(["standard", "exploratory", "report"])
+        .describe(
+          "Filter to a single snapshot type. By default all types are returned.",
+        )
+        .optional(),
+    })
+    .strict(),
+  paramsSchema: idParams,
+  responseSchema: z.intersection(
+    z.object({
+      results: z.array(apiExperimentBulkResultValidator),
+    }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "Get bulk results for an experiment",
+  description: [
+    "Returns every snapshot for an experiment generated within a date window, as a flat list of `ExperimentBulkResult` items.",
+    "",
+    "This payload is snapshot-authoritative: `settings`, metric lists, effective metric settings, the analysis window (`dateStart`/`dateEnd`), and each variation's `variationKey`/`variationIndex` all come from the stored snapshot and the analysis that produced the numbers. `variationId`, `variationName`, and `metricName` are best-effort current display metadata resolved by id and may reflect renames (or be absent) if the experiment changed after the snapshot was generated.",
+    "",
+    "Each snapshot expands into one item per dimension. Items from the same snapshot share `snapshotId`, and each stored difference type (relative, absolute, scaled) is folded into each variation's `analyses` array. Missing difference-type variants are not computed by this endpoint. Only the snapshot's default analysis and its stored difference-type variants are returned; ad-hoc analyses with other settings (e.g. a different baseline or stats engine) are excluded.",
+    "Each item has a unique `id` derived from its `snapshotId` and raw analysis dimension id.",
+    "",
+    "Snapshot type and dimension breakdown are independent, explicit signals:",
+    "- `type` is one of `standard`, `exploratory`, or `report`; report snapshots also include `reportId`.",
+    "- `dimension` describes the breakdown; `dimension.precomputed` marks precomputed dimensions while `dimension.type` resolves to the underlying kind (never `precomputed`).",
+    "",
+    "Legacy snapshots generated before certain fields were captured fall back to current experiment values only when the stored field is absent; `effectiveSettings` is omitted when the snapshot predates computed metric settings.",
+    "",
+    "Pagination semantics:",
+    "- `total` is the count of snapshots matching the filters.",
+    "- `count` is the number of snapshots included on this page; a single snapshot may contribute multiple `results` items.",
+    "- `hasMore` and `nextOffset` advance over snapshots, not over returned result items.",
+    "- Offsets are only stable over a window that has already closed. Snapshots generated inside the window while you page through it are sorted ahead of older ones and shift later pages.",
+  ].join("\n"),
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    query: {
+      dateStart: "2026-01-01T00:00:00Z",
+      dateEnd: "2026-02-01T00:00:00Z",
+      limit: 10,
+    },
+  },
+  operationId: "getExperimentBulkResults",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/:id/bulk-results",
 };
 
 export const listExperimentResultsValidator = {

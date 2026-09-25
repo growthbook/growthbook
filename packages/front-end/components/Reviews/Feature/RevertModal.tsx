@@ -4,10 +4,25 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import type { RampScheduleInterface } from "shared/validators";
+import {
+  filterEnvironmentsByFeature,
+  getReviewSetting,
+  getRevertRampDetachActions,
+  getRevertTargetArchived,
+  getRulesForEnvironment,
+  revertRampStopWarning,
+} from "shared/util";
+import {
+  holdsMoveDestination,
+  metadataTouchesPayload,
+  rampActionFootprint,
+  revertFootprint,
+} from "shared/permissions";
+import isEqual from "lodash/isEqual";
 import { Flex, Box } from "@radix-ui/themes";
-import useApi from "@/hooks/useApi";
-import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
+import { useFeatureRevisionByVersion } from "@/hooks/useFeatureRevisionByVersion";
+import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
@@ -20,6 +35,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorForChanges, {
   DraftMode,
@@ -33,6 +49,7 @@ export interface Props {
   revisionList: MinimalFeatureRevisionInterface[];
   /** Full revisions for diff preview — lazily cached. */
   allRevisions: FeatureRevisionInterface[];
+  rampSchedules: RampScheduleInterface[];
   close: () => void;
   mutate: () => void;
   setVersion: (version: number) => void;
@@ -43,6 +60,7 @@ export default function RevertModal({
   revision,
   revisionList,
   allRevisions,
+  rampSchedules,
   close,
   mutate,
   setVersion,
@@ -100,43 +118,129 @@ export default function RevertModal({
     effectiveApprovalsRequired ? "new" : "publish",
   );
 
-  const targetRevisionFromCache = allRevisions.find(
-    (r) => r.version === targetVersion,
+  const targetRevision = useFeatureRevisionByVersion(
+    feature.id,
+    targetVersion,
+    allRevisions,
   );
-  // If the selected version isn't in the parent's lazy cache, fetch it directly.
-  const { data: fetchedRevisionData } = useApi<{
-    status: 200;
-    revisions: FeatureRevisionInterface[];
-  }>(`/feature/${feature.id}/revisions?versions=${targetVersion}`, {
-    shouldRun: () => !targetRevisionFromCache,
-  });
-  const targetRevision =
-    targetRevisionFromCache ??
-    fetchedRevisionData?.revisions?.find((r) => r.version === targetVersion);
   const isLoadingRevision = !targetRevision;
   // Fall back to current revision only for submit/permissions — never for the diff.
   const targetRevisionForAction = targetRevision ?? revision;
 
   const diffs = useFeatureRevisionDiff({
     current: featureToFeatureRevisionDiffInput(feature),
-    draft: targetRevisionForAction,
+    // The archived state the revert restores, so a target that predates archived
+    // snapshots previews the unarchive the server will perform.
+    draft: {
+      ...targetRevisionForAction,
+      archived: getRevertTargetArchived(targetRevisionForAction),
+    },
   });
 
-  const affectedEnvs = getAffectedRevisionEnvs(
-    feature,
-    targetRevisionForAction,
-    environments,
-  );
+  const rampDetaches = targetRevision
+    ? getRevertRampDetachActions(feature.id, targetRevision, rampSchedules)
+    : [];
+  const rampStopWarning = revertRampStopWarning(rampDetaches, rampSchedules, {
+    draft: mode === "new",
+  });
 
-  const canPublish = permissionsUtil.canPublishFeature(feature, affectedEnvs);
-  const canBypassApprovals = permissionsUtil.canBypassApprovalChecks(feature);
+  const environmentIds = environments.map((e) => e.id);
+  const changedRuleEnvs = environmentIds.filter(
+    (env) =>
+      !isEqual(
+        getRulesForEnvironment(feature.rules, env),
+        getRulesForEnvironment(targetRevisionForAction.rules, env),
+      ),
+  );
+  // Whether this restore touches anything beyond per-environment rules. The
+  // Global changes use the full serving footprint; rules-only changes stay scoped.
+  const revertTouchesGlobalState =
+    targetRevisionForAction.defaultValue !== feature.defaultValue ||
+    (targetRevisionForAction.prerequisites !== undefined &&
+      !isEqual(
+        targetRevisionForAction.prerequisites,
+        feature.prerequisites ?? [],
+      )) ||
+    !!targetRevisionForAction.archived !== !!feature.archived ||
+    metadataTouchesPayload(targetRevisionForAction.metadata) ||
+    Object.entries(targetRevisionForAction.environmentsEnabled ?? {}).some(
+      ([env, enabled]) =>
+        enabled !== !!feature.environmentSettings?.[env]?.enabled,
+    );
+
+  const ruleEnvs = revertTouchesGlobalState
+    ? revertFootprint({
+        feature,
+        targetRevision: targetRevisionForAction,
+        environmentIds,
+        changedEnvs: changedRuleEnvs,
+      })
+    : changedRuleEnvs;
+  // Detached ramps are felt wherever their rule serves, as the server gates.
+  const rampEnvs = rampActionFootprint({
+    rampActions: rampDetaches,
+    liveRules: feature.rules ?? [],
+    environmentIds,
+    schedules: rampSchedules,
+  });
+  const affectedEnvs =
+    rampEnvs === "all"
+      ? environmentIds
+      : [...new Set([...ruleEnvs, ...rampEnvs])];
+
+  // Mirrors the two endpoints this modal calls. Reverting is its own authority:
+  // the direct revert is gated on revertFeatures rather than publish, and revert
+  // authority alone is enough to propose one as a draft — so a revert-only role
+  // can roll back without any edit or publish rights.
+  const canRevert = permissionsUtil.canRevertFeature(feature, affectedEnvs);
+  // Project-moving reverts also require destination authority.
+  const destProject = targetRevisionForAction.metadata?.project;
+  const proposedMove = {
+    project: destProject !== undefined ? destProject : feature.project,
+  };
+  const holdsRevertDestination = holdsMoveDestination({
+    permissions: permissionsUtil,
+    model: "feature",
+    action: "revert",
+    existing: { project: feature.project },
+    proposed: proposedMove,
+    environments: affectedEnvs,
+  });
+  const holdsDraftDestination = holdsMoveDestination({
+    permissions: permissionsUtil,
+    model: "feature",
+    action: "draft",
+    existing: { project: feature.project },
+    proposed: proposedMove,
+    environments: [],
+  });
+  const canBypassApprovals = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
+  // Staging a revert as a draft publishes nothing, so the server scopes that to
+  // the project — an environment-limited reverter can still propose one for a
+  // publisher to land. Publishing keeps the environment footprint via
+  // `canRevert` above.
   const canCreateDraft =
-    permissionsUtil.canUpdateFeature(feature, {}) &&
-    permissionsUtil.canManageFeatureDrafts(feature);
+    (permissionsUtil.canEditFeatureDrafts(feature) ||
+      permissionsUtil.canRevertFeature(feature, [])) &&
+    holdsDraftDestination;
+
+  // Restoring an archived state takes the flag out of service, so publishing it
+  // carries the delete-class gate too (staging it as a draft doesn't). Matches
+  // the server: revert authority covers the restoration, not the elevation.
+  const revertWouldArchive =
+    targetRevisionForAction.archived === true && !feature.archived;
+  const canLandRevert =
+    canRevert &&
+    holdsRevertDestination &&
+    (!revertWouldArchive ||
+      permissionsUtil.canDeleteFeature(feature, affectedEnvs));
 
   const canAutoPublish = effectiveApprovalsRequired
-    ? canBypassApprovals
-    : canPublish;
+    ? canLandRevert && canBypassApprovals
+    : canLandRevert;
   const gatedEnvSet: "all" | "none" = effectiveApprovalsRequired
     ? "all"
     : "none";
@@ -145,7 +249,6 @@ export default function RevertModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header="Revert"
@@ -195,7 +298,7 @@ export default function RevertModal({
         defaultExpanded
       />
 
-      <Heading as="h4" size="medium" mb="3">
+      <Heading as="h4" size="md" mb="3">
         Review Changes
       </Heading>
       <Flex align="center" gap="2" mb="3" wrap="wrap">
@@ -217,7 +320,9 @@ export default function RevertModal({
         ) : (
           diffs
             .filter((d) => d.a !== d.b)
-            .map((diff) => <ExpandableDiff {...diff} key={diff.title} />)
+            .map((diff) => (
+              <ExpandableDiff key={diff.key ?? diff.title} {...diff} />
+            ))
         )}
       </div>
 
@@ -230,6 +335,11 @@ export default function RevertModal({
           setComment(e.target.value);
         }}
       />
+      {rampStopWarning && (
+        <Callout status="warning" size="sm" mt="3">
+          {rampStopWarning}
+        </Callout>
+      )}
     </Modal>
   );
 }

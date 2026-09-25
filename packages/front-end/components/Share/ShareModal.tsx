@@ -1302,7 +1302,7 @@ const ShareModal = ({
                   </TabsContent>
                 </Box>
               </Tabs>
-              {saveError && <Text size="medium">{saveError}</Text>}
+              {saveError && <Text size="md">{saveError}</Text>}
               <Flex gap="3" justify="end" align="center">
                 {step >= 1 ? (
                   <Button

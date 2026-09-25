@@ -207,7 +207,7 @@ export default function FactSegmentForm({
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label={
                 <>
                   Projects{" "}
@@ -267,7 +267,7 @@ export default function FactSegmentForm({
             {factTable && factTable.filters.length > 0 ? (
               <div className="col-auto">
                 <MultiSelectField
-                  size="legacy"
+                  legacyHeight
                   label={
                     <>
                       Included Rows{" "}

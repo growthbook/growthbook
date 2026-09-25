@@ -4,31 +4,51 @@ import {
   apiRampScheduleInterface,
   experimentHealthAction,
   featureRulePatch,
+  rampStartPatch,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
+  RampStartAction,
   RampStepAction,
   stepHoldConditions,
   isAwaitingStartApproval,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
-import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
-import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import {
+  assertCanControlRampSchedule,
   dispatchRampEvent,
   dispatchAwaitingStartApproval,
   getStartActionsFromRules,
+  normalizeRampPlanForceValues,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { assertRampPlanChangeAllowed } from "back-end/src/services/rampPlanReview";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  collectRampPlanPatches,
+  rampPatchEntries,
+  rampPatchEntriesForTargets,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
-const postBodyAction = z.object({
-  targetType: z.literal("feature-rule").optional(),
-  targetId: z.string().optional(),
-  patch: featureRulePatch.partial({ ruleId: true }),
+// Strict: a rule field placed on the step or action instead of inside `patch`
+// would otherwise be dropped and the step stored with nothing to apply.
+const postBodyAction = z
+  .object({
+    targetType: z.literal("feature-rule").optional(),
+    targetId: z.string().optional(),
+    patch: featureRulePatch.partial({ ruleId: true }).strict(),
+  })
+  .strict();
+// Start actions alone carry bucketing identity (hashAttribute, seed, hashVersion).
+const postBodyStartAction = postBodyAction.extend({
+  patch: rampStartPatch.partial({ ruleId: true }).strict(),
 });
-type PostBodyAction = z.infer<typeof postBodyAction>;
+type PostBodyStartAction = z.infer<typeof postBodyStartAction>;
 
 function normalizeMonitoringConfig(
   monitoringConfig:
@@ -47,19 +67,23 @@ function normalizeMonitoringConfig(
 // New unified step shape: `interval` is the hold duration in seconds (null
 // means no time gate). Pure approval steps use
 // `{ interval: null, holdConditions: { requiresApproval: true } }`.
-const postBodyStep = z.object({
-  interval: z.number().positive().nullable(),
-  actions: z.array(postBodyAction).optional().default([]),
-  approvalNotes: z.string().nullish(),
-  monitored: z.boolean().default(false),
-  holdConditions: stepHoldConditions.optional(),
-});
+export const postBodyStep = z
+  .object({
+    interval: z.number().positive().nullable(),
+    actions: z.array(postBodyAction).optional().default([]),
+    approvalNotes: z.string().nullish(),
+    monitored: z.boolean().default(false),
+    holdConditions: stepHoldConditions.strict().optional(),
+  })
+  .strict();
 
 const postRampScheduleValidator = {
   method: "post" as const,
   path: "/ramp-schedules",
   operationId: "postRampSchedule",
   summary: "Create a ramp schedule",
+  description:
+    "Creates a ramp schedule, optionally attached to a published feature rule by passing `featureId` and `ruleId` together (the target is then injected into every action). Attaching on creation skips the revision review flow, so when the organization requires review anywhere it is limited to credentials that may bypass approval. The reviewed way to attach a plan is `PUT /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule` followed by a publish. Without a target the schedule is a free-standing skeleton in `pending` status. Requires a Pro plan or above.",
   tags: ["ramp-schedules"],
   responseSchema: z.object({ rampSchedule: apiRampScheduleInterface }),
   bodySchema: z
@@ -69,7 +93,7 @@ const postRampScheduleValidator = {
       ruleId: z.string().optional(),
       environment: z.string().optional(),
       steps: z.array(postBodyStep).optional(),
-      startActions: z.array(postBodyAction).optional(),
+      startActions: z.array(postBodyStartAction).optional(),
       endActions: z.array(postBodyAction).optional(),
       startDate: z.string().datetime().optional().nullable(),
       cutoffDate: z.string().datetime().optional().nullable(),
@@ -138,20 +162,21 @@ const postRampScheduleValidator = {
     }),
 };
 
-function normalizeAction(action: PostBodyAction): RampStepAction {
+// Step actions pass through too: a step patch is a start patch minus identity.
+function normalizeAction(action: PostBodyStartAction): RampStartAction {
   return {
     targetType: "feature-rule" as const,
     targetId: action.targetId ?? "",
-    patch: action.patch as RampStepAction["patch"],
+    patch: action.patch as RampStartAction["patch"],
   };
 }
 
 // Overrides targetId/ruleId from the top-level shorthand fields.
 function injectTarget(
-  action: PostBodyAction,
+  action: PostBodyStartAction,
   targetId: string,
   ruleId: string,
-): RampStepAction {
+): RampStartAction {
   return {
     targetType: "feature-rule" as const,
     targetId,
@@ -164,11 +189,9 @@ export const postRampSchedule = createApiRequestHandler(
 )(async (req) => {
   const body = req.body;
 
-  // REST uses the Enterprise "ramp-schedules" gate; the dashboard uses the
-  // Pro "schedule-feature-flag" gate since simple schedules share the infra.
   if (!req.context.hasPremiumFeature("ramp-schedules")) {
     req.context.throwPlanDoesNotAllowError(
-      "Ramp schedules require an Enterprise plan.",
+      "Ramp schedules require a Pro plan or above.",
     );
   }
 
@@ -181,6 +204,13 @@ export const postRampSchedule = createApiRequestHandler(
     feature = await getFeature(req.context, body.featureId);
     if (!feature) {
       throw new NotFoundError(`Feature '${body.featureId}' not found`);
+    }
+    if (body.ruleId) {
+      assertRampPlanChangeAllowed(
+        req.context,
+        feature,
+        canUseRestApiBypassSetting(req),
+      );
     }
   }
 
@@ -310,7 +340,7 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
-  const resolvedStartActions: RampStepAction[] | undefined = (() => {
+  const resolvedStartActions: RampStartAction[] | undefined = (() => {
     if (body.startActions !== undefined) {
       return body.startActions.map((a) =>
         hasTarget
@@ -330,10 +360,73 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
+  // Body and template patches alike, on the rule they will land on; an anchor
+  // derived from the rule is its own state and is not judged.
+  await validateRampPlanPatches(
+    req.context,
+    hasTarget
+      ? rampPatchEntriesForTargets(
+          [
+            ...(body.startActions !== undefined
+              ? (resolvedStartActions ?? [])
+              : []),
+            ...resolvedSteps.flatMap((s) => s.actions),
+            ...(resolvedEndActions ?? []),
+          ],
+          [
+            {
+              id: targetId!,
+              entityId: feature!.id,
+              ruleId: body.ruleId,
+              environment: body.environment ?? null,
+            },
+          ],
+          () => feature,
+        )
+      : rampPatchEntries(collectRampPlanPatches(body), null),
+  );
+
+  // startActions derived from the live rule (none in the body) are its own
+  // value and are only stringified; everything else is checked.
+  const normalizedPlan = normalizeRampPlanForceValues(
+    {
+      steps: resolvedSteps,
+      startActions: resolvedStartActions,
+      endActions: resolvedEndActions,
+    },
+    hasTarget ? feature : undefined,
+    { validateStartActions: body.startActions !== undefined },
+  );
+
   const defaultName = `Ramp schedule \u2013 ${new Date().toLocaleDateString(
     "en-US",
     { month: "short", year: "numeric" },
   )}`;
+
+  // Arming a dated start IS scheduling the live transition: the poller fires it
+  // under an admin context, so it takes the same per-target publish authority the
+  // fire would. The model's create gate is draft-class and cannot see the
+  // targets. Mirrors the internal controller. An approval-gated schedule never
+  // auto-arms (nextProcessAt stays null), and a dateless one is draft-class.
+  if (startDate && !body.requiresStartApproval) {
+    await assertCanControlRampSchedule(req.context, {
+      entityType: "feature",
+      entityId: body.featureId ?? "",
+      targets: hasTarget
+        ? [
+            {
+              id: targetId!,
+              entityType: "feature",
+              entityId: body.featureId ?? "",
+              ruleId: body.ruleId,
+            },
+          ]
+        : [],
+      steps: normalizedPlan.steps,
+      startActions: normalizedPlan.startActions,
+      endActions: normalizedPlan.endActions,
+    } as unknown as RampScheduleInterface);
+  }
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,
@@ -355,9 +448,9 @@ export const postRampSchedule = createApiRequestHandler(
           },
         ]
       : [],
-    startActions: resolvedStartActions,
-    steps: resolvedSteps,
-    endActions: resolvedEndActions,
+    startActions: normalizedPlan.startActions,
+    steps: normalizedPlan.steps ?? [],
+    endActions: normalizedPlan.endActions,
     startDate,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
     monitoringConfig: normalizeMonitoringConfig(

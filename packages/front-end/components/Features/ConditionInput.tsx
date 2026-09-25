@@ -1,9 +1,12 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  isSavedGroupAvailableForProjects,
+  extractConditionAttributeKeys,
+} from "shared/util";
 import { some } from "lodash";
 import {
-  PiArrowSquareOut,
   PiBracketsCurly,
   PiPlusCircleBold,
   PiXBold,
@@ -26,6 +29,7 @@ import {
   getFormatEquivalentOperator,
   formatJSON,
   LARGE_FILE_SIZE,
+  resolveAttributeFilter,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -60,9 +64,10 @@ import {
   ConditionRowLabel,
 } from "./TargetingConditionsCard";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "./AttributeOptionTooltip";
+import { formatSavedGroupOptionLabel } from "./SavedGroupOptionTooltip";
 
 export function ConditionLabel({
   label,
@@ -73,7 +78,7 @@ export function ConditionLabel({
 }) {
   return (
     <Flex align="center" flexShrink="0" style={{ width }} mb="1">
-      <Text weight="medium" size="medium">
+      <Text weight="medium" size="md">
         {label}
       </Text>
     </Flex>
@@ -108,6 +113,39 @@ const BASE_OPERATOR: Record<string, string> = {
   $notRegexi: "$notRegex",
 };
 
+// Scoped schema + map that keeps already-referenced attributes selectable —
+// otherwise a saved condition using a now-out-of-scope attribute fails
+// `jsonToConds` and gets ejected into the advanced JSON editor.
+function useScopedAttributes(
+  filter: string | string[] | null | undefined,
+  referencedKeys: string[],
+) {
+  const allAttributes = useAttributeMap(null);
+  const scopedSchema = useAttributeSchema(false, filter);
+  const allSchema = useAttributeSchema(false);
+  // Content-keyed: an unstable map identity re-fires the onChange effect.
+  const referencedKey = referencedKeys.join("||");
+  return useMemo(() => {
+    const referenced = new Set<string>();
+    for (const k of referencedKey ? referencedKey.split("||") : []) {
+      referenced.add(k);
+      // Dotted keys reference a property on an object attribute.
+      referenced.add(k.split(".")[0]);
+    }
+    const scoped = new Set(scopedSchema.map((s) => s.property));
+    const attributeSchema = [
+      ...scopedSchema,
+      ...allSchema.filter(
+        (s) => !scoped.has(s.property) && referenced.has(s.property),
+      ),
+    ];
+    const attributes = new Map(
+      [...allAttributes].filter(([k]) => scoped.has(k) || referenced.has(k)),
+    );
+    return { attributes, attributeSchema };
+  }, [allAttributes, scopedSchema, allSchema, referencedKey]);
+}
+
 export function operatorSupportsCaseInsensitive(operator: string): boolean {
   return OPERATORS_WITH_CASE_INSENSITIVE.has(operator);
 }
@@ -138,6 +176,9 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   project: string;
+  attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   labelClassName?: string;
   emptyText?: string;
   label?: string;
@@ -159,6 +200,9 @@ export default function ConditionInput({
   defaultValue,
   onChange,
   project,
+  attributeProjects,
+  savedGroupProjects,
+  attributeSelectIndicator,
   labelClassName,
   emptyText = "Applied to everyone by default.",
   label = "Target by Attributes",
@@ -175,13 +219,24 @@ export default function ConditionInput({
   setModeLabel,
   removeModeLabel,
 }: Props) {
-  const attributes = useAttributeMap(project);
+  const attributeFilter = resolveAttributeFilter(attributeProjects, project);
+  const [value, setValue] = useState(defaultValue);
+  const referencedKeys = useMemo(() => {
+    try {
+      return extractConditionAttributeKeys(JSON.parse(value || "{}"));
+    } catch {
+      return [];
+    }
+  }, [value]);
+  const { attributes, attributeSchema } = useScopedAttributes(
+    attributeFilter,
+    referencedKeys,
+  );
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(defaultValue, attributes) === null,
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
-  const [value, setValue] = useState(defaultValue);
   const [conds, setConds] = useState(
     () => jsonToConds(defaultValue, attributes) || [],
   );
@@ -190,7 +245,6 @@ export default function ConditionInput({
     defaultCodeEditorToggledOn,
   );
 
-  const attributeSchema = useAttributeSchema(false, project);
   const showAddRemoveSelector =
     !!addRemoveMode && !!addRemoveValue && !!onAddRemoveValueChange;
   const renderAddRemoveSelector = () =>
@@ -204,7 +258,7 @@ export default function ConditionInput({
           { value: "set", label: setModeLabel ?? "Set targeting" },
           { value: "remove", label: removeModeLabel ?? "Remove targeting" },
         ]}
-        labelSize="2"
+        labelSize="md"
       />
     ) : null;
 
@@ -312,11 +366,11 @@ export default function ConditionInput({
           <Flex justify="between" align="center" mb="1">
             <Flex gap="2" align="center">
               {slimMode ? (
-                <Text as="div" size="medium" weight="semibold" color="text-mid">
+                <Text as="div" size="md" weight="semibold" color="text-mid">
                   {label}
                 </Text>
               ) : (
-                <Text as="div" size="medium" weight="semibold">
+                <Text as="div" size="md" weight="semibold">
                   {label}
                 </Text>
               )}
@@ -334,7 +388,7 @@ export default function ConditionInput({
                     }
                   }}
                   label="Advanced"
-                  size="1"
+                  size="sm"
                   ml="2"
                   disabled={locked}
                 />
@@ -347,11 +401,11 @@ export default function ConditionInput({
           <Flex gap="2" mb="1">
             <Box flexGrow="1">
               {slimMode ? (
-                <Text as="div" size="medium" weight="semibold" color="text-mid">
+                <Text as="div" size="md" weight="semibold" color="text-mid">
                   Target by Attributes
                 </Text>
               ) : (
-                <Text as="div" size="medium" weight="semibold">
+                <Text as="div" size="md" weight="semibold">
                   Target by Attributes
                 </Text>
               )}
@@ -371,7 +425,7 @@ export default function ConditionInput({
                     }
                   }}
                   label="Advanced"
-                  size="1"
+                  size="sm"
                   ml="2"
                   disabled={locked}
                 />
@@ -423,11 +477,11 @@ export default function ConditionInput({
         {(label || labelActions) && (
           <Flex mb="1" justify="between" align="center">
             {slimMode ? (
-              <Text as="div" size="medium" weight="semibold" color="text-mid">
+              <Text as="div" size="md" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
-              <Text as="div" size="medium" weight="semibold">
+              <Text as="div" size="md" weight="semibold">
                 {label}
               </Text>
             )}
@@ -437,11 +491,11 @@ export default function ConditionInput({
         {!label &&
           !labelActions &&
           (slimMode ? (
-            <Text as="div" size="medium" weight="semibold" color="text-mid">
+            <Text as="div" size="md" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (
-            <Text as="div" size="medium" weight="semibold">
+            <Text as="div" size="md" weight="semibold">
               Target by Attributes
             </Text>
           ))}
@@ -453,7 +507,7 @@ export default function ConditionInput({
                 color="text-low"
                 fontStyle="italic"
                 mb="2"
-                size={slimMode ? "small" : undefined}
+                size={slimMode ? "sm" : undefined}
               >
                 {emptyText}
               </Text>
@@ -481,7 +535,7 @@ export default function ConditionInput({
                 >
                   <Text
                     weight="semibold"
-                    size="medium"
+                    size="md"
                     color={locked ? "text-low" : undefined}
                   >
                     <PiPlusCircleBold className="mr-1" />
@@ -501,11 +555,11 @@ export default function ConditionInput({
         <Flex justify="between" align="center" mb="1">
           <Flex gap="2" align="center">
             {slimMode ? (
-              <Text as="div" size="medium" weight="semibold" color="text-mid">
+              <Text as="div" size="md" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
-              <Text as="div" size="medium" weight="semibold">
+              <Text as="div" size="md" weight="semibold">
                 {label}
               </Text>
             )}
@@ -523,7 +577,7 @@ export default function ConditionInput({
                   }
                 }}
                 label="Advanced"
-                size="1"
+                size="sm"
                 ml="2"
                 disabled={locked}
               />
@@ -535,11 +589,11 @@ export default function ConditionInput({
       {!label && !labelActions && (
         <Flex justify="between" align="center" mb="1">
           {slimMode ? (
-            <Text as="div" size="medium" weight="semibold" color="text-mid">
+            <Text as="div" size="md" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (
-            <Text as="div" size="medium" weight="semibold">
+            <Text as="div" size="md" weight="semibold">
               Target by Attributes
             </Text>
           )}
@@ -557,7 +611,7 @@ export default function ConditionInput({
                 }
               }}
               label="Advanced"
-              size="1"
+              size="sm"
               ml="2"
               disabled={locked}
             />
@@ -627,6 +681,9 @@ export default function ConditionInput({
                 }}
                 orGroupsCount={conds.length}
                 project={project}
+                attributeProjects={attributeProjects}
+                savedGroupProjects={savedGroupProjects}
+                attributeSelectIndicator={attributeSelectIndicator}
                 labelClassName={labelClassName}
                 emptyText={emptyText}
                 label={label}
@@ -687,6 +744,9 @@ function ConditionAndGroupInput({
   setConds: (conds: Condition[]) => void;
   orGroupsCount: number;
   project: string;
+  attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   labelClassName?: string;
   emptyText?: string;
   label?: string;
@@ -696,9 +756,12 @@ function ConditionAndGroupInput({
   slimMode?: boolean;
   disabled?: boolean;
 }) {
-  const { savedGroups, getSavedGroupById } = useDefinitions();
+  const { savedGroups } = useDefinitions();
 
-  const attributes = useAttributeMap(props.project);
+  const { attributes, attributeSchema } = useScopedAttributes(
+    resolveAttributeFilter(props.attributeProjects, props.project),
+    conds.map((c) => c.field),
+  );
 
   // Normalize: secureString/secureString[] only support exact operators (in/nin), not case-insensitive (ini/nini)
   useEffect(() => {
@@ -719,8 +782,6 @@ function ConditionAndGroupInput({
   }, [conds, attributes, setConds]);
 
   const listOperators = ["$in", "$nin", "$ini", "$nini"];
-
-  const attributeSchema = useAttributeSchema(false, props.project);
 
   return (
     <>
@@ -754,20 +815,14 @@ function ConditionAndGroupInput({
             size="legacy"
             disabled={disabled}
             withRadixThemedPortal
+            extraIndicator={props.attributeSelectIndicator}
             value={field}
             options={
               props.allowNestedSavedGroups
                 ? [
                     {
                       label: "Attributes",
-                      options: attributeSchema.map((s) => ({
-                        label: s.property,
-                        value: s.property,
-                        description: s.description,
-                        tags: s.tags,
-                        datatype: s.datatype,
-                        hashAttribute: s.hashAttribute,
-                      })),
+                      options: attributeSchema.map(toAttributeOption),
                     },
                     {
                       label: "Saved Groups",
@@ -783,24 +838,13 @@ function ConditionAndGroupInput({
                       ],
                     },
                   ]
-                : attributeSchema.map((s) => ({
-                    label: s.property,
-                    value: s.property,
-                    description: s.description,
-                    tags: s.tags,
-                    datatype: s.datatype,
-                    hashAttribute: s.hashAttribute,
-                  }))
+                : attributeSchema.map(toAttributeOption)
             }
             formatOptionLabel={(o, meta) => {
-              return (
-                <AttributeOptionWithTooltip
-                  option={o as AttributeOptionForTooltip}
-                  context={meta.context}
-                >
-                  <Text size="medium">{o.label}</Text>
-                </AttributeOptionWithTooltip>
-              );
+              if (o.value === "$savedGroups" || o.value === "$notSavedGroups") {
+                return <Text size="md">{o.label}</Text>;
+              }
+              return formatAttributeOptionLabel(o, meta);
             }}
             name="field"
             onChange={(value) => {
@@ -860,6 +904,15 @@ function ConditionAndGroupInput({
         if (field === "$savedGroups" || field === "$notSavedGroups") {
           const groupOptions = savedGroups
             .filter((g) => g.id !== props.excludeSavedGroupId)
+            .filter(
+              (g) =>
+                props.savedGroupProjects === undefined ||
+                isSavedGroupAvailableForProjects(g, props.savedGroupProjects) ||
+                value
+                  .split(",")
+                  .map((id) => id.trim())
+                  .includes(g.id),
+            )
             .map((g) => ({
               label: g.groupName,
               value: g.id,
@@ -900,26 +953,14 @@ function ConditionAndGroupInput({
               attributeSlot={fieldSelector}
               valueSlot={
                 <MultiSelectField
-                  size="legacy"
+                  legacyHeight
                   disabled={disabled}
                   value={ids}
                   options={groupOptions}
                   onChange={handleListChange}
                   name="value"
-                  formatOptionLabel={(o, meta) => {
-                    if (meta.context !== "value" || !o.value) return o.label;
-                    const group = getSavedGroupById(o.value);
-                    if (!group) return o.label;
-                    return (
-                      <Link
-                        href={`/saved-groups/${group.id}`}
-                        target="_blank"
-                        style={{ position: "relative", zIndex: 1000 }}
-                      >
-                        {o.label} <PiArrowSquareOut />
-                      </Link>
-                    );
-                  }}
+                  formatOptionLabel={formatSavedGroupOptionLabel}
+                  valueTitles={false}
                   required
                 />
               }
@@ -962,11 +1003,20 @@ function ConditionAndGroupInput({
         const savedGroupOptions = savedGroups
           .filter((g) => g.type === "list" && g.attributeKey === field)
           .filter((group) => {
-            return (
-              !props.project ||
-              !group.projects?.length ||
-              group.projects.includes(props.project)
-            );
+            // Preserve the selected group on existing out-of-scope conditions.
+            if (
+              (operator === "$inGroup" || operator === "$notInGroup") &&
+              group.id === value
+            )
+              return true;
+            return props.savedGroupProjects === undefined
+              ? !props.project ||
+                  !group.projects?.length ||
+                  group.projects.includes(props.project)
+              : isSavedGroupAvailableForProjects(
+                  group,
+                  props.savedGroupProjects,
+                );
           })
           .map((g) => ({ label: g.groupName, value: g.id }));
 
@@ -1116,21 +1166,7 @@ function ConditionAndGroupInput({
                         onChange={(v) => {
                           handleCondsChange(v, "value");
                         }}
-                        formatOptionLabel={(o, meta) => {
-                          if (meta.context !== "value" || !o.value)
-                            return o.label;
-                          const group = getSavedGroupById(o.value);
-                          if (!group) return o.label;
-                          return (
-                            <Link
-                              href={`/saved-groups/${group.id}`}
-                              target="_blank"
-                              style={{ position: "relative", zIndex: 1000 }}
-                            >
-                              {o.label} <PiArrowSquareOut />
-                            </Link>
-                          );
-                        }}
+                        formatOptionLabel={formatSavedGroupOptionLabel}
                         name="value"
                         initialOption="Choose group..."
                         required
@@ -1143,7 +1179,7 @@ function ConditionAndGroupInput({
                       style={{ flexBasis: "100%", minWidth: 0 }}
                     >
                       <StringArrayField
-                        size="legacy"
+                        legacyHeight
                         disabled={disabled}
                         containerClassName="w-100"
                         value={value ? value.trim().split(",") : []}
@@ -1187,7 +1223,7 @@ function ConditionAndGroupInput({
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       {listOperators.includes(operator) ? (
                         <MultiSelectField
-                          size="legacy"
+                          legacyHeight
                           disabled={disabled}
                           options={attribute.enum.map((v) => ({
                             label: v,

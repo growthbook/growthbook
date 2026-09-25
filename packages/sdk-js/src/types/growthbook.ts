@@ -182,30 +182,30 @@ export type CBContext = {
 
 export type Attributes = Record<string, any>;
 
-export type UserContextAttributes = Pick<UserContext, "attributes">;
+export type TrackingUserContext = Pick<UserContext, "attributes" | "url">;
 
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
-  user?: UserContextAttributes;
+  user?: TrackingUserContext;
 }
 
 export interface TrackingDataWithUser {
   experiment: Experiment<any>;
   result: Result<any>;
-  user: UserContext;
+  user: TrackingUserContext;
 }
 
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>,
-  user?: UserContext,
+  user?: TrackingUserContext,
 ) => Promise<void> | void;
 
 export type TrackingCallbackWithUser = (
   experiment: Experiment<any>,
   result: Result<any>,
-  user: UserContext,
+  user: TrackingUserContext,
 ) => Promise<void> | void;
 
 export type FeatureUsageCallback = (
@@ -216,7 +216,19 @@ export type FeatureUsageCallback = (
 export type FeatureUsageCallbackWithUser = (
   key: string,
   result: FeatureResult<any>,
-  user: UserContext,
+  user: TrackingUserContext,
+) => void;
+
+// Callback types for internal plugin subscriptions (e.g. session replay).
+// Must be synchronous — async callbacks are not awaited and rejected promises won't be caught.
+export type FeatureUsageSubCallback = (
+  key: string,
+  result: Readonly<FeatureResult<any>>,
+) => void;
+
+export type CustomEventSubCallback = (
+  eventName: string,
+  properties: Readonly<Record<string, unknown>>,
 ) => void;
 
 export type Plugin = (
@@ -227,7 +239,7 @@ export type EventProperties = Record<string, unknown>;
 export type EventLogger = (
   eventName: string,
   properties: EventProperties,
-  userContext: UserContext,
+  userContext: TrackingUserContext,
 ) => void | Promise<void>;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
@@ -301,7 +313,7 @@ export type Options = {
   /** @deprecated */
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -319,7 +331,7 @@ export type ClientOptions = {
   onFeatureUsage?: (
     key: string,
     result: FeatureResult<any>,
-    user: UserContext,
+    user: TrackingUserContext,
   ) => void;
   eventLogger?: EventLogger;
   apiHost?: string;
@@ -328,7 +340,7 @@ export type ClientOptions = {
   streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -340,7 +352,7 @@ export type GlobalContext = {
   experiments?: AutoExperiment[];
   enabled?: boolean;
   qaMode?: boolean;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
@@ -386,6 +398,7 @@ export type UserContext = {
   trackedExperiments?: Set<string>;
   trackedFeatureUsage?: Record<string, string>;
   devLogs?: LogUnion[];
+  featureUsageSubs?: Set<FeatureUsageSubCallback>;
 };
 
 export type StackContext = {
@@ -476,7 +489,7 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
@@ -555,12 +568,16 @@ export type InitOptions = {
   skipCache?: boolean;
   payload?: FeatureApiResponse;
   streaming?: boolean;
+  /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
+  pollingInterval?: number;
   cacheSettings?: CacheSettings;
 };
 
 export type InitSyncOptions = {
   payload: FeatureApiResponse;
   streaming?: boolean;
+  /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
+  pollingInterval?: number;
 };
 
 export type LoadFeaturesOptions = {
@@ -599,7 +616,19 @@ export interface StickyAssignmentsDocument {
   assignments: StickyAssignments;
 }
 
+/** The v1 shape: an ID list's values. New code should use SavedGroupsPayload. */
 export type SavedGroupsValues = Record<string, (string | number)[]>;
+
+/** The savedGroupReferencesV2 shape of one saved group, of any type. */
+export type SavedGroupPayloadEntry =
+  | { type: "list"; attributeKey: string; values: (string | number)[] }
+  | { type: "condition"; condition: ConditionInterface };
+
+/** The `savedGroups` payload field. Entries may use either shape above. */
+export type SavedGroupsPayload = Record<
+  string,
+  (string | number)[] | SavedGroupPayloadEntry
+>;
 
 export type BaseLog = {
   timestamp: string;

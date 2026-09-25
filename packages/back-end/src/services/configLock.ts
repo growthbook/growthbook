@@ -1,4 +1,5 @@
 import { ConfigInterface } from "shared/types/config";
+import { bypassApprovalPermission } from "shared/permissions";
 import { isConfigLocked } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -14,12 +15,12 @@ type Context = ReqContext | ApiReqContext;
 // scheduled publish, archive) calls this BEFORE claiming a merge, so a blocked
 // publish leaves the draft open rather than stranding a revision "merged" but
 // unapplied. Creating/editing drafts is intentionally still allowed. The only
-// escape is an explicit unlock (requires bypassApprovalChecks) — no inline bypass.
+// escape is an explicit unlock (requires FlagsBypassApprovals) — no inline bypass.
 export function assertConfigNotLocked(config: ConfigInterface): void {
   if (isConfigLocked(config)) {
     throw new BadRequestError(
       `Config "${config.key}" is locked at revision v${config.lock?.version}. ` +
-        "Unlock it (requires the bypassApprovalChecks permission) before publishing.",
+        "Unlock it (requires the FlagsBypassApprovals permission) before publishing.",
     );
   }
 }
@@ -35,7 +36,7 @@ export function collectConfigLockGate(config: ConfigInterface): PublishGate[] {
       messages: [
         `Locked at revision v${config.lock?.version}. Unlock it first.`,
       ],
-      requiresPermission: "bypassApprovalChecks",
+      requiresPermission: bypassApprovalPermission("config"),
       resolution: {
         action: "unlock",
         method: "POST",
@@ -67,7 +68,7 @@ export async function resolveConfigLockTarget(
   );
   if (!live || (live.version ?? null) === null) {
     throw new BadRequestError(
-      "Could not determine the config's live revision to lock.",
+      "Could not determine the Config's live revision to lock.",
     );
   }
   return { revisionId: live.id, version: live.version as number };

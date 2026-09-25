@@ -19,7 +19,7 @@ interface Props {
 
 export default function DashboardViewQueriesButton({
   className,
-  size = "medium",
+  size = "md",
   weight = "semibold",
   buttonProps = {},
   hideQueryCount = false,
@@ -42,7 +42,15 @@ export default function DashboardViewQueriesButton({
                 onClick={onClick}
                 className={className}
                 variant={buttonProps.variant ?? "ghost"}
-                color={refreshStatus === "failed" ? "red" : "gray"}
+                // A failed refresh always wins; otherwise the caller picks the
+                // accent (the icon inherits it via currentColor).
+                color={
+                  refreshStatus === "failed"
+                    ? "red"
+                    : buttonProps.color === "inherit"
+                      ? undefined
+                      : (buttonProps.color ?? "gray")
+                }
                 size="2"
                 title={buttonProps.title ?? buttonLabel}
                 aria-label={buttonProps["aria-label"] ?? buttonLabel}
@@ -50,11 +58,7 @@ export default function DashboardViewQueriesButton({
                 {refreshStatus === "failed" ? (
                   <PiWarningFill aria-hidden />
                 ) : (
-                  <PiFileSqlLight
-                    aria-hidden
-                    size={18}
-                    color="var(--color-text-mid)"
-                  />
+                  <PiFileSqlLight aria-hidden size={18} />
                 )}
               </IconButton>
             </span>

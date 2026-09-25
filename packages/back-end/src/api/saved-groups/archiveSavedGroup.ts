@@ -6,6 +6,8 @@ import {
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
+import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -16,6 +18,7 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   evaluatePublishGates,
@@ -50,7 +53,16 @@ async function setArchivedState(
     throw new Error(`Unable to locate the saved-group: ${id}`);
   }
 
-  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  // Archiving is delete-class; unarchiving returns the group to service and is
+  // an ordinary publish (project-scoped — saved groups have no environments).
+  if (
+    !canLandArchivedState({
+      permissions: context.permissions,
+      model: "saved-group",
+      entity: savedGroup,
+      archived,
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -82,7 +94,8 @@ async function setArchivedState(
       approvalRequired,
       archived,
       noun: "Saved Group",
-      createDraftPath: `/saved-groups/${savedGroup.id}/revisions`,
+      createDraftPath: `/saved-groups-revisions/${savedGroup.id}`,
+      model: "saved-group",
     }),
     // Only the archive transition is guarded for dependents; unarchiving never
     // breaks a dependent.
@@ -93,8 +106,8 @@ async function setArchivedState(
 
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: context.ignoreWarnings,
-    skipSchemaValidation: context.skipSchemaValidation,
-    skipHooks: context.skipHooks,
+    skipSchemaValidation: context.canSkipSchemaValidationFor("saved-group"),
+    skipHooks: context.canSkipHooksFor("saved-group"),
     bypassApprovalPermission: adapter.canBypassApproval(context, savedGroup),
     restApiBypassesReviews: canUseRestApiBypassSetting(req),
     canForceMergeStaleBase: adapter.canBypassApproval(context, savedGroup),
@@ -107,43 +120,45 @@ async function setArchivedState(
   if (approvalRequired && !canBypass) {
     throw new BadRequestError(
       "This organization requires approvals on saved groups. " +
-        `Use \`POST /saved-groups/${savedGroup.id}/revisions\` to ${
+        `Use \`POST /saved-groups-revisions/${savedGroup.id}\` to ${
           archived ? "archive" : "unarchive"
         } it through a draft, or use a role/token with the bypass permission.`,
     );
   }
 
-  if (approvalRequired) {
-    // Record the bypass as a merged revision (activity log) — persist the live
-    // change first, then the revision, mirroring updateSavedGroup so a failed
-    // revision write never strands the change.
-    await ensureLiveRevisionExists(
-      context,
-      "saved-group",
-      savedGroup as unknown as Record<string, unknown> & {
-        id: string;
-        owner?: string;
-        dateCreated?: Date;
-      },
-    );
-    const updated = await context.models.savedGroups.update(savedGroup, {
-      archived,
-    });
-    const merged = await context.models.revisions.createMerged({
-      type: "saved-group",
-      id: savedGroup.id,
-      snapshot: savedGroup as unknown as Record<string, unknown>,
-      proposedChanges: patchOps,
-      bypass: true,
-    });
-    await dispatchSavedGroupRevisionEvent(context, merged, {
-      type: "published",
-    });
-    return buildResponse(context, { ...savedGroup, ...updated }, bypassed);
-  }
-
-  const updated = await context.models.savedGroups.update(savedGroup, {
-    archived,
+  // One recorded, guarded landing whether or not approval was bypassed.
+  // History first, then live state: a merged record with no live change is
+  // detectable and removable; a live change with no record cannot be repaired.
+  await ensureLiveRevisionExists(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
+  );
+  const { merged, result: updated } = await landDirectChange({
+    context,
+    entityType: "saved-group",
+    entity: savedGroup as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    bypass: approvalRequired,
+    changes: { archived },
+    // Reports what it persisted from inside the write, so compensation can
+    // tell "never wrote" from "wrote, then a post-write hook threw".
+    write: (report) =>
+      runGuardedWrite("saved-group", savedGroup.id, () =>
+        context.models.savedGroups.updateIfUnchanged(
+          savedGroup,
+          { archived },
+          undefined,
+          { onWritten: (doc) => report(doc as Record<string, unknown>) },
+        ),
+      ),
+  });
+  await dispatchSavedGroupRevisionEvent(context, merged, {
+    type: "published",
   });
   return buildResponse(context, { ...savedGroup, ...updated }, bypassed);
 }

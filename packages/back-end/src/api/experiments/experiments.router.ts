@@ -2,6 +2,7 @@ import { OpenApiRoute } from "back-end/src/util/handler";
 import { postVisualChangesets } from "back-end/src/api/visual-changesets/postVisualChangesets";
 import { listVisualChangesets } from "back-end/src/api/visual-changesets/listVisualChangesets";
 import { getExperimentResults } from "./getExperimentResults";
+import { getExperimentBulkResults } from "./getExperimentBulkResults";
 import { listExperimentResults } from "./listExperimentResults";
 import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";
@@ -17,6 +18,7 @@ import { postVariationImageUpload } from "./postVariationImageUpload";
 import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
 import { getExperimentNames } from "./getExperimentNames";
 import { getExperimentStartChecklist } from "./getExperimentStartChecklist";
+import { postExperimentComment } from "./postExperimentComment";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
@@ -28,6 +30,7 @@ export const experimentsRoutes: OpenApiRoute[] = [
   getExperiment,
   getExperimentStartChecklist,
   getExperimentResults,
+  getExperimentBulkResults,
   updateExperiment,
   postExperimentStart,
   postExperimentStartChecklistManualComplete,
@@ -38,6 +41,7 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postVariationImageUpload,
   deleteVariationScreenshot,
   getExperimentNames,
+  postExperimentComment,
   // VisualChangeset Endpoints (mounted under /experiments)
   listVisualChangesets,
   postVisualChangesets,

@@ -16,7 +16,7 @@ export function GuardrailTierSummary({
 
   if (guardrailCount === 0 && signalCount === 0) {
     return (
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         No guardrail metrics
       </Text>
     );

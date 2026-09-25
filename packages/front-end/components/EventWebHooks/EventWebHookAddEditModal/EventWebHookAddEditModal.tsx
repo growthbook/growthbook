@@ -309,7 +309,7 @@ const EventWebHookAddEditSettings = ({
 
       <Box mt="4">
         <MultiSelectField
-          size="legacy"
+          legacyHeight
           label="Events"
           value={form.watch("events")}
           placeholder="Choose events"
@@ -327,7 +327,7 @@ const EventWebHookAddEditSettings = ({
       </Box>
 
       <Box mt="4" className="webhook-filters">
-        <Text size="small" weight="medium" mb="2" as="p">
+        <Text size="sm" weight="medium" mb="2" as="p">
           Apply Filters
         </Text>
 
@@ -338,7 +338,7 @@ const EventWebHookAddEditSettings = ({
             })}
           >
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label={
                 <FilterLabel
                   name="Environment"
@@ -368,7 +368,7 @@ const EventWebHookAddEditSettings = ({
             })}
           >
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label={
                 <FilterLabel
                   name="Projects"

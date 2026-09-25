@@ -41,6 +41,9 @@ export function buildUnitsQuerySettingsFromCb(
     metricSettings: [],
     banditSettings: {
       contextualBandit: true,
+      // Always attribute each user to their first exposure in the lookback
+      // window; never bucket multi-variation users as '__multiple__'
+      useFirstExposure: true,
       targetingAttributeColumns: cbSettings.contextualAttributes,
       reweight: cbSettings.reweight,
       decisionMetric,

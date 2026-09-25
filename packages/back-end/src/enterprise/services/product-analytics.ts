@@ -7,8 +7,17 @@ import {
 import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
+  hasTimestampColumn,
   isFunnelSupportedDatasourceType,
+  isJourneySupportedDatasourceType,
 } from "shared/enterprise";
+import { isReadOnlySQL } from "shared/sql";
+import {
+  journeyMinUnusedLookahead,
+  toClientJourneyExploration,
+  validateJourneyDataset,
+  validateJourneyStepColumns,
+} from "shared/journeys";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -29,20 +38,32 @@ import { APP_ORIGIN } from "back-end/src/util/secrets";
 /**
  * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
  * and can reuse compatible date ranges. Reuse the cached rows but surface the
- * client's requested display config.
+ * client's requested display config — journeys also collapse lookahead so the
+ * payload matches the path being viewed.
  */
 function withRequestedDisplayConfig(
   existing: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
-  return {
-    ...existing,
-    config: {
-      ...existing.config,
-      chartType: requested.chartType,
-      dateRange: requested.dateRange,
-    },
-  };
+  if (
+    existing.config.type === "sql" &&
+    requested.type === "sql" &&
+    requested.chartType === "rawTable"
+  ) {
+    return {
+      ...existing,
+      config: {
+        ...existing.config,
+        chartType: requested.chartType,
+        dateRange: requested.dateRange,
+        dataset: {
+          ...existing.config.dataset,
+          hiddenColumns: requested.dataset.hiddenColumns,
+        },
+      },
+    };
+  }
+  return toClientJourneyExploration(existing, requested);
 }
 
 // Max time to wait synchronously for an exploration's queries before
@@ -58,9 +79,37 @@ export async function runProductAnalyticsExploration(
 ): Promise<ProductAnalyticsExploration | null> {
   config = explorationConfigValidator.parse(config);
 
+  const dataset = config.dataset;
+  if (!dataset) {
+    throw new BadRequestError("Dataset is required");
+  }
+  if (config.chartType === "rawTable") {
+    if (dataset.type !== "sql") {
+      throw new BadRequestError("Raw tables require a SQL dataset");
+    }
+    if (config.dimensions.length > 0 || dataset.values.length > 0) {
+      throw new BadRequestError(
+        "Raw tables cannot include grouped dimensions or aggregate values",
+      );
+    }
+  }
+
+  const datasource = await getDataSourceById(context, config.datasource);
+  if (!datasource) {
+    throw new NotFoundError("Datasource not found");
+  }
+
   if (options.cache !== "never") {
     const existing =
-      await context.models.analyticsExplorations.findLatestByConfig(config);
+      await context.models.analyticsExplorations.findLatestByConfig(config, {
+        // Every journey request needs one unused frontier level to project a
+        // display payload. Prefix cache hits are reused; a miss runs SQL with
+        // the full lookahead still in the dataset.
+        minUnusedLookahead:
+          config.dataset.type === "journey"
+            ? journeyMinUnusedLookahead(config.dataset.lookaheadDepth, "one")
+            : undefined,
+      });
     if (existing) {
       return withRequestedDisplayConfig(existing, config);
     }
@@ -73,16 +122,6 @@ export async function runProductAnalyticsExploration(
   // If no existing exploration, create a new one
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
-  const datasource = await getDataSourceById(context, config.datasource);
-  if (!datasource) {
-    throw new NotFoundError("Datasource not found");
-  }
-
-  // Parse and validate dataset settings
-  const dataset = config.dataset;
-  if (!dataset) {
-    throw new BadRequestError("Dataset is required");
-  }
 
   if (dataset.type === "fact_table") {
     if (!dataset.factTableId) {
@@ -106,12 +145,19 @@ export async function runProductAnalyticsExploration(
       throw new BadRequestError("No metrics provided");
     }
     const factMetrics = await context.models.factMetrics.getByIds(metricIds);
+    // `getByIds` just omits what it cannot find, and an id that resolves to
+    // nothing contributes no datasource — which reads downstream as a mismatch.
+    const foundIds = new Set(factMetrics.map((fm) => fm.id));
+    const missingIds = metricIds.filter((id) => !foundIds.has(id));
+    if (missingIds.length) {
+      throw new NotFoundError(`Metric not found: ${missingIds.join(", ")}`);
+    }
     factMetrics.forEach((fm) => metricMap.set(fm.id, fm));
 
     // Populate fact table map
     const factTableIds = new Set<string>();
     factMetrics.forEach((fm) => {
-      if (fm.numerator.factTableId) {
+      if (fm.numerator?.factTableId) {
         factTableIds.add(fm.numerator.factTableId);
       }
       if (fm.metricType === "ratio" && fm.denominator?.factTableId) {
@@ -137,7 +183,52 @@ export async function runProductAnalyticsExploration(
       );
     }
   } else if (dataset.type === "data_source") {
-    // Nothing to fetch or verify
+    if (!hasTimestampColumn(dataset.timestampColumn)) {
+      throw new BadRequestError("Timestamp column is required");
+    }
+  } else if (dataset.type === "sql") {
+    if (!dataset.sql.trim()) {
+      throw new BadRequestError("SQL query is required");
+    }
+    if (!isReadOnlySQL(dataset.sql)) {
+      throw new BadRequestError("Only SELECT queries are allowed");
+    }
+    if (hasTimestampColumn(dataset.timestampColumn)) {
+      if (!dataset.columnTypes[dataset.timestampColumn]) {
+        throw new BadRequestError(
+          "Timestamp column must exist in query results",
+        );
+      }
+      if (dataset.columnTypes[dataset.timestampColumn] !== "date") {
+        throw new BadRequestError(
+          "Timestamp column must be a date or timestamp",
+        );
+      }
+    } else {
+      if (
+        config.chartType === "line" ||
+        config.chartType === "area" ||
+        config.chartType === "timeseries-table"
+      ) {
+        throw new BadRequestError(
+          "Time-series charts require a timestamp column",
+        );
+      }
+      if (
+        config.dimensions.some(
+          (dimension) => dimension.dimensionType === "date",
+        )
+      ) {
+        throw new BadRequestError("Date dimensions require a timestamp column");
+      }
+      if (
+        dataset.values.some((value) => value.valueColumn === "$$distinctDates")
+      ) {
+        throw new BadRequestError(
+          "Distinct date values require a timestamp column",
+        );
+      }
+    }
   } else if (dataset.type === "funnel") {
     if (dataset.steps.length < 2) {
       throw new BadRequestError("Funnels require at least two steps");
@@ -161,11 +252,11 @@ export async function runProductAnalyticsExploration(
     // ids into a Set first because the order in `dataset.steps` is
     // significant for SQL generation; getFactTablesByIds dedupes for us.
     const factTableIds = Array.from(
-      new Set(dataset.steps.map((s) => s.factTable).filter(Boolean)),
+      new Set(dataset.steps.map((s) => s.factTableId).filter(Boolean)),
     );
     if (
       factTableIds.length === 0 ||
-      dataset.steps.some((step) => !step.factTable)
+      dataset.steps.some((step) => !step.factTableId)
     ) {
       throw new BadRequestError("Funnel steps require fact tables");
     }
@@ -186,6 +277,37 @@ export async function runProductAnalyticsExploration(
           `Funnel unit "${unit}" must exist on every step's fact table`,
         );
       }
+    }
+  } else if (dataset.type === "journey") {
+    // Every dataset-shape rule lives in validateJourneyDataset so the SQL
+    // builder and the explorer's Run button can't drift from this endpoint.
+    const errors = validateJourneyDataset(dataset, config.dimensions[0]);
+    if (errors.length) {
+      throw new BadRequestError(errors.join(" "));
+    }
+    if (!isJourneySupportedDatasourceType(datasource.type)) {
+      throw new BadRequestError(
+        "User Journey explorations aren't supported for this Data Source yet. Supported warehouses will expand as each is validated.",
+      );
+    }
+    const factTable = await getFactTable(context, dataset.factTableId ?? "");
+    if (!factTable) {
+      throw new NotFoundError("Fact table not found");
+    }
+    factTableMap.set(factTable.id, factTable);
+    if (factTable.datasource !== datasource.id) {
+      throw new BadRequestError(
+        "Fact Table must belong to the same Data Source as the exploration",
+      );
+    }
+    const columnErrors = validateJourneyStepColumns(dataset, factTable);
+    if (columnErrors.length) {
+      throw new BadRequestError(columnErrors.join(" "));
+    }
+    if (dataset.unit && !factTable.userIdTypes.includes(dataset.unit)) {
+      throw new BadRequestError(
+        `Journey unit "${dataset.unit}" is not a userIdType on the Fact Table`,
+      );
     }
   } else {
     throw new BadRequestError("Invalid dataset type");
@@ -259,7 +381,7 @@ export async function runProductAnalyticsExploration(
     if (syncTimer) clearTimeout(syncTimer);
   }
 
-  return queryRunner.model;
+  return withRequestedDisplayConfig(queryRunner.model, config);
 }
 
 const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
@@ -267,7 +389,9 @@ const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
     metric: "metrics",
     fact_table: "fact-table",
     data_source: "data-source",
+    sql: "sql",
     funnel: "funnel",
+    journey: "journey",
   };
 
 export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {

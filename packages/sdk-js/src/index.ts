@@ -5,6 +5,7 @@ export type {
   ClientOptions,
   TrackingCallbackWithUser,
   TrackingDataWithUser,
+  TrackingUserContext,
   FeatureUsageCallback,
   FeatureUsageCallbackWithUser,
   UserContext,
@@ -53,6 +54,8 @@ export type {
   Helpers,
   GrowthBookPayload,
   SavedGroupsValues,
+  SavedGroupsPayload,
+  SavedGroupPayloadEntry,
   EventLogger,
   EventProperties,
   Plugin,
@@ -62,6 +65,7 @@ export type {
 export type {
   ConditionInterface,
   ParentConditionInterface,
+  SavedGroupReference,
 } from "./types/mongrule";
 
 export {

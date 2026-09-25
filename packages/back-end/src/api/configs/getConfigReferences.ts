@@ -8,12 +8,12 @@ export const getConfigReferences = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config with that key");
+    throw new NotFoundError("Could not find Config with that key");
   }
   // Spans both collections: constants and configs share the internal id namespace.
   const refs = await loadConstantReferences(req.context, config.id);
   if (!refs) {
-    throw new NotFoundError("Could not find config with that key");
+    throw new NotFoundError("Could not find Config with that key");
   }
   return { features: refs.features, constants: refs.constants };
 });

@@ -3,7 +3,13 @@ import {
   RampScheduleInterface,
   isAwaitingStartApproval,
 } from "shared/validators";
-import { PermissionError } from "shared/util";
+import { PermissionError, isRampScheduleServing } from "shared/util";
+import {
+  collectRampPlanActions,
+  mergedRampPlan,
+  rampPatchEntriesForTargets,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -18,17 +24,27 @@ import {
   dispatchRampEvent,
   ensureSafeRolloutForMonitoredRamp,
   jumpSchedule,
+  normalizeRampPlanForceValues,
   pauseSchedule,
   rollbackSchedule,
   restartSchedule,
   resumeSchedule,
+  runControlledRampScheduleAction,
   runLockedRampScheduleAction,
   setRampMonitoringMode,
   startSchedule,
+  assertCanControlRampSchedule,
+  assertCanEditRampScheduleConfig,
+  rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
+import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import {
+  assertRampScheduleReplanAllowed,
+  changesRampPlan,
+} from "back-end/src/services/rampPlanReview";
 import { ConflictError } from "back-end/src/util/errors";
 
 type CreateBody = Pick<
@@ -122,8 +138,53 @@ export const postRampSchedule = async (
   }
 
   const body = req.body;
+  if (body.targets?.length) {
+    await assertRampScheduleReplanAllowed(context, {
+      entityId: body.entityId,
+      targets: body.targets,
+    });
+  }
+
+  // Rule values are strings; bring any raw JSON `force` in the plan to that
+  // form and reject a value the feature's type does not accept. A start value
+  // echoing the targeted rule's own current value is the editor's anchor and
+  // is not judged.
+  const feature =
+    body.entityType === "feature" && body.entityId
+      ? await getFeature(context, body.entityId)
+      : null;
+  Object.assign(
+    body,
+    normalizeRampPlanForceValues(body, feature, {
+      knownStartValues: rampStartValuesOf(feature, body.targets ?? []),
+    }),
+  );
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntriesForTargets(
+      collectRampPlanActions(body),
+      body.targets ?? [],
+      () => feature,
+    ),
+  );
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
+
+  // Arming a dated start IS scheduling the live transition: the poller executes
+  // it under an admin context, so the arm takes the same per-target publish
+  // authority the fire itself would — model-level create is draft-class and
+  // cannot see the targets. A dateless schedule stays draft-class; arming it
+  // later goes through /actions/start or this same check on PUT.
+  if (startDate) {
+    await assertCanControlRampSchedule(context, {
+      entityType: body.entityType,
+      entityId: body.entityId,
+      targets: body.targets,
+      steps: body.steps,
+      startActions: body.startActions,
+      endActions: body.endActions,
+    } as RampScheduleInterface);
+  }
 
   const schedule = await context.models.rampSchedules.create({
     name: body.name,
@@ -166,12 +227,6 @@ export const putRampSchedule = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.hasPremiumFeature("schedule-feature-flag")) {
-    context.throwPlanDoesNotAllowError(
-      "Ramp schedules require a Pro plan or above.",
-    );
-  }
-
   const schedule = await context.models.rampSchedules.getById(req.params.id);
   if (!schedule) {
     return res
@@ -195,6 +250,9 @@ export const putRampSchedule = async (
           `Cannot update: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
+      if (fresh.targets.length && changesRampPlan(body, fresh)) {
+        await assertRampScheduleReplanAllowed(context, fresh);
+      }
       const updates: Record<string, unknown> = {};
       if (body.name !== undefined) updates.name = body.name;
       if (body.startActions !== undefined)
@@ -214,6 +272,9 @@ export const putRampSchedule = async (
         const monitoringConfig = normalizeMonitoringConfig(
           body.monitoringConfig,
         );
+        // The guard now lives inside `updateRampMonitoringConfig`, which every
+        // surface goes through; this path writes `monitoringConfig` directly, so
+        // it still calls it explicitly.
         await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
           context,
           fresh,
@@ -240,6 +301,44 @@ export const putRampSchedule = async (
           ? updates.startApprovedAt
           : fresh.startApprovedAt) as Date | null | undefined,
       });
+
+      // Publish-class gate for execution-field edits on an armable schedule
+      // (monitoring carries its own assert above).
+      await assertCanEditRampScheduleConfig(context, fresh, updates);
+
+      // Rule values are strings; bring any raw JSON `force` in the new plan to
+      // that form and reject a step/end value the feature's type does not
+      // accept (startActions are the captured anchor: stringified only).
+      const feature =
+        fresh.entityType === "feature"
+          ? await getFeature(context, fresh.entityId)
+          : null;
+      Object.assign(
+        updates,
+        normalizeRampPlanForceValues(
+          updates as Pick<
+            RampScheduleInterface,
+            "steps" | "startActions" | "endActions"
+          >,
+          feature,
+          {
+            knownStartValues: rampStartValuesOf(
+              feature,
+              fresh.targets,
+              fresh.startActions,
+            ),
+          },
+        ),
+      );
+      await validateRampPlanPatches(
+        context,
+        rampPatchEntriesForTargets(
+          collectRampPlanActions(mergedRampPlan(updates, fresh)),
+          fresh.targets,
+          () => feature,
+        ),
+        { stored: [fresh] },
+      );
 
       const editedFields = Object.keys(updates).filter(
         (k) => k !== "nextProcessAt" && k !== "eventHistory",
@@ -319,6 +418,13 @@ export const postRampScheduleAction = async (
       .json({ status: 404, message: "Ramp schedule not found" });
   }
 
+  // Every action here changes what users are served, so it takes publish
+  // authority — except queuing a monitoring snapshot, which reads data and gates
+  // on the datasource's query permission in its own case below.
+  if (req.params.action !== "refresh-monitoring") {
+    await assertCanControlRampSchedule(context, schedule);
+  }
+
   let updated: RampScheduleInterface;
 
   switch (req.params.action) {
@@ -338,7 +444,7 @@ export const postRampScheduleAction = async (
             "This schedule requires start approval — use the approve action to start it.",
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh, heartbeat) => {
@@ -365,7 +471,7 @@ export const postRampScheduleAction = async (
           message: `Cannot pause a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -386,7 +492,7 @@ export const postRampScheduleAction = async (
           message: `Cannot resume a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh, heartbeat) => {
@@ -402,7 +508,7 @@ export const postRampScheduleAction = async (
     }
 
     case "advance": {
-      if (!["running", "paused"].includes(schedule.status)) {
+      if (!isRampScheduleServing(schedule)) {
         return res.status(400).json({
           status: 400,
           message: `Cannot advance a schedule in status "${schedule.status}"`,
@@ -417,27 +523,30 @@ export const postRampScheduleAction = async (
         return res.status(409).json({
           status: 409,
           message:
-            "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires canBypassApprovalChecks).",
+            "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires FlagsBypassApprovals).",
         });
       }
       if (approvalPending && forceAdvance) {
         const linkedFeature = await getFeature(context, schedule.entityId);
         if (
           !linkedFeature ||
-          !context.permissions.canBypassApprovalChecks(linkedFeature)
+          !context.permissions.canBypassFlagApprovalChecks(
+            linkedFeature,
+            "feature",
+          )
         ) {
           return res.status(403).json({
             status: 403,
             message:
-              "Permission denied: canBypassApprovalChecks required on the linked feature",
+              "Permission denied: FlagsBypassApprovals required on the linked feature",
           });
         }
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         async (fresh) => {
-          if (!["running", "paused"].includes(fresh.status)) {
+          if (!isRampScheduleServing(fresh)) {
             throw new ConflictError(
               `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
             );
@@ -457,17 +566,20 @@ export const postRampScheduleAction = async (
             fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
           if (freshApprovalPending && !forceAdvance) {
             throw new ConflictError(
-              "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires canBypassApprovalChecks).",
+              "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires FlagsBypassApprovals).",
             );
           }
           if (freshApprovalPending && forceAdvance) {
             const linkedFeature = await getFeature(context, fresh.entityId);
             if (
               !linkedFeature ||
-              !context.permissions.canBypassApprovalChecks(linkedFeature)
+              !context.permissions.canBypassFlagApprovalChecks(
+                linkedFeature,
+                "feature",
+              )
             ) {
               throw new PermissionError(
-                "Permission denied: canBypassApprovalChecks required on the linked feature",
+                "Permission denied: FlagsBypassApprovals required on the linked feature",
               );
             }
           }
@@ -493,7 +605,7 @@ export const postRampScheduleAction = async (
             "This schedule requires start approval — approve it before completing.",
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -531,7 +643,7 @@ export const postRampScheduleAction = async (
       }
       const cause = req.body?.reason?.trim();
       const reason = cause ? `Manual: ${cause}` : "Manual";
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -553,7 +665,7 @@ export const postRampScheduleAction = async (
           message: `Cannot restart a schedule in status "${schedule.status}". Only terminal (rolled-back / completed) schedules can be restarted.`,
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh, heartbeat) => {
@@ -587,7 +699,7 @@ export const postRampScheduleAction = async (
         });
       }
 
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -619,7 +731,7 @@ export const postRampScheduleAction = async (
           message: `Cannot approve: schedule is not awaiting approval (currently "${schedule.status}")`,
         });
       }
-      const approveErr = await runLockedRampScheduleAction(
+      const approveErr = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -701,7 +813,7 @@ export const postRampScheduleAction = async (
           message: 'monitoringMode must be "auto" or "manual"',
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => setRampMonitoringMode(context, fresh, requestedMode),
@@ -746,10 +858,16 @@ export const postRampScheduleAction = async (
         ? await context.models.safeRollout.getById(schedule.safeRolloutId)
         : null;
 
+      // Before the lazy ensure below, which WRITES: an under-privileged caller
+      // must not create a monitoring experiment on its way to a 403. The
+      // authoritative check still runs after, against whatever datasource the
+      // ensure settles on.
+      await assertCanRefreshRampMonitoring(context, schedule, safeRollout);
+
       if (!safeRollout && currentStep?.monitored) {
         // Serialize against the tick, which runs the same ensure — otherwise
         // both create a SafeRollout and one becomes an orphan.
-        const updatedSchedule = await runLockedRampScheduleAction(
+        const updatedSchedule = await runControlledRampScheduleAction(
           context,
           schedule.id,
           (fresh) => ensureSafeRolloutForMonitoredRamp(context, fresh),

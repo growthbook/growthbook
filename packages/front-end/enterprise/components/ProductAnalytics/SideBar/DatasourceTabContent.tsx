@@ -78,7 +78,7 @@ export default function DatasourceTabContent() {
               width: "100%",
             }}
           >
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               Add at least one value to chart
             </Text>
           </Flex>
@@ -143,7 +143,7 @@ export default function DatasourceTabContent() {
             </ValueCard>
           ))}
           <Button
-            size="sm"
+            size="md"
             variant="outline"
             onClick={() => addValueToDataset("data_source")}
           >

@@ -9,9 +9,14 @@ import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  rampPlanLacksHashAttribute,
+  rampTargetRuleIds,
+  rampControlFootprint,
+  stemRuleId,
   filterEnvironmentsByFeature,
   getReviewSetting,
   getTargetingProjectIds,
+  isRampScheduleServing,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RxCircleBackslash } from "react-icons/rx";
@@ -34,6 +39,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
+  ApiContextualBanditInterface,
   isReadyForApproval,
   isAwaitingStartApproval,
   SafeRolloutInterface,
@@ -49,8 +55,12 @@ import RampTimeline, {
 } from "@/components/RampSchedule/RampTimeline";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
-import ContextualBanditRefSummary from "@/components/ContextualBandit/ContextualBanditRefSummary";
+import ContextualBanditRefSummary, {
+  isContextualBanditRefRuleSkipped,
+} from "@/components/ContextualBandit/ContextualBanditRefSummary";
+import { useContextualBandits } from "@/hooks/useContextualBandits";
 import track from "@/services/track";
 import {
   isRuleInactive,
@@ -78,6 +88,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
 import Callout from "@/ui/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
@@ -199,6 +210,7 @@ function computeRemainingTime(
 import ExperimentSummary from "./ExperimentSummary";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
+  TempRolloutCallout,
 } from "./ExperimentRefSummary";
 
 interface SortableProps {
@@ -214,6 +226,7 @@ interface SortableProps {
     ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    rampToNewValue?: boolean;
     detachRampOnSave?: boolean;
   }) => void;
   unreachable?: boolean;
@@ -234,6 +247,11 @@ interface SortableProps {
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
+  // Schedule in ANY environment; `rampSchedule` above is env-filtered.
+  hasAnyEnvRampSchedule?: boolean;
+  /** Live state used only for runtime-control authority checks. */
+  liveRule?: FeatureRule;
+  liveRampSchedule?: RampScheduleInterface;
   draftRevision?: FeatureRevisionInterface | null;
   // True when rendered under the all-environments view. The `environment`
   // prop is then a cosmetic placeholder and must NOT promote a "current env"
@@ -263,11 +281,13 @@ type RuleProps = SortableProps &
 function isRuleSkipped({
   rule,
   linkedExperiment,
+  linkedContextualBandit,
   isDraft,
 }: {
   rule: FeatureRule;
   isDraft: boolean;
   linkedExperiment?: ExperimentInterfaceStringDates;
+  linkedContextualBandit?: ApiContextualBanditInterface;
 }): boolean {
   // Not live yet
   const upcomingScheduleRule = getUpcomingScheduleRule(rule);
@@ -284,6 +304,14 @@ function isRuleSkipped({
   if (
     linkedExperiment &&
     isExperimentRefRuleSkipped(linkedExperiment, isDraft)
+  ) {
+    return true;
+  }
+
+  if (
+    rule.type === "contextual-bandit-ref" &&
+    linkedContextualBandit &&
+    isContextualBanditRefRuleSkipped(linkedContextualBandit, isDraft)
   ) {
     return true;
   }
@@ -315,6 +343,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       holdout,
       revisionList,
       rampSchedule,
+      hasAnyEnvRampSchedule,
+      liveRule,
+      liveRampSchedule,
       draftRevision,
       isAllEnvsView,
       onMoveUp,
@@ -328,6 +359,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ref,
   ) => {
     const { apiCall } = useAuth();
+    const { hasCommercialFeature } = useUser();
+    const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
 
     // A scheduled-publish edit lock leaves ramp runtime controls interactive;
     // other lock reasons (old/discarded revisions) still disable them.
@@ -340,7 +373,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showDeleteRuleModal, setShowDeleteRuleModal] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
-    const [rampApproveError, setRampApproveError] = useState("");
+    const [rampActionError, setRampActionError] = useState("");
     useApprovalTimerTick(rampSchedule);
     const rollbackToStart = async (reason = "rolled back to start") => {
       if (!rampSchedule) return;
@@ -398,8 +431,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const globalRuleIdx = flatIdx === -1 ? i : flatIdx;
 
     let title: string | ReactElement =
-      rule.description || rule.type[0].toUpperCase() + rule.type.slice(1);
-    if (rule.type !== "rollout") {
+      rule.description ||
+      (rule.type === "contextual-bandit-ref"
+        ? "Contextual Bandit"
+        : rule.type[0].toUpperCase() + rule.type.slice(1));
+    if (rule.type !== "rollout" && rule.type !== "contextual-bandit-ref") {
       title += " Rule";
     }
     if (rule.type === "experiment") {
@@ -424,9 +460,49 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const router = useRouter();
     const useDummyData = router.query["dummy"] === "true";
 
-    const canEdit =
-      permissionsUtil.canViewFeatureModal(feature.project) &&
-      permissionsUtil.canManageFeatureDrafts(feature);
+    const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+
+    const canPublishFeatureEnvs = useMemo(
+      () =>
+        permissionsUtil.canPublishFeature(
+          feature,
+          environments.map((e) => e.id),
+        ),
+      [feature, permissionsUtil, environments],
+    );
+
+    const canControlRamp = useMemo(() => {
+      if (!rampSchedule) return false;
+      return permissionsUtil.canPublishFeature(
+        feature,
+        // Match the server's target-specific ramp footprint.
+        rampControlFootprint({
+          schedule: liveRampSchedule ?? rampSchedule,
+          allEnvironments: allEnvironments.map((e) => e.id),
+          ruleEnvsForTarget: (target) => {
+            // Unknown targets widen conservatively.
+            const basis = liveRule ?? rule;
+            if (target.entityId && target.entityId !== feature.id) {
+              return undefined;
+            }
+            const reachesThisRule = rampTargetRuleIds(
+              liveRampSchedule ?? rampSchedule,
+              target,
+            ).some((id) => stemRuleId(id) === stemRuleId(basis.id ?? ""));
+            if (!reachesThisRule) return undefined;
+            return basis.allEnvironments ? "all" : (basis.environments ?? []);
+          },
+        }),
+      );
+    }, [
+      rampSchedule,
+      liveRampSchedule,
+      feature,
+      permissionsUtil,
+      allEnvironments,
+      rule,
+      liveRule,
+    ]);
 
     const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
       const raw = settings?.requireReviews;
@@ -437,6 +513,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       const envList = reviewSetting.environments ?? [];
       return envList.length === 0 ? "all" : new Set(envList);
     }, [settings?.requireReviews, feature]);
+
+    const { contextualBanditsMap: cbMap } = useContextualBandits(
+      feature.project,
+      true,
+    );
+    const linkedContextualBandit =
+      rule.type === "contextual-bandit-ref"
+        ? cbMap?.get(rule.contextualBanditId)
+        : undefined;
 
     const isInactive = isRuleInactive(rule, experimentsMap);
 
@@ -462,6 +547,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const info = getRuleMetaInfo({
       rule,
       experimentsMap,
+      linkedContextualBandit,
       isDraft,
       unreachable,
       conflictBanners,
@@ -486,6 +572,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const isSyntheticRamp =
       !!rampSchedule && rampSchedule.id.startsWith("pending-");
 
+    // Runtime ramp controls are the only kebab items a publish-only role can
+    // reach, so the menu opens for one only when the schedule actually offers
+    // one — mirrors the two Schedule groups' own conditions.
+    const hasRampRuntimeItems =
+      canControlRamp &&
+      !!rampSchedule &&
+      (isSimpleSchedule
+        ? !!rampSchedule.cutoffDate && isRampScheduleServing(rampSchedule)
+        : // A pending detach replaces the runtime actions with a draft-class
+          // "cancel removal", so there is nothing here for a publisher.
+          !isSyntheticRamp && !hasPendingDetach);
+
     const ruleTags: React.ReactNode[] = [];
     const ruleCtas: React.ReactNode[] = [];
 
@@ -499,6 +597,33 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           featureRuleContext
         />,
       );
+      // A plan attached outside the rule editor can ramp a force rule that has
+      // no Sample by attribute; the engine will refuse that step.
+      if (
+        rule.type === "force" &&
+        !("hashAttribute" in rule && rule.hashAttribute) &&
+        rampPlanLacksHashAttribute(rampSchedule, rule.id)
+      ) {
+        ruleTags.push(
+          <Tooltip
+            key="ramp-hash"
+            body={
+              <p>
+                Neither this rule nor its ramp sets <strong>Sample by</strong>,
+                so the ramp will pause at its first step below 100% traffic. Set
+                it under Ramp-up Schedule in the rule editor.
+              </p>
+            }
+            style={{ display: "inline-flex", alignItems: "center" }}
+          >
+            <Badge
+              label="Ramp needs a Sample by attribute"
+              color="amber"
+              variant="soft"
+            />
+          </Tooltip>,
+        );
+      }
     }
 
     if (useDummyData && hasMonitoringStatusRow) {
@@ -569,6 +694,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     if (
       rampSchedule &&
+      canControlRamp &&
       !rampControlsLocked &&
       !rampIsTerminal &&
       !hasPendingDetach &&
@@ -586,7 +712,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         ruleCtas.push(
           <Button
             key="ramp-start"
-            size="xs"
+            size="sm"
             variant="solid"
             onClick={async () => {
               await apiCall(
@@ -606,7 +732,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         ruleCtas.push(
           <Button
             key="ramp-resume"
-            size="xs"
+            size="sm"
             variant="solid"
             onClick={async () => {
               await apiCall(
@@ -633,11 +759,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         ruleCtas.push(
           <Button
             key="ramp-approve"
-            size="xs"
+            size="sm"
             variant="solid"
             loading={rampApproveLoading}
             onClick={async () => {
-              setRampApproveError("");
+              setRampActionError("");
               setRampApproveLoading(true);
               try {
                 await apiCall(
@@ -646,7 +772,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 );
                 await mutate();
               } catch (e) {
-                setRampApproveError(e instanceof Error ? e.message : String(e));
+                setRampActionError(e instanceof Error ? e.message : String(e));
               } finally {
                 setRampApproveLoading(false);
               }
@@ -663,6 +789,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     // dropdown menu. The "Start" CTA above will pick up once it's `ready`.
     if (
       rampSchedule &&
+      canControlRamp &&
       !rampControlsLocked &&
       !hasPendingDetach &&
       !isSimpleSchedule &&
@@ -678,14 +805,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             key="ramp-restart"
             body="The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting."
           >
-            <Button size="xs" variant="solid" disabled>
+            <Button size="sm" variant="solid" disabled>
               Restart
             </Button>
           </Tooltip>
         ) : (
           <Button
             key="ramp-restart"
-            size="xs"
+            size="sm"
             variant="solid"
             onClick={async () => {
               await apiCall(
@@ -703,6 +830,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     if (
       rule.type === "safe-rollout" &&
+      canPublishFeatureEnvs &&
       !rampControlsLocked &&
       rule.enabled !== false
     ) {
@@ -789,7 +917,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               gap="2"
               style={{ flex: "0 1 auto", flexWrap: "wrap" }}
             >
-              <Heading as="h4" size="medium" weight="medium" mb="0">
+              <Heading as="h4" size="md" weight="medium" mb="0">
                 {linkedExperiment ? (
                   <>
                     {linkedExperiment.type === "multi-armed-bandit"
@@ -814,6 +942,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       </span>
                     )}
                   </>
+                ) : rule.type === "contextual-bandit-ref" &&
+                  linkedContextualBandit ? (
+                  <>
+                    Contextual Bandit:{" "}
+                    <Link
+                      href={`/contextual-bandit/${linkedContextualBandit.id}`}
+                      style={{ marginRight: "var(--space-2)" }}
+                    >
+                      {linkedContextualBandit.name}
+                    </Link>
+                    <span style={{ verticalAlign: "1px" }}>
+                      <ExperimentStatusIndicator
+                        experimentData={contextualBanditStatusIndicatorData(
+                          linkedContextualBandit,
+                        )}
+                      />
+                    </span>
+                  </>
                 ) : rule.type === "safe-rollout" ? (
                   <span>Safe Rollout</span>
                 ) : (
@@ -837,33 +983,55 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             <Flex align="center" gap="3" flexShrink="0">
               {rampSchedule &&
                 safeRollout &&
+                canControlRamp &&
                 !rampControlsLocked &&
                 isOnMonitoredStep(rampSchedule) && (
                   <RampMonitoringCTAs
                     rampSchedule={rampSchedule}
                     onRollback={async (reason?: string) => {
-                      await apiCall(
-                        `/ramp-schedule/${rampSchedule.id}/actions/rollback`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify(reason ? { reason } : {}),
-                        },
-                      );
-                      await mutate();
+                      setRampActionError("");
+                      try {
+                        await apiCall(
+                          `/ramp-schedule/${rampSchedule.id}/actions/rollback`,
+                          {
+                            method: "POST",
+                            body: JSON.stringify(reason ? { reason } : {}),
+                          },
+                        );
+                        await mutate();
+                      } catch (e) {
+                        setRampActionError(
+                          e instanceof Error ? e.message : String(e),
+                        );
+                      }
                     }}
                     onAdvance={async () => {
-                      await apiCall(
-                        `/ramp-schedule/${rampSchedule.id}/actions/advance`,
-                        { method: "POST" },
-                      );
-                      await mutate();
+                      setRampActionError("");
+                      try {
+                        await apiCall(
+                          `/ramp-schedule/${rampSchedule.id}/actions/advance`,
+                          { method: "POST" },
+                        );
+                        await mutate();
+                      } catch (e) {
+                        setRampActionError(
+                          e instanceof Error ? e.message : String(e),
+                        );
+                      }
                     }}
                     onApproveStep={async () => {
-                      await apiCall(
-                        `/ramp-schedule/${rampSchedule.id}/actions/approve-step`,
-                        { method: "POST" },
-                      );
-                      await mutate();
+                      setRampActionError("");
+                      try {
+                        await apiCall(
+                          `/ramp-schedule/${rampSchedule.id}/actions/approve-step`,
+                          { method: "POST" },
+                        );
+                        await mutate();
+                      } catch (e) {
+                        setRampActionError(
+                          e instanceof Error ? e.message : String(e),
+                        );
+                      }
                     }}
                   />
                 )}
@@ -874,7 +1042,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               {/* Shown when rule-edit OR ramp runtime actions are available.
                 Under a scheduled-publish lock the rule-edit group is hidden but
                 ramp/schedule actions remain. */}
-              {canEdit &&
+              {(canEdit || hasRampRuntimeItems) &&
                 !rampControlsLocked &&
                 (!locked || !!rampSchedule) && (
                   <DropdownMenu
@@ -895,36 +1063,61 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     menuPlacement="end"
                     variant="soft"
                   >
-                    {!locked && (
+                    {canEdit && !locked && (
                       <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setRuleModal({
-                              environment,
-                              i,
-                              ruleId: rule.id,
-                              mode: "edit",
-                            });
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        {rule.type !== "experiment-ref" && (
+                        {/* RuleModal has no `contextual-bandit-ref` form, and a
+                            second rule for one bandit is rejected on update.
+                            Edit the values from the Contextual Bandit page. */}
+                        {rule.type !== "contextual-bandit-ref" && (
                           <DropdownMenuItem
                             onClick={() => {
                               setRuleModal({
                                 environment,
                                 i,
                                 ruleId: rule.id,
-                                mode: "duplicate",
+                                mode: "edit",
                               });
                               setDropdownOpen(false);
                             }}
                           >
-                            Duplicate rule
+                            Edit
                           </DropdownMenuItem>
                         )}
+                        {rule.type !== "experiment-ref" &&
+                          rule.type !== "contextual-bandit-ref" && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setRuleModal({
+                                  environment,
+                                  i,
+                                  ruleId: rule.id,
+                                  mode: "duplicate",
+                                });
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              Duplicate rule
+                            </DropdownMenuItem>
+                          )}
+                        {(rule.type === "force" || rule.type === "rollout") &&
+                          !hasAnyEnvRampSchedule &&
+                          canUseRampSchedules && (
+                            <DropdownMenuItem
+                              tooltip="Inserts a ramp-up rule above this one to gradually replace its value."
+                              onClick={() => {
+                                setRuleModal({
+                                  environment,
+                                  i,
+                                  ruleId: rule.id,
+                                  mode: "duplicate",
+                                  rampToNewValue: true,
+                                });
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              Ramp to new value
+                            </DropdownMenuItem>
+                          )}
                         <DropdownMenuItem
                           onClick={
                             !rule.enabled && getRampEnableDate(rampSchedule)
@@ -950,7 +1143,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
                     )}
-                    {!locked &&
+                    {canEdit &&
+                      !locked &&
                       (onMoveUp ||
                         onMoveDown ||
                         onMoveToTop ||
@@ -1003,10 +1197,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           </DropdownMenuGroup>
                         </>
                       )}
-                    {rampSchedule &&
+                    {canControlRamp &&
                       isSimpleSchedule &&
                       !!rampSchedule.cutoffDate &&
-                      ["running", "paused"].includes(rampSchedule.status) && (
+                      isRampScheduleServing(rampSchedule) && (
                         <>
                           {!locked && <DropdownMenuSeparator />}
                           <DropdownMenuGroup label="Schedule">
@@ -1027,7 +1221,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           </DropdownMenuGroup>
                         </>
                       )}
-                    {!locked &&
+                    {canEdit &&
+                      !locked &&
                       rampSchedule &&
                       isSimpleSchedule &&
                       !!rampSchedule.cutoffDate &&
@@ -1072,6 +1267,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           {hasPendingDetach ? (
                             // Canceling a pending removal edits the draft, so it's
                             // gated by the edit-lock; runtime actions below are not.
+                            canEdit &&
                             !locked && (
                               <DropdownMenuItem
                                 onClick={async () => {
@@ -1093,7 +1289,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 Cancel removal of schedule
                               </DropdownMenuItem>
                             )
-                          ) : (
+                          ) : !canControlRamp ? null : (
                             <>
                               {/* pending: blocked Start */}
                               {rampSchedule.status === "pending" && (
@@ -1196,9 +1392,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   </DropdownMenuItem>
                                 ))}
                               {/* Roll back / Jump ahead / Complete — active ramps */}
-                              {["running", "paused"].includes(
-                                rampSchedule.status,
-                              ) && (
+                              {isRampScheduleServing(rampSchedule) && (
                                 <>
                                   {rampSchedule.currentStepIndex >= 0 &&
                                     (() => {
@@ -1411,7 +1605,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         </DropdownMenuGroup>
                       </>
                     )}
-                    {!locked && (
+                    {canEdit && !locked && (
                       <DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -1480,6 +1674,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Flex>
               </Callout>
             )}
+          {rule.type === "experiment-ref" && (
+            <TempRolloutCallout
+              rule={rule}
+              experiment={experimentsMap.get(rule.experimentId)}
+            />
+          )}
           <RuleEnvScopeBadges
             activeEnvironmentIds={
               rule.allEnvironments === true || rule.environments === undefined
@@ -1505,7 +1705,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </>
             ) : null}
             <Box mb="3">
-              {hasCondition && rule.type !== "experiment-ref" ? (
+              {hasCondition &&
+              rule.type !== "experiment-ref" &&
+              rule.type !== "contextual-bandit-ref" ? (
                 <TruncatedConditionDisplay
                   condition={rule.condition || ""}
                   savedGroups={rule.savedGroups}
@@ -1514,6 +1716,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   prefix={<Text weight="medium">IF</Text>}
                 />
               ) : rule.type !== "experiment-ref" &&
+                rule.type !== "contextual-bandit-ref" &&
                 rule.type !== "rollout" &&
                 rule.type !== "safe-rollout" ? (
                 <em>No targeting (all traffic will be included)</em>
@@ -1607,6 +1810,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 rule={rule}
                 feature={feature}
                 environment={isAllEnvsView ? undefined : environment}
+                isDraft={isDraft}
               />
             )}
             {rampSchedule && (
@@ -1661,22 +1865,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     {formatSimpleScheduleLabel(rampSchedule)}
                   </Text>
                 )}
-                {rampApproveError && (
+                {rampActionError && (
                   <Callout
                     status="error"
                     mb="2"
                     action={
                       <Button
-                        size="xs"
+                        size="sm"
                         variant="ghost"
                         color="inherit"
-                        onClick={() => setRampApproveError("")}
+                        onClick={() => setRampActionError("")}
                       >
                         Dismiss
                       </Button>
                     }
                   >
-                    {rampApproveError}
+                    {rampActionError}
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&
@@ -1699,37 +1903,49 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <RampTimeline
                   rs={rampSchedule}
                   pendingDetach={!!hasPendingDetach}
-                  onJump={async (targetStepIndex) => {
-                    if (targetStepIndex === -1) {
-                      await rollbackToStart();
-                      return;
-                    }
-                    await apiCall(
-                      `/ramp-schedule/${rampSchedule.id}/actions/jump`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({ targetStepIndex }),
-                      },
-                    );
-                    await mutate();
-                  }}
-                  onComplete={async () => {
-                    await apiCall(
-                      `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                      { method: "POST" },
-                    );
-                    await mutate();
-                  }}
-                  onCompleteAndDisable={async () => {
-                    await apiCall(
-                      `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({ disableRule: true }),
-                      },
-                    );
-                    await mutate();
-                  }}
+                  onJump={
+                    canControlRamp
+                      ? async (targetStepIndex) => {
+                          if (targetStepIndex === -1) {
+                            await rollbackToStart();
+                            return;
+                          }
+                          await apiCall(
+                            `/ramp-schedule/${rampSchedule.id}/actions/jump`,
+                            {
+                              method: "POST",
+                              body: JSON.stringify({ targetStepIndex }),
+                            },
+                          );
+                          await mutate();
+                        }
+                      : undefined
+                  }
+                  onComplete={
+                    canControlRamp
+                      ? async () => {
+                          await apiCall(
+                            `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                            { method: "POST" },
+                          );
+                          await mutate();
+                        }
+                      : undefined
+                  }
+                  onCompleteAndDisable={
+                    canControlRamp
+                      ? async () => {
+                          await apiCall(
+                            `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                            {
+                              method: "POST",
+                              body: JSON.stringify({ disableRule: true }),
+                            },
+                          );
+                          await mutate();
+                        }
+                      : undefined
+                  }
                 />
                 {rampSchedule.steps.some((s) => s.monitored) && (
                   <SafeRolloutRuleDashboard
@@ -1803,6 +2019,7 @@ export type RuleMetaInfo = {
 export function getRuleMetaInfo({
   rule,
   experimentsMap,
+  linkedContextualBandit,
   isDraft,
   unreachable,
   conflictBanners,
@@ -1811,11 +2028,11 @@ export function getRuleMetaInfo({
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  linkedContextualBandit?: ApiContextualBanditInterface;
   isDraft: boolean;
   unreachable?: boolean;
   conflictBanners?: ConflictBanner[];
   rampSchedule?: RampScheduleInterface;
-  // The draft queues this rule's ramp for removal — so it won't enable on publish.
   rampPendingDetach?: boolean;
 }): RuleMetaInfo {
   const linkedExperiment =
@@ -1826,6 +2043,7 @@ export function getRuleMetaInfo({
   const ruleSkipped = isRuleSkipped({
     rule,
     linkedExperiment,
+    linkedContextualBandit,
     isDraft,
   });
 

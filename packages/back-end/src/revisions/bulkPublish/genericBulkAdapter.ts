@@ -1,19 +1,34 @@
+import { bypassApprovalPermission } from "shared/permissions";
 import {
   Revision,
   RevisionTargetType,
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import {
+  holdsMoveDestination,
+  type ProjectScoped,
+} from "back-end/src/revisions/moveAuthority";
+import { canPublishRevisionChange } from "back-end/src/revisions/revisionActions";
+import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
+import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   type EntityRevisionAdapter,
   filterUpdatableChanges,
 } from "back-end/src/revisions/EntityRevisionAdapter";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  authorityRefused,
+  makeBlockingGate,
+  type PublishGate,
+} from "back-end/src/revisions/publishGates";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
+import { displayEntityName } from "back-end/src/revisions/entityNames";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
-import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
-import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifiedRestore";
+import {
+  restoreEntityPreImage,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import type {
@@ -31,13 +46,6 @@ function toRef(revision: Revision): BulkRevisionRef {
   };
 }
 
-/**
- * Bulk-publish surface for any entity on the generic revision system. Wraps
- * the entity's EntityRevisionAdapter for entity behavior and the shared
- * RevisionModel for revision lifecycle. `extraGates` lets a type contribute
- * gates its single-entity REST handler assembles inline (e.g. the config
- * lock gate) without the orchestrator knowing the type.
- */
 export function makeGenericBulkAdapter(
   targetType: RevisionTargetType,
   adapter: EntityRevisionAdapter,
@@ -79,12 +87,6 @@ export function makeGenericBulkAdapter(
       return revision ? toRef(revision) : null;
     },
 
-    canPublish(context, entity) {
-      return adapter.canPublishRevision
-        ? adapter.canPublishRevision(context, entity)
-        : adapter.canUpdate(context, entity);
-    },
-
     canUpdate(context, entity) {
       return adapter.canUpdate(context, entity);
     },
@@ -115,8 +117,6 @@ export function makeGenericBulkAdapter(
         raw.target.proposedChanges,
         updatable,
       );
-      // Exactly what applyChanges will write — same filter, so hasChanges can
-      // never disagree with the apply about whether there's a net change.
       const hasChanges =
         Object.keys(filterUpdatableChanges(desiredState, entity, updatable))
           .length > 0;
@@ -135,10 +135,7 @@ export function makeGenericBulkAdapter(
       desiredState,
     }) {
       const raw = revision.raw as Revision;
-      // Approval + stale-base via the shared collector (approval scoping
-      // stays inside each adapter's isApprovalRequiredForRevision). Caller
-      // context: governance judges the caller's org policy, not the overlay
-      // end-state.
+      // Collect governance in caller context, then perform authoritative landing checks.
       const gates: PublishGate[] = collectRevisionGovernanceGates({
         context: callerContext,
         adapter,
@@ -146,6 +143,105 @@ export function makeGenericBulkAdapter(
         entity,
         revision: raw,
       });
+
+      if (!(await canPublishRevisionChange(callerContext, raw, entity))) {
+        gates.push(
+          makeBlockingGate({
+            type: "permission-denied",
+            messages: [
+              `You do not have permission to publish this ${displayEntityName(
+                targetType,
+              )} in every environment it changes`,
+            ],
+          }),
+        );
+      }
+
+      // A relocation also requires landing authority over the destination footprint.
+      if (
+        !holdsMoveDestination({
+          permissions: callerContext.permissions,
+          model: targetType,
+          action: "publish",
+          existing: entity as ProjectScoped,
+          proposed: { ...entity, ...desiredState } as ProjectScoped,
+          environments: resolvePublishFootprint(
+            callerContext,
+            adapter.publishFootprint?.(
+              callerContext,
+              entity,
+              raw.target.proposedChanges,
+            ),
+            entity as ProjectScoped,
+          ),
+        })
+      ) {
+        gates.push(
+          makeBlockingGate({
+            type: "permission-denied",
+            messages: [
+              `You do not have permission to publish this ${displayEntityName(
+                targetType,
+              )} into its destination project`,
+            ],
+          }),
+        );
+      }
+
+      // Archiving additionally requires delete authority over the same footprint.
+      if (
+        isArchiveTransition({
+          proposed: desiredState.archived as boolean | undefined,
+          current: (entity as { archived?: boolean }).archived,
+        }) &&
+        !callerContext.permissions.canRevisionAction(
+          targetType,
+          "delete",
+          entity as { project?: string; projects?: string[] },
+          resolvePublishFootprint(
+            callerContext,
+            adapter.publishFootprint?.(
+              callerContext,
+              entity,
+              raw.target.proposedChanges,
+            ),
+            entity as ProjectScoped,
+          ),
+        )
+      ) {
+        gates.push(
+          makeBlockingGate({
+            type: "permission-denied",
+            messages: [
+              `You do not have permission to archive this ${displayEntityName(
+                targetType,
+              )}.`,
+            ],
+          }),
+        );
+      }
+
+      // Match the single-publish sibling-schedule gate and bypass behavior.
+      if (
+        await callerContext.models.revisions.hasPublishLockingScheduledSibling(
+          raw.target,
+          raw.id,
+        )
+      ) {
+        gates.push(
+          makeBlockingGate({
+            type: "publish-locking-sibling",
+            messages: [
+              `Another draft of this ${displayEntityName(
+                targetType,
+              )} has a scheduled publish that locks other drafts. Cancel that schedule first.`,
+            ],
+            requiresPermission: bypassApprovalPermission(targetType),
+          }),
+        );
+      }
+
+      if (authorityRefused(gates)) return gates;
 
       // Entity-level guards + schema validation, evaluated against the
       // multi-entity end-state: the overlay context is both the read context
@@ -199,24 +295,17 @@ export function makeGenericBulkAdapter(
             },
           },
         );
-        // The dateUpdated our merge left behind — releaseClaim pins its reopen
-        // to it so a concurrent re-publish's successful merge isn't clobbered.
         revision.claimStamp = merged.dateUpdated;
         return true;
       } catch (e) {
-        // A lost CAS race is the expected "false" outcome; anything else
-        // (DB failure, permission error) must surface as itself, not a 409.
+        // Only claim CAS conflicts become the expected false result.
         if (e instanceof ConflictError) return false;
         throw e;
       }
     },
 
     async releaseClaim(context, revision) {
-      // Reopen only the exact merge we made (status still "merged" AND the
-      // dateUpdated our claim stamped). If a concurrent actor reopened and
-      // re-published the revision in the meantime, the fingerprint misses and
-      // we leave their published state alone — the orchestrator reports this
-      // item as still-published (needs attention), never a silent clobber.
+      // Reopen only this claim, preserving any concurrent re-publish.
       const restored = await context.models.revisions.reopenAfterFailedApply(
         revision.id,
         context.userId,
@@ -228,34 +317,31 @@ export function makeGenericBulkAdapter(
 
     async applyPrecomputed(context, entity, revision, desiredState) {
       const raw = revision.raw as Revision;
-      const model = adapter.getModel(context);
       try {
-        // The keys the write actually persisted (post updatable-filter and
-        // post-normalization) — the exact set compensation may roll back.
-        revision.persistedKeys = await adapter.applyChanges(
-          context,
-          entity,
-          desiredState,
-          { isRevert: !!raw.revertedFrom },
+        // Guard the write on its plan-time pre-image and report persisted state.
+        await runGuardedWrite(targetType, (entity as { id: string }).id, () =>
+          adapter.applyChanges(context, entity, desiredState, {
+            isRevert: !!raw.revertedFrom,
+            guarded: true,
+            onPersisted: (applied) => {
+              revision.persistedKeys = applied.persistedKeys;
+              revision.writtenEntity = applied.written;
+              revision.cascade = applied.cascade;
+            },
+          }),
         );
-      } finally {
-        // The post-apply doc is compensation's ownership baseline — the write
-        // may normalize what it persists (config schemas stripped against
-        // ancestors), so desiredState isn't it. Captured in `finally` so a
-        // mid-cascade throw (root written, reconcile then fails) still records
-        // it. If even this read fails, flag it: without a baseline the restore
-        // can't run safely, so compensation reports the item published. Never
-        // rethrow — that would mask the original apply error.
-        try {
-          revision.writtenEntity =
-            (await model?.getById((entity as { id: string }).id)) ?? null;
-        } catch {
-          revision.writtenEntityUnavailable = true;
+      } catch (e) {
+        // Determine whether anything landed from the write report, not the error class.
+        if (revision.writtenEntity === undefined) {
+          revision.persistedKeys = [];
+          revision.casLost = true;
         }
+        throw e;
       }
     },
 
-    async restorePreImage(context, preImage, revision, desiredState) {
+    async restorePreImage(context, preImage, revision) {
+      if (revision.casLost) return;
       const model = adapter.getModel(context);
       const current = await model?.getById((preImage as { id: string }).id);
       // Entity gone (concurrent hard-delete): can't restore a pre-image that no
@@ -265,53 +351,42 @@ export function makeGenericBulkAdapter(
           `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" no longer exists — cannot restore its pre-image`,
         );
       }
-      // No ownership baseline (the post-apply read failed): restoring against
-      // desiredState could silently skip a normalized field, so report the item
-      // published (left whole at the publish state) rather than guess.
-      if (revision.writtenEntityUnavailable) {
-        throw new Error(
-          `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" — post-apply baseline unavailable; cannot safely roll back, left at the published state`,
-        );
-      }
-      // Restore only the fields the apply persisted, so a key dropped by the
-      // filter or by normalization can't clobber a concurrent writer's value.
-      // Fall back to the desired-state keys if applyChanges threw before
-      // returning them; with the finally-captured baseline an unwritten key is
-      // a no-op restore and a written one still rolls back.
-      const updatable = adapter.getUpdatableFields();
-      const persistedKeys =
-        revision.persistedKeys ??
-        Object.keys(desiredState).filter((k) => updatable.has(k));
+      // null is a reported no-op; undefined means no entity write was reported.
+      if (revision.writtenEntity === null) return;
+      if (revision.writtenEntity === undefined) return;
+
+      // Restore only fields actually persisted.
+      const persistedKeys = revision.persistedKeys ?? [];
       const written =
-        (revision.writtenEntity as Record<string, unknown> | null) ??
-        desiredState;
-      const pre = preImage as Record<string, unknown>;
-      const restore = ownedRestoreValues({
-        keys: persistedKeys,
-        preImage: pre,
+        (revision.writtenEntity as Record<string, unknown> | null) ?? {};
+      await restoreEntityPreImage({
+        context,
+        entityType: targetType,
+        preImage: preImage as Record<string, unknown> & { id: string },
+        persistedKeys,
         written,
-        current: current as Record<string, unknown>,
       });
-      await applyVerifiedRestore({
-        restore,
-        current: current as Record<string, unknown>,
-        label: `${targetType} "${(preImage as { id: string }).id}"`,
-        // Restoring a pre-image is semantically a revert to a known-good
-        // published state — skip validations that would block a restore. The
-        // write returns the keys it actually persisted so a normalization drop
-        // (a config field an ancestor now owns) surfaces as a failure instead
-        // of silently leaving the field un-restored.
-        write: (r) =>
-          adapter.applyChanges(context, current, r, { isRevert: true }),
-      });
+
+      // Restore descendants after the root so normalization does not strip them again.
+      for (const write of revision.cascade ?? []) {
+        await restoreEntityPreImage({
+          context,
+          entityType: targetType,
+          preImage: write.before,
+          persistedKeys: Object.keys(write.written),
+          written: write.written,
+        });
+      }
     },
 
     async emitPublished(context, entity, revision) {
       const merged = await context.models.revisions.getById(revision.id);
       if (!merged) return;
-      await getRevisionWebhookAdapter(targetType)?.dispatch(context, merged, {
-        type: merged.revertedFrom ? "reverted" : "published",
-      });
+      const webhooks = getRevisionWebhookAdapter(targetType);
+      await webhooks?.dispatch(context, merged, { type: "published" });
+      if (merged.revertedFrom) {
+        await webhooks?.dispatch(context, merged, { type: "reverted" });
+      }
     },
 
     async emitPublishFailed(context, entity, revision, reason) {

@@ -80,7 +80,7 @@ export default function RevisionDescription({
         style={{ borderBottom: "1px solid var(--gray-a4)", minHeight: 40 }}
       >
         <Flex align="center" gap="2">
-          <Heading as="h5" size="small" color="text-mid" mb="0">
+          <Heading as="h5" size="sm" color="text-mid" mb="0">
             {heading}
           </Heading>
           {canEditNotes && !editing && (
@@ -167,7 +167,7 @@ export default function RevisionDescription({
             )}
           </>
         ) : (
-          <Text size="medium" as="div" color="text-low" fontStyle="italic">
+          <Text size="md" as="div" color="text-low" fontStyle="italic">
             No description yet.
           </Text>
         )}

@@ -13,7 +13,9 @@ import {
   getBlockData,
 } from "shared/enterprise";
 import {
+  DatasetType,
   ExplorationConfig,
+  ComparisonMode,
   ExplorationDateRange,
   ProductAnalyticsExploration,
 } from "shared/validators";
@@ -37,13 +39,17 @@ import { useCronValidation } from "@/enterprise/components/Dashboards/useCronVal
 import DashboardUpdateScheduleSelector from "@/enterprise/components/Dashboards/DashboardUpdateScheduleSelector";
 import track from "@/services/track";
 
+/** Null for dataset types dashboards can't hold a block for yet. Callers gate
+ *  on this rather than assuming — see DASHBOARD_UNSUPPORTED_DATASET. */
 function datasetTypeToBlockType(
-  type: "metric" | "fact_table" | "data_source" | "funnel",
+  type: DatasetType,
 ):
   | "metric-exploration"
   | "fact-table-exploration"
   | "data-source-exploration"
-  | "funnel-exploration" {
+  | "sql-exploration"
+  | "funnel-exploration"
+  | null {
   switch (type) {
     case "metric":
       return "metric-exploration";
@@ -51,9 +57,26 @@ function datasetTypeToBlockType(
       return "fact-table-exploration";
     case "data_source":
       return "data-source-exploration";
+    case "sql":
+      return "sql-exploration";
     case "funnel":
       return "funnel-exploration";
+    case "journey":
+      return null;
+    default: {
+      const exhaustive: never = type;
+      return exhaustive;
+    }
   }
+}
+
+const DASHBOARD_UNSUPPORTED_DATASET =
+  "This exploration type can't be saved to a dashboard yet.";
+
+/** Gate the Save to Dashboard control on this so the modal is never opened for
+ *  a dataset type that has no block to save into. */
+export function canSaveToDashboard(type: DatasetType): boolean {
+  return datasetTypeToBlockType(type) !== null;
 }
 
 interface Props {
@@ -64,8 +87,12 @@ interface Props {
   compareEnabled?: boolean;
   /** The comparison (previous) window the explorer submitted, if any. */
   previousTimeFrame?: ExplorationDateRange | null;
+  /** How the previous window is derived; only `custom` persists the window. */
+  comparisonMode?: ComparisonMode;
   /** Current comparison exploration id, to seed the block before first refresh. */
   comparisonExplorationId?: string | null;
+  /** Funnel metric the exploration was loaded from, if any. */
+  linkedFunnelMetricId?: string | null;
   trackingSource?: string;
 }
 
@@ -75,7 +102,9 @@ export default function SaveToDashboardModal({
   exploration,
   compareEnabled = false,
   previousTimeFrame = null,
+  comparisonMode = "previousPeriod",
   comparisonExplorationId = null,
+  linkedFunnelMetricId = null,
   trackingSource,
 }: Props) {
   const router = useRouter();
@@ -121,14 +150,18 @@ export default function SaveToDashboardModal({
 
   const handleSubmit = async () => {
     const blockType = datasetTypeToBlockType(config.dataset.type);
+    // The Save to Dashboard control is hidden for these, so this is a
+    // belt-and-braces guard rather than a path users can reach.
+    if (!blockType) throw new Error(DASHBOARD_UNSUPPORTED_DATASET);
     // Persist the comparison so dashboards can show it and roll it on refresh.
-    // Only store `previousTimeFrame` for a fixed (custom date range) primary;
-    // relative primaries re-derive the previous window each refresh so it rolls.
+    // Only `custom` needs its window stored; every other mode re-derives it each
+    // refresh so it rolls with the primary range.
     const comparison = compareEnabled
       ? {
           enabled: true,
+          mode: comparisonMode,
           previousTimeFrame:
-            config.dateRange.predefined === "customDateRange"
+            comparisonMode === "custom"
               ? (previousTimeFrame ?? undefined)
               : undefined,
         }
@@ -142,6 +175,9 @@ export default function SaveToDashboardModal({
       ...(comparison ? { comparison } : {}),
       ...(comparison && comparisonExplorationId
         ? { comparisonExplorerAnalysisId: comparisonExplorationId }
+        : {}),
+      ...(blockType === "funnel-exploration" && linkedFunnelMetricId
+        ? { linkedFunnelMetricId }
         : {}),
     };
 
@@ -163,7 +199,11 @@ export default function SaveToDashboardModal({
           projects: formValues.projects,
           experimentId: "",
           blocks: [newBlock],
-          globalControls: DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
+          // Seed new dashboard with the exploration's date range.
+          globalControls: {
+            ...DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
+            dateRange: { ...config.dateRange },
+          },
         }),
       });
       if (res.status !== 200) throw new Error("Failed to create dashboard");
@@ -282,7 +322,7 @@ export default function SaveToDashboardModal({
               {...form.register("title")}
             />
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label="Projects"
               placeholder="All projects"
               options={projectsOptions}

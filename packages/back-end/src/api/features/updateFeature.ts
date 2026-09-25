@@ -1,21 +1,27 @@
 import {
-  validateFeatureValue,
+  assertTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
+import {
+  getApplicableEnvIds,
   getRulesForEnvironment,
-  stemRuleId,
   normalizeTargetingInUpdates,
+  stemRuleId,
+  validateFeatureValue,
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import {
   getFeature,
-  updateFeature as updateFeatureToDb,
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -25,12 +31,15 @@ import {
   addIdsToRules,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
-  getNextScheduledUpdate,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
   inheritStoredRolloutSeeds,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  getArchiveFootprint,
+  getEnabledEnvironments,
+} from "back-end/src/util/features";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -41,18 +50,30 @@ import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validations";
-import { canBypassReviewChecks } from "./reviewBypass";
+import {
+  validateChangedRuleReferences,
+  validateCustomFields,
+} from "./validations";
+import {
+  canBypassReviewChecks,
+  canUseRestApiBypassSetting,
+} from "./reviewBypass";
 import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
+  assertValidChangedRuleProjectIds,
+  assertUniqueRuleIdsByEnv,
+  assertValidChangedRuleExperimentIds,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
   extractRevisionMetadata,
@@ -83,7 +104,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
 
-    if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
+    // Authoring gate. Landing authority is checked below, per part of the body
+    // that reaches the payload — a publisher alone may land someone else's
+    // draft, not write new content through this endpoint.
+    if (!req.context.permissions.canEditFeatureDrafts(feature)) {
       req.context.permissions.throwPermissionError();
     }
     if (
@@ -96,6 +120,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     if (project != null) {
       if (
+        !req.context.permissions.canEditFeatureDrafts({ project }) ||
         !req.context.permissions.canPublishFeature(
           feature,
           Array.from(getEnabledEnvironments(feature, orgEnvs)),
@@ -110,6 +135,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     await assertValidProjectId(project, req.context);
+    assertTargetingDestination({
+      permissions: req.context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, {
+        project,
+        targetingAllProjects,
+        targetingProjects,
+      }),
+      optedOut: await req.context.getTargetingOptOutProjectIds(),
+    });
     await assertValidProjectIds(targetingProjects, req.context);
 
     // check if the custom fields are valid
@@ -124,6 +159,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         customFields ?? feature.customFields,
         req.context,
         effectiveProject,
+        // A project change must re-validate all values against the new
+        // project's fields, so only grandfather unchanged values in place
+        projectChanged ? undefined : feature.customFields,
       );
     }
 
@@ -132,12 +170,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
     }
 
-    validateEnvRulesScheduleRules(req.body.environments, req.context);
+    validateEnvRulesScheduleRules(
+      req.body.environments,
+      req.context,
+      feature.rules ?? [],
+    );
+    assertUniqueRuleIdsByEnv(req.body.environments);
 
     // ensure default value matches value type
     let defaultValue;
     if (req.body.defaultValue != null) {
-      defaultValue = validateFeatureValue(feature, req.body.defaultValue);
+      defaultValue = validateFeatureValue(
+        feature,
+        req.body.defaultValue,
+        "Default value",
+      );
     }
 
     const environmentSettings =
@@ -181,7 +228,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       (req.body.baseConfig ?? null) !== (feature.baseConfig ?? null)
     ) {
       throw new BadRequestError(
-        `The backing config cannot be changed after creation (existing: ${
+        `The backing Config cannot be changed after creation (existing: ${
           feature.baseConfig ? `"${feature.baseConfig}"` : "none"
         }, provided: ${
           req.body.baseConfig ? `"${req.body.baseConfig}"` : "none"
@@ -225,11 +272,35 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     };
     normalizeTargetingInUpdates(updates, feature);
 
+    // Archiving takes the flag out of service, so it is delete-class wherever it
+    // lands — the same rule the archive endpoints and the revision publish path
+    // apply. Unarchiving returns it to service and stays an ordinary publish.
+    const archiving = isArchiveTransition({
+      proposed: updates.archived ?? undefined,
+      current: feature.archived,
+    });
+    if (
+      archiving &&
+      !req.context.permissions.canDeleteFeature(
+        { project: effectiveProject },
+        getArchiveFootprint(feature, req.context.org),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
+
     if (
       updates.environmentSettings ||
       updates.defaultValue != null ||
       updates.project != null ||
-      updates.archived != null
+      // Archiving is delete-class INSTEAD of publish-class, not as well as — the
+      // gate above is the whole check. Demanding both here meant this route asked a
+      // delete-only caller for publish while the archive endpoints did not. A re-send
+      // of the state the flag already has isn't a transition either way, so it must
+      // not fall through to the publish arm and 403 a no-op.
+      (updates.archived != null &&
+        !archiving &&
+        (updates.archived ?? false) !== (feature.archived ?? false))
     ) {
       if (
         !req.context.permissions.canPublishFeature(
@@ -248,15 +319,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         req.context.permissions.throwPermissionError();
       }
       addIdsToRules(updates.environmentSettings, feature.id);
-    }
-
-    // Recompute next-scheduled-update whenever top-level `rules` OR
-    // `environmentSettings` change (the latter for REST callers still posting
-    // v1-shape env rules, which adapters normalize upstream).
-    if (updates.rules !== undefined || updates.environmentSettings) {
-      updates.nextScheduledUpdate = getNextScheduledUpdate(
-        updates.rules ?? feature.rules,
-      );
     }
 
     // JWT-backed REST calls should behave like dashboard actions: the org-level
@@ -279,11 +341,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           settings.enabled !== feature.environmentSettings?.[env]?.enabled
         ) {
           changedEnvEnabled[env] = settings.enabled;
-          // Exclude enabled from the direct-write path to avoid applying it twice.
-          updates.environmentSettings[env] = {
-            ...updates.environmentSettings[env],
-            enabled: feature.environmentSettings?.[env]?.enabled ?? false,
-          };
         }
       }
     }
@@ -305,6 +362,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         feature,
         envSettings.rules,
         feature.rules ?? [],
+        {
+          project: project ?? feature.project,
+          targetingAllProjects:
+            targetingAllProjects ?? feature.targetingAllProjects,
+          targetingProjects: targetingProjects ?? feature.targetingProjects,
+        },
       );
       // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
       inheritStoredRolloutSeeds(converted, feature.rules ?? []);
@@ -321,7 +384,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             featureProject: effectiveProject,
           })
         : [];
-    await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    await assertValidChangedRuleProjectIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await assertValidChangedRuleExperimentIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await validateChangedRuleReferences(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
     // Envs whose rule lists the caller is replacing. Envs present in the
     // payload with only `enabled` (no `rules` key) keep their current rules.
     const rulesTouchedEnvs = new Set(Object.keys(inboundRulesByEnv));
@@ -457,6 +534,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     updates = updatesAfterMetadata;
 
     // 4. prerequisites
+    await assertValidPrerequisiteParents(
+      req.context,
+      {
+        ...feature,
+        rules: revisedRulesFlat,
+        prerequisites: updates.prerequisites ?? feature.prerequisites,
+      },
+      feature,
+    );
     const newPrerequisites = updates.prerequisites ?? null;
     if (newPrerequisites !== null) {
       delete updates.prerequisites;
@@ -487,6 +573,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
     const hasPrereqChanges = newPrerequisites !== null;
     const hasArchivedChange = newArchived !== null;
+    // Set when this request lands a live revision; dispatched after the commit.
+    // Gates this request stepped over, named in the response like every other publish
+    // surface — without it a caller cannot tell a publish that needed no approval from
+    // one that bypassed a live requirement.
+    const bypassedGates: BypassedGate[] = [];
 
     const hasRevisionChanges =
       hasEnvEnabledChanges ||
@@ -496,7 +587,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       hasArchivedChange ||
       hasHoldoutChange;
 
+    // The landing inside createAndPublishRevision is this handler's only write
+    // to the feature document. A second write would not refuse to land over a
+    // newer revision and could put this request's value back over a rival's.
+    let updatedFeature: FeatureInterface = feature;
+
     if (hasRevisionChanges) {
+      if (hasMetadataChanges) {
+        await assertFeatureMoveDependentsGuard(
+          req.context,
+          feature,
+          metadataChanges,
+        );
+      }
       const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }
@@ -516,41 +619,65 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       };
 
       // Throws if the revision requires approval and the caller cannot bypass.
-      const { revision, updatedFeature: updatedFeatureFromRevision } =
-        await createAndPublishRevision({
-          context: req.context,
-          feature,
-          user: req.eventAudit,
-          org: req.organization,
-          changes: revisionChanges,
-          comment: "Created via REST API",
-          canBypassApprovalChecks: canBypass,
+      const {
+        revision,
+        updatedFeature: updatedFeatureFromRevision,
+        bypassedApproval,
+      } = await createAndPublishRevision({
+        context: req.context,
+        feature,
+        user: req.eventAudit,
+        org: req.organization,
+        changes: revisionChanges,
+        comment: req.body.comment ?? "Created via REST API",
+        canBypassApprovalChecks: canBypass,
+      });
+
+      updatedFeature = updatedFeatureFromRevision;
+
+      // This path creates AND publishes a live revision, so it owes the same
+      // `revision.published` webhook the dedicated publish endpoints emit. Without it
+      // a consumer mirroring revision state sees the version advance with no publish
+      // event — the only feature path that landed a revision silently.
+
+      // Dispatched HERE, immediately after the revision commits — not at the end of
+      // the handler. The publish is already live at this point; everything between
+      // (the tags diff, the audit entry, and four reads for the
+      // response payload) can throw, and every one of them turned a live publish into
+      // a 500 with no lifecycle event at all. Those later steps are not part of the
+      // publish, so their failure does not make this event untrue.
+      //
+      // Best-effort, as before: a failed notification must not fail a committed write.
+      try {
+        await dispatchFeatureRevisionEvent(
+          req.context,
+          updatedFeature,
+          await getPublishedRevisionForEvents(
+            req.context,
+            updatedFeature,
+            revision,
+          ),
+          "revision.published",
+          {},
+        );
+      } catch (e) {
+        logger.error(
+          e,
+          `Failed to dispatch revision.published for feature ${feature.id}`,
+        );
+      }
+      if (bypassedApproval) {
+        bypassedGates.push({
+          type: "approval-required",
+          outcome: "bypassed",
+          // `canBypass` ORs the two sources, so it cannot name which one applied.
+          // Ask the org setting directly; the permission is what remains.
+          via: canUseRestApiBypassSetting(req)
+            ? "restApiBypassesReviews"
+            : "bypassApprovalPermission",
         });
-
-      Object.assign(feature, updatedFeatureFromRevision);
-      updates.version = revision.version;
-
-      // The enabled flips were excluded from the direct-write `updates` above
-      // (frozen to their pre-update values) so they apply exactly once, via
-      // the revision publish. The direct write below runs after the publish,
-      // so re-sync the frozen values from the published feature state.
-      if (updates.environmentSettings) {
-        for (const env of Object.keys(changedEnvEnabled)) {
-          updates.environmentSettings[env] = {
-            ...updates.environmentSettings[env],
-            enabled:
-              feature.environmentSettings?.[env]?.enabled ??
-              changedEnvEnabled[env],
-          };
-        }
       }
     }
-
-    const updatedFeature = await updateFeatureToDb(
-      req.context,
-      feature,
-      updates,
-    );
 
     await addTagsDiff(
       req.context.org.id,
@@ -567,8 +694,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       details: auditDetailsUpdate(feature, updatedFeature),
     });
 
-    const groupMap = await getSavedGroupMap(req.context);
-
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       feature.id,
@@ -580,8 +705,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       feature: updatedFeature,
       version: updatedFeature.version,
     });
-    const safeRolloutMap =
-      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+      req.context,
+      { features: [updatedFeature], experiments: experimentMap.values() },
+    );
     return {
       feature: await resolveOwnerEmail(
         getApiFeatureObj({
@@ -594,6 +721,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         }),
         req.context,
       ),
+      ...(bypassedGates.length ? { bypassedGates } : {}),
     };
   },
 );

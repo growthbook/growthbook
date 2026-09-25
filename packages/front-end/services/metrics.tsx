@@ -3,12 +3,13 @@ import {
   ColumnInterface,
   ColumnRef,
   FactTableDefinition,
-  CreateFactMetricProps,
   FactMetricInterface,
   RowFilter,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
+import { CreateProps } from "shared/types/base-model";
 import {
-  canInlineFilterColumn,
+  getInlineFilterPromptColumns,
   ExperimentMetricDefinition,
 } from "shared/experiments";
 import {
@@ -38,21 +39,35 @@ export function getInitialInlineFilters(
   existingRowFilters?: RowFilter[],
 ): RowFilter[] {
   const rowFilters = [...(existingRowFilters || [])];
-  factTable.columns
-    .filter(
-      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
-    )
-    .forEach((c) => {
-      if (!rowFilters.some((rf) => rf.column === c.column)) {
-        rowFilters.push({
-          column: c.column,
-          operator: "=",
-          values: [""],
-        });
-      }
-    });
+  getInlineFilterPromptColumns(factTable, rowFilters).forEach((column) => {
+    if (!rowFilters.some((rf) => rf.column === column)) {
+      rowFilters.push({
+        column,
+        operator: "=",
+        values: [""],
+      });
+    }
+  });
   return rowFilters;
 }
+
+/**
+ * Metric forms in the app only build metrics that describe their events with a
+ * ColumnRef. Funnel metrics are created and edited elsewhere.
+ */
+export type CreateStandardFactMetricProps =
+  CreateProps<StandardFactMetricInterface>;
+
+// Form-state shape backing the shared metric modal. Widens metricType to include
+// "funnel" so one form can author every metric type. funnelSettings stays null
+// here: its deeply nested step/filter shape breaks react-hook-form's typed
+// field-path resolution, so the modal tracks it in dedicated state instead.
+export type CreateFactMetricFormProps = Omit<
+  CreateStandardFactMetricProps,
+  "metricType"
+> & {
+  metricType: FactMetricInterface["metricType"];
+};
 
 export function getDefaultFactMetricProps({
   metricDefaults,
@@ -70,13 +85,14 @@ export function getDefaultFactMetricProps({
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableDefinition;
   managedBy?: "" | "api" | "admin";
-}): CreateFactMetricProps & { targetMDE: number } {
+}): CreateFactMetricFormProps & { targetMDE: number } {
+  const existingMetricType = existing?.metricType;
   return {
     name: existing?.name || "",
     owner: existing?.owner || "",
     description: existing?.description || "",
     tags: existing?.tags || [],
-    metricType: existing?.metricType || "proportion",
+    metricType: existingMetricType || "proportion",
     numerator: existing?.numerator || {
       factTableId: initialFactTable?.id || "",
       column: "$$count",
@@ -101,8 +117,11 @@ export function getDefaultFactMetricProps({
       type: "",
       value: 0,
     },
+    lowerCappingSettings: existing?.lowerCappingSettings ?? null,
     managedBy: managedBy || "",
     quantileSettings: existing?.quantileSettings || null,
+    // Funnel steps are tracked in modal state, not react-hook-form.
+    funnelSettings: null,
     windowSettings: existing?.windowSettings || {
       type: DEFAULT_FACT_METRIC_WINDOW,
       windowUnit: "days",
@@ -194,6 +213,9 @@ export function formatCurrency(
   return currencyFormatter.format(value);
 }
 export function formatDurationSeconds(value: number) {
+  if (value < 0) {
+    return "-" + formatDurationSeconds(-value);
+  }
   // < 1 second
   if (value < 1) {
     return Math.round(value * 1000) + "ms";
@@ -236,6 +258,11 @@ export function formatDurationSeconds(value: number) {
   }
 
   return f;
+}
+
+export function formatDurationMilliseconds(value: number) {
+  // Convert milliseconds to seconds and delegate to formatDurationSeconds
+  return formatDurationSeconds(value / 1000);
 }
 
 export function formatNumber(
@@ -295,6 +322,8 @@ export function getColumnFormatter(
       return formatCurrency;
     case "time:seconds":
       return formatDurationSeconds;
+    case "time:milliseconds":
+      return formatDurationMilliseconds;
     case "memory:bytes":
       return formatBytes;
     case "memory:kilobytes":
@@ -305,10 +334,11 @@ export function getColumnFormatter(
 }
 
 export function getColumnRefFormatter(
-  columnRef: ColumnRef,
+  columnRef: ColumnRef | null,
   getFactTableById: (id: string) => FactTableDefinition | null,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (
+    !columnRef ||
     columnRef.column === "$$count" ||
     columnRef.column === "$$distinctUsers" ||
     columnRef.column === "$$distinctDates"
@@ -351,6 +381,7 @@ export function getExperimentMetricFormatter(
       return formatNumber;
     case "proportion":
     case "retention":
+    case "funnel":
       if (proportionFormat === "number") {
         return formatNumber;
       }

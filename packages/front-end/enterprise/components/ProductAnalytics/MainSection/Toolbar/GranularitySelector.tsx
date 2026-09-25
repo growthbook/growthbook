@@ -6,7 +6,6 @@ import {
 } from "shared/enterprise";
 import { Flex } from "@radix-ui/themes";
 import { Select, SelectItem } from "@/ui/Select";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import { getValidDateGranularities } from "@/enterprise/components/ProductAnalytics/util";
@@ -43,7 +42,7 @@ export function ControlledGranularitySelector({
 
   return (
     <Select
-      size="small"
+      size="md"
       value={selectedGranularity}
       placeholder="Granularity"
       disabled={disabled}
@@ -68,34 +67,5 @@ export function ControlledGranularitySelector({
         </SelectItem>
       ))}
     </Select>
-  );
-}
-
-export default function GranularitySelector() {
-  const { draftExploreState, setDraftExploreState } = useExplorerContext();
-
-  const dateDimension = draftExploreState.dimensions.find(
-    (d) => d.dimensionType === "date",
-  );
-  const granularity = dateDimension?.dateGranularity || "auto";
-
-  return (
-    <ControlledGranularitySelector
-      dateRange={draftExploreState.dateRange}
-      granularity={granularity}
-      onChange={(v) => {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          dimensions: prev.dimensions.map((d) =>
-            d.dimensionType === "date"
-              ? {
-                  ...d,
-                  dateGranularity: v,
-                }
-              : d,
-          ),
-        }));
-      }}
-    />
   );
 }

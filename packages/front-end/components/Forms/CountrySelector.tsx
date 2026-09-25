@@ -44,7 +44,7 @@ export default function CountrySelector(props: CountrySelectorProps) {
   } else {
     return (
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         options={options}
         formatOptionLabel={formatOptionLabel}
         {...props}

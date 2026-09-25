@@ -221,7 +221,7 @@ export const EventsPageContainer = () => {
     <>
       <div>
         <MultiSelectField
-          size="legacy"
+          legacyHeight
           value={eventType}
           placeholder="Filter event type"
           sort={false}

@@ -454,7 +454,7 @@ export default function MetricsOverridesSelector({
                       <Flex direction="column" mb="2">
                         <Switch
                           id={`toggle-properPrior_${i}`}
-                          size="1"
+                          size="sm"
                           label="Use proper prior for this metric"
                           value={
                             !!form.watch(
@@ -579,7 +579,7 @@ export default function MetricsOverridesSelector({
                           <Flex direction="column" mb="2">
                             <Switch
                               id={`toggle-regressionAdjustmentEnabled_${i}`}
-                              size="1"
+                              size="sm"
                               label="Apply regression adjustment for this metric"
                               value={
                                 !!form.watch(

@@ -393,22 +393,17 @@
   }
 }
 
-.gb-select--x-small .rt-SelectTrigger {
+.gb-select--sm .rt-SelectTrigger {
   height: 24px;
   border-radius: var(--radius-2);
 }
 
-.gb-select--small .rt-SelectTrigger {
+.gb-select--md .rt-SelectTrigger {
   height: 32px;
   border-radius: var(--radius-2);
 }
 
-.gb-select--legacy .rt-SelectTrigger {
-  height: 36px;
-  border-radius: var(--radius-2);
-}
-
-.gb-select--medium .rt-SelectTrigger {
+.gb-select--lg .rt-SelectTrigger {
   height: 40px;
   border-radius: var(--radius-3);
 }
@@ -429,22 +424,17 @@
   }
 }
 
-.gb-text-field--x-small .rt-TextFieldRoot {
+.gb-text-field--sm .rt-TextFieldRoot {
   height: 24px;
   border-radius: var(--radius-2);
 }
 
-.gb-text-field--small .rt-TextFieldRoot {
+.gb-text-field--md .rt-TextFieldRoot {
   height: 32px;
   border-radius: var(--radius-2);
 }
 
-.gb-text-field--legacy .rt-TextFieldRoot {
-  height: 36px;
-  border-radius: var(--radius-2);
-}
-
-.gb-text-field--medium .rt-TextFieldRoot {
+.gb-text-field--lg .rt-TextFieldRoot {
   height: 40px;
   border-radius: var(--radius-3);
 }

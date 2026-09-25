@@ -2,8 +2,8 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getEffectiveLookbackOverride } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
-import { ago, date, datetime, getValidDate } from "shared/dates";
-import React, { RefObject, useEffect, useMemo, useState } from "react";
+import { ago, date, datetime } from "shared/dates";
+import React, { RefObject, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
 import { Box, Text } from "@radix-ui/themes";
 import { startCase } from "lodash";
@@ -14,16 +14,16 @@ import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
-import { DropdownMenu } from "@/ui/DropdownMenu";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 const numberFormatter = Intl.NumberFormat();
 
 export default function ReportAnalysisSettingsBar({
   report,
-  snapshot: _snapshot,
+  snapshot,
   mutateReport,
   mutateSnapshot,
   ssrPolyfills,
@@ -43,19 +43,6 @@ export default function ReportAnalysisSettingsBar({
   const { apiCall } = useAuth();
 
   const [refreshError, setRefreshError] = useState("");
-  const [snapshot, setSnapshot] = useState<
-    ExperimentSnapshotInterface | undefined
-  >(_snapshot);
-  useEffect(() => {
-    if (
-      _snapshot &&
-      (!snapshot ||
-        getValidDate(_snapshot?.runStarted) >
-          getValidDate(snapshot?.runStarted))
-    ) {
-      setSnapshot(_snapshot);
-    }
-  }, [_snapshot, snapshot]);
 
   const analysis = snapshot
     ? (getSnapshotAnalysis(snapshot) ?? undefined)
@@ -101,49 +88,54 @@ export default function ReportAnalysisSettingsBar({
     <>
       <div className="mb-1 d-flex align-items-center justify-content-between">
         <div className="h3 mb-1">Analysis</div>
-        <DropdownMenu
+        <Popover
           trigger={
             <Link>
               <PiEye className="mr-1" />
               View details
             </Link>
           }
-          menuPlacement="end"
-        >
-          <div style={{ minWidth: 250 }} className="p-2">
-            <h5>Results computed with:</h5>
-            <Metadata
-              label="Engine"
-              value={
-                analysis?.settings?.statsEngine === "frequentist"
-                  ? "Frequentist"
-                  : "Bayesian"
-              }
-            />
-            <Metadata
-              label="CUPED"
-              value={
-                analysis?.settings?.regressionAdjusted ? "Enabled" : "Disabled"
-              }
-            />
-            {analysis?.settings?.statsEngine === "frequentist" && (
+          align="end"
+          content={
+            <div style={{ minWidth: 250 }}>
+              <h5>Results computed with:</h5>
               <Metadata
-                label="Sequential"
+                label="Engine"
                 value={
-                  analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
+                  analysis?.settings?.statsEngine === "frequentist"
+                    ? "Frequentist"
+                    : "Bayesian"
                 }
               />
-            )}
-            {snapshot.runStarted && (
-              <div className="text-right mt-3">
+              <Metadata
+                label="CUPED"
+                value={
+                  analysis?.settings?.regressionAdjusted
+                    ? "Enabled"
+                    : "Disabled"
+                }
+              />
+              {analysis?.settings?.statsEngine === "frequentist" && (
                 <Metadata
-                  label="Run date"
-                  value={datetime(snapshot.runStarted)}
+                  label="Sequential"
+                  value={
+                    analysis?.settings?.sequentialTesting
+                      ? "Enabled"
+                      : "Disabled"
+                  }
                 />
-              </div>
-            )}
-          </div>
-        </DropdownMenu>
+              )}
+              {snapshot.runStarted && (
+                <div className="text-right mt-3">
+                  <Metadata
+                    label="Run date"
+                    value={datetime(snapshot.runStarted)}
+                  />
+                </div>
+              )}
+            </div>
+          }
+        />
       </div>
       <div className="py-1 d-flex mb-2">
         <div className="row align-items-center" style={{ gap: "0.5rem 1rem" }}>
@@ -229,20 +221,16 @@ export default function ReportAnalysisSettingsBar({
                   await mutateSnapshot();
                 }}
                 model={snapshot}
-                cancelEndpoint={`/report/${report.id}/cancel`}
-                color="outline-primary"
+                cancelEndpoint={`/snapshot/${snapshot.id}/cancel`}
                 radixVariant="soft"
                 onSubmit={async () => {
                   try {
-                    const res = await apiCall<{
-                      snapshot: ExperimentSnapshotInterface;
-                    }>(`/report/${report.id}/refresh`, {
+                    await apiCall(`/report/${report.id}/refresh`, {
                       method: "POST",
                     });
-                    if (res.snapshot) {
-                      setSnapshot(res.snapshot);
-                    }
                     setRefreshError("");
+                    await mutateReport();
+                    await mutateSnapshot();
                   } catch (e) {
                     setRefreshError(e.message);
                   }
@@ -255,7 +243,7 @@ export default function ReportAnalysisSettingsBar({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="md"
                 ml="2"
                 onClick={() => setEditAnalysisOpen(true)}
               >

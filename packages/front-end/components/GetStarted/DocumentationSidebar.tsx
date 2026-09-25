@@ -31,6 +31,9 @@ const DocumentationSidebar = ({
       <SidebarHeading>WHAT&apos;S NEW</SidebarHeading>
       <Flex direction="column" gapY="3">
         <AIVisualEditorCallout />
+        <LinkItem href="https://www.growthbook.io/blog/growthbook-version-5-1?utm_source=product&utm_medium=in-app&utm_campaign=release-5-1">
+          5.1 Feature Highlights
+        </LinkItem>
         <LinkItem href="https://docs.growthbook.io/integrations/ai-agents/agent-skills/">
           Agent Skills
         </LinkItem>
@@ -65,7 +68,7 @@ const DocumentationSidebar = ({
       {canUpgrade && (
         <Button
           mt="3"
-          size="sm"
+          size="md"
           onClick={() => {
             setUpgradeModal(true);
           }}
@@ -169,8 +172,8 @@ function getLinksFor(
             <LinkItem href="https://docs.growthbook.io/integrations/vercel">
               Vercel Integration Docs
             </LinkItem>
-            <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.0.0">
-              5.0 Release Notes
+            <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.1.0">
+              5.1 Release Notes
             </LinkItem>
             <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
             <LinkItem href="https://www.growthbook.io/pricing">
@@ -183,8 +186,8 @@ function getLinksFor(
       return (
         <>
           <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
-          <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.0.0">
-            5.0 Release Notes
+          <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.1.0">
+            5.1 Release Notes
           </LinkItem>
           <LinkItem href="https://www.growthbook.io/pricing">
             Premium Features

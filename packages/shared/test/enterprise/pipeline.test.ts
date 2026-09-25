@@ -354,6 +354,13 @@ const makeEventQuantileMetric = (): FactMetricInterface =>
     },
   });
 
+const makeFunnelMetric = (): FactMetricInterface =>
+  makeFactMetric({
+    id: "fact_funnel",
+    metricType: "funnel",
+    funnelSettings: { steps: [] },
+  });
+
 const unsupportedReasonBaseParams = {
   datasourceProperties: {
     hasIncrementalRefresh: true,
@@ -362,7 +369,6 @@ const unsupportedReasonBaseParams = {
   pipelineSettings: makePipelineSettings(),
   experimentId,
   orgHasIncrementalPipelineFeature: true,
-  skipPartialData: false,
   activationMetric: null,
   metrics: [makeFactMetric()],
   experimentType: "standard",
@@ -404,17 +410,6 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
     ).toBe("Organization does not have access to Incremental Pipeline mode.");
   });
 
-  it("flags exclude in-progress conversions", () => {
-    expect(
-      getIncrementalPipelineUnsupportedReason({
-        ...unsupportedReasonBaseParams,
-        skipPartialData: true,
-      }),
-    ).toBe(
-      "'Exclude In-Progress Conversions' is not supported with Incremental Pipeline mode while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
-    );
-  });
-
   it("flags a configured activation metric", () => {
     expect(
       getIncrementalPipelineUnsupportedReason({
@@ -444,6 +439,15 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
     ).toBe(
       "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.",
     );
+  });
+
+  it("allows funnel metrics on an incremental-capable data source", () => {
+    expect(
+      getIncrementalPipelineUnsupportedReason({
+        ...unsupportedReasonBaseParams,
+        metrics: [makeFunnelMetric()],
+      }),
+    ).toBeNull();
   });
 
   it("flags event quantile metrics on a data source without quantile sketches", () => {
@@ -479,7 +483,6 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
         }),
         experimentId,
         orgHasIncrementalPipelineFeature: false,
-        skipPartialData: true,
         activationMetric: "fact_m1",
         metrics: [],
         experimentType: undefined,

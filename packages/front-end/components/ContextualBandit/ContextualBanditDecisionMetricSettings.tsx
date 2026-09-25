@@ -309,14 +309,14 @@ export default function ContextualBanditDecisionMetricSettings({
 
       {decisionMetricId ? (
         <Box my="5">
-          <Text size="medium" weight="semibold">
+          <Text size="md" weight="semibold">
             Conversion Window
           </Text>
-          <Text size="small" color="text-mid" as="p" my="1">
+          <Text size="sm" color="text-mid" as="p" my="1">
             Set a short window to ensure the bandit reward is measured before a
             user may switch variations.
           </Text>
-          <Text color="text-mid" size="small" as="p" my="1">
+          <Text color="text-mid" size="sm" as="p" my="1">
             {decisionMetricWindow ? (
               <>
                 Metric default: {decisionMetricWindow.windowValue}{" "}

@@ -1,4 +1,5 @@
 import { ReqContext } from "back-end/types/request";
+import { logger } from "back-end/src/util/logger";
 
 /**
  * Resolves an owner input value (userId or email address) to a userId.
@@ -162,6 +163,25 @@ function withOwnerInfo<T extends object>(
   const info = map.get(apiDoc.owner);
   if (info === undefined) return apiDoc;
   return { ...apiDoc, ownerEmail: info.email, ownerName: info.name };
+}
+
+/**
+ * The owner's email for a notification payload, or undefined when the owner
+ * is unset or cannot be resolved to a known user. Never throws: the email
+ * decorates a notification, and a failed lookup must not suppress it.
+ */
+export async function getOwnerEmail(
+  owner: string | undefined,
+  context: ReqContext,
+): Promise<string | undefined> {
+  if (!owner) return undefined;
+  try {
+    const info = (await buildOwnerInfoMap([owner], context)).get(owner);
+    return info?.email;
+  } catch (error) {
+    logger.warn(error, "Failed to resolve owner email for notification");
+    return undefined;
+  }
 }
 
 /**

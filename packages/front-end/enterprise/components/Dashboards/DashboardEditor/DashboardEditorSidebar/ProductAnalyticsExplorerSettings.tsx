@@ -5,14 +5,19 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
   FunnelExplorationBlockInterface,
-  buildComparisonDateRange,
   dashboardBlockHasIds,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
+  resolveComparisonMode,
+  resolveComparisonPreviousTimeFrame,
   restoreBlockLocalDateControls,
+  blockUsesDashboardDateControl,
+  SqlExplorationBlockInterface,
 } from "shared/enterprise";
+import { ReactNode } from "react";
 import { isEqual } from "lodash";
 import type {
+  ComparisonMode,
   ExplorationDateRange,
   ProductAnalyticsExploration,
 } from "shared/validators";
@@ -20,7 +25,11 @@ import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  normalizeTimelessSqlConfig,
+  stripExplorerDraftFields,
+  type ExplorerDraftConfig,
+} from "@/enterprise/components/ProductAnalytics/util";
 import ProductAnalyticsExplorerSideBarWrapper from "./ProductAnalyticsExplorerSideBarWrapper";
 
 interface Props {
@@ -28,6 +37,7 @@ interface Props {
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
     | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
@@ -35,20 +45,23 @@ interface Props {
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | SqlExplorationBlockInterface
       | FunnelExplorationBlockInterface
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
-  saveAndCloseTrigger?: number;
-  onSaveAndClose?: () => void;
+  hideDataSourceSelector?: boolean;
+  sqlExploreConfigOnly?: boolean;
+  dashboardHeaderLeadingContent?: ReactNode;
 }
 
 export default function ProductAnalyticsExplorerSettings({
   block,
   setBlock,
   dashboardGlobalControls,
-  saveAndCloseTrigger,
-  onSaveAndClose,
+  hideDataSourceSelector,
+  sqlExploreConfigOnly,
+  dashboardHeaderLeadingContent,
 }: Props) {
   const { data, error } = useApi<{
     status: number;
@@ -73,15 +86,19 @@ export default function ProductAnalyticsExplorerSettings({
         config: baseInitialConfig,
       } as typeof block)
     : null;
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
   const effectiveInitialConfig = blockForInitialConfig
-    ? dashboardGlobalControls
+    ? dashboardGlobalControls &&
+      blockUsesDashboardDateControl(blockForInitialConfig)
       ? getEffectiveExplorationConfig(blockForInitialConfig, {
           globalControls: dashboardGlobalControls,
         })
       : baseInitialConfig
     : null;
   const usesDashboardDateRange =
-    block.globalControlSettings?.dateRange === true &&
+    dateControlledBlock?.globalControlSettings?.dateRange === true &&
     Boolean(dashboardGlobalControls?.dateRange);
   const hasStaleDashboardDateResults =
     usesDashboardDateRange &&
@@ -104,27 +121,38 @@ export default function ProductAnalyticsExplorerSettings({
     );
   }
 
-  const initialConfig: ExplorerDraftConfig = block.comparison?.enabled
-    ? {
-        ...effectiveInitialConfig,
-        previousTimeFrame:
-          block.comparison.previousTimeFrame ??
-          buildComparisonDateRange(effectiveInitialConfig.dateRange),
-      }
-    : effectiveInitialConfig;
+  const blockComparisonMode = block.comparison
+    ? resolveComparisonMode(block.comparison)
+    : null;
+  const initialConfig: ExplorerDraftConfig =
+    block.comparison?.enabled && blockComparisonMode
+      ? {
+          ...effectiveInitialConfig,
+          comparisonMode: blockComparisonMode,
+          previousTimeFrame: resolveComparisonPreviousTimeFrame(
+            effectiveInitialConfig.dateRange,
+            block.comparison,
+          ),
+        }
+      : effectiveInitialConfig;
   const initialSubmittedConfig: ExplorerDraftConfig | undefined = exploration
-    ? block.comparison?.enabled
+    ? block.comparison?.enabled && blockComparisonMode
       ? {
           ...exploration.config,
-          previousTimeFrame:
-            block.comparison.previousTimeFrame ??
-            buildComparisonDateRange(exploration.config.dateRange),
+          comparisonMode: blockComparisonMode,
+          previousTimeFrame: resolveComparisonPreviousTimeFrame(
+            exploration.config.dateRange,
+            block.comparison,
+          ),
         }
       : exploration.config
     : undefined;
+  // Deliberately excluded, since both remount the provider and lose in-flight work:
+  // - `block.comparison`, which the provider owns while open
+  // - the date-range follow flag, which now flips on every edit of an inherited
+  //   range. Revert reseeds the draft itself, so it needs no remount.
   const explorerProviderKey = [
     dashboardBlockHasIds(block) ? block.id : "",
-    block.globalControlSettings?.dateRange === true,
     JSON.stringify(dashboardGlobalControls ?? null),
     hasStaleDashboardDateResults,
   ].join(":");
@@ -135,23 +163,33 @@ export default function ProductAnalyticsExplorerSettings({
       initialConfig={initialConfig}
       initialSubmittedConfig={initialSubmittedConfig}
       hasExistingResults={!!block.explorerAnalysisId}
+      initialLinkedFunnelMetricId={
+        "linkedFunnelMetricId" in block
+          ? (block.linkedFunnelMetricId ?? null)
+          : null
+      }
       trackingSource="dashboard-editor"
       onRunComplete={(
         exploration,
         comparisonExploration,
         previousTimeFrame: ExplorationDateRange | null,
+        comparisonMode: ComparisonMode | null,
       ) => {
         const comparison =
-          previousTimeFrame != null
+          previousTimeFrame != null && comparisonMode != null
             ? {
                 enabled: true,
-                ...(exploration.config.dateRange.predefined ===
-                  "customDateRange" && { previousTimeFrame }),
+                mode: comparisonMode,
+                ...(comparisonMode === "custom" && { previousTimeFrame }),
               }
             : undefined;
-        const nextConfig = usesDashboardDateRange
-          ? restoreBlockLocalDateControls(exploration.config, block.config)
-          : exploration.config;
+        const nextConfig =
+          usesDashboardDateRange && dateControlledBlock
+            ? restoreBlockLocalDateControls(
+                exploration.config as typeof dateControlledBlock.config,
+                dateControlledBlock.config,
+              )
+            : exploration.config;
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
@@ -164,14 +202,18 @@ export default function ProductAnalyticsExplorerSettings({
                 comparison: undefined,
                 comparisonExplorerAnalysisId: undefined,
               }),
-          config: {
-            ...nextConfig,
-            chartType: block.config?.chartType || exploration.config?.chartType,
-          },
+          config: stripExplorerDraftFields(
+            normalizeTimelessSqlConfig({
+              ...nextConfig,
+              chartType:
+                block.config?.chartType || exploration.config?.chartType,
+            }),
+          ),
         } as
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface
           | DataSourceExplorationBlockInterface
+          | SqlExplorationBlockInterface
           | FunnelExplorationBlockInterface);
       }}
     >
@@ -180,8 +222,9 @@ export default function ProductAnalyticsExplorerSettings({
         setBlock={setBlock}
         dashboardGlobalControls={dashboardGlobalControls}
         invalidateStaleResults={!hasStaleDashboardDateResults}
-        saveAndCloseTrigger={saveAndCloseTrigger}
-        onSaveAndClose={onSaveAndClose}
+        hideDataSourceSelector={hideDataSourceSelector}
+        sqlExploreConfigOnly={sqlExploreConfigOnly}
+        dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}
       />
     </ExplorerProvider>
   );

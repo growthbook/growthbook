@@ -1,5 +1,18 @@
 # Changelog
 
+## **1.7.1** - Unreleased
+
+- Add an option to disable feature usage events in the GrowthBook tracking plugin
+
+## **1.7.0** - Aug 7, 2026
+
+- Add Contextual Bandit support
+- Add user argument to `trackingCallback` - required for Contextual Bandits
+- All tracking and event callbacks now receive a consistent `TrackingUserContext` (`{ attributes, url }`) instead of the full internal user context
+- Fix event forwarder tracking for `GrowthBookClient`
+- Add internal subscription streams for feature usage and custom events (used by plugins)
+- Fix redirect experiment SRM issues: subdomain-stable UUID generation and unload-safe event delivery
+
 ## **1.6.5** - Feb 18, 2026
 
 - Add `setFeatureUsageCallback` method

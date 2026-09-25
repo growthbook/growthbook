@@ -20,8 +20,8 @@ export default function IncrementalPipelineFallbackDialog({
       submit={onConfirm}
       close={onCancel}
     >
-      <Text size="medium" color="text-high" as="p">
-        <Text size="medium" weight="semibold" color="text-high">
+      <Text size="md" color="text-high" as="p">
+        <Text size="md" weight="semibold" color="text-high">
           Why incremental updates are unavailable:
         </Text>
         <br />

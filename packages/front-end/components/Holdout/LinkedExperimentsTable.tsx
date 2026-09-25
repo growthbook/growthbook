@@ -107,7 +107,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                     <VariationLabel
                       number={variationIndex}
                       name={variation.name}
-                      size="medium"
+                      size="md"
                       maxWidth="170px"
                     />
                   ) : (

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { updateFactMetricValidator } from "shared/validators";
+import {
+  updateFactMetricValidator,
+  resolveCappingSettingsPatch,
+  validateFactMetricCapping,
+} from "shared/validators";
 import {
   FactMetricInterface,
   FactMetricType,
@@ -20,6 +24,7 @@ function expectsDenominator(metricType: FactMetricType) {
     case "quantile":
     case "retention":
     case "dailyParticipation":
+    case "funnel":
       return false;
   }
 }
@@ -32,7 +37,9 @@ export async function getUpdateFactMetricPropsFromBody(
   const {
     numerator,
     denominator,
+    funnelSettings,
     cappingSettings,
+    lowerCappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
     riskThresholdSuccess,
@@ -47,6 +54,31 @@ export async function getUpdateFactMetricPropsFromBody(
   };
 
   const metricType = updates.metricType ?? factMetric.metricType;
+  if (metricType === "funnel") {
+    const nextFunnelSettings =
+      funnelSettings ??
+      (factMetric.metricType === "funnel" ? factMetric.funnelSettings : null);
+    if (!nextFunnelSettings) {
+      throw new Error("Funnel settings required for funnel metrics");
+    }
+    updates.funnelSettings = nextFunnelSettings;
+    updates.numerator = null;
+    updates.denominator = null;
+    updates.quantileSettings = null;
+    updates.metricAutoSlices = [];
+  } else {
+    if (numerator === null) {
+      throw new Error("Numerator required for non-funnel metrics");
+    }
+    if (funnelSettings) {
+      throw new Error("Funnel settings are only allowed for funnel metrics");
+    }
+    if (factMetric.metricType === "funnel" && !numerator) {
+      throw new Error("Numerator required when changing from a funnel metric");
+    }
+    updates.funnelSettings = null;
+  }
+
   if (numerator) {
     // Set the correct column based on metric type
     let column: string;
@@ -83,7 +115,7 @@ export async function getUpdateFactMetricPropsFromBody(
   ) {
     updates.denominator = null;
   }
-  if (denominator) {
+  if (denominator && metricType !== "funnel") {
     updates.denominator = FactMetricModel.migrateColumnRef({
       ...denominator,
       column: denominator.column || "$$distinctUsers",
@@ -93,14 +125,15 @@ export async function getUpdateFactMetricPropsFromBody(
       throw new Error("Could not find denominator fact table");
     }
   }
-  if (cappingSettings) {
-    updates.cappingSettings = {
-      type: cappingSettings.type === "none" ? "" : cappingSettings.type,
-      value: cappingSettings.value ?? factMetric.cappingSettings.value,
-      ignoreZeros:
-        cappingSettings.ignoreZeros ?? factMetric.cappingSettings.ignoreZeros,
-    };
-  }
+  Object.assign(
+    updates,
+    resolveCappingSettingsPatch(
+      { cappingSettings, lowerCappingSettings },
+      factMetric,
+    ),
+  );
+  validateFactMetricCapping({ ...factMetric, ...updates }, factMetric);
+
   if (windowSettings) {
     updates.windowSettings = {
       type: windowSettings.type === "none" ? "" : windowSettings.type,

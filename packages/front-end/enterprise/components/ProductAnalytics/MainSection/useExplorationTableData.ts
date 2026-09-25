@@ -1,14 +1,24 @@
 import { useMemo } from "react";
 import type {
+  ComparisonMode,
   ExplorationConfig,
+  JourneyPathStep,
   ProductAnalyticsExploration,
+  ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
+  getComparisonAlignmentStrategy,
   getDateGranularity,
   buildAlignedComparisonRowLookup,
 } from "shared/enterprise";
+import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
+import {
+  compareJourneyStepValues,
+  journeyDisplayLookaheadDepth,
+  journeyResultToStepValues,
+} from "shared/journeys";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
@@ -131,6 +141,7 @@ function buildFunnelTableData(
   submittedExploreState: ExplorationConfig,
   getFactTableById: (id: string) => FactTableDefinition | null,
   comparisonExploration?: ProductAnalyticsExploration | null,
+  comparisonAlignment?: ComparisonAlignmentStrategy,
 ): ExplorationTableData {
   if (submittedExploreState.dataset.type !== "funnel") {
     return {
@@ -154,7 +165,7 @@ function buildFunnelTableData(
   const stepLabels = steps.map((s, i) =>
     getFunnelStepDisplayLabel({
       step: s,
-      factTable: s.factTable ? getFactTableById(s.factTable) : null,
+      factTable: s.factTableId ? getFactTableById(s.factTableId) : null,
       fallbackIndex: i,
       allSteps: steps,
     }),
@@ -304,7 +315,12 @@ function buildFunnelTableData(
   const firstDimensionIsDate =
     submittedExploreState.dimensions?.[0]?.dimensionType === "date";
   const getAlignedCmpRow = compareActive
-    ? buildAlignedComparisonRowLookup(sortedRows, cmpRows, firstDimensionIsDate)
+    ? buildAlignedComparisonRowLookup(
+        sortedRows,
+        cmpRows,
+        firstDimensionIsDate,
+        comparisonAlignment,
+      )
     : null;
 
   const rowData: Record<string, unknown>[] = [];
@@ -362,12 +378,107 @@ function buildFunnelTableData(
   };
 }
 
+function tableRowSteps(
+  row: Record<string, unknown>,
+  stepCount: number,
+): (string | null)[] {
+  const steps: (string | null)[] = [];
+  for (let i = 0; i < stepCount; i++) {
+    const v = row[`step_${i + 1}`];
+    steps.push(typeof v === "string" ? v : null);
+  }
+  return steps;
+}
+
+function journeyResultRowToSqlTableRow(
+  row: ProductAnalyticsResultRow,
+  path: JourneyPathStep[],
+  lookaheadDepth: number,
+  hasDimension: boolean,
+): Record<string, unknown> {
+  const journey = row.journey;
+  const steps = journey
+    ? journeyResultToStepValues(journey, path, lookaheadDepth)
+    : [];
+  const out: Record<string, unknown> = {
+    journeys: journey?.count ?? 0,
+  };
+  for (let i = 0; i < path.length + lookaheadDepth; i++) {
+    out[`step_${i + 1}`] = steps[i] ?? null;
+  }
+  if (hasDimension) {
+    out["dim_1"] = row.dimensions[0] ?? "";
+  }
+  return out;
+}
+
+export function buildJourneyTableData(
+  exploration: ProductAnalyticsExploration | null,
+  submittedExploreState: ExplorationConfig,
+): ExplorationTableData {
+  if (submittedExploreState.dataset.type !== "journey") {
+    return {
+      rowData: [],
+      orderedColumnKeys: [],
+      columnLabels: [],
+      headerStructure: null,
+      explorationReturnedNoData: true,
+      tableCompareActive: false,
+    };
+  }
+  const source =
+    exploration?.config.dataset.type === "journey"
+      ? exploration.config
+      : submittedExploreState;
+  const path = source.dataset.type === "journey" ? source.dataset.path : [];
+  const hasDimension = source.dimensions.length > 0;
+  const rows = exploration?.result?.rows ?? [];
+  const lookaheadDepth = journeyDisplayLookaheadDepth(rows);
+  const stepCount = path.length + lookaheadDepth;
+
+  const orderedColumnKeys = [
+    ...Array.from({ length: stepCount }, (_, i) => `step_${i + 1}`),
+    ...(hasDimension ? ["dim_1"] : []),
+    "journeys",
+  ];
+  const columnLabels = [...orderedColumnKeys];
+
+  const rowData = rows
+    .map((row) =>
+      journeyResultRowToSqlTableRow(row, path, lookaheadDepth, hasDimension),
+    )
+    .sort((a, b) => {
+      const byPath = compareJourneyStepValues(
+        tableRowSteps(a, stepCount),
+        tableRowSteps(b, stepCount),
+      );
+      if (byPath !== 0) return byPath;
+      if (hasDimension) {
+        const dimCmp = String(a["dim_1"] ?? "").localeCompare(
+          String(b["dim_1"] ?? ""),
+        );
+        if (dimCmp !== 0) return dimCmp;
+      }
+      return Number(b.journeys) - Number(a.journeys);
+    });
+
+  return {
+    rowData,
+    orderedColumnKeys,
+    columnLabels,
+    headerStructure: null,
+    explorationReturnedNoData: rows.length === 0,
+    tableCompareActive: false,
+  };
+}
+
 export default function useExplorationTableData(
   exploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig | null,
   options?: {
     compareEnabled?: boolean;
     comparisonExploration?: ProductAnalyticsExploration | null;
+    comparisonMode?: ComparisonMode | null;
     /** When set, `%` trend cells come from the server (aligned to sorted primary rows). */
     serverTableTrendsByRow?: Record<string, number | null>[] | null;
   },
@@ -376,6 +487,9 @@ export default function useExplorationTableData(
   const compareEnabled = options?.compareEnabled ?? false;
   const comparisonExploration = options?.comparisonExploration ?? null;
   const serverTableTrendsByRow = options?.serverTableTrendsByRow ?? null;
+  const comparisonAlignment = getComparisonAlignmentStrategy(
+    options?.comparisonMode ?? "previousPeriod",
+  );
 
   // Funnels have a wholly different column shape. Compute it once at the top
   // and bypass the rest of this hook (the metric/fact-table/data-source
@@ -387,6 +501,7 @@ export default function useExplorationTableData(
       submittedExploreState,
       getFactTableById,
       compareEnabled ? comparisonExploration : null,
+      comparisonAlignment,
     );
   }, [
     exploration,
@@ -394,7 +509,13 @@ export default function useExplorationTableData(
     getFactTableById,
     compareEnabled,
     comparisonExploration,
+    comparisonAlignment,
   ]);
+
+  const journeyTableData = useMemo(() => {
+    if (submittedExploreState?.dataset?.type !== "journey") return null;
+    return buildJourneyTableData(exploration, submittedExploreState);
+  }, [exploration, submittedExploreState]);
 
   const renderOpts: RenderOpts = useMemo(
     () => ({
@@ -486,7 +607,8 @@ export default function useExplorationTableData(
           labels.push(col.label);
         } else if (col.sub === "single") {
           const metricName =
-            (submittedExploreState.dataset?.type !== "funnel"
+            (submittedExploreState.dataset?.type !== "funnel" &&
+            submittedExploreState.dataset?.type !== "journey"
               ? submittedExploreState.dataset?.values?.[col.metricIndex]?.name
               : undefined) ?? col.label;
           labels.push(
@@ -525,7 +647,8 @@ export default function useExplorationTableData(
           row1.push({ label: col.label, rowSpan: 2 });
         } else if (col.sub === "single") {
           const metricName =
-            (submittedExploreState.dataset?.type !== "funnel"
+            (submittedExploreState.dataset?.type !== "funnel" &&
+            submittedExploreState.dataset?.type !== "journey"
               ? submittedExploreState.dataset?.values?.[col.metricIndex]?.name
               : undefined) ?? col.label;
           row1.push({ label: metricName, colSpan: 2 });
@@ -553,7 +676,7 @@ export default function useExplorationTableData(
       }
       const ds = submittedExploreState?.dataset;
       const metricName =
-        (ds && ds.type !== "funnel"
+        (ds && ds.type !== "funnel" && ds.type !== "journey"
           ? ds.values?.[col.metricIndex]?.name
           : undefined) ?? col.label;
       if (col.sub === "numerator") {
@@ -615,6 +738,7 @@ export default function useExplorationTableData(
         sortedRows,
         cmpSorted,
         isTimeseries,
+        comparisonAlignment,
       );
       return sortedRows.map((row, idx) => {
         // Pair by dimension key for both timeseries and categorical charts.
@@ -659,7 +783,9 @@ export default function useExplorationTableData(
               typeof rawCurr === "number" &&
               rawPrev !== 0
             ) {
-              trend = ((rawCurr - rawPrev) / rawPrev) * 100;
+              // Magnitude, matching the server and the big number. A signed
+              // denominator inverts the arrow for negative metrics.
+              trend = ((rawCurr - rawPrev) / Math.abs(rawPrev)) * 100;
             }
             entries.push(
               [currKey, formatCellForTable(rawCurr, col, fmtCtx)] as const,
@@ -682,6 +808,7 @@ export default function useExplorationTableData(
   }, [
     columns,
     comparisonExploration?.result?.rows,
+    comparisonAlignment,
     exploration?.result?.rows,
     firstDimensionIsDate,
     renderOpts,
@@ -694,11 +821,12 @@ export default function useExplorationTableData(
   const explorationReturnedNoData = useMemo(() => {
     if (!exploration?.result?.rows?.length) return true;
     return exploration.result.rows.every(
-      (r) => !(r.values?.length || r.steps?.length),
+      (r) => !(r.values?.length || r.steps?.length || r.journey),
     );
   }, [exploration?.result?.rows]);
 
   if (funnelTableData) return funnelTableData;
+  if (journeyTableData) return journeyTableData;
 
   return {
     rowData,

@@ -1,9 +1,12 @@
 import {
+  rampRuleEnvKey,
   stemRuleId,
   suffixRuleId,
   isMigrationSuffixedRuleId,
   parseRuleId,
   RULE_ID_ENV_SUFFIX_DELIMITER,
+  findStoredRuleCounterpart,
+  rampTargetsDetachedBy,
 } from "shared/util";
 
 describe("ruleId helpers", () => {
@@ -121,5 +124,130 @@ describe("ruleId helpers", () => {
     // Lock-test: nothing else in the codebase should split on `__`. If we
     // ever change the delimiter, it happens here and the test moves with it.
     expect(RULE_ID_ENV_SUFFIX_DELIMITER).toBe("__");
+  });
+});
+
+// The key must be INJECTIVE. A bare `:` join was not: feature ids permit `:` and rule
+// ids are an unconstrained client-supplied string, so a decoy target on a feature the
+// caller controls could collide with one it does not — the same last-write-wins
+// collision the environment component was added to close, through a different door.
+describe("rampRuleEnvKey", () => {
+  it("cannot be made ambiguous by a `:` in either id", () => {
+    expect(rampRuleEnvKey("a:b", "c", "dev")).not.toEqual(
+      rampRuleEnvKey("a", "b:c", "dev"),
+    );
+  });
+
+  it("still distinguishes the environment, which is the identity it carries", () => {
+    expect(rampRuleEnvKey("f", "r", "dev")).not.toEqual(
+      rampRuleEnvKey("f", "r", "production"),
+    );
+  });
+
+  it("treats a missing id and a missing environment as empty, not as each other", () => {
+    expect(rampRuleEnvKey("f", undefined, "dev")).not.toEqual(
+      rampRuleEnvKey("f", "dev", undefined),
+    );
+  });
+});
+
+// `encodeURIComponent` throws on a lone surrogate, and rule ids carry no charset
+// constraint — so a crafted id made the gate's key computation a 500 rather than a
+// decision. The fallback must stay injective and must not collide with normal keys.
+describe("rampRuleEnvKey with characters encodeURIComponent rejects", () => {
+  const LONE_SURROGATE = "\uD800";
+
+  it("does not throw", () => {
+    expect(() => rampRuleEnvKey("f", LONE_SURROGATE, "dev")).not.toThrow();
+  });
+
+  it("stays injective across the fallback", () => {
+    expect(rampRuleEnvKey("f", LONE_SURROGATE, "dev")).not.toEqual(
+      rampRuleEnvKey("f", LONE_SURROGATE, "production"),
+    );
+    expect(rampRuleEnvKey("a:b", LONE_SURROGATE, "dev")).not.toEqual(
+      rampRuleEnvKey("a", `b:${LONE_SURROGATE}`, "dev"),
+    );
+  });
+
+  it("cannot collide with a normally-encoded key", () => {
+    // The fallback starts with `[`, which encodeURIComponent always escapes.
+    expect(rampRuleEnvKey("f", LONE_SURROGATE, "dev")).not.toEqual(
+      rampRuleEnvKey("f", "r", "dev"),
+    );
+    expect(rampRuleEnvKey("f", "r", "dev").startsWith("[")).toBe(false);
+  });
+});
+
+describe("findStoredRuleCounterpart", () => {
+  const stored = [
+    { id: "fr_x__production", environments: ["production"] },
+    { id: "fr_x__dev", environments: ["dev"] },
+    { id: "fr_all", allEnvironments: true },
+  ];
+
+  it("prefers an exact id match", () => {
+    expect(findStoredRuleCounterpart(stored, { id: "fr_x__dev" })?.id).toBe(
+      "fr_x__dev",
+    );
+  });
+
+  it("matches a stemmed v1 post-back to the sibling in the same environment", () => {
+    expect(
+      findStoredRuleCounterpart(stored, {
+        id: "fr_x",
+        environments: ["production"],
+      })?.id,
+    ).toBe("fr_x__production");
+    expect(
+      findStoredRuleCounterpart(stored, { id: "fr_x", environments: ["qa"] }),
+    ).toBeUndefined();
+  });
+
+  it("treats an all-environments rule on either side as overlapping", () => {
+    expect(
+      findStoredRuleCounterpart(stored, {
+        id: "fr_all__production",
+        environments: ["production"],
+      })?.id,
+    ).toBe("fr_all");
+  });
+
+  it("never matches an id-less rule", () => {
+    expect(
+      findStoredRuleCounterpart(stored, { environments: ["production"] }),
+    ).toBeUndefined();
+  });
+});
+
+describe("rampTargetsDetachedBy", () => {
+  const ids = (ruleIds: string[]) => ruleIds.map((ruleId) => ({ ruleId }));
+  it.each([
+    [
+      "the literal id, not its migrated sibling",
+      ["fr_1__dev", "fr_1__prod"],
+      "fr_1__dev",
+      ["fr_1__dev"],
+    ],
+    [
+      "a suffixed id to its bare legacy target",
+      ["fr_1", "fr_2"],
+      "fr_1__prod",
+      ["fr_1"],
+    ],
+    [
+      "a bare id to every migrated suffix",
+      ["fr_1__dev", "fr_1__prod"],
+      "fr_1",
+      ["fr_1__dev", "fr_1__prod"],
+    ],
+    [
+      "no migrated sibling once the literal target is gone",
+      ["fr_1__prod"],
+      "fr_1__dev",
+      [],
+    ],
+  ])("matches %s", (_, targets, ruleId, expected) => {
+    expect(rampTargetsDetachedBy(ids(targets), ruleId)).toEqual(ids(expected));
   });
 });

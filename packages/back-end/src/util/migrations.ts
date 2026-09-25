@@ -4,8 +4,10 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
+import { stringifyFeatureValue } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -354,6 +356,20 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // feature. Pass nullish through; downstream callers filter via
   // `isPlausibleFeatureRule` before relying on the rule shape.
   if (rule == null || typeof rule !== "object") return rule;
+  // Ramp steps once wrote a rule's value as the raw JSON type their plan
+  // carried; rule values are strings, and the payload builder parses them.
+  const { value } = rule as { value?: unknown };
+  if (value !== undefined && typeof value !== "string") {
+    rule = { ...rule, value: stringifyFeatureValue(value) } as FeatureRule;
+  }
+  // A stored `environments: null` (an undefined key written through Mongo) is
+  // read as no environments, not as every environment; a rule whose list is
+  // wildcarded drops the key so the two spellings compare equal.
+  if (rule.environments === null) {
+    const scoped = { ...rule };
+    delete scoped.environments;
+    rule = rule.allEnvironments ? scoped : { ...scoped, environments: [] };
+  }
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
     const weights = rule.values
@@ -398,6 +414,23 @@ export function pinLegacyRolloutSeeds<T extends FeatureRule>(
   );
 }
 
+// Backfills the `jsonSchema` keys that postdate the oldest documents, returning
+// a new object. Docs written before `schemaType`/`simple` existed hold a
+// three-key shape that means exactly what the five-key one means, so leaving
+// them unequal makes an untouched schema read as an edit.
+//
+// Applied to the feature on read and to every revision's metadata snapshot, so
+// the two always compare in the same spelling.
+export function normalizeJsonSchemaDef<T extends Partial<JSONSchemaDef>>(
+  jsonSchema: T,
+): T {
+  return {
+    ...jsonSchema,
+    schemaType: jsonSchema.schemaType || "schema",
+    simple: jsonSchema.simple || { type: "object", fields: [] },
+  };
+}
+
 // Non-rule backfills shared by v1 and v2 docs (`version`, `jsonSchema.*`).
 // Mutates and returns. Rules go through `upgradeFeatureRule` separately.
 export function applyNonRuleFeatureUpgrades<
@@ -409,26 +442,20 @@ export function applyNonRuleFeatureUpgrades<
   feature.version = feature.version || 1;
 
   if (feature.jsonSchema) {
-    feature.jsonSchema.schemaType = feature.jsonSchema.schemaType || "schema";
-    feature.jsonSchema.simple = feature.jsonSchema.simple || {
-      type: "object",
-      fields: [],
-    };
+    feature.jsonSchema = normalizeJsonSchemaDef(feature.jsonSchema);
   }
 
   return feature;
 }
 
-/**
- * v0 → v1 upgrade. Redistributes top-level rules into
- * `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
- * legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
- * non-rule backfills.
- *
- * CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
- * Running this on a v1/v2 doc would redistribute legitimate v2 top-level
- * rules into v1-only storage.
- */
+// v0 → v1 upgrade. Redistributes top-level rules into
+// `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
+// legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
+// non-rule backfills.
+//
+// CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
+// Running this on a v1/v2 doc would redistribute legitimate v2 top-level
+// rules into v1-only storage.
 export function upgradeV0Feature(
   feature: LegacyFeatureInterface,
 ): V1FeatureInterface {
@@ -569,6 +596,15 @@ export function upgradeOrganizationDoc(
   // the field should inherit the original "always bypass" behaviour.
   if (org.settings.restApiBypassesReviews === undefined) {
     org.settings.restApiBypassesReviews = true;
+  }
+
+  // Default stickyBucketingOnByDefault for orgs that predate this field. Unset
+  // means "on by default" so existing orgs keep defaulting new experiments to
+  // sticky bucketing exactly as they did before the setting existed. An explicit
+  // false (per-experiment opt-in) is preserved.
+  if (org.settings.stickyBucketingOnByDefault === undefined) {
+    org.settings.stickyBucketingOnByDefault =
+      DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT;
   }
 
   // Migrate Arroval Flow Settings

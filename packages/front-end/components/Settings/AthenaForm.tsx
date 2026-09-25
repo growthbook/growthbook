@@ -3,6 +3,10 @@ import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { isCloud } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import {
+  KEEP_EXISTING_PLACEHOLDER,
+  useCanKeepExistingCredentials,
+} from "@/components/Forms/secretInput";
 
 const AthenaForm: FC<{
   params: Partial<AthenaConnectionParams>;
@@ -10,9 +14,16 @@ const AthenaForm: FC<{
   setParams: (params: { [key: string]: string }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
 }> = ({ params, setParams, existing, onParamChange }) => {
+  const cloud = isCloud();
+  const authType = cloud ? "accessKey" : (params.authType ?? "accessKey");
+  const canKeepExistingCredentials = useCanKeepExistingCredentials(
+    existing,
+    authType,
+  );
+
   return (
     <div className="row">
-      {!isCloud() && (
+      {!cloud && (
         <div className="col-md-12">
           <SelectField
             size="legacy"
@@ -23,13 +34,12 @@ const AthenaForm: FC<{
               { value: "assumeRole", label: "Assume IAM Role" },
             ]}
             helpText="'Auto-discovery' will look for credentials in environment variables and instance metadata. 'Assume IAM Role' uses the current role to assume another role and execute Athena with temporary credentials."
-            value={params.authType || "accessKey"}
+            value={authType}
             onChange={(value) => setParams({ authType: value })}
           />
         </div>
       )}
-      {(isCloud() ||
-        (params.authType !== "assumeRole" && params.authType !== "auto")) && (
+      {(cloud || (authType !== "assumeRole" && authType !== "auto")) && (
         <>
           <div className="form-group col-md-12">
             <label>AWS Access Key</label>
@@ -37,10 +47,12 @@ const AthenaForm: FC<{
               type="text"
               className="form-control"
               name="accessKeyId"
-              required={!existing}
+              required={!canKeepExistingCredentials}
               value={params.accessKeyId || ""}
               onChange={onParamChange}
-              placeholder={existing ? "(Keep existing)" : ""}
+              placeholder={
+                canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+              }
             />
           </div>
           <div className="form-group col-md-12">
@@ -50,15 +62,17 @@ const AthenaForm: FC<{
               className="form-control password-presentation"
               autoComplete="off"
               name="secretAccessKey"
-              required={!existing}
+              required={!canKeepExistingCredentials}
               value={params.secretAccessKey || ""}
               onChange={onParamChange}
-              placeholder={existing ? "(Keep existing)" : ""}
+              placeholder={
+                canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+              }
             />
           </div>
         </>
       )}
-      {!isCloud() && params.authType === "assumeRole" && (
+      {!cloud && authType === "assumeRole" && (
         <>
           <div className="form-group col-md-12">
             <label>AWS IAM Role ARN</label>
@@ -66,10 +80,9 @@ const AthenaForm: FC<{
               type="text"
               className="form-control"
               name="assumeRoleARN"
-              required={!existing}
+              required={!canKeepExistingCredentials}
               value={params.assumeRoleARN || ""}
               onChange={onParamChange}
-              placeholder={existing ? "(Keep existing)" : ""}
             />
           </div>
           <div className="form-group col-md-12">
@@ -78,10 +91,9 @@ const AthenaForm: FC<{
               type="text"
               className="form-control"
               name="roleSessionName"
-              required={!existing}
+              required={!canKeepExistingCredentials}
               value={params.roleSessionName || ""}
               onChange={onParamChange}
-              placeholder={existing ? "(Keep existing)" : ""}
             />
           </div>
           <div className="form-group col-md-12">
@@ -90,10 +102,9 @@ const AthenaForm: FC<{
               type="text"
               className="form-control"
               name="externalId"
-              required={!existing}
+              required={!canKeepExistingCredentials}
               value={params.externalId || ""}
               onChange={onParamChange}
-              placeholder={existing ? "(Keep existing)" : ""}
             />
           </div>
           <div className="form-group col-md-12">
@@ -102,10 +113,9 @@ const AthenaForm: FC<{
               type="number"
               className="form-control"
               name="durationSeconds"
-              required={!existing}
+              required={!canKeepExistingCredentials}
               value={params.durationSeconds || 900}
               onChange={onParamChange}
-              placeholder={existing ? "(Keep existing)" : ""}
             />
           </div>
         </>

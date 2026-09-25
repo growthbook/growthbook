@@ -8,7 +8,7 @@ export const getConfig = createApiRequestHandler(getConfigValidator)(async (
 ) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config with that key");
+    throw new NotFoundError("Could not find Config with that key");
   }
 
   return {

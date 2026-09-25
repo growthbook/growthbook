@@ -1,17 +1,24 @@
 import type { SqlLanguage } from "sql-formatter";
-import type { DataType } from "./integrations";
+import type { DataType, FactMetricPercentileData } from "./integrations";
 
 export type StringMatchOperator =
   | "starts_with"
   | "ends_with"
   | "contains"
-  | "not_contains";
+  | "not_contains"
+  | "matches_pattern"
+  | "not_matches_pattern";
 
 export type StringMatchFn = (
   columnExpr: string,
   operator: StringMatchOperator,
   value: string,
 ) => string;
+
+/**
+ * Matches `columnExpr` against a wildcard pattern (`*` any run, `?` one char).
+ */
+export type GlobMatchFn = (columnExpr: string, glob: string) => string;
 
 /** One labeled column expanded per base row by {@link SqlDialect.unpivotLabeledPairs}. */
 export type UnpivotLabeledPair = {
@@ -72,10 +79,16 @@ export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 // reference another column) or a string literal (which must be left alone).
 export type SqlIdentifierQuote = '"' | "`";
 
+// How the warehouse folds unquoted identifiers. Quoted identifiers must use
+// this case to match columns the user wrote without quotes (Snowflake: UPPER).
+export type UnquotedIdentifierFold = "upper" | "lower";
+
 export interface SqlDialect {
   identifierQuote: SqlIdentifierQuote;
+  unquotedIdentifierFold?: UnquotedIdentifierFold;
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
+  globMatch: GlobMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
   dateTrunc: (
@@ -89,6 +102,11 @@ export interface SqlDialect {
    * Postgres-flavored dialects; ClickHouse and friends override it.
    */
   dateDiffMs: (startCol: string, endCol: string) => string;
+  /**
+   * Concatenate string expressions. Base throws rather than defaulting to `||`:
+   * in MySQL `||` is boolean OR, which would silently produce a wrong result.
+   */
+  concatStrings: (parts: string[]) => string;
   /**
    * Shift a timestamp expression by `amount` seconds. `sign` is "+" or "-".
    * Used by funnel SQL to apply concurrency tolerance / conversion-window
@@ -119,8 +137,14 @@ export interface SqlDialect {
    * sorted timestamp array per user per step in a single GROUP BY pass —
    * the chained step-resolution CTEs then look up matching timestamps via
    * `arrayMinInRange` instead of self-joining the full event log.
+   *
+   * `orderByColAlias` is NOT a free-form sort expression: it MUST equal
+   * `col` on every row where `col` is non-null (funnel step timestamps
+   * satisfy this — each is a CASE-gated copy of the row's event timestamp).
+   * Passing the same alias to every call lets all aggregates in a SELECT
+   * share an identical WITHIN GROUP ordering, which Redshift requires.
    */
-  arrayAggSorted: (col: string) => string;
+  arrayAggSorted: (col: string, orderByColAlias?: string) => string;
   /**
    * Aggregate value: returns `valueCol` from the row where `tsCol` is the
    * minimum non-null timestamp in the group. Used by funnel SQL to capture
@@ -143,6 +167,7 @@ export interface SqlDialect {
     lowerBound: string | null,
     upperBound: string | null,
   ) => string;
+  arrayConcatAgg: (col: string) => string;
   getCurrentTimestamp: () => string;
   ifElse: (condition: string, ifTrue: string, ifFalse: string) => string;
   getDataType: (dataType: DataType) => string;
@@ -154,6 +179,20 @@ export interface SqlDialect {
   ) => string;
   formatDate: (column: string) => string;
   formatDateTimeString: (column: string) => string;
+  // Renders a timestamp column at its full stored precision as the body of a
+  // zoneless literal (`YYYY-MM-DD HH:mm:ss.ffffff`) that the same engine will
+  // parse back to the identical instant. Used to persist exact incremental
+  // refresh watermarks. Dialects without a known-lossless format return NULL.
+  formatTimestampExact: (column: string) => string;
+  // Renders a quoted 'YYYY-MM-DD HH:MM:SS.fff…' string (the shape
+  // formatTimestampExact prints) as a temporal literal that compares with a
+  // user timestamp column at the string's full precision. Absent,
+  // castToTimestamp is used. Override where that cast can't do the job:
+  // BigQuery returns the bare literal, which coerces to DATETIME or TIMESTAMP
+  // alike; Presto returns a typed literal, whose precision follows the string
+  // where CAST would round it. Used e.g. by incremental refresh filters
+  // (`<column> > <literal>`).
+  exactTimestampLiteral?: (quoted: string) => string;
   selectStarLimit: (
     from: string,
     limit: number,
@@ -162,13 +201,7 @@ export interface SqlDialect {
   defaultSchema: string;
   formatDialect: FormatDialect;
   percentileCapSelectClause: (
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-      sourceIndex: number;
-    }[],
+    values: FactMetricPercentileData[],
     metricTable: string,
     where?: string,
   ) => string;

@@ -17,7 +17,7 @@ import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
 import {
   runColumnsTopValuesQuery,
   TOP_VALUES_CHUNK_SIZE,
-} from "./refreshFactTableColumns";
+} from "back-end/src/services/factTableColumns";
 
 const QUEUE_AUTO_SLICE_UPDATES = "queueAutoSliceUpdates";
 const UPDATE_SINGLE_FACT_TABLE_AUTO_SLICES = "updateSingleFactTableAutoSlices";

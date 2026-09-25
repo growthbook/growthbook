@@ -4,6 +4,7 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowCounterClockwise, PiKey, PiUserCircle } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
+import { allowSelfOrgCreation } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import Button from "@/ui/Button";
@@ -13,6 +14,7 @@ import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
+import TextField from "@/ui/TextField";
 import Text from "@/ui/Text";
 
 type AuthorizeInfoResponse = {
@@ -81,7 +83,7 @@ function AccessItem({
       >
         {icon}
       </Flex>
-      <Text size="medium" color="text-mid">
+      <Text size="md" color="text-mid">
         {children}
       </Text>
     </Flex>
@@ -94,6 +96,77 @@ function AccessItem({
  * be logged in (normal AuthProvider flow); they pick an organization and
  * approve, then we mint an auth code and redirect back to the client.
  */
+/**
+ * A user who just signed up has no organization, and approving requires one. Offer
+ * to create it here rather than dead-ending the flow they were sent into.
+ *
+ * Where self-serve creation is off (single-org self-hosted), say what to do instead
+ * — an admin has to invite them, and no amount of retrying will change that.
+ */
+function NoOrganization({ onCreated }: { onCreated: () => void }) {
+  const { apiCall } = useAuth();
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const create = async () => {
+    setError(null);
+    setCreating(true);
+    try {
+      await apiCall("/organization", {
+        method: "POST",
+        body: JSON.stringify({ company: name.trim() }),
+      });
+      onCreated();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Could not create the organization.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (!allowSelfOrgCreation()) {
+    return (
+      <Callout status="warning">
+        You are not a member of any organization yet. Ask an admin to invite
+        you, then come back to this page.
+      </Callout>
+    );
+  }
+
+  return (
+    <Box>
+      <Callout status="info" mb="3">
+        You are not a member of any organization yet. Create one to continue.
+      </Callout>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          create();
+        }}
+      >
+        <TextField
+          label="Organization name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Acme Inc."
+          error={error ?? undefined}
+        />
+        <Button
+          type="submit"
+          mt="3"
+          disabled={name.trim().length < 3}
+          loading={creating}
+        >
+          Create organization
+        </Button>
+      </form>
+    </Box>
+  );
+}
+
 export default function OAuthAuthorizePage() {
   const router = useRouter();
   const { apiCall, isAuthenticated, loading: authLoading } = useAuth();
@@ -119,11 +192,48 @@ export default function OAuthAuthorizePage() {
   const [orgId, setOrgId] = useState("");
   const [actionError, setActionError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [ssoLogoutUrl, setSsoLogoutUrl] = useState("");
   const [completedRedirectTo, setCompletedRedirectTo] = useState<string | null>(
     null,
   );
 
   const hasRequiredParams = !!query.client_id && !!query.redirect_uri;
+
+  /**
+   * Sign out without leaving the authorization request behind.
+   *
+   * Deliberately not the auth context's `logout()`: that redirects to the app origin,
+   * which discards these query params and with them the whole request — the CLI would
+   * sit polling for a code that is never coming. Ending the session and reloading in
+   * place keeps the URL, so the sign-in screen renders over this page and the consent
+   * screen returns for whoever signs in next.
+   */
+  const switchAccount = useCallback(async () => {
+    setSwitching(true);
+    setActionError("");
+    try {
+      const res = await apiCall<{ redirectURI?: string }>("/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res?.redirectURI) {
+        // SSO with a logout endpoint. The identity provider holds its own session, so
+        // skipping this would sign them straight back in as the same person and make
+        // "use a different account" a lie. That round trip cannot carry these params,
+        // so hand over the link with an explanation instead of silently losing them.
+        setSsoLogoutUrl(res.redirectURI);
+        setSwitching(false);
+        return;
+      }
+      window.location.reload();
+    } catch (e) {
+      setActionError(
+        e instanceof Error ? e.message : "Couldn't sign out. Try again.",
+      );
+      setSwitching(false);
+    }
+  }, [apiCall]);
 
   const infoQueryString = new URLSearchParams({
     client_id: query.client_id,
@@ -133,6 +243,7 @@ export default function OAuthAuthorizePage() {
     data: info,
     error: infoFetchError,
     isLoading: loadingInfo,
+    mutate: mutateInfo,
   } = useApi<AuthorizeInfoResponse>(
     `/oauth/authorize/info?${infoQueryString}`,
     {
@@ -144,12 +255,17 @@ export default function OAuthAuthorizePage() {
     },
   );
 
-  // Pre-select when there is only one org to choose from
+  // Pre-select the organization the caller asked for (the setup wizard passes the one the
+  // user was looking at), otherwise the only one there is
   useEffect(() => {
-    if (info?.organizations?.length === 1) {
+    if (!info?.organizations?.length) return;
+    const wanted = router.query.org ? String(router.query.org) : "";
+    if (wanted && info.organizations.some((o) => o.id === wanted)) {
+      setOrgId(wanted);
+    } else if (info.organizations.length === 1) {
       setOrgId(info.organizations[0].id);
     }
-  }, [info]);
+  }, [info, router.query.org]);
 
   const missingParamsError =
     router.isReady && !hasRequiredParams
@@ -231,13 +347,13 @@ export default function OAuthAuthorizePage() {
   if (completedRedirectTo) {
     return (
       <ConsentPageWrapper>
-        <Heading as="h1" size="x-large" mb="2">
+        <Heading as="h1" size="xl" mb="2">
           Authorization Complete
         </Heading>
         <Callout status="success" mb="4">
           You can return to the application. This tab can stay open.
         </Callout>
-        <Text as="p" size="medium" color="text-mid" mb="4">
+        <Text as="p" size="md" color="text-mid" mb="4">
           If you were not redirected automatically, use the link below.
         </Text>
         <Button
@@ -261,13 +377,13 @@ export default function OAuthAuthorizePage() {
         // `as="div"` rather than `as="p"`: global Bootstrap styling puts a
         // margin on <p> that fights the explicit spacing here.
         <Flex direction="column" align="center" mb="5">
-          <Heading as="h1" size="x-large" align="center" mb="1">
+          <Heading as="h1" size="xl" align="center" mb="1">
             {claimedName}
           </Heading>
-          <Text as="div" size="large" color="text-mid" align="center" mb="2">
+          <Text as="div" size="lg" color="text-mid" align="center" mb="2">
             is requesting access to your GrowthBook account.
           </Text>
-          <Text as="div" size="small" color="text-low" align="center">
+          <Text as="div" size="sm" color="text-low" align="center">
             Name provided by the application. GrowthBook does not verify
             application identity.
           </Text>
@@ -278,7 +394,7 @@ export default function OAuthAuthorizePage() {
           ) : null}
         </Flex>
       ) : (
-        <Heading as="h1" size="x-large" mb="4">
+        <Heading as="h1" size="xl" mb="4">
           Authorize Application
         </Heading>
       )}
@@ -302,19 +418,44 @@ export default function OAuthAuthorizePage() {
                   email={info.user.email}
                 />
                 <Box style={{ minWidth: 0 }}>
-                  <Text as="div" size="small" color="text-mid">
+                  <Text as="div" size="sm" color="text-mid">
                     Signed in as
                   </Text>
                   <Text
                     as="div"
-                    size="medium"
+                    size="md"
                     weight="medium"
                     overflowWrap="anywhere"
                   >
                     {info.user.email}
                   </Text>
                 </Box>
+                <Box ml="auto" style={{ flexShrink: 0 }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={switchAccount}
+                    loading={switching}
+                    disabled={submitting}
+                  >
+                    Use a different account
+                  </Button>
+                </Box>
               </Flex>
+
+              {ssoLogoutUrl ? (
+                <Box mt="3">
+                  <Callout status="info">
+                    To switch accounts,{" "}
+                    <Link href={ssoLogoutUrl}>
+                      sign out of your identity provider
+                    </Link>
+                    , then restart the connection from the app or terminal that
+                    opened this page.
+                  </Callout>
+                </Box>
+              ) : null}
+
               <Separator size="4" my="4" />
             </>
           ) : null}
@@ -333,15 +474,17 @@ export default function OAuthAuthorizePage() {
               ))}
             </Select>
           ) : (
-            <Callout status="warning">
-              You are not a member of any organization.
-            </Callout>
+            <NoOrganization
+              onCreated={() => {
+                void mutateInfo();
+              }}
+            />
           )}
         </Frame>
       ) : null}
 
       <Frame>
-        <Text as="div" size="medium" weight="semibold" mb="3">
+        <Text as="div" size="md" weight="semibold" mb="3">
           What this allows
         </Text>
         <Flex direction="column" gap="3">
@@ -367,7 +510,7 @@ export default function OAuthAuthorizePage() {
         <Button
           variant="soft"
           color="gray"
-          size="md"
+          size="lg"
           onClick={deny}
           disabled={submitting}
           style={{ flex: 1 }}
@@ -375,7 +518,7 @@ export default function OAuthAuthorizePage() {
           Deny
         </Button>
         <Button
-          size="md"
+          size="lg"
           onClick={approve}
           disabled={submitting || !orgId || !!error}
           loading={submitting}

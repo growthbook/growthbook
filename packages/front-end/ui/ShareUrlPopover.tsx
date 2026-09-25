@@ -43,25 +43,25 @@ export default function ShareUrlPopover({
       content={
         <Box className={styles.inner}>
           <Flex direction="column" gap="1" mb="5">
-            <Heading as="h3" size="medium" color="text-high">
+            <Heading as="h3" size="md" color="text-high">
               {title}
             </Heading>
             {description && (
-              <Text size="medium" color="text-mid">
+              <Text size="md" color="text-mid">
                 {description}
               </Text>
             )}
           </Flex>
           <Flex gap="2" align="center">
             <Box className={styles.urlField} title={shareUrl}>
-              <Text size="medium" color="text-high">
+              <Text size="md" color="text-high">
                 {shareUrl}
               </Text>
             </Box>
             <Button
               variant="outline"
               color="violet"
-              size="md"
+              size="lg"
               icon={copySuccess ? <PiCheck /> : <PiCopy />}
               onClick={() => {
                 performCopy(shareUrl);

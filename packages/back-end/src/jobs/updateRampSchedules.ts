@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { isAwaitingStartApproval } from "shared/validators";
+import { isRampScheduleServing } from "shared/util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -7,9 +8,11 @@ import {
   applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
+  ensureRampStartActions,
   ensureSafeRolloutForMonitoredRamp,
+  errorPauseRampSchedule,
+  isTransientRampError,
   onActivatingRevisionPublished,
-  syncLinkedSafeRolloutForRampState,
   withRampScheduleAdvanceLock,
 } from "back-end/src/services/rampSchedule";
 import {
@@ -19,32 +22,6 @@ import {
 import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
-
-/**
- * Transient errors should be silently retried on the next scheduler tick.
- * Structural / programming errors still pause the schedule so they surface
- * in the UI.
- */
-function isTransientRampError(e: unknown): boolean {
-  if (e instanceof RampAdvanceLockBusyError) return true;
-  // Mongo network / topology errors surface as generic Errors whose name or
-  // message contains well-known driver strings.
-  if (e instanceof Error) {
-    const name = e.name ?? "";
-    const msg = e.message ?? "";
-    if (
-      name.includes("MongoNetwork") ||
-      name.includes("MongoTopology") ||
-      name.includes("MongoServerSelection") ||
-      msg.includes("ECONNRESET") ||
-      msg.includes("ETIMEDOUT") ||
-      msg.includes("connection timed out")
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
 
 type AdvanceSingleRampScheduleJob = Job<{
   rampScheduleId: string;
@@ -201,6 +178,8 @@ async function runRampScheduleTick(
       if (current.status === "pending") return;
     }
 
+    current = await ensureRampStartActions(context, current);
+
     if (
       current.status === "ready" &&
       current.startDate &&
@@ -237,7 +216,7 @@ async function runRampScheduleTick(
     if (
       current.cutoffDate &&
       current.cutoffDate <= now &&
-      ["running", "paused"].includes(current.status)
+      isRampScheduleServing(current)
     ) {
       await completeRollout(context, current, {
         disableActiveTargets: true,
@@ -265,36 +244,10 @@ async function runRampScheduleTick(
     }
 
     logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
-    // Structural / unrecoverable error — pause and surface in UI event history.
-    const errorSchedule =
-      await context.models.rampSchedules.getById(rampScheduleId);
-    const updated = await context.models.rampSchedules.updateById(
+    await errorPauseRampSchedule(
+      context,
       rampScheduleId,
-      {
-        status: "paused",
-        nextSnapshotAt: null,
-        nextProcessAt: null,
-        ...(errorSchedule
-          ? {
-              eventHistory: appendRampEvent(errorSchedule, "error-paused", {
-                stepIndex: errorSchedule.currentStepIndex,
-                status: "paused",
-                previousStatus: errorSchedule.status,
-                reason: e instanceof Error ? e.message : String(e),
-              }),
-            }
-          : {}),
-      },
+      e instanceof Error ? e.message : String(e),
     );
-    if (errorSchedule) {
-      try {
-        await syncLinkedSafeRolloutForRampState(context, updated);
-      } catch (syncErr) {
-        logger.warn(
-          { rampScheduleId, error: (syncErr as Error).message },
-          "Failed to sync SafeRollout after error-pausing schedule; SafeRollout may be temporarily diverged",
-        );
-      }
-    }
   }
 }

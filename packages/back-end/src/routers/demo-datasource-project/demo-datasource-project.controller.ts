@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
@@ -53,7 +54,10 @@ function checkCanDeleteDemoResources(
     !context.permissions.canDeleteDataSource({ projects: [demoProjId] }) ||
     !context.permissions.canDeleteFactMetric({ projects: [demoProjId] }) ||
     !context.permissions.canDeleteFactTable({ projects: [demoProjId] }) ||
-    !context.permissions.canDeleteFeature({ project: demoProjId }) ||
+    !context.permissions.canDeleteFeature(
+      { project: demoProjId },
+      NO_ENVIRONMENT_BINDING,
+    ) ||
     !context.permissions.canDeleteExperiment({ project: demoProjId })
   ) {
     context.permissions.throwPermissionError();

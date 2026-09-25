@@ -226,7 +226,7 @@ const MetricCorrelations = (): React.ReactElement => {
           </Box>
           {showClearFilters && (
             <Link
-              size="1"
+              size="sm"
               onClick={() => setSearchValue("")}
               style={{ whiteSpace: "nowrap" }}
             >

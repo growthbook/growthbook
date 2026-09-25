@@ -31,14 +31,14 @@ export default function TargetingAttributesSettings() {
           <Frame>
             <Flex gap="4">
               <Box width="220px" flexShrink="0">
-                <Heading size="medium" as="h4">
+                <Heading size="md" as="h4">
                   Targeting Attributes
                 </Heading>
               </Box>
 
               <Flex align="start" direction="column" flexGrow="1" pt="6">
                 <Box mb="3" width="100%">
-                  <Heading size="small" as="h5" mb="0">
+                  <Heading size="sm" as="h5" mb="0">
                     Attribute Validation
                   </Heading>
                 </Box>
@@ -58,7 +58,7 @@ export default function TargetingAttributesSettings() {
                     <Checkbox
                       id="toggle-requireProjectScoping"
                       label="Require Project match"
-                      description="Also block attributes that aren't scoped to the rule's Project."
+                      description="Also block attributes that aren't scoped to the Projects the Feature Flag or experiment targets."
                       value={requireProjectScoping}
                       setValue={(value) =>
                         update({ isOn, requireProjectScoping: !!value })

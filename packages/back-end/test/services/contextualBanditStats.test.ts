@@ -1,6 +1,7 @@
 import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
+import { contextualBanditAttrCol } from "shared/experiments";
 import {
-  canonicalizeVariationIdsInRows,
+  buildContextualBanditObservations,
   filterMetricQueryRowsForStatsEngine,
   prepareRowsForContextualStats,
 } from "back-end/src/enterprise/services/contextualBanditStats";
@@ -17,43 +18,190 @@ function rows(
   return data as unknown as ExperimentMetricQueryResponseRows;
 }
 
-describe("canonicalizeVariationIdsInRows", () => {
-  const varIds = ["v0", "v1"];
+describe("buildContextualBanditObservations", () => {
+  const variations = [
+    { id: "v0", key: "0" },
+    { id: "v1", key: "1" },
+  ];
 
-  it("maps numeric variation keys to variation ids", () => {
-    const result = canonicalizeVariationIdsInRows(
+  it("maps numeric variation keys to variation indexes", () => {
+    const result = buildContextualBanditObservations(
       rows([
-        { variation: "0", users: 10 },
-        { variation: "1", users: 20 },
+        { variation: "0", count: 10 },
+        { variation: "1", count: 20 },
       ]),
-      varIds,
+      { variations, attributes: [] },
     );
-    expect(result.map((r) => r.variation)).toEqual(["v0", "v1"]);
+    expect(result.map((o) => o.variationIndex)).toEqual([0, 1]);
   });
 
-  it("leaves rows that already use variation ids unchanged", () => {
-    const result = canonicalizeVariationIdsInRows(
-      rows([{ variation: "v1", users: 5 }]),
-      varIds,
+  it("drops rows whose value matches an internal id but not a key", () => {
+    // The warehouse never emits the internal variation id, so we only match on
+    // the key — never the id.
+    const result = buildContextualBanditObservations(
+      rows([{ variation: "var_b", count: 5 }]),
+      {
+        variations: [
+          { id: "var_a", key: "A0" },
+          { id: "var_b", key: "A1" },
+        ],
+        attributes: [],
+      },
     );
-    expect(result[0].variation).toBe("v1");
+    expect(result).toHaveLength(0);
   });
 
-  it("leaves rows with an unknown / out-of-range variation untouched", () => {
-    const result = canonicalizeVariationIdsInRows(
+  it("maps non-integer variation keys (distinct from ids) to variation indexes", () => {
+    const result = buildContextualBanditObservations(
       rows([
-        { variation: "xyz", users: 1 },
-        { variation: "5", users: 2 },
+        { variation: "A0", count: 10 },
+        { variation: "A1", count: 20 },
       ]),
-      varIds,
+      {
+        variations: [
+          { id: "v0", key: "A0" },
+          { id: "v1", key: "A1" },
+        ],
+        attributes: [],
+      },
     );
-    expect(result.map((r) => r.variation)).toEqual(["xyz", "5"]);
+    expect(result.map((o) => o.variationIndex)).toEqual([0, 1]);
   });
 
-  it("does not mutate the input rows", () => {
-    const input = rows([{ variation: "0", users: 10 }]);
-    canonicalizeVariationIdsInRows(input, varIds);
-    expect(input[0].variation).toBe("0");
+  it("does not positionally coerce a numeric value that matches no key", () => {
+    // Keys are non-integer ("A0"/"A1"), so a bare "1" matches no key. It must be
+    // dropped rather than mapped to index 1 — the warehouse value is not a
+    // positional index.
+    const result = buildContextualBanditObservations(
+      rows([{ variation: "1", count: 5 }]),
+      {
+        variations: [
+          { id: "var_a", key: "A0" },
+          { id: "var_b", key: "A1" },
+        ],
+        attributes: [],
+      },
+    );
+    expect(result).toHaveLength(0);
+  });
+
+  it("drops rows whose variation matches no key", () => {
+    const result = buildContextualBanditObservations(
+      rows([
+        { variation: "xyz", count: 1 },
+        { variation: "5", count: 2 },
+      ]),
+      { variations, attributes: [] },
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("keys the context by the configured attribute name when the warehouse folded the column's case", () => {
+    // The attribute is configured as "Country", but we emit the alias unquoted,
+    // so warehouses that fold identifiers return it as `attr_cb_country`. The
+    // context must still resolve, and under the configured name.
+    const result = buildContextualBanditObservations(
+      rows([
+        {
+          variation: "0",
+          count: 10,
+          [contextualBanditAttrCol("country")]: "US",
+        },
+      ]),
+      { variations, attributes: ["Country"] },
+    );
+    expect(result[0].context).toEqual({ Country: "US" });
+  });
+
+  it("falls back to the bare attribute column", () => {
+    const result = buildContextualBanditObservations(
+      rows([{ variation: "0", count: 10, country: "US" }]),
+      { variations, attributes: ["country"] },
+    );
+    expect(result[0].context).toEqual({ country: "US" });
+  });
+
+  it("stringifies numeric attribute values", () => {
+    const result = buildContextualBanditObservations(
+      rows([
+        { variation: "0", count: 10, [contextualBanditAttrCol("age")]: 30 },
+      ]),
+      { variations, attributes: ["age"] },
+    );
+    expect(result[0].context).toEqual({ age: "30" });
+  });
+
+  it("omits attributes the row has no value for", () => {
+    const result = buildContextualBanditObservations(
+      rows([
+        {
+          variation: "0",
+          count: 10,
+          [contextualBanditAttrCol("country")]: "US",
+        },
+      ]),
+      { variations, attributes: ["country", "device"] },
+    );
+    expect(result[0].context).toEqual({ country: "US" });
+  });
+
+  it("reads the metric moments, preferring count over users for units", () => {
+    const result = buildContextualBanditObservations(
+      rows([
+        {
+          variation: "0",
+          count: 10,
+          users: 99,
+          main_sum: 5,
+          main_sum_squares: 7,
+        },
+      ]),
+      { variations, attributes: [] },
+    );
+    expect(result[0].arm).toEqual({
+      n: 10,
+      main_sum: 5,
+      main_sum_squares: 7,
+      denominator_sum: 0,
+      denominator_sum_squares: 0,
+      main_denominator_sum_product: 0,
+      covariate_sum: 0,
+      covariate_sum_squares: 0,
+      main_covariate_sum_product: 0,
+    });
+  });
+
+  it("falls back to users when the row has no count", () => {
+    const result = buildContextualBanditObservations(
+      rows([{ variation: "0", users: 42, main_sum: 1 }]),
+      { variations, attributes: [] },
+    );
+    expect(result[0].arm.n).toBe(42);
+  });
+
+  it("strips the metric column prefix off fact-metric rows", () => {
+    const result = buildContextualBanditObservations(
+      rows([
+        {
+          variation: "0",
+          users: 10,
+          m0_id: "met_1",
+          m0_main_sum: 5,
+          m1_main_sum: 99,
+        },
+      ]),
+      { variations, attributes: [] },
+    );
+    expect(result[0].arm.main_sum).toBe(5);
+  });
+
+  it("handles an empty row set", () => {
+    expect(
+      buildContextualBanditObservations(rows([]), {
+        variations,
+        attributes: [],
+      }),
+    ).toEqual([]);
   });
 });
 

@@ -2,6 +2,7 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   BigQueryEventForwarderStoredConfig,
+  EventForwarderSinkType,
   EventForwarderStatus,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
@@ -31,7 +32,7 @@ import {
   resolveBigQueryEventForwarderTablePrefix,
 } from "back-end/src/services/eventForwarder/bigquery";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
-import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarder/datasourceSync";
+import { reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries } from "back-end/src/services/eventForwarder/datasourceSync";
 import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarder/factTable";
 import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarder/warehouseSync";
 import {
@@ -218,6 +219,11 @@ export async function provisionEventForwarderThroughLicenseServer(
         const bigqueryConnectionParams = datasourceParams as
           | BigQueryConnectionParams
           | undefined;
+        if (!bigqueryConnectionParams) {
+          throw new Error(
+            "Missing BigQuery Data Source params for Event Forwarder provisioning",
+          );
+        }
         const decrypted =
           decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
             eventForwarderConfig,
@@ -240,12 +246,13 @@ export async function provisionEventForwarderThroughLicenseServer(
           await testEventForwarderWriteAccess(context, {
             sinkType: "bigquery",
             datasource,
-            params: bigqueryConnectionParams as BigQueryConnectionParams,
+            params: bigqueryConnectionParams,
             config: decrypted,
           }),
         );
 
         await ensureEventForwarderBigQueryTables({
+          datasourceParams: bigqueryConnectionParams,
           projectId,
           dataset: decrypted.dataset.trim(),
           tablePrefix,
@@ -296,6 +303,7 @@ export async function provisionEventForwarderThroughLicenseServer(
         });
         break;
       }
+      case "databricks":
       default:
         throw new Error(
           `Unsupported event forwarder sink type for provisioning: ${String(eventForwarderConfig.sinkType)}`,
@@ -312,10 +320,10 @@ export async function provisionEventForwarderThroughLicenseServer(
       });
 
     try {
-      await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
+      await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
         context,
-        currentEventForwarderConfig.datasourceId,
         currentEventForwarderConfig,
+        context.org.settings?.attributeSchema ?? [],
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -469,6 +477,7 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
         });
         break;
       }
+      case "databricks":
       default:
         throw new Error(
           `Unsupported event forwarder sink type for credential update: ${String(eventForwarderConfig.sinkType)}`,
@@ -604,7 +613,7 @@ export async function resumeEventForwarderThroughLicenseServer(
 export async function teardownEventForwarderInfrastructureRemote(snapshot: {
   organizationId: string;
   datasourceId: string;
-  sinkType?: "bigquery" | "snowflake";
+  sinkType?: EventForwarderSinkType;
   topic?: string;
   connectorName?: string;
   connectorId?: string;

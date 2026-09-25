@@ -107,7 +107,7 @@ const EnvironmentsPage: FC = () => {
           </Modal>
         )}
       <Flex align="center" justify="between" mb="1">
-        <Heading as="h1" size="x-large" mb="0">
+        <Heading as="h1" size="xl" mb="0">
           Environments
         </Heading>
         {canCreate && (

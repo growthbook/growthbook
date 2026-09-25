@@ -1,11 +1,17 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
-import { ApprovalFlowConfigurations } from "shared/types/organization";
+import {
+  ApprovalFlowConfigurations,
+  LearningStatus,
+} from "shared/types/organization";
 
 // The object property that carries a JSON constant's `$extends` reference list.
 // Single source of truth shared by the resolver (sdk-versioning/resolveConstants)
 // and the reference detector (validators/constant) so they can't drift.
 export const CONSTANT_EXTENDS_KEY = "$extends";
+
+// The single NAT gateway address all GrowthBook Cloud egress leaves from; keep in sync with docs/ip-addresses.mdx.
+export const CLOUD_EGRESS_IP = "52.70.79.40";
 
 export const GB_SDK_ID_DEV = "sdk-UmQ03OkUDAu7Aox";
 export const GB_SDK_ID_PROD = "sdk-ueFMOgZ2daLa0M";
@@ -14,6 +20,7 @@ export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
+export const BAYESIAN_CREDIBLE_INTERVAL_ALPHA = 0.05;
 export const DEFAULT_P_VALUE_CORRECTION = null;
 export const DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE = 0.001;
 export const DEFAULT_GUARDRAIL_ALPHA = 0.05; //used for early stopping for safe
@@ -56,6 +63,8 @@ export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
 export const DEFAULT_USE_STICKY_BUCKETING = false;
+
+export const DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT = true;
 
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
@@ -111,6 +120,16 @@ export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
 
+// Default statuses for saved learnings (insights). Orgs can customize the
+// list in General Settings → Experiment Settings. Status IDs are persisted
+// on each saved learning, so they must remain stable across renames.
+export const DEFAULT_LEARNING_STATUSES: LearningStatus[] = [
+  { id: "emerging", label: "Emerging", color: "blue" },
+  { id: "supported", label: "Supported", color: "amber" },
+  { id: "confirmed", label: "Confirmed", color: "green" },
+  { id: "rejected", label: "Rejected", color: "red" },
+];
+
 // Power
 export const DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS = 3;
 export const DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS = undefined; // undefined means no limit
@@ -149,6 +168,7 @@ export const SAFE_ROLLOUT_VARIATIONS = [
 
 export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
   "quantile",
+  "funnel",
 ] as const;
 
 export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
@@ -194,12 +214,23 @@ export const attributeDataTypes = [
   "secureString[]",
 ] as const;
 
+// Runtime allow-list for discussion parents. Kept here (rather than only as a
+// type) so request handlers can validate an incoming parentType.
+export const DISCUSSION_PARENT_TYPES = [
+  "experiment",
+  "idea",
+  "metric",
+  "feature",
+  "learning",
+] as const;
+
 // for audits
 export const entityEvents = {
   agreement: ["create", "update", "delete"],
   approvalFlow: ["create", "update", "delete"],
   revision: ["create", "update", "delete"],
   aiPrompt: ["create", "update", "delete"],
+  aiCredential: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [
     "create",
@@ -270,6 +301,7 @@ export const entityEvents = {
   vercelNativeIntegration: ["create", "update", "delete"],
   factTable: ["autocreate", "create", "update", "delete"],
   customField: ["create", "update", "delete"],
+  autoRun: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],
@@ -292,6 +324,7 @@ export const entityEvents = {
     "start-approved",
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
+  learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
