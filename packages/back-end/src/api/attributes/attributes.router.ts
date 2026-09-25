@@ -3,10 +3,12 @@ import { listAttributes } from "./listAttributes";
 import { putAttribute } from "./putAttribute";
 import { postAttribute } from "./postAttribute";
 import { deleteAttribute } from "./deleteAttribute";
+import { getAttributeReferences } from "./getAttributeReferences";
 
 export const attributesRoutes: OpenApiRoute[] = [
   listAttributes,
   postAttribute,
   putAttribute,
   deleteAttribute,
+  getAttributeReferences,
 ];

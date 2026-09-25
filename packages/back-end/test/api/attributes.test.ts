@@ -259,6 +259,69 @@ describe("attributes API", () => {
     });
   });
 
+  describe("rename and equality toggle", () => {
+    beforeEach(() => {
+      setReqContext({
+        models: {
+          projects: { getAll: () => [] },
+          eventForwarderConfigs: { getAll: () => [] },
+        },
+        org: {
+          id: "org1",
+          settings: {
+            attributeSchema: [
+              { property: "attr1", datatype: "string[]" },
+              { property: "attr2", datatype: "string" },
+            ],
+          },
+        },
+        permissions: { canUpdateAttribute: () => true },
+      });
+    });
+
+    it("renames an attribute", async () => {
+      const response = await request(app)
+        .put("/api/v1/attributes/attr2")
+        .send({ property: "renamed" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(200);
+      expect(response.body.attribute.property).toBe("renamed");
+      expect(updateOrganization).toHaveBeenCalledWith("org1", {
+        settings: {
+          attributeSchema: [
+            { property: "attr1", datatype: "string[]" },
+            { property: "renamed", datatype: "string", projects: [] },
+          ],
+        },
+      });
+    });
+
+    it("refuses to rename onto an existing attribute", async () => {
+      const response = await request(app)
+        .put("/api/v1/attributes/attr2")
+        .send({ property: "attr1" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+      expect(updateOrganization).not.toHaveBeenCalled();
+    });
+
+    it("only keeps disableEqualityConditions on plain strings", async () => {
+      const onString = await request(app)
+        .put("/api/v1/attributes/attr2")
+        .send({ disableEqualityConditions: true })
+        .set("Authorization", "Bearer foo");
+      expect(onString.body.attribute.disableEqualityConditions).toBe(true);
+
+      const onList = await request(app)
+        .put("/api/v1/attributes/attr1")
+        .send({ disableEqualityConditions: true })
+        .set("Authorization", "Bearer foo");
+      expect(onList.body.attribute.disableEqualityConditions).toBe(false);
+    });
+  });
+
   it("refuses to update projects when they do not exist", async () => {
     setReqContext({
       models: {

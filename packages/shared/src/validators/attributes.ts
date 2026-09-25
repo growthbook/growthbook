@@ -30,9 +30,17 @@ export const apiAttributeValidator = namedSchema(
       format: z.enum(["", "version", "date", "isoCountryCode"]).optional(),
       projects: z.array(z.string()).optional(),
       tags: z.array(z.string()).optional(),
+      disableEqualityConditions: z.boolean().optional(),
     })
     .strict(),
 );
+
+const disableEqualityConditionsField = z
+  .boolean()
+  .describe(
+    "Prevent exact-match targeting on this attribute; only regex and greater/less than comparisons are allowed. Useful for PII.",
+  )
+  .optional();
 
 // Corresponds to postAttribute path requestBody
 const postAttributeBody = z
@@ -66,12 +74,19 @@ const postAttributeBody = z
       .optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
+    disableEqualityConditions: disableEqualityConditionsField,
   })
   .strict();
 
 // Corresponds to putAttribute path requestBody
 const putAttributeBody = z
   .object({
+    property: z
+      .string()
+      .describe(
+        "Rename the attribute. Conditions that reference the old name are not updated; check `getAttributeReferences` first.",
+      )
+      .optional(),
     datatype: z
       .enum([
         "boolean",
@@ -101,6 +116,7 @@ const putAttributeBody = z
       .optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
+    disableEqualityConditions: disableEqualityConditionsField,
   })
   .strict();
 
@@ -176,6 +192,45 @@ export const putAttributeValidator = {
     params: { property: "abc123" },
     body: { description: "My updated attribute" },
   } as const,
+};
+
+export const getAttributeReferencesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: propertyParams,
+  responseSchema: z
+    .object({
+      features: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          project: z.string().optional(),
+        }),
+      ),
+      experiments: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          project: z.string().optional(),
+          projects: z.array(z.string()).optional(),
+        }),
+      ),
+      savedGroups: z.array(
+        z.object({
+          id: z.string(),
+          groupName: z.string(),
+          projects: z.array(z.string()).optional(),
+        }),
+      ),
+    })
+    .strict(),
+  summary: "Get what references an attribute",
+  description:
+    "Feature Flag rules, experiments (targeting or hash attribute) and condition Saved Groups that use the attribute. Check this before renaming or deleting it.",
+  operationId: "getAttributeReferences",
+  tags: ["attributes"],
+  method: "get" as const,
+  path: "/attributes/:property/references",
 };
 
 export const deleteAttributeValidator = {
