@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useRef, useState } from "react";
 import { ExperimentMetricDefinition } from "shared/experiments";
 import {
   DifferenceType,
@@ -9,7 +9,7 @@ import {
   FrequentistVariationResponseIndividual,
   BaselineResponse,
 } from "shared/types/stats";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -18,6 +18,11 @@ import { ExperimentTableRow } from "@/services/experiments";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import Heading from "@/ui/Heading";
+import MetricDrilldownAdjustmentSummary from "./MetricDrilldownAdjustmentSummary";
+import { SupplementalField } from "./helpers";
+
+type ComparisonSection = "variance" | "prior" | "capping";
 
 interface MetricDrilldownDebugProps {
   row?: ExperimentTableRow;
@@ -141,6 +146,47 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   // which appends analyses to the current snapshot in place — bind
   // `inPlace: true` so the heavy fetch refreshes.
   const mutateInPlace = () => mutate({ inPlace: true });
+
+  const sectionRefs: Record<
+    ComparisonSection,
+    React.RefObject<HTMLDivElement>
+  > = {
+    variance: useRef<HTMLDivElement>(null),
+    prior: useRef<HTMLDivElement>(null),
+    capping: useRef<HTMLDivElement>(null),
+  };
+  const [highlightedSection, setHighlightedSection] =
+    useState<ComparisonSection | null>(null);
+  const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToSection = (section: ComparisonSection) => {
+    sectionRefs[section].current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+    setHighlightedSection(section);
+    if (highlightTimeout.current) clearTimeout(highlightTimeout.current);
+    highlightTimeout.current = setTimeout(
+      () => setHighlightedSection(null),
+      1400,
+    );
+  };
+
+  const handleAdjustmentClick = (field: SupplementalField) => {
+    if (field === "flatPrior") scrollToSection("prior");
+    else if (field === "uncapped") scrollToSection("capping");
+    else scrollToSection("variance");
+  };
+
+  const sectionStyle = (section: ComparisonSection): React.CSSProperties => ({
+    borderRadius: "var(--radius-3)",
+    scrollMarginTop: "16px",
+    transition: "box-shadow 0.3s ease-in-out",
+    boxShadow:
+      highlightedSection === section
+        ? "0 0 0 2px var(--violet-8)"
+        : "0 0 0 0 transparent",
+  });
 
   const varianceReductionRows = useMemo(() => {
     if (!row) return [];
@@ -293,9 +339,21 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
 
   return (
     <>
+      <Box mt="4" style={{ paddingBottom: 6 }}>
+        <MetricDrilldownAdjustmentSummary
+          row={row}
+          statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
+          differenceType={differenceType}
+          baselineRow={baselineRow}
+          variationFilter={variationFilter}
+          significanceThresholds={significanceThresholds}
+          onAdjustmentClick={handleAdjustmentClick}
+        />
+      </Box>
+
       {varianceReductionRows.length > 0 && (
-        <div className="mt-4">
-          <Heading size="4" weight="medium" mb="3">
+        <Box mt="4" ref={sectionRefs.variance} style={sectionStyle("variance")}>
+          <Heading as="h4" size="md" weight="medium" mb="3">
             Variance Reduction Comparison
           </Heading>
           <ResultsTable
@@ -333,12 +391,12 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutateInPlace}
           />
-        </div>
+        </Box>
       )}
 
       {priorRows.length > 0 && (
-        <div className="mt-4">
-          <Heading size="4" weight="medium" mb="3">
+        <Box mt="4" ref={sectionRefs.prior} style={sectionStyle("prior")}>
+          <Heading as="h4" size="md" weight="medium" mb="3">
             Prior Comparison
           </Heading>
           <ResultsTable
@@ -376,12 +434,12 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutateInPlace}
           />
-        </div>
+        </Box>
       )}
 
       {cappingRows.length > 0 && (
-        <div className="mt-4">
-          <Heading size="4" weight="medium" mb="3">
+        <Box mt="4" ref={sectionRefs.capping} style={sectionStyle("capping")}>
+          <Heading as="h4" size="md" weight="medium" mb="3">
             Capping Comparison
           </Heading>
           <ResultsTable
@@ -419,7 +477,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutateInPlace}
           />
-        </div>
+        </Box>
       )}
     </>
   );
