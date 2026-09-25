@@ -56,6 +56,34 @@ describe("cancellableFetch with WEBHOOK_PROXY set", () => {
   });
 });
 
+describe("cancellableFetch body decoding", () => {
+  beforeEach(() => {
+    mockedFetch.mockReset();
+  });
+
+  it("keeps a multi-byte character that is split across chunks", async () => {
+    // "é" is 0xC3 0xA9 in UTF-8; the network can hand those bytes over in
+    // separate chunks.
+    const bytes = Buffer.from('{"channel":"café"}', "utf8");
+    const split = bytes.indexOf(0xc3) + 1;
+    mockedFetch.mockResolvedValueOnce({
+      status: 200,
+      body: (async function* () {
+        yield bytes.subarray(0, split);
+        yield bytes.subarray(split);
+      })(),
+    });
+
+    const { stringBody } = await cancellableFetch(
+      "https://example.com/hook",
+      {},
+      abortOptions,
+    );
+
+    expect(stringBody).toBe('{"channel":"café"}');
+  });
+});
+
 describe("getAuthProxyForUrl", () => {
   it.each([
     "https://acme.okta.com/oauth2/v1/keys",
