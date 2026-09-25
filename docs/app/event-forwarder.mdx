@@ -66,7 +66,9 @@ GRANT USE SCHEMA, CREATE TABLE ON SCHEMA <catalog>.<schema> TO `<service-princip
 
 In the Event Forwarder UI you provide:
 
-- **Destination** as `catalog.schema.prefix`, for example `main.growthbook.gb`. The catalog is pre-filled from your connection; use a dedicated schema such as `growthbook` that the service principal can create tables in. GrowthBook creates `gb_events`, `gb_experiment_viewed`, and `gb_feature_usage` in that schema, clustered on `received_at`, with `attributes` and `properties` stored as `VARIANT`.
+- **Catalog**, pre-filled from your connection when it names one.
+- **Schema**, an existing schema the service principal can create tables in. We suggest a dedicated one such as `growthbook`.
+- **Table prefix** (optional, default `gb`). GrowthBook creates `<prefix>_events`, `<prefix>_experiment_viewed`, and `<prefix>_feature_usage` in that schema, clustered on `received_at`, with `attributes` and `properties` stored as `VARIANT`.
 - **Zerobus endpoint** for your workspace. See [Finding your Zerobus endpoint](#finding-your-zerobus-endpoint) below.
 
 #### Finding your Zerobus endpoint

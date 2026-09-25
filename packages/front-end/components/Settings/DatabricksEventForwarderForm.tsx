@@ -77,7 +77,7 @@ const DatabricksEventForwarderForm: FC<{
         helpText={
           <>
             Built from your workspace ID and cloud region.{" "}
-            <DocLink docSection="eventForwarder" useRadix={false}>
+            <DocLink docSection="eventForwarderZerobus" useRadix={false}>
               How to find these
             </DocLink>
           </>
