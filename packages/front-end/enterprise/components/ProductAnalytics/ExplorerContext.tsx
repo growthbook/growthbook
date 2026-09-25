@@ -449,10 +449,11 @@ export function ExplorerProvider({
   ]);
 
   const commonColumns = useMemo(() => {
-    if (!fullFactTablesLoadedFor(relevantFactTableIds)) return [];
     return getAvailableDimensionColumns(
       draftExploreState.dataset,
-      getFullFactTableById,
+      fullFactTablesLoadedFor(relevantFactTableIds)
+        ? getFullFactTableById
+        : getFactTableById,
       getFactMetricById,
     );
   }, [
@@ -460,6 +461,7 @@ export function ExplorerProvider({
     fullFactTablesLoadedFor,
     relevantFactTableIds,
     getFullFactTableById,
+    getFactTableById,
     getFactMetricById,
   ]);
 
