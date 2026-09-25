@@ -341,7 +341,7 @@ describe("covariate insert SQL builders", () => {
     settings,
     exposureQuery: {
       query: exposureQuery.query,
-      userIdType: exposureQuery.userIdType,
+      identifierType: exposureQuery.userIdType,
     },
     activationMetric: null,
     factTableMap,

@@ -5,7 +5,7 @@ describe("buildUnitsQuerySettingsFromSnapshot", () => {
   it("uses the exposure query exactly as given, ignoring the snapshot's stored identifier", () => {
     const exposureQuery = {
       query: "SELECT user_id, anonymous_id FROM experiment_viewed",
-      userIdType: "user_id",
+      identifierType: "user_id",
     };
     expect(
       buildUnitsQuerySettingsFromSnapshot(

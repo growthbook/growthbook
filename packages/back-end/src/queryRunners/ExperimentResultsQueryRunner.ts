@@ -10,9 +10,8 @@ import {
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
 import {
-  assertExposureQueryDeclaresIdentifierType,
+  resolveExposureQueryForAnalysis,
   buildUnitsQuerySettingsFromSnapshot,
-  getAnalysisIdentifierType,
 } from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -145,13 +144,11 @@ export const startExperimentResultQueries = async (
   // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
   // exposure query, and an unknown id throws a clear error rather than generating
   // an invalid query with an empty user id type.
-  const resolvedExposureQuery = getExposureQuery(
-    integration.datasource,
-    snapshotSettings.exposureQueryId || "",
-  );
-  // The query may have dropped the stored identifier since it was saved.
-  assertExposureQueryDeclaresIdentifierType(
-    resolvedExposureQuery,
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
+    getExposureQuery(
+      integration.datasource,
+      snapshotSettings.exposureQueryId || "",
+    ),
     snapshotSettings.exposureQueryIdentifierType,
   );
 
@@ -216,13 +213,10 @@ export const startExperimentResultQueries = async (
         eligibleDimensionsWithSlices: [],
       };
 
-  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(snapshotSettings, {
-    ...resolvedExposureQuery,
-    userIdType: getAnalysisIdentifierType(
-      resolvedExposureQuery,
-      snapshotSettings.exposureQueryIdentifierType,
-    ),
-  });
+  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
+    snapshotSettings,
+    resolvedExposureQuery,
+  );
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,

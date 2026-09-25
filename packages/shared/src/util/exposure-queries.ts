@@ -1,4 +1,5 @@
 import { ExposureQuery } from "shared/types/datasource";
+import { ResolvedExposureQuery } from "shared/types/integrations";
 
 type ExposureQueryIdentity = Pick<
   ExposureQuery,
@@ -215,4 +216,23 @@ export function assertExposureQueryDeclaresIdentifierType(
       `Assignment query "${query.name || query.id}" no longer declares the "${identifierType}" identifier type. Choose an assignment query that declares it, or a different identifier type, before running analysis.`,
     );
   }
+}
+
+/**
+ * The SQL builders' input for a saved record: refuses a query that no longer
+ * declares the identifier the record analyzes on, then pairs its SQL with that
+ * identifier.
+ */
+export function resolveExposureQueryForAnalysis(
+  query: Pick<
+    ExposureQuery,
+    "id" | "name" | "query" | "userIdType" | "userIdTypes"
+  >,
+  storedIdentifierType: string | undefined,
+): ResolvedExposureQuery {
+  assertExposureQueryDeclaresIdentifierType(query, storedIdentifierType);
+  return {
+    query: query.query,
+    identifierType: getAnalysisIdentifierType(query, storedIdentifierType),
+  };
 }

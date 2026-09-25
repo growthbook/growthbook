@@ -7,6 +7,7 @@ import {
   assertValidAssignmentQuerySelection,
   hasAssignmentQuerySelectionChanged,
   toApiAssignmentQueryRef,
+  resolveExposureQueryForAnalysis,
   flattenExposureQueryInput,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
@@ -407,5 +408,34 @@ describe("flattenExposureQueryInput", () => {
         exposureQueryId: "eq_1",
       }),
     ).toThrow("Cannot set exposureQuery together with the deprecated");
+  });
+});
+
+describe("resolveExposureQueryForAnalysis", () => {
+  const multi = query({
+    id: "eq_1",
+    name: "Multi",
+    userIdType: "anonymous_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+    query: "SELECT user_id, anonymous_id",
+  });
+
+  it("pairs the SQL with the stored identifier", () => {
+    expect(resolveExposureQueryForAnalysis(multi, "user_id")).toEqual({
+      query: "SELECT user_id, anonymous_id",
+      identifierType: "user_id",
+    });
+  });
+
+  it("resolves a legacy record to the legacy identifier, not the first", () => {
+    expect(
+      resolveExposureQueryForAnalysis(multi, undefined).identifierType,
+    ).toBe("anonymous_id");
+  });
+
+  it("refuses an identifier the query no longer declares", () => {
+    expect(() => resolveExposureQueryForAnalysis(multi, "company_id")).toThrow(
+      'no longer declares the "company_id" identifier type',
+    );
   });
 });

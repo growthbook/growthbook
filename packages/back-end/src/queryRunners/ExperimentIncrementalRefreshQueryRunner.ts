@@ -26,9 +26,8 @@ import {
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import {
-  assertExposureQueryDeclaresIdentifierType,
+  resolveExposureQueryForAnalysis,
   buildUnitsQuerySettingsFromSnapshot,
-  getAnalysisIdentifierType,
 } from "shared/util";
 import {
   ExperimentQueryMetadata,
@@ -419,20 +418,11 @@ const startExperimentIncrementalRefreshQueries = async (
   if (!exposureQuery) {
     throw new Error("Exposure query not found");
   }
-  // The query may have dropped the stored identifier since it was saved.
-  assertExposureQueryDeclaresIdentifierType(
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
     exposureQuery,
     snapshotSettings.exposureQueryIdentifierType,
   );
-
-  const exposureUserIdType = getAnalysisIdentifierType(
-    exposureQuery,
-    snapshotSettings.exposureQueryIdentifierType,
-  );
-  const resolvedExposureQuery = {
-    query: exposureQuery.query,
-    userIdType: exposureUserIdType,
-  };
+  const exposureUserIdType = resolvedExposureQuery.identifierType;
 
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
     snapshotSettings,

@@ -149,7 +149,7 @@ function buildSql(
       unitsSource: "exposureQuery",
       unitsSettings: buildUnitsQuerySettingsFromSnapshot(snapshotSettings, {
         query: testExposureQuery.query,
-        userIdType: testExposureQuery.userIdType,
+        identifierType: testExposureQuery.userIdType,
       }),
       activationMetric: null,
       dimensions: [],

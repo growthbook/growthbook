@@ -518,7 +518,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
 
   const resolvedExposureQuery = {
     query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
+    identifierType: exposureQuery.userIdType,
   };
 
   const factTable = factTableFactory.build({
@@ -1525,7 +1525,7 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
 
   const resolvedExposureQuery = {
     query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
+    identifierType: exposureQuery.userIdType,
   };
 
   const factTable = factTableFactory.build({
