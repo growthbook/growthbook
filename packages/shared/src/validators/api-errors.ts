@@ -68,6 +68,15 @@ export const apiErrorRegistry = {
       overallResultsAsOf: z.string(),
     }),
   },
+  invalid_tracking_key: {
+    status: 400,
+    description:
+      "The experiment tracking key doesn't match the organization's required format",
+    detailsSchema: z.object({
+      pattern: z.string(),
+      example: z.string(),
+    }),
+  },
 } satisfies Record<
   string,
   { status: number; description: string; detailsSchema: z.ZodTypeAny }

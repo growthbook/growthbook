@@ -5,6 +5,7 @@ import {
 import {
   BigQueryEventForwarderStoredConfig,
   EventForwarderConfigDraft,
+  EventForwarderSinkType,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import {
@@ -30,6 +31,7 @@ import {
 import {
   buildNormalizedEventForwarderSinkPayloadForTest,
   getBigQueryEventForwarderProjectId,
+  getEventForwarderBigQueryConnectionParams,
 } from "back-end/src/services/eventForwarder/config";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { logger } from "back-end/src/util/logger";
@@ -48,12 +50,6 @@ type EventForwarderWriteAccessInput =
       params: SnowflakeConnectionParams;
       config: SnowflakeEventForwarderStoredConfig;
     };
-
-type ServiceAccountKey = {
-  project_id?: string;
-  client_email?: string;
-  private_key?: string;
-};
 
 export function getEventForwarderWriteAccessFailedResponse(
   message: string,
@@ -82,47 +78,6 @@ function writeAccessSuccess(): EventForwarderAccessTestResponse {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function parseBigQueryServiceAccountKey(raw: string): ServiceAccountKey | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch {
-    throw new Error("Event Forwarder service account key is not valid JSON.");
-  }
-  if (!parsed || typeof parsed !== "object") {
-    throw new Error("Event Forwarder service account key is not valid JSON.");
-  }
-
-  return parsed as ServiceAccountKey;
-}
-
-function getBigQueryProbeParams(
-  params: BigQueryConnectionParams,
-  serviceAccountKeyJson: string | undefined,
-): BigQueryConnectionParams {
-  const serviceAccountKey = parseBigQueryServiceAccountKey(
-    serviceAccountKeyJson || "",
-  );
-  if (!serviceAccountKey) return params;
-
-  return {
-    ...params,
-    authType: "json",
-    projectId: serviceAccountKey.project_id || params.projectId,
-    defaultProject:
-      params.defaultProject ||
-      serviceAccountKey.project_id ||
-      params.projectId ||
-      "",
-    clientEmail: serviceAccountKey.client_email || params.clientEmail,
-    privateKey: serviceAccountKey.private_key || params.privateKey,
-    serviceAccountJson: serviceAccountKeyJson,
-  };
 }
 
 function getProbeDatasource({
@@ -191,7 +146,7 @@ function getProbeParams(
 ): DataSourceParams {
   switch (input.sinkType) {
     case "bigquery":
-      return getBigQueryProbeParams(
+      return getEventForwarderBigQueryConnectionParams(
         input.params,
         input.config.serviceAccountKey,
       );
@@ -294,7 +249,7 @@ export function buildEventForwarderAccessTestDatasource({
   projects,
 }: {
   context: ReqContext;
-  type: "bigquery" | "snowflake";
+  type: EventForwarderSinkType;
   params: DataSourceParams;
   projects?: string[];
 }): DataSourceInterface {
@@ -338,6 +293,7 @@ async function testEventForwarderWriteAccessForSink(
         params: args.datasourceParams as SnowflakeConnectionParams,
         config: args.normalized as SnowflakeEventForwarderStoredConfig,
       });
+    case "databricks":
     default:
       throw new Error(
         `Unsupported event forwarder sink type for access test: ${String(args.sinkType)}`,
