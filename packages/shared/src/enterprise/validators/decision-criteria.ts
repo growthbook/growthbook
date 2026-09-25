@@ -1,5 +1,12 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
+import { apiBaseSchema } from "../../validators/base-model";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+} from "../../validators/owner-field";
+import { namedSchema } from "../../validators/openapi-helpers";
 
 export const decisionCriteriaAction = z.enum(["ship", "rollback", "review"]);
 
@@ -36,6 +43,43 @@ export const decisionCriteriaInterface = z
     defaultAction: decisionCriteriaAction,
   })
   .strict();
+
+const decisionCriteriaApiFields = {
+  project: z
+    .string()
+    .optional()
+    .describe(
+      "Project ID. Omit to make the criteria available to all projects.",
+    ),
+  name: z.string(),
+  description: z.string().optional(),
+  rules: z
+    .array(decisionCriteriaRule)
+    .describe(
+      "Evaluated in order; the first rule whose conditions all hold decides the action.",
+    ),
+  defaultAction: decisionCriteriaAction.describe(
+    "The action when no rule matches.",
+  ),
+};
+
+export const apiDecisionCriteriaValidator = namedSchema(
+  "DecisionCriteria",
+  apiBaseSchema.safeExtend({
+    owner: ownerField,
+    ownerEmail: ownerEmailField,
+    ...decisionCriteriaApiFields,
+  }),
+);
+
+export const apiCreateDecisionCriteriaBody = z.strictObject({
+  ...decisionCriteriaApiFields,
+  owner: ownerInputField.optional(),
+});
+export const apiUpdateDecisionCriteriaBody =
+  apiCreateDecisionCriteriaBody.partial();
+
+export type ApiDecisionCriteria = z.infer<typeof apiDecisionCriteriaValidator>;
 
 export type DecisionCriteriaData = Omit<
   DecisionCriteriaInterface,
