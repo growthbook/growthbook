@@ -2,11 +2,13 @@ import React from "react";
 import { SchemaFormat } from "shared/types/datasource";
 import clsx from "clsx";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import Badge from "@/ui/Badge";
 
 export type LanguageLogo = {
   logo?: string;
   label: string;
   invertDark?: boolean;
+  beta?: boolean;
 };
 
 export const eventTrackerMapping: Record<
@@ -71,6 +73,16 @@ export const eventTrackerMapping: Record<
     logo: "/images/3rd-party-logos/datasource-logos/clevertap.png",
     label: "CleverTap",
   },
+  langfuse: {
+    logo: "/images/3rd-party-logos/datasource-logos/langfuse.svg",
+    label: "Langfuse",
+    beta: true,
+  },
+  phoenix: {
+    logo: "/images/3rd-party-logos/datasource-logos/phoenix.png",
+    label: "Arize Phoenix",
+    beta: true,
+  },
   eventForwarder: {
     label: "Event Forwarder",
   },
@@ -94,7 +106,7 @@ export default function DataSourceLogo({
   if (!Object.keys(eventTrackerMapping).includes(eventTracker)) {
     return null;
   }
-  const { logo, label, invertDark } = eventTrackerMapping[eventTracker];
+  const { logo, label, invertDark, beta } = eventTrackerMapping[eventTracker];
 
   return (
     <span
@@ -120,6 +132,9 @@ export default function DataSourceLogo({
         style={{ fontWeight: 500 }}
       >
         {showLabel && label}
+        {showLabel && beta && (
+          <Badge color="indigo" label="Beta" variant="solid" size="xs" ml="1" />
+        )}
       </span>
     </span>
   );

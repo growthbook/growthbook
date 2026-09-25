@@ -1,0 +1,80 @@
+---
+title: Setting Up Arize Phoenix as an Event Tracker
+description: Tag Phoenix traces with GrowthBook assignments, connect the Phoenix Postgres database, and use latency, cost, token, and annotation data as experiment metrics.
+sidebarTitle: Arize Phoenix
+slug: phoenix
+---
+
+import DefaultInstructions from '/snippets/event-trackers/_default-event-instructions.mdx'
+
+# Arize Phoenix Event Tracker Setup
+
+<Note>
+**Beta**
+
+The Arize Phoenix event tracker is in beta. It queries Phoenix's own Postgres database, which is not a stable API; re-validate the generated SQL after upgrading Phoenix.
+
+</Note>
+
+[Arize Phoenix](https://phoenix.arize.com) is an open-source LLM tracing and evaluation tool built on OpenTelemetry and OpenInference. With this tracker, GrowthBook assigns the prompt or model variation and computes results, while Phoenix keeps recording spans and annotations. The end-to-end walkthrough, including prompt placement patterns and bandits, is in [Experimenting on LLM Features](/integrations/llm-tracing).
+
+## Exposure Tracking
+
+There is no separate exposure event. Each trace's root span carries the GrowthBook assignment as an OpenInference tag of the form `gb:<experimentKey>:<variationKey>` (in the `tag.tags` attribute), and the exposure query reads those tags from the `spans` table.
+
+In JavaScript, the [`tracing` plugin](/lib/js#tracing) collects these tags for you. Put them, together with the user id, on the OpenTelemetry context before the root span starts:
+
+```ts
+import { context } from "@opentelemetry/api";
+import { setTags, setUser } from "@arizeai/phoenix-otel";
+import { GrowthBook } from "@growthbook/growthbook";
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: { user_id: userId },
+  plugins: [tracingPlugin()],
+});
+await gb.init();
+
+const promptTag = gb.getFeatureValue("support-prompt", "production");
+
+const ctx = setTags(setUser(context.active(), { userId }), getTracingTags(gb));
+await context.with(ctx, async () => {
+  await tracer.startActiveSpan("support-reply", async (span) => {
+    // ... call the model
+    span.end();
+  });
+});
+```
+
+Two things must hold for the join to work:
+
+- The OpenInference `user.id` (and `session.id`, if used) must equal the value of the GrowthBook attribute the experiment hashes on.
+- Experiment and variation keys must not contain `:`.
+
+Evaluate flags before starting the root span so the tags are present on it; the exposure query only reads the root span. For Python and plain OpenTelemetry examples, see [Stamping the trace](/integrations/llm-tracing#stamping-the-trace).
+
+## Integrating with Phoenix Data
+
+This tracker works with Phoenix backed by Postgres.
+
+- Connection type: **Postgres**, pointed at Phoenix's Postgres database. Use a read-only role.
+- Option `Phoenix project name` — the Phoenix project your traces are sent to. Defaults to `default`. Leave blank to include every project.
+
+When you connect, GrowthBook generates:
+
+- Identifier types `user_id`, `session_id`, and `trace_id`, with an exposure query for each and an identifier join between `user_id` and `session_id`. Exposure queries expose `trace_name` as an experiment dimension.
+- Fact table `Phoenix Traces` (one row per trace, with root-span `status_code`, `latency_ms`, and cumulative token counts). Filter **Errors**. Metric **Traces per user**.
+- Fact table `Phoenix Spans` (one row per span, with `span_kind`, `model`, `latency_ms`, token counts, and `total_cost` from `span_costs`). Filters **LLM Spans** and **Errors**. Metrics **LLM calls per user**, **LLM cost per user**, **LLM error rate**, **p95 LLM latency**, and **Tokens per LLM call**.
+- Fact table `Phoenix Annotations` (one row per span annotation: LLM evals, code checks, human feedback). Filter **LLM Evals**. `annotation_name` is an inline-filter column, so create a ratio metric (sum of `annotation_score` over a count of rows, both filtered by the annotation name) to get, for example, average helpfulness. See [Adding eval-score metrics](/integrations/llm-tracing#adding-eval-score-metrics). No annotation metrics are generated because annotation names are user-defined.
+
+Caveats specific to Phoenix:
+
+- The `span_costs` table exists only on newer Phoenix versions. On older installs remove the `LEFT JOIN ... span_costs` and the `total_cost` column from the `Phoenix Spans` fact table.
+- `trace_annotations` are not included yet; only `span_annotations` are.
+- `tag.tags` arrives as a JSON array from the Python SDK and as a JSON-encoded string from the JavaScript SDK. The generated SQL handles both.
+- Changing the project name later in the data source settings does not rewrite SQL that was already generated.
+
+<DefaultInstructions eventTracker="Arize Phoenix" slug="phoenix" />

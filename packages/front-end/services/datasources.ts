@@ -673,9 +673,184 @@ FROM
   },
 };
 
+function sqlStringLiteral(value: string | number): string {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+// GrowthBook assignments are stamped on LLM traces as tags shaped
+// `gb:<experimentKey>:<variationKey>` (emitted by the SDK `tracing` plugin).
+// The exposure queries below parse that tag positionally on ":".
+export const TRACING_TAG_PREFIX = "gb";
+
+// Langfuse v3 self-hosted ClickHouse tables. Kept in one place because
+// Langfuse v4 collapses these into a single `events` table.
+export const LANGFUSE_TABLES = {
+  traces: "traces",
+  observations: "observations",
+  scores: "scores",
+} as const;
+
+export const PHOENIX_TABLES = {
+  projects: "projects",
+  traces: "traces",
+  spans: "spans",
+  projectSessions: "project_sessions",
+  spanCosts: "span_costs",
+  spanAnnotations: "span_annotations",
+} as const;
+
+// Langfuse tables hold every project in the instance. Scope by project id when
+// one is configured; otherwise include everything, which is what a
+// single-project self-host wants.
+export function langfuseProjectClause(
+  alias: string,
+  projectId?: string | number,
+): string {
+  return projectId
+    ? `\n  AND ${alias}project_id = ${sqlStringLiteral(projectId)}`
+    : "";
+}
+
+export function phoenixProjectClause(
+  alias: string,
+  projectName?: string | number,
+): string {
+  return projectName
+    ? `\n  AND ${alias}name = ${sqlStringLiteral(projectName)}`
+    : "";
+}
+
+const LANGFUSE_ID_COLUMNS: Record<string, string> = {
+  user_id: "t.user_id",
+  session_id: "t.session_id",
+  trace_id: "t.id",
+};
+
+const LangfuseSchema: SchemaInterface = {
+  experimentDimensions: ["trace_name", "release", "version"],
+  userIdTypes: ["user_id", "session_id", "trace_id"],
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const idCol = LANGFUSE_ID_COLUMNS[userId] || LANGFUSE_ID_COLUMNS.user_id;
+    // No FINAL here: duplicate trace versions yield identical exposure rows,
+    // which GrowthBook's per-unit dedupe already collapses.
+    return `SELECT
+  ${idCol} AS ${userId},
+  t.timestamp AS timestamp,
+  splitByChar(':', tag)[2] AS experiment_id,
+  splitByChar(':', tag)[3] AS variation_id,
+  t.name AS trace_name,
+  t.release AS release,
+  t.version AS version
+FROM ${tablePrefix}${LANGFUSE_TABLES.traces} AS t
+ARRAY JOIN t.tags AS tag
+WHERE
+  startsWith(tag, '${TRACING_TAG_PREFIX}:')
+  AND length(splitByChar(':', tag)) = 3
+  AND t.is_deleted = 0
+  AND ${idCol} IS NOT NULL${langfuseProjectClause("t.", options?.projectId)}
+  AND t.timestamp >= toDateTime('{{startDate}}', 'UTC')
+  AND t.timestamp <= toDateTime('{{endDate}}', 'UTC')`;
+  },
+  getIdentitySQL: (tablePrefix, options) => [
+    {
+      ids: ["user_id", "session_id"],
+      query: `SELECT DISTINCT
+  user_id,
+  session_id
+FROM ${tablePrefix}${LANGFUSE_TABLES.traces}
+WHERE
+  is_deleted = 0
+  AND user_id IS NOT NULL
+  AND session_id IS NOT NULL${langfuseProjectClause("", options?.projectId)}`,
+    },
+  ],
+  // Legacy templates; fact tables for this schema come from initial-resources.ts
+  getMetricSQL: () => "",
+  getFactTableSQL: () => "",
+};
+
+// Phoenix stores OTel attributes as nested JSONB (`user.id` -> attributes->'user'->>'id').
+// Context-propagated attributes land on every span inside the scope, so the
+// root span is the reliable place to read trace-level values.
+export const PHOENIX_USER_ID_EXPR = "root.attributes->'user'->>'id'";
+export const PHOENIX_SESSION_ID_EXPR =
+  "COALESCE(ps.session_id, root.attributes->'session'->>'id')";
+
+// `tag.tags` arrives as a JSON array from the Python SDK but as a JSON-encoded
+// string from the JS SDK, so normalise both (and a bare scalar) to an array.
+const PHOENIX_ROOT_TAGS_EXPR = `CASE jsonb_typeof(root.attributes->'tag'->'tags')
+      WHEN 'array' THEN root.attributes->'tag'->'tags'
+      WHEN 'string' THEN CASE
+        WHEN left(root.attributes->'tag'->>'tags', 1) = '['
+          THEN (root.attributes->'tag'->>'tags')::jsonb
+        ELSE jsonb_build_array(root.attributes->'tag'->>'tags')
+      END
+      ELSE '[]'::jsonb
+    END`;
+
+export function phoenixTraceJoins(tablePrefix: string): string {
+  return `JOIN ${tablePrefix}${PHOENIX_TABLES.projects} p ON p.id = t.project_rowid
+JOIN ${tablePrefix}${PHOENIX_TABLES.spans} root
+  ON root.trace_rowid = t.id AND root.parent_id IS NULL
+LEFT JOIN ${tablePrefix}${PHOENIX_TABLES.projectSessions} ps
+  ON ps.id = t.project_session_rowid`;
+}
+
+const PHOENIX_ID_COLUMNS: Record<string, string> = {
+  user_id: PHOENIX_USER_ID_EXPR,
+  session_id: PHOENIX_SESSION_ID_EXPR,
+  trace_id: "t.trace_id",
+};
+
+const PhoenixSchema: SchemaInterface = {
+  experimentDimensions: ["trace_name"],
+  userIdTypes: ["user_id", "session_id", "trace_id"],
+  getExperimentSQL: (tablePrefix, userId, options) => {
+    const idCol = PHOENIX_ID_COLUMNS[userId] || PHOENIX_ID_COLUMNS.user_id;
+    return `SELECT
+  ${idCol} AS ${userId},
+  t.start_time AS timestamp,
+  split_part(gb_tags.tag, ':', 2) AS experiment_id,
+  split_part(gb_tags.tag, ':', 3) AS variation_id,
+  root.name AS trace_name
+FROM ${tablePrefix}${PHOENIX_TABLES.traces} t
+${phoenixTraceJoins(tablePrefix)}
+CROSS JOIN LATERAL jsonb_array_elements_text(
+    ${PHOENIX_ROOT_TAGS_EXPR}
+  ) AS gb_tags(tag)
+WHERE
+  gb_tags.tag LIKE '${TRACING_TAG_PREFIX}:%'
+  AND split_part(gb_tags.tag, ':', 3) <> ''
+  AND ${idCol} IS NOT NULL${phoenixProjectClause("p.", options?.projectName)}
+  AND t.start_time >= '{{startDate}}'
+  AND t.start_time <= '{{endDate}}'`;
+  },
+  getIdentitySQL: (tablePrefix, options) => [
+    {
+      ids: ["user_id", "session_id"],
+      query: `SELECT DISTINCT
+  ${PHOENIX_USER_ID_EXPR} AS user_id,
+  ${PHOENIX_SESSION_ID_EXPR} AS session_id
+FROM ${tablePrefix}${PHOENIX_TABLES.traces} t
+${phoenixTraceJoins(tablePrefix)}
+WHERE
+  ${PHOENIX_USER_ID_EXPR} IS NOT NULL
+  AND ${PHOENIX_SESSION_ID_EXPR} IS NOT NULL${phoenixProjectClause("p.", options?.projectName)}`,
+    },
+  ],
+  getMetricSQL: () => "",
+  getFactTableSQL: () => "",
+};
+
 function getSchemaObject(type?: SchemaFormat) {
   if (type === "ga4" || type === "firebase") {
     return GA4Schema;
+  }
+  if (type === "langfuse") {
+    return LangfuseSchema;
+  }
+  if (type === "phoenix") {
+    return PhoenixSchema;
   }
   if (type === "snowplow") {
     return SnowplowSchema;
@@ -743,6 +918,25 @@ export function getTablePrefix(params: DataSourceParams) {
   return "";
 }
 
+const USER_ID_TYPE_META: Record<
+  string,
+  { description: string; exposureName: string }
+> = {
+  user_id: {
+    description: "Logged-in user id",
+    exposureName: "Logged-in Users",
+  },
+  anonymous_id: {
+    description: "Anonymous visitor id",
+    exposureName: "Anonymous Visitors",
+  },
+  session_id: { description: "Session id", exposureName: "Sessions" },
+  trace_id: {
+    description: "Trace id (one per LLM request)",
+    exposureName: "Traces",
+  },
+};
+
 export function getInitialSettings(
   type: SchemaFormat,
   params: DataSourceParams,
@@ -755,12 +949,7 @@ export function getInitialSettings(
     userIdTypes: userIdTypes.map((type) => {
       return {
         userIdType: type,
-        description:
-          type === "user_id"
-            ? "Logged-in user id"
-            : type === "anonymous_id"
-              ? "Anonymous visitor id"
-              : "",
+        description: USER_ID_TYPE_META[type]?.description ?? "",
       };
     }),
     queries: {
@@ -768,12 +957,7 @@ export function getInitialSettings(
         id,
         userIdType: id,
         dimensions: schema.experimentDimensions,
-        name:
-          id === "user_id"
-            ? "Logged-in Users"
-            : id === "anonymous_id"
-              ? "Anonymous Visitors"
-              : id,
+        name: USER_ID_TYPE_META[id]?.exposureName ?? id,
         description: "",
         query: schema.getExperimentSQL(getTablePrefix(params), id, options),
       })),

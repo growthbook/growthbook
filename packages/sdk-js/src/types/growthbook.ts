@@ -231,6 +231,12 @@ export type CustomEventSubCallback = (
   properties: Readonly<Record<string, unknown>>,
 ) => void;
 
+export type ExperimentViewedSubCallback = (
+  experiment: Readonly<Experiment<any>>,
+  result: Readonly<Result<any>>,
+  user: TrackingUserContext,
+) => void;
+
 export type Plugin = (
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
 ) => void;
@@ -399,6 +405,7 @@ export type UserContext = {
   trackedFeatureUsage?: Record<string, string>;
   devLogs?: LogUnion[];
   featureUsageSubs?: Set<FeatureUsageSubCallback>;
+  experimentViewedSubs?: Set<ExperimentViewedSubCallback>;
 };
 
 export type StackContext = {

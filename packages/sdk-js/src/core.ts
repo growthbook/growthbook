@@ -127,6 +127,18 @@ function onExperimentViewed(
       ),
     );
   }
+
+  // Deduped above — subscribers fire once per unique experiment assignment.
+  if (ctx.user.experimentViewedSubs?.size) {
+    const user = getTrackingUserContext(ctx.user);
+    ctx.user.experimentViewedSubs.forEach((cb) => {
+      try {
+        cb(experiment, result, user);
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  }
   return calls;
 }
 
