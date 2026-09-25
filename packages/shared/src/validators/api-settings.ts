@@ -171,7 +171,7 @@ const writableSettingsFields = {
   defaultDecisionCriteriaId: z.string(),
   disableLegacyMetricCreation: z.boolean(),
   disablePrecomputedDimensions: z.boolean(),
-  displayCurrency: z.string(),
+  displayCurrency: z.string().regex(/^[A-Z]{3}$/, "Must be an ISO 4217 code"),
   learningStatuses: z.array(apiLearningStatus),
   metricDefaults: apiMetricDefaults,
 
@@ -211,7 +211,9 @@ const writableSettingsFields = {
   // Code references
   codeReferencesEnabled: z.boolean(),
   codeRefsBranchesToFilter: z.array(z.string()),
-  codeRefsPlatformUrl: z.string(),
+  codeRefsPlatformUrl: z
+    .string()
+    .regex(/^https?:\/\//, "Must be an http(s) URL"),
 
   // AI
   aiEnabled: z.boolean(),
