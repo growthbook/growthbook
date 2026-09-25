@@ -66,7 +66,8 @@ export function getQueryStatus(
 type Props = {
   cta?: string;
   loadingText?: string;
-  cancelEndpoint: string;
+  // An internal API path, or a callback for endpoints that need another client
+  cancelEndpoint: string | (() => Promise<unknown>);
   model: { queries: Queries; runStarted: string | Date | undefined | null };
   mutate: () => Promise<unknown> | unknown;
   icon?: "run" | "refresh";
@@ -190,7 +191,9 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                     e.stopPropagation();
                     resetFilters?.();
                     try {
-                      await apiCall(cancelEndpoint, { method: "POST" });
+                      await (typeof cancelEndpoint === "function"
+                        ? cancelEndpoint()
+                        : apiCall(cancelEndpoint, { method: "POST" }));
                     } catch (e) {
                       console.error(e);
                     }

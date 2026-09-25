@@ -1,4 +1,4 @@
-import { addContextualBanditLinkedFeatureValidator } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -19,7 +19,7 @@ import {
 } from "./_shared";
 
 export const addContextualBanditLinkedFeature = createApiRequestHandler(
-  addContextualBanditLinkedFeatureValidator,
+  contextualBanditEndpoints.addContextualBanditLinkedFeature,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,

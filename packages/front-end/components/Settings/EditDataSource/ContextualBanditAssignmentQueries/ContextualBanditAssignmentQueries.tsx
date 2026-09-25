@@ -1,3 +1,4 @@
+import { contextualBanditQueryEndpoints } from "shared/api-endpoints";
 import React, { FC, Fragment, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiContextualBanditQueryInterface } from "shared/validators";
@@ -11,7 +12,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 
 type ContextualBanditAssignmentQueriesProps = {
@@ -26,13 +27,13 @@ type UIMode = "view" | "edit" | "add";
  * CB-specific mirror of {@link ExperimentAssignmentQueries}. Unlike EAQ (which is
  * embedded in `datasource.settings.queries.exposure[]` and saved via a whole-datasource
  * PUT), CB queries live in their own collection, so this section reads via
- * `useContextualBanditQueries` and writes via the `/api/v1/contextual-bandit-queries`
- * CRUD endpoints (create/edit handled inside the modal; delete handled here).
+ * `useContextualBanditQueries` and writes via `contextualBanditQueryEndpoints`
+ * (create/edit handled inside the modal; delete handled here).
  */
 export const ContextualBanditAssignmentQueries: FC<
   ContextualBanditAssignmentQueriesProps
 > = ({ dataSource, canEdit = true }) => {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
@@ -78,12 +79,13 @@ export const ContextualBanditAssignmentQueries: FC<
 
   const handleDelete = useCallback(
     (query: ApiContextualBanditQueryInterface) => async () => {
-      await apiCall(`/api/v1/contextual-bandit-queries/${query.id}`, {
-        method: "DELETE",
-      });
+      await restApiCall(
+        contextualBanditQueryEndpoints.deleteContextualBanditQuery,
+        { params: { id: query.id } },
+      );
       await mutate();
     },
-    [apiCall, mutate],
+    [restApiCall, mutate],
   );
 
   if (!dataSource) {

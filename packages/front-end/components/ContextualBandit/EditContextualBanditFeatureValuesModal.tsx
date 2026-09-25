@@ -1,3 +1,4 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useForm } from "react-hook-form";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -16,7 +17,7 @@ import {
   DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import { getDefaultValue, useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -69,7 +70,7 @@ export default function EditContextualBanditFeatureValuesModal({
   mutate,
   onSaved,
 }: Props) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
@@ -272,31 +273,31 @@ export default function EditContextualBanditFeatureValuesModal({
           );
         }
 
-        const res = await apiCall<{
-          revisionVersion: number;
-          published: boolean;
-        }>(`/api/v1/contextual-bandits/${cb.id}/linked-feature/${feature.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            variations: updatedVariations,
-            description: existingRule.description ?? "",
-            enabled: existingRule.enabled ?? true,
-            allEnvironments: !!existingRule.allEnvironments,
-            ...(existingRule.allEnvironments
-              ? {}
-              : { environments: existingRule.environments ?? [] }),
-            ...(existingRule.allProjects === undefined
-              ? {}
-              : { allProjects: existingRule.allProjects }),
-            ...(existingRule.allProjects === false
-              ? { projects: existingRule.projects ?? [] }
-              : {}),
-            autoPublish: willPublish,
-            ...(willPublish || targetVersion === feature.version
-              ? {}
-              : { draftVersion: targetVersion }),
-          }),
-        });
+        const res = await restApiCall(
+          contextualBanditEndpoints.updateContextualBanditLinkedFeature,
+          {
+            params: { id: cb.id, featureId: feature.id },
+            body: {
+              variations: updatedVariations,
+              description: existingRule.description ?? "",
+              enabled: existingRule.enabled ?? true,
+              allEnvironments: !!existingRule.allEnvironments,
+              ...(existingRule.allEnvironments
+                ? {}
+                : { environments: existingRule.environments ?? [] }),
+              ...(existingRule.allProjects === undefined
+                ? {}
+                : { allProjects: existingRule.allProjects }),
+              ...(existingRule.allProjects === false
+                ? { projects: existingRule.projects ?? [] }
+                : {}),
+              autoPublish: willPublish,
+              ...(willPublish || targetVersion === feature.version
+                ? {}
+                : { draftVersion: targetVersion }),
+            },
+          },
+        );
 
         await mutate();
         // The save lands on a draft the card can't show — report where it went.

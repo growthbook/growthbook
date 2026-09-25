@@ -284,6 +284,30 @@ function MyComponent() {
 }
 ```
 
+## Public REST API (`/api/v1/*`)
+
+`useApi()` and `apiCall()` target the internal API. They never send the `X-SSO-Connection-ID` header, so a `/api/v1/...` path passed to them fails for Enterprise SSO users. Call the public REST API through `@/services/restApi` with an endpoint object from `shared/api-endpoints` (or a legacy `*Validator` from `shared/validators`). Path, params, body, query, and response types all come from the endpoint.
+
+```typescript
+import { contextualBanditEndpoints } from "shared/api-endpoints";
+import { useRestApi, useRestApiCall } from "@/services/restApi";
+
+// Read: SWR-backed; pass null to skip fetching
+const { data, mutate } = useRestApi(
+  contextualBanditEndpoints.getContextualBandit,
+  cbId ? { params: { id: cbId } } : null,
+);
+
+// Write
+const restApiCall = useRestApiCall();
+await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+  params: { id: cb.id },
+  body: { description },
+});
+```
+
+Deleting an endpoint from `shared/api-endpoints` breaks every caller at compile time, so search by the endpoint name (its operationId) to find the definition, the back-end handler, and each front-end caller.
+
 ## Organization Context
 
 All API requests automatically include:
@@ -300,5 +324,7 @@ This means switching organizations automatically invalidates all cached data.
 | ------------------ | ------------------------------------------ | ------------------------------- |
 | `useApi()`         | SWR-based data fetching                    | `@/hooks/useApi`                |
 | `useAuth()`        | Access `apiCall()` for mutations           | `@/services/auth`               |
+| `useRestApi()`     | SWR fetch for a public REST API endpoint   | `@/services/restApi`            |
+| `useRestApiCall()` | Public REST API mutations                  | `@/services/restApi`            |
 | `useDefinitions()` | Global definitions + `mutateDefinitions()` | `@/services/DefinitionsContext` |
 | `useUser()`        | User context with `refreshOrganization()`  | `@/services/UserContext`        |

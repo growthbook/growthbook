@@ -978,6 +978,15 @@
                 "group": "Contextual Bandits",
                 "tag": "BETA",
                 "pages": [
+                  "api/ContextualBandits/operation/listContextualBandits",
+                  "api/ContextualBandits/operation/createContextualBandit",
+                  "api/ContextualBandits/operation/getContextualBandit",
+                  "api/ContextualBandits/operation/updateContextualBandit",
+                  "api/ContextualBandits/operation/startContextualBandit",
+                  "api/ContextualBandits/operation/stopContextualBandit",
+                  "api/ContextualBandits/operation/refreshContextualBandit",
+                  "api/ContextualBandits/operation/updateContextualBanditVariations",
+                  "api/ContextualBandits/operation/cancelContextualBandit",
                   "api/ContextualBandits/operation/getContextualBanditCurrentWeights",
                   "api/ContextualBandits/operation/listContextualBanditSnapshots",
                   "api/ContextualBandits/operation/getContextualBanditSnapshot",
@@ -987,27 +996,7 @@
                   "api/ContextualBandits/operation/getContextualBanditLinkedFeatures",
                   "api/ContextualBandits/operation/addContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/updateContextualBanditLinkedFeature",
-                  "api/ContextualBandits/operation/deleteContextualBanditLinkedFeature",
-                  "api/ContextualBandits/operation/getContextualBandit",
-                  "api/ContextualBandits/operation/updateContextualBandit",
-                  "api/ContextualBandits/operation/listContextualBandits",
-                  "api/ContextualBandits/operation/createContextualBandit",
-                  "api/ContextualBandits/operation/startContextualBandit",
-                  "api/ContextualBandits/operation/stopContextualBandit",
-                  "api/ContextualBandits/operation/refreshContextualBandit",
-                  "api/ContextualBandits/operation/updateContextualBanditVariations",
-                  "api/ContextualBandits/operation/cancelContextualBandit"
-                ]
-              },
-              {
-                "group": "Dashboards",
-                "pages": [
-                  "api/Dashboards/operation/getDashboard",
-                  "api/Dashboards/operation/updateDashboard",
-                  "api/Dashboards/operation/deleteDashboard",
-                  "api/Dashboards/operation/listDashboards",
-                  "api/Dashboards/operation/createDashboard",
-                  "api/Dashboards/operation/getDashboardsForExperiment"
+                  "api/ContextualBandits/operation/deleteContextualBanditLinkedFeature"
                 ]
               },
               {
@@ -1019,6 +1008,17 @@
                   "api/ContextualBanditQueries/operation/deleteContextualBanditQuery",
                   "api/ContextualBanditQueries/operation/listContextualBanditQueries",
                   "api/ContextualBanditQueries/operation/createContextualBanditQuery"
+                ]
+              },
+              {
+                "group": "Dashboards",
+                "pages": [
+                  "api/Dashboards/operation/getDashboard",
+                  "api/Dashboards/operation/updateDashboard",
+                  "api/Dashboards/operation/deleteDashboard",
+                  "api/Dashboards/operation/listDashboards",
+                  "api/Dashboards/operation/createDashboard",
+                  "api/Dashboards/operation/getDashboardsForExperiment"
                 ]
               },
               {
