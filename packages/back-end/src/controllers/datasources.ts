@@ -112,6 +112,7 @@ import {
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
+import { parseFeatureEvalDiagnosticsNarrowing } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-window";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -1470,11 +1471,20 @@ export async function postFeatureEvalDiagnostics(
     feature: string;
     datasourceId: string;
     lookback?: FeatureUsageLookback;
+    /** Untrusted until parseFeatureEvalDiagnosticsNarrowing has seen it. */
+    filter?: unknown;
+    range?: unknown;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { feature, datasourceId, lookback } = req.body;
+
+  const narrowing = parseFeatureEvalDiagnosticsNarrowing(req.body);
+  if ("error" in narrowing) {
+    res.status(400).json({ status: 400, message: narrowing.error });
+    return;
+  }
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
     res.status(404).json({
@@ -1498,6 +1508,7 @@ export async function postFeatureEvalDiagnostics(
     datasource,
     featureObj,
     lookback,
+    narrowing,
   );
 
   res.status(200).json({

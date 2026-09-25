@@ -4,7 +4,10 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type { FeatureEvalDiagnosticsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
-import { resolveFeatureEvalDiagnosticsWindow } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-window";
+import {
+  getFeatureEvalDiagnosticsNarrowingSql,
+  resolveFeatureEvalDiagnosticsWindow,
+} from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-window";
 
 export function getFeatureEvalDiagnosticsQuery(
   dialect: SqlDialect,
@@ -33,7 +36,7 @@ export function getFeatureEvalDiagnosticsQuery(
         ${compiledFeatureEvalQuery}
       )
       SELECT * FROM __featureEvalQuery
-      WHERE feature_key = '${featureKey}' AND timestamp >= ${dialect.toTimestamp(start)}
+      WHERE feature_key = '${featureKey}' AND timestamp >= ${dialect.toTimestamp(start)}${getFeatureEvalDiagnosticsNarrowingSql(params, dialect)}
       ORDER BY timestamp DESC
       LIMIT ${limit}
       `,

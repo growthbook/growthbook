@@ -3,6 +3,7 @@ import { isReadOnlySQL } from "shared/sql";
 import { SqlIdentifierQuote, TemplateVariables } from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
+  FeatureEvalDiagnosticsQueryParams,
   FeatureUsageLookback,
   QueryResponseColumnData,
   TestQueryRow,
@@ -302,6 +303,8 @@ export async function runFeatureEvalDiagnosticsQuery(
   feature: Pick<FeatureInterface, "id" | "project">,
   /** Omitted keeps the historical 7-day / 100-row window. */
   lookback?: FeatureUsageLookback,
+  /** Omitted: every series across the whole window. */
+  narrowing: Pick<FeatureEvalDiagnosticsQueryParams, "filter" | "range"> = {},
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
@@ -329,6 +332,7 @@ export async function runFeatureEvalDiagnosticsQuery(
   const sql = integration.getFeatureEvalDiagnosticsQuery({
     feature: feature.id,
     lookback,
+    ...narrowing,
   });
 
   try {

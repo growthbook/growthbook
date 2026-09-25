@@ -28,7 +28,10 @@ import { LAST_RECEIVED_LOOKBACK_DAYS } from "back-end/src/util/warehouseLookback
  * least significant groups first.
  */
 export const FEATURE_USAGE_MARGINAL_LIMIT = 5000;
-import { resolveFeatureEvalDiagnosticsWindow } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-window";
+import {
+  getFeatureEvalDiagnosticsNarrowingSql,
+  resolveFeatureEvalDiagnosticsWindow,
+} from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-window";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
 
@@ -181,7 +184,12 @@ export default class ClickHouse extends SqlIntegration {
         variationId
       FROM feature_usage
       WHERE feature = '${featureKey}'
-        AND timestamp >= ${this.getSqlDialect().toTimestamp(windowStart)}
+        AND timestamp >= ${this.getSqlDialect().toTimestamp(windowStart)}${getFeatureEvalDiagnosticsNarrowingSql(
+          params,
+          this.getSqlDialect(),
+          // feature_usage has ruleId and no rule_id.
+          { rule_id: "ruleId" },
+        )}
       ORDER BY timestamp DESC
       LIMIT ${limit}`;
     }

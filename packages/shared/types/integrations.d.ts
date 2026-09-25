@@ -583,6 +583,35 @@ export type FeatureEvalDiagnosticsQueryParams = {
   lookback?: FeatureUsageLookback;
   /** Row cap. Omitted keeps the historical 100. */
   limit?: number;
+  /** Narrows the stream to one series. Omitted: every series. */
+  filter?: FeatureEvalDiagnosticsFilter;
+  /** Narrows the stream to one chart bucket. Omitted: the whole window. */
+  range?: FeatureEvalDiagnosticsRange;
+};
+
+/**
+ * Stream columns a diagnostics filter may name. A closed set, looked up — never
+ * interpolated — when the SQL is built. `rule_id` is the rule column's name in
+ * the event-forwarder feature usage templates; the managed warehouse calls it
+ * `ruleId`. Both mean the same field.
+ */
+export type FeatureEvalDiagnosticsFilterColumn =
+  | "value"
+  | "source"
+  | "environment"
+  | "ruleId"
+  | "rule_id";
+
+/** `column = value`, one series. */
+export type FeatureEvalDiagnosticsFilter = {
+  column: FeatureEvalDiagnosticsFilterColumn;
+  value: string;
+};
+
+/** One chart bucket: `start` inclusive, `end` exclusive. */
+export type FeatureEvalDiagnosticsRange = {
+  start: Date;
+  end: Date;
 };
 
 /** Shared by both query builders so the two cannot drift. */

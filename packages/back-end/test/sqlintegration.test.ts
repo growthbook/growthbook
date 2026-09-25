@@ -30,6 +30,10 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
+import {
+  getFeatureEvalDiagnosticsNarrowingSql,
+  parseFeatureEvalDiagnosticsNarrowing,
+} from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-window";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
 
@@ -1815,5 +1819,94 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
     expect(sql).toMatch(
       /BETWEEN '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' AND '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z'/,
     );
+  });
+});
+
+describe("feature eval diagnostics narrowing", () => {
+  const start = Date.UTC(2025, 2, 24, 10, 0);
+  const end = Date.UTC(2025, 2, 24, 12, 0);
+
+  describe("parseFeatureEvalDiagnosticsNarrowing", () => {
+    it("accepts nothing, a filter, and a range", () => {
+      expect(parseFeatureEvalDiagnosticsNarrowing({})).toEqual({});
+      expect(
+        parseFeatureEvalDiagnosticsNarrowing({
+          filter: { column: "ruleId", value: "fr_a" },
+          range: { start, end },
+        }),
+      ).toEqual({
+        filter: { column: "ruleId", value: "fr_a" },
+        range: { start: new Date(start), end: new Date(end) },
+      });
+    });
+
+    it("rejects a column outside the known set", () => {
+      for (const column of ["userId", "value; DROP TABLE x", "__proto__", 1]) {
+        expect(
+          parseFeatureEvalDiagnosticsNarrowing({
+            filter: { column, value: "x" },
+          }),
+        ).toEqual({ error: "Invalid filter column" });
+      }
+    });
+
+    it("rejects a malformed value or range", () => {
+      expect(
+        parseFeatureEvalDiagnosticsNarrowing({
+          filter: { column: "value", value: 5 },
+        }),
+      ).toEqual({ error: "Invalid filter value" });
+      for (const range of [
+        { start: end, end: start },
+        { start: "a", end },
+        { start, end: start + 9 * 24 * 60 * 60 * 1000 },
+      ]) {
+        expect(parseFeatureEvalDiagnosticsNarrowing({ range })).toEqual({
+          error: "Invalid range",
+        });
+      }
+    });
+  });
+
+  describe("getFeatureEvalDiagnosticsNarrowingSql", () => {
+    it("is empty when there is nothing to narrow", () => {
+      expect(getFeatureEvalDiagnosticsNarrowingSql({}, bigQueryDialect)).toBe(
+        "",
+      );
+    });
+
+    it("escapes the value rather than interpolating it", () => {
+      const sql = getFeatureEvalDiagnosticsNarrowingSql(
+        { filter: { column: "value", value: "a' OR '1'='1" } },
+        bigQueryDialect,
+      );
+      expect(sql).toContain(
+        `value = '${bigQueryDialect.escapeStringLiteral("a' OR '1'='1")}'`,
+      );
+      expect(sql).not.toContain("'a' OR '1'='1'");
+    });
+
+    it("maps an alias column through the builder's map", () => {
+      expect(
+        getFeatureEvalDiagnosticsNarrowingSql(
+          { filter: { column: "rule_id", value: "fr_a" } },
+          clickHouseDialect,
+          { rule_id: "ruleId" },
+        ),
+      ).toContain("ruleId = 'fr_a'");
+    });
+
+    it("bounds a bucket start-inclusive, end-exclusive", () => {
+      const sql = getFeatureEvalDiagnosticsNarrowingSql(
+        { range: { start: new Date(start), end: new Date(end) } },
+        bigQueryDialect,
+      );
+      expect(sql).toContain(
+        `timestamp >= ${bigQueryDialect.toTimestamp(new Date(start))}`,
+      );
+      expect(sql).toContain(
+        `timestamp < ${bigQueryDialect.toTimestamp(new Date(end))}`,
+      );
+    });
   });
 });
