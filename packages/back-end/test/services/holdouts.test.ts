@@ -13,6 +13,7 @@ import {
   getNextScheduledStatusUpdateForStage,
   isHoldoutExperiment,
   normalizeHoldoutScheduleUpdates,
+  resolveHoldoutExperimentToLink,
   setHoldoutStage,
   updateHoldoutWithExperiment,
 } from "back-end/src/services/holdouts";
@@ -925,5 +926,57 @@ describe("assertCanUpdateHoldout", () => {
         isRunning: false,
       }),
     ).toThrow("permission denied");
+  });
+});
+
+describe("resolveHoldoutExperimentToLink", () => {
+  const context = {
+    models: {
+      holdout: {
+        getById: async (id: string) => ({ name: `Holdout ${id}` }),
+        getByIdForLinkage: async () => ({
+          name: "Holdout ho_1",
+          projects: ["prj_b"],
+        }),
+      },
+    },
+  } as unknown as ReqContext;
+  const resolve = (
+    featureHoldoutId: string | null,
+    experiment: Partial<ExperimentInterface>,
+  ) =>
+    resolveHoldoutExperimentToLink({
+      context,
+      feature: { id: "flag" } as never,
+      experiment: {
+        holdoutId: "",
+        project: "prj_b",
+        status: "draft",
+        linkedFeatures: [],
+        ...experiment,
+      } as ExperimentInterface,
+      effectiveHoldout: featureHoldoutId ? { id: featureHoldoutId } : null,
+    });
+
+  it("names each refusal the way callers expect", async () => {
+    await expect(resolve("ho_2", { holdoutId: "ho_1" })).rejects.toThrow(
+      'experiment belongs to holdout "Holdout ho_1" but this feature flag uses holdout "Holdout ho_2"',
+    );
+    await expect(resolve(null, { holdoutId: "ho_1" })).rejects.toThrow(
+      'this experiment belongs to holdout "Holdout ho_1", but this feature flag is not in a holdout',
+    );
+    await expect(resolve("ho_1", { project: "prj_a" })).rejects.toThrow(
+      'holdout "Holdout ho_1" is not available in the experiment\'s Project',
+    );
+    await expect(resolve("ho_1", { status: "running" })).rejects.toThrow(
+      'the experiment must be in "draft" status (currently "running")',
+    );
+    await expect(
+      resolve("ho_1", { linkedFeatures: ["other"] }),
+    ).rejects.toThrow("already has linked Feature Flags");
+    await expect(resolve("ho_1", {})).resolves.toBeUndefined();
+    await expect(
+      resolve("ho_1", { holdoutId: "ho_1" }),
+    ).resolves.toBeUndefined();
   });
 });

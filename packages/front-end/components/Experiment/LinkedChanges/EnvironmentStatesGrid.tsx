@@ -1,12 +1,8 @@
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { LinkedFeatureEnvState } from "shared/types/experiment";
-import {
-  PiCaretDown,
-  PiCaretRight,
-  PiCheckCircleFill,
-  PiXCircleFill,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { useState } from "react";
+import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -83,7 +79,11 @@ export function EnvironmentStateChips({
                 color: isActive ? "var(--green-11)" : "var(--slate-9)",
               }}
             >
-              {isActive ? <PiCheckCircleFill /> : <PiXCircleFill />}
+              {isActive ? (
+                <FaCircleCheck size={14} />
+              ) : (
+                <FaCircleXmark size={14} />
+              )}
             </Box>
             <Text weight="medium">{env}</Text>
           </Flex>
@@ -146,7 +146,11 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
                       color: isActive ? "var(--green-11)" : "var(--slate-9)",
                     }}
                   >
-                    {isActive ? <PiCheckCircleFill /> : <PiXCircleFill />}
+                    {isActive ? (
+                      <FaCircleCheck size={14} />
+                    ) : (
+                      <FaCircleXmark size={14} />
+                    )}
                   </Box>
                   <Box className="text-ellipsis" title={env} minWidth="0">
                     <Text weight="medium">{env}</Text>

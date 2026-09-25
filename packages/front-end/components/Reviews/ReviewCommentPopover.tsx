@@ -6,7 +6,7 @@ import LinkButton from "@/components/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import RichTextEditor from "@/ui/RichTextEditor";
 import { useAuth } from "@/services/auth";
 
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
@@ -211,11 +211,16 @@ export default function ReviewCommentPopover({
         Submit review
       </Heading>
 
-      <MarkdownInput
+      <RichTextEditor
         value={comment}
-        setValue={setComment}
+        onChange={setComment}
         placeholder="Leave a comment…"
-        showButtons={false}
+        size="sm"
+        height="md"
+        autoGrow
+        maxHeight="xl"
+        simpleToolbar
+        collapsibleToolbar
       />
 
       <Box mt="5">

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import RichTextEditor from "@/ui/RichTextEditor";
+import RichTextEditor, { RichTextHeight } from "@/ui/RichTextEditor";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 
@@ -21,6 +21,9 @@ export interface CommentComposerProps {
   // should type after.
   autofocusAtEnd?: boolean;
   onCancel?: () => void;
+  /** Resting height; the editor grows with the text up to `maxHeight`. */
+  height?: RichTextHeight;
+  maxHeight?: RichTextHeight;
 }
 
 /**
@@ -38,6 +41,8 @@ export default function CommentComposer({
   autofocus,
   autofocusAtEnd,
   onCancel,
+  height = "sm",
+  maxHeight,
 }: CommentComposerProps) {
   const [value, setValue] = useState(initialValue);
   const [loading, setLoading] = useState(false);
@@ -66,7 +71,9 @@ export default function CommentComposer({
         onChange={setValue}
         placeholder={placeholder}
         size="sm"
-        height="sm"
+        height={height}
+        autoGrow={!!maxHeight}
+        maxHeight={maxHeight}
         autoFocus={autofocus}
         autoFocusAtEnd={autofocusAtEnd}
         simpleToolbar

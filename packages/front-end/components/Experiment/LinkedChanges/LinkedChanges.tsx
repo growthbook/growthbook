@@ -27,6 +27,7 @@ import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
+import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
 import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -297,7 +298,8 @@ export default function LinkedChanges({
               )}
             </>
           ) : null}
-          {linkedFeatures.map((info) => (
+          {/* The value rows under the variations carry each flag's card. */}
+          {(valuesShownOnVariations ? [] : linkedFeatures).map((info) => (
             <LinkedFeatureFlag
               info={info}
               experiment={experiment}
@@ -310,6 +312,9 @@ export default function LinkedChanges({
               valuesShownOnVariations={valuesShownOnVariations}
             />
           ))}
+          {visualChangesets.length > 0 ? (
+            <ImplementationHeading>Visual Editor Changes</ImplementationHeading>
+          ) : null}
           <VisualChangesetTable
             experiment={experiment}
             visualChangesets={visualChangesets}
@@ -317,6 +322,9 @@ export default function LinkedChanges({
             canEditVisualChangesets={canEditVisualChangesets}
             environmentStates={visualChangesetEnvStates}
           />
+          {urlRedirects.length > 0 ? (
+            <ImplementationHeading>URL Redirects</ImplementationHeading>
+          ) : null}
           {urlRedirects.map((r) => (
             <RedirectLinkedChanges
               urlRedirect={r}
@@ -327,7 +335,9 @@ export default function LinkedChanges({
               environmentStates={urlRedirectEnvStates}
             />
           ))}
+          {/* The value rows offer adding another flag under the last one. */}
           {!managedMode &&
+            !(valuesShownOnVariations && effectiveType === "feature") &&
             experiment.status === "draft" &&
             !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&

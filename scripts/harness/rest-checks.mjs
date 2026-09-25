@@ -375,6 +375,40 @@ const CASES = {
     expect(!why, `drafting new values while running was refused: ${why}`);
   },
 
+  async "gate-one-launch-draft"() {
+    const { exp, featureId } = await unmanagedExperiment(
+      "g-launch",
+      { valueType: "string", defaultValue: "off", values: ["off", "on"] },
+      { draft: ["off", "launch-me"] },
+    );
+    // Someone else's newer draft: it carries the experiment's rule unchanged.
+    const { revision } = await call(
+      "POST",
+      `/v2/features/${featureId}/revisions?overrideDraftLimit=true`,
+      {},
+    );
+    await call(
+      "PUT",
+      `/v2/features/${featureId}/revisions/${revision.version}/default-value`,
+      { defaultValue: "unrelated" },
+    );
+    const startWhy = await refused(startExperiment(exp.id));
+    expect(!startWhy, `start refused: ${startWhy}`);
+    const state = await flagState(exp.id, featureId);
+    expect(
+      state.live.values?.[1] === "launch-me",
+      `live values ${state.live.values}`,
+    );
+    expect(
+      state.defaultValue === "off",
+      `the unrelated draft published too (default ${state.defaultValue})`,
+    );
+    expect(
+      state.drafts.some((d) => d.version === revision.version),
+      "the unrelated draft is no longer open",
+    );
+  },
+
   async "gate-approval-reset"() {
     const { exp, featureId } = await managedExperiment("g-approve", 2, {
       valueType: "string",

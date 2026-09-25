@@ -12,6 +12,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevision: jest.fn(),
   discardRevision: jest.fn(),
+  getLinkageSyncRevisionSummaries: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -51,12 +52,16 @@ import {
 import {
   getRevision,
   discardRevision,
+  getLinkageSyncRevisionSummaries,
 } from "back-end/src/models/FeatureRevisionModel";
 import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
+const mockSummaries = getLinkageSyncRevisionSummaries as jest.MockedFunction<
+  typeof getLinkageSyncRevisionSummaries
+>;
 const mockDiscardRevision = discardRevision as jest.MockedFunction<
   typeof discardRevision
 >;
@@ -101,9 +106,15 @@ const ctx = {
   hasPremiumFeature: () => true,
 } as unknown as ReqContext;
 
+// Each queued draft changes the experiment's rule unless listed here, so the
+// newest queued draft of a feature is the one that launches.
+let draftsCarryingRuleUnchanged = new Set<string>();
+let queue: { featureId: string; revisionVersion: number }[] = [];
+
 function makeExperiment(
   drafts: { featureId: string; revisionVersion: number }[],
 ): ExperimentInterface {
+  queue = drafts;
   return {
     id: "exp_1",
     name: "exp",
@@ -127,6 +138,42 @@ beforeEach(() => {
     result: { rules: [] },
   });
   mockAssessRevisionApproval.mockReturnValue(approvalSatisfied);
+  draftsCarryingRuleUnchanged = new Set();
+  mockSummaries.mockImplementation(async (_org, featureId) => ({
+    openDrafts: queue
+      .filter((d) => d.featureId === featureId)
+      .map(({ revisionVersion: version }) => ({
+        version,
+        rules: [
+          {
+            id: "fr_exp",
+            type: "experiment-ref",
+            experimentId: "exp_1",
+            variations: [
+              {
+                variationId: "v1",
+                value: draftsCarryingRuleUnchanged.has(
+                  `${featureId}@${version}`,
+                )
+                  ? "live"
+                  : `v${version}`,
+              },
+            ],
+          },
+        ],
+      })) as never,
+    liveRevision: {
+      version: 1,
+      rules: [
+        {
+          id: "fr_exp",
+          type: "experiment-ref",
+          experimentId: "exp_1",
+          variations: [{ variationId: "v1", value: "live" }],
+        },
+      ],
+    } as never,
+  }));
 });
 
 describe("publishPendingFeatureDraftsForExperiment", () => {
@@ -243,7 +290,7 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     expect(mockGetLiveAndBase).toHaveBeenCalledTimes(2);
   });
 
-  it("re-fetches fresh state only for later drafts of an already-published feature", async () => {
+  it("publishes only the newest draft of a feature that changes the experiment, and drops the rest from the queue", async () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;
     });
@@ -251,7 +298,10 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     const experiment = makeExperiment([
       { featureId: "feat_a", revisionVersion: 5 },
       { featureId: "feat_a", revisionVersion: 7 },
+      // Someone else's newer draft: it carries the experiment's rule unchanged.
+      { featureId: "feat_a", revisionVersion: 8 },
     ]);
+    draftsCarryingRuleUnchanged = new Set(["feat_a@8"]);
 
     const result = await publishPendingFeatureDraftsForExperiment(
       ctx,
@@ -259,43 +309,27 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     );
 
     expect(result.published).toEqual([
-      { featureId: "feat_a", revisionVersion: 5 },
       { featureId: "feat_a", revisionVersion: 7 },
     ]);
-    // Phase 1 fetches the feature once (cached across drafts) and each
-    // revision once; publishing v5 advances live state, so v7 re-fetches
-    // everything before re-merging.
-    expect(mockGetFeature).toHaveBeenCalledTimes(2);
-    expect(mockGetRevision).toHaveBeenCalledTimes(3);
-    expect(mockGetLiveAndBase).toHaveBeenCalledTimes(3);
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    expect(mockRemovePending).toHaveBeenCalledWith(ctx, "exp_1", "feat_a", 5);
+    expect(mockRemovePending).toHaveBeenCalledWith(ctx, "exp_1", "feat_a", 8);
   });
 
-  it("publishes multiple drafts of the same feature in version order", async () => {
-    mockGetRevision.mockImplementation(async ({ version }) => {
-      return { version, status: "draft", rules: [] } as never;
-    });
-
+  it("launches nothing for a feature whose drafts only carry the experiment's rule", async () => {
     const experiment = makeExperiment([
-      { featureId: "feat_a", revisionVersion: 7 },
       { featureId: "feat_a", revisionVersion: 5 },
     ]);
+    draftsCarryingRuleUnchanged = new Set(["feat_a@5"]);
 
     const result = await publishPendingFeatureDraftsForExperiment(
       ctx,
       experiment,
     );
 
-    expect(result.published).toEqual([
-      { featureId: "feat_a", revisionVersion: 5 },
-      { featureId: "feat_a", revisionVersion: 7 },
-    ]);
-    expect(mockPublishRevision).toHaveBeenCalledTimes(2);
-    expect(mockPublishRevision.mock.calls[0][0].revision).toMatchObject({
-      version: 5,
-    });
-    expect(mockPublishRevision.mock.calls[1][0].revision).toMatchObject({
-      version: 7,
-    });
+    expect(result).toEqual({ published: [], failed: [] });
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+    expect(mockRemovePending).toHaveBeenCalledWith(ctx, "exp_1", "feat_a", 5);
   });
 
   it("discards a no-op draft without publishing or failing", async () => {
@@ -328,7 +362,7 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;
     });
-    // Keyed by revision version (not call order): feat_a's drafts (v5, v7) merge cleanly; feat_b's (v6) conflicts
+    // Keyed by revision version (not call order): feat_a's draft merges cleanly; feat_b's (v6) conflicts
     mockAutoMerge.mockImplementation(
       (live, base, revision) =>
         ((revision as { version: number }).version === 6
@@ -346,7 +380,6 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     );
 
     const experiment = makeExperiment([
-      { featureId: "feat_a", revisionVersion: 5 },
       { featureId: "feat_a", revisionVersion: 7 },
       { featureId: "feat_b", revisionVersion: 6 },
     ]);
@@ -356,10 +389,10 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
       experiment,
     );
 
-    expect(result.published.length).toBe(2);
+    expect(result.published.length).toBe(1);
     expect(result.failed.map((f) => f.featureId)).toEqual(["feat_b"]);
     expect(result.failed[0].reason).toBe("merge-conflict");
-    expect(mockPublishRevision).toHaveBeenCalledTimes(2);
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
 
   it("fails with needs-rebase (not merge-conflict) for a mergeable diverged draft when the org requires rebase before publish", async () => {

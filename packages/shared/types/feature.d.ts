@@ -167,6 +167,8 @@ export type FeatureMetaInfo = Pick<
   // The flag's `baseConfig` (the config backing it), or null. Sent so the
   // feature list can show "Config · <name>" without shipping every default value.
   configBackingKey?: string | null;
+  /** The holdout the flag is in, which decides what experiments it can join. */
+  holdoutId?: string | null;
   hasPrerequisites?: boolean;
   hasSavedGroups?: boolean;
   revision?: {

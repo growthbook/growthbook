@@ -539,6 +539,9 @@ function DiffCommentCell({
           <CommentComposer
             placeholder="Comment on this line…"
             initialValue={`${formatDiffRef(refObj, snapshot)}\n\n`}
+            // The quoted lines take the first rows, so the text needs room below.
+            height="lg"
+            maxHeight="xl"
             autofocus
             autofocusAtEnd
             onCancel={() => onOpenChange(false)}

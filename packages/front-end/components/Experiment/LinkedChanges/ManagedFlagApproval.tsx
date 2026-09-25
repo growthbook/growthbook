@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { datetime } from "shared/dates";
 import {
   ANY_REVIEW_FOOTPRINT,
   autoMerge,
@@ -45,15 +44,14 @@ import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import {
   findActiveVerdict,
-  rowVisual,
   scanVerdictRetractions,
-  VerdictTags,
 } from "@/components/Reviews/RevisionTimeline";
-import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
-import CommentCard from "@/components/Comments/CommentCard";
-import Avatar from "@/ui/Avatar";
+import ReviewCommentCard, {
+  reviewCommentsFromLog,
+} from "@/components/Reviews/ReviewCommentCard";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
+import RichTextEditor from "@/ui/RichTextEditor";
 import SplitButton from "@/ui/SplitButton";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
@@ -445,28 +443,11 @@ export default function ManagedFlagApproval({
     () => findActiveVerdict(sortedLog, userId, retractions),
     [sortedLog, userId, retractions],
   );
-  const conversationActions = [
-    "Comment",
-    "Review Requested",
-    "Approved",
-    "Requested Changes",
-  ];
-  const reviewComments = sortedLog
-    .filter((l) => conversationActions.includes(l.action))
-    .map((l) => {
-      let comment: string | undefined;
-      try {
-        comment = JSON.parse(l.value)?.comment;
-      } catch {
-        // not JSON
-      }
-      return {
-        ...l,
-        comment,
-        retraction: retractions.get(l) ?? null,
-        isActiveVerdict: l === activeVerdict,
-      };
-    });
+  const reviewComments = reviewCommentsFromLog(
+    sortedLog,
+    retractions,
+    activeVerdict,
+  );
 
   const variations = getLatestPhaseVariations(experiment);
   const hasValueChanges = getVariationValueChanges(
@@ -666,13 +647,16 @@ export default function ManagedFlagApproval({
               ]}
             />
           )}
-          <Field
-            size="md"
-            textarea
-            minRows={2}
-            placeholder="Add a comment (optional)"
+          <RichTextEditor
             value={comment}
-            onChange={(e) => setComment(e.target.value)}
+            onChange={setComment}
+            placeholder="Add a comment (optional)"
+            size="sm"
+            height="sm"
+            autoGrow
+            maxHeight="lg"
+            simpleToolbar
+            collapsibleToolbar
           />
         </Flex>
       )}
@@ -720,13 +704,6 @@ export default function ManagedFlagApproval({
           <Separator size="4" />
           <Flex direction="column" gap="3">
             {reviewComments.map((l, i) => {
-              const visual = rowVisual(l.action);
-              const verdictColor =
-                l.action === "Approved"
-                  ? "green"
-                  : l.action === "Requested Changes"
-                    ? "red"
-                    : null;
               const isOwn = !!logUserId(l) && logUserId(l) === userId;
               // A row with neither action would open an empty menu.
               const canEditRow = isOwn && !!l.id && !!l.comment;
@@ -737,31 +714,10 @@ export default function ManagedFlagApproval({
                   ? insufficientReasons.get(logUserId(l) as string)
                   : undefined;
               return (
-                <CommentCard
+                <ReviewCommentCard
                   key={l.id ?? i}
-                  user={l.user}
-                  metadata={`${visual.verb}: ${datetime(l.timestamp)}`}
-                  metadataExtra={
-                    <VerdictTags
-                      uncoveredReason={uncoveredReason}
-                      retraction={l.retraction}
-                    />
-                  }
-                  stripeColor={visual.color}
-                  leading={
-                    verdictColor ? (
-                      <Avatar
-                        size="sm"
-                        color={verdictColor}
-                        variant={uncoveredReason ? "soft" : "solid"}
-                        ring={!!uncoveredReason}
-                      >
-                        <>{visual.icon}</>
-                      </Avatar>
-                    ) : undefined
-                  }
-                  avatarSize="sm"
-                  compact
+                  log={l}
+                  uncoveredReason={uncoveredReason}
                   actions={
                     canEditRow || canRetractRow ? (
                       <DropdownMenu
@@ -830,10 +786,6 @@ export default function ManagedFlagApproval({
                           </Link>
                         </Flex>
                       </Flex>
-                    ) : l.comment ? (
-                      <MarkdownWithDiffRefs className="speech-bubble">
-                        {l.comment}
-                      </MarkdownWithDiffRefs>
                     ) : undefined
                   }
                 />

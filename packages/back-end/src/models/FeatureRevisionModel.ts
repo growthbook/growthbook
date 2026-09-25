@@ -485,30 +485,41 @@ export async function getLinkageSyncRevisionSummaries(
   organization: string,
   featureId: string,
 ): Promise<{
-  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[];
-  liveRevision: Pick<FeatureRevisionInterface, "version" | "rules"> | null;
+  openDrafts: Pick<
+    FeatureRevisionInterface,
+    "version" | "rules" | "metadata"
+  >[];
+  liveRevision: Pick<
+    FeatureRevisionInterface,
+    "version" | "rules" | "metadata"
+  > | null;
 }> {
   const [openDraftDocs, liveDoc] = await Promise.all([
     FeatureRevisionModel.find({
       organization,
       featureId,
       status: { $in: ACTIVE_DRAFT_STATUSES },
-    }).select("version rules"),
+    }).select("version rules metadata"),
     FeatureRevisionModel.findOne({
       organization,
       featureId,
       status: "published",
     })
       .sort({ version: -1 })
-      .select("version rules"),
+      .select("version rules metadata"),
   ]);
   return {
     openDrafts: openDraftDocs.map((d) => ({
       version: d.version,
       rules: d.rules,
+      metadata: d.metadata,
     })),
     liveRevision: liveDoc
-      ? { version: liveDoc.version, rules: liveDoc.rules }
+      ? {
+          version: liveDoc.version,
+          rules: liveDoc.rules,
+          metadata: liveDoc.metadata,
+        }
       : null,
   };
 }

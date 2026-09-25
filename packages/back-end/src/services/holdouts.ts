@@ -11,6 +11,7 @@ import {
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
+  getHoldoutLinkBlocker,
 } from "shared/util";
 import {
   ApiUpdateHoldoutBody,
@@ -48,7 +49,6 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -290,68 +290,43 @@ export async function resolveHoldoutExperimentToLink({
   effectiveHoldout: { id: string } | null | undefined;
   makeError?: (message: string) => Error;
 }): Promise<void> {
-  if (effectiveHoldout?.id) {
-    // Experiment already belongs to a different holdout — refuse the mismatch.
-    if (experiment.holdoutId && experiment.holdoutId !== effectiveHoldout.id) {
-      const featureHoldout = await context.models.holdout.getById(
-        effectiveHoldout.id,
-      );
-      const expHoldout = await context.models.holdout.getById(
-        experiment.holdoutId,
-      );
+  const featureHoldoutId = effectiveHoldout?.id ?? null;
+  // Only a holdout the experiment would join has a project scope to check.
+  const joining =
+    !!featureHoldoutId && !experiment.holdoutId
+      ? await context.models.holdout.getByIdForLinkage(featureHoldoutId)
+      : null;
+  const blocker = getHoldoutLinkBlocker({
+    featureId: feature.id,
+    featureHoldoutId,
+    featureHoldoutProjects: joining?.projects ?? null,
+    experiment,
+  });
+  if (!blocker) return;
+
+  const holdoutName = async (id: string) =>
+    (await context.models.holdout.getById(id))?.name || id;
+  switch (blocker.reason) {
+    case "different-holdout":
       throw makeError(
-        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature flag uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
+        `Cannot add experiment rule: experiment belongs to holdout "${await holdoutName(blocker.experimentHoldoutId)}" but this feature flag uses holdout "${await holdoutName(blocker.featureHoldoutId)}".`,
       );
-    }
-
-    // Not yet linked: validate it can join the holdout, then signal the caller
-    // to perform the link.
-    if (!experiment.holdoutId) {
-      // Re-checked at publish, which is what actually gates the linkage.
-      const holdout = await context.models.holdout.getByIdForLinkage(
-        effectiveHoldout.id,
+    case "holdout-unavailable":
+      throw makeError(
+        `Cannot add experiment rule: holdout "${joining?.name}" is not available in the experiment's Project.`,
       );
-      if (
-        holdout &&
-        !isHoldoutAvailableForProject(holdout, experiment.project)
-      ) {
-        throw makeError(
-          `Cannot add experiment rule: holdout "${holdout.name}" is not available in the experiment's Project.`,
-        );
-      }
-      if (experiment.status !== "draft") {
-        throw makeError(
-          `Cannot add experiment rule: this feature flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
-        );
-      }
-      // Self-links never count: linkedFeatures is deliberately sticky (see
-      // syncFeatureExperimentLinkages), so a discarded draft on this same feature
-      // leaves one behind, and counting it blocked re-adding the rule.
-      const expHasLinkedChanges =
-        (experiment.linkedFeatures?.some((fid) => fid !== feature.id) ??
-          false) ||
-        experiment.hasURLRedirects ||
-        experiment.hasVisualChangesets;
-      if (expHasLinkedChanges) {
-        throw makeError(
-          `Cannot add experiment rule: this feature flag uses a holdout, but the experiment already has linked Feature Flags, URL redirects, or visual changesets. Unlink them first.`,
-        );
-      }
-      return;
-    }
-
-    // Already linked to this same holdout: nothing to do.
-    return;
-  }
-
-  // Feature is not in a holdout, but the experiment already belongs to one.
-  if (experiment.holdoutId) {
-    const expHoldout = await context.models.holdout.getById(
-      experiment.holdoutId,
-    );
-    throw makeError(
-      `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature flag is not in a holdout. Add the feature flag to that holdout first, then add the experiment.`,
-    );
+    case "not-draft":
+      throw makeError(
+        `Cannot add experiment rule: this feature flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
+      );
+    case "has-linked-changes":
+      throw makeError(
+        `Cannot add experiment rule: this feature flag uses a holdout, but the experiment already has linked Feature Flags, URL redirects, or visual changesets. Unlink them first.`,
+      );
+    case "not-in-holdout":
+      throw makeError(
+        `Cannot add experiment rule: this experiment belongs to holdout "${await holdoutName(blocker.experimentHoldoutId)}", but this feature flag is not in a holdout. Add the feature flag to that holdout first, then add the experiment.`,
+      );
   }
 }
 

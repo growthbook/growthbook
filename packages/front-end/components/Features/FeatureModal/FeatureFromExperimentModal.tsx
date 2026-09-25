@@ -24,6 +24,7 @@ import {
   setConfigBacking,
   valueHasConfigExtends,
   mergeRevision,
+  getHoldoutLinkBlocker,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Callout from "@/ui/Callout";
@@ -47,6 +48,7 @@ import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/ui/Tooltip";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import DraftSelectorDropdown, {
@@ -172,6 +174,32 @@ export default function FeatureFromExperimentModal({
   });
 
   const { features } = useFeatureMetaInfo({ project: experiment.project });
+
+  const featuresById = new Map(features.map((f) => [f.id, f]));
+  // The same holdout rules the server applies when the rule is added.
+  const holdoutBlockReason = (f: (typeof features)[number]): string | null => {
+    const featureHoldout = f.holdoutId ? holdoutsMap.get(f.holdoutId) : null;
+    const blocker = getHoldoutLinkBlocker({
+      featureId: f.id,
+      featureHoldoutId: f.holdoutId,
+      featureHoldoutProjects: featureHoldout?.projects ?? null,
+      experiment,
+    });
+    if (!blocker) return null;
+    const name = (id: string) => holdoutsMap.get(id)?.name ?? id;
+    switch (blocker.reason) {
+      case "different-holdout":
+        return `In holdout "${name(blocker.featureHoldoutId)}", but this experiment is in holdout "${name(blocker.experimentHoldoutId)}".`;
+      case "not-in-holdout":
+        return `Not in holdout "${name(blocker.experimentHoldoutId)}". Add it to that holdout from its Feature Flag page first.`;
+      case "holdout-unavailable":
+        return `In holdout "${name(blocker.featureHoldoutId)}", which isn't available in this experiment's project.`;
+      case "not-draft":
+        return `In holdout "${name(blocker.featureHoldoutId)}", which only a draft experiment can join.`;
+      case "has-linked-changes":
+        return `In holdout "${name(blocker.featureHoldoutId)}". Joining it needs an experiment with nothing else linked.`;
+    }
+  };
 
   const validFeatures = features.filter((f) => {
     if (f.archived) return false;
@@ -600,10 +628,65 @@ export default function FeatureFromExperimentModal({
       <SelectField
         size="legacy"
         label="Create New or Use Existing?"
-        options={validFeatures.map((f) => ({
-          label: f.id + " (" + f.valueType + ")",
-          value: f.id,
-        }))}
+        options={validFeatures
+          .map((f) => {
+            const why = holdoutBlockReason(f);
+            return {
+              label: f.id,
+              value: f.id,
+              ...(why && { isDisabled: true, tooltip: why }),
+            };
+          })
+          // Selectable flags first, each group alphabetical.
+          .sort(
+            (a, b) =>
+              Number(!!a.isDisabled) - Number(!!b.isDisabled) ||
+              a.label.localeCompare(b.label),
+          )}
+        sort={false}
+        formatOptionLabel={(option, meta) => {
+          const feature = featuresById.get(option.value);
+          const valueType = feature?.valueType;
+          const holdoutName = feature?.holdoutId
+            ? (holdoutsMap.get(feature.holdoutId)?.name ?? feature.holdoutId)
+            : null;
+          const label = (
+            <Flex align="center" gap="2" width="100%">
+              <span>{option.label}</span>
+              {valueType ? (
+                <span
+                  style={{
+                    color: "var(--color-text-low)",
+                    fontVariantCaps: "all-small-caps",
+                    letterSpacing: "0.03em",
+                  }}
+                >
+                  {valueType}
+                </span>
+              ) : null}
+              {holdoutName ? (
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    color: "var(--color-text-low)",
+                    fontSize: "var(--font-size-1)",
+                    fontWeight: 400,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Holdout: {holdoutName}
+                </span>
+              ) : null}
+            </Flex>
+          );
+          return meta.context === "menu" && option.tooltip ? (
+            <Tooltip content={option.tooltip} side="right">
+              <span style={{ display: "block" }}>{label}</span>
+            </Tooltip>
+          ) : (
+            label
+          );
+        }}
         initialOption="Create New Feature"
         value={form.watch("existing")}
         onChange={(value) => {

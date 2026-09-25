@@ -1,4 +1,5 @@
-import { getExperimentIdsFromRules } from "shared/util";
+import isEqual from "lodash/isEqual";
+import { getExperimentIdsFromRules, naiveFlattenV1Rules } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -12,6 +13,55 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
+type LaunchCandidate = Pick<FeatureRevisionInterface, "version" | "rules"> & {
+  metadata?: Pick<
+    NonNullable<FeatureRevisionInterface["metadata"]>,
+    "valueType"
+  >;
+};
+
+// Plain JSON, so stored documents compare by value.
+function experimentRefRules(rules: unknown, experimentId: string): unknown {
+  return JSON.parse(
+    JSON.stringify(
+      naiveFlattenV1Rules(rules).filter(
+        (r) => r.type === "experiment-ref" && r.experimentId === experimentId,
+      ),
+    ),
+  );
+}
+
+/**
+ * The one draft an experiment launches for a flag: the newest open draft whose
+ * rule for the experiment (or the flag's type) differs from live. A draft that
+ * carries the rule unchanged is someone else's work and never launches with it.
+ */
+export function getLaunchDraftVersion(
+  experimentId: string,
+  openDrafts: LaunchCandidate[],
+  liveRevision: LaunchCandidate | null,
+): number | null {
+  const liveRules = experimentRefRules(liveRevision?.rules, experimentId);
+  const liveType = liveRevision?.metadata?.valueType;
+  let launch: number | null = null;
+  for (const draft of openDrafts) {
+    const draftRules = experimentRefRules(draft.rules, experimentId);
+    const draftType = draft.metadata?.valueType;
+    const changesExperiment =
+      (Array.isArray(draftRules) &&
+        draftRules.length > 0 &&
+        !isEqual(draftRules, liveRules)) ||
+      (!!draftType &&
+        !!liveType &&
+        draftType !== liveType &&
+        getExperimentIdsFromRules(draft.rules).includes(experimentId));
+    if (changesExperiment && (launch === null || draft.version > launch)) {
+      launch = draft.version;
+    }
+  }
+  return launch;
+}
+
 /**
  * Reconciles experiment.linkedFeatures and experiment.pendingFeatureDrafts
  * after any feature revision write. Fire-and-forget: logs errors, never
@@ -22,20 +72,26 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 export async function syncFeatureExperimentLinkages(
   context: ReqContext | ApiReqContext,
   featureId: string,
-  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[],
-  liveRevision: Pick<FeatureRevisionInterface, "rules"> | null,
+  openDrafts: LaunchCandidate[],
+  liveRevision:
+    | (Pick<FeatureRevisionInterface, "rules"> & Partial<LaunchCandidate>)
+    | null,
 ): Promise<void> {
   try {
-    // (expId -> set of open-draft versions referencing it). Multiple drafts
-    // of this feature referencing the same experiment all stay tracked — they
-    // get applied sequentially on experiment start.
+    // Every experiment an open draft references stays linked, but each
+    // queues at most one draft of this feature to launch.
     const draftVersionsByExp = new Map<string, Set<number>>();
     for (const rev of openDrafts) {
       for (const expId of getExperimentIdsFromRules(rev.rules)) {
-        if (!draftVersionsByExp.has(expId)) {
-          draftVersionsByExp.set(expId, new Set());
-        }
-        draftVersionsByExp.get(expId)!.add(rev.version);
+        if (draftVersionsByExp.has(expId)) continue;
+        const launch = getLaunchDraftVersion(
+          expId,
+          openDrafts,
+          liveRevision
+            ? { version: liveRevision.version ?? 0, ...liveRevision }
+            : null,
+        );
+        draftVersionsByExp.set(expId, new Set(launch === null ? [] : [launch]));
       }
     }
 

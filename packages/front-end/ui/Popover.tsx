@@ -48,6 +48,8 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   onOpenAutoFocus?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onOpenAutoFocus"];
+  // False pins the popover to `side` instead of flipping it when space runs out.
+  avoidCollisions?: boolean;
   // Open on hover of the trigger (and stay open while hovering the content)
   // instead of on click. The content does not steal focus — suitable for
   // read-only previews, including inside menus.
@@ -72,6 +74,7 @@ export function Popover({
   onInteractOutside,
   onOpenAutoFocus,
   openOnHover = false,
+  avoidCollisions,
   ...props
 }: PopoverProps) {
   const {
@@ -157,6 +160,7 @@ export function Popover({
               align={align}
               sideOffset={sideOffset}
               alignOffset={alignOffset}
+              avoidCollisions={avoidCollisions}
               className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
               style={appliedContentStyle}
               {...hoverHandlers}

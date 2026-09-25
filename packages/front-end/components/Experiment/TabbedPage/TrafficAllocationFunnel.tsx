@@ -88,6 +88,8 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   /** Whether the value rows can be edited in place. */
   canEditFlagValues?: boolean;
+  /** Links another Feature Flag from under the value rows. */
+  addFeatureFlag?: (() => void) | null;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
@@ -247,6 +249,7 @@ export default function TrafficAllocationFunnel({
   servedValueFeature,
   linkedFeatures = [],
   canEditFlagValues = false,
+  addFeatureFlag,
   canEditExperiment = false,
   safeToEdit = false,
   mutate,
@@ -765,6 +768,7 @@ export default function TrafficAllocationFunnel({
               experiment={experiment}
               linkedFeatures={linkedFeatures}
               canEdit={canEditFlagValues}
+              onAddFlag={addFeatureFlag}
               mutate={() => mutate?.()}
               showLive={hasDraftChanges && !preferDraft}
             />

@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import clsx from "clsx";
-import { CodeHighlightNode, CodeNode } from "@lexical/code";
+import { $isCodeNode, CodeHighlightNode, CodeNode } from "@lexical/code";
 import { ListItemNode, ListNode } from "@lexical/list";
 import {
   $convertFromMarkdownString,
@@ -30,12 +30,14 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import {
+  $createParagraphNode,
   $getRoot,
   $getSelection,
   $insertNodes,
   $isRangeSelection,
   COMMAND_PRIORITY_LOW,
   PASTE_COMMAND,
+  RootNode,
   type EditorState,
 } from "lexical";
 import { useDropzone } from "react-dropzone";
@@ -327,6 +329,22 @@ function ImageUploads({
 }
 
 /** Applies `value` when it changes underneath us, e.g. an AI suggestion. */
+// Lexical gives the caret no way out of a code block at the end of the
+// document, so one is always followed by an empty paragraph.
+function TrailingParagraphAfterCode() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    const ensure = (root: RootNode) => {
+      const last = root.getLastChild();
+      if ($isCodeNode(last)) last.insertAfter($createParagraphNode());
+    };
+    // The value loaded at mount predates the transform.
+    editor.update(() => ensure($getRoot()));
+    return editor.registerNodeTransform(RootNode, ensure);
+  }, [editor]);
+  return null;
+}
+
 function ValueSync({
   value,
   lastMarkdown,
@@ -521,6 +539,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           registerDrop={registerDrop}
         />
         <ValueSync value={value} lastMarkdown={lastMarkdown} />
+        <TrailingParagraphAfterCode />
         <EditorBridge
           handleRef={ref}
           readOnly={readOnly}

@@ -5,21 +5,13 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
-import { ExperimentRefRule, FeatureValueType } from "shared/types/feature";
-import {
-  FeatureRevisionInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/types/feature-revision";
+import { FeatureValueType } from "shared/types/feature";
 import {
   castFeatureValue,
-  expandSparseToFull,
   getFeatureBaseConfigKey,
   getImplementationType,
   getReviewSetting,
   isManagedByExperiment,
-  naiveFlattenV1Rules,
-  parsePlainJSONObject,
-  stripDefaultsForSparse,
   validateFeatureValue,
   type ManagedFlagKeyPlan,
 } from "shared/util";
@@ -27,14 +19,9 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
-import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import LinkedFeatureLabel from "@/components/Experiment/LinkedFeatureLabel";
-import DraftSelectorDropdown, {
-  DraftMode,
-} from "@/components/Features/DraftSelectorDropdown";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { distributeWeights } from "@/services/utils";
@@ -50,11 +37,6 @@ import track from "@/services/track";
 import EditTrafficModal from "./EditTrafficModal";
 import ExperimentManagedFeatureVariationEditor from "./ExperimentManagedFeatureVariationEditor";
 import { ManagedSortableVariation } from "./ExperimentManagedFeatureVariationRow";
-
-type FeatureRevisionResponse = {
-  revisionList: MinimalFeatureRevisionInterface[];
-  revisions: FeatureRevisionInterface[];
-};
 
 // Boolean is a poor fit for most experiments, so it sits last.
 const VALUE_TYPE_ORDER: FeatureValueType[] = [
@@ -194,7 +176,7 @@ function ManagedTrafficForm({
   const [valueType, setValueType] = useState<FeatureValueType>(seedValueType);
   // Formatted at seed time so the dirty baseline matches.
   const isConfigBacked = !!feature && getFeatureBaseConfigKey(feature) !== null;
-  const [sparse, setSparse] = useState(
+  const [sparse] = useState(
     (targetFeature?.pendingDraft?.sparse ?? !!targetFeature?.sparse) ||
       (!!feature && isConfigBacked),
   );
@@ -232,7 +214,9 @@ function ManagedTrafficForm({
 
   // Someone else's flag stays read-only until asked.
   const [editingValues, setEditingValues] = useState(isManaged);
-  const valuesShown = !!feature || adopting;
+  // Values are edited in the rows under the variations; here only while
+  // adopting, when there is no flag and so no row yet.
+  const valuesShown = adopting;
 
   const startAdopting = () => {
     setFeatureValues((current) => {
@@ -246,32 +230,6 @@ function ManagedTrafficForm({
   };
 
   const settings = useOrgSettings();
-  const { data: revisionData } = useApi<FeatureRevisionResponse>(
-    `/feature/${targetFeature?.feature.id}`,
-    { shouldRun: () => !!targetFeature },
-  );
-  const revisionList = revisionData?.revisionList ?? [];
-
-  // Mirrors the back end: a draft is selectable only if it carries this experiment's rule.
-  const eligibleDraftVersions = useMemo(() => {
-    const set = new Set<number>();
-    for (const r of revisionData?.revisions ?? []) {
-      const hasRefRule = naiveFlattenV1Rules(r.rules).some(
-        (rule) =>
-          rule.type === "experiment-ref" &&
-          (rule as ExperimentRefRule).experimentId === experiment.id,
-      );
-      if (hasRefRule) set.add(r.version);
-    }
-    if (targetFeature?.draftRevisionVersion != null) {
-      set.add(targetFeature.draftRevisionVersion);
-    }
-    if (targetFeature?.pendingDraft) {
-      set.add(targetFeature.pendingDraft.version);
-    }
-    return set;
-  }, [revisionData, experiment.id, targetFeature]);
-
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
     if (raw === true) return "all";
@@ -286,36 +244,7 @@ function ManagedTrafficForm({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature, experiment.project]);
 
-  // A running managed experiment falls back to its pending draft.
-  const targetDraftVersion =
-    targetFeature?.draftRevisionVersion ??
-    (isManaged ? (targetFeature?.pendingDraft?.version ?? null) : null);
-  const initialMode: DraftMode =
-    targetDraftVersion != null ? "existing" : "new";
-
-  const [mode, setMode] = useState<DraftMode>(initialMode);
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    targetDraftVersion,
-  );
-
-  // Re-apply defaults once revisions load.
-  const initializedFromData = useRef(false);
-  useEffect(() => {
-    if (initializedFromData.current || !revisionData) return;
-    initializedFromData.current = true;
-    setMode(initialMode);
-    setSelectedDraft(targetDraftVersion);
-  }, [revisionData, initialMode, targetDraftVersion]);
-
-  // Linking stages the rule in a draft; live doesn't have it yet.
-  const ruleOnlyOnDraft =
-    targetFeature?.state === "draft" &&
-    targetFeature.liveHasMatchingRule === false &&
-    targetFeature.draftRevisionVersion != null;
-
   const typeChanged = !!feature && valueType !== feature.valueType;
-  // Undoing a staged re-type is also a move.
-  const typeMoves = !!feature && (typeChanged || valueType !== seedValueType);
   const draftDefaultValue =
     targetFeature?.pendingDraft?.defaultValue ?? feature?.defaultValue;
   // Re-express what is already there rather than clearing it.
@@ -433,41 +362,6 @@ function ManagedTrafficForm({
     draftDefaultValue ??
     "";
 
-  const sparseEligible =
-    valueType === "json" &&
-    (adopting || seedValueType === "json") &&
-    parsePlainJSONObject(sparseBase) !== null;
-
-  // Rewrites every value, like the rule editors.
-  const sparseToggle =
-    sparseEligible && !isConfigBacked && (canEditValues || adopting) ? (
-      // 32px is the select's height, so the switch sits on its centre line.
-      <Flex align="center" style={{ minHeight: 32 }}>
-        <SparsePatchToggle
-          checked={sparse}
-          disabled={!editingValues && !adopting}
-          onChange={(checked) => {
-            const def = sparseBase;
-            setFeatureValues((prev) =>
-              Object.fromEntries(
-                Object.entries(prev).map(([id, v]) => {
-                  // Control is the default the others patch onto.
-                  if (isManaged && id === controlVariationId) return [id, v];
-                  return [
-                    id,
-                    checked
-                      ? stripDefaultsForSparse(v, def)
-                      : expandSparseToFull(v, def),
-                  ];
-                }),
-              ),
-            );
-            setSparse(checked);
-          }}
-        />
-      </Flex>
-    ) : null;
-
   const coverageTooltip = isManaged
     ? null
     : "Users not included in this experiment will flow through to subsequent feature flag rules";
@@ -571,21 +465,20 @@ function ManagedTrafficForm({
       });
     };
     // Validated before either request is sent.
-    const flagValues =
-      adopting || (feature && canEditValues && editingValues)
-        ? data.variations.map((v, i) => ({
-            variationId: v.id,
-            value: validateFeatureValue(
-              {
-                valueType,
-                jsonSchema:
-                  !feature || typeChanged ? undefined : feature.jsonSchema,
-              },
-              valueFor(v, i),
-              `Variation ${i}`,
-            ),
-          }))
-        : null;
+    const flagValues = adopting
+      ? data.variations.map((v, i) => ({
+          variationId: v.id,
+          value: validateFeatureValue(
+            {
+              valueType,
+              jsonSchema:
+                !feature || typeChanged ? undefined : feature.jsonSchema,
+            },
+            valueFor(v, i),
+            `Variation ${i}`,
+          ),
+        }))
+      : null;
 
     // Once started only names and descriptions leave here.
     const lockedVariations = experiment.variations.map((live) => {
@@ -594,7 +487,6 @@ function ManagedTrafficForm({
         ? { ...live, name: edited.name, description: edited.description }
         : live;
     });
-    const sentVariations = safeToEdit ? data.variations : lockedVariations;
     // Later calls can fail after earlier ones landed; refetch regardless.
     try {
       if (safeToEdit) {
@@ -618,27 +510,6 @@ function ManagedTrafficForm({
             ...(sparse ? { sparse: true } : {}),
             ...(manualKey ? { featureId: manualKey } : {}),
             ...(renameTo && !manualKey ? { trackingKey: renameTo } : {}),
-          }),
-        });
-      }
-
-      if (feature && canEditValues && editingValues && flagValues) {
-        await apiCall(`/experiment/${experiment.id}/features`, {
-          method: "POST",
-          body: JSON.stringify({
-            variations: sentVariations,
-            ...(safeToEdit && { variationWeights: data.variationWeights }),
-            features: {
-              [feature.id]: {
-                variations: flagValues,
-                ...(sparseEligible && { sparse }),
-                ...(typeMoves && { valueType }),
-                revisionOptions:
-                  mode === "existing" && selectedDraft != null
-                    ? { targetVersion: selectedDraft }
-                    : { forceNewDraft: true },
-              },
-            },
           }),
         });
       }
@@ -671,27 +542,6 @@ function ManagedTrafficForm({
       open={true}
       close={close}
       header="Edit Variations"
-      headerAction={
-        isManaged || !feature || !editingValues ? undefined : (
-          <DraftSelectorDropdown
-            feature={feature ?? undefined}
-            revisionList={revisionList}
-            mode={mode}
-            setMode={setMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={false}
-            gatedEnvSet={gatedEnvSet}
-            locked={ruleOnlyOnDraft}
-            lockedTooltip={
-              ruleOnlyOnDraft
-                ? "This experiment rule is added in this draft revision. Changes will be saved to it."
-                : undefined
-            }
-            eligibleDraftVersions={eligibleDraftVersions}
-          />
-        )
-      }
       submit={submit}
       cta={cta}
       ctaEnabled={
@@ -823,29 +673,7 @@ function ManagedTrafficForm({
                     </Box>
                   ) : null}
                 </Box>
-              ) : isManaged || !feature ? (
-                <Flex mb="3" gap="5" align="end">
-                  <Box width="200px">
-                    <ValueTypeField
-                      size="md"
-                      containerClassName="mb-0"
-                      value={valueType}
-                      order={VALUE_TYPE_ORDER}
-                      disabledOptions={booleanBlocked}
-                      onChange={(v) => {
-                        if (v !== "config" && canEditValues)
-                          handleValueTypeChange(v);
-                      }}
-                    />
-                  </Box>
-                  {sparseToggle}
-                </Flex>
-              ) : (
-                <Box mb="3">
-                  <LinkedFeatureLabel featureId={feature.id} />
-                  {sparseToggle && <Box mt="2">{sparseToggle}</Box>}
-                </Box>
-              )
+              ) : null
             }
             valueLabel={
               isManaged || adopting ? undefined : "Feature Flag value"

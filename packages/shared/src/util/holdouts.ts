@@ -83,3 +83,79 @@ export function isHoldoutStageTransitionAllowed(
 ): boolean {
   return getAllowedHoldoutStageSources(targetStage).includes(currentStage);
 }
+
+export type HoldoutLinkBlocker =
+  | {
+      reason: "different-holdout";
+      featureHoldoutId: string;
+      experimentHoldoutId: string;
+    }
+  | { reason: "holdout-unavailable"; featureHoldoutId: string }
+  | { reason: "not-draft"; featureHoldoutId: string }
+  | { reason: "has-linked-changes"; featureHoldoutId: string }
+  | { reason: "not-in-holdout"; experimentHoldoutId: string };
+
+/**
+ * Why a Feature Flag can't take a rule for this experiment on holdout grounds,
+ * or null when it can. A flag in a holdout pulls a holdout-free experiment
+ * into it, which only a draft with nothing else linked may do.
+ * `featureHoldoutProjects` is the flag's holdout's project scope, when known.
+ */
+export function getHoldoutLinkBlocker({
+  featureId,
+  featureHoldoutId,
+  featureHoldoutProjects,
+  experiment,
+}: {
+  featureId: string;
+  featureHoldoutId: string | null | undefined;
+  featureHoldoutProjects?: string[] | null;
+  experiment: Pick<
+    ExperimentInterface,
+    | "holdoutId"
+    | "project"
+    | "status"
+    | "linkedFeatures"
+    | "hasURLRedirects"
+    | "hasVisualChangesets"
+  >;
+}): HoldoutLinkBlocker | null {
+  const experimentHoldoutId = experiment.holdoutId || null;
+  if (featureHoldoutId) {
+    if (experimentHoldoutId && experimentHoldoutId !== featureHoldoutId) {
+      return {
+        reason: "different-holdout",
+        featureHoldoutId,
+        experimentHoldoutId,
+      };
+    }
+    if (experimentHoldoutId) return null;
+    if (
+      featureHoldoutProjects &&
+      featureHoldoutProjects.length > 0 &&
+      !(
+        experiment.project &&
+        featureHoldoutProjects.includes(experiment.project)
+      )
+    ) {
+      return { reason: "holdout-unavailable", featureHoldoutId };
+    }
+    if (experiment.status !== "draft") {
+      return { reason: "not-draft", featureHoldoutId };
+    }
+    // Self-links never count: linkedFeatures is deliberately sticky, so a
+    // discarded draft on this same flag leaves one behind.
+    const hasOtherLinkedChanges =
+      (experiment.linkedFeatures?.some((id) => id !== featureId) ?? false) ||
+      !!experiment.hasURLRedirects ||
+      !!experiment.hasVisualChangesets;
+    if (hasOtherLinkedChanges) {
+      return { reason: "has-linked-changes", featureHoldoutId };
+    }
+    return null;
+  }
+  if (experimentHoldoutId) {
+    return { reason: "not-in-holdout", experimentHoldoutId };
+  }
+  return null;
+}

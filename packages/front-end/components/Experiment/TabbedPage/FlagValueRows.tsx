@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, ReactNode, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -17,15 +17,20 @@ import {
 } from "shared/util";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
+  PiArrowSquareOut,
   PiCaretDownFill,
-  PiCheckCircle,
-  PiCheckCircleFill,
   PiFlag,
+  PiPencilSimple,
+  PiPlus,
   PiWarningFill,
-  PiXCircle,
-  PiXCircleFill,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import {
+  FaCircleCheck,
+  FaCircleXmark,
+  FaRegCircleCheck,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
 import ForceSummary from "@/components/Features/ForceSummary";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
@@ -41,14 +46,18 @@ import {
   variationGridMaxWidth,
 } from "@/components/Experiment/VariationsTable";
 import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
+import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
+import ReviewFeedbackPopover from "@/components/Reviews/ReviewFeedbackPopover";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
+import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
 import { useRegisterExperimentEdit } from "./ExperimentEdits";
 
 const VALUE_TYPE_ORDER: FeatureValueType[] = [
@@ -78,6 +87,8 @@ export interface Props {
   /** Show what is live rather than the draft, read-only. */
   showLive?: boolean;
   mutate: () => void;
+  /** Links another Feature Flag, offered under the last one. */
+  onAddFlag?: (() => void) | null;
 }
 
 /** One row per linked Feature Flag, a cell per variation, under the variation cards. */
@@ -87,6 +98,7 @@ export default function FlagValueRows({
   canEdit,
   showLive = false,
   mutate,
+  onAddFlag,
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const cols = Math.min(variations.length, 3);
@@ -102,6 +114,10 @@ export default function FlagValueRows({
       width="100%"
       style={{ maxWidth: variationGridMaxWidth(cols) }}
     >
+      {/* The list's gap already spaces it; pull the rows up under it. */}
+      <ImplementationHeading mt="2" mb="-2">
+        Feature Flags
+      </ImplementationHeading>
       {linkedFeatures.map((info) => (
         <FlagValueRow
           key={info.feature.id}
@@ -112,6 +128,13 @@ export default function FlagValueRows({
           mutate={mutate}
         />
       ))}
+      {onAddFlag ? (
+        <Flex justify="end">
+          <Button variant="outline" icon={<PiPlus />} onClick={onAddFlag}>
+            Add Feature Flag
+          </Button>
+        </Flex>
+      ) : null}
     </Flex>
   );
 }
@@ -137,7 +160,11 @@ function FlagValueRow({
   const { feature, pendingDraft } = info;
 
   const managed = isManagedByExperiment(feature, experiment.id);
-  // A managed flag keeps one draft, so only an unmanaged one can start another.
+  // A second draft is only worth starting when the open one also holds
+  // changes that can't publish with the experiment; otherwise start would
+  // stack both. A managed flag keeps one draft.
+  const canStartSeparateDraft =
+    !managed && !!pendingDraft?.hasUnrelatedDraftChanges;
   const [target, setTarget] = useState<"draft" | "new">(
     pendingDraft ? "draft" : "new",
   );
@@ -313,7 +340,7 @@ function FlagValueRow({
     : null;
   const targetLabel = showLive ? "Live" : fromDraft ? draftLabel : "New draft";
   const canChooseTarget =
-    editable || (!showLive && !!pendingDraft && !managed && canEdit);
+    canStartSeparateDraft && (editable || (!showLive && canEdit));
 
   const targetControl =
     canChooseTarget && pendingDraft ? (
@@ -360,24 +387,120 @@ function FlagValueRow({
       </Tooltip>
     );
 
-  // One headline state, most blocking first.
-  const status = pendingDraft?.hasMergeConflict
+  const canEditFlag = canEdit && permissionsUtil.canEditFeatureDrafts(feature);
+  const canRemove = canEditFlag && experiment.status === "draft";
+  const removeFromExperiment = async () => {
+    if (!confirm(`Remove ${feature.id} from this experiment?`)) return;
+    await apiCall(`/experiment/${experiment.id}/linked-feature/${feature.id}`, {
+      method: "DELETE",
+    });
+    mutate();
+  };
+
+  // Only a problem wears the warning; any other state is the revision's own.
+  const shownDraft = fromDraft ? pendingDraft : null;
+  const problem = shownDraft?.hasMergeConflict
     ? "Merge conflict"
-    : pendingDraft?.rebaseRequired
+    : shownDraft?.rebaseRequired
       ? "Needs rebase"
-      : lockedBySchedule
-        ? "Locked for scheduled publish"
-        : pendingDraft?.pendingApproval &&
-            !(
-              pendingDraft.approval?.satisfied ??
-              pendingDraft.status === "approved"
-            )
-          ? "Pending approval"
-          : info.state === "discarded"
-            ? "Draft discarded"
-            : info.state === "archived"
-              ? "Archived"
-              : null;
+      : shownDraft?.hasUnrelatedDraftChanges
+        ? "Changes beyond this experiment"
+        : info.state === "discarded"
+          ? "Draft discarded"
+          : info.state === "archived"
+            ? "Archived"
+            : null;
+  const needsApproval =
+    !!shownDraft?.pendingApproval &&
+    !(shownDraft.approval?.satisfied ?? shownDraft.status === "approved");
+  const draftHref = shownDraft
+    ? `/features/${feature.id}?v=${shownDraft.version}`
+    : `/features/${feature.id}`;
+  const launches = experiment.status === "draft";
+
+  // A new tab, so following it never costs the page's unsaved edits.
+  const draftLink = (label: string) => (
+    <Link href={draftHref} external underline="always">
+      {label}
+      <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
+    </Link>
+  );
+
+  // Everything the flag's own card used to say, one line each.
+  const notices: {
+    status: "error" | "warning" | "info";
+    text: ReactNode;
+    action?: ReactNode;
+  }[] = [];
+  if (info.state === "archived") {
+    notices.push({
+      status: "warning",
+      text: "This Feature Flag is archived. Unarchive it to make this experiment active.",
+    });
+  }
+  if (info.state === "discarded") {
+    notices.push({
+      status: "warning",
+      text: "The draft that linked this experiment was discarded, so its rule is no longer queued.",
+      action: canEditFlag ? (
+        <Link onClick={removeFromExperiment}>Remove from experiment</Link>
+      ) : undefined,
+    });
+  }
+  if (shownDraft?.hasMergeConflict) {
+    notices.push({
+      status: "error",
+      text: "This draft conflicts with live and can't publish until that's resolved.",
+      action: draftLink("Fix conflicts"),
+    });
+  } else if (shownDraft?.rebaseRequired) {
+    notices.push({
+      status: "warning",
+      text: "Live has moved on since this draft. Update it from live before it can publish.",
+      action: draftLink("Review draft"),
+    });
+  } else if (shownDraft?.hasUnrelatedDraftChanges) {
+    notices.push({
+      status: "error",
+      text: launches
+        ? "This draft also changes things outside this experiment, so it won't publish when the experiment starts. Remove those edits, or publish the draft from the Feature Flag."
+        : "This draft also changes things outside this experiment. Publish it from the Feature Flag.",
+      action: draftLink("Review draft"),
+    });
+  } else if (shownDraft && !lockedBySchedule) {
+    notices.push({
+      status: "info",
+      text: needsApproval
+        ? launches
+          ? "Needs approval. Once approved, it publishes when the experiment starts."
+          : "Needs approval before it can publish."
+        : launches
+          ? "Publishes when the experiment starts, or publish it from the Feature Flag."
+          : "Publish it from the Feature Flag to change what this experiment serves.",
+      action: draftLink(needsApproval ? "Review and approve" : "Review draft"),
+    });
+  }
+  if (lockedBySchedule) {
+    notices.push({
+      status: "info",
+      text: "Locked until its scheduled publish.",
+    });
+  }
+  if (
+    (info.state === "live" || info.state === "draft") &&
+    info.inconsistentValues
+  ) {
+    notices.push({
+      status: "warning",
+      text: `This experiment is on the flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
+    });
+  }
+  if ((info.state === "live" || info.state === "draft") && info.rulesAbove) {
+    notices.push({
+      status: "info",
+      text: "Rules above this experiment on the flag may catch some users first.",
+    });
+  }
 
   const environmentStates = getEnvironmentStates(
     (fromDraft
@@ -395,13 +518,6 @@ function FlagValueRow({
     },
   );
   const activeEnvironments = environmentStates.filter((e) => e.isActive);
-  // When what the grid shows takes effect, said once for all of it.
-  const environmentsTiming =
-    experiment.status === "draft"
-      ? "Takes effect when the experiment starts."
-      : fromDraft
-        ? `From ${draftLabel}. Takes effect when it's published.`
-        : null;
   const environmentInputs = fromDraft
     ? pendingDraft?.environmentInputs
     : (info.liveEnvironmentInputs ?? info.environmentInputs);
@@ -425,15 +541,12 @@ function FlagValueRow({
     const c = changedInputs(env);
     return c.flag || c.rule;
   });
-
-  const canEditFlag = canEdit && permissionsUtil.canEditFeatureDrafts(feature);
-  const removeFromExperiment = async () => {
-    if (!confirm(`Remove ${feature.id} from this experiment?`)) return;
-    await apiCall(`/experiment/${experiment.id}/linked-feature/${feature.id}`, {
-      method: "DELETE",
-    });
-    mutate();
-  };
+  // Only a change the draft makes needs saying when it lands.
+  const environmentsTiming = !environmentsChanged
+    ? null
+    : experiment.status === "draft"
+      ? `From ${draftLabel}. Takes effect when it's published, or when the experiment starts.`
+      : `From ${draftLabel}. Takes effect when it's published.`;
 
   const controls =
     editable && (sparseEligible || managed) ? (
@@ -491,135 +604,193 @@ function FlagValueRow({
         >
           <Flex align="center" gap="2" minWidth="0">
             <PiFlag style={{ color: "var(--color-text-low)" }} />
-            <Link href={`/features/${feature.id}`} weight="medium">
+            {/* A new tab, so following it never costs the page's unsaved edits. */}
+            <Link
+              href={`/features/${feature.id}`}
+              target="_blank"
+              rel="noreferrer"
+              weight="medium"
+            >
               {feature.id}
             </Link>
           </Flex>
-          {status ? (
+          {problem ? (
             <Flex align="center" gap="1" style={{ color: "var(--amber-11)" }}>
               <PiWarningFill />
               <Text size="sm" weight="medium">
-                {status}
+                {problem}
               </Text>
             </Flex>
-          ) : null}
+          ) : shownDraft &&
+            ["pending-review", "changes-requested", "approved"].includes(
+              shownDraft.status,
+            ) ? (
+            <ReviewFeedbackPopover
+              featureId={feature.id}
+              version={shownDraft.version}
+              reviewHref={draftHref}
+            >
+              <RevisionStatusBadge
+                revision={shownDraft}
+                liveVersion={feature.version}
+              />
+            </ReviewFeedbackPopover>
+          ) : (
+            <RevisionStatusBadge
+              revision={
+                shownDraft ?? {
+                  version: feature.version,
+                  status: "published",
+                }
+              }
+              liveVersion={feature.version}
+            />
+          )}
           <Flex align="center" gap="3" ml="auto">
             {controls}
-            {environmentStates.length ? (
-              <Popover
-                openOnHover
-                showArrow={false}
-                side="bottom"
-                align="end"
-                trigger={
-                  // The trigger takes the hover handlers, so it must be a plain element.
-                  <span
-                    style={{
-                      cursor: "default",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "var(--space-1)",
-                    }}
-                  >
-                    {environmentsChanged ? <UnpublishedDot /> : null}
-                    <Text size="sm" color="text-low">
-                      Environments {activeEnvironments.length}/
-                      {environmentStates.length}
-                    </Text>
-                  </span>
-                }
-                content={
-                  <Grid
-                    columns="auto auto auto auto"
-                    gapX="4"
-                    gapY="2"
-                    align="center"
-                  >
-                    <Box />
-                    <Text size="sm" color="text-low">
-                      Flag
-                    </Text>
-                    <Text size="sm" color="text-low">
-                      Rule
-                    </Text>
-                    <Box />
-                    {environmentStates.map(({ env, state, isActive }) => {
-                      const input = environmentInputs?.[env];
-                      const changed = changedInputs(env);
-                      // null: the rule is not in this environment at all.
-                      const setting = (
-                        value: boolean | null,
-                        moved: boolean,
-                      ) => (
-                        <Flex align="center" gap="1">
-                          {value === null ? (
-                            <Text size="sm" color="text-low">
-                              —
-                            </Text>
-                          ) : (
-                            <Box
-                              aria-label={value ? "On" : "Off"}
-                              style={{
-                                display: "flex",
-                                color: value
-                                  ? "var(--green-11)"
-                                  : "var(--red-9)",
-                              }}
-                            >
-                              {value ? <PiCheckCircle /> : <PiXCircle />}
-                            </Box>
-                          )}
-                          {moved ? (
-                            <UnpublishedDot tooltip="Changed in the draft" />
-                          ) : null}
-                        </Flex>
-                      );
-                      return (
-                        <Fragment key={env}>
-                          <Text weight="medium">{env}</Text>
-                          {setting(
-                            input ? input.flagEnabled : null,
-                            changed.flag,
-                          )}
-                          {setting(
-                            !input || input.rule === "missing"
-                              ? null
-                              : input.rule === "on",
-                            changed.rule,
-                          )}
+            <Flex align="center" gap="1">
+              {environmentStates.length ? (
+                <Popover
+                  openOnHover
+                  side="top"
+                  align="end"
+                  avoidCollisions={false}
+                  trigger={
+                    // The trigger takes the hover handlers, so it must be a plain element.
+                    <span
+                      style={{
+                        cursor: "default",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "var(--space-1)",
+                      }}
+                    >
+                      {environmentsChanged ? <UnpublishedDot /> : null}
+                      <Text size="sm" color="text-low">
+                        Environments {activeEnvironments.length}/
+                        {environmentStates.length}
+                      </Text>
+                    </span>
+                  }
+                  content={
+                    <Grid
+                      columns="auto auto auto auto"
+                      gapX="4"
+                      gapY="2"
+                      align="center"
+                    >
+                      <Box />
+                      <Text size="sm" color="text-low">
+                        Flag
+                      </Text>
+                      <Text size="sm" color="text-low">
+                        Rule
+                      </Text>
+                      <Box />
+                      {environmentStates.map(({ env, state, isActive }) => {
+                        const input = environmentInputs?.[env];
+                        const changed = changedInputs(env);
+                        // null: nothing known about this environment.
+                        const setting = (
+                          value: boolean | null,
+                          moved: boolean,
+                        ) => (
                           <Flex align="center" gap="1">
-                            <Box
+                            {value === null ? (
+                              <Text size="sm" color="text-low">
+                                —
+                              </Text>
+                            ) : (
+                              // Same marks as a feature rule's environment badges.
+                              <Box
+                                aria-label={value ? "On" : "Off"}
+                                style={{ display: "flex" }}
+                              >
+                                {value ? (
+                                  <FaRegCircleCheck
+                                    size={14}
+                                    style={{ color: "var(--green-11)" }}
+                                  />
+                                ) : (
+                                  <FaRegCircleXmark
+                                    size={14}
+                                    style={{ color: "var(--gray-8)" }}
+                                  />
+                                )}
+                              </Box>
+                            )}
+                            {moved ? (
+                              <UnpublishedDot tooltip="Changed in the draft" />
+                            ) : null}
+                          </Flex>
+                        );
+                        return (
+                          <Fragment key={env}>
+                            <span
                               style={{
-                                display: "flex",
-                                color: isActive
-                                  ? "var(--green-11)"
-                                  : "var(--slate-9)",
+                                color: isActive ? undefined : "var(--gray-8)",
+                                fontWeight: isActive ? 500 : 300,
                               }}
                             >
-                              {isActive ? (
-                                <PiCheckCircleFill />
-                              ) : (
-                                <PiXCircleFill />
-                              )}
-                            </Box>
-                            <Text size="sm" weight="medium">
-                              {ENVIRONMENT_STATE_LABELS[state] ?? state}
-                            </Text>
-                          </Flex>
-                        </Fragment>
-                      );
-                    })}
-                    {environmentsTiming ? (
-                      <Box gridColumn="1 / -1" mt="1">
-                        <Text size="sm" color="text-low">
-                          {environmentsTiming}
-                        </Text>
-                      </Box>
-                    ) : null}
-                  </Grid>
-                }
-              />
-            ) : null}
+                              {env}
+                            </span>
+                            {setting(
+                              input ? input.flagEnabled : null,
+                              changed.flag,
+                            )}
+                            {/* A rule that doesn't target the environment is off there too. */}
+                            {setting(
+                              input ? input.rule === "on" : null,
+                              changed.rule,
+                            )}
+                            <Flex align="center" gap="1">
+                              <Box
+                                style={{
+                                  display: "flex",
+                                  color: isActive
+                                    ? "var(--green-11)"
+                                    : "var(--slate-9)",
+                                }}
+                              >
+                                {isActive ? (
+                                  <FaCircleCheck size={14} />
+                                ) : (
+                                  <FaCircleXmark size={14} />
+                                )}
+                              </Box>
+                              <Text size="sm" weight="medium">
+                                {ENVIRONMENT_STATE_LABELS[state] ?? state}
+                              </Text>
+                            </Flex>
+                          </Fragment>
+                        );
+                      })}
+                      {environmentsTiming ? (
+                        <Box gridColumn="1 / -1" mt="1">
+                          <Text size="sm" color="text-low">
+                            {environmentsTiming}
+                          </Text>
+                        </Box>
+                      ) : null}
+                    </Grid>
+                  }
+                />
+              ) : null}
+              {canEditFlag && environmentStates.length ? (
+                <Tooltip content="Edit environments">
+                  <IconButton
+                    variant="ghost"
+                    color="violet"
+                    radius="medium"
+                    size="1"
+                    onClick={() => setEditEnvironments(true)}
+                    aria-label="Edit environments"
+                  >
+                    <PiPencilSimple size="14" />
+                  </IconButton>
+                </Tooltip>
+              ) : null}
+            </Flex>
             <Box
               style={{
                 width: 1,
@@ -628,55 +799,57 @@ function FlagValueRow({
               }}
             />
             {targetControl}
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="1"
-                  highContrast
-                  aria-label={`${feature.id} actions`}
-                >
-                  <BsThreeDotsVertical size={14} />
-                </IconButton>
-              }
-              menuPlacement="end"
-              variant="soft"
-            >
-              <DropdownMenuItem
-                onClick={() => {
-                  window.open(`/features/${feature.id}`, "_blank");
-                }}
+            {pendingDraft || canRemove ? (
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="1"
+                    highContrast
+                    aria-label={`${feature.id} actions`}
+                  >
+                    <BsThreeDotsVertical size={14} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+                variant="soft"
               >
-                Open Feature Flag
-              </DropdownMenuItem>
-              {pendingDraft ? (
-                <DropdownMenuItem
-                  onClick={() => {
-                    window.open(
-                      `/features/${feature.id}?v=${pendingDraft.version}`,
-                      "_blank",
-                    );
-                  }}
-                >
-                  Review {draftLabel}
-                </DropdownMenuItem>
-              ) : null}
-              {canEditFlag ? (
-                <DropdownMenuItem onClick={() => setEditEnvironments(true)}>
-                  Edit environments
-                </DropdownMenuItem>
-              ) : null}
-              {canEditFlag && experiment.status === "draft" ? (
-                <DropdownMenuItem color="red" onClick={removeFromExperiment}>
-                  Remove from experiment
-                </DropdownMenuItem>
-              ) : null}
-            </DropdownMenu>
+                {pendingDraft ? (
+                  <DropdownMenuItem>
+                    <Link
+                      href={`/features/${feature.id}?v=${pendingDraft.version}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      color="dark"
+                    >
+                      Review {draftLabel}
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
+                {canRemove ? (
+                  <DropdownMenuItem color="red" onClick={removeFromExperiment}>
+                    Remove from experiment
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenu>
+            ) : null}
           </Flex>
         </Flex>
       )}
+      {notices.length ? (
+        <Flex direction="column" gap="1" mb="3" px="3">
+          {notices.map((n, i) => (
+            <Flex key={i} align="baseline" gap="2" wrap="wrap">
+              <HelperText status={n.status} size="sm">
+                {n.text}
+              </HelperText>
+              {n.action ? <Text size="sm">{n.action}</Text> : null}
+            </Flex>
+          ))}
+        </Flex>
+      ) : null}
       <Grid columns={VARIATION_GRID_COLUMNS} gap="4">
         {variations.map((v) => {
           const value = valueFor(v.id);

@@ -46,9 +46,11 @@ import {
   discardRevision,
   getActiveDraft,
   getFeatureRevisionsByStatus,
+  getLinkageSyncRevisionSummaries,
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { getLaunchDraftVersion } from "back-end/src/util/featureExperimentSync";
 import {
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
@@ -744,20 +746,46 @@ type ReadyDraft = ResolvedDraft & {
   mergeResult: AutoMergeResult;
 };
 
-// Auto-publishes pendingFeatureDrafts on experiment start. Phase 1 resolves
-// each draft once (prune stale, gate on approval, merge against live with
-// the same normalization + governance as the manual publish flow);
-// Phase 1.5 prevalidates custom hooks; Phase 2 publishes sequentially,
-// reusing the resolved state except when an earlier publish in this run
-// advanced the same feature's live version, which forces a re-merge.
-// Halts on the first merge conflict or publish error so the caller can
-// abort the experiment transition.
+// Auto-publishes one draft per linked feature on experiment start. Phase 0
+// re-derives that draft from the feature's current revisions, so a stale or
+// stacked queue entry can't launch; Phase 1 resolves it (prune stale, gate on
+// approval, merge against live with the same normalization + governance as
+// the manual publish flow); Phase 1.5 prevalidates custom hooks; Phase 2
+// publishes. Halts on the first merge conflict or publish error so the caller
+// can abort the experiment transition.
 export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   bypassLockdown = false,
 ): Promise<PendingDraftPublishResult> {
-  const drafts = experiment.pendingFeatureDrafts ?? [];
+  const queued = experiment.pendingFeatureDrafts ?? [];
+  if (!queued.length) return { published: [], failed: [] };
+
+  // ── Phase 0: exactly one draft per feature ────────────────────────────────
+  const drafts: { featureId: string; revisionVersion: number }[] = [];
+  for (const featureId of new Set(queued.map((d) => d.featureId))) {
+    const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
+      context.org.id,
+      featureId,
+    );
+    const launch = getLaunchDraftVersion(
+      experiment.id,
+      openDrafts,
+      liveRevision,
+    );
+    for (const entry of queued) {
+      if (entry.featureId !== featureId || entry.revisionVersion === launch) {
+        continue;
+      }
+      await removePendingFeatureDraftFromExperiment(
+        context,
+        experiment.id,
+        featureId,
+        entry.revisionVersion,
+      );
+    }
+    if (launch !== null) drafts.push({ featureId, revisionVersion: launch });
+  }
   if (!drafts.length) return { published: [], failed: [] };
 
   const failed: PendingDraftFailure[] = [];
@@ -883,70 +911,12 @@ export async function publishPendingFeatureDraftsForExperiment(
     });
   }
 
-  // ── Phase 2: sequential publish ───────────────────────────────────────────
-  // Ascending version per feature so each merge builds on the previous publish.
-  ready.sort(
-    (a, b) =>
-      a.featureId.localeCompare(b.featureId) ||
-      a.revisionVersion - b.revisionVersion,
-  );
-
+  // ── Phase 2: publish ──────────────────────────────────────────────────────
   const published: ResolvedDraft[] = [];
-  // Features whose live version we advanced during this loop — later drafts
-  // of these features must re-merge against the fresh live state.
-  const publishedFeatureIds = new Set<string>();
 
   for (const entry of ready) {
-    const { featureId, revisionVersion } = entry;
-    let { feature, revision, mergeResult } = entry;
-
-    if (publishedFeatureIds.has(featureId)) {
-      const freshFeature = await getFeature(context, featureId);
-      if (!freshFeature) continue;
-      feature = freshFeature;
-      const freshRevision = await getRevision({
-        context,
-        organization: feature.organization,
-        featureId: feature.id,
-        feature,
-        version: revisionVersion,
-      });
-      if (
-        !freshRevision ||
-        freshRevision.status === "published" ||
-        freshRevision.status === "discarded"
-      ) {
-        continue;
-      }
-      revision = freshRevision;
-      const { live, base } = await getLiveAndBaseRevisionsForFeature({
-        context,
-        feature,
-        revision,
-      });
-      const remerged = mergeDraftForAutoPublish(
-        context,
-        feature,
-        revision,
-        live,
-        base,
-      );
-      mergeResult = remerged.mergeResult;
-      if (
-        remerged.rebaseRequired &&
-        !(
-          bypassLockdown &&
-          context.permissions.canBypassFlagApprovalChecks(feature, "feature")
-        )
-      ) {
-        logger.warn(
-          { experimentId: experiment.id, featureId, revisionVersion },
-          "Cannot auto-publish pending feature draft: rebase with live required after an earlier publish advanced the feature",
-        );
-        failed.push({ featureId, revisionVersion, reason: "needs-rebase" });
-        break;
-      }
-    }
+    const { featureId, revisionVersion, feature, revision, mergeResult } =
+      entry;
 
     if (!mergeResult.success) {
       logger.warn(
@@ -1010,7 +980,6 @@ export async function publishPendingFeatureDraftsForExperiment(
         revisionVersion,
       );
       published.push({ featureId, revisionVersion });
-      publishedFeatureIds.add(featureId);
     } catch (err) {
       logger.error(
         { err, experimentId: experiment.id, featureId, revisionVersion },

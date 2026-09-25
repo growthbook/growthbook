@@ -4707,6 +4707,7 @@ export async function getFeatureMetaInfoById(
     // (potentially large) default value is fetched only when the caller asks for
     // it — the list itself never parses it.
     baseConfig: 1,
+    "holdout.id": 1,
     ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
 
@@ -4758,6 +4759,7 @@ export async function getFeatureMetaInfoById(
         hasPrerequisites,
         hasSavedGroups,
         configBackingKey,
+        holdoutId: f.holdout?.id ?? null,
         revision: f.revision as FeatureMetaInfo["revision"],
         ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
       };
@@ -4790,6 +4792,7 @@ export async function getFeatureMetaInfoByIds(
       neverStale: 1,
       "jsonSchema.enabled": 1,
       revision: 1,
+      "holdout.id": 1,
     },
   );
 
@@ -4812,6 +4815,7 @@ export async function getFeatureMetaInfoByIds(
       managedBy: f.managedBy,
       neverStale: f.neverStale,
       revision: f.revision as FeatureMetaInfo["revision"],
+      holdoutId: f.holdout?.id ?? null,
     }));
 }
 

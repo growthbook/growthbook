@@ -240,6 +240,14 @@ export default function Implementation({
             // Values land in drafts in every status; publishing them is what
             // goes through review.
             canEditFlagValues={canEditExperiment}
+            addFeatureFlag={
+              canAddLinkedChanges &&
+              !isManaged &&
+              implementationType === "feature" &&
+              linkedFeatures.length > 0
+                ? () => setFeatureModal(true)
+                : null
+            }
           />
         ) : (
           <TrafficAndTargeting
