@@ -393,7 +393,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               {numReferences === 1 ? "" : "s"}
             </Link>
           ) : (
-            <Tooltip body="No features, experiments, or condition groups reference this attribute.">
+            <RadixTooltip content="No features, experiments, or condition groups reference this attribute.">
               <span
                 style={{
                   color: "var(--gray-10)",
@@ -402,7 +402,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               >
                 <BiShow /> 0 references
               </span>
-            </Tooltip>
+            </RadixTooltip>
           );
         },
       },

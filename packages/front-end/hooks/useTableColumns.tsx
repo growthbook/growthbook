@@ -156,8 +156,10 @@ export function useTableColumns<TRow>({
     [nextWidths],
   );
 
-  // Saves every column as rendered, not just the two that moved, or squeezed
-  // saved widths would squeeze the moved pair again on the next render.
+  // Saves every column as rendered, not just the two that moved: re-fitting
+  // squeezed saved widths would shift the moved pair away from where they were
+  // dropped. So a resize on a narrow page adopts the widths the user sees, and
+  // a wider page gives its extra room to the spacer rather than regrowing them.
   const resizeColumn = useCallback(
     (id: string, width: number) => {
       const next = nextWidths(id, width);
