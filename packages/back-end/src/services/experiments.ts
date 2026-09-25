@@ -3608,6 +3608,7 @@ export function toSnapshotApiInterface(
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
   exposureQueries: ExposureQuery[],
+  analysisSettings?: ExperimentSnapshotAnalysisSettings,
 ): ApiExperimentResults {
   const dimension = toApiDimension(snapshot.dimension);
 
@@ -3622,8 +3623,8 @@ export function toSnapshotApiInterface(
   const variationIds = phaseVariations.map((v) => v.id);
   const variationNames = phaseVariations.map((v) => v.name);
 
-  // Get the default analysis
-  const analysis = getSnapshotAnalysis(snapshot);
+  // The default analysis unless other settings were asked for
+  const analysis = getSnapshotAnalysis(snapshot, analysisSettings);
 
   // Get all metric IDs from the snapshot results
   const metricIds = new Set<string>();
