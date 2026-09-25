@@ -317,7 +317,8 @@ function mergeCustomSkills(
 
 const CUSTOM_SKILLS_RECHECK_MS = 30_000;
 let builtInRegistry: SkillRegistry | null = null;
-let customSkillsSignature = "";
+// Null after a failed load, so the next check always retries.
+let customSkillsSignature: string | null = "";
 let customSkillsCheckedAt = 0;
 
 /** Path, mtime and size of every file under `dir`, so any edit, add or delete changes it. */
@@ -372,11 +373,12 @@ function getSkillRegistry(): SkillRegistry {
       );
     }
   } catch (e) {
-    // E.g. a file removed mid-read; the next change to the directory retries.
     logger.error(
       e,
       `Could not load skills from AGENT_SKILLS_DIR (${AGENT_SKILLS_DIR}); keeping the previous set.`,
     );
+    // Retry on the next check: fixing e.g. a file's permissions doesn't change its mtime.
+    customSkillsSignature = null;
     cachedRegistry ??= builtInRegistry;
     return cachedRegistry;
   }

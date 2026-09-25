@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -269,6 +270,38 @@ describe("custom skills", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  // Root reads the file regardless of its mode, so the failure can't be staged.
+  const itUnlessRoot = process.getuid?.() === 0 ? it.skip : it;
+  itUnlessRoot(
+    "retries a failed load even when the fix leaves every mtime alone",
+    async () => {
+      const root = createWorkflowFixture({ "release-checklist": [] });
+      const skillFile = join(root, "release-checklist", "SKILL.md");
+      const now = jest.spyOn(Date, "now").mockReturnValue(1_000_000);
+      const org = { settings: {} } as OrganizationInterface;
+      process.env.AGENT_SKILLS_DIR = root;
+      chmodSync(skillFile, 0o000);
+      try {
+        await jest.isolateModulesAsync(async () => {
+          const { listDomainSkills } = await import(
+            "back-end/src/agent/skills"
+          );
+          const names = () => listDomainSkills(org).map((s) => s.name);
+
+          expect(names()).not.toContain("release-checklist");
+          chmodSync(skillFile, 0o644);
+          now.mockReturnValue(1_031_000);
+          expect(names()).toContain("release-checklist");
+        });
+      } finally {
+        delete process.env.AGENT_SKILLS_DIR;
+        now.mockRestore();
+        chmodSync(skillFile, 0o644);
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe("skill files", () => {
