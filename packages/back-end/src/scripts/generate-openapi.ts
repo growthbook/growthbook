@@ -207,7 +207,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   },
   settings: {
     display: "Settings",
-    description: "Get the organization settings.",
+    description: "Read and update the organization settings.",
   },
   attributes: {
     display: "Attributes",

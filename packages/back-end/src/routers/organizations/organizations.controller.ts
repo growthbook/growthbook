@@ -25,7 +25,6 @@ import {
   NamespaceFormat,
   NamespaceUsage,
   OrganizationInterface,
-  OrganizationSettings,
   ProjectMemberRole,
   Role,
   SDKAttribute,
@@ -164,7 +163,11 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
-import { validatePriorSettings } from "back-end/src/util/priors";
+import {
+  assertCanSetDefaultRole,
+  assertCanUpdateOrgSettings,
+  validateOrgSettingsUpdate,
+} from "back-end/src/services/orgSettings";
 import {
   getInstallation,
   setInstallationName,
@@ -1704,59 +1707,15 @@ export async function putOrganization(
     }
   }
   if (settings) {
-    (Object.keys(settings) as (keyof OrganizationSettings)[]).forEach((k) => {
-      if (k === "environments") {
-        throw new Error(
-          "Not supported: Updating organization environments not supported via this route.",
-        );
-      } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
-        if (
-          !context.permissions.canCreateSDKConnection({
-            projects: [],
-            environment: "",
-          })
-        ) {
-          context.permissions.throwPermissionError();
-        }
-      } else if (k === "attributeSchema") {
-        throw new Error(
-          "Not supported: Updating organization attributes not supported via this route.",
-        );
-      } else if (k === "northStar") {
-        if (!context.permissions.canManageNorthStarMetric()) {
-          context.permissions.throwPermissionError();
-        }
-      } else if (k === "namespaces") {
-        throw new Error(
-          "Not supported: Updating namespaces not supported via this route.",
-        );
-      } else if (k === "defaultRole") {
-        if (!context.permissions.canManageOrgSettings()) {
-          context.permissions.throwPermissionError();
-        }
-        const newRole = settings.defaultRole?.role;
-        if (newRole) {
-          // Only gate a change so an existing non-admin default keeps working
-          assertRoleChangeAllowed(org, getDefaultRole(org).role, newRole);
-        }
-      } else {
-        if (!context.permissions.canManageOrgSettings()) {
-          context.permissions.throwPermissionError();
-        }
-      }
-    });
+    assertCanUpdateOrgSettings(context, settings);
   }
 
   try {
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
-    if (!context.hasPremiumFeature("require-approvals")) {
-      if (settings?.approvalFlows?.savedGroups?.some((sg) => sg?.required)) {
-        throw new Error(
-          "Saved Groups approval flows require the Require Approvals enterprise feature.",
-        );
-      }
+    if (settings) {
+      validateOrgSettingsUpdate(context, settings);
     }
 
     if (name) {
@@ -1829,20 +1788,6 @@ export async function putOrganization(
       updates.licenseKey = licenseKey.trim();
       orig.licenseKey = org.licenseKey;
       await setLicenseKey(org, updates.licenseKey);
-    }
-
-    validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
-
-    const topValuesLookbackValue = settings?.topValuesLookbackValue;
-    if (
-      typeof topValuesLookbackValue === "number" &&
-      (!Number.isInteger(topValuesLookbackValue) ||
-        topValuesLookbackValue <= 0 ||
-        topValuesLookbackValue > 365)
-    ) {
-      throw new Error(
-        "Top values lookback value must be an integer between 1 and 365",
-      );
     }
 
     await updateOrganization(org.id, updates);
@@ -2580,28 +2525,22 @@ export async function putDefaultRole(
   const { org } = context;
   const { defaultRole } = req.body;
 
-  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+  assertCanSetDefaultRole(context, defaultRole);
 
-  if (!commercialFeatures.includes("sso")) {
-    throw new Error(
-      "Must have a commercial License Key to update the organization's default role.",
-    );
-  }
-
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Only gate a change so an existing non-admin default keeps working
-  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
-
-  assertMemberRoleInfoValid(org, defaultRole);
-
-  updateOrganization(org.id, {
+  await updateOrganization(org.id, {
     settings: {
       ...org.settings,
       defaultRole,
     },
+  });
+
+  await req.audit({
+    event: "organization.update",
+    entity: { object: "organization", id: org.id },
+    details: auditDetailsUpdate(
+      { settings: { defaultRole: org.settings?.defaultRole } },
+      { settings: { defaultRole } },
+    ),
   });
 
   res.status(200).json({
