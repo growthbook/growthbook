@@ -686,17 +686,24 @@ function FlagValueRow({
           <ImplementationHeading mt="0" mb="0">
             Values
           </ImplementationHeading>
-          <Flex align="center" gap="1">
-            <Text size="sm" color="text-low">
-              Type:
-            </Text>
-            {valueTypeControl}
+          <Flex align="center" gap="4">
+            {controls}
+            <Flex align="center" gap="1">
+              <Text size="sm" color="text-low">
+                Type:
+              </Text>
+              {valueTypeControl}
+            </Flex>
           </Flex>
         </Flex>
       ) : null}
       {/* As wide as the variation grid, with the same columns, and the inset
           on each cell rather than the box, so every field sits inside its card. */}
-      <Box className="appbox mb-0" py="3">
+      {/* A managed flag has no header, so each value is its own card. */}
+      <Box
+        className={managed ? undefined : "appbox mb-0"}
+        py={managed ? "0" : "3"}
+      >
         {editingValues !== undefined ? (
           <FlagValuesModal
             feature={displayFeature}
@@ -725,13 +732,7 @@ function FlagValueRow({
             mutate={mutate}
           />
         ) : null}
-        {managed ? (
-          controls ? (
-            <Flex align="center" justify="end" gap="3" mb="3" px="3">
-              {controls}
-            </Flex>
-          ) : null
-        ) : (
+        {managed ? null : (
           <Flex
             align="center"
             gap="3"
@@ -1002,7 +1003,7 @@ function FlagValueRow({
           </Flex>
         )}
         {notices.length ? (
-          <Flex direction="column" gap="1" mb="3" px="3">
+          <Flex direction="column" gap="1" mb="3" px={managed ? "0" : "3"}>
             {notices.map((n, i) => (
               <Flex key={i} align="baseline" gap="2" wrap="wrap">
                 <HelperText status={n.status} size="sm">
@@ -1035,8 +1036,10 @@ function FlagValueRow({
                 key={v.id}
                 align={block ? "start" : "center"}
                 gap="2"
-                px="3"
+                px={managed ? "2" : "3"}
+                py={managed ? "2" : "0"}
                 minWidth="0"
+                className={managed ? "appbox mb-0" : undefined}
               >
                 {/* On a one-line field's centre line, whatever the type. */}
                 <Box flexShrink="0" mt={block ? "2" : "0"}>
