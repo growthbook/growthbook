@@ -77,7 +77,7 @@
     "bluebird": "^3.7.2",
     "body-parser": "^1.20.6",
     "bs58": "^6.0.0",
-    "compression": "^1.8.1",
+    "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "cron-parser": "^4.2.0",
