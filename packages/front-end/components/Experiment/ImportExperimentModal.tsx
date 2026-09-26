@@ -114,6 +114,7 @@ const ImportExperimentModal: FC<{
       <h2>Import from Data source</h2>
       {importId && (
         <ImportExperimentList
+          key={importId}
           onImport={(create) => {
             setSelected(create);
           }}

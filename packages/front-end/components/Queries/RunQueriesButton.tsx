@@ -75,6 +75,7 @@ type Props = {
   radixVariant?: "outline" | "solid" | "soft";
   size?: "sm" | "md";
   onSubmit?: () => void | Promise<void>;
+  setError?: (error: string | null) => void;
   disabled?: boolean;
 };
 
@@ -92,6 +93,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       radixVariant = "outline",
       size = "md",
       onSubmit,
+      setError,
       disabled,
     },
     ref: ForwardedRef<HTMLButtonElement>,
@@ -211,6 +213,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                 await resetFilters?.();
                 await onSubmit?.();
               }}
+              setError={setError}
               icon={buttonIcon}
               style={{
                 minWidth: size === "sm" ? 90 : 110,
