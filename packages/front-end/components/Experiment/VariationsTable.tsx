@@ -38,7 +38,7 @@ const MAX_IMAGE_HEIGHT = 150;
 
 /** Narrower than this and a card has no room for a name beside its controls. */
 const MIN_VARIATION_WIDTH = 220;
-const VARIATION_GRID_GAP_PX = 16;
+export const VARIATION_GRID_GAP_PX = 16;
 
 /**
  * Wraps on the space the grid actually has rather than on the viewport: with

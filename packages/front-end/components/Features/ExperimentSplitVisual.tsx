@@ -115,6 +115,13 @@ export interface Props {
    * arrow per segment. Slim mode only, where the labels sit on top.
    */
   connector?: boolean;
+  /**
+   * Slim only: px each segment reaches past the bar's ends, so a bar held to
+   * a grid lays its segments out across the grid's slots (a card plus half
+   * the gap either side) and an even split lands between the cards. The
+   * ends are clipped back to the bar's own width.
+   */
+  overhang?: number;
   /** Makes each percentage a button, for editing that variation's share. */
   onSegmentClick?: (index: number) => void;
 }
@@ -129,6 +136,7 @@ export default function ExperimentSplitVisual({
   showPercentages = true,
   slim = false,
   connector = false,
+  overhang = 0,
   onSegmentClick,
 }: Props) {
   const totalWeights = parseFloat(
@@ -222,20 +230,33 @@ export default function ExperimentSplitVisual({
           )}
         </Flex>
       )}
-      <Box className={styles.bar_wrapper}>
+      <Box
+        className={styles.bar_wrapper}
+        style={
+          slim && overhang
+            ? { marginLeft: -overhang, marginRight: -overhang }
+            : undefined
+        }
+      >
         {showConnector ? (
           <SegmentConnector
             centers={segments.map(({ left, width }) => left + width / 2)}
           />
         ) : null}
         {slim ? labelsRow : null}
-        <div className={clsx(slim && styles.bar_clip)}>
+        <div
+          className={clsx(slim && styles.bar_clip)}
+          style={slim && overhang ? { margin: `0 ${overhang}px` } : undefined}
+        >
           <div
             className={clsx(
               styles.bar_holder,
               slim && styles.bar_holder_slim,
               "d-flex flex-row",
             )}
+            style={
+              slim && overhang ? { margin: `0 ${-overhang}px` } : undefined
+            }
           >
             {segments.map(({ i, left, width, gap, name }) => {
               const additionalStyles: CSSProperties = {

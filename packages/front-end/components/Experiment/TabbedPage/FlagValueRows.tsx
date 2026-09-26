@@ -60,6 +60,7 @@ import ImplementationHeading from "@/components/Experiment/ImplementationHeading
 import { ActionsOverlay } from "@/components/Features/actionsOverlay";
 import { useRegisterExperimentEdit } from "./ExperimentEdits";
 import FlagValuesModal from "./FlagValuesModal";
+import { getDuplicateVariationIds } from "./duplicateValues";
 import styles from "./FlagValueRows.module.scss";
 
 // Tight to each value's bottom-right corner, shown on hover.
@@ -307,6 +308,14 @@ function FlagValueRow({
       ),
     });
   };
+
+  // Two variations serving the same thing is almost always a mistake.
+  const duplicateIds = getDuplicateVariationIds(
+    variations.map((v) => ({ variationId: v.id, value: valueFor(v.id) })),
+    valueType,
+    sparse,
+    sparseBase,
+  );
 
   const dirty =
     !!staged &&
@@ -1074,6 +1083,9 @@ function FlagValueRow({
                         inset ? INSET_STRING_ACTIONS : STRING_ACTIONS
                       }
                       fieldOverlay={inset ? undefined : draftDot}
+                      outlineStyle={
+                        duplicateIds.has(v.id) ? "error" : undefined
+                      }
                       useCodeInput
                       showFullscreenButton
                       sparse={sparse}
@@ -1093,6 +1105,7 @@ function FlagValueRow({
                               styles.jsonValue,
                               (value === undefined || !isJson) &&
                                 styles.jsonEmpty,
+                              duplicateIds.has(v.id) && styles.outlineError,
                             )
                           : undefined
                       }

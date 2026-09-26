@@ -98,6 +98,8 @@ export interface Props {
   // String only: rendered over the field (below any label row); the caller
   // positions it.
   fieldOverlay?: ReactNode;
+  // Boolean, string and number: the field's border state, with no message.
+  outlineStyle?: "default" | "error" | "warning";
   // Renders the "Insert constant" picker as a compact square IconButton beside
   // the field (top-aligned) instead of on a label row above it, and hides the
   // copy button. Used by the inline config field editor.
@@ -156,6 +158,7 @@ export default function FeatureValueField({
   hideCopyButton = false,
   actionsOverlay,
   fieldOverlay,
+  outlineStyle,
   inlineConstantButton = false,
   inlineConstantButtonAlign = "center",
   inlineConstantButtonSize,
@@ -340,6 +343,7 @@ export default function FeatureValueField({
           { label: "FALSE", value: "false" },
         ]}
         isSearchable={false}
+        outlineStyle={outlineStyle}
         value={value}
         onChange={(v) => {
           setValue(v);
@@ -975,6 +979,7 @@ export default function FeatureValueField({
     <Field
       size={size}
       ref={stringInputRef}
+      outlineStyle={outlineStyle}
       label={stringLabelRow ? undefined : label}
       value={value}
       placeholder={placeholder}

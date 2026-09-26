@@ -5,6 +5,11 @@
   padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
 }
 
+// Matches the fields' own error border.
+.outlineError {
+  border-color: var(--red-8);
+}
+
 // The same height as a one-line field, so empty and string cells match.
 .jsonEmpty {
   display: flex;

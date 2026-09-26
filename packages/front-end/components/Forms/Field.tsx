@@ -12,6 +12,8 @@ export type BaseFieldProps = {
   markRequired?: boolean;
   error?: ReactNode;
   errorLevel?: "error" | "warning";
+  /** The border's state with no message; overrides what `error` would set. */
+  outlineStyle?: "default" | "error" | "warning";
   helpText?: ReactNode;
   helpTextClassName?: string;
   containerClassName?: string;
@@ -46,6 +48,7 @@ const Field = forwardRef(
       className,
       error,
       errorLevel = "error",
+      outlineStyle,
       helpText,
       helpTextClassName,
       containerClassName,
@@ -75,12 +78,13 @@ const Field = forwardRef(
       () => id || `field_${Math.floor(Math.random() * 1000000)}`,
     );
 
+    const outline = outlineStyle ?? (error ? errorLevel : "default");
     const cn = clsx(
       "form-control",
       `form-control--${size}`,
       {
-        "form-control--error": !!error && errorLevel === "error",
-        "form-control--warning": !!error && errorLevel === "warning",
+        "form-control--error": outline === "error",
+        "form-control--warning": outline === "warning",
       },
       className,
     );

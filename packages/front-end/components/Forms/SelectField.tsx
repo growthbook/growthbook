@@ -333,9 +333,11 @@ const SelectField: FC<SelectFieldProps> = ({
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
-  const { label, error } = fieldProps;
+  const { label, error, outlineStyle } = fieldProps;
   // Suppress Field's native error rendering; we render HelperText ourselves
   delete fieldProps.error;
+  delete fieldProps.outlineStyle;
+  const outline = outlineStyle ?? (error ? errorLevel : "default");
   if (!legacyLabelFormatting) {
     delete fieldProps.label;
   }
@@ -462,8 +464,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   id={id}
                   ref={ref}
                   className={clsx({
-                    error: !!error && errorLevel === "error",
-                    warning: !!error && errorLevel === "warning",
+                    error: outline === "error",
+                    warning: outline === "warning",
                   })}
                   classNamePrefix="gb-select"
                   isClearable={isClearable}
@@ -536,8 +538,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   id={id}
                   ref={ref}
                   className={clsx({
-                    error: !!error && errorLevel === "error",
-                    warning: !!error && errorLevel === "warning",
+                    error: outline === "error",
+                    warning: outline === "warning",
                   })}
                   isClearable={isClearable}
                   classNamePrefix="gb-select"

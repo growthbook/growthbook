@@ -33,6 +33,7 @@ import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelector
 import EditSplitModal from "@/components/Experiment/EditSplitModal";
 import VariationsTable, {
   VARIATION_GRID_COLUMNS,
+  VARIATION_GRID_GAP_PX,
   variationGridMaxWidth,
 } from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -696,6 +697,7 @@ export default function TrafficAllocationFunnel({
                   <ExperimentSplitVisual
                     slim
                     connector
+                    overhang={VARIATION_GRID_GAP_PX / 2}
                     coverage={1}
                     stackLeft
                     type="string"
