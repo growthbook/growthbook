@@ -188,6 +188,13 @@ export async function addCloudSDKMapping(
   });
 }
 
+/** Batch form of addCloudSDKMapping; the license server upserts, so re-sending is safe. */
+export async function syncCloudSDKMappings(
+  mappings: { key: string; organization: string }[],
+): Promise<void> {
+  await postManagedClickhouse("sdk-key-mapping", { mappings });
+}
+
 export async function migrateOverageEventsForOrgId(
   orgId: string,
 ): Promise<void> {
