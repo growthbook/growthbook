@@ -1,10 +1,14 @@
+import {
+  MIN_UNITS_PER_VARIATION,
+  MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY,
+} from "shared/constants";
 import { normCdf, randomNormal } from "./utils";
 
 const BANDIT_PRIOR_MEAN = 0;
 const BANDIT_PRIOR_VARIANCE = 1e4;
 const BANDIT_PRIOR_PRECISION = 1 / BANDIT_PRIOR_VARIANCE;
 const MIN_VARIATION_WEIGHT = 0.01;
-const MIN_UNITS_PER_VARIATION = 100;
+export { MIN_UNITS_PER_VARIATION, MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY };
 // Minimum variance for a bandit variation.
 const BANDIT_MIN_VARIANCE = 1e-9;
 
@@ -16,6 +20,7 @@ export type BanditArmStatistic = {
 
 export type VariationWeightResult = {
   updatedWeights: number[];
+  // Per-variation P(best) among arms with sample size >= 100, otherwise the uniform prior 1/K.
   bestArmProbabilities: number[] | null;
   updateMessage: string;
   error: string;
@@ -183,24 +188,25 @@ export function thompsonSampler(
   return wins.map((w) => w / nSamples);
 }
 
-/** Update bandit variation weights from per-variation statistics (one leaf or all data). */
-export function updateVariationWeights(
-  stats: BanditArmStatistic[],
-  currentWeights: number[],
-  inverse: boolean = false,
-): VariationWeightResult {
-  const counts = stats.map((s) => s.n);
-  const enoughUnits = counts.every((n) => n >= MIN_UNITS_PER_VARIATION);
-  if (!enoughUnits) {
-    return {
-      updatedWeights: currentWeights.slice(),
-      bestArmProbabilities: null,
-      updateMessage: "total sample size must be at least 100 per variation",
-      error: "",
-    };
-  }
+type SubsetThompsonResult = {
+  // Normalized Thompson weights over the subset (sum to 1), each floored at
+  // MIN_VARIATION_WEIGHT then renormalized.
+  weights: number[];
+  // Raw best-arm probabilities over the subset (pre-floor).
+  bestArmProbabilities: number[];
+};
 
-  const dataPrecision = stats.map(
+/**
+ * Compute Thompson weights for the subset of arms identified by `indices`.
+ */
+function thompsonWeightsForSubset(
+  stats: BanditArmStatistic[],
+  indices: number[],
+  inverse: boolean,
+): SubsetThompsonResult {
+  const subset = indices.map((i) => stats[i]);
+
+  const dataPrecision = subset.map(
     (s) => s.n / Math.max(s.variance, BANDIT_MIN_VARIANCE),
   );
   const posteriorVariance = dataPrecision.map(
@@ -210,7 +216,7 @@ export function updateVariationWeights(
     (pv, i) =>
       pv *
       (BANDIT_PRIOR_PRECISION * BANDIT_PRIOR_MEAN +
-        dataPrecision[i] * stats[i].mean),
+        dataPrecision[i] * subset[i].mean),
   );
   const posteriorStd = posteriorVariance.map((pv) => Math.sqrt(pv));
 
@@ -225,12 +231,63 @@ export function updateVariationWeights(
     p < MIN_VARIATION_WEIGHT ? MIN_VARIATION_WEIGHT : p,
   );
   const sum = clamped.reduce((a, b) => a + b, 0) || 1;
-  const updatedWeights = clamped.map((p) => p / sum);
+  const weights = clamped.map((p) => p / sum);
+
+  return { weights, bestArmProbabilities };
+}
+
+export function updateVariationWeights(
+  stats: BanditArmStatistic[],
+  currentWeights: number[],
+  inverse: boolean = false,
+): VariationWeightResult {
+  const numStats = stats.length;
+  const statsWithEnoughUsers: number[] = [];
+  const statsWithoutEnoughUsers: number[] = [];
+  stats.forEach((s, i) => {
+    if (s.n >= MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY) {
+      statsWithEnoughUsers.push(i);
+    } else {
+      statsWithoutEnoughUsers.push(i);
+    }
+  });
+  const numWithoutEnoughUsers = statsWithoutEnoughUsers.length;
+
+  // Thompson allocation requires at least two comparable arms.
+  if (statsWithEnoughUsers.length < 2) {
+    return {
+      updatedWeights: currentWeights.slice(),
+      bestArmProbabilities: null,
+      updateMessage:
+        "requires at least 2 variations with sufficient units to update weights",
+      error: "",
+    };
+  }
+
+  const { weights: subsetWeights, bestArmProbabilities: subsetProbs } =
+    thompsonWeightsForSubset(stats, statsWithEnoughUsers, inverse);
+
+  // Mass reserved for the variations that have enough users. The remaining
+  // variations each keep the fixed 1 / numStats exploration weight set below.
+  const remainingMass = (numStats - numWithoutEnoughUsers) / numStats;
+
+  const updatedWeights = new Array<number>(numStats).fill(1 / numStats);
+  // Per-variation P(best) among arms with sample size >= 100, otherwise the uniform prior 1/K.
+  const bestArmProbabilities = new Array<number>(numStats).fill(1 / numStats);
+  statsWithEnoughUsers.forEach((idx, j) => {
+    updatedWeights[idx] = subsetWeights[j] * remainingMass;
+    bestArmProbabilities[idx] = subsetProbs[j];
+  });
+
+  const updateMessage =
+    numWithoutEnoughUsers === 0
+      ? "successfully updated"
+      : `successfully updated; ${numWithoutEnoughUsers} of ${numStats} variations below ${MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY} units assigned uniform weight`;
 
   return {
     updatedWeights,
     bestArmProbabilities,
-    updateMessage: "successfully updated",
+    updateMessage,
     error: "",
   };
 }

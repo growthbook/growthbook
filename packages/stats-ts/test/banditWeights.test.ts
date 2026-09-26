@@ -1,6 +1,8 @@
 import {
   bestArmProbabilitiesGaussHermite,
   thompsonSampler,
+  updateVariationWeights,
+  type BanditArmStatistic,
 } from "../src/banditWeights";
 
 function makeRng(seed: number): () => number {
@@ -102,6 +104,65 @@ describe("Gauss-Hermite Thompson weighting", () => {
     const sigmas = [0.4, 0.4, 0.4];
     expect(thompsonSampler(means, sigmas, false, true)).toEqual(
       bestArmProbabilitiesGaussHermite(means, sigmas, false),
+    );
+  });
+});
+
+describe("updateVariationWeights", () => {
+  const arm = (n: number, mean: number, variance = 1): BanditArmStatistic => ({
+    n,
+    mean,
+    variance,
+  });
+  const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
+
+  it("reweights all arms via Thompson when every arm has enough units", () => {
+    const stats = [arm(200, 1), arm(200, 2)];
+    const result = updateVariationWeights(stats, [0.5, 0.5]);
+
+    expect(result.updateMessage).toBe("successfully updated");
+    expect(result.bestArmProbabilities).not.toBeNull();
+    expect(result.updatedWeights[1]).toBeGreaterThan(result.updatedWeights[0]);
+    expect(sum(result.updatedWeights)).toBeCloseTo(1, 6);
+  });
+
+  it("gives small sample size arms 1/K and splits the rest among large sample size arms", () => {
+    // K = 3, one deficient arm (n < 50): L = 1, H = 2.
+    const stats = [arm(200, 1), arm(200, 2), arm(30, 1)];
+    const result = updateVariationWeights(stats, [1 / 3, 1 / 3, 1 / 3]);
+
+    const w = result.updatedWeights;
+    expect(w).toHaveLength(3);
+    // Deficient arm receives the fixed 1/K exploration weight.
+    expect(w[2]).toBeCloseTo(1 / 3, 6);
+    // Healthy arms share the remaining (K - L)/K = 2/3 mass.
+    expect(w[0] + w[1]).toBeCloseTo(2 / 3, 6);
+    expect(w[1]).toBeGreaterThan(w[0]);
+    expect(sum(w)).toBeCloseTo(1, 6);
+
+    // Qualifying arms report their true P(best) among arms with sample size >= 100, otherwise the uniform prior 1/K.
+    expect(result.bestArmProbabilities).not.toBeNull();
+    expect(result.bestArmProbabilities![0]).toBeGreaterThan(0);
+    expect(result.bestArmProbabilities![1]).toBeGreaterThan(0);
+    expect(
+      result.bestArmProbabilities![0] + result.bestArmProbabilities![1],
+    ).toBeCloseTo(1, 6);
+    expect(result.bestArmProbabilities![2]).toBeCloseTo(1 / 3, 6);
+    expect(result.updateMessage).toContain("1 of 3 variations");
+  });
+
+  it("keeps current weights when fewer than 2 arms have enough units", () => {
+    // Only one healthy arm (H = 1 < 2): no reweighting.
+    const stats = [arm(30, 1), arm(200, 2)];
+    const currentWeights = [0.3, 0.7];
+    const result = updateVariationWeights(stats, currentWeights);
+
+    expect(result.updatedWeights).toEqual(currentWeights);
+    // Returned array must be a copy, not the same reference.
+    expect(result.updatedWeights).not.toBe(currentWeights);
+    expect(result.bestArmProbabilities).toBeNull();
+    expect(result.updateMessage).toBe(
+      "requires at least 2 variations with sufficient units to update weights",
     );
   });
 });

@@ -131,15 +131,194 @@ describe("computeContextualBanditWeights", () => {
     expect(weights[0]).toBeGreaterThan(weights[1]);
   });
 
-  it("falls back to the analysis weights when an arm has < 100 units", () => {
-    const data = [countryObs("US", 0, 50, 1), countryObs("US", 1, 50, 2)];
+  it("keeps the analysis weights when fewer than 2 arms have enough units", () => {
+    // Both arms are below the leaf threshold, so H = 0 < 2 and we cannot reweight.
+    const data = [countryObs("US", 0, 30, 1), countryObs("US", 1, 30, 2)];
 
     const result = computeContextualBanditWeights(input(data));
     const r = result.responses[0];
     expect(r.updatedWeights).toEqual([0.5, 0.5]);
     expect(r.bestArmProbabilities).toBeNull();
     expect(r.updateMessage).toBe(
-      "total sample size must be at least 100 per variation",
+      "requires at least 2 variations with sufficient units to update weights",
+    );
+  });
+
+  it("assigns 1/K to deficient arms and splits the rest among healthy arms", () => {
+    // v0 and v1 are healthy (H = 2), v2 is deficient (< 50 units), so v2 gets a
+    // fixed 1/K weight and v0/v1 share the remaining (K - L)/K = 2/3 mass.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("US", 2, 30, 1),
+    ];
+
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      varIds: ["v0", "v1", "v2"],
+      analysisWeights: [1 / 3, 1 / 3, 1 / 3],
+    });
+
+    const r = result.responses[0];
+    const w = r.updatedWeights as number[];
+    expect(w).toHaveLength(3);
+    expect(w[2]).toBeCloseTo(1 / 3, 6);
+    expect(w[0] + w[1]).toBeCloseTo(2 / 3, 6);
+    expect(w[1]).toBeGreaterThan(w[0]);
+    expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    expect(r.updateMessage).toContain("1 of 3 variations");
+
+    // The arm with small sample size P(best) is the uniform prior 1/K (K = 3), not a
+    // computed 0. The qualifying arms report their true (unscaled) P(best) among
+    // qualifying arms, so they sum to 1 between themselves; the full array is a
+    // conditional distribution that need not sum to 1.
+    const probs = r.bestArmProbabilities as number[];
+    expect(probs[0]).toBeGreaterThan(0);
+    expect(probs[1]).toBeGreaterThan(0);
+    expect(probs[0] + probs[1]).toBeCloseTo(1, 6);
+    expect(probs[2]).toBeCloseTo(1 / 3, 6);
+  });
+
+  it("excludes under-powered variations from tree building", () => {
+    // v0 and v1 are healthy but carry no country signal (identical US/CA means),
+    // so on their own the tree has no reason to split. v2 has a strong country
+    // signal but is under-powered (< 100 units), so it must not drive a split.
+    // v2 has 30 + 30 = 60 total units, below the 100-unit threshold.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("US", 2, 30, 1),
+      countryObs("CA", 0, 200, 1),
+      countryObs("CA", 1, 200, 2),
+      countryObs("CA", 2, 30, 9),
+    ];
+
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      varIds: ["v0", "v1", "v2"],
+      analysisWeights: [1 / 3, 1 / 3, 1 / 3],
+    });
+
+    // A single leaf: the under-powered v2's country signal was ignored.
+    expect(result.leaf_map).toHaveLength(1);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+  });
+
+  it("lets a sufficiently-powered variation drive a tree split", () => {
+    // Same shape as the previous test, but v2 now has enough units, so its
+    // strong country signal splits US from CA. This confirms the previous test's
+    // single leaf was caused by v2's low unit count, not the data shape.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("US", 2, 200, 1),
+      countryObs("CA", 0, 200, 1),
+      countryObs("CA", 1, 200, 2),
+      countryObs("CA", 2, 200, 9),
+    ];
+
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      varIds: ["v0", "v1", "v2"],
+      analysisWeights: [1 / 3, 1 / 3, 1 / 3],
+    });
+
+    expect(result.leaf_map!.length).toBeGreaterThan(1);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBeGreaterThan(
+      1,
+    );
+  });
+
+  it("keeps one leaf and the analysis weights when no variation is powered enough", () => {
+    // Tree building only considers variations with >= MIN_UNITS_PER_VARIATION
+    // (100) total units. Every variation here is far below that, so none is
+    // eligible to drive a split and all contexts collapse into a single (root)
+    // leaf -- even though US and CA carry opposing signals that would otherwise
+    // split them apart. The pooled per-variation units at that leaf (40 each)
+    // are also below the 50-unit leaf-granularity threshold, so fewer than 2
+    // arms qualify and the weights fall back to the analysis weights unchanged.
+    const data = [
+      countryObs("US", 0, 20, 1),
+      countryObs("US", 1, 20, 2),
+      countryObs("CA", 0, 20, 2),
+      countryObs("CA", 1, 20, 1),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    // Both contexts map to the same single leaf.
+    expect(result.leaf_map).toHaveLength(1);
+    expect(result.responses).toHaveLength(2);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+
+    // No reweighting: every context keeps the analysis weights.
+    for (const r of result.responses) {
+      expect(r.updatedWeights).toEqual([0.5, 0.5]);
+      expect(r.bestArmProbabilities).toBeNull();
+      expect(r.updateMessage).toBe(
+        "requires at least 2 variations with sufficient units to update weights",
+      );
+    }
+  });
+
+  it("produces the same single-leaf, no-update result when only one variation has enough units", () => {
+    // v0 now clears the 50-unit leaf threshold (60 pooled units) while v1 stays
+    // below it (30 units), and neither reaches the 100-unit tree threshold. With
+    // only one qualifying arm (H = 1 < 2) the weights still cannot update, and
+    // with no tree-eligible variation the contexts stay in one leaf -- the same
+    // result as when no variation had enough units.
+    const data = [
+      countryObs("US", 0, 30, 1),
+      countryObs("US", 1, 15, 2),
+      countryObs("CA", 0, 30, 2),
+      countryObs("CA", 1, 15, 1),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    expect(result.leaf_map).toHaveLength(1);
+    expect(result.responses).toHaveLength(2);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+
+    for (const r of result.responses) {
+      expect(r.updatedWeights).toEqual([0.5, 0.5]);
+      expect(r.bestArmProbabilities).toBeNull();
+      expect(r.updateMessage).toBe(
+        "requires at least 2 variations with sufficient units to update weights",
+      );
+    }
+  });
+
+  it("keeps one leaf but still reweights when pooled units clear the 50-unit leaf threshold", () => {
+    // Boundary case between the two tests above: every variation is still below
+    // the 100-unit tree threshold (60 pooled units each), so the contexts stay
+    // in a single leaf. But those 60 pooled units clear the 50-unit leaf
+    // threshold for both arms (H = 2), so Thompson reweighting DOES run and the
+    // better-performing arm (v1) is weighted more heavily.
+    const data = [
+      countryObs("US", 0, 30, 1),
+      countryObs("US", 1, 30, 2),
+      countryObs("CA", 0, 30, 1),
+      countryObs("CA", 1, 30, 2),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    // Single leaf: no variation was powered enough to split.
+    expect(result.leaf_map).toHaveLength(1);
+    expect(result.responses).toHaveLength(2);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+
+    // Weights were updated (not the fallback), identically for every context.
+    for (const r of result.responses) {
+      expect(r.updateMessage).toBe("successfully updated");
+      expect(r.bestArmProbabilities).not.toBeNull();
+      const w = r.updatedWeights as number[];
+      expect(w[1]).toBeGreaterThan(w[0]);
+      expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    }
+    expect(result.responses[0].updatedWeights).toEqual(
+      result.responses[1].updatedWeights,
     );
   });
 

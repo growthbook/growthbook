@@ -487,7 +487,7 @@ export default function ContextualBanditResultsTable({
 
           <SectionHeading
             title="Attribute Importance"
-            description="Attributes ranked by proportion of total error removed."
+            description="Attributes ranked by proportion of error removed."
           />
           {hasSplitMetadata ? (
             <Box mb="5">
