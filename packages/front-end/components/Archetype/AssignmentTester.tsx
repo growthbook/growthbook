@@ -475,8 +475,8 @@ export default function AssignmentTester({
             >
               <div className="p-3">
                 Archetypes allow you to set up user attribute traits to test how
-                feature will be applied to your real users. This feature is part
-                of our Pro or Enterprise plans.
+                features will be applied to your real users. This feature is
+                part of our Pro or Enterprise plans.
               </div>
             </Modal>
           )}

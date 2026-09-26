@@ -369,8 +369,8 @@ const EditOrganization: FC<{
                 <div className="small">
                   This is an old way to enable enterprise features for an
                   organization, which does not expire, and does not restrict
-                  seats. Please uncheck this and instead use Retool and set a
-                  licenseKey instead.
+                  seats. Please uncheck this and use Retool to set a licenseKey
+                  instead.
                 </div>
               </div>
               <div className="mt-3">
