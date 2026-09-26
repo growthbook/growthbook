@@ -47,21 +47,14 @@ const ROWS = [
   },
 ];
 
-function ResizableTable({ scrollX }: { scrollX?: boolean }) {
+function ResizableTable() {
   const [widths, setWidths] = useState<Record<string, number | undefined>>(() =>
     Object.fromEntries(COLUMNS.map((c) => [c.id, c.defaultWidth])),
   );
   const colRefs = useRef<Map<string, HTMLTableColElement | null>>(new Map());
 
   return (
-    <Table
-      variant="list"
-      stickyHeader
-      roundedCorners
-      layout="fixed"
-      scrollX={scrollX}
-      stickyLastColumn={scrollX}
-    >
+    <Table variant="list" stickyHeader roundedCorners layout="fixed">
       <colgroup>
         {COLUMNS.map((col) => (
           <col
@@ -127,15 +120,6 @@ export default function ColumnResizeHandleStories() {
           whatever is left over.
         </Text>
         <ResizableTable />
-      </Flex>
-      <Flex direction="column" gap="2">
-        <Text weight="medium">Inside a scrollX region</Text>
-        <Text size="sm" color="text-low">
-          Widen the columns past the container to scroll horizontally. The
-          header sticks to the top of the scroll region rather than the
-          viewport, and the last column pins to the right edge.
-        </Text>
-        <ResizableTable scrollX />
       </Flex>
     </Flex>
   );

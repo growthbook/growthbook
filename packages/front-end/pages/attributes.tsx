@@ -22,22 +22,11 @@ import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
-import Table, {
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableColumnHeader,
-  TableCell,
-} from "@/ui/Table";
+import Table, { TableHeader, TableBody, TableRow, TableCell } from "@/ui/Table";
 import Heading from "@/ui/Heading";
 import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
-import { useTableColumns } from "@/hooks/useTableColumns";
-import {
-  columnWidthBounds,
-  ResolvedTableColumn,
-  TableColumnDef,
-} from "@/services/tableColumns";
-import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
+import { useTableColumnLayout, useTableColumns } from "@/hooks/useTableColumns";
+import { isColumnVisible, TableColumnDef } from "@/services/tableColumns";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { useUser } from "@/services/UserContext";
 import {
@@ -139,7 +128,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
     () => attributeSchema.map((a) => a.property),
     [attributeSchema],
   );
-  const { references } = useAttributeReferences(attributeKeys);
+  const columnLayout = useTableColumnLayout("attributes");
+  // References is the table's one expensive fetch; skip it while the column is hidden.
+  const showReferences = isColumnVisible(columnLayout.layout, {
+    id: "references",
+  });
+  const { references } = useAttributeReferences(
+    showReferences ? attributeKeys : [],
+  );
 
   // Column ids are namespaced `custom:<fieldId>`. Those ids are org-unique, so a
   // saved layout carried into another org just resolves away instead of breaking.
@@ -434,12 +430,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </Tooltip>
           </>
         ),
-        align: "center",
         defaultWidth: 110,
         cellProps: () => ({ className: "text-gray" }),
-        render: (v) => (
-          <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
-        ),
+        render: (v) => (v.hashAttribute ? "yes" : null),
       },
       // Hidden by default so existing users see no change until they opt in.
       ...attributeCustomFields.map<TableColumnDef<AttributeRow>>((f) => ({
@@ -467,23 +460,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
         },
       })),
       {
-        // The one column that absorbs leftover width, so a resize elsewhere
-        // only moves the columns to its right. Renders nothing.
-        id: "spacer",
-        label: "",
-        header: null,
-        locked: true,
-        resizable: false,
-        minWidth: 0,
-        render: () => null,
-      },
-      {
         id: "actions",
         label: "Row actions",
         header: null,
         locked: true,
         resizable: false,
-        // Fixed, so the pinned column can't grow over the data it covers.
         defaultWidth: 40,
         minWidth: 40,
         headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
@@ -502,74 +483,18 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
 
   const {
-    columns,
     visibleColumns,
     colSpan,
-    hiddenCount,
-    isCustomized,
-    applySettings,
-    setWidth,
-    reset,
-    colRefs,
-    minTableWidth,
+    tableProps,
+    settingsProps,
+    renderHeaderCell,
+    renderCell,
     ColGroup,
-  } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
-
-  // Lives in the empty row-actions header rather than the filter toolbar, which
-  // is for data filters.
-  const columnSettings = (
-    <Flex justify="center">
-      <ColumnSettingsButton
-        columns={columns
-          // Locked columns can't be hidden or moved, so listing them is noise.
-          .filter((c) => !c.locked)
-          .map((c) => ({
-            id: c.id,
-            label: c.label,
-            visible: c.visible,
-            alwaysVisible: c.hideable === false,
-          }))}
-        hiddenCount={hiddenCount}
-        canReset={isCustomized}
-        onReset={reset}
-        onChange={applySettings}
-        note="The Attribute column is always shown."
-      />
-    </Flex>
-  );
-
-  const renderHeader = (col: ResolvedTableColumn<AttributeRow>) =>
-    col.id === "actions"
-      ? columnSettings
-      : col.header !== undefined
-        ? col.header
-        : col.label;
-
-  const renderResizeHandle = (col: ResolvedTableColumn<AttributeRow>) => {
-    if (col.resizable === false) return null;
-    const { min, max } = columnWidthBounds(col);
-    return (
-      <ColumnResizeHandle
-        label={col.label}
-        width={col.width}
-        minWidth={min}
-        maxWidth={max}
-        onCommit={(w) => setWidth(col.id, w)}
-        setLiveWidth={(w) => {
-          const el = colRefs.current.get(col.id);
-          if (!el) return;
-          el.style.width = `${w}px`;
-          // Move the floor with the drag, or the auto column squeezes mid-drag
-          // and snaps back to its minimum on release.
-          const committed = col.width ?? columnWidthBounds(col).min;
-          el.closest<HTMLElement>("[data-table-list]")?.style.setProperty(
-            "--table-min-width",
-            `${minTableWidth - committed + w}px`,
-          );
-        }}
-      />
-    );
-  };
+  } = useTableColumns({
+    layout: columnLayout,
+    columns: columnDefs,
+    SortableHeader: SortableTableColumnHeader,
+  });
 
   return (
     <>
@@ -614,44 +539,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Flex>
             </Box>
           )}
-          <Table
-            variant="list"
-            stickyHeader
-            roundedCorners
-            layout="fixed"
-            scrollX
-            stickyLastColumn
-            minTableWidth={minTableWidth}
-          >
+          <Table variant="list" stickyHeader roundedCorners {...tableProps}>
             <ColGroup />
             <TableHeader>
               <TableRow>
                 {visibleColumns.map((col) =>
-                  col.sortField ? (
-                    <SortableTableColumnHeader
-                      key={col.id}
-                      field={col.sortField}
-                      className={col.headerProps?.className}
-                      style={{
-                        textAlign: col.align,
-                        ...col.headerProps?.style,
-                      }}
-                      endAdornment={renderResizeHandle(col)}
-                    >
-                      {renderHeader(col)}
-                    </SortableTableColumnHeader>
-                  ) : (
-                    <TableColumnHeader
-                      key={col.id}
-                      className={col.headerProps?.className}
-                      style={{
-                        textAlign: col.align,
-                        ...col.headerProps?.style,
-                      }}
-                    >
-                      {renderHeader(col)}
-                      {renderResizeHandle(col)}
-                    </TableColumnHeader>
+                  renderHeaderCell(
+                    col,
+                    // Lives in the empty row-actions header rather than the
+                    // filter toolbar, which is for data filters.
+                    col.id === "actions" ? (
+                      <Flex justify="center">
+                        <ColumnSettingsButton
+                          {...settingsProps}
+                          note="The Attribute column is always shown."
+                        />
+                      </Flex>
+                    ) : undefined,
                   ),
                 )}
               </TableRow>
@@ -664,18 +568,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       className={v.archived ? "disabled" : ""}
                       key={"attr-row-" + v.property}
                     >
-                      {visibleColumns.map((col) => {
-                        const { className, style } = col.cellProps?.(v) ?? {};
-                        return (
-                          <TableCell
-                            key={col.id}
-                            className={className}
-                            style={style}
-                          >
-                            {col.render(v, col.width)}
-                          </TableCell>
-                        );
-                      })}
+                      {visibleColumns.map((col) => renderCell(col, v))}
                     </TableRow>
                   ))}
                   {!filteredAttributes.length && isFiltered && (
