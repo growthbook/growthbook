@@ -22,6 +22,7 @@ export interface DashboardSelectorProps {
   // Adds a "no selection" option that calls setValue("") when chosen.
   allowClear?: boolean;
   clearLabel?: string;
+  placeholder?: string;
 }
 
 export default function DashboardSelector({
@@ -36,6 +37,7 @@ export default function DashboardSelector({
   disabled = false,
   allowClear = false,
   clearLabel = "None",
+  placeholder,
 }: DashboardSelectorProps) {
   return (
     <Select
@@ -43,6 +45,7 @@ export default function DashboardSelector({
         minWidth: "200px",
         ...style,
       }}
+      placeholder={placeholder}
       value={allowClear && !value ? CLEAR_VALUE : value}
       setValue={(newValue) => {
         if (newValue === "__create__") {
