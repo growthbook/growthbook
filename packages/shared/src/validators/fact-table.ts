@@ -720,7 +720,7 @@ export const windowSettingsValidator = z.object({
 });
 
 export const quantileSettingsValidator = z.object({
-  quantile: z.number(),
+  quantile: z.number().gt(0).lt(1),
   type: z.enum(["unit", "event"]),
   ignoreZeros: z.boolean(),
   // Override the source-column name used to recover per-row event counts for
