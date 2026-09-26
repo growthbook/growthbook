@@ -281,7 +281,9 @@ export default function InsertConstantButton({
       style={{
         fontFamily: "monospace",
         fontWeight: 500,
-        ...(iconOnly && iconSize === "1" && { fontSize: "var(--font-size-1)" }),
+        // Small enough to sit in a round button the size of a copy button.
+        ...(iconOnly &&
+          iconSize === "1" && { fontSize: "10px", letterSpacing: "-0.05em" }),
       }}
     >
       {"{"}
@@ -291,15 +293,29 @@ export default function InsertConstantButton({
   );
 
   // Tooltip wraps only the icon so it doesn't interfere with the menu.
+  // The small one matches the copy button beside it: same size, round.
+  const small = iconSize === "1";
   const trigger = iconOnly ? (
     <IconButton
       type="button"
       size={iconSize}
+      radius={small ? "full" : undefined}
+      style={
+        small
+          ? {
+              width: 24,
+              height: 24,
+              margin: -6,
+              padding: 0,
+              boxSizing: "border-box",
+            }
+          : undefined
+      }
       variant="ghost"
       color="gray"
       disabled={disabled}
-      ml={iconSize === "1" ? "0" : "1"}
-      mt={iconMt}
+      ml={small ? "0" : "1"}
+      mt={small ? "0" : iconMt}
     >
       <Tooltip content="Insert Constant">
         <Flex align="center" justify="center">

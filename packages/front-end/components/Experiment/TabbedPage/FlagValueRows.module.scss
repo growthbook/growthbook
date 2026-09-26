@@ -48,3 +48,64 @@
     text-decoration-line: underline;
   }
 }
+
+// Prototype: the variation number and widgets live inside a full-width field.
+$inset-left: 44px;
+
+.inset {
+  // The legacy field's size class sets its own padding.
+  textarea,
+  input:global(.form-control) {
+    padding-left: $inset-left !important;
+  }
+
+  // A number field shrinks to its content inside an inline-block wrapper.
+  > :global(.rt-r-display-inline-block) {
+    display: block !important;
+  }
+
+  input:global(.form-control) {
+    width: 100% !important;
+  }
+
+  :global(.gb-select__value-container) {
+    padding-left: $inset-left;
+  }
+
+  .jsonValue {
+    padding-left: $inset-left;
+    background: var(--color-panel-solid);
+  }
+}
+
+// Between the number and the value, the field's height less a small gap.
+.insetDivider {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 36px;
+  width: 1px;
+  background: var(--gray-a5);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.insetNumber {
+  position: absolute;
+  top: 0;
+  left: 10px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+// On the value's first line: a one-line field's height (JSON and textarea
+// alike, so the numbers line up across flags), or the whole of an input or select.
+.insetNumberString {
+  height: 36px;
+}
+
+.insetNumberFill {
+  bottom: 0;
+}

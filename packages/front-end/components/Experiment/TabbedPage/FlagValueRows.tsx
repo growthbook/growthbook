@@ -67,6 +67,11 @@ const JSON_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
   style: { bottom: -9, right: 2, gap: "var(--space-2)" },
 };
+const INSET_STRING_ACTIONS: ActionsOverlay = {
+  revealOnHover: true,
+  withConstantButton: true,
+  style: { bottom: 0, right: 18 },
+};
 const STRING_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
   style: { bottom: 0, right: 18 },
@@ -241,11 +246,12 @@ function FlagValueRow({
     () => (configKey ? getConfigSubtree(configKey, configs) : undefined),
     [configKey, configs],
   );
-  // Only a flag that is JSON already: a re-type in the same edit has no base yet.
+  // A linked flag's base is its default, which a re-type in the same edit
+  // hasn't set yet; a managed flag's base is control, which it has.
   const sparseEligible =
     !configKey &&
     valueType === "json" &&
-    storedType === "json" &&
+    (managed || storedType === "json") &&
     parsePlainJSONObject(sparseBase) !== null;
 
   // Against the type and default the values will land under.
@@ -631,17 +637,9 @@ function FlagValueRow({
 
   // JSON is too big to edit in a cell, so it opens the values editor.
   const isJson = valueType === "json";
-  const controls =
-    editable && isJson ? (
-      <Button
-        variant="ghost"
-        size="sm"
-        icon={<PiPencilSimple />}
-        onClick={() => setEditingValues(null)}
-      >
-        Edit values
-      </Button>
-    ) : null;
+  // Prototype: a managed flag's values fill their variation's width, with the
+  // number and widgets inside the field.
+  const inset = managed;
 
   const typeBlocked: Partial<Record<FeatureValueType, string>> =
     variations.length > 2 ? { boolean: "Needs exactly two variations" } : {};
@@ -686,14 +684,11 @@ function FlagValueRow({
           <ImplementationHeading mt="0" mb="0">
             Values
           </ImplementationHeading>
-          <Flex align="center" gap="4">
-            {controls}
-            <Flex align="center" gap="1">
-              <Text size="sm" color="text-low">
-                Type:
-              </Text>
-              {valueTypeControl}
-            </Flex>
+          <Flex align="center" gap="1">
+            <Text size="sm" color="text-low">
+              Type:
+            </Text>
+            {valueTypeControl}
           </Flex>
         </Flex>
       ) : null}
@@ -787,7 +782,6 @@ function FlagValueRow({
               />
             )}
             <Flex align="center" gap="3" ml="auto">
-              {controls}
               <Flex align="center" gap="1">
                 {environmentStates.length ? (
                   <Popover
@@ -1014,10 +1008,10 @@ function FlagValueRow({
             ))}
           </Flex>
         ) : null}
-        <Grid columns={VARIATION_GRID_COLUMNS} gap="4">
+        {/* Top-aligned, so a tall JSON value doesn't push its neighbours down. */}
+        <Grid columns={VARIATION_GRID_COLUMNS} gap="4" align="start">
           {variations.map((v) => {
             const value = valueFor(v.id);
-            const block = isJson;
             // On the value's corner, so it takes no room in the row.
             const draftDot =
               draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
@@ -1034,23 +1028,36 @@ function FlagValueRow({
             return (
               <Flex
                 key={v.id}
-                align={block ? "start" : "center"}
+                align="start"
                 gap="2"
-                px={managed ? "2" : "3"}
-                py={managed ? "2" : "0"}
+                px={inset ? "0" : "3"}
                 minWidth="0"
-                className={managed ? "appbox mb-0" : undefined}
               >
-                {/* On a one-line field's centre line, whatever the type. */}
-                <Box flexShrink="0" mt={block ? "2" : "0"}>
-                  <VariationNumber number={v.index} />
-                </Box>
+                {inset ? null : (
+                  // On a one-line field's centre line, whatever the type.
+                  <Box flexShrink="0" mt="2">
+                    <VariationNumber number={v.index} />
+                  </Box>
+                )}
                 <Box
                   flexGrow="1"
                   minWidth="0"
                   position="relative"
-                  className={styles.valueCell}
+                  className={clsx(styles.valueCell, inset && styles.inset)}
                 >
+                  {inset ? (
+                    <Box
+                      className={clsx(
+                        styles.insetNumber,
+                        isJson || valueType === "string" || !editable
+                          ? styles.insetNumberString
+                          : styles.insetNumberFill,
+                      )}
+                    >
+                      <VariationNumber number={v.index} />
+                    </Box>
+                  ) : null}
+                  {inset ? <Box className={styles.insetDivider} /> : null}
                   {editable && !isJson ? (
                     <FeatureValueField
                       id={`flag-${feature.id}-${v.id}`}
@@ -1061,10 +1068,12 @@ function FlagValueRow({
                       renderJSONInline
                       useDropdown
                       // Beside the field, so every type's cell is one line tall.
-                      inlineConstantButton
+                      inlineConstantButton={!inset}
                       inlineConstantButtonSize="1"
-                      actionsOverlay={STRING_ACTIONS}
-                      fieldOverlay={draftDot}
+                      actionsOverlay={
+                        inset ? INSET_STRING_ACTIONS : STRING_ACTIONS
+                      }
+                      fieldOverlay={inset ? undefined : draftDot}
                       useCodeInput
                       showFullscreenButton
                       sparse={sparse}
@@ -1073,15 +1082,17 @@ function FlagValueRow({
                       configBackingShowPatch={!!configKey}
                       lockConfigBacking={!!configKey}
                     />
-                  ) : value === undefined && !isJson ? (
+                  ) : value === undefined && !isJson && !inset ? (
                     <HelperText status="warning">No value set</HelperText>
                   ) : (
+                    // Inset, every read-only value gets the field's frame.
                     <Box
                       className={
-                        isJson
+                        isJson || inset
                           ? clsx(
                               styles.jsonValue,
-                              value === undefined && styles.jsonEmpty,
+                              (value === undefined || !isJson) &&
+                                styles.jsonEmpty,
                             )
                           : undefined
                       }
@@ -1116,7 +1127,7 @@ function FlagValueRow({
                       ) : null}
                     </Box>
                   )}
-                  {fieldPlacesDot ? null : draftDot}
+                  {fieldPlacesDot && !inset ? null : draftDot}
                 </Box>
               </Flex>
             );

@@ -6,4 +6,6 @@ export type ActionsOverlay = {
   style?: CSSProperties;
   // Hidden until the value is hovered or focused.
   revealOnHover?: boolean;
+  // String only: the constant picker joins the actions.
+  withConstantButton?: boolean;
 };

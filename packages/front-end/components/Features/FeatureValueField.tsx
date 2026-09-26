@@ -339,6 +339,7 @@ export default function FeatureValueField({
           { label: "TRUE", value: "true" },
           { label: "FALSE", value: "false" },
         ]}
+        isSearchable={false}
         value={value}
         onChange={(v) => {
           setValue(v);
@@ -940,6 +941,9 @@ export default function FeatureValueField({
   // the field (only in a feature context) — rendered beside the label text, not
   // nested inside the field's <label> element.
   const showStringPicker = valueType === "string" && showConstantPicker;
+  const constantInActions =
+    !!actionsOverlay?.withConstantButton && showStringPicker;
+  const compactConstant = inlineConstantButton || constantInActions;
   const stringInsertButton = showStringPicker ? (
     <InsertConstantButton
       valueType="string"
@@ -947,14 +951,14 @@ export default function FeatureValueField({
       excludeKeys={pickerExcludeKeys}
       onInsert={insertStringConstant}
       disabled={disabled}
-      iconOnly={inlineConstantButton}
+      iconOnly={compactConstant}
       iconSize={inlineConstantButtonSize}
       // Inline has no label above to offset from.
-      iconMt={inlineConstantButton ? "0" : undefined}
+      iconMt={compactConstant ? "0" : undefined}
     />
   ) : null;
   const stringLabelRow =
-    showStringPicker && !inlineConstantButton ? (
+    showStringPicker && !compactConstant ? (
       <Flex align="center" justify="between" gap="3" width="100%" mb="1">
         {label !== undefined ? (
           <Text as="label" weight="semibold" mb="0">
@@ -1004,7 +1008,7 @@ export default function FeatureValueField({
 
   const overlaidField =
     valueType === "string" &&
-    ((actionsOverlay && !copyHidden) || fieldOverlay) ? (
+    ((actionsOverlay && (!copyHidden || constantInActions)) || fieldOverlay) ? (
       <Box
         position="relative"
         className={
@@ -1012,8 +1016,10 @@ export default function FeatureValueField({
         }
       >
         {field}
-        {actionsOverlay && !copyHidden ? (
-          <Box
+        {actionsOverlay && (!copyHidden || constantInActions) ? (
+          <Flex
+            align="center"
+            gap="2"
             className={
               actionsOverlay.revealOnHover ? cornerStyles.actions : undefined
             }
@@ -1024,8 +1030,10 @@ export default function FeatureValueField({
               ...actionsOverlay.style,
             }}
           >
-            {copyButton}
-          </Box>
+            {/* In a span like the copy button's tooltip, so both sit on one line. */}
+            {constantInActions ? <span>{stringInsertButton}</span> : null}
+            {copyHidden ? null : copyButton}
+          </Flex>
         ) : null}
         {fieldOverlay}
       </Box>

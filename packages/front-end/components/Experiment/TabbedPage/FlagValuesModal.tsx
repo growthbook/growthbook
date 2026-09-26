@@ -148,11 +148,16 @@ export default function FlagValuesModal({
       <Flex direction="column" gap="4" pt="2">
         {variations.map((v) => (
           <Box key={v.id} id={`flag-values-${v.id}`}>
-            <Flex align="center" gap="2" mb="2">
-              <VariationNumber number={v.index} />
-              <Text weight="medium">{v.name || `Variation ${v.index}`}</Text>
-            </Flex>
             <FeatureValueField
+              // On the same row as the constant picker.
+              label={
+                <Flex as="span" align="center" gap="2">
+                  <VariationNumber number={v.index} />
+                  <Text weight="medium">
+                    {v.name || `Variation ${v.index}`}
+                  </Text>
+                </Flex>
+              }
               id={`flag-values-${feature.id}-${v.id}`}
               value={values[v.id] ?? ""}
               setValue={(next) =>
