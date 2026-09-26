@@ -7,13 +7,7 @@ import {
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getImplementationType, isManagedByExperiment } from "shared/util";
-import {
-  Box,
-  Flex,
-  IconButton,
-  Separator,
-  type AvatarProps,
-} from "@radix-ui/themes";
+import { Flex, IconButton, type AvatarProps } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiInfo } from "react-icons/pi";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -25,14 +19,12 @@ import ChangeImplementationTypeModal from "@/components/Experiment/ChangeImpleme
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
 import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
-import VariationsTable from "@/components/Experiment/VariationsTable";
 import Button from "@/ui/Button";
 import { RedirectLinkedChanges } from "./RedirectLinkedChanges";
 import AddLinkedChangeButton from "./AddLinkedChangeButton";
@@ -57,12 +49,8 @@ export default function LinkedChanges({
   setVisualEditorModal,
   setFeatureModal,
   setUrlRedirectModal,
-  onAddVariation,
   canEditExperiment,
-  setEditVariationIndex,
-  hideVariations,
   managedMode,
-  valuesShownOnVariations,
   onAddValues,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
@@ -78,14 +66,9 @@ export default function LinkedChanges({
   setVisualEditorModal?: (state: boolean) => void;
   setFeatureModal?: (state: boolean) => void;
   setUrlRedirectModal?: (state: boolean) => void;
-  onAddVariation?: () => void;
   canEditExperiment?: boolean;
-  setEditVariationIndex?: (index: number) => void;
   /** Withholds the add-a-change surfaces. */
   managedMode?: boolean;
-  /** The variation cards above are already showing the flag's values. */
-  valuesShownOnVariations?: boolean;
-  hideVariations?: boolean;
   /** Creates the managed flag for a "values" experiment that has none yet. */
   onAddValues?: () => void;
 }) {
@@ -116,13 +99,11 @@ export default function LinkedChanges({
   // Titled by kind; "Linked Changes" is reserved for legacy mixes.
   const boxTitle = valuesMode
     ? "Managed Feature Flag"
-    : !(isPublic || hideVariations)
-      ? "Variations & Values"
-      : effectiveType === "multi"
-        ? "Linked Changes"
-        : effectiveType && effectiveType !== "none"
-          ? IMPLEMENTATION_TYPE_OPTIONS[effectiveType].header
-          : "Implementation";
+    : effectiveType === "multi"
+      ? "Linked Changes"
+      : effectiveType && effectiveType !== "none"
+        ? IMPLEMENTATION_TYPE_OPTIONS[effectiveType].header
+        : "Implementation";
   // The empty state below already offers the type chooser; the kebab is for
   // once the box has content or the choice is locked.
   const emptyStateOffersType =
@@ -176,11 +157,6 @@ export default function LinkedChanges({
           )}
         </Flex>
         <Flex align="center" gap="2">
-          {!isPublic && onAddVariation && !hideVariations ? (
-            <Button variant="ghost" onClick={onAddVariation}>
-              Edit Variations
-            </Button>
-          ) : null}
           {showTypeMenu && (
             <DropdownMenu
               trigger={
@@ -275,43 +251,6 @@ export default function LinkedChanges({
         </Flex>
       ) : (
         <>
-          {!isPublic && !hideVariations ? (
-            <>
-              <Box>
-                <VariationsTable
-                  experiment={experiment}
-                  canEditExperiment={canEditExperiment ?? false}
-                  mutate={mutate}
-                  noMargin
-                  // Running, changes go through "Make Changes" alone.
-                  onEditMetadata={
-                    canEditExperiment &&
-                    experiment.status !== "running" &&
-                    setEditVariationIndex
-                      ? (index) => setEditVariationIndex(index)
-                      : undefined
-                  }
-                />
-              </Box>
-              {(numLinkedChanges !== 0 || experiment.status === "draft") && (
-                <Separator size="4" my="6" />
-              )}
-            </>
-          ) : null}
-          {/* The value rows under the variations carry each flag's card. */}
-          {(valuesShownOnVariations ? [] : linkedFeatures).map((info) => (
-            <LinkedFeatureFlag
-              info={info}
-              experiment={experiment}
-              mutate={mutate}
-              key={info.feature.id}
-              numLinkedChanges={numLinkedChanges}
-              onReAdd={
-                setFeatureModal ? () => setFeatureModal(true) : undefined
-              }
-              valuesShownOnVariations={valuesShownOnVariations}
-            />
-          ))}
           {urlRedirects.length > 0 ? (
             <ImplementationHeading>URL Redirects</ImplementationHeading>
           ) : null}
@@ -337,7 +276,7 @@ export default function LinkedChanges({
           />
           {/* The value rows offer adding another flag under the last one. */}
           {!managedMode &&
-            !(valuesShownOnVariations && effectiveType === "feature") &&
+            effectiveType !== "feature" &&
             experiment.status === "draft" &&
             !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&

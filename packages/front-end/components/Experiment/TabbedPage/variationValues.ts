@@ -1,18 +1,9 @@
 import { FeatureValueType } from "shared/types/feature";
-import { expandSparseToFull } from "shared/util";
-
-// Objects compare regardless of key order; arrays keep theirs.
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.keys(value)
-        .sort()
-        .map((k) => [k, canonical((value as Record<string, unknown>)[k])]),
-    );
-  }
-  return value;
-}
+import {
+  expandSparseToFull,
+  sortObjectKeys,
+  validateFeatureValue,
+} from "shared/util";
 
 // What a variation actually serves, in a form equal values share.
 function servedKey(
@@ -28,7 +19,7 @@ function servedKey(
   if (valueType !== "json") return value;
   const full = sparse ? expandSparseToFull(value, sparseBase) : value;
   try {
-    return JSON.stringify(canonical(JSON.parse(full)));
+    return JSON.stringify(sortObjectKeys(JSON.parse(full)));
   } catch {
     return full.trim();
   }
@@ -48,4 +39,29 @@ export function getDuplicateVariationIds(
     byKey.set(key, [...(byKey.get(key) ?? []), variationId]);
   }
   return new Set([...byKey.values()].filter((ids) => ids.length > 1).flat());
+}
+
+type LabeledVariation = { id: string; name?: string; index: number };
+
+export const variationLabel = (v: LabeledVariation) =>
+  v.name || `Variation ${v.index}`;
+
+/**
+ * Every variation's value as it would be stored, and the ones that had to be
+ * repaired to get there, so a caller can show the fix before saving it.
+ */
+export function repairVariationValues(
+  feature: Parameters<typeof validateFeatureValue>[0],
+  variations: LabeledVariation[],
+  valueFor: (variationId: string) => string | undefined,
+  label: (v: LabeledVariation) => string = variationLabel,
+) {
+  const repaired: Record<string, string> = {};
+  const checked = variations.map((v) => {
+    const value = valueFor(v.id) ?? "";
+    const stored = validateFeatureValue(feature, value, label(v));
+    if (stored !== value) repaired[v.id] = stored;
+    return { variationId: v.id, value: stored };
+  });
+  return { checked, repaired };
 }

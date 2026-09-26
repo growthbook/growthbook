@@ -1,14 +1,13 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
-import { getHoldoutStage, includeHoldoutInPayload } from "shared/util";
+import { getHoldoutStage } from "shared/util";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
-import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
@@ -30,7 +29,6 @@ const HoldoutPage = (): ReactElement => {
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
-  const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
@@ -101,9 +99,6 @@ const HoldoutPage = (): ReactElement => {
         }
       }
     : null;
-  const editVariations = canRunExperiment
-    ? () => setVariationsModalOpen(true)
-    : null;
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
     : null;
@@ -118,10 +113,6 @@ const HoldoutPage = (): ReactElement => {
   const editHoldoutSchedule = canRunExperiment
     ? () => setEditHoldoutScheduleModalOpen(true)
     : null;
-
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !includeHoldoutInPayload(holdout, experiment);
 
   return (
     <>
@@ -145,15 +136,6 @@ const HoldoutPage = (): ReactElement => {
           mutate={mutate}
           holdout={holdout}
           experiment={experiment}
-        />
-      )}
-      {variationsModalOpen && (
-        <EditVariationsForm
-          experiment={experiment}
-          cancel={() => setVariationsModalOpen(false)}
-          onlySafeToEditVariationMetadata={!safeToEdit}
-          mutate={mutate}
-          source="hid"
         />
       )}
       {duplicateModalOpen && (
@@ -230,7 +212,6 @@ const HoldoutPage = (): ReactElement => {
           urlRedirects={[]}
           editMetrics={editMetrics}
           editResult={editResult}
-          editVariations={editVariations}
           duplicate={duplicate}
           newPhase={newPhase}
           editPhases={editPhases}

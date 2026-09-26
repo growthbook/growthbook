@@ -786,10 +786,6 @@ app.post(
   "/experiment/:id/targeting",
   experimentsController.postExperimentTargeting,
 );
-app.post(
-  "/experiment/:id/features",
-  experimentsController.postExperimentFeatureValues,
-);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.post(
   "/experiment/:id/approve-scheduled-start",

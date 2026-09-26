@@ -55,7 +55,6 @@ export interface Props {
   addVariation?: (() => void) | null;
   addVariationValues?: (() => void) | null;
   editNamespace?: (() => void) | null;
-  editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
   setUrlRedirectModal: (open: boolean) => void;
@@ -81,7 +80,6 @@ export default function Implementation({
   addVariation,
   addVariationValues,
   editNamespace,
-  editVariations,
   setFeatureModal,
   setVisualEditorModal,
   setUrlRedirectModal,
@@ -230,7 +228,6 @@ export default function Implementation({
                 ? addVariationValues
                 : null
             }
-            setEditVariationIndex={setEditMetadataIndex}
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}
             mutate={mutate}
@@ -258,8 +255,7 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
-        (!showTrafficFunnel ||
-          hasLinkedChanges ||
+        (hasLinkedChanges ||
           canAddLinkedChanges ||
           managedSoleImplementation ||
           implementationType === "values") ? (
@@ -276,12 +272,8 @@ export default function Implementation({
             setVisualEditorModal={setVisualEditorModal}
             setFeatureModal={setFeatureModal}
             setUrlRedirectModal={setUrlRedirectModal}
-            onAddVariation={editVariations ?? undefined}
             canEditExperiment={canEditExperiment}
-            setEditVariationIndex={setEditMetadataIndex}
-            hideVariations={showTrafficFunnel}
             managedMode={managedMode}
-            valuesShownOnVariations={showTrafficFunnel}
             onAddValues={
               canAdoptManagedFlag && !pendingScheduledStart
                 ? (addVariationValues ?? undefined)

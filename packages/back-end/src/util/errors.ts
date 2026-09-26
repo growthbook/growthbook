@@ -122,14 +122,6 @@ export class PaymentRequiredError extends Error {
   }
 }
 
-export class ForbiddenError extends Error {
-  status = 403;
-  constructor(message: string) {
-    super(message);
-    this.name = "ForbiddenError";
-  }
-}
-
 export class PlanDoesNotAllowError extends Error {
   status = 403;
   constructor(message: string) {

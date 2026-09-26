@@ -66,8 +66,6 @@ export default function InlineMarkdownField({
   const [beforeSuggestion, setBeforeSuggestion] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
-  // What the server holds, so a blur that changed nothing writes nothing.
-  const saved = useRef(savedValue);
 
   // State and editor together: the editor holds its own document, so setting
   // one without the other leaves the two disagreeing.
@@ -76,21 +74,18 @@ export default function InlineMarkdownField({
     editor.current?.setMarkdown(next);
   };
 
-  // The page's save bar writes this, so a field losing focus no longer posts.
+  // Written by the page's Save bar.
   const dirty = editable && value.trim() !== savedValue.trim();
   useRegisterExperimentEdit(`inline:${field}`, dirty, {
     changes: () =>
       experimentFieldChanges(experiment, { [field]: value.trim() }),
-    onSaved: () => {
-      saved.current = value.trim();
-      onSaved?.(value.trim());
-    },
+    onSaved: () => onSaved?.(value.trim()),
     discard: () => {
       replaceValue(savedValue);
     },
   });
 
-  if (editable && addLabel && !saved.current && !revealed) {
+  if (editable && addLabel && !savedValue && !revealed) {
     return stacked ? (
       <Metadata
         size="sm"

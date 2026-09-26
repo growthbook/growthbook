@@ -11,7 +11,7 @@ import React, {
   useState,
 } from "react";
 import stringify from "json-stringify-pretty-compact";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
 import InlineCode, {
@@ -24,8 +24,7 @@ import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
-import cornerStyles from "./CornerActions.module.scss";
-import { ActionsOverlay } from "./actionsOverlay";
+import CornerActions, { ActionsOverlay } from "./CornerActions";
 
 // For sparse JSON rules, the stored `value` is only the patch. We display the
 // fully expanded value (default merged with the patch) and bold the keys that
@@ -219,10 +218,53 @@ export default function ValueDisplay({
 
   return (
     <>
-      <Box
-        position="relative"
-        className={
-          actionsOverlay?.revealOnHover ? cornerStyles.hoverActions : undefined
+      <CornerActions
+        overlay={actionsOverlay}
+        position={{ bottom: -4, right: 16 }}
+        gap="3"
+        actions={
+          isFullscreen ? null : (
+            <>
+              {showCopyButton && (type === "json" || type === "string") ? (
+                <Tooltip
+                  body={copySuccess ? "Copied" : "Copy to clipboard"}
+                  usePortal={true}
+                >
+                  <IconButton
+                    type="button"
+                    radius="full"
+                    variant="ghost"
+                    className={copyButtonClassName}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!copySuccess) {
+                        performCopy(sparseMerge ? formatted : value);
+                      }
+                    }}
+                  >
+                    {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
+                  </IconButton>
+                </Tooltip>
+              ) : null}
+              {showFullscreenButton && type === "json" && (
+                <Tooltip body="View in full screen" usePortal={true}>
+                  <IconButton
+                    type="button"
+                    radius="full"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setModalOpen(true);
+                    }}
+                  >
+                    <PiCornersOut size={12} />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </>
+          )
         }
       >
         <Box ref={scrollBoxRef} style={fullStyle} className={fullClassName}>
@@ -235,61 +277,7 @@ export default function ValueDisplay({
             lineHeight={lineHeight}
           />
         </Box>
-        {!isFullscreen && (
-          <Flex
-            align="center"
-            gap="3"
-            className={
-              actionsOverlay?.revealOnHover ? cornerStyles.actions : undefined
-            }
-            style={{
-              position: "absolute",
-              bottom: -4,
-              right: 16,
-              ...actionsOverlay?.style,
-            }}
-          >
-            {showCopyButton && (type === "json" || type === "string") ? (
-              <Tooltip
-                body={copySuccess ? "Copied" : "Copy to clipboard"}
-                usePortal={true}
-              >
-                <IconButton
-                  type="button"
-                  radius="full"
-                  variant="ghost"
-                  className={copyButtonClassName}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!copySuccess) {
-                      performCopy(sparseMerge ? formatted : value);
-                    }
-                  }}
-                >
-                  {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
-                </IconButton>
-              </Tooltip>
-            ) : null}
-            {showFullscreenButton && type === "json" && (
-              <Tooltip body="View in full screen" usePortal={true}>
-                <IconButton
-                  type="button"
-                  radius="full"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setModalOpen(true);
-                  }}
-                >
-                  <PiCornersOut size={12} />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Flex>
-        )}
-      </Box>
+      </CornerActions>
       {modalOpen && (
         <Modal
           header={fullscreenHeader}

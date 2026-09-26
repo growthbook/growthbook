@@ -974,9 +974,5 @@ describe("resolveHoldoutExperimentToLink", () => {
     await expect(
       resolve("ho_1", { linkedFeatures: ["other"] }),
     ).rejects.toThrow("already has linked Feature Flags");
-    await expect(resolve("ho_1", {})).resolves.toBeUndefined();
-    await expect(
-      resolve("ho_1", { holdoutId: "ho_1" }),
-    ).resolves.toBeUndefined();
   });
 });

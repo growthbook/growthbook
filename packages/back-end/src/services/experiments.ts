@@ -5480,26 +5480,6 @@ export async function getRefLinkedFeatureInfo({
         revision?.environmentsEnabled?.[environmentId] ??
         !!feature.environmentSettings?.[environmentId]?.enabled;
 
-      const buildEnvironmentStates = (
-        from: MatchingRule[],
-        revision?: FeatureRevisionInterface,
-      ) => {
-        const states: Record<string, LinkedFeatureEnvState> = {};
-        environments.forEach((env) => (states[env] = "missing"));
-        from.forEach((match) => {
-          if (!envEnabledIn(match.environmentId, revision)) {
-            states[match.environmentId] = "disabled-env";
-          } else if (
-            match.rule.enabled === false &&
-            states[match.environmentId] !== "active"
-          ) {
-            states[match.environmentId] = "disabled-rule";
-          } else if (match.rule.enabled !== false) {
-            states[match.environmentId] = "active";
-          }
-        });
-        return states;
-      };
       const buildEnvironmentInputs = (
         from: MatchingRule[],
         revision?: FeatureRevisionInterface,
@@ -5520,6 +5500,25 @@ export async function getRefLinkedFeatureInfo({
         });
         return inputs;
       };
+      // The state each environment's inputs add up to.
+      const buildEnvironmentStates = (
+        from: MatchingRule[],
+        revision?: FeatureRevisionInterface,
+      ) =>
+        Object.fromEntries(
+          Object.entries(buildEnvironmentInputs(from, revision)).map(
+            ([env, { flagEnabled, rule }]): [string, LinkedFeatureEnvState] => [
+              env,
+              rule === "missing"
+                ? "missing"
+                : !flagEnabled
+                  ? "disabled-env"
+                  : rule === "on"
+                    ? "active"
+                    : "disabled-rule",
+            ],
+          ),
+        );
       // Only a draft the feature actually resolved to stages its own enablement.
       const statesRevision =
         state === "draft" ? matchedDraftRevision : undefined;

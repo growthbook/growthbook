@@ -67,8 +67,7 @@ import {
   addJsonConstantExtends,
   buildStringRefInsertion,
 } from "@/components/Constants/jsonConstantInsert";
-import cornerStyles from "./CornerActions.module.scss";
-import { ActionsOverlay } from "./actionsOverlay";
+import CornerActions, { ActionsOverlay } from "./CornerActions";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -174,7 +173,6 @@ export default function FeatureValueField({
   emptyStringConfirmed = false,
   setEmptyStringConfirmed,
 }: Props) {
-  // Inline mode also suppresses the copy button.
   // Inline mode has no room under the field, unless copy is overlaid on it.
   const copyHidden =
     hideCopyButton || (inlineConstantButton && !actionsOverlay);
@@ -195,9 +193,8 @@ export default function FeatureValueField({
   const showConstantPicker = (!!feature || !!constantContext) && !disabled;
   const pickerProject = constantContext?.project ?? project ?? feature?.project;
   const pickerExcludeKeys = constantContext?.excludeKeys;
-  // Tags for the valid constants referenced in the current value, shown below
-  // the editor's CTA row.
-  // Only when the value references one, so an empty tag row adds no help text.
+  // Tags for the constants the value references, below the editor's CTA row;
+  // none at all without a reference, so no empty help text.
   const usedConstantTags =
     showConstantPicker &&
     (valueType === "string" || valueType === "json") &&
@@ -1011,37 +1008,26 @@ export default function FeatureValueField({
     />
   );
 
+  const overlayActions = !!actionsOverlay && (!copyHidden || constantInActions);
   const overlaidField =
-    valueType === "string" &&
-    ((actionsOverlay && (!copyHidden || constantInActions)) || fieldOverlay) ? (
-      <Box
-        position="relative"
-        className={
-          actionsOverlay?.revealOnHover ? cornerStyles.hoverActions : undefined
+    valueType === "string" && (overlayActions || fieldOverlay) ? (
+      <CornerActions
+        overlay={actionsOverlay}
+        position={{ bottom: 0, right: 0 }}
+        gap="2"
+        actions={
+          overlayActions ? (
+            <>
+              {/* In a span like the copy button's tooltip, so both sit on one line. */}
+              {constantInActions ? <span>{stringInsertButton}</span> : null}
+              {copyHidden ? null : copyButton}
+            </>
+          ) : null
         }
       >
         {field}
-        {actionsOverlay && (!copyHidden || constantInActions) ? (
-          <Flex
-            align="center"
-            gap="2"
-            className={
-              actionsOverlay.revealOnHover ? cornerStyles.actions : undefined
-            }
-            style={{
-              position: "absolute",
-              bottom: 0,
-              right: 0,
-              ...actionsOverlay.style,
-            }}
-          >
-            {/* In a span like the copy button's tooltip, so both sit on one line. */}
-            {constantInActions ? <span>{stringInsertButton}</span> : null}
-            {copyHidden ? null : copyButton}
-          </Flex>
-        ) : null}
         {fieldOverlay}
-      </Box>
+      </CornerActions>
     ) : (
       field
     );

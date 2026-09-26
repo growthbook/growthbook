@@ -4,7 +4,9 @@ import { RevisionLog } from "shared/types/feature-revision";
 import CommentCard from "@/components/Comments/CommentCard";
 import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
 import {
+  logComment,
   rowVisual,
+  verdictColor,
   VerdictRetraction,
   VerdictTags,
 } from "@/components/Reviews/RevisionTimeline";
@@ -32,20 +34,12 @@ export function reviewCommentsFromLog(
 ): ReviewComment[] {
   return sortedLog
     .filter((l) => CONVERSATION_ACTIONS.includes(l.action))
-    .map((l) => {
-      let comment: string | undefined;
-      try {
-        comment = JSON.parse(l.value)?.comment;
-      } catch {
-        // not JSON
-      }
-      return {
-        ...l,
-        comment,
-        retraction: retractions?.get(l) ?? null,
-        isActiveVerdict: l === activeVerdict,
-      };
-    });
+    .map((l) => ({
+      ...l,
+      comment: logComment(l),
+      retraction: retractions?.get(l) ?? null,
+      isActiveVerdict: l === activeVerdict,
+    }));
 }
 
 /** One entry of a review conversation, as the review panel shows it. */
@@ -63,12 +57,7 @@ export default function ReviewCommentCard({
   body?: ReactNode;
 }) {
   const visual = rowVisual(log.action);
-  const verdictColor =
-    log.action === "Approved"
-      ? "green"
-      : log.action === "Requested Changes"
-        ? "red"
-        : null;
+  const verdict = verdictColor(log.action);
   return (
     <CommentCard
       user={log.user}
@@ -81,10 +70,10 @@ export default function ReviewCommentCard({
       }
       stripeColor={visual.color}
       leading={
-        verdictColor ? (
+        verdict ? (
           <Avatar
             size="sm"
-            color={verdictColor}
+            color={verdict}
             variant={uncoveredReason ? "soft" : "solid"}
             ring={!!uncoveredReason}
           >

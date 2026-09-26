@@ -8,7 +8,6 @@ import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { FeatureValueType } from "shared/types/feature";
 import {
   castFeatureValue,
-  getFeatureBaseConfigKey,
   getImplementationType,
   getReviewSetting,
   isManagedByExperiment,
@@ -17,15 +16,17 @@ import {
 } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { useEffect, useMemo, useRef, useState } from "react";
-import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
+import {
+  blockedExperimentValueTypes,
+  EXPERIMENT_VALUE_TYPE_ORDER,
+} from "@/components/Features/valueTypes";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { distributeWeights } from "@/services/utils";
-import { formatJSON } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
@@ -37,14 +38,6 @@ import track from "@/services/track";
 import EditTrafficModal from "./EditTrafficModal";
 import ExperimentManagedFeatureVariationEditor from "./ExperimentManagedFeatureVariationEditor";
 import { ManagedSortableVariation } from "./ExperimentManagedFeatureVariationRow";
-
-// Boolean is a poor fit for most experiments, so it sits last.
-const VALUE_TYPE_ORDER: FeatureValueType[] = [
-  "string",
-  "json",
-  "number",
-  "boolean",
-];
 
 export interface Props {
   close: () => void;
@@ -80,7 +73,7 @@ export default function ExperimentManagedTrafficModal({
       ? (linkedFeatures ?? [])[0]
       : null;
 
-  // Unmanaged flag values are editable only while the experiment is a draft.
+  // An unmanaged sole flag is edited here only while the experiment is a draft.
   const editableSoleFeature =
     soleFeature &&
     experiment.status === "draft" &&
@@ -126,8 +119,6 @@ export default function ExperimentManagedTrafficModal({
       close={close}
       experiment={experiment}
       mutate={mutate}
-      targetFeature={targetFeature}
-      isManaged={!!managedFeature}
       canAdopt={canAdopt}
       safeToEdit={safeToEdit}
       focusVariationId={focusVariationId}
@@ -140,8 +131,6 @@ function ManagedTrafficForm({
   close,
   experiment,
   mutate,
-  targetFeature,
-  isManaged,
   canAdopt,
   safeToEdit,
   focusVariationId,
@@ -150,49 +139,22 @@ function ManagedTrafficForm({
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
-  // null while the experiment has no implementation and `canAdopt` is set.
-  targetFeature: LinkedFeatureInfo | null;
   // The experiment may take on a managed flag from this modal.
   canAdopt: boolean;
-  // Managed here: it may be re-typed, and its rule is the flag's only one.
-  isManaged: boolean;
-  // False once running against a live rule: values stay editable, structure not.
+  // False once running against a live rule: only names and descriptions change.
   safeToEdit: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
 }) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const permissionsUtil = usePermissionsUtil();
   const isBandit = experiment.type === "multi-armed-bandit";
-  const feature = targetFeature?.feature ?? null;
 
-  const canEditValues =
-    !!feature && permissionsUtil.canEditFeatureDrafts(feature);
-
-  // The draft's staged type, not live.
-  const seedValueType =
-    targetFeature?.pendingDraft?.valueType ?? feature?.valueType ?? "string";
-  const [valueType, setValueType] = useState<FeatureValueType>(seedValueType);
-  // Formatted at seed time so the dirty baseline matches.
-  const isConfigBacked = !!feature && getFeatureBaseConfigKey(feature) !== null;
-  const [sparse] = useState(
-    (targetFeature?.pendingDraft?.sparse ?? !!targetFeature?.sparse) ||
-      (!!feature && isConfigBacked),
-  );
-
+  // Values are edited in the rows under the variations; here only while
+  // adopting, when there is no flag and so no row yet.
+  const [valueType, setValueType] = useState<FeatureValueType>("string");
   const [featureValues, setFeatureValues] = useState<Record<string, string>>(
-    () =>
-      Object.fromEntries(
-        (
-          targetFeature?.pendingDraft?.values ??
-          targetFeature?.values ??
-          []
-        ).map((v) => [
-          v.variationId,
-          seedValueType === "json" ? (formatJSON(v.value) ?? v.value) : v.value,
-        ]),
-      ),
+    {},
   );
 
   const [adopting, setAdopting] = useState(false);
@@ -212,12 +174,6 @@ function ManagedTrafficForm({
     !renameTo &&
     (manualKey === null || manualKey.trim() === "");
 
-  // Someone else's flag stays read-only until asked.
-  const [editingValues, setEditingValues] = useState(isManaged);
-  // Values are edited in the rows under the variations; here only while
-  // adopting, when there is no flag and so no row yet.
-  const valuesShown = adopting;
-
   const startAdopting = () => {
     setFeatureValues((current) => {
       const next = { ...current };
@@ -235,18 +191,14 @@ function ManagedTrafficForm({
     if (raw === true) return "all";
     if (!Array.isArray(raw)) return "none";
     // Adoption's flag lands in the experiment's project.
-    const reviewSetting = getReviewSetting(
-      raw,
-      feature ?? { project: experiment.project },
-    );
+    const reviewSetting = getReviewSetting(raw, {
+      project: experiment.project,
+    });
     if (!reviewSetting?.requireReviewOn) return "none";
     const envList = reviewSetting.environments ?? [];
     return envList.length === 0 ? "all" : new Set(envList);
-  }, [settings?.requireReviews, feature, experiment.project]);
+  }, [settings?.requireReviews, experiment.project]);
 
-  const typeChanged = !!feature && valueType !== feature.valueType;
-  const draftDefaultValue =
-    targetFeature?.pendingDraft?.defaultValue ?? feature?.defaultValue;
   // Re-express what is already there rather than clearing it.
   const handleValueTypeChange = (next: FeatureValueType) => {
     if (next === valueType) return;
@@ -285,9 +237,6 @@ function ManagedTrafficForm({
     },
   });
 
-  const featureValueOf = (row: { id: string; featureValue?: string }) =>
-    row.featureValue ?? "";
-
   const coreOf = (v: {
     variations?: {
       id: string;
@@ -316,12 +265,9 @@ function ManagedTrafficForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAdopt]);
 
-  const openedWith = useRef<{ core: string; values: string } | null>(null);
+  const openedWith = useRef<string | null>(null);
   if (openedWith.current === null) {
-    openedWith.current = {
-      core: JSON.stringify(coreOf(form.getValues())),
-      values: JSON.stringify({ valueType, sparse, featureValues }),
-    };
+    openedWith.current = JSON.stringify(coreOf(form.getValues()));
   }
 
   const experimentDirty =
@@ -331,40 +277,18 @@ function ManagedTrafficForm({
         variationWeights: form.watch("variationWeights"),
         coverage: form.watch("coverage"),
       }),
-    ) !== openedWith.current.core;
-  // Two values only: a third boolean variation would duplicate one of them.
-  const booleanBlocked =
-    (form.watch("variations")?.length ?? 0) > 2
-      ? { boolean: "needs exactly two variations" }
-      : undefined;
-  const valuesDirty =
-    adopting ||
-    (!!feature &&
-      JSON.stringify({ valueType, sparse, featureValues }) !==
-        openedWith.current.values);
+    ) !== openedWith.current;
 
   const approvalRequired =
     gatedEnvSet !== "none" && hasCommercialFeature("require-approvals");
 
+  // Only adopting creates a flag, so only it can need approval.
   const cta =
-    !valuesDirty || !approvalRequired
+    !adopting || !approvalRequired
       ? "Save"
       : experimentDirty
         ? "Save & Request Approval"
         : "Request Approval";
-
-  // A managed flag's default is values[0].
-  const controlVariationId = form.watch("variations")?.[0]?.id;
-  const sparseBase =
-    ((isManaged || adopting) && controlVariationId
-      ? featureValues[controlVariationId]
-      : undefined) ??
-    draftDefaultValue ??
-    "";
-
-  const coverageTooltip = isManaged
-    ? null
-    : "Users not included in this experiment will flow through to subsequent feature flag rules";
 
   const sharedVariationProps = {
     label: null,
@@ -388,7 +312,7 @@ function ManagedTrafficForm({
       })) ?? [],
     setVariations: (v: ManagedSortableVariation[]) => {
       setFeatureValues(
-        Object.fromEntries(v.map((row) => [row.id, featureValueOf(row)])),
+        Object.fromEntries(v.map((row) => [row.id, row.featureValue ?? ""])),
       );
       form.setValue(
         "variations",
@@ -448,7 +372,7 @@ function ManagedTrafficForm({
       }
     }
 
-    // A new row has no value yet; a sparse patch may be empty, otherwise derive one from the key.
+    // A new row has no value yet, so derive one from the key.
     const valueFor = (v: { id: string; key?: string }, i: number) => {
       const typed = featureValues[v.id];
       if (
@@ -456,7 +380,6 @@ function ManagedTrafficForm({
         (typed.trim() !== "" || valueType === "string")
       )
         return typed;
-      if (sparse && valueType === "json") return "{}";
       return castFeatureValue({
         value: v.key || String(i),
         from: "string",
@@ -469,11 +392,7 @@ function ManagedTrafficForm({
       ? data.variations.map((v, i) => ({
           variationId: v.id,
           value: validateFeatureValue(
-            {
-              valueType,
-              jsonSchema:
-                !feature || typeChanged ? undefined : feature.jsonSchema,
-            },
+            { valueType },
             valueFor(v, i),
             `Variation ${i}`,
           ),
@@ -507,7 +426,6 @@ function ManagedTrafficForm({
           body: JSON.stringify({
             valueType,
             variations: flagValues,
-            ...(sparse ? { sparse: true } : {}),
             ...(manualKey ? { featureId: manualKey } : {}),
             ...(renameTo && !manualKey ? { trackingKey: renameTo } : {}),
           }),
@@ -553,159 +471,134 @@ function ManagedTrafficForm({
       size="lg"
     >
       <Box pt="2">
-        {feature || canAdopt ? (
-          <ExperimentManagedFeatureVariationEditor
-            {...sharedVariationProps}
-            coverageTooltip={coverageTooltip}
-            belowCoverage={
-              canAdopt ? (
-                <Box mb="3">
-                  <Box mb="3" width="200px">
-                    <ValueTypeField
-                      size="md"
-                      value={valueType}
-                      order={VALUE_TYPE_ORDER}
-                      disabledOptions={booleanBlocked}
-                      onChange={(v) => {
-                        if (v !== "config") handleValueTypeChange(v);
-                      }}
-                    />
-                  </Box>
-                  {keyBlocker ? (
-                    <Callout status="warning">{keyBlocker}</Callout>
-                  ) : keyPlan ? (
-                    <Box>
-                      {keyPlan.derivedIdAvailable ? (
-                        // Only when it differs from the Experiment Key above.
-                        keyPlan.sanitized ? (
-                          <Metadata
-                            label="Feature Flag key"
-                            value={
-                              <Text weight="semibold">{keyPlan.derivedId}</Text>
-                            }
-                          />
-                        ) : null
-                      ) : (
-                        <Callout status="warning">
-                          <Box>
-                            A Feature Flag named{" "}
-                            <strong>{keyPlan.derivedId}</strong> already exists,
-                            so it can&apos;t match this experiment&apos;s key.
-                          </Box>
-                          <Flex align="center" gap="3" mt="2" wrap="wrap">
-                            {keyPlan.suggestedPair && (
-                              <Button
-                                variant={renameTo ? "solid" : "outline"}
-                                size="sm"
-                                onClick={() => {
-                                  setManualKey(null);
-                                  setRenameTo(
-                                    keyPlan.suggestedPair?.trackingKey ?? null,
-                                  );
-                                }}
-                              >
-                                Use {keyPlan.suggestedPair.trackingKey} for both
-                              </Button>
-                            )}
-                            {manualKey === null && (
-                              <Link
-                                onClick={() => {
-                                  setRenameTo(null);
-                                  setManualKey("");
-                                }}
-                                size="sm"
-                                weight="bold"
-                              >
-                                Choose a Feature Flag key instead
-                              </Link>
-                            )}
-                          </Flex>
-                          {renameTo && (
-                            <Box mt="2">
-                              <Text size="sm" color="text-low">
-                                The Experiment Key becomes{" "}
-                                <strong>{renameTo}</strong> and the Feature Flag
-                                is created with the same key.
-                              </Text>
-                            </Box>
-                          )}
-                        </Callout>
-                      )}
-                      {manualKey !== null && (
-                        <Box mt="3">
-                          <Field
-                            size="md"
-                            label="Feature Flag key"
-                            value={manualKey}
-                            onChange={(e) => setManualKey(e.target.value)}
-                            pattern="^[a-zA-Z0-9_.:|\-]+$"
-                            title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
-                            required
-                            helpText="Won't match the Experiment Key. Cannot be changed later."
-                          />
+        <ExperimentManagedFeatureVariationEditor
+          {...sharedVariationProps}
+          belowCoverage={
+            canAdopt ? (
+              <Box mb="3">
+                <Box mb="3" width="200px">
+                  <ValueTypeField
+                    size="md"
+                    value={valueType}
+                    order={EXPERIMENT_VALUE_TYPE_ORDER}
+                    disabledOptions={blockedExperimentValueTypes(
+                      form.watch("variations")?.length ?? 0,
+                    )}
+                    onChange={(v) => {
+                      if (v !== "config") handleValueTypeChange(v);
+                    }}
+                  />
+                </Box>
+                {keyBlocker ? (
+                  <Callout status="warning">{keyBlocker}</Callout>
+                ) : keyPlan ? (
+                  <Box>
+                    {keyPlan.derivedIdAvailable ? (
+                      // Only when it differs from the Experiment Key above.
+                      keyPlan.sanitized ? (
+                        <Metadata
+                          label="Feature Flag key"
+                          value={
+                            <Text weight="semibold">{keyPlan.derivedId}</Text>
+                          }
+                        />
+                      ) : null
+                    ) : (
+                      <Callout status="warning">
+                        <Box>
+                          A Feature Flag named{" "}
+                          <strong>{keyPlan.derivedId}</strong> already exists,
+                          so it can&apos;t match this experiment&apos;s key.
                         </Box>
-                      )}
-                      {keyPlan.regexError && (
-                        <Callout status="error" mt="3">
-                          <Box>{keyPlan.regexError}</Box>
-                          {manualKey === null && (
+                        <Flex align="center" gap="3" mt="2" wrap="wrap">
+                          {keyPlan.suggestedPair && (
                             <Button
+                              variant={renameTo ? "solid" : "outline"}
                               size="sm"
-                              variant="outline"
+                              onClick={() => {
+                                setManualKey(null);
+                                setRenameTo(
+                                  keyPlan.suggestedPair?.trackingKey ?? null,
+                                );
+                              }}
+                            >
+                              Use {keyPlan.suggestedPair.trackingKey} for both
+                            </Button>
+                          )}
+                          {manualKey === null && (
+                            <Link
                               onClick={() => {
                                 setRenameTo(null);
                                 setManualKey("");
                               }}
+                              size="sm"
+                              weight="bold"
                             >
                               Choose a Feature Flag key instead
-                            </Button>
+                            </Link>
                           )}
-                        </Callout>
-                      )}
-                      {keyPlan.derivedIdAvailable && keyPlan.sanitized && (
-                        <Box mt="1">
-                          <Text size="sm" color="text-low">
-                            Adapted from the Experiment Key, which contains
-                            characters a Feature Flag key can&apos;t use.
-                          </Text>
-                        </Box>
-                      )}
-                    </Box>
-                  ) : null}
-                </Box>
-              ) : null
-            }
-            valueLabel={
-              isManaged || adopting ? undefined : "Feature Flag value"
-            }
-            hideFeatureValue={!valuesShown}
-            valueDisabled={!editingValues && !adopting}
-            valueTooltip={
-              isManaged || adopting
-                ? null
-                : "Changes to feature values are saved to a draft revision. They are not published until the draft is."
-            }
-            onEditValues={
-              !editingValues && canEditValues
-                ? () => setEditingValues(true)
-                : undefined
-            }
-            valueType={valueType}
-            feature={
-              feature
-                ? { ...feature, valueType, defaultValue: sparseBase }
-                : undefined
-            }
-            // No flag yet while adopting; scope to the experiment's project.
-            constantContext={
-              feature ? undefined : { project: experiment.project || undefined }
-            }
-            sparse={sparse}
-            controlIsDefault={isManaged}
-          />
-        ) : (
-          <FeatureVariationsInput {...sharedVariationProps} />
-        )}
+                        </Flex>
+                        {renameTo && (
+                          <Box mt="2">
+                            <Text size="sm" color="text-low">
+                              The Experiment Key becomes{" "}
+                              <strong>{renameTo}</strong> and the Feature Flag
+                              is created with the same key.
+                            </Text>
+                          </Box>
+                        )}
+                      </Callout>
+                    )}
+                    {manualKey !== null && (
+                      <Box mt="3">
+                        <Field
+                          size="md"
+                          label="Feature Flag key"
+                          value={manualKey}
+                          onChange={(e) => setManualKey(e.target.value)}
+                          pattern="^[a-zA-Z0-9_.:|\-]+$"
+                          title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
+                          required
+                          helpText="Won't match the Experiment Key. Cannot be changed later."
+                        />
+                      </Box>
+                    )}
+                    {keyPlan.regexError && (
+                      <Callout status="error" mt="3">
+                        <Box>{keyPlan.regexError}</Box>
+                        {manualKey === null && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setRenameTo(null);
+                              setManualKey("");
+                            }}
+                          >
+                            Choose a Feature Flag key instead
+                          </Button>
+                        )}
+                      </Callout>
+                    )}
+                    {keyPlan.derivedIdAvailable && keyPlan.sanitized && (
+                      <Box mt="1">
+                        <Text size="sm" color="text-low">
+                          Adapted from the Experiment Key, which contains
+                          characters a Feature Flag key can&apos;t use.
+                        </Text>
+                      </Box>
+                    )}
+                  </Box>
+                ) : null}
+              </Box>
+            ) : null
+          }
+          hideFeatureValue={!adopting}
+          valueTooltip={null}
+          valueType={valueType}
+          // No flag yet; scope constants to the experiment's project.
+          constantContext={{ project: experiment.project || undefined }}
+        />
       </Box>
     </ModalStandard>
   );

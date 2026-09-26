@@ -16,6 +16,8 @@ import {
 import { ANY_REVIEW_FOOTPRINT } from "shared/util";
 import { EventUser } from "shared/types/events/event-types";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { FeatureValueType } from "shared/types/feature";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -52,6 +54,16 @@ import { canBypassReviewChecks } from "back-end/src/api/features/reviewBypass";
 import { rebaseFeatureRevision } from "back-end/src/api/features/postFeatureRevisionRebase";
 import { requireExperiment } from "./requireExperiment";
 
+// Refuses what the app would repair: a REST caller stores what it sends.
+function assertStorableValues(
+  valueType: FeatureValueType,
+  values: { value: string }[],
+) {
+  values.forEach((v, i) =>
+    assertStorableFeatureValue({ valueType }, v.value, `Variation ${i}`),
+  );
+}
+
 async function respond(
   context: ApiReqContext,
   experiment: ExperimentInterface,
@@ -87,6 +99,7 @@ export const postExperimentVariationValues = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  assertStorableValues(req.body.valueType, req.body.values);
   await adoptManagedFlagForExperiment({
     context: req.context,
     experiment,
@@ -128,6 +141,10 @@ export const putExperimentVariationValues = createApiRequestHandler(
   }
 
   if (req.body.values) {
+    assertStorableValues(
+      req.body.valueType ?? feature.valueType,
+      req.body.values,
+    );
     await updateManagedVariationValues({
       context: req.context,
       experiment,

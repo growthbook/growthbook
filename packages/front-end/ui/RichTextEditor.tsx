@@ -328,7 +328,6 @@ function ImageUploads({
   return <PasteHandling onFiles={upload} allowImages={allowImages} />;
 }
 
-/** Applies `value` when it changes underneath us, e.g. an AI suggestion. */
 // Lexical gives the caret no way out of a code block at the end of the
 // document, so one is always followed by an empty paragraph.
 function TrailingParagraphAfterCode() {
@@ -345,6 +344,7 @@ function TrailingParagraphAfterCode() {
   return null;
 }
 
+/** Applies `value` when it changes underneath us, e.g. an AI suggestion. */
 function ValueSync({
   value,
   lastMarkdown,

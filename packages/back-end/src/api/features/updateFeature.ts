@@ -7,12 +7,12 @@ import {
   getRulesForEnvironment,
   normalizeTargetingInUpdates,
   stemRuleId,
-  validateFeatureValue,
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
@@ -182,7 +182,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // ensure default value matches value type
     let defaultValue;
     if (req.body.defaultValue != null) {
-      defaultValue = validateFeatureValue(
+      defaultValue = assertStorableFeatureValue(
         feature,
         req.body.defaultValue,
         "Default value",

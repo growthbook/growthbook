@@ -1,4 +1,7 @@
-import { getDuplicateVariationIds } from "@/components/Experiment/TabbedPage/duplicateValues";
+import {
+  getDuplicateVariationIds,
+  repairVariationValues,
+} from "@/components/Experiment/TabbedPage/variationValues";
 
 const vals = (...values: (string | undefined)[]) =>
   values.map((value, i) => ({ variationId: `v${i}`, value }));
@@ -49,5 +52,23 @@ describe("getDuplicateVariationIds", () => {
         base,
       ),
     ).toEqual(new Set(["v0", "v1"]));
+  });
+});
+
+describe("repairVariationValues", () => {
+  it("returns every stored value and only the ones it had to repair", () => {
+    const values: Record<string, string> = { a: '{"x":1}', b: '{"x":1,}' };
+    const { checked, repaired } = repairVariationValues(
+      { valueType: "json" },
+      [
+        { id: "a", index: 0 },
+        { id: "b", index: 1 },
+      ],
+      (id) => values[id],
+    );
+    expect(Object.keys(repaired)).toEqual(["b"]);
+    expect(JSON.parse(repaired.b)).toEqual({ x: 1 });
+    expect(checked.map((c) => c.variationId)).toEqual(["a", "b"]);
+    expect(checked[1].value).toBe(repaired.b);
   });
 });

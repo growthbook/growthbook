@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
+import { normalizeTargetingProjects } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -188,7 +189,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   });
 
   // ensure default value matches value type
-  feature.defaultValue = validateFeatureValue(
+  feature.defaultValue = assertStorableFeatureValue(
     feature,
     feature.defaultValue,
     "Default value",

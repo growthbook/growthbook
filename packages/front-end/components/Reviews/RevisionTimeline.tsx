@@ -140,6 +140,31 @@ function auditVerb(action: string): string {
 
 // Icons and colors mirror RevisionStatusBadge so the timeline and the
 // actions-column header speak the same visual language.
+/** A verdict's colour; null for anything that isn't one. */
+export function verdictColor(action: string): "green" | "red" | null {
+  return action === "Approved"
+    ? "green"
+    : action === "Requested Changes"
+      ? "red"
+      : null;
+}
+
+/** The comment a log entry carries, if its value is JSON with one. */
+export function logComment(log: { value: string }): string | undefined {
+  try {
+    return JSON.parse(log.value)?.comment;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Oldest first. */
+export function sortRevisionLog<T extends { timestamp: unknown }>(log: T[]) {
+  return [...log].sort((a, b) =>
+    String(a.timestamp).localeCompare(String(b.timestamp)),
+  );
+}
+
 export function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
@@ -352,12 +377,7 @@ export function RevisionLogRow({
   } catch (e) {
     valueContainsData = value.length > 0;
   }
-  let comment: string | undefined;
-  try {
-    comment = JSON.parse(log.value)?.comment;
-  } catch (e) {
-    // not JSON
-  }
+  const comment = logComment(log);
 
   const visual = rowVisual(log.action);
 
@@ -403,12 +423,7 @@ export function RevisionLogRow({
   // Replace the user avatar with a colored verdict icon (green check for
   // approvals, red speech bubble for change requests) so the timeline reads
   // at a glance. Plain comments keep the user avatar.
-  const verdictAvatarColor: "green" | "red" | null =
-    log.action === "Approved"
-      ? "green"
-      : log.action === "Requested Changes"
-        ? "red"
-        : null;
+  const verdictAvatarColor = verdictColor(log.action);
   const uncoveredReason =
     log.action === "Approved" && logUserId
       ? uncoveredApproverReasons?.get(logUserId)

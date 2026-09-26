@@ -39,7 +39,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { ReqContext } from "back-end/types/request";
-import { BadRequestError, ForbiddenError } from "back-end/src/util/errors";
+import { BadRequestError } from "back-end/src/util/errors";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
   assertManagedFlagCanMove,
@@ -269,7 +269,7 @@ export async function planExperimentUpdate(
     datasourceId = data.datasource;
     const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
-      throw new ForbiddenError("Invalid datasource: " + data.datasource);
+      throw new BadRequestError("Invalid datasource: " + data.datasource);
     }
   }
   // Validate that specified metrics exist and belong to the organization
@@ -317,7 +317,7 @@ export async function planExperimentUpdate(
           // new metric that's not recognized...
           invalidMetricIds.push(newMetricIds[i]);
           // TODO: Commented out as a hotfix. Remove when issue #5316 is fixed.
-          // throw new ForbiddenError("Unknown metric: " + newMetricIds[i]);
+          // throw new BadRequestError("Unknown metric: " + newMetricIds[i]);
         }
       }
     }
@@ -408,27 +408,17 @@ export async function planExperimentUpdate(
     experiment.hasVisualChangesets ||
     (experiment.linkedFeatures && experiment.linkedFeatures.length > 0);
   const holdout: ExperimentUpdatePlan["holdout"] = { remove: null, add: null };
+  // Changing or clearing ("") the holdout drops the current one.
   if (
-    // Holdout change
-    data.holdoutId &&
+    data.holdoutId !== undefined &&
     data.holdoutId !== experiment.holdoutId &&
     experiment.holdoutId
   ) {
     if (experiment.status !== "draft" || experimentHasLinkedChanges) {
-      throw new Error(
-        "Cannot change holdout after experiment has been run or linked changes have been added",
-      );
-    }
-    holdout.remove = experiment.holdoutId;
-  } else if (
-    // Holdout removal
-    data.holdoutId === "" &&
-    data.holdoutId !== experiment.holdoutId &&
-    experiment.holdoutId
-  ) {
-    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
-      throw new Error(
-        "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
+      throw new BadRequestError(
+        data.holdoutId
+          ? "Cannot change holdout after experiment has been run or linked changes have been added"
+          : "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
       );
     }
     holdout.remove = experiment.holdoutId;
@@ -443,7 +433,9 @@ export async function planExperimentUpdate(
       data.defaultDashboardId,
     );
     if (!dashboard) {
-      throw new ForbiddenError("Invalid dashboard: " + data.defaultDashboardId);
+      throw new BadRequestError(
+        "Invalid dashboard: " + data.defaultDashboardId,
+      );
     }
   }
 
@@ -537,7 +529,7 @@ export async function planExperimentUpdate(
   ) {
     const phases = [...experiment.phases];
     const phaseClone = { ...phases[currentPhase] };
-    phases[Math.floor(currentPhase * 1)] = phaseClone;
+    phases[currentPhase] = phaseClone;
     const firstPhaseClone = { ...phases[0] };
 
     if (phaseStartDate) {

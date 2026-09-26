@@ -14,6 +14,7 @@ import path from "node:path";
 import {
   APP,
   RUNS_DIR,
+  writeManifest,
   call,
   createExperiment,
   createLinkedFlag,
@@ -312,11 +313,7 @@ async function seed() {
       console.log(`✗ ${scenario.slug.padEnd(16)} ${e.message}`);
     }
   }
-  fs.mkdirSync(RUNS_DIR, { recursive: true });
-  fs.writeFileSync(
-    path.join(RUNS_DIR, `${run}.json`),
-    JSON.stringify(manifest, null, 2),
-  );
+  writeManifest(run, manifest);
   console.log(`\nRun ${run}. Inspect with: inspect ${run}`);
 }
 

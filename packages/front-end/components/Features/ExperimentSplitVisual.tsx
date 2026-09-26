@@ -115,13 +115,10 @@ export interface Props {
    * arrow per segment. Slim mode only, where the labels sit on top.
    */
   connector?: boolean;
-  /**
-   * Slim only: px each segment reaches past the bar's ends, so a bar held to
-   * a grid lays its segments out across the grid's slots (a card plus half
-   * the gap either side) and an even split lands between the cards. The
-   * ends are clipped back to the bar's own width.
-   */
+  /** Slim only: px the segments reach past the bar's clipped ends. */
   overhang?: number;
+  /** Slim only: px the visible bar reaches past what it sits over. */
+  bleed?: number;
   /** Makes each percentage a button, for editing that variation's share. */
   onSegmentClick?: (index: number) => void;
 }
@@ -137,6 +134,7 @@ export default function ExperimentSplitVisual({
   slim = false,
   connector = false,
   overhang = 0,
+  bleed = 0,
   onSegmentClick,
 }: Props) {
   const totalWeights = parseFloat(
@@ -144,6 +142,9 @@ export default function ExperimentSplitVisual({
   );
 
   const coverageVal = coverage ? coverage : 0;
+  const reach = slim ? overhang : 0;
+  // How far in from the segments' ends the visible bar is clipped.
+  const inset = slim ? overhang - bleed : 0;
   const showConnector = connector && slim && showPercentages;
 
   // Geometry shared by the bar and the label row beneath it. A segment's left
@@ -232,11 +233,7 @@ export default function ExperimentSplitVisual({
       )}
       <Box
         className={styles.bar_wrapper}
-        style={
-          slim && overhang
-            ? { marginLeft: -overhang, marginRight: -overhang }
-            : undefined
-        }
+        style={reach ? { marginLeft: -reach, marginRight: -reach } : undefined}
       >
         {showConnector ? (
           <SegmentConnector
@@ -246,7 +243,7 @@ export default function ExperimentSplitVisual({
         {slim ? labelsRow : null}
         <div
           className={clsx(slim && styles.bar_clip)}
-          style={slim && overhang ? { margin: `0 ${overhang}px` } : undefined}
+          style={inset ? { margin: `0 ${inset}px` } : undefined}
         >
           <div
             className={clsx(
@@ -254,9 +251,7 @@ export default function ExperimentSplitVisual({
               slim && styles.bar_holder_slim,
               "d-flex flex-row",
             )}
-            style={
-              slim && overhang ? { margin: `0 ${-overhang}px` } : undefined
-            }
+            style={inset ? { margin: `0 ${-inset}px` } : undefined}
           >
             {segments.map(({ i, left, width, gap, name }) => {
               const additionalStyles: CSSProperties = {

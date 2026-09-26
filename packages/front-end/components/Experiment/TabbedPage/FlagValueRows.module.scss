@@ -1,4 +1,5 @@
-.jsonValue {
+// A value shown as text, framed like the field it would be edited in.
+.valueFrame {
   position: relative;
   border: 1px solid var(--gray-a5);
   border-radius: var(--radius-2);
@@ -10,8 +11,8 @@
   border-color: var(--red-8);
 }
 
-// The same height as a one-line field, so empty and string cells match.
-.jsonEmpty {
+// The same height as a one-line field, so empty and scalar cells match.
+.oneLine {
   display: flex;
   align-items: center;
   min-height: 36px;
@@ -22,13 +23,6 @@
   position: absolute;
   top: var(--space-1);
   right: var(--space-1);
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.jsonValue:hover .editValue,
-.jsonValue:focus-within .editValue {
-  opacity: 1;
 }
 
 // An inline textarea leaves baseline space under it, which pushes the
@@ -54,7 +48,7 @@
   }
 }
 
-// Prototype: the variation number and widgets live inside a full-width field.
+// A managed value: the variation number and widgets inside a full-width field.
 $inset-left: 44px;
 
 .inset {
@@ -77,7 +71,7 @@ $inset-left: 44px;
     padding-left: $inset-left;
   }
 
-  .jsonValue {
+  .valueFrame {
     padding-left: $inset-left;
     background: var(--color-panel-solid);
   }
@@ -107,7 +101,7 @@ $inset-left: 44px;
 
 // On the value's first line: a one-line field's height (JSON and textarea
 // alike, so the numbers line up across flags), or the whole of an input or select.
-.insetNumberString {
+.insetNumberLine {
   height: 36px;
 }
 

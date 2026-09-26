@@ -1,6 +1,6 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionDefaultValueValidator } from "shared/validators";
-import { validateFeatureValue } from "shared/util";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -52,7 +52,7 @@ export async function setRevisionDefaultValue(
     }
 
     // Always normalize; enforce the schema unless ?skipSchemaValidation=true.
-    const defaultValue = validateFeatureValue(
+    const defaultValue = assertStorableFeatureValue(
       context.canSkipSchemaValidationFor("feature")
         ? { ...feature, jsonSchema: undefined }
         : feature,

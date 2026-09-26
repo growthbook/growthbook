@@ -123,6 +123,7 @@ import {
   liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
 } from "shared/util";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -3305,21 +3306,6 @@ export function sha256(str: string, salt: string): string {
   return createHash("sha256")
     .update(salt + str)
     .digest("hex");
-}
-
-// `validateFeatureValue` repairs loose JSON and returns the fix. A write stores
-// what it was sent, so a value that needed repair is refused, naming the fix.
-function assertStorableFeatureValue(
-  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  value: string,
-  label: string,
-): void {
-  const repaired = validateFeatureValue(feature, value, label);
-  if (repaired !== value) {
-    throw new BadRequestError(
-      `${label}: invalid JSON. Did you mean ${repaired.replace(/\s+/g, " ")}?`,
-    );
-  }
 }
 
 // Validate every value a single rule carries against the feature's JSON schema

@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  expandSparseToFull,
-  stripDefaultsForSparse,
-  validateFeatureValue,
-} from "shared/util";
+import { expandSparseToFull, stripDefaultsForSparse } from "shared/util";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
@@ -13,6 +9,7 @@ import { formatJSON } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import VariationNumber from "@/ui/VariationNumber";
+import { repairVariationValues, variationLabel } from "./variationValues";
 
 export type FlagValuesResult = {
   values: Record<string, string>;
@@ -102,16 +99,11 @@ export default function FlagValuesModal({
   // Repair loose values in place, then ask for a second apply, so nothing
   // lands that the user hasn't seen.
   const submit = () => {
-    const repaired: Record<string, string> = {};
-    for (const v of variations) {
-      const value = values[v.id] ?? "";
-      const checked = validateFeatureValue(
-        { valueType: feature.valueType, jsonSchema: feature.jsonSchema },
-        value,
-        v.name || `Variation ${v.index}`,
-      );
-      if (checked !== value) repaired[v.id] = checked;
-    }
+    const { repaired } = repairVariationValues(
+      feature,
+      variations,
+      (id) => values[id],
+    );
     if (Object.keys(repaired).length) {
       setValues((prev) => ({ ...prev, ...repaired }));
       throw new Error(
@@ -153,9 +145,7 @@ export default function FlagValuesModal({
               label={
                 <Flex as="span" align="center" gap="2">
                   <VariationNumber number={v.index} />
-                  <Text weight="medium">
-                    {v.name || `Variation ${v.index}`}
-                  </Text>
+                  <Text weight="medium">{variationLabel(v)}</Text>
                 </Flex>
               }
               id={`flag-values-${feature.id}-${v.id}`}

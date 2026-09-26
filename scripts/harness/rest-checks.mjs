@@ -6,19 +6,18 @@
 //
 //   GB_KEY=secret_... node scripts/harness/rest-checks.mjs [case ...]
 
-import fs from "node:fs";
-import path from "node:path";
 import {
-  RUNS_DIR,
   call,
   createExperiment,
   createLinkedFlag,
+  findRefRule,
   inspectExperiment,
   inDays,
   refValues,
   runTag,
   stageDraftValues,
   startExperiment,
+  writeManifest,
 } from "./lib.mjs";
 
 const run = runTag("hxr");
@@ -58,9 +57,7 @@ async function refRuleId(featureId, version, experimentId) {
     "GET",
     `/v2/features/${featureId}/revisions/${version}`,
   );
-  return revision.rules.find(
-    (r) => r.type === "experiment-ref" && r.experimentId === experimentId,
-  ).id;
+  return findRefRule(revision, experimentId).id;
 }
 
 async function putRuleValues(featureId, version, experiment, values, extra) {
@@ -449,13 +446,5 @@ for (const [name, fn] of Object.entries(CASES)) {
   results.push({ name, status, note });
   console.log(`${status.padEnd(5)} ${name}${note ? ` — ${note}` : ""}`);
 }
-fs.mkdirSync(RUNS_DIR, { recursive: true });
-fs.writeFileSync(
-  path.join(RUNS_DIR, `${run}.json`),
-  JSON.stringify(
-    { run, createdAt: new Date().toISOString(), results },
-    null,
-    2,
-  ),
-);
+writeManifest(run, { run, createdAt: new Date().toISOString(), results });
 console.log(`\nRun ${run}`);

@@ -54,6 +54,7 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./holdouts";
+export * from "./sortObjectKeys";
 export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";

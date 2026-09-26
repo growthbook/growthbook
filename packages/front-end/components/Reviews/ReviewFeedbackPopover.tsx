@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Flex, ScrollArea } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { RevisionLog } from "shared/types/feature-revision";
@@ -6,7 +6,10 @@ import useApi from "@/hooks/useApi";
 import ReviewCommentCard, {
   reviewCommentsFromLog,
 } from "@/components/Reviews/ReviewCommentCard";
-import { scanVerdictRetractions } from "@/components/Reviews/RevisionTimeline";
+import {
+  scanVerdictRetractions,
+  sortRevisionLog,
+} from "@/components/Reviews/RevisionTimeline";
 import { useUser } from "@/services/UserContext";
 import { Popover } from "@/ui/Popover";
 import LinkButton from "@/ui/LinkButton";
@@ -31,13 +34,14 @@ export default function ReviewFeedbackPopover({
   children: ReactNode;
 }) {
   const { userId } = useUser();
+  // Fetched on first open, not for every row on the page.
+  const [opened, setOpened] = useState(false);
   const { data } = useApi<{ log: RevisionLog[] }>(
     `/feature/${featureId}/${version}/log`,
+    { shouldRun: () => opened },
   );
   const comments = useMemo(() => {
-    const sorted = [...(data?.log ?? [])].sort((a, b) =>
-      String(a.timestamp).localeCompare(String(b.timestamp)),
-    );
+    const sorted = sortRevisionLog(data?.log ?? []);
     return reviewCommentsFromLog(sorted, scanVerdictRetractions(sorted, userId))
       .filter((l) => FEEDBACK_ACTIONS.has(l.action))
       .reverse();
@@ -52,7 +56,15 @@ export default function ReviewFeedbackPopover({
       // The scroll lives inside: overflow on the content box clips its arrow.
       contentStyle={{ width: 380, padding: "15px 20px 10px" }}
       // The trigger takes the hover handlers, so it must be a plain element.
-      trigger={<span style={{ display: "inline-flex" }}>{children}</span>}
+      trigger={
+        <span
+          style={{ display: "inline-flex" }}
+          onPointerEnter={() => setOpened(true)}
+          onFocus={() => setOpened(true)}
+        >
+          {children}
+        </span>
+      }
       content={
         <Flex direction="column" gap="2">
           {/* Out to the box's right edge, and drawn only while in use,

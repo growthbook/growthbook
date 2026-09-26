@@ -4,7 +4,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Text from "@/ui/Text";
 import ValueDisplay from "./ValueDisplay";
-import { ActionsOverlay } from "./actionsOverlay";
+import { ActionsOverlay } from "./CornerActions";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 
 export default function ForceSummary({

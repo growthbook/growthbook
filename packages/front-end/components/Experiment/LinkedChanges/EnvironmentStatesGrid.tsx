@@ -1,8 +1,18 @@
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { LinkedFeatureEnvState } from "shared/types/experiment";
+import {
+  LinkedFeatureEnvInputs,
+  LinkedFeatureEnvState,
+} from "shared/types/experiment";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
-import { useState } from "react";
-import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
+import { Fragment, useState } from "react";
+import {
+  FaCircleCheck,
+  FaCircleXmark,
+  FaRegCircleCheck,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
+import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
+import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -17,6 +27,10 @@ export type EnvironmentState = {
 // The flag's environment toggle AND the rule's presence and enablement.
 // Shared so every surface explains a state with the same words.
 // Why a state is not yet true: not started, or shown from an unpublished draft.
+export type FeatureEnvironmentState = EnvironmentState & {
+  state: LinkedFeatureEnvState;
+};
+
 export type EnvironmentStateTense = false | "started" | "published";
 
 function environmentStateTooltip(
@@ -51,13 +65,35 @@ export function getEnvironmentStates(
     environmentStates?: Record<string, LinkedFeatureEnvState>;
   },
   { future = false }: { future?: EnvironmentStateTense } = {},
-): EnvironmentState[] {
+): FeatureEnvironmentState[] {
   return Object.entries(source.environmentStates || {}).map(([env, state]) => ({
     env,
     state,
     isActive: state === "active",
     tooltip: environmentStateTooltip(state, future),
   }));
+}
+
+export const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {
+  active: "Active",
+  "disabled-env": "Off",
+  "disabled-rule": "Off",
+  missing: "Not included",
+};
+
+/** Whether the experiment is active in an environment. */
+export function EnvironmentStateIcon({ isActive }: { isActive: boolean }) {
+  return (
+    <Box
+      flexShrink="0"
+      style={{
+        display: "flex",
+        color: isActive ? "var(--green-11)" : "var(--slate-9)",
+      }}
+    >
+      {isActive ? <FaCircleCheck size={14} /> : <FaCircleXmark size={14} />}
+    </Box>
+  );
 }
 
 // The inline row: every environment with its state, wherever there is room to
@@ -72,19 +108,7 @@ export function EnvironmentStateChips({
       {states.map(({ env, isActive, tooltip }) => (
         <Tooltip key={env} content={tooltip} side="top">
           <Flex align="center" gap="1" minWidth="0">
-            <Box
-              flexShrink="0"
-              style={{
-                display: "flex",
-                color: isActive ? "var(--green-11)" : "var(--slate-9)",
-              }}
-            >
-              {isActive ? (
-                <FaCircleCheck size={14} />
-              ) : (
-                <FaCircleXmark size={14} />
-              )}
-            </Box>
+            <EnvironmentStateIcon isActive={isActive} />
             <Text weight="medium">{env}</Text>
           </Flex>
         </Tooltip>
@@ -140,18 +164,7 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
                   display="inline-flex"
                   maxWidth="100%"
                 >
-                  <Box
-                    flexShrink="0"
-                    style={{
-                      color: isActive ? "var(--green-11)" : "var(--slate-9)",
-                    }}
-                  >
-                    {isActive ? (
-                      <FaCircleCheck size={14} />
-                    ) : (
-                      <FaCircleXmark size={14} />
-                    )}
-                  </Box>
+                  <EnvironmentStateIcon isActive={isActive} />
                   <Box className="text-ellipsis" title={env} minWidth="0">
                     <Text weight="medium">{env}</Text>
                   </Box>
@@ -162,5 +175,156 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
         </Grid>
       )}
     </Box>
+  );
+}
+
+// One of an environment's two settings: on, off, or unknown (null), with a
+// mark beside it when a draft moves it.
+function EnvironmentSetting({
+  value,
+  moved,
+}: {
+  value: boolean | null;
+  moved: boolean;
+}) {
+  return (
+    <Flex align="center" justify="center">
+      <Box position="relative" style={{ display: "flex" }}>
+        {value === null ? (
+          <Text size="sm" color="text-low">
+            —
+          </Text>
+        ) : (
+          // Same marks as a feature rule's environment badges.
+          <Box aria-label={value ? "On" : "Off"} style={{ display: "flex" }}>
+            {value ? (
+              <FaRegCircleCheck
+                size={14}
+                style={{ color: "var(--green-11)" }}
+              />
+            ) : (
+              <FaRegCircleXmark size={14} style={{ color: "var(--gray-8)" }} />
+            )}
+          </Box>
+        )}
+        {/* Beside the mark, not in the flow, so the mark stays centered. */}
+        {moved ? (
+          <Box
+            position="absolute"
+            style={{
+              left: "100%",
+              top: "50%",
+              transform: "translateY(-50%)",
+              marginLeft: 4,
+            }}
+          >
+            <UnpublishedDot tooltip="Changed in the draft" />
+          </Box>
+        ) : null}
+      </Box>
+    </Flex>
+  );
+}
+
+/**
+ * "Environments n/m", opening on hover to the settings behind each state: the
+ * flag's environment toggle and the experiment rule's.
+ */
+export function EnvironmentInputsPopover({
+  environmentStates,
+  environmentInputs,
+  changed,
+  note,
+}: {
+  environmentStates: FeatureEnvironmentState[];
+  environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
+  // Which settings a draft moves, per environment.
+  changed: Record<string, { flag: boolean; rule: boolean }>;
+  note?: string | null;
+}) {
+  const active = environmentStates.filter((e) => e.isActive).length;
+  const anyChanged = Object.values(changed).some((c) => c.flag || c.rule);
+  return (
+    <Popover
+      openOnHover
+      side="top"
+      align="end"
+      avoidCollisions={false}
+      trigger={
+        // The trigger takes the hover handlers, so it must be a plain element.
+        <span
+          style={{
+            cursor: "default",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "var(--space-1)",
+          }}
+        >
+          {anyChanged ? <UnpublishedDot /> : null}
+          <Text size="sm" color="text-low">
+            Environments {active}/{environmentStates.length}
+          </Text>
+        </span>
+      }
+      content={
+        // The two settings get fixed columns so their marks line up.
+        <Grid
+          columns="max-content 40px 40px max-content"
+          gapX="4"
+          gapY="2"
+          align="center"
+        >
+          <Box />
+          <Flex justify="center">
+            <Text size="sm" color="text-low">
+              Flag
+            </Text>
+          </Flex>
+          <Flex justify="center">
+            <Text size="sm" color="text-low">
+              Rule
+            </Text>
+          </Flex>
+          <Box />
+          {environmentStates.map(({ env, state, isActive }) => {
+            const input = environmentInputs?.[env];
+            return (
+              <Fragment key={env}>
+                <span
+                  style={{
+                    color: isActive ? undefined : "var(--gray-8)",
+                    fontWeight: isActive ? 500 : 300,
+                  }}
+                >
+                  {env}
+                </span>
+                <EnvironmentSetting
+                  value={input ? input.flagEnabled : null}
+                  moved={!!changed[env]?.flag}
+                />
+                {/* A rule that doesn't target the environment is off there too. */}
+                <EnvironmentSetting
+                  value={input ? input.rule === "on" : null}
+                  moved={!!changed[env]?.rule}
+                />
+                <Flex align="center" gap="1">
+                  <EnvironmentStateIcon isActive={isActive} />
+                  <Text size="sm" weight="medium">
+                    {ENVIRONMENT_STATE_LABELS[state]}
+                  </Text>
+                </Flex>
+              </Fragment>
+            );
+          })}
+          {note ? (
+            <Box gridColumn="1 / -1" mt="1">
+              <Text size="sm" color="text-low">
+                {note}
+              </Text>
+            </Box>
+          ) : null}
+        </Grid>
+      }
+    />
   );
 }

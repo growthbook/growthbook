@@ -1,5 +1,4 @@
 import {
-  validateFeatureValue,
   getRuleAttributeScopeProjectIds,
   getConfigBackingPatch,
   getConfigBackingKey,
@@ -14,6 +13,7 @@ import {
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
@@ -192,7 +192,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   if (req.body.defaultValue != null) {
     // Always normalize (parse / dirty-json fixup), but only enforce the schema
     // when not explicitly skipped.
-    defaultValue = validateFeatureValue(
+    defaultValue = assertStorableFeatureValue(
       req.context.canSkipSchemaValidationFor("feature")
         ? { ...effectiveFeature, jsonSchema: undefined }
         : effectiveFeature,

@@ -746,13 +746,8 @@ type ReadyDraft = ResolvedDraft & {
   mergeResult: AutoMergeResult;
 };
 
-// Auto-publishes one draft per linked feature on experiment start. Phase 0
-// re-derives that draft from the feature's current revisions, so a stale or
-// stacked queue entry can't launch; Phase 1 resolves it (prune stale, gate on
-// approval, merge against live with the same normalization + governance as
-// the manual publish flow); Phase 1.5 prevalidates custom hooks; Phase 2
-// publishes. Halts on the first merge conflict or publish error so the caller
-// can abort the experiment transition.
+// Publishes one draft per linked feature on experiment start, halting on the
+// first merge conflict or publish error so the caller can abort the start.
 export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -790,18 +785,10 @@ export async function publishPendingFeatureDraftsForExperiment(
 
   const failed: PendingDraftFailure[] = [];
   const ready: ReadyDraft[] = [];
-  // Multiple drafts can target the same feature — fetch each feature once.
-  const featureCache = new Map<string, FeatureInterface | null>();
-  const getCachedFeature = async (featureId: string) => {
-    if (!featureCache.has(featureId)) {
-      featureCache.set(featureId, await getFeature(context, featureId));
-    }
-    return featureCache.get(featureId) ?? null;
-  };
 
   // ── Phase 1: prune stale + gate on approval + merge against live ─────────
   for (const { featureId, revisionVersion } of drafts) {
-    const feature = await getCachedFeature(featureId);
+    const feature = await getFeature(context, featureId);
     if (!feature) {
       // Pruned only when deleted; unreadable fails the start.
       if (await featureIdExists(context, featureId)) {

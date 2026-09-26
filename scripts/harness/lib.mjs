@@ -1,4 +1,5 @@
 // Shared REST client and seeding helpers for the Setup-page harnesses.
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +12,20 @@ export const RUNS_DIR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "runs",
 );
+
+export function writeManifest(run, data) {
+  fs.mkdirSync(RUNS_DIR, { recursive: true });
+  fs.writeFileSync(
+    path.join(RUNS_DIR, `${run}.json`),
+    JSON.stringify(data, null, 2),
+  );
+}
+
+// A revision's rule for the experiment.
+export const findRefRule = (revision, experimentId) =>
+  (revision?.rules ?? []).find(
+    (r) => r.type === "experiment-ref" && r.experimentId === experimentId,
+  );
 
 if (!KEY) {
   console.error("Set GB_KEY to a secret API key.");
@@ -113,9 +128,7 @@ export async function stageDraftValues(
     `/v2/features/${featureId}/revisions${beside ? "?overrideDraftLimit=true" : ""}`,
     {},
   );
-  const rule = revision.rules.find(
-    (r) => r.type === "experiment-ref" && r.experimentId === experiment.id,
-  );
+  const rule = findRefRule(revision, experiment.id);
   await call(
     "PUT",
     `/v2/features/${featureId}/revisions/${revision.version}/rules/${rule.id}`,
@@ -125,10 +138,7 @@ export async function stageDraftValues(
 }
 
 function refRuleState(revision, experimentId) {
-  const rules = revision?.rules ?? [];
-  const rule = rules.find(
-    (r) => r.type === "experiment-ref" && r.experimentId === experimentId,
-  );
+  const rule = findRefRule(revision, experimentId);
   return rule
     ? { values: rule.variations.map((v) => v.value), sparse: !!rule.sparse }
     : null;

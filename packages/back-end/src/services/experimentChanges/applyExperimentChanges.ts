@@ -1,14 +1,14 @@
 import isEqual from "lodash/isEqual";
-import {
-  isManagedByExperiment,
-  isManagedFeature,
-  validateFeatureValue,
-} from "shared/util";
+import { isManagedByExperiment, validateFeatureValue } from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { EventUser } from "shared/types/events/event-types";
-import { ExperimentChangesBody, ExperimentRefRule } from "shared/validators";
+import {
+  ACTIVE_DRAFT_STATUSES,
+  ExperimentChangesBody,
+  ExperimentRefRule,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
@@ -138,6 +138,10 @@ async function planFlagValues(
   const byId = new Map(features.map((f) => [f.id, f]));
 
   const updates: Record<string, ExperimentLinkedFeatureValueUpdate> = {};
+  const checked = new Map<
+    string,
+    { entry: (typeof flagValues)[number]; managed: boolean }
+  >();
   for (const entry of flagValues) {
     const feature = byId.get(entry.featureId);
     if (!feature) throw new NotFoundError(`Feature Flag ${entry.featureId}`);
@@ -177,6 +181,7 @@ async function planFlagValues(
       }
     }
 
+    checked.set(feature.id, { entry, managed });
     updates[feature.id] = {
       variations: entry.variations,
       ...(entry.valueType && { valueType: entry.valueType }),
@@ -210,17 +215,16 @@ async function planFlagValues(
   for (const plan of plans) {
     const { feature, existingRevision, matchingRules } = plan;
     const update = updates[feature.id];
-    const entry = flagValues.find((f) => f.featureId === feature.id);
+    const { entry, managed } = checked.get(feature.id)!;
     // Re-read inside validateExperimentFeatureUpdates; it must still be the one checked above.
     if (
       existingRevision &&
-      isoOrNull(existingRevision.dateUpdated) !== entry?.revision.dateUpdated
+      isoOrNull(existingRevision.dateUpdated) !== entry.revision.dateUpdated
     ) {
       throw changedSinceLoaded(`Feature Flag ${feature.id}`);
     }
     const base =
       existingRevision ?? (await getLiveRevisionForFeature(context, feature));
-    const managed = isManagedByExperiment(feature, experiment.id);
 
     const landingType =
       update.valueType ?? base.metadata?.valueType ?? feature.valueType;
@@ -233,20 +237,20 @@ async function planFlagValues(
       v.value = validateFeatureValue(judgedFeature, v.value, `Variation ${i}`);
     });
 
-    const ruleIds = Array.from(new Set(matchingRules.map((m) => m.rule.id)));
+    // One rule can match in several environments.
+    const rules = [
+      ...new Map(matchingRules.map(({ rule }) => [rule.id, rule])).values(),
+    ];
     const ruleUpdate = {
       variations: update.variations,
       ...(update.sparse !== undefined && { sparse: update.sparse }),
     };
     const projected = applyPartialFeatureRuleUpdatesToRevision(
       base,
-      ruleIds,
+      rules.map((r) => r.id),
       ruleUpdate,
     );
-    const seen = new Set<string>();
-    for (const { rule } of matchingRules) {
-      if (seen.has(rule.id)) continue;
-      seen.add(rule.id);
+    for (const rule of rules) {
       await assertValidRuleWrite(
         context,
         judgedFeature,
@@ -268,12 +272,7 @@ async function planFlagValues(
 }
 
 function isEditableDraft(revision: FeatureRevisionInterface) {
-  return (
-    revision.status === "draft" ||
-    revision.status === "pending-review" ||
-    revision.status === "changes-requested" ||
-    revision.status === "approved"
-  );
+  return (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status);
 }
 
 async function writeFlagValues({
@@ -353,7 +352,7 @@ async function writeFlagValues({
       })
     ) {
       version = feature.version;
-    } else if (isManagedFeature(feature)) {
+    } else {
       await requestReviewForManagedDraft({
         context,
         feature,
@@ -361,9 +360,13 @@ async function writeFlagValues({
         eventAudit,
       });
     }
-    // Both write without handing the revision back.
+    // Both write the draft without handing it back.
     compensation.writtenDateUpdated = (
-      await getRevisionSnapshot(feature.organization, feature.id, version)
+      await getRevisionSnapshot(
+        feature.organization,
+        feature.id,
+        revision.version,
+      )
     )?.dateUpdated;
   }
   return { featureId: feature.id, version };

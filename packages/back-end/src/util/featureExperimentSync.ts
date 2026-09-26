@@ -21,7 +21,10 @@ type LaunchCandidate = Pick<FeatureRevisionInterface, "version" | "rules"> & {
 };
 
 // Plain JSON, so stored documents compare by value.
-function experimentRefRules(rules: unknown, experimentId: string): unknown {
+function experimentRefRules(
+  rules: unknown,
+  experimentId: string,
+): ReturnType<typeof naiveFlattenV1Rules> {
   return JSON.parse(
     JSON.stringify(
       naiveFlattenV1Rules(rules).filter(
@@ -39,7 +42,7 @@ function experimentRefRules(rules: unknown, experimentId: string): unknown {
 export function getLaunchDraftVersion(
   experimentId: string,
   openDrafts: LaunchCandidate[],
-  liveRevision: LaunchCandidate | null,
+  liveRevision: Omit<LaunchCandidate, "version"> | null,
 ): number | null {
   const liveRules = experimentRefRules(liveRevision?.rules, experimentId);
   const liveType = liveRevision?.metadata?.valueType;
@@ -48,9 +51,7 @@ export function getLaunchDraftVersion(
     const draftRules = experimentRefRules(draft.rules, experimentId);
     const draftType = draft.metadata?.valueType;
     const changesExperiment =
-      (Array.isArray(draftRules) &&
-        draftRules.length > 0 &&
-        !isEqual(draftRules, liveRules)) ||
+      (draftRules.length > 0 && !isEqual(draftRules, liveRules)) ||
       (!!draftType &&
         !!liveType &&
         draftType !== liveType &&
@@ -73,9 +74,7 @@ export async function syncFeatureExperimentLinkages(
   context: ReqContext | ApiReqContext,
   featureId: string,
   openDrafts: LaunchCandidate[],
-  liveRevision:
-    | (Pick<FeatureRevisionInterface, "rules"> & Partial<LaunchCandidate>)
-    | null,
+  liveRevision: Omit<LaunchCandidate, "version"> | null,
 ): Promise<void> {
   try {
     // Every experiment an open draft references stays linked, but each
@@ -84,13 +83,7 @@ export async function syncFeatureExperimentLinkages(
     for (const rev of openDrafts) {
       for (const expId of getExperimentIdsFromRules(rev.rules)) {
         if (draftVersionsByExp.has(expId)) continue;
-        const launch = getLaunchDraftVersion(
-          expId,
-          openDrafts,
-          liveRevision
-            ? { version: liveRevision.version ?? 0, ...liveRevision }
-            : null,
-        );
+        const launch = getLaunchDraftVersion(expId, openDrafts, liveRevision);
         draftVersionsByExp.set(expId, new Set(launch === null ? [] : [launch]));
       }
     }

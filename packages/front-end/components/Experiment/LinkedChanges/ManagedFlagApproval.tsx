@@ -45,6 +45,7 @@ import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/
 import {
   findActiveVerdict,
   scanVerdictRetractions,
+  sortRevisionLog,
 } from "@/components/Reviews/RevisionTimeline";
 import ReviewCommentCard, {
   reviewCommentsFromLog,
@@ -428,10 +429,7 @@ export default function ManagedFlagApproval({
   );
   // Retracted verdicts stay in the thread with a badge.
   const sortedLog = useMemo(
-    () =>
-      [...(logData?.log ?? [])].sort((a, b) =>
-        String(a.timestamp).localeCompare(String(b.timestamp)),
-      ),
+    () => sortRevisionLog(logData?.log ?? []),
     [logData],
   );
   const retractions = useMemo(

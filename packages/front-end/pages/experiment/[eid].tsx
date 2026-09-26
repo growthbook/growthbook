@@ -15,7 +15,6 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
-import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
@@ -38,7 +37,6 @@ const ExperimentPage = (): ReactElement => {
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
-  const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
@@ -128,9 +126,6 @@ const ExperimentPage = (): ReactElement => {
     ? () => setMetricsModalOpen(true)
     : null;
   const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
-  const editVariations = canRunExperiment
-    ? () => setVariationsModalOpen(true)
-    : null;
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
     : null;
@@ -192,15 +187,6 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           runningExperimentStatus={runningExperimentStatus}
           decisionCriteria={decisionCriteria}
-          source="eid"
-        />
-      )}
-      {variationsModalOpen && (
-        <EditVariationsForm
-          experiment={experiment}
-          cancel={() => setVariationsModalOpen(false)}
-          onlySafeToEditVariationMetadata={!safeToEdit}
-          mutate={mutate}
           source="eid"
         />
       )}
@@ -310,7 +296,6 @@ const ExperimentPage = (): ReactElement => {
           urlRedirects={urlRedirects}
           editMetrics={editMetrics}
           editResult={editResult}
-          editVariations={editVariations}
           duplicate={duplicate}
           newPhase={newPhase}
           editPhases={editPhases}

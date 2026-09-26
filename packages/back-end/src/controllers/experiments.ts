@@ -9,12 +9,8 @@ import {
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
-  autoMerge,
-  reconcileMergeBaselines,
   isManagedByExperiment,
-  isManagedFeature,
   type ManagedFlagKeyPlan,
-  validateFeatureValue,
   type ExperimentLinkageBlocker,
   type LinkedChangesResolution,
 } from "shared/util";
@@ -41,7 +37,6 @@ import {
   ExperimentStatus,
   ExperimentTargetingData,
   ExperimentType,
-  Variation,
 } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -50,7 +45,6 @@ import {
 } from "shared/types/experiment-snapshot";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
-import isEqual from "lodash/isEqual";
 import {
   experimentChangesBody,
   ExperimentRefVariation,
@@ -73,10 +67,8 @@ import {
   SnapshotAnalysisParams,
   createExperimentSnapshot,
   updateExperimentBanditSettings,
-  updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
-  fillEmptyVariationKeys,
 } from "back-end/src/services/experiments";
 import {
   assertRegisteredAttributesScoped,
@@ -165,14 +157,11 @@ import {
   getManagedFlagIdsUnfiltered,
   getFeaturesByIds,
   getManagedFlagsByExperiment,
-  publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getActiveDraft } from "back-end/src/models/FeatureRevisionModel";
 import {
   adoptManagedFlagForExperiment,
   clearManagedMarkersForExperiment,
   createManagedFlagForNewExperiment,
-  discardManagedDraftIfNoop,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
   managedFlagAdoptionBlocker,
@@ -180,7 +169,6 @@ import {
   publishManagedDraft,
   removeManagedFeatureForExperiment,
   requestReviewForManagedDraft,
-  stageManagedFeatureFields,
 } from "back-end/src/services/managedFeatures";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -191,10 +179,6 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
-import {
-  getDraftRevision,
-  getLiveAndBaseRevisionsForFeature,
-} from "back-end/src/services/features";
 import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
@@ -210,13 +194,7 @@ import {
   ExperimentUpdateInput,
   planExperimentUpdate,
 } from "back-end/src/services/experimentChanges/planExperimentUpdate";
-import {
-  ExperimentLinkedFeatureValueUpdate,
-  updateExperimentRefVariations,
-  updateExperimentRuleEnvironments,
-  validateExperimentFeatureUpdates,
-  validateExperimentFeatureVariations,
-} from "back-end/src/services/experiment-feature";
+import { updateExperimentRuleEnvironments } from "back-end/src/services/experiment-feature";
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
@@ -3709,331 +3687,6 @@ export async function postExperimentChanges(
     eventAudit: res.locals.eventAudit,
   });
   res.status(200).json({ status: 200, ...result });
-}
-
-export async function postExperimentFeatureValues(
-  req: AuthRequest<
-    {
-      variations: Variation[];
-      /** Required while the experiment is a draft; ignored once it has started. */
-      variationWeights?: number[];
-      features: Record<string, ExperimentLinkedFeatureValueUpdate>;
-    },
-    { id: string }
-  >,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { id } = req.params;
-  const { variations, variationWeights, features } = req.body;
-  const experiment = await getExperimentById(context, id);
-
-  if (!experiment) {
-    res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  // Make sure features ids are valid for the experiment
-  Object.keys(features).forEach((featureId) => {
-    if (!linkedFeatureIds.includes(featureId)) {
-      throw new Error(`Feature ${featureId} is not linked to the experiment`);
-    }
-  });
-
-  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
-
-  // Once started: drafts and variation metadata only.
-  const structureLocked = experiment.status !== "draft";
-  if (structureLocked) {
-    const autoPublishingShared = featureObjects.find(
-      (f) =>
-        features[f.id].revisionOptions.autoPublish &&
-        !isManagedByExperiment(f, experiment.id),
-    );
-    if (autoPublishingShared) {
-      res.status(400).json({
-        status: 400,
-        message: `Feature ${autoPublishingShared.id}: publishing from a running experiment is only allowed for a Feature Flag it manages. Publish the draft from the feature flag directly.`,
-      });
-      return;
-    }
-    const sameStructure =
-      variations.length === experiment.variations.length &&
-      variations.every(
-        (v, i) =>
-          v.id === experiment.variations[i].id &&
-          v.key === experiment.variations[i].key,
-      );
-    if (!sameStructure) {
-      res.status(400).json({
-        status: 400,
-        message:
-          "Variation ids and keys cannot change once an experiment has started.",
-      });
-      return;
-    }
-  }
-
-  if (!experiment.phases?.length) {
-    res.status(400).json({
-      status: 400,
-      message: "Experiment must have at least one phase",
-    });
-    return;
-  }
-
-  fillEmptyVariationKeys(
-    variations,
-    experiment.variations.map((v) => v.key),
-  );
-  validateVariationIds(variations);
-
-  const latestPhase = experiment.phases[experiment.phases.length - 1];
-  const effectiveWeights = structureLocked
-    ? latestPhase.variationWeights
-    : variationWeights;
-  if (!effectiveWeights) {
-    res.status(400).json({
-      status: 400,
-      message: "variationWeights is required for a draft experiment",
-    });
-    return;
-  }
-  validateExperimentFeatureVariations({
-    variations,
-    variationWeights: effectiveWeights,
-    experiment,
-    features,
-  });
-
-  const variationsChanged = !isEqual(variations, experiment.variations);
-  const variationWeightsChanged =
-    !structureLocked &&
-    !isEqual(effectiveWeights, latestPhase.variationWeights);
-
-  const changes: Changeset = {};
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures: featureObjects,
-  });
-
-  if (variationsChanged) {
-    changes.variations = variations;
-    // Also update the phase's variations array to include new/removed variations
-    const phases = changes.phases || [...experiment.phases];
-    const lastIndex = phases.length - 1;
-    phases[lastIndex] = {
-      ...phases[lastIndex],
-      variations: variations.map((v) => ({
-        id: v.id,
-        status: "active" as const,
-      })),
-    };
-    changes.phases = phases;
-  }
-
-  if (variationWeightsChanged) {
-    // Use changes.phases if already updated (e.g. by variationsChanged above), otherwise start from experiment
-    const basePhases = changes.phases || [...experiment.phases];
-    const lastIndex = basePhases.length - 1;
-    const updatedPhases = [...basePhases];
-    updatedPhases[lastIndex] = {
-      ...updatedPhases[lastIndex],
-      variationWeights: effectiveWeights,
-    };
-    changes.phases = updatedPhases;
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Authoring authority for each feature. Landing authority is checked by
-  // `validateExperimentFeatureUpdates` below, per feature that actually sets
-  // `autoPublish`, and scoped to the environments its matching rules serve.
-  // Requiring publish here as well — across every org environment, whether or
-  // not the caller is publishing — blocked an author from editing values into a
-  // draft.
-  for (const feature of featureObjects) {
-    if (!context.permissions.canEditFeatureDrafts(feature)) {
-      context.permissions.throwPermissionError();
-    }
-  }
-
-  // One draft on a managed flag; the caller's revision choice is replaced with it.
-  for (const f of featureObjects) {
-    const entry = features[f.id];
-    if (!entry || !isManagedByExperiment(f, experiment.id)) continue;
-    if (entry.revisionOptions?.autoPublish) continue;
-    const openDraft = await getActiveDraft(context, f);
-    entry.revisionOptions = openDraft
-      ? { targetVersion: openDraft.version }
-      : { forceNewDraft: true };
-  }
-
-  // Validate feature updates and get update plans for each feature before applying any changes
-  const featureUpdatePlans = await validateExperimentFeatureUpdates({
-    experiment,
-    features,
-    linkedFeatures: featureObjects,
-    context,
-  });
-
-  // If variations or variation weights have changed, update the experiment and sync visual changesets and url redirects
-  let experimentForResponse = experiment;
-  if (changes.variations || changes.phases) {
-    if (!context.permissions.canRunExperiment(experiment, envs)) {
-      context.permissions.throwPermissionError();
-    }
-    await validateExperimentChange({ context, experiment, changes });
-    experimentForResponse = await updateExperimentAndSync({
-      context,
-      experiment,
-      changes,
-    });
-  }
-
-  // Apply draft updates for features that need them (same revision + rules as preflight)
-  for (const {
-    feature,
-    existingRevision,
-    matchingRules,
-  } of featureUpdatePlans) {
-    const { autoPublish } = features[feature.id].revisionOptions;
-    const orgEnvIds = context.environments;
-    const updatedVariationValues = features[feature.id].variations;
-
-    let revision = existingRevision
-      ? existingRevision
-      : await getDraftRevision(context, feature, feature.version);
-
-    // Staged before the values so both land on one draft and publish together.
-    const requestedType = features[feature.id].valueType;
-    const managedHere = isManagedByExperiment(feature, experiment.id);
-    if (requestedType && requestedType !== feature.valueType && !managedHere) {
-      throw new Error(
-        `Feature ${feature.id}: only a Feature Flag managed by this experiment can change its value type here.`,
-      );
-    }
-    if (managedHere) {
-      const landingType =
-        requestedType ?? revision.metadata?.valueType ?? feature.valueType;
-      updatedVariationValues.forEach((v, i) => {
-        v.value = validateFeatureValue(
-          { valueType: landingType },
-          v.value,
-          `Variation ${i}`,
-        );
-      });
-      // Control drives a managed flag's default.
-      revision = await stageManagedFeatureFields({
-        context,
-        feature,
-        revision,
-        ...(requestedType && { valueType: requestedType }),
-        defaultValue: updatedVariationValues[0].value,
-        eventAudit: res.locals.eventAudit,
-      });
-    }
-
-    const updatedRevision = await updateExperimentRefVariations({
-      context,
-      feature,
-      revision,
-      matchingRules,
-      updatedVariationValues,
-      sparse: features[feature.id].sparse,
-      user: res.locals.eventAudit,
-    });
-
-    if (
-      !autoPublish &&
-      managedHere &&
-      (await discardManagedDraftIfNoop({
-        context,
-        feature,
-        revision: updatedRevision,
-        eventAudit: res.locals.eventAudit,
-      }))
-    ) {
-      continue;
-    }
-
-    if (!autoPublish && isManagedFeature(feature)) {
-      await requestReviewForManagedDraft({
-        context,
-        feature,
-        version: updatedRevision.version,
-        eventAudit: res.locals.eventAudit,
-      });
-    }
-
-    if (autoPublish) {
-      const { live, base } = await getLiveAndBaseRevisionsForFeature({
-        context,
-        feature,
-        revision: updatedRevision,
-      });
-      // Auto publish permission check is in validateExperimentFeatureUpdates
-      const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-        feature,
-        live,
-        base,
-      );
-      const mergeResult = autoMerge(
-        mergeLive,
-        mergeBase,
-        updatedRevision,
-        orgEnvIds,
-        {},
-      );
-
-      // This should never happen since we only allow auto-publising new revisions, but guard against it just in case
-      if (!mergeResult.success) {
-        res.status(400).json({
-          status: 400,
-          message: `Unable to auto-publish feature values for feature ${feature.id}. Please resolve conflicts before publishing.`,
-        });
-        return;
-      }
-
-      const updatedFeature = await publishRevision({
-        context,
-        feature,
-        revision: updatedRevision,
-        result: mergeResult.result,
-        comment: "auto-publish experiment variation values change",
-        bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-          feature,
-          "feature",
-        ),
-      });
-
-      await req.audit({
-        event: "feature.publish",
-        entity: {
-          object: "feature",
-          id: feature.id,
-        },
-        details: auditDetailsUpdate(feature, updatedFeature, {
-          revision: updatedRevision.version,
-          comment: "auto-publish experiment variation values change",
-        }),
-      });
-    }
-  }
-
-  res.status(200).json({
-    status: 200,
-    experiment: experimentForResponse,
-  });
 }
 
 export async function postExperimentLinkedFeatureEnvironments(

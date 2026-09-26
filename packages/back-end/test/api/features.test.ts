@@ -257,6 +257,23 @@ describe("features API", () => {
     });
   });
 
+  it("refuses a default value that is JSON only after repair", async () => {
+    defaultContext();
+    const response = await request(app)
+      .post("/api/v1/features")
+      .send({
+        id: "loose",
+        owner: testUser.id,
+        valueType: "json",
+        defaultValue: '{"a": 1,}',
+      })
+      .set("Authorization", "Bearer foo");
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(
+      /Default value: invalid JSON\. Did you mean/,
+    );
+  });
+
   // Regression: client payloads arrive with `id: ""` on new rules; if the POST
   // handler skips `addIdsToFlatRules` the rule is persisted unaddressable.
   it("stamps ids on top-level rules when creating a feature", async () => {

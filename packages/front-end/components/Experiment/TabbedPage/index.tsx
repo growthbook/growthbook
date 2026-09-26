@@ -94,7 +94,6 @@ export interface Props {
   mutate: () => void;
   duplicate?: (() => void) | null;
   envs: string[];
-  editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   newPhase?: (() => void) | null;
@@ -134,7 +133,6 @@ function TabbedPageContents({
   holdoutExperiments,
   mutate,
   duplicate,
-  editVariations,
   visualChangesets,
   envs,
   urlRedirects,
@@ -794,7 +792,6 @@ function TabbedPageContents({
                 holdoutFeatures={holdoutFeatures}
                 holdoutExperiments={holdoutExperiments}
                 mutate={mutate}
-                editVariations={editVariations}
                 setFeatureModal={setFeatureModal}
                 setVisualEditorModal={setVisualEditorModal}
                 setUrlRedirectModal={setUrlRedirectModal}

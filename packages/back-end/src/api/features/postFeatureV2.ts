@@ -1,10 +1,10 @@
 import {
-  validateFeatureValue,
   getRuleAttributeScopeProjectIds,
   normalizeTargetingProjects,
 } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
@@ -201,7 +201,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
     feature.jsonSchema = jsonSchema;
     // Always normalize; enforce the schema unless explicitly skipped.
-    feature.defaultValue = validateFeatureValue(
+    feature.defaultValue = assertStorableFeatureValue(
       req.context.canSkipSchemaValidationFor("feature")
         ? { ...feature, jsonSchema: undefined }
         : feature,

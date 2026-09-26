@@ -277,9 +277,8 @@ export default function TrafficAllocationFunnel({
         method: "POST",
         body: JSON.stringify(staged),
       });
-      targetingDraft?.set(null);
-      mutate?.();
     },
+    onSaved: () => targetingDraft?.set(null),
     discard: () => targetingDraft?.set(null),
   });
 
@@ -368,7 +367,7 @@ export default function TrafficAllocationFunnel({
     return {
       name: revisionLabelText(draft.version, draft.title),
       note: others
-        ? `${others} other unpublished draft${others > 1 ? "s" : ""} affect this value`
+        ? `${others} other unpublished draft${others > 1 ? "s" : ""} on this Feature Flag`
         : undefined,
     };
   })();
@@ -698,6 +697,7 @@ export default function TrafficAllocationFunnel({
                     slim
                     connector
                     overhang={VARIATION_GRID_GAP_PX / 2}
+                    bleed={2}
                     coverage={1}
                     stackLeft
                     type="string"

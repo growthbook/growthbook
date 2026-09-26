@@ -5,6 +5,7 @@ import {
   getHoldoutLinkBlocker,
   getHoldoutStage,
   holdoutSizeToCoverage,
+  isHoldoutAvailableForProject,
   isHoldoutStageTransitionAllowed,
   MAX_HOLDOUT_SIZE,
 } from "../../src/util/holdouts";
@@ -228,5 +229,18 @@ describe("getHoldoutLinkBlocker", () => {
     expect(blocker("ho_1", {}, ["prj_b"])).toBe("holdout-unavailable");
     expect(blocker("ho_1", {}, ["prj_a"])).toBeNull();
     expect(blocker("ho_1", {}, [])).toBeNull();
+  });
+});
+
+describe("isHoldoutAvailableForProject", () => {
+  it("is open to every project without any, else only to its own", () => {
+    expect(isHoldoutAvailableForProject({ projects: [] }, undefined)).toBe(
+      true,
+    );
+    expect(isHoldoutAvailableForProject({ projects: ["a"] }, "a")).toBe(true);
+    expect(isHoldoutAvailableForProject({ projects: ["a"] }, "b")).toBe(false);
+    expect(isHoldoutAvailableForProject({ projects: ["a"] }, undefined)).toBe(
+      false,
+    );
   });
 });

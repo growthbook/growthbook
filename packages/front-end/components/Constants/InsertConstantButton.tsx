@@ -276,14 +276,14 @@ export default function InsertConstantButton({
   // Hide only when the org has no constants; otherwise show an empty-state menu.
   if (!hasConstants) return null;
 
+  // The small one matches a copy button beside it: same size, round.
+  const small = iconOnly && iconSize === "1";
   const glyph = (
     <span
       style={{
         fontFamily: "monospace",
         fontWeight: 500,
-        // Small enough to sit in a round button the size of a copy button.
-        ...(iconOnly &&
-          iconSize === "1" && { fontSize: "10px", letterSpacing: "-0.05em" }),
+        ...(small && { fontSize: "10px", letterSpacing: "-0.05em" }),
       }}
     >
       {"{"}
@@ -293,8 +293,6 @@ export default function InsertConstantButton({
   );
 
   // Tooltip wraps only the icon so it doesn't interfere with the menu.
-  // The small one matches the copy button beside it: same size, round.
-  const small = iconSize === "1";
   const trigger = iconOnly ? (
     <IconButton
       type="button"
@@ -314,8 +312,8 @@ export default function InsertConstantButton({
       variant="ghost"
       color="gray"
       disabled={disabled}
-      ml={small ? "0" : "1"}
-      mt={small ? "0" : iconMt}
+      ml={small ? undefined : "1"}
+      mt={small ? undefined : iconMt}
     >
       <Tooltip content="Insert Constant">
         <Flex align="center" justify="center">
