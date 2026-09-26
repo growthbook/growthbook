@@ -2522,6 +2522,13 @@ const onExperimentDelete = async (
       experiment,
       organization: context.org,
     });
+
+  // Last and non-fatal: a stale watch entry must not undo the cleanup above.
+  await context.models.watch
+    .removeEntityFromAllWatchers({ type: "experiments", item: experiment.id })
+    .catch((e) => {
+      logger.error(e, "Error removing watchers on experiment delete");
+    });
 };
 
 export async function hasNonDemoExperiment(
