@@ -124,7 +124,7 @@ const ImportExperimentList: FC<{
         return true;
       });
 
-      // Group by trackingKey insteadd of trackingKey/exposureQueryId
+      // Group by trackingKey instead of trackingKey/exposureQueryId
       if (dedupeFilter) {
         const deduped = new Map<string, (typeof rows)[0]>();
         rows.forEach((e) => {

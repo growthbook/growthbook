@@ -274,7 +274,7 @@ export default function AnalysisSettingsSummary({
   const { incrementalRefresh, mutate: mutateIncrementalRefresh } =
     useIncrementalRefresh(isIncremental ? experiment.id : "");
   useEffect(() => {
-    // If dimensionless snapshto changes, re-fecth incremental refresh data
+    // If dimensionless snapshot changes, re-fetch incremental refresh data
     if (!isIncremental) return;
     mutateIncrementalRefresh();
   }, [isIncremental, dimensionless?.id, mutateIncrementalRefresh]);

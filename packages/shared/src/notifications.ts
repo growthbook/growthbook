@@ -32,7 +32,7 @@ export const notificationEventMetadata = {
   "feature.saferollout.ship": {
     label: "Safe rollout ready to ship",
     description:
-      "Triggered when a safe rollout is completed and safe to rollout to 100%.",
+      "Triggered when a safe rollout is completed and safe to roll out to 100%.",
     preview: true,
   },
   "feature.saferollout.rollback": {

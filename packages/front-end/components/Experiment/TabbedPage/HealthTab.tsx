@@ -75,7 +75,7 @@ export default function HealthTab({
   // parent badge counter (`onHealthNotify`) is just an incrementer, so without
   // a synchronous dedupe it would drift up on every poll/refetch. A Set ref
   // is the dedupe source of truth.
-  // Ideally we have a separate service that does the health compuatation and it
+  // Ideally we have a separate service that does the health computation and it
   // doesn't happen inside each card. TODO later.
   const seenIssueValuesRef = useRef<Set<string>>(new Set());
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);

@@ -1780,7 +1780,7 @@ const postExperimentStartBody = z
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+        "If true, skips validating the experiment satisfies all pre-launch checklist items",
       )
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
@@ -2295,7 +2295,7 @@ export const postExperimentSnapshotValidator = {
       triggeredBy: z
         .enum(["manual", "schedule"])
         .describe(
-          'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
+          'Set to "schedule" if you want this request to trigger notifications and other events as if it were a scheduled update. Defaults to manual.',
         )
         .optional(),
       dimension: z

@@ -80,7 +80,7 @@ describe("src/license", () => {
   const oldLicenseKey =
     "eyJyZWYiOiIyNDAzMjEiLCJzdWIiOiJBY21lIiwib3JnIjoib3JnXzEyMyIsInF0eSI6MywiaWF0IjoiMjAyMy0xMS0xOCIsImV4cCI6IjIwMjMtMTEtMTkiLCJ0cmlhbCI6dHJ1ZSwicGxhbiI6InBybyJ9.Wf_rdgs4Ice1aFImF9bFBVeyP3gfo1V9CyNh9U5kJguKvzpLJEDE7x1bU4zsenaY-sBBv_IeD5UrCf-7ktcW9AQBuQa_c8IK96Dq57gCDGJ5fmTpqL8jZJF9d0HJd-uDhbXqNXway7a3MLK7lwo9BxD4ZiANafrn9qKH0tB30gUChCm61h9trxDmcWIGYi9HFtICvqkKLXthgKgQYV7pHhnB3BzhUXu6p2iDURSIQhergUv3y833tjJ-I_rtMxpeKumJOHAqQDPF3hlNzL4y6WIVAp0RyDEYD3PyfQVsJpY5QRK2cZEwWJr_JRFOmou5O79oZjyAPsbjw2J-41BsNGnshA00MS6l74Aae1zFES10zwxo0En8TS5CqrwIW05hSs1pp-UKM56RFsPTjayGmiGdUSGf7vMo4e7RtE73T9RIntbfqTXYg2FTPiergiYr7gVBPi-JNiicwKOxGChoaIwVkha8Pp3B9yUfTyjWNEm0S9xTlv3l8dRmla2_62YAU3hlvQqZQvRXciOrMPyBQnPuQq9srRSFi2kFYMefgXCSTnFSi9pz9uOiJix7REYlEVOq_qujoRVYHY2h7zZwsIBiR_jCZTX8gJXxPDSDseiWzgXY11YZNWuNC551cRrBurNP1M_M_Z6-A7IXyfrhzBJizYw6a81R6NBBulCVDLc";
 
-  const oldLicenseOrginalData = {
+  const oldLicenseOriginalData = {
     ref: "240321",
     sub: "Acme",
     org: "org_123",
@@ -426,7 +426,7 @@ describe("src/license", () => {
         expect(getLicenseError(org)).toBe("Email not verified");
       });
 
-      it("should not throw an error if it is an old syle license", () => {
+      it("should not throw an error if it is an old style license", () => {
         jest.setSystemTime(old_license_now);
         const org_with_old_style_license = {
           id: "org_123",
@@ -435,7 +435,7 @@ describe("src/license", () => {
         expect(getLicenseError(org_with_old_style_license)).toBe("");
       });
 
-      it("should not throw an error if it is an old syle license in the env var", () => {
+      it("should not throw an error if it is an old style license in the env var", () => {
         jest.setSystemTime(old_license_now);
         process.env.LICENSE_KEY = oldLicenseKey;
         const org_with_old_style_license = {
@@ -1059,7 +1059,7 @@ describe("src/license", () => {
             };
             jest
               .spyOn(LicenseModelModule, "getLicenseByKey")
-              // @ts-expect-error - when the first call to initLisense fails, we save a stub LicenseKey.
+              // @ts-expect-error - when the first call to initLicense fails, we save a stub LicenseKey.
               .mockResolvedValue(cloneDeep(expectedFirstFailedFetchCache));
           });
 
@@ -1159,7 +1159,7 @@ describe("src/license", () => {
       });
 
       it("should use the old expiry date 'eat' if the new one 'exp' is not present", async () => {
-        const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
+        const oldLicenseOriginalData2 = cloneDeep(oldLicenseOriginalData);
         // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
         oldLicenseOriginalData2.eat = oldLicenseOriginalData2.exp;
         // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
@@ -1172,7 +1172,7 @@ describe("src/license", () => {
       });
 
       it("should throw an error if there is no expiry date on the license", async () => {
-        const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
+        const oldLicenseOriginalData2 = cloneDeep(oldLicenseOriginalData);
         // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
         delete oldLicenseOriginalData2.exp;
         jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
@@ -1186,7 +1186,7 @@ describe("src/license", () => {
 
       describe("expiration", () => {
         it("should not return a license error during the grace period after a non-trial license expires", async () => {
-          const nonTrialData = cloneDeep(oldLicenseOrginalData);
+          const nonTrialData = cloneDeep(oldLicenseOriginalData);
           nonTrialData.trial = false;
           jest.spyOn(JSON, "parse").mockReturnValue(nonTrialData);
 
@@ -1198,7 +1198,7 @@ describe("src/license", () => {
         });
 
         it("should return a license error once the grace period after a non-trial license expires has passed", async () => {
-          const nonTrialData = cloneDeep(oldLicenseOrginalData);
+          const nonTrialData = cloneDeep(oldLicenseOriginalData);
           nonTrialData.trial = false;
           jest.spyOn(JSON, "parse").mockReturnValue(nonTrialData);
 
@@ -1261,7 +1261,7 @@ describe("src/license", () => {
       });
 
       it("should automatically assume enterprise plan if no plan is specified", async () => {
-        const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
+        const oldLicenseOriginalData2 = cloneDeep(oldLicenseOriginalData);
         // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
         delete oldLicenseOriginalData2.plan;
         jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);

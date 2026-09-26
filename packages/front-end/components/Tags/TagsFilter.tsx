@@ -62,7 +62,7 @@ export default function TagsFilter({
     }
   });
 
-  // Only turn `autofocus` on briefly after clicking "fitler by tags"
+  // Only turn `autofocus` on briefly after clicking "filter by tags"
   useEffect(() => {
     if (!autofocus) return;
     const timer = setTimeout(() => {

@@ -28,14 +28,13 @@ type UIMode = "view" | "edit" | "add" | "dimension";
 export const ExperimentAssignmentQueries: FC<
   ExperimentAssignmentQueriesProps
 > = ({ dataSource, onSave, onCancel, canEdit = true }) => {
-  const intitialOpenIndexes: boolean[] = Array.from(
+  const initialOpenIndexes: boolean[] = Array.from(
     Array(dataSource.settings?.queries?.exposure?.length || 0),
   ).fill(true);
 
   const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] =
-    useState<boolean[]>(intitialOpenIndexes);
+  const [openIndexes, setOpenIndexes] = useState<boolean[]>(initialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);

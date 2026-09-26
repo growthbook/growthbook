@@ -25,7 +25,7 @@ const SortableVariationsList: FC<{
   // valuesAsIds will mean we don't show ids to be edited, only values,
   // so by default we will renormalize variation keys on sort. however,
   // sometimes we want to force it even in other cases where moving around
-  // variations when not editing IDs was causing clases where keys were the
+  // variations when not editing IDs was causing cases where keys were the
   // same for multiple variations.
   forceRenormalizeVariationKeysOnSort?: boolean;
   sortingStrategy?: "vertical" | "rect";

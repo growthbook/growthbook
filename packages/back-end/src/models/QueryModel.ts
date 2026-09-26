@@ -368,7 +368,7 @@ export async function getStaleQueries(): Promise<
     {
       $set: {
         status: "failed",
-        error: "Query execution was interupted. Please try again.",
+        error: "Query execution was interrupted. Please try again.",
       },
     },
   );

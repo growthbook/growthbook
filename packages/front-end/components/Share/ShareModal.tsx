@@ -582,7 +582,7 @@ const ShareModal = ({
     //               }}
     //               id="checkbox-showscreenshots"
     //             />
-    //             Show screen shots (if avaliable)
+    //             Show screen shots (if available)
     //           </label>
     //         </div>
     //         <div className="form-row form-inline">
@@ -880,7 +880,7 @@ const ShareModal = ({
                                                       />
                                                     ) : (
                                                       <span className="text-muted font-italic">
-                                                        <Tooltip body="This experiment is has no results data">
+                                                        <Tooltip body="This experiment has no results data">
                                                           no results
                                                         </Tooltip>
                                                       </span>

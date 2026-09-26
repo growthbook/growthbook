@@ -240,7 +240,7 @@ React Native does not support SSE out-of-the-box, but there is a small helper li
 npm install --save react-native-sse
 ```
 
-The, tell GrowthBook to use this polyfill:
+Then, tell GrowthBook to use this polyfill:
 
 ```js
 import { setPolyfills } from "@growthbook/growthbook";
@@ -381,13 +381,13 @@ Visual Editor experiments are not supported in React Native at this time.
 
 ### URL Redirect Experiments
 
-URL Redirect experiments are no supported in React Native at this time.
+URL Redirect experiments are not supported in React Native at this time.
 
 ### Sticky Bucketing
 
 Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
 
-The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environments.
+The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environment.
 
 Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations.
 

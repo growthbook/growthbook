@@ -99,7 +99,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     userIdType: exposureQuery.userIdType,
   };
 
-  // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
+  // Only include metrics tied to this experiment, which is governed by the snapshotSettings.metricSettings
   // after the introduction of metric slices
   const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
     snapshotSettings,

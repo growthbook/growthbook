@@ -62,7 +62,7 @@ export function getExperimentFactMetricsQuery(
     settings,
   );
 
-  // Throw noisely instead of letting the dialect throw a generic
+  // Throw noisily instead of letting the dialect throw a generic
   // unsupported-operation error.
   if (!isFunnelSupportedDatasourceType(datasource.type)) {
     const unsupported = metricsWithIndices

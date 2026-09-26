@@ -18,7 +18,7 @@ export const validatePayload = async (
     parent?: string;
   },
 ) => {
-  if (id === "") throw Error("Environment ID cannot empty!");
+  if (id === "") throw Error("Environment ID cannot be empty!");
 
   if (projects.length) {
     const allProjects = await context.models.projects.getAll();

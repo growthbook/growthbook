@@ -277,7 +277,7 @@ const apiRegressionAdjustmentSettings = z
     enabled: z
       .boolean()
       .describe(
-        "Controls whether or not regresion adjustment is applied to the metric",
+        "Controls whether or not regression adjustment is applied to the metric",
       )
       .optional(),
     days: z.coerce

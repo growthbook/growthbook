@@ -255,7 +255,7 @@ export class DashboardModel extends BaseClass {
     }
 
     if (existing.experimentId) {
-      // Check that the org has the commerical feature
+      // Check that the org has the commercial feature
       if (!this.context.hasPremiumFeature("dashboards")) {
         throw new Error("Your plan does not support updating dashboards.");
       }

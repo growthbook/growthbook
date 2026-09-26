@@ -33,7 +33,7 @@ export default function EditFactTableSQLModal({
 }: Props) {
   const { getDatasourceById } = useDefinitions();
   const [eventName, setEventName] = useState(factTable.eventName);
-  // useState is not updated unitl a re-render, so use useRef instead for this
+  // useState is not updated until a re-render, so use useRef instead for this
   const userIdTypes = useRef(factTable.userIdTypes);
 
   const selectedDataSource = getDatasourceById(factTable.datasource);

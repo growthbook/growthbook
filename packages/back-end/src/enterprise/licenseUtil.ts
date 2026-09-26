@@ -128,7 +128,7 @@ export function isActiveSubscriptionStatus(
   return ["active", "trialing", "past_due"].includes(status || "");
 }
 
-// This returns the actual plan the organzation is on.  If you would prefer to know
+// This returns the actual plan the organization is on.  If you would prefer to know
 // what plan the organization is effectively on (taking into account downgrades)
 // use getEffectiveAccountPlan() instead.
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
@@ -812,7 +812,7 @@ export async function licenseInit(
         new Date(mongoCache.dateUpdated) < oneWeekAgo
       ) {
         // It is time to update the license data from the server.
-        // However when hitting a page we often make many simulataneous requests
+        // However when hitting a page we often make many simultaneous requests
         // By acquiring a lock we make sure to only call the license server once, the remaining
         // calls will be able to read from the cache.
         await lock.acquire(key, async () => {

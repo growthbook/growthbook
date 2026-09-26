@@ -24,7 +24,7 @@ So why would you want to use Sticky Bucketing? Let's look at a few examples:
 
 2. You discovered a bug in your experiment the day after launching. You fix the bug and want to re-start the experiment, but don't want to include any "tainted" users who saw the buggy version since their negative experience might impact the results.
 
-3. Your have a cross-platform app and want to ensure a consistent experience as users log in and move between devices.
+3. You have a cross-platform app and want to ensure a consistent experience as users log in and move between devices.
 
 ## Setting up Sticky Bucketing with the Script Tag SDK
 
@@ -61,7 +61,7 @@ To use Sticky Bucketing for your experiments, there are a few steps that you nee
 
 ### 1. Ensure you are using a compatible SDK version
 
-Update your codebase to use a compatible SDK. Sticky Bucketing is currently supported most SDK languages.
+Update your codebase to use a compatible SDK. Sticky Bucketing is currently supported in most SDK languages.
 
 See "stickyBucketing" availability in the [list of SDKs and Capabilities](https://github.com/growthbook/growthbook/blob/main/packages/shared/src/sdk-versioning/CAPABILITIES).
 
@@ -112,7 +112,7 @@ There are 2 caveats with fallback attributes:
 
 ### Bias Risk
 
-To understand the risk of bias, lets focus on a user switching devices. During analysis, we will have to use the anonymous `cookieId` as the experimental unit to make sure we capture everyone in the experiment, even those who never logged in. When a user logs in on two devices, they will be seen as two separate "users" in the analysis since each device has its own cookie id. Because of the fallback attribute and sticky bucketing, however, they will both get assigned the same variation. This breaks one of the statistical assumptions of A/B testing - that each user is randomly assigned a variation. Let's see how this might play out to cause bias in your results.
+To understand the risk of bias, let's focus on a user switching devices. During analysis, we will have to use the anonymous `cookieId` as the experimental unit to make sure we capture everyone in the experiment, even those who never logged in. When a user logs in on two devices, they will be seen as two separate "users" in the analysis since each device has its own cookie id. Because of the fallback attribute and sticky bucketing, however, they will both get assigned the same variation. This breaks one of the statistical assumptions of A/B testing - that each user is randomly assigned a variation. Let's see how this might play out to cause bias in your results.
 
 Imagine your variation causes people to use multiple devices more often than your control does. 200 people land on your website and get split into control and variation - 100 in each. In the control, 20 of them also log in on their phone, but in the variation 60 of them log in on their phone. In your analysis, you have 280 total anonymous ids and you expect them to be split evenly - 140 each. In reality, the control would have 120 ids while the variation has 160. A difference this extreme is easy to spot in the results (GrowthBook runs Sample Ratio Mismatch tests automatically to catch exactly this type of bug), however there are many similar, but more subtle, issues that may fly under the radar.
 
