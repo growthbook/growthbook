@@ -188,6 +188,7 @@ export type ContextualBanditResponseSnapshot = {
   /** Per-variation sample (data-only) variances; not posterior variances. */
   sampleVariances?: number[] | null;
   updatedWeights?: number[] | null;
+  /** Per-variation P(best) among qualifying arms with sample size >= 100, otherwise the uniform prior 1/K.*/
   bestArmProbabilities?: number[] | null;
   updateMessage?: string | null;
   error?: string | null;

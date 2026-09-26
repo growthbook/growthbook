@@ -140,14 +140,14 @@ describe("updateVariationWeights", () => {
     expect(w[1]).toBeGreaterThan(w[0]);
     expect(sum(w)).toBeCloseTo(1, 6);
 
-    // The deficient arm gets the uniform prior 1/K (K = 3) rather than a
-    // misleading computed 0%; healthy arms are scaled by the remaining mass so
-    // the whole array still sums to 1.
+    // Qualifying arms report their true P(best) among arms with sample size >= 100, otherwise the uniform prior 1/K.
     expect(result.bestArmProbabilities).not.toBeNull();
     expect(result.bestArmProbabilities![0]).toBeGreaterThan(0);
     expect(result.bestArmProbabilities![1]).toBeGreaterThan(0);
+    expect(
+      result.bestArmProbabilities![0] + result.bestArmProbabilities![1],
+    ).toBeCloseTo(1, 6);
     expect(result.bestArmProbabilities![2]).toBeCloseTo(1 / 3, 6);
-    expect(sum(result.bestArmProbabilities!)).toBeCloseTo(1, 6);
     expect(result.updateMessage).toContain("1 of 3 variations");
   });
 

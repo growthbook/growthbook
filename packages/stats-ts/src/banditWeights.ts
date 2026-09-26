@@ -20,6 +20,7 @@ export type BanditArmStatistic = {
 
 export type VariationWeightResult = {
   updatedWeights: number[];
+  // Per-variation P(best) among arms with sample size >= 100, otherwise the uniform prior 1/K.
   bestArmProbabilities: number[] | null;
   updateMessage: string;
   error: string;
@@ -271,10 +272,11 @@ export function updateVariationWeights(
   const remainingMass = (numStats - numWithoutEnoughUsers) / numStats;
 
   const updatedWeights = new Array<number>(numStats).fill(1 / numStats);
+  // Per-variation P(best) among arms with sample size >= 100, otherwise the uniform prior 1/K.
   const bestArmProbabilities = new Array<number>(numStats).fill(1 / numStats);
   statsWithEnoughUsers.forEach((idx, j) => {
     updatedWeights[idx] = subsetWeights[j] * remainingMass;
-    bestArmProbabilities[idx] = subsetProbs[j] * remainingMass;
+    bestArmProbabilities[idx] = subsetProbs[j];
   });
 
   const updateMessage =

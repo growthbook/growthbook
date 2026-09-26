@@ -168,15 +168,15 @@ describe("computeContextualBanditWeights", () => {
     expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
     expect(r.updateMessage).toContain("1 of 3 variations");
 
-    // The deficient arm's P(best) is the uniform prior 1/K (K = 3), not a
-    // computed 0, while the healthy arms report real probabilities scaled by the
-    // remaining mass. The array stays fully numeric for API back-compat and sums
-    // to 1.
+    // The arm with small sample size P(best) is the uniform prior 1/K (K = 3), not a
+    // computed 0. The qualifying arms report their true (unscaled) P(best) among
+    // qualifying arms, so they sum to 1 between themselves; the full array is a
+    // conditional distribution that need not sum to 1.
     const probs = r.bestArmProbabilities as number[];
     expect(probs[0]).toBeGreaterThan(0);
     expect(probs[1]).toBeGreaterThan(0);
+    expect(probs[0] + probs[1]).toBeCloseTo(1, 6);
     expect(probs[2]).toBeCloseTo(1 / 3, 6);
-    expect(probs.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
   });
 
   it("excludes under-powered variations from tree building", () => {

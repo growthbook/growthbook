@@ -71,6 +71,8 @@ export interface ContextualBanditResponse {
   variationMeans: number[] | null;
   variationVariances: number[] | null;
   updatedWeights: number[] | null;
+  // P(best) among qualifying arms (unscaled); under-observed arms get the prior
+  // 1/K rather than a computed 0. Conditional distribution; need not sum to 1.
   bestArmProbabilities: number[] | null;
   updateMessage: string | null;
   error: string | null;
@@ -83,6 +85,8 @@ export interface ContextualBanditContextSummary {
   sampleMeans: number[] | null;
   sampleVariances: number[] | null;
   updatedWeights: number[] | null;
+  // P(best) among qualifying arms (unscaled); under-observed arms get the prior
+  // 1/K rather than a computed 0. Conditional distribution; need not sum to 1.
   bestArmProbabilities: number[] | null;
   updateMessage: string | null;
   error: string | null;
