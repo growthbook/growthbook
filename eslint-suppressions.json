@@ -1828,14 +1828,6 @@
       "count": 1
     }
   },
-  "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/EditSingleBlock.tsx": {
     "no-restricted-imports": {
       "count": 2
