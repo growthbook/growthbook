@@ -8,20 +8,31 @@ import {
   FactTableInterface,
   FactTableType,
 } from "shared/types/fact-table";
+import { InformationSchemaTablesInterface } from "shared/types/integrations";
 import { DocLink } from "@/components/DocLink";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
-import NewFactTableSqlStep from "@/components/FactTables/NewFactTableSqlStep";
+import NewFactTableSqlStep, {
+  FactTableSqlMode,
+} from "@/components/FactTables/NewFactTableSqlStep";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getInitialFactTableQuery } from "@/services/datasources";
 import {
+  getColumnMappingError,
+  getDefaultTimestampColumn,
   getNewFactTableProjects,
+  getPartitionFilterColumn,
+  getPickerTableError,
+  getPickerTableName,
+  getPickerTableSql,
   isIdentifierCandidate,
   isTimestampCandidate,
 } from "@/services/factTables";
+import { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 import track from "@/services/track";
+import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
@@ -142,6 +153,10 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         .datasource,
   );
   const [sql, setSql] = useState("");
+  const [mode, setMode] = useState<FactTableSqlMode>("table");
+  const [selectedTable, setSelectedTable] = useState<SchemaBrowserTable | null>(
+    null,
+  );
 
   const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
     null,
@@ -156,6 +171,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   const [tableType, setTableType] = useState<FactTableType>("event");
 
   const validateSql = useRef<(() => Promise<void>) | null>(null);
+  // Last name filled in from a table, so a typed name is never replaced
+  const autoName = useRef("");
 
   // Keyed off a ref so a background definitions refresh can't wipe user edits.
   const seededDatasource = useRef<string | null>(null);
@@ -165,9 +182,24 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     if (!datasource) return;
     seededDatasource.current = datasourceId;
     setSql(getInitialFactTableQuery(datasource).sql);
+    setSelectedTable(null);
   }, [datasourceId, getDatasourceById]);
 
   const datasource = getDatasourceById(datasourceId);
+  const canPickTable = !!datasource?.properties?.supportsInformationSchema;
+  const sqlMode = canPickTable ? mode : "sql";
+
+  const selectTable = (table: SchemaBrowserTable) => {
+    if (table.id === selectedTable?.id) return;
+    const tableName = getPickerTableName(table);
+    setSelectedTable(table);
+    // Otherwise handleColumnsDetected keeps the last table's mappings
+    setDetected(null);
+    setTimestampColumn("");
+    setUserIdColumns({});
+    setName((prev) => (!prev || prev === autoName.current ? tableName : prev));
+    autoName.current = tableName;
+  };
   const identifierTypes = (datasource?.settings?.userIdTypes || []).map(
     (t) => t.userIdType,
   );
@@ -193,8 +225,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     });
 
   const handleColumnsDetected = useCallback(
-    (columns: DetectedFactTableColumn[]) => {
-      setDetectedSql(sql);
+    (columns: DetectedFactTableColumn[], ranSql: string) => {
+      setDetectedSql(ranSql);
       setDetected(columns);
 
       // Only re-detect when the SQL returns a different set of columns.
@@ -217,9 +249,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       // A mapping the user picked survives as long as its column does; only
       // the ones that no longer resolve are detected again.
       setTimestampColumn((prev) =>
-        exists(prev)
-          ? prev
-          : columns.find((c) => c.datatype === "date")?.column || "",
+        exists(prev) ? prev : getDefaultTimestampColumn(columns),
       );
       setUserIdColumns((prev) =>
         Object.fromEntries(
@@ -243,8 +273,37 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       setInlineFilterColumn(eventTypeColumn);
       setTableType(eventTypeColumn ? "event" : "model");
     },
-    [detected, sql, datasource],
+    [detected, datasource],
   );
+
+  const { data: tableData, error: tableDataError } = useApi<{
+    table: InformationSchemaTablesInterface;
+  }>(`/datasource/${datasourceId}/schema/table/${selectedTable?.id}`, {
+    shouldRun: () => !!selectedTable,
+  });
+  const tableColumns = tableData?.table.columns ?? null;
+  const tableColumnsLoading = !!selectedTable && !tableData && !tableDataError;
+  const tableSql = selectedTable
+    ? getPickerTableSql(
+        selectedTable,
+        getPartitionFilterColumn(tableColumns ?? []),
+        datasource?.type,
+      )
+    : "";
+  const factTableSql = sqlMode === "table" ? tableSql : sql;
+
+  const changeMode = (next: FactTableSqlMode) => {
+    if (next === "sql" && selectedTable) setSql(tableSql);
+    setMode(next);
+  };
+
+  const hasFreshResults = detectedSql === factTableSql && !!detected?.length;
+  const columnError =
+    hasFreshResults && detected
+      ? getColumnMappingError(detected)
+      : sqlMode === "table" && selectedTable && tableColumns
+        ? getPickerTableError(selectedTable, tableColumns)
+        : null;
 
   async function submit() {
     if (!detected) throw new Error("Test your SQL first");
@@ -285,7 +344,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         permissionsUtil,
       }),
       datasource: datasourceId,
-      sql,
+      sql: factTableSql,
       eventName: name,
       tableType,
       userIdTypes,
@@ -327,6 +386,12 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       close={close}
       cta="Create Fact Table"
       size={step === 0 ? "max" : "md"}
+      // Table mode waits for columns, since they can add the partition filter
+      ctaEnabled={
+        step > 0 ||
+        (!columnError &&
+          (sqlMode === "sql" || (!!selectedTable && !tableColumnsLoading)))
+      }
       overflowAuto={false}
       autoFocusSelector=""
       hideNav
@@ -339,22 +404,23 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           await validateSql.current?.();
         }}
       >
-        <Box px="2" py="1">
-          <Text>
-            Fact Tables must select a timestamp column and at least one
-            identifier column ({identifierTypes.join(", ")}).
-          </Text>
-        </Box>
         <Box p="2" style={{ height: BODY_HEIGHT }}>
           <NewFactTableSqlStep
             datasourceId={datasourceId}
             setDatasourceId={setDatasourceId}
-            sql={sql}
+            sql={factTableSql}
             setSql={setSql}
             detected={detected}
-            detectedSql={detectedSql}
+            hasFreshResults={hasFreshResults}
             onColumnsDetected={handleColumnsDetected}
             validateRef={validateSql}
+            mode={sqlMode}
+            setMode={changeMode}
+            columnError={columnError}
+            selectedTable={selectedTable}
+            onSelectTable={selectTable}
+            tableColumns={tableColumns}
+            tableColumnsError={tableDataError?.message ?? null}
           />
         </Box>
       </Page>
@@ -366,19 +432,28 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           style={{ maxHeight: BODY_HEIGHT, overflowY: "auto" }}
         >
           <Flex direction="column" gap="2">
-            <Code
-              language="sql"
-              code={sql}
-              expandable
-              collapsedLines={3}
-              filename={
-                <Link onClick={() => setStep(0)}>
-                  <Flex align="center" gap="1">
-                    <PiArrowLeft /> Edit SQL
-                  </Flex>
-                </Link>
-              }
-            />
+            {sqlMode === "table" && selectedTable ? (
+              <TextField
+                label="Table"
+                value={`${selectedTable.schemaName}.${selectedTable.tableName}`}
+                readOnly
+                append={<Link onClick={() => setStep(0)}>Change</Link>}
+              />
+            ) : (
+              <Code
+                language="sql"
+                code={factTableSql}
+                expandable
+                collapsedLines={3}
+                filename={
+                  <Link onClick={() => setStep(0)}>
+                    <Flex align="center" gap="1">
+                      <PiArrowLeft /> Edit SQL
+                    </Flex>
+                  </Link>
+                }
+              />
+            )}
             <TextField
               label="Fact Table name"
               value={name}

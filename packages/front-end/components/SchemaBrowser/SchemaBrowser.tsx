@@ -14,6 +14,10 @@ import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiTable } from "react-icons/pi";
 import clsx from "clsx";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import {
+  getSchemaBrowserTables,
+  SchemaBrowserTable,
+} from "@/services/schemaBrowserTables";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -24,6 +28,7 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -43,16 +48,28 @@ type Props = {
   datasource: DataSourceInterfaceWithParams;
   sql?: string;
   updateSqlInput?: (sql: string) => void;
+  // Makes this a table picker: grouped shards, no column pane or actions
+  onTableClick?: (table: SchemaBrowserTable) => void;
+  selectedTableId?: string | null;
+  openFirstSchema?: boolean;
 };
 
 export default function SchemaBrowser({
   datasource,
   updateSqlInput,
   sql = "",
+  onTableClick,
+  selectedTableId = null,
+  openFirstSchema,
 }: Props) {
+  const picker = !!onTableClick;
   const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
-  const { data, mutate } = useApi<{
+  const {
+    data,
+    error: fetchError,
+    mutate,
+  } = useApi<{
     informationSchema: InformationSchemaInterfaceWithPaths;
   }>(`/datasource/${datasource.id}/schema`, {
     shouldRun: () => !managedWarehousePending,
@@ -112,6 +129,17 @@ export default function SchemaBrowser({
     },
     [],
   );
+
+  const firstDatabase = informationSchema?.databases[0];
+  const firstSchema = firstDatabase?.schemas[0];
+  const defaultOpenSchemaKey =
+    openFirstSchema && firstDatabase && firstSchema
+      ? getSchemaKey(
+          firstSchema.path,
+          firstDatabase.databaseName,
+          firstSchema.schemaName,
+        )
+      : null;
 
   const onSchemaOpening = useCallback(
     async (schemaKey: string) => {
@@ -245,7 +273,15 @@ export default function SchemaBrowser({
     );
   }
 
-  if (!data) return <LoadingSpinner />;
+  const showTableData = !!currentTable && !picker;
+
+  if (!data) {
+    return fetchError ? (
+      <Callout status="error">{fetchError.message}</Callout>
+    ) : (
+      <LoadingSpinner />
+    );
+  }
 
   return (
     <div className="d-flex flex-column h-100">
@@ -253,7 +289,7 @@ export default function SchemaBrowser({
         <Panel
           id="schema-browser"
           order={1}
-          defaultSize={currentTable ? 50 : 100}
+          defaultSize={showTableData ? 50 : 100}
           minSize={11}
         >
           <SchemaBrowserWrapper
@@ -266,9 +302,9 @@ export default function SchemaBrowser({
             setError={setError}
             tableFilter={tableFilter}
             onTableFilterChange={setTableFilter}
+            autoFocusSearch={picker}
           >
-            {informationSchema?.databases.length &&
-            !informationSchema?.error &&
+            {!informationSchema?.error &&
             informationSchema?.status === "COMPLETE" ? (
               <div
                 className="p-1"
@@ -296,7 +332,8 @@ export default function SchemaBrowser({
                                 open={
                                   isFiltering
                                     ? true
-                                    : !!schemaOpenState[schemaKey]
+                                    : (schemaOpenState[schemaKey] ??
+                                      schemaKey === defaultOpenSchemaKey)
                                 }
                                 onOpening={() => {
                                   void onSchemaOpening(schemaKey);
@@ -355,10 +392,20 @@ export default function SchemaBrowser({
                                 }}
                                 transitionTime={100}
                               >
-                                {schema.tables.map((table) => {
+                                {getSchemaBrowserTables(
+                                  schema,
+                                  picker && datasource.type === "bigquery",
+                                ).map((table) => {
                                   const tablePath = table.path;
                                   const selected =
-                                    table.id === currentTable?.id;
+                                    table.id ===
+                                    (picker
+                                      ? selectedTableId
+                                      : currentTable?.id);
+                                  const pick = () => {
+                                    selectTable(table.id, tablePath);
+                                    onTableClick?.(table);
+                                  };
                                   return (
                                     <div
                                       className={clsx(
@@ -370,16 +417,14 @@ export default function SchemaBrowser({
                                       style={{ userSelect: "none" }}
                                       tabIndex={0}
                                       key={table.id || table.tableName}
-                                      onClick={() =>
-                                        selectTable(table.id, tablePath)
-                                      }
+                                      onClick={pick}
                                       onKeyDown={(e) => {
                                         if (e.target !== e.currentTarget) {
                                           return;
                                         }
                                         if (isActivateKey(e.key)) {
                                           e.preventDefault();
-                                          selectTable(table.id, tablePath);
+                                          pick();
                                         }
                                       }}
                                     >
@@ -387,28 +432,38 @@ export default function SchemaBrowser({
                                       <span className={actionStyles.label}>
                                         {table.tableName}
                                       </span>
-                                      <span
-                                        className={clsx(
-                                          actionStyles.actions,
-                                          actionStyles.actionsEnd,
-                                        )}
-                                      >
-                                        <SchemaCopyButton
-                                          value={tablePath}
-                                          tooltip="Copy full table path"
-                                        />
-                                        {updateSqlInput ? (
-                                          <SchemaSqlInsertButton
-                                            tooltip={`Insert SELECT * FROM ${tablePath} query into editor`}
-                                            onClick={() => {
-                                              selectTable(table.id, tablePath);
-                                              updateSqlInput(
-                                                `SELECT * FROM ${tablePath}`,
-                                              );
-                                            }}
+                                      {table.shards ? (
+                                        <Text size="sm" color="text-low">
+                                          {table.shards} tables
+                                        </Text>
+                                      ) : null}
+                                      {!picker ? (
+                                        <span
+                                          className={clsx(
+                                            actionStyles.actions,
+                                            actionStyles.actionsEnd,
+                                          )}
+                                        >
+                                          <SchemaCopyButton
+                                            value={tablePath}
+                                            tooltip="Copy full table path"
                                           />
-                                        ) : null}
-                                      </span>
+                                          {updateSqlInput ? (
+                                            <SchemaSqlInsertButton
+                                              tooltip={`Insert SELECT * FROM ${tablePath} query into editor`}
+                                              onClick={() => {
+                                                selectTable(
+                                                  table.id,
+                                                  tablePath,
+                                                );
+                                                updateSqlInput(
+                                                  `SELECT * FROM ${tablePath}`,
+                                                );
+                                              }}
+                                            />
+                                          ) : null}
+                                        </span>
+                                      ) : null}
                                     </div>
                                   );
                                 })}
@@ -452,7 +507,7 @@ export default function SchemaBrowser({
           </SchemaBrowserWrapper>
         </Panel>
 
-        {currentTable && (
+        {currentTable && showTableData && (
           <>
             <PanelResizeHandle />
             <Panel id="table-data" order={2} defaultSize={50} minSize={5}>

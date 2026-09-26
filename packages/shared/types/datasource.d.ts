@@ -124,7 +124,8 @@ export interface SchemaFormatConfig {
     schema?: string;
   }) => string;
   getEventFilterWhereClause: (metricName: string) => string;
-  getDateLimitClause: (dates?: { start: Date; end: Date }) => string;
+  // Lower bound only: a day-precision upper bound drops the end date's rows
+  getDateLimitClause: (start?: Date) => string;
   displayNameColumn?: string;
 }
 

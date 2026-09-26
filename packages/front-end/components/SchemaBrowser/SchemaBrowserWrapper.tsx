@@ -19,6 +19,7 @@ export default function SchemaBrowserWrapper({
   fetching,
   tableFilter,
   onTableFilterChange,
+  autoFocusSearch,
 }: {
   children: React.ReactNode;
   datasourceName: string;
@@ -30,6 +31,7 @@ export default function SchemaBrowserWrapper({
   fetching: boolean;
   tableFilter: string;
   onTableFilterChange: (value: string) => void;
+  autoFocusSearch?: boolean;
 }) {
   const { apiCall } = useAuth();
 
@@ -101,6 +103,7 @@ export default function SchemaBrowserWrapper({
                 value={tableFilter}
                 onChange={(e) => onTableFilterChange(e.target.value)}
                 placeholder="Search..."
+                autoFocus={autoFocusSearch}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();

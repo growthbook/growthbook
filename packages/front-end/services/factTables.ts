@@ -1,6 +1,12 @@
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceType,
+} from "shared/types/datasource";
 import { DetectedFactTableColumn } from "shared/types/fact-table";
+import { Column } from "shared/types/integrations";
 import { Permissions } from "shared/permissions";
+import { mapDatabaseTypeToEnum } from "shared/enterprise";
+import { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 
 /**
  * Projects a new Fact Table should be created in. Inherits the Data Source's
@@ -57,4 +63,108 @@ export function getColumnMappingError(
     return "Your query must return separate timestamp and identifier columns.";
   }
   return null;
+}
+
+const tableSuffixFilter = (prefix: string) =>
+  `(_TABLE_SUFFIX BETWEEN '${prefix}{{date startDateISO "yyyyMMdd"}}' AND '${prefix}{{date endDateISO "yyyyMMdd"}}')`;
+
+const shardFilter = (hasIntraday?: boolean) =>
+  hasIntraday
+    ? `(${tableSuffixFilter("")} OR ${tableSuffixFilter("intraday_")})`
+    : tableSuffixFilter("");
+
+export function getGA4EventsSql(eventsTable: string): string {
+  return `SELECT
+  TIMESTAMP_MICROS(event_timestamp) as timestamp,
+  user_id,
+  user_pseudo_id as anonymous_id,
+  event_name,
+  geo.country,
+  device.category as device_category,
+  traffic_source.source,
+  traffic_source.medium,
+  traffic_source.name as campaign,
+  REGEXP_EXTRACT((SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location'), r'http[s]?:\\/\\/?[^\\/\\s]+\\/([^?]*)') as page_path,
+  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'session_engaged') as session_engaged,
+  event_value_in_usd,
+  CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS string) as session_id,
+  (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'engagement_time_msec')/1000 as engagement_time
+FROM
+  ${eventsTable}
+WHERE
+  ${shardFilter(true)}`;
+}
+
+const isGA4EventsTable = (table: SchemaBrowserTable) =>
+  !!table.shards &&
+  table.tableName === "events_*" &&
+  table.schemaName.startsWith("analytics_");
+
+export function getPickerTableError(
+  table: SchemaBrowserTable,
+  columns: Column[],
+): string | null {
+  // GA4's query builds its own timestamp and identifier columns
+  if (isGA4EventsTable(table)) return null;
+  return getColumnMappingError(
+    columns.map((c) => ({
+      column: c.columnName,
+      datatype: mapDatabaseTypeToEnum(c.dataType),
+    })),
+  );
+}
+
+// String partitions (Hive-style `dt`) can be any format; only dates are safe
+export function getPartitionFilterColumn(columns: Column[]): string {
+  return (
+    columns.find(
+      (c) => c.isPartition && mapDatabaseTypeToEnum(c.dataType) === "date",
+    )?.columnName ?? ""
+  );
+}
+
+// Pruning filters only, lower bound only: metric queries bound the timestamp
+export function getPickerTableSql(
+  table: SchemaBrowserTable,
+  partitionColumn = "",
+  datasourceType?: DataSourceType,
+): string {
+  if (isGA4EventsTable(table)) return getGA4EventsSql(table.path);
+
+  const where = table.shards ? [shardFilter(table.hasIntraday)] : [];
+  if (partitionColumn) {
+    const start = `'{{date startDateISO "yyyy-MM-dd"}}'`;
+    // Athena doesn't coerce a string literal when comparing it to a date
+    const literal = datasourceType === "athena" ? `DATE ${start}` : start;
+    where.push(`${partitionColumn} >= ${literal}`);
+  }
+
+  const select = `SELECT * FROM ${table.path}`;
+  return where.length
+    ? `${select}\nWHERE\n  ${where.join("\n  AND ")}`
+    : select;
+}
+
+// Trackers' own timestamps win over their other date columns
+const TIMESTAMP_CANDIDATES = [
+  "received_at",
+  "timestamp",
+  "event_time",
+  "collector_tstamp",
+];
+
+export function getDefaultTimestampColumn(
+  columns: DetectedFactTableColumn[],
+): string {
+  const dates = columns.filter((c) => c.datatype === "date");
+  const preferred = TIMESTAMP_CANDIDATES.map((name) =>
+    dates.find((c) => c.column.toLowerCase() === name),
+  ).find(Boolean);
+  return (preferred ?? dates[0])?.column ?? "";
+}
+
+export function getPickerTableName(table: SchemaBrowserTable): string {
+  return isGA4EventsTable(table)
+    ? "GA4 Events"
+    : table.tableName.replace(/_?\*$/, "");
 }

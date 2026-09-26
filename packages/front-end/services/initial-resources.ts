@@ -23,6 +23,7 @@ import {
 } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
 import { getTablePrefix } from "@/services/datasources";
+import { getGA4EventsSql } from "@/services/factTables";
 
 function generateColumns(
   cols: Record<string, Partial<ColumnInterface>>,
@@ -179,8 +180,7 @@ function getSegmentResources(
   context_campaign_medium as medium
 FROM ${tablePrefix}tracks
 WHERE
-  received_at >= '{{date startDateISO "yyyy-MM-dd"}}' 
-  AND received_at <= '{{date endDateISO "yyyy-MM-dd"}}'
+  received_at >= '{{date startDateISO "yyyy-MM-dd"}}'
 `.trim(),
           eventName: "",
           userIdTypes: ["user_id", "anonymous_id"],
@@ -213,8 +213,7 @@ WHERE
   context_campaign_medium as medium
 FROM ${tablePrefix}pages
 WHERE
-  received_at >= '{{date startDateISO "yyyy-MM-dd"}}' 
-  AND received_at <= '{{date endDateISO "yyyy-MM-dd"}}'
+  received_at >= '{{date startDateISO "yyyy-MM-dd"}}'
 `.trim(),
           eventName: "",
           userIdTypes: ["user_id", "anonymous_id"],
@@ -267,8 +266,7 @@ function getRudderstackResources(
   context_campaign_medium as medium
 FROM ${tablePrefix}tracks
 WHERE
-  received_at >= '{{date startDateISO "yyyy-MM-dd"}}' 
-  AND received_at <= '{{date endDateISO "yyyy-MM-dd"}}'
+  received_at >= '{{date startDateISO "yyyy-MM-dd"}}'
 `.trim(),
           eventName: "",
           userIdTypes: ["user_id", "anonymous_id"],
@@ -299,8 +297,7 @@ WHERE
   context_campaign_medium as medium
 FROM ${tablePrefix}pages
 WHERE
-  received_at >= '{{date startDateISO "yyyy-MM-dd"}}' 
-  AND received_at <= '{{date endDateISO "yyyy-MM-dd"}}'
+  received_at >= '{{date startDateISO "yyyy-MM-dd"}}'
 `.trim(),
           eventName: "",
           userIdTypes: ["user_id", "anonymous_id"],
@@ -361,8 +358,7 @@ SELECT
 FROM
   ${tablePrefix}EVENTS_${projectId}
 WHERE
-  event_time >= '{{date startDateISO "yyyy-MM-dd"}}'
-  AND event_time <= '{{date endDateISO "yyyy-MM-dd"}}'`.trim(),
+  event_time >= '{{date startDateISO "yyyy-MM-dd"}}'`.trim(),
           eventName: "",
           userIdTypes: ["user_id", ...(anonymous_attr ? [anonymous_attr] : [])],
           columns: generateColumns({
@@ -412,30 +408,11 @@ function getGA4Resources(
         factTable: {
           name: "GA4 Events",
           description: "",
-          sql: `
-  SELECT
-    TIMESTAMP_MICROS(event_timestamp) as timestamp,
-    user_id,
-    user_pseudo_id as anonymous_id,
-    event_name,
-    geo.country,
-    device.category as device_category,
-    traffic_source.source,
-    traffic_source.medium,
-    traffic_source.name as campaign,
-    REGEXP_EXTRACT((SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location'), r'http[s]?:\\/\\/?[^\\/\\s]+\\/([^?]*)') as page_path,
-    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'session_engaged') as session_engaged,
-    event_value_in_usd,
-    CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS string) as session_id,
-    (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'engagement_time_msec')/1000 as engagement_time
-  FROM
-    \`${params.defaultProject || "my_project"}\`.\`${
-      params.defaultDataset || "my_dataset"
-    }\`.\`events_*\`
-  WHERE
-    ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
-    (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
-              `.trim(),
+          sql: getGA4EventsSql(
+            `\`${params.defaultProject || "my_project"}\`.\`${
+              params.defaultDataset || "my_dataset"
+            }\`.\`events_*\``,
+          ),
           eventName: "",
           userIdTypes,
           columns: generateColumns({
