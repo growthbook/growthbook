@@ -751,7 +751,12 @@
                   "api/sdk-connections/operation/getSdkConnection",
                   "api/sdk-connections/operation/putSdkConnection",
                   "api/sdk-connections/operation/deleteSdkConnection",
-                  "api/sdk-connections/operation/lookupSdkConnectionByKey"
+                  "api/sdk-connections/operation/lookupSdkConnectionByKey",
+                  "api/sdk-connections/operation/listSdkConnectionWebhooks",
+                  "api/sdk-connections/operation/postSdkConnectionWebhook",
+                  "api/sdk-connections/operation/putSdkWebhook",
+                  "api/sdk-connections/operation/deleteSdkWebhook",
+                  "api/sdk-connections/operation/postSdkWebhookTest"
                 ]
               },
               {
@@ -926,6 +931,26 @@
                   "api/members/operation/listMembers",
                   "api/members/operation/updateMemberRole",
                   "api/members/operation/deleteMember"
+                ]
+              },
+              {
+                "group": "Event Webhooks",
+                "pages": [
+                  "api/event-webhooks/operation/listEventWebhooks",
+                  "api/event-webhooks/operation/postEventWebhook",
+                  "api/event-webhooks/operation/getEventWebhook",
+                  "api/event-webhooks/operation/putEventWebhook",
+                  "api/event-webhooks/operation/deleteEventWebhook",
+                  "api/event-webhooks/operation/listEventWebhookLogs",
+                  "api/event-webhooks/operation/postEventWebhookTest"
+                ]
+              },
+              {
+                "group": "Audit Logs",
+                "pages": [
+                  "api/audits/operation/listAudits",
+                  "api/audits/operation/listEvents",
+                  "api/audits/operation/getEvent"
                 ]
               },
               {
@@ -1121,6 +1146,16 @@
                   "api/AutoRuns/operation/updateAutoRun",
                   "api/AutoRuns/operation/appendAutoRunArtifact"
                 ]
+              },
+              {
+                "group": "Webhook Secrets",
+                "pages": [
+                  "api/WebhookSecrets/operation/getWebhookSecret",
+                  "api/WebhookSecrets/operation/updateWebhookSecret",
+                  "api/WebhookSecrets/operation/deleteWebhookSecret",
+                  "api/WebhookSecrets/operation/listWebhookSecrets",
+                  "api/WebhookSecrets/operation/createWebhookSecret"
+                ]
               }
             ]
           },
@@ -1131,6 +1166,7 @@
               "api/AnalyticsExploration_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/Audit_model",
               "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
@@ -1159,7 +1195,10 @@
               "api/DataSource_model",
               "api/Dimension_model",
               "api/Environment_model",
+              "api/Event_model",
               "api/EventUser_model",
+              "api/EventWebhook_model",
+              "api/EventWebhookLog_model",
               "api/Experiment_model",
               "api/Experiment Rule_model",
               "api/ExperimentAnalysisSettings_model",
@@ -1227,13 +1266,15 @@
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
+              "api/SdkWebhook_model",
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",
               "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
-              "api/VisualChangeset_model"
+              "api/VisualChangeset_model",
+              "api/WebhookSecret_model"
             ]
           }
         ]
