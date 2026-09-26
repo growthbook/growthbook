@@ -228,6 +228,7 @@ export default function InsertConstantButton({
   excludeKeys,
   iconOnly = false,
   iconMt = "2",
+  iconSize = "2",
 }: {
   valueType: "string" | "json";
   project?: string;
@@ -244,6 +245,7 @@ export default function InsertConstantButton({
    * with no label above it, where that offset reads as misalignment.
    */
   iconMt?: ComponentProps<typeof IconButton>["mt"];
+  iconSize?: "1" | "2";
 }) {
   const { constants } = useDefinitions();
 
@@ -275,7 +277,13 @@ export default function InsertConstantButton({
   if (!hasConstants) return null;
 
   const glyph = (
-    <span style={{ fontFamily: "monospace", fontWeight: 500 }}>
+    <span
+      style={{
+        fontFamily: "monospace",
+        fontWeight: 500,
+        ...(iconOnly && iconSize === "1" && { fontSize: "var(--font-size-1)" }),
+      }}
+    >
       {"{"}
       <span style={{ color: "var(--ruby-11)" }}>@</span>
       {"}"}
@@ -286,11 +294,11 @@ export default function InsertConstantButton({
   const trigger = iconOnly ? (
     <IconButton
       type="button"
-      size="2"
+      size={iconSize}
       variant="ghost"
       color="gray"
       disabled={disabled}
-      ml="1"
+      ml={iconSize === "1" ? "0" : "1"}
       mt={iconMt}
     >
       <Tooltip content="Insert Constant">

@@ -1,3 +1,4 @@
+import { CONSTANT_REF_PATTERN } from "shared/validators";
 import {
   FeatureInterface,
   FeatureValueType,
@@ -66,6 +67,8 @@ import {
   addJsonConstantExtends,
   buildStringRefInsertion,
 } from "@/components/Constants/jsonConstantInsert";
+import cornerStyles from "./CornerActions.module.scss";
+import { ActionsOverlay } from "./actionsOverlay";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -90,12 +93,18 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
+  // String only: copy overlaid on the field instead of under it.
+  actionsOverlay?: ActionsOverlay;
+  // String only: rendered over the field (below any label row); the caller
+  // positions it.
+  fieldOverlay?: ReactNode;
   // Renders the "Insert constant" picker as a compact square IconButton beside
   // the field (top-aligned) instead of on a label row above it, and hides the
   // copy button. Used by the inline config field editor.
   inlineConstantButton?: boolean;
   /** Pins the inline constant button to the first line of a tall field. */
   inlineConstantButtonAlign?: "center" | "start";
+  inlineConstantButtonSize?: "1" | "2";
   /** Size for the inner text fields; defaults to `Field`'s. */
   size?: ComponentProps<typeof Field>["size"];
   // JSON features only. Whether this rule value is a sparse patch (merged onto
@@ -145,8 +154,11 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
+  actionsOverlay,
+  fieldOverlay,
   inlineConstantButton = false,
   inlineConstantButtonAlign = "center",
+  inlineConstantButtonSize,
   size,
   sparse,
   setSparse,
@@ -160,7 +172,9 @@ export default function FeatureValueField({
   setEmptyStringConfirmed,
 }: Props) {
   // Inline mode also suppresses the copy button.
-  const copyHidden = hideCopyButton || inlineConstantButton;
+  // Inline mode has no room under the field, unless copy is overlaid on it.
+  const copyHidden =
+    hideCopyButton || (inlineConstantButton && !actionsOverlay);
   const { hasCommercialFeature } = useUser();
   const { configs } = useDefinitions();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -180,8 +194,11 @@ export default function FeatureValueField({
   const pickerExcludeKeys = constantContext?.excludeKeys;
   // Tags for the valid constants referenced in the current value, shown below
   // the editor's CTA row.
+  // Only when the value references one, so an empty tag row adds no help text.
   const usedConstantTags =
-    showConstantPicker && (valueType === "string" || valueType === "json") ? (
+    showConstantPicker &&
+    (valueType === "string" || valueType === "json") &&
+    new RegExp(CONSTANT_REF_PATTERN).test(value) ? (
       <UsedConstantTags
         value={value}
         valueType={valueType}
@@ -904,14 +921,16 @@ export default function FeatureValueField({
     </Tooltip>
   );
 
+  const copyUnderField = !copyHidden && !actionsOverlay;
   const combinedHelpTextForString =
-    valueType === "string" ? (
+    valueType === "string" &&
+    (helpText || usedConstantTags || copyUnderField) ? (
       <Flex align="start" gap="3" width="100%">
         <Box flexGrow="1" style={{ minWidth: 0 }}>
           {helpText}
           {usedConstantTags}
         </Box>
-        {!copyHidden && <Box flexShrink="0">{copyButton}</Box>}
+        {copyUnderField && <Box flexShrink="0">{copyButton}</Box>}
       </Flex>
     ) : (
       helpText
@@ -929,6 +948,7 @@ export default function FeatureValueField({
       onInsert={insertStringConstant}
       disabled={disabled}
       iconOnly={inlineConstantButton}
+      iconSize={inlineConstantButtonSize}
       // Inline has no label above to offset from.
       iconMt={inlineConstantButton ? "0" : undefined}
     />
@@ -982,13 +1002,48 @@ export default function FeatureValueField({
     />
   );
 
+  const overlaidField =
+    valueType === "string" &&
+    ((actionsOverlay && !copyHidden) || fieldOverlay) ? (
+      <Box
+        position="relative"
+        className={
+          actionsOverlay?.revealOnHover ? cornerStyles.hoverActions : undefined
+        }
+      >
+        {field}
+        {actionsOverlay && !copyHidden ? (
+          <Box
+            className={
+              actionsOverlay.revealOnHover ? cornerStyles.actions : undefined
+            }
+            style={{
+              position: "absolute",
+              bottom: 0,
+              right: 0,
+              ...actionsOverlay.style,
+            }}
+          >
+            {copyButton}
+          </Box>
+        ) : null}
+        {fieldOverlay}
+      </Box>
+    ) : (
+      field
+    );
+
   // Pinned centres on the first line (32px at size="md").
   const pinned = inlineConstantButtonAlign === "start";
   if (inlineConstantButton && stringInsertButton) {
     return (
       <>
-        <Flex align={pinned ? "start" : "center"} gap="2" width="100%">
-          <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
+        <Flex
+          align={pinned ? "start" : "center"}
+          gap={inlineConstantButtonSize === "1" ? "1" : "2"}
+          width="100%"
+        >
+          <Box style={{ flex: 1, minWidth: 0 }}>{overlaidField}</Box>
           <Box
             style={{
               flexShrink: 0,
@@ -1008,7 +1063,7 @@ export default function FeatureValueField({
   return (
     <>
       {stringLabelRow}
-      {field}
+      {overlaidField}
       {emptyStringConfirmField}
     </>
   );

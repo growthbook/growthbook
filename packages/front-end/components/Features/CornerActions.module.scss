@@ -1,0 +1,9 @@
+.hoverActions .actions {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.hoverActions:hover .actions,
+.hoverActions:focus-within .actions {
+  opacity: 1;
+}

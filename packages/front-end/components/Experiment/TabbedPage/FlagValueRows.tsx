@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { Fragment, ReactNode, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
@@ -7,12 +8,10 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import { FeatureValueType } from "shared/types/feature";
 import {
   castFeatureValue,
-  expandSparseToFull,
   getConfigSubtree,
   getFeatureBaseConfigKey,
   isManagedByExperiment,
   parsePlainJSONObject,
-  stripDefaultsForSparse,
   validateFeatureValue,
 } from "shared/util";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
@@ -34,7 +33,6 @@ import {
 import ForceSummary from "@/components/Features/ForceSummary";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
-import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { getEnvironmentStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
@@ -45,7 +43,9 @@ import {
   VARIATION_GRID_COLUMNS,
   variationGridMaxWidth,
 } from "@/components/Experiment/VariationsTable";
-import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Reviews/RevisionLabel";
 import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import ReviewFeedbackPopover from "@/components/Reviews/ReviewFeedbackPopover";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -58,7 +58,20 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
 import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
+import { ActionsOverlay } from "@/components/Features/actionsOverlay";
 import { useRegisterExperimentEdit } from "./ExperimentEdits";
+import FlagValuesModal from "./FlagValuesModal";
+import styles from "./FlagValueRows.module.scss";
+
+// Tight to each value's bottom-right corner, shown on hover.
+const JSON_ACTIONS: ActionsOverlay = {
+  revealOnHover: true,
+  style: { bottom: -9, right: 2, gap: "var(--space-2)" },
+};
+const STRING_ACTIONS: ActionsOverlay = {
+  revealOnHover: true,
+  style: { bottom: 0, right: 18 },
+};
 
 const VALUE_TYPE_ORDER: FeatureValueType[] = [
   "string",
@@ -181,6 +194,8 @@ function FlagValueRow({
     : feature.defaultValue;
 
   const [staged, setStaged] = useState<Staged | null>(null);
+  // The variation to focus when the values editor opens; undefined = closed.
+  const [editingValues, setEditingValues] = useState<string | null>();
   const storedValue = (variationId: string) =>
     values.find((v) => v.variationId === variationId)?.value;
   const valueFor = (variationId: string) =>
@@ -261,25 +276,6 @@ function FlagValueRow({
     });
   };
 
-  // Rewrites every value, like the rule editors; control is the base itself.
-  const toggleSparse = (checked: boolean) =>
-    stage({
-      sparse: checked,
-      values: Object.fromEntries(
-        variations
-          .filter((v) => !(managed && v.id === controlId))
-          .map((v) => {
-            const current = valueFor(v.id) ?? "";
-            return [
-              v.id,
-              checked
-                ? stripDefaultsForSparse(current, sparseBase)
-                : expandSparseToFull(current, sparseBase),
-            ];
-          }),
-      ),
-    });
-
   const dirty =
     !!staged &&
     (valueType !== storedType ||
@@ -335,10 +331,61 @@ function FlagValueRow({
     discard: () => setStaged(null),
   });
 
+  // Like the revision dropdown: a titled draft keeps its number in front.
   const draftLabel = pendingDraft
-    ? revisionLabelText(pendingDraft.version, pendingDraft.title)
+    ? revisionLabelText(
+        pendingDraft.version,
+        pendingDraft.title,
+        !!pendingDraft.title,
+      )
     : null;
-  const targetLabel = showLive ? "Live" : fromDraft ? draftLabel : "New draft";
+  const draftName = pendingDraft ? (
+    <span
+      style={{
+        display: "block",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        maxWidth: 180,
+      }}
+    >
+      <RevisionLabel
+        version={pendingDraft.version}
+        title={pendingDraft.title}
+        numbered={!!pendingDraft.title}
+        minWidth={0}
+        numberSize="inherit"
+        numberColor="inherit"
+      />
+    </span>
+  ) : null;
+  const targetLabel = showLive ? "Live" : fromDraft ? draftName : "New draft";
+  const targetTooltip = fromDraft ? (
+    <Box>
+      <Text size="sm">Changes here belong to feature revision:</Text>
+      <Box>
+        <Text size="sm" weight="semibold">
+          <RevisionLabel
+            version={pendingDraft.version}
+            title={pendingDraft.title}
+            numbered={!!pendingDraft.title}
+            minWidth={0}
+            numberSize="inherit"
+            numberColor="inherit"
+          />
+        </Text>
+      </Box>
+      {lockedBySchedule ? (
+        <Box mt="1">
+          <Text size="sm" color="text-low">
+            Locked until its scheduled publish.
+          </Text>
+        </Box>
+      ) : null}
+    </Box>
+  ) : !showLive ? (
+    "Changes here start a new feature revision."
+  ) : null;
   const canChooseTarget =
     canStartSeparateDraft && (editable || (!showLive && canEdit));
 
@@ -347,10 +394,12 @@ function FlagValueRow({
       <DropdownMenu
         trigger={
           <Link>
-            <Flex align="center" gap="1">
-              <Text size="sm">{targetLabel}</Text>
-              <PiCaretDownFill size={10} />
-            </Flex>
+            <Tooltip content={targetTooltip} enabled={!!targetTooltip}>
+              <Flex align="center" gap="1">
+                <Text size="sm">{targetLabel}</Text>
+                <PiCaretDownFill size={10} />
+              </Flex>
+            </Tooltip>
           </Link>
         }
         menuPlacement="end"
@@ -361,7 +410,7 @@ function FlagValueRow({
             setStaged(null);
           }}
         >
-          {draftLabel}
+          {draftName}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
@@ -373,17 +422,16 @@ function FlagValueRow({
         </DropdownMenuItem>
       </DropdownMenu>
     ) : (
-      <Tooltip
-        enabled={lockedBySchedule || editable}
-        content={
-          lockedBySchedule
-            ? "Locked until its scheduled publish"
-            : "Saving writes to this draft; publishing it changes what the experiment serves."
-        }
-      >
-        <Text size="sm" color="text-low">
-          {targetLabel}
-        </Text>
+      <Tooltip content={targetTooltip} enabled={!!targetTooltip}>
+        {/* The trigger takes the hover handlers, so it must be a plain element. */}
+        <span
+          style={{ display: "inline-flex" }}
+          className={styles.revisionLabel}
+        >
+          <Text size="sm" color="text-low">
+            {targetLabel}
+          </Text>
+        </span>
       </Tooltip>
     );
 
@@ -548,11 +596,20 @@ function FlagValueRow({
       ? `From ${draftLabel}. Takes effect when it's published, or when the experiment starts.`
       : `From ${draftLabel}. Takes effect when it's published.`;
 
+  // JSON is too big to edit in a cell, so it opens the values editor.
+  const isJson = valueType === "json";
   const controls =
-    editable && (sparseEligible || managed) ? (
+    editable && (isJson || managed) ? (
       <>
-        {sparseEligible ? (
-          <SparsePatchToggle checked={sparse} onChange={toggleSparse} />
+        {isJson ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<PiPencilSimple />}
+            onClick={() => setEditingValues(null)}
+          >
+            Edit values
+          </Button>
         ) : null}
         {managed ? (
           <Box width="160px">
@@ -578,6 +635,26 @@ function FlagValueRow({
     // As wide as the variation grid, with the same columns, and the inset
     // on each cell rather than the box, so every field sits inside its card.
     <Box className="appbox mb-0" py="3">
+      {editingValues !== undefined ? (
+        <FlagValuesModal
+          feature={displayFeature}
+          variations={variations}
+          initialValues={Object.fromEntries(
+            variations.map((v) => [v.id, valueFor(v.id) ?? ""]),
+          )}
+          initialSparse={sparse}
+          sparseEligible={sparseEligible}
+          baseDefault={storedDefault ?? ""}
+          controlId={managed ? (controlId ?? null) : null}
+          configBackingOptionKeys={configBackingOptionKeys}
+          close={() => setEditingValues(undefined)}
+          focusVariationId={editingValues}
+          apply={({ values: next, sparse: nextSparse }) => {
+            stage({ values: next, sparse: nextSparse });
+            setEditingValues(undefined);
+          }}
+        />
+      ) : null}
       {editEnvironments ? (
         <EditExperimentEnvironmentsModal
           experiment={experiment}
@@ -673,19 +750,24 @@ function FlagValueRow({
                     </span>
                   }
                   content={
+                    // The two settings get fixed columns so their marks line up.
                     <Grid
-                      columns="auto auto auto auto"
+                      columns="max-content 40px 40px max-content"
                       gapX="4"
                       gapY="2"
                       align="center"
                     >
                       <Box />
-                      <Text size="sm" color="text-low">
-                        Flag
-                      </Text>
-                      <Text size="sm" color="text-low">
-                        Rule
-                      </Text>
+                      <Flex justify="center">
+                        <Text size="sm" color="text-low">
+                          Flag
+                        </Text>
+                      </Flex>
+                      <Flex justify="center">
+                        <Text size="sm" color="text-low">
+                          Rule
+                        </Text>
+                      </Flex>
                       <Box />
                       {environmentStates.map(({ env, state, isActive }) => {
                         const input = environmentInputs?.[env];
@@ -695,33 +777,49 @@ function FlagValueRow({
                           value: boolean | null,
                           moved: boolean,
                         ) => (
-                          <Flex align="center" gap="1">
-                            {value === null ? (
-                              <Text size="sm" color="text-low">
-                                —
-                              </Text>
-                            ) : (
-                              // Same marks as a feature rule's environment badges.
-                              <Box
-                                aria-label={value ? "On" : "Off"}
-                                style={{ display: "flex" }}
-                              >
-                                {value ? (
-                                  <FaRegCircleCheck
-                                    size={14}
-                                    style={{ color: "var(--green-11)" }}
-                                  />
-                                ) : (
-                                  <FaRegCircleXmark
-                                    size={14}
-                                    style={{ color: "var(--gray-8)" }}
-                                  />
-                                )}
-                              </Box>
-                            )}
-                            {moved ? (
-                              <UnpublishedDot tooltip="Changed in the draft" />
-                            ) : null}
+                          <Flex align="center" justify="center">
+                            <Box
+                              position="relative"
+                              style={{ display: "flex" }}
+                            >
+                              {value === null ? (
+                                <Text size="sm" color="text-low">
+                                  —
+                                </Text>
+                              ) : (
+                                // Same marks as a feature rule's environment badges.
+                                <Box
+                                  aria-label={value ? "On" : "Off"}
+                                  style={{ display: "flex" }}
+                                >
+                                  {value ? (
+                                    <FaRegCircleCheck
+                                      size={14}
+                                      style={{ color: "var(--green-11)" }}
+                                    />
+                                  ) : (
+                                    <FaRegCircleXmark
+                                      size={14}
+                                      style={{ color: "var(--gray-8)" }}
+                                    />
+                                  )}
+                                </Box>
+                              )}
+                              {/* Beside the mark, not in the flow, so the mark stays centered. */}
+                              {moved ? (
+                                <Box
+                                  position="absolute"
+                                  style={{
+                                    left: "100%",
+                                    top: "50%",
+                                    transform: "translateY(-50%)",
+                                    marginLeft: 4,
+                                  }}
+                                >
+                                  <UnpublishedDot tooltip="Changed in the draft" />
+                                </Box>
+                              ) : null}
+                            </Box>
                           </Flex>
                         );
                         return (
@@ -798,7 +896,7 @@ function FlagValueRow({
                 background: "var(--gray-a5)",
               }}
             />
-            {targetControl}
+            <Box mr="2">{targetControl}</Box>
             {pendingDraft || canRemove ? (
               <DropdownMenu
                 trigger={
@@ -853,7 +951,20 @@ function FlagValueRow({
       <Grid columns={VARIATION_GRID_COLUMNS} gap="4">
         {variations.map((v) => {
           const value = valueFor(v.id);
-          const block = valueType === "json";
+          const block = isJson;
+          // On the value's corner, so it takes no room in the row.
+          const draftDot =
+            draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
+              <Box
+                position="absolute"
+                style={{ top: -3, right: -3, zIndex: 1, lineHeight: 0 }}
+              >
+                <UnpublishedDot tooltip="Unpublished draft value" />
+              </Box>
+            ) : null;
+          // A string field has a label row above it; the dot goes on the
+          // field itself, so the field places it.
+          const fieldPlacesDot = editable && valueType === "string";
           return (
             <Flex
               key={v.id}
@@ -862,11 +973,17 @@ function FlagValueRow({
               px="3"
               minWidth="0"
             >
-              <Box flexShrink="0" mt={block ? "1" : "0"}>
+              {/* On a one-line field's centre line, whatever the type. */}
+              <Box flexShrink="0" mt={block ? "2" : "0"}>
                 <VariationNumber number={v.index} />
               </Box>
-              <Box flexGrow="1" minWidth="0">
-                {editable ? (
+              <Box
+                flexGrow="1"
+                minWidth="0"
+                position="relative"
+                className={styles.valueCell}
+              >
+                {editable && !isJson ? (
                   <FeatureValueField
                     id={`flag-${feature.id}-${v.id}`}
                     value={value ?? ""}
@@ -875,6 +992,11 @@ function FlagValueRow({
                     feature={displayFeature}
                     renderJSONInline
                     useDropdown
+                    // Beside the field, so every type's cell is one line tall.
+                    inlineConstantButton
+                    inlineConstantButtonSize="1"
+                    actionsOverlay={STRING_ACTIONS}
+                    fieldOverlay={draftDot}
                     useCodeInput
                     showFullscreenButton
                     sparse={sparse}
@@ -883,22 +1005,51 @@ function FlagValueRow({
                     configBackingShowPatch={!!configKey}
                     lockConfigBacking={!!configKey}
                   />
-                ) : value === undefined ? (
+                ) : value === undefined && !isJson ? (
                   <HelperText status="warning">No value set</HelperText>
                 ) : (
-                  <ForceSummary
-                    label={null}
-                    value={value}
-                    feature={displayFeature}
-                    sparse={sparse}
-                    fontSize="0.75rem"
-                    lineHeight={1.35}
-                  />
+                  <Box
+                    className={
+                      isJson
+                        ? clsx(
+                            styles.jsonValue,
+                            value === undefined && styles.jsonEmpty,
+                          )
+                        : undefined
+                    }
+                  >
+                    {value === undefined ? (
+                      <HelperText status="warning">No value set</HelperText>
+                    ) : (
+                      <ForceSummary
+                        label={null}
+                        value={value}
+                        feature={displayFeature}
+                        sparse={sparse}
+                        fontSize="0.7rem"
+                        lineHeight={1.3}
+                        actionsOverlay={JSON_ACTIONS}
+                      />
+                    )}
+                    {editable && isJson ? (
+                      <Tooltip content="Edit values">
+                        <IconButton
+                          className={styles.editValue}
+                          variant="ghost"
+                          color="violet"
+                          radius="medium"
+                          size="1"
+                          onClick={() => setEditingValues(v.id)}
+                          aria-label={`Edit ${v.name || `Variation ${v.index}`} value`}
+                        >
+                          <PiPencilSimple size="16" />
+                        </IconButton>
+                      </Tooltip>
+                    ) : null}
+                  </Box>
                 )}
+                {fieldPlacesDot ? null : draftDot}
               </Box>
-              {draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
-                <UnpublishedDot tooltip="Unpublished draft value" />
-              ) : null}
             </Flex>
           );
         })}

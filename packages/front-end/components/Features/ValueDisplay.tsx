@@ -24,6 +24,8 @@ import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+import cornerStyles from "./CornerActions.module.scss";
+import { ActionsOverlay } from "./actionsOverlay";
 
 // For sparse JSON rules, the stored `value` is only the patch. We display the
 // fully expanded value (default merged with the patch) and bold the keys that
@@ -75,6 +77,7 @@ export default function ValueDisplay({
   showCopyButton = true,
   copyButtonClassName,
   isFullscreen = false,
+  actionsOverlay,
   sparse = false,
   defaultValue,
   fullscreenHeader = "Feature Value",
@@ -94,6 +97,7 @@ export default function ValueDisplay({
   // row hover) without affecting other ValueDisplay usages.
   copyButtonClassName?: string;
   isFullscreen?: boolean;
+  actionsOverlay?: ActionsOverlay;
   // Header for the fullscreen modal (e.g. "Constant Value" when reused outside features).
   fullscreenHeader?: string;
   // When true (JSON rules flagged sparse), `value` is a partial patch. We show
@@ -215,7 +219,12 @@ export default function ValueDisplay({
 
   return (
     <>
-      <Box position="relative">
+      <Box
+        position="relative"
+        className={
+          actionsOverlay?.revealOnHover ? cornerStyles.hoverActions : undefined
+        }
+      >
         <Box ref={scrollBoxRef} style={fullStyle} className={fullClassName}>
           <InlineCode
             language="json"
@@ -230,10 +239,14 @@ export default function ValueDisplay({
           <Flex
             align="center"
             gap="3"
+            className={
+              actionsOverlay?.revealOnHover ? cornerStyles.actions : undefined
+            }
             style={{
               position: "absolute",
               bottom: -4,
               right: 16,
+              ...actionsOverlay?.style,
             }}
           >
             {showCopyButton && (type === "json" || type === "string") ? (

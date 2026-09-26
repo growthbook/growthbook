@@ -1,3 +1,4 @@
+import { ComponentProps } from "react";
 import { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
 
@@ -15,12 +16,15 @@ export default function RevisionLabel({
   numbered = true,
   minWidth = "1.9em",
   numberSize = "sm",
+  numberColor = "text-mid",
 }: {
   version: number;
   title?: string | null;
   numbered?: boolean;
   minWidth?: string | number;
   numberSize?: Size<"sm" | "md" | "lg" | "xl"> | "inherit";
+  // "inherit" follows the surrounding text, e.g. on a dark tooltip.
+  numberColor?: ComponentProps<typeof Text>["color"] | "inherit";
 }) {
   return (
     <>
@@ -33,9 +37,15 @@ export default function RevisionLabel({
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          <Text as="span" color="text-mid" size={numberSize}>
-            {version}.
-          </Text>
+          {numberColor === "inherit" ? (
+            <Text as="span" size={numberSize}>
+              {version}.
+            </Text>
+          ) : (
+            <Text as="span" color={numberColor} size={numberSize}>
+              {version}.
+            </Text>
+          )}
         </span>
       )}
       {title ? title : `Revision ${version}`}

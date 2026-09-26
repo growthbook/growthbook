@@ -1,0 +1,50 @@
+.jsonValue {
+  position: relative;
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
+}
+
+// The same height as a one-line field, so empty and string cells match.
+.jsonEmpty {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  box-sizing: border-box;
+}
+
+.editValue {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.jsonValue:hover .editValue,
+.jsonValue:focus-within .editValue {
+  opacity: 1;
+}
+
+// An inline textarea leaves baseline space under it, which pushes the
+// variation number and constant button off the field's centre.
+.valueCell textarea {
+  display: block;
+}
+
+// Not a control, but it has a tooltip, so it reads as one on hover.
+.revisionLabel,
+.revisionLabel span {
+  text-decoration-color: var(--gray-a8);
+  text-underline-offset: 2px;
+}
+
+.revisionLabel {
+  cursor: default;
+
+  // The number sits in an inline-block, which doesn't inherit the line.
+  &:hover,
+  &:hover span {
+    text-decoration-line: underline;
+  }
+}

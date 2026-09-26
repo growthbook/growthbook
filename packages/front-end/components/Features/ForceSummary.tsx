@@ -4,6 +4,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Text from "@/ui/Text";
 import ValueDisplay from "./ValueDisplay";
+import { ActionsOverlay } from "./actionsOverlay";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 
 export default function ForceSummary({
@@ -16,6 +17,7 @@ export default function ForceSummary({
   label = "SERVE",
   fontSize,
   lineHeight,
+  actionsOverlay,
 }: {
   value: string;
   feature: FeatureInterface;
@@ -27,6 +29,7 @@ export default function ForceSummary({
   // Denser type for a cramped surface; defaults are ValueDisplay's own.
   fontSize?: string;
   lineHeight?: number;
+  actionsOverlay?: ActionsOverlay;
   // The feature's default value (vs a rule). A config-backed default is a pure
   // config with no overrides, so the "with overrides" tag never applies to it.
   isDefault?: boolean;
@@ -70,6 +73,7 @@ export default function ForceSummary({
             defaultValue={feature.defaultValue}
             fontSize={fontSize}
             lineHeight={lineHeight}
+            actionsOverlay={actionsOverlay}
             fullStyle={{
               maxHeight: maxHeight ?? 150,
               overflowY: "auto",
