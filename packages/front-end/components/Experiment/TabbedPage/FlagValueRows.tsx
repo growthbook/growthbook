@@ -32,7 +32,6 @@ import {
 } from "react-icons/fa6";
 import ForceSummary from "@/components/Features/ForceSummary";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { getEnvironmentStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
@@ -71,6 +70,13 @@ const JSON_ACTIONS: ActionsOverlay = {
 const STRING_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
   style: { bottom: 0, right: 18 },
+};
+
+const TYPE_NAMES: Record<FeatureValueType, string> = {
+  string: "String",
+  number: "Number",
+  json: "JSON",
+  boolean: "Boolean",
 };
 
 const VALUE_TYPE_ORDER: FeatureValueType[] = [
@@ -118,6 +124,13 @@ export default function FlagValueRows({
 
   if (!linkedFeatures.length || !variations.length) return null;
 
+  const managedFlags = linkedFeatures.filter((info) =>
+    isManagedByExperiment(info.feature, experiment.id),
+  );
+  const linkedFlags = linkedFeatures.filter(
+    (info) => !managedFlags.includes(info),
+  );
+
   return (
     <Flex
       direction="column"
@@ -127,11 +140,24 @@ export default function FlagValueRows({
       width="100%"
       style={{ maxWidth: variationGridMaxWidth(cols) }}
     >
-      {/* The list's gap already spaces it; pull the rows up under it. */}
-      <ImplementationHeading mt="2" mb="-2">
-        Feature Flags
-      </ImplementationHeading>
-      {linkedFeatures.map((info) => (
+      {/* Values first: the experiment's own flag, then linked ones. */}
+      {managedFlags.map((info) => (
+        <FlagValueRow
+          key={info.feature.id}
+          experiment={experiment}
+          info={info}
+          canEdit={canEdit}
+          showLive={showLive}
+          mutate={mutate}
+        />
+      ))}
+      {linkedFlags.length ? (
+        // The list's gap already spaces it; pull the rows up under it.
+        <ImplementationHeading mt="2" mb="-2">
+          Feature Flags
+        </ImplementationHeading>
+      ) : null}
+      {linkedFlags.map((info) => (
         <FlagValueRow
           key={info.feature.id}
           experiment={experiment}
@@ -403,6 +429,7 @@ function FlagValueRow({
           </Link>
         }
         menuPlacement="end"
+        variant="soft"
       >
         <DropdownMenuItem
           onClick={() => {
@@ -495,38 +522,44 @@ function FlagValueRow({
       ) : undefined,
     });
   }
-  if (shownDraft?.hasMergeConflict) {
-    notices.push({
-      status: "error",
-      text: "This draft conflicts with live and can't publish until that's resolved.",
-      action: draftLink("Fix conflicts"),
-    });
-  } else if (shownDraft?.rebaseRequired) {
-    notices.push({
-      status: "warning",
-      text: "Live has moved on since this draft. Update it from live before it can publish.",
-      action: draftLink("Review draft"),
-    });
-  } else if (shownDraft?.hasUnrelatedDraftChanges) {
-    notices.push({
-      status: "error",
-      text: launches
-        ? "This draft also changes things outside this experiment, so it won't publish when the experiment starts. Remove those edits, or publish the draft from the Feature Flag."
-        : "This draft also changes things outside this experiment. Publish it from the Feature Flag.",
-      action: draftLink("Review draft"),
-    });
-  } else if (shownDraft && !lockedBySchedule) {
-    notices.push({
-      status: "info",
-      text: needsApproval
-        ? launches
-          ? "Needs approval. Once approved, it publishes when the experiment starts."
-          : "Needs approval before it can publish."
-        : launches
-          ? "Publishes when the experiment starts, or publish it from the Feature Flag."
-          : "Publish it from the Feature Flag to change what this experiment serves.",
-      action: draftLink(needsApproval ? "Review and approve" : "Review draft"),
-    });
+  // A managed flag's draft is reviewed and published through the
+  // experiment's own flow, so none of the flag-page routes apply.
+  if (!managed) {
+    if (shownDraft?.hasMergeConflict) {
+      notices.push({
+        status: "error",
+        text: "This draft conflicts with live and can't publish until that's resolved.",
+        action: draftLink("Fix conflicts"),
+      });
+    } else if (shownDraft?.rebaseRequired) {
+      notices.push({
+        status: "warning",
+        text: "Live has moved on since this draft. Update it from live before it can publish.",
+        action: draftLink("Review draft"),
+      });
+    } else if (shownDraft?.hasUnrelatedDraftChanges) {
+      notices.push({
+        status: "error",
+        text: launches
+          ? "This draft also changes things outside this experiment, so it won't publish when the experiment starts. Remove those edits, or publish the draft from the Feature Flag."
+          : "This draft also changes things outside this experiment. Publish it from the Feature Flag.",
+        action: draftLink("Review draft"),
+      });
+    } else if (shownDraft && !lockedBySchedule) {
+      notices.push({
+        status: "info",
+        text: needsApproval
+          ? launches
+            ? "Needs approval. Once approved, it publishes when the experiment starts."
+            : "Needs approval before it can publish."
+          : launches
+            ? "Publishes when the experiment starts, or publish it from the Feature Flag."
+            : "Publish it from the Feature Flag to change what this experiment serves.",
+        action: draftLink(
+          needsApproval ? "Review and approve" : "Review draft",
+        ),
+      });
+    }
   }
   if (lockedBySchedule) {
     notices.push({
@@ -599,461 +632,494 @@ function FlagValueRow({
   // JSON is too big to edit in a cell, so it opens the values editor.
   const isJson = valueType === "json";
   const controls =
-    editable && (isJson || managed) ? (
-      <>
-        {isJson ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<PiPencilSimple />}
-            onClick={() => setEditingValues(null)}
-          >
-            Edit values
-          </Button>
-        ) : null}
-        {managed ? (
-          <Box width="160px">
-            <ValueTypeField
-              size="sm"
-              value={valueType}
-              order={VALUE_TYPE_ORDER}
-              disabledOptions={
-                variations.length > 2
-                  ? { boolean: "needs exactly two variations" }
-                  : undefined
-              }
-              onChange={(v) => {
-                if (v !== "config") changeType(v);
-              }}
-            />
-          </Box>
-        ) : null}
-      </>
+    editable && isJson ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={<PiPencilSimple />}
+        onClick={() => setEditingValues(null)}
+      >
+        Edit values
+      </Button>
     ) : null;
 
-  return (
-    // As wide as the variation grid, with the same columns, and the inset
-    // on each cell rather than the box, so every field sits inside its card.
-    <Box className="appbox mb-0" py="3">
-      {editingValues !== undefined ? (
-        <FlagValuesModal
-          feature={displayFeature}
-          variations={variations}
-          initialValues={Object.fromEntries(
-            variations.map((v) => [v.id, valueFor(v.id) ?? ""]),
-          )}
-          initialSparse={sparse}
-          sparseEligible={sparseEligible}
-          baseDefault={storedDefault ?? ""}
-          controlId={managed ? (controlId ?? null) : null}
-          configBackingOptionKeys={configBackingOptionKeys}
-          close={() => setEditingValues(undefined)}
-          focusVariationId={editingValues}
-          apply={({ values: next, sparse: nextSparse }) => {
-            stage({ values: next, sparse: nextSparse });
-            setEditingValues(undefined);
-          }}
-        />
-      ) : null}
-      {editEnvironments ? (
-        <EditExperimentEnvironmentsModal
-          experiment={experiment}
-          info={info}
-          close={() => setEditEnvironments(false)}
-          mutate={mutate}
-        />
-      ) : null}
-      {managed ? (
-        controls ? (
-          <Flex align="center" justify="end" gap="3" mb="3" px="3">
-            {controls}
+  const typeBlocked: Partial<Record<FeatureValueType, string>> =
+    variations.length > 2 ? { boolean: "Needs exactly two variations" } : {};
+  const valueTypeControl = editable ? (
+    <DropdownMenu
+      trigger={
+        <Link color="dark">
+          <Flex align="center" gap="1">
+            <Text size="sm">{TYPE_NAMES[valueType]}</Text>
+            <PiCaretDownFill size={10} />
           </Flex>
-        ) : null
-      ) : (
-        <Flex
-          align="center"
-          gap="3"
-          px="3"
-          pb="3"
-          mb="3"
-          wrap="wrap"
-          style={{ borderBottom: "1px solid var(--gray-a5)" }}
+        </Link>
+      }
+      menuPlacement="end"
+      variant="soft"
+    >
+      {VALUE_TYPE_ORDER.map((t) => (
+        <DropdownMenuItem
+          key={t}
+          disabled={!!typeBlocked[t] && t !== valueType}
+          onClick={() => changeType(t)}
         >
-          <Flex align="center" gap="2" minWidth="0">
-            <PiFlag style={{ color: "var(--color-text-low)" }} />
-            {/* A new tab, so following it never costs the page's unsaved edits. */}
-            <Link
-              href={`/features/${feature.id}`}
-              target="_blank"
-              rel="noreferrer"
-              weight="medium"
-            >
-              {feature.id}
-            </Link>
+          <Tooltip
+            content={typeBlocked[t]}
+            side="left"
+            enabled={!!typeBlocked[t] && t !== valueType}
+          >
+            <span>{TYPE_NAMES[t]}</span>
+          </Tooltip>
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenu>
+  ) : (
+    <Text size="sm">{TYPE_NAMES[valueType]}</Text>
+  );
+
+  return (
+    <>
+      {managed ? (
+        // The list's gap already spaces it; pull the box up under it.
+        <Flex align="center" justify="between" mt="2" mb="-2">
+          <ImplementationHeading mt="0" mb="0">
+            Values
+          </ImplementationHeading>
+          <Flex align="center" gap="1">
+            <Text size="sm" color="text-low">
+              Type:
+            </Text>
+            {valueTypeControl}
           </Flex>
-          {problem ? (
-            <Flex align="center" gap="1" style={{ color: "var(--amber-11)" }}>
-              <PiWarningFill />
-              <Text size="sm" weight="medium">
-                {problem}
-              </Text>
+        </Flex>
+      ) : null}
+      {/* As wide as the variation grid, with the same columns, and the inset
+          on each cell rather than the box, so every field sits inside its card. */}
+      <Box className="appbox mb-0" py="3">
+        {editingValues !== undefined ? (
+          <FlagValuesModal
+            feature={displayFeature}
+            variations={variations}
+            initialValues={Object.fromEntries(
+              variations.map((v) => [v.id, valueFor(v.id) ?? ""]),
+            )}
+            initialSparse={sparse}
+            sparseEligible={sparseEligible}
+            baseDefault={storedDefault ?? ""}
+            controlId={managed ? (controlId ?? null) : null}
+            configBackingOptionKeys={configBackingOptionKeys}
+            close={() => setEditingValues(undefined)}
+            focusVariationId={editingValues}
+            apply={({ values: next, sparse: nextSparse }) => {
+              stage({ values: next, sparse: nextSparse });
+              setEditingValues(undefined);
+            }}
+          />
+        ) : null}
+        {editEnvironments ? (
+          <EditExperimentEnvironmentsModal
+            experiment={experiment}
+            info={info}
+            close={() => setEditEnvironments(false)}
+            mutate={mutate}
+          />
+        ) : null}
+        {managed ? (
+          controls ? (
+            <Flex align="center" justify="end" gap="3" mb="3" px="3">
+              {controls}
             </Flex>
-          ) : shownDraft &&
-            ["pending-review", "changes-requested", "approved"].includes(
-              shownDraft.status,
-            ) ? (
-            <ReviewFeedbackPopover
-              featureId={feature.id}
-              version={shownDraft.version}
-              reviewHref={draftHref}
-            >
+          ) : null
+        ) : (
+          <Flex
+            align="center"
+            gap="3"
+            px="3"
+            pb="3"
+            mb="3"
+            wrap="wrap"
+            style={{ borderBottom: "1px solid var(--gray-a5)" }}
+          >
+            <Flex align="center" gap="2" minWidth="0">
+              <PiFlag style={{ color: "var(--color-text-low)" }} />
+              {/* A new tab, so following it never costs the page's unsaved edits. */}
+              <Link
+                href={`/features/${feature.id}`}
+                target="_blank"
+                rel="noreferrer"
+                weight="medium"
+              >
+                {feature.id}
+              </Link>
+            </Flex>
+            {problem ? (
+              <Flex align="center" gap="1" style={{ color: "var(--amber-11)" }}>
+                <PiWarningFill />
+                <Text size="sm" weight="medium">
+                  {problem}
+                </Text>
+              </Flex>
+            ) : shownDraft &&
+              ["pending-review", "changes-requested", "approved"].includes(
+                shownDraft.status,
+              ) ? (
+              <ReviewFeedbackPopover
+                featureId={feature.id}
+                version={shownDraft.version}
+                reviewHref={draftHref}
+              >
+                <RevisionStatusBadge
+                  revision={shownDraft}
+                  liveVersion={feature.version}
+                />
+              </ReviewFeedbackPopover>
+            ) : (
               <RevisionStatusBadge
-                revision={shownDraft}
+                revision={
+                  shownDraft ?? {
+                    version: feature.version,
+                    status: "published",
+                  }
+                }
                 liveVersion={feature.version}
               />
-            </ReviewFeedbackPopover>
-          ) : (
-            <RevisionStatusBadge
-              revision={
-                shownDraft ?? {
-                  version: feature.version,
-                  status: "published",
-                }
-              }
-              liveVersion={feature.version}
-            />
-          )}
-          <Flex align="center" gap="3" ml="auto">
-            {controls}
-            <Flex align="center" gap="1">
-              {environmentStates.length ? (
-                <Popover
-                  openOnHover
-                  side="top"
-                  align="end"
-                  avoidCollisions={false}
-                  trigger={
-                    // The trigger takes the hover handlers, so it must be a plain element.
-                    <span
-                      style={{
-                        cursor: "default",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "var(--space-1)",
-                      }}
-                    >
-                      {environmentsChanged ? <UnpublishedDot /> : null}
-                      <Text size="sm" color="text-low">
-                        Environments {activeEnvironments.length}/
-                        {environmentStates.length}
-                      </Text>
-                    </span>
-                  }
-                  content={
-                    // The two settings get fixed columns so their marks line up.
-                    <Grid
-                      columns="max-content 40px 40px max-content"
-                      gapX="4"
-                      gapY="2"
-                      align="center"
-                    >
-                      <Box />
-                      <Flex justify="center">
+            )}
+            <Flex align="center" gap="3" ml="auto">
+              {controls}
+              <Flex align="center" gap="1">
+                {environmentStates.length ? (
+                  <Popover
+                    openOnHover
+                    side="top"
+                    align="end"
+                    avoidCollisions={false}
+                    trigger={
+                      // The trigger takes the hover handlers, so it must be a plain element.
+                      <span
+                        style={{
+                          cursor: "default",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "var(--space-1)",
+                        }}
+                      >
+                        {environmentsChanged ? <UnpublishedDot /> : null}
                         <Text size="sm" color="text-low">
-                          Flag
+                          Environments {activeEnvironments.length}/
+                          {environmentStates.length}
                         </Text>
-                      </Flex>
-                      <Flex justify="center">
-                        <Text size="sm" color="text-low">
-                          Rule
-                        </Text>
-                      </Flex>
-                      <Box />
-                      {environmentStates.map(({ env, state, isActive }) => {
-                        const input = environmentInputs?.[env];
-                        const changed = changedInputs(env);
-                        // null: nothing known about this environment.
-                        const setting = (
-                          value: boolean | null,
-                          moved: boolean,
-                        ) => (
-                          <Flex align="center" justify="center">
-                            <Box
-                              position="relative"
-                              style={{ display: "flex" }}
-                            >
-                              {value === null ? (
-                                <Text size="sm" color="text-low">
-                                  —
-                                </Text>
-                              ) : (
-                                // Same marks as a feature rule's environment badges.
-                                <Box
-                                  aria-label={value ? "On" : "Off"}
-                                  style={{ display: "flex" }}
-                                >
-                                  {value ? (
-                                    <FaRegCircleCheck
-                                      size={14}
-                                      style={{ color: "var(--green-11)" }}
-                                    />
-                                  ) : (
-                                    <FaRegCircleXmark
-                                      size={14}
-                                      style={{ color: "var(--gray-8)" }}
-                                    />
-                                  )}
-                                </Box>
-                              )}
-                              {/* Beside the mark, not in the flow, so the mark stays centered. */}
-                              {moved ? (
-                                <Box
-                                  position="absolute"
-                                  style={{
-                                    left: "100%",
-                                    top: "50%",
-                                    transform: "translateY(-50%)",
-                                    marginLeft: 4,
-                                  }}
-                                >
-                                  <UnpublishedDot tooltip="Changed in the draft" />
-                                </Box>
-                              ) : null}
-                            </Box>
-                          </Flex>
-                        );
-                        return (
-                          <Fragment key={env}>
-                            <span
-                              style={{
-                                color: isActive ? undefined : "var(--gray-8)",
-                                fontWeight: isActive ? 500 : 300,
-                              }}
-                            >
-                              {env}
-                            </span>
-                            {setting(
-                              input ? input.flagEnabled : null,
-                              changed.flag,
-                            )}
-                            {/* A rule that doesn't target the environment is off there too. */}
-                            {setting(
-                              input ? input.rule === "on" : null,
-                              changed.rule,
-                            )}
-                            <Flex align="center" gap="1">
+                      </span>
+                    }
+                    content={
+                      // The two settings get fixed columns so their marks line up.
+                      <Grid
+                        columns="max-content 40px 40px max-content"
+                        gapX="4"
+                        gapY="2"
+                        align="center"
+                      >
+                        <Box />
+                        <Flex justify="center">
+                          <Text size="sm" color="text-low">
+                            Flag
+                          </Text>
+                        </Flex>
+                        <Flex justify="center">
+                          <Text size="sm" color="text-low">
+                            Rule
+                          </Text>
+                        </Flex>
+                        <Box />
+                        {environmentStates.map(({ env, state, isActive }) => {
+                          const input = environmentInputs?.[env];
+                          const changed = changedInputs(env);
+                          // null: nothing known about this environment.
+                          const setting = (
+                            value: boolean | null,
+                            moved: boolean,
+                          ) => (
+                            <Flex align="center" justify="center">
                               <Box
+                                position="relative"
+                                style={{ display: "flex" }}
+                              >
+                                {value === null ? (
+                                  <Text size="sm" color="text-low">
+                                    —
+                                  </Text>
+                                ) : (
+                                  // Same marks as a feature rule's environment badges.
+                                  <Box
+                                    aria-label={value ? "On" : "Off"}
+                                    style={{ display: "flex" }}
+                                  >
+                                    {value ? (
+                                      <FaRegCircleCheck
+                                        size={14}
+                                        style={{ color: "var(--green-11)" }}
+                                      />
+                                    ) : (
+                                      <FaRegCircleXmark
+                                        size={14}
+                                        style={{ color: "var(--gray-8)" }}
+                                      />
+                                    )}
+                                  </Box>
+                                )}
+                                {/* Beside the mark, not in the flow, so the mark stays centered. */}
+                                {moved ? (
+                                  <Box
+                                    position="absolute"
+                                    style={{
+                                      left: "100%",
+                                      top: "50%",
+                                      transform: "translateY(-50%)",
+                                      marginLeft: 4,
+                                    }}
+                                  >
+                                    <UnpublishedDot tooltip="Changed in the draft" />
+                                  </Box>
+                                ) : null}
+                              </Box>
+                            </Flex>
+                          );
+                          return (
+                            <Fragment key={env}>
+                              <span
                                 style={{
-                                  display: "flex",
-                                  color: isActive
-                                    ? "var(--green-11)"
-                                    : "var(--slate-9)",
+                                  color: isActive ? undefined : "var(--gray-8)",
+                                  fontWeight: isActive ? 500 : 300,
                                 }}
                               >
-                                {isActive ? (
-                                  <FaCircleCheck size={14} />
-                                ) : (
-                                  <FaCircleXmark size={14} />
-                                )}
-                              </Box>
-                              <Text size="sm" weight="medium">
-                                {ENVIRONMENT_STATE_LABELS[state] ?? state}
-                              </Text>
-                            </Flex>
-                          </Fragment>
-                        );
-                      })}
-                      {environmentsTiming ? (
-                        <Box gridColumn="1 / -1" mt="1">
-                          <Text size="sm" color="text-low">
-                            {environmentsTiming}
-                          </Text>
-                        </Box>
-                      ) : null}
-                    </Grid>
-                  }
-                />
-              ) : null}
-              {canEditFlag && environmentStates.length ? (
-                <Tooltip content="Edit environments">
-                  <IconButton
-                    variant="ghost"
-                    color="violet"
-                    radius="medium"
-                    size="1"
-                    onClick={() => setEditEnvironments(true)}
-                    aria-label="Edit environments"
-                  >
-                    <PiPencilSimple size="14" />
-                  </IconButton>
-                </Tooltip>
-              ) : null}
-            </Flex>
-            <Box
-              style={{
-                width: 1,
-                alignSelf: "stretch",
-                background: "var(--gray-a5)",
-              }}
-            />
-            <Box mr="2">{targetControl}</Box>
-            {pendingDraft || canRemove ? (
-              <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="1"
-                    highContrast
-                    aria-label={`${feature.id} actions`}
-                  >
-                    <BsThreeDotsVertical size={14} />
-                  </IconButton>
-                }
-                menuPlacement="end"
-                variant="soft"
-              >
-                {pendingDraft ? (
-                  <DropdownMenuItem>
-                    <Link
-                      href={`/features/${feature.id}?v=${pendingDraft.version}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      color="dark"
-                    >
-                      Review {draftLabel}
-                    </Link>
-                  </DropdownMenuItem>
-                ) : null}
-                {canRemove ? (
-                  <DropdownMenuItem color="red" onClick={removeFromExperiment}>
-                    Remove from experiment
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenu>
-            ) : null}
-          </Flex>
-        </Flex>
-      )}
-      {notices.length ? (
-        <Flex direction="column" gap="1" mb="3" px="3">
-          {notices.map((n, i) => (
-            <Flex key={i} align="baseline" gap="2" wrap="wrap">
-              <HelperText status={n.status} size="sm">
-                {n.text}
-              </HelperText>
-              {n.action ? <Text size="sm">{n.action}</Text> : null}
-            </Flex>
-          ))}
-        </Flex>
-      ) : null}
-      <Grid columns={VARIATION_GRID_COLUMNS} gap="4">
-        {variations.map((v) => {
-          const value = valueFor(v.id);
-          const block = isJson;
-          // On the value's corner, so it takes no room in the row.
-          const draftDot =
-            draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
-              <Box
-                position="absolute"
-                style={{ top: -3, right: -3, zIndex: 1, lineHeight: 0 }}
-              >
-                <UnpublishedDot tooltip="Unpublished draft value" />
-              </Box>
-            ) : null;
-          // A string field has a label row above it; the dot goes on the
-          // field itself, so the field places it.
-          const fieldPlacesDot = editable && valueType === "string";
-          return (
-            <Flex
-              key={v.id}
-              align={block ? "start" : "center"}
-              gap="2"
-              px="3"
-              minWidth="0"
-            >
-              {/* On a one-line field's centre line, whatever the type. */}
-              <Box flexShrink="0" mt={block ? "2" : "0"}>
-                <VariationNumber number={v.index} />
-              </Box>
-              <Box
-                flexGrow="1"
-                minWidth="0"
-                position="relative"
-                className={styles.valueCell}
-              >
-                {editable && !isJson ? (
-                  <FeatureValueField
-                    id={`flag-${feature.id}-${v.id}`}
-                    value={value ?? ""}
-                    setValue={(next) => stage({ values: { [v.id]: next } })}
-                    valueType={valueType}
-                    feature={displayFeature}
-                    renderJSONInline
-                    useDropdown
-                    // Beside the field, so every type's cell is one line tall.
-                    inlineConstantButton
-                    inlineConstantButtonSize="1"
-                    actionsOverlay={STRING_ACTIONS}
-                    fieldOverlay={draftDot}
-                    useCodeInput
-                    showFullscreenButton
-                    sparse={sparse}
-                    allowConfigBacking={!!configKey}
-                    configBackingOptionKeys={configBackingOptionKeys}
-                    configBackingShowPatch={!!configKey}
-                    lockConfigBacking={!!configKey}
-                  />
-                ) : value === undefined && !isJson ? (
-                  <HelperText status="warning">No value set</HelperText>
-                ) : (
-                  <Box
-                    className={
-                      isJson
-                        ? clsx(
-                            styles.jsonValue,
-                            value === undefined && styles.jsonEmpty,
-                          )
-                        : undefined
+                                {env}
+                              </span>
+                              {setting(
+                                input ? input.flagEnabled : null,
+                                changed.flag,
+                              )}
+                              {/* A rule that doesn't target the environment is off there too. */}
+                              {setting(
+                                input ? input.rule === "on" : null,
+                                changed.rule,
+                              )}
+                              <Flex align="center" gap="1">
+                                <Box
+                                  style={{
+                                    display: "flex",
+                                    color: isActive
+                                      ? "var(--green-11)"
+                                      : "var(--slate-9)",
+                                  }}
+                                >
+                                  {isActive ? (
+                                    <FaCircleCheck size={14} />
+                                  ) : (
+                                    <FaCircleXmark size={14} />
+                                  )}
+                                </Box>
+                                <Text size="sm" weight="medium">
+                                  {ENVIRONMENT_STATE_LABELS[state] ?? state}
+                                </Text>
+                              </Flex>
+                            </Fragment>
+                          );
+                        })}
+                        {environmentsTiming ? (
+                          <Box gridColumn="1 / -1" mt="1">
+                            <Text size="sm" color="text-low">
+                              {environmentsTiming}
+                            </Text>
+                          </Box>
+                        ) : null}
+                      </Grid>
                     }
-                  >
-                    {value === undefined ? (
-                      <HelperText status="warning">No value set</HelperText>
-                    ) : (
-                      <ForceSummary
-                        label={null}
-                        value={value}
-                        feature={displayFeature}
-                        sparse={sparse}
-                        fontSize="0.7rem"
-                        lineHeight={1.3}
-                        actionsOverlay={JSON_ACTIONS}
-                      />
-                    )}
-                    {editable && isJson ? (
-                      <Tooltip content="Edit values">
-                        <IconButton
-                          className={styles.editValue}
-                          variant="ghost"
-                          color="violet"
-                          radius="medium"
-                          size="1"
-                          onClick={() => setEditingValues(v.id)}
-                          aria-label={`Edit ${v.name || `Variation ${v.index}`} value`}
-                        >
-                          <PiPencilSimple size="16" />
-                        </IconButton>
-                      </Tooltip>
-                    ) : null}
-                  </Box>
-                )}
-                {fieldPlacesDot ? null : draftDot}
-              </Box>
+                  />
+                ) : null}
+                {canEditFlag && environmentStates.length ? (
+                  <Tooltip content="Edit environments">
+                    <IconButton
+                      variant="ghost"
+                      color="violet"
+                      radius="medium"
+                      size="1"
+                      onClick={() => setEditEnvironments(true)}
+                      aria-label="Edit environments"
+                    >
+                      <PiPencilSimple size="14" />
+                    </IconButton>
+                  </Tooltip>
+                ) : null}
+              </Flex>
+              <Box
+                style={{
+                  width: 1,
+                  alignSelf: "stretch",
+                  background: "var(--gray-a5)",
+                }}
+              />
+              <Box mr="2">{targetControl}</Box>
+              {pendingDraft || canRemove ? (
+                <DropdownMenu
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="1"
+                      highContrast
+                      aria-label={`${feature.id} actions`}
+                    >
+                      <BsThreeDotsVertical size={14} />
+                    </IconButton>
+                  }
+                  menuPlacement="end"
+                  variant="soft"
+                >
+                  {pendingDraft ? (
+                    <DropdownMenuItem>
+                      <Link
+                        href={`/features/${feature.id}?v=${pendingDraft.version}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        color="dark"
+                      >
+                        Review {draftLabel}
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canRemove ? (
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={removeFromExperiment}
+                    >
+                      Remove from experiment
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenu>
+              ) : null}
             </Flex>
-          );
-        })}
-      </Grid>
-    </Box>
+          </Flex>
+        )}
+        {notices.length ? (
+          <Flex direction="column" gap="1" mb="3" px="3">
+            {notices.map((n, i) => (
+              <Flex key={i} align="baseline" gap="2" wrap="wrap">
+                <HelperText status={n.status} size="sm">
+                  {n.text}
+                </HelperText>
+                {n.action ? <Text size="sm">{n.action}</Text> : null}
+              </Flex>
+            ))}
+          </Flex>
+        ) : null}
+        <Grid columns={VARIATION_GRID_COLUMNS} gap="4">
+          {variations.map((v) => {
+            const value = valueFor(v.id);
+            const block = isJson;
+            // On the value's corner, so it takes no room in the row.
+            const draftDot =
+              draftIds.has(v.id) && staged?.values[v.id] === undefined ? (
+                <Box
+                  position="absolute"
+                  style={{ top: -3, right: -3, zIndex: 1, lineHeight: 0 }}
+                >
+                  <UnpublishedDot tooltip="Unpublished draft value" />
+                </Box>
+              ) : null;
+            // A string field has a label row above it; the dot goes on the
+            // field itself, so the field places it.
+            const fieldPlacesDot = editable && valueType === "string";
+            return (
+              <Flex
+                key={v.id}
+                align={block ? "start" : "center"}
+                gap="2"
+                px="3"
+                minWidth="0"
+              >
+                {/* On a one-line field's centre line, whatever the type. */}
+                <Box flexShrink="0" mt={block ? "2" : "0"}>
+                  <VariationNumber number={v.index} />
+                </Box>
+                <Box
+                  flexGrow="1"
+                  minWidth="0"
+                  position="relative"
+                  className={styles.valueCell}
+                >
+                  {editable && !isJson ? (
+                    <FeatureValueField
+                      id={`flag-${feature.id}-${v.id}`}
+                      value={value ?? ""}
+                      setValue={(next) => stage({ values: { [v.id]: next } })}
+                      valueType={valueType}
+                      feature={displayFeature}
+                      renderJSONInline
+                      useDropdown
+                      // Beside the field, so every type's cell is one line tall.
+                      inlineConstantButton
+                      inlineConstantButtonSize="1"
+                      actionsOverlay={STRING_ACTIONS}
+                      fieldOverlay={draftDot}
+                      useCodeInput
+                      showFullscreenButton
+                      sparse={sparse}
+                      allowConfigBacking={!!configKey}
+                      configBackingOptionKeys={configBackingOptionKeys}
+                      configBackingShowPatch={!!configKey}
+                      lockConfigBacking={!!configKey}
+                    />
+                  ) : value === undefined && !isJson ? (
+                    <HelperText status="warning">No value set</HelperText>
+                  ) : (
+                    <Box
+                      className={
+                        isJson
+                          ? clsx(
+                              styles.jsonValue,
+                              value === undefined && styles.jsonEmpty,
+                            )
+                          : undefined
+                      }
+                    >
+                      {value === undefined ? (
+                        <HelperText status="warning">No value set</HelperText>
+                      ) : (
+                        <ForceSummary
+                          label={null}
+                          value={value}
+                          feature={displayFeature}
+                          sparse={sparse}
+                          fontSize="0.7rem"
+                          lineHeight={1.3}
+                          actionsOverlay={JSON_ACTIONS}
+                        />
+                      )}
+                      {editable && isJson ? (
+                        <Tooltip content="Edit values">
+                          <IconButton
+                            className={styles.editValue}
+                            variant="ghost"
+                            color="violet"
+                            radius="medium"
+                            size="1"
+                            onClick={() => setEditingValues(v.id)}
+                            aria-label={`Edit ${v.name || `Variation ${v.index}`} value`}
+                          >
+                            <PiPencilSimple size="16" />
+                          </IconButton>
+                        </Tooltip>
+                      ) : null}
+                    </Box>
+                  )}
+                  {fieldPlacesDot ? null : draftDot}
+                </Box>
+              </Flex>
+            );
+          })}
+        </Grid>
+      </Box>
+    </>
   );
 }

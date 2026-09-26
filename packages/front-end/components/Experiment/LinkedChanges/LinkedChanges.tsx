@@ -312,16 +312,6 @@ export default function LinkedChanges({
               valuesShownOnVariations={valuesShownOnVariations}
             />
           ))}
-          {visualChangesets.length > 0 ? (
-            <ImplementationHeading>Visual Editor Changes</ImplementationHeading>
-          ) : null}
-          <VisualChangesetTable
-            experiment={experiment}
-            visualChangesets={visualChangesets}
-            mutate={mutate}
-            canEditVisualChangesets={canEditVisualChangesets}
-            environmentStates={visualChangesetEnvStates}
-          />
           {urlRedirects.length > 0 ? (
             <ImplementationHeading>URL Redirects</ImplementationHeading>
           ) : null}
@@ -335,6 +325,16 @@ export default function LinkedChanges({
               environmentStates={urlRedirectEnvStates}
             />
           ))}
+          {visualChangesets.length > 0 ? (
+            <ImplementationHeading>Visual Editor Changes</ImplementationHeading>
+          ) : null}
+          <VisualChangesetTable
+            experiment={experiment}
+            visualChangesets={visualChangesets}
+            mutate={mutate}
+            canEditVisualChangesets={canEditVisualChangesets}
+            environmentStates={visualChangesetEnvStates}
+          />
           {/* The value rows offer adding another flag under the last one. */}
           {!managedMode &&
             !(valuesShownOnVariations && effectiveType === "feature") &&
