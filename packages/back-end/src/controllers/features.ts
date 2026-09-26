@@ -528,6 +528,7 @@ export type SDKPayloadParams = Pick<
   | "includeExperimentNames"
   | "includeRedirectExperiments"
   | "includeRuleIds"
+  | "includeExperimentIds"
   | "hashSecureAttributes"
   | "savedGroupFormat"
   | "remoteEvalEnabled"
@@ -575,6 +576,7 @@ export async function getPayloadParamsFromApiKey(
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
       includeRuleIds: connection.includeRuleIds,
+      includeExperimentIds: connection.includeExperimentIds,
       includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
       includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
       allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
@@ -697,6 +699,7 @@ export async function getFeatureDefinitionsWithCache({
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
       includeRuleIds: params.includeRuleIds,
+      includeExperimentIds: params.includeExperimentIds,
       includeProjectIdInMetadata: params.includeProjectIdInMetadata,
       includeCustomFieldsInMetadata: params.includeCustomFieldsInMetadata,
       allowedCustomFieldsInMetadata: params.allowedCustomFieldsInMetadata,

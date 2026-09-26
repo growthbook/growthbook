@@ -918,6 +918,7 @@ export function getFeatureDefinition({
   savedGroupStrategy: providedSavedGroupStrategy,
   includeRuleIds,
   includeExperimentNames,
+  includeExperimentIds,
   includeDraftExperimentRefs,
   namespaces,
   metadataOptions,
@@ -946,6 +947,7 @@ export function getFeatureDefinition({
   savedGroupStrategy?: SavedGroupPayloadStrategy;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  includeExperimentIds?: boolean;
   includeDraftExperimentRefs?: boolean;
   namespaces?: Map<
     string,
@@ -1320,6 +1322,7 @@ export function getFeatureDefinition({
               : phaseVariations.map((v) => ({ key: v.key }));
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
+            if (includeExperimentIds) rule.experimentId = exp.id;
           }
           if (rule.condition)
             savedGroupStrategy.finalizeCondition(rule.condition);
@@ -1354,6 +1357,10 @@ export function getFeatureDefinition({
             ) as FeatureDefinitionRule;
             if (includeRuleIds && r.id != null) {
               (picked as Record<string, unknown>).id = stemRuleId(r.id);
+            }
+            if (rule.experimentId) {
+              (picked as Record<string, unknown>).experimentId =
+                rule.experimentId;
             }
             return picked;
           }
@@ -1699,6 +1706,9 @@ export function getFeatureDefinition({
           ) as FeatureDefinitionRule;
           if (includeRuleIds && r.id != null) {
             picked.id = stemRuleId(r.id);
+          }
+          if (rule.experimentId) {
+            picked.experimentId = rule.experimentId;
           }
           return picked;
         }

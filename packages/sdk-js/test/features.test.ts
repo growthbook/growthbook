@@ -582,6 +582,34 @@ describe("features", () => {
     growthbook.destroy();
   });
 
+  it("passes experimentId from feature rule to trackingCallback as experiment.id", () => {
+    const onExperimentViewed = jest.fn();
+    const growthbook = new GrowthBook({
+      attributes: { id: "1" },
+      trackingCallback: onExperimentViewed,
+      features: {
+        checkout: {
+          defaultValue: 0,
+          rules: [
+            {
+              key: "checkout-button",
+              experimentId: "exp_abc123",
+              variations: [0, 1],
+              weights: [0.5, 0.5],
+              hashAttribute: "id",
+            },
+          ],
+        },
+      },
+    });
+
+    growthbook.evalFeature("checkout");
+    expect(onExperimentViewed.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(onExperimentViewed.mock.calls[0][0].key).toBe("checkout-button");
+    expect(onExperimentViewed.mock.calls[0][0].id).toBe("exp_abc123");
+    growthbook.destroy();
+  });
+
   it("gates flag rule evaluation on prerequisite experiment flag", async () => {
     const growthbook = new GrowthBook({
       attributes: {
