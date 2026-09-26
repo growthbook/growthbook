@@ -618,8 +618,12 @@
                 "group": "Data Sources",
                 "pages": [
                   "api/data-sources/operation/listDataSources",
+                  "api/data-sources/operation/postDataSource",
                   "api/data-sources/operation/getDataSource",
+                  "api/data-sources/operation/updateDataSource",
+                  "api/data-sources/operation/deleteDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/postDataSourceInformationSchemaRefresh",
                   "api/data-sources/operation/searchWarehouseTables",
                   "api/data-sources/operation/getWarehouseTableSchema",
                   "api/data-sources/operation/previewWarehouseColumnValues",
@@ -948,7 +952,11 @@
               },
               {
                 "group": "Queries",
-                "pages": ["api/queries/operation/getQuery"]
+                "pages": [
+                  "api/queries/operation/getQuery",
+                  "api/queries/operation/listDataSourceQueries",
+                  "api/queries/operation/postQueryCancel"
+                ]
               },
               {
                 "group": "Settings",
@@ -997,6 +1005,12 @@
                   "api/ContextualBandits/operation/refreshContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBanditVariations",
                   "api/ContextualBandits/operation/cancelContextualBandit"
+                ]
+              },
+              {
+                "group": "information-schema-tables",
+                "pages": [
+                  "api/information-schema-tables/operation/postInformationSchemaTableRefresh"
                 ]
               },
               {

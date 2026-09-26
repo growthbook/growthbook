@@ -92,3 +92,31 @@ export const getQueryValidator = {
   path: "/queries/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
+
+export const listDataSourceQueriesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z
+    .object({ id: z.string().describe("The data source id") })
+    .strict(),
+  responseSchema: z.object({ queries: z.array(apiQueryValidator) }).strict(),
+  summary: "Get a data source's 50 most recent queries",
+  operationId: "listDataSourceQueries",
+  tags: ["queries"],
+  method: "get" as const,
+  path: "/data-sources/:id/queries",
+};
+
+export const postQueryCancelValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ query: apiQueryValidator }).strict(),
+  summary: "Cancel a running query",
+  description:
+    "Also asks the warehouse to stop it where the integration supports that. Needs permission to run queries on the data source.",
+  operationId: "postQueryCancel",
+  tags: ["queries"],
+  method: "post" as const,
+  path: "/queries/:id/cancel",
+};
