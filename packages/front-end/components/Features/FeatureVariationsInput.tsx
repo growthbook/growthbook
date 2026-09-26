@@ -1,6 +1,6 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
 import {
   PiArrowsClockwise,
@@ -63,9 +63,6 @@ export interface Props {
   // When set, the variation with this id has its Name field auto-focused on
   // mount.
   autoFocusVariationId?: string | null;
-  // When true, a new variation is appended once on mount (reusing the same
-  // "Add variation" behavior) and its Name field is auto-focused.
-  autoAddVariationOnMount?: boolean;
   // JSON features only. When true, each variation value is rendered as a sparse
   // patch (merged onto the feature default). Pass-through to the value editor;
   // callers own the sparse toggle since it's a rule-level flag.
@@ -99,7 +96,6 @@ export default function FeatureVariationsInput({
   simple,
   onlySafeToEditVariationMetadata,
   autoFocusVariationId,
-  autoAddVariationOnMount,
   sparse,
 }: Props) {
   const weights = useMemo(
@@ -188,25 +184,7 @@ export default function FeatureVariationsInput({
     defaultValue,
   ]);
 
-  // Id of a variation added on mount via autoAddVariationOnMount; used to
-  // auto-focus its Name field.
-  const [autoAddedVariationId, setAutoAddedVariationId] = useState<
-    string | null
-  >(null);
-  const didAutoAddRef = useRef(false);
-  useEffect(() => {
-    if (!autoAddVariationOnMount || didAutoAddRef.current) return;
-    didAutoAddRef.current = true;
-    const newId = addVariation();
-    if (newId !== null) {
-      setAutoAddedVariationId(newId);
-      setNumberOfVariations((variations?.length ?? 0) + 1 + "");
-    }
-    // Only run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoAddVariationOnMount]);
-
-  const focusVariationId = autoAddedVariationId ?? autoFocusVariationId ?? null;
+  const focusVariationId = autoFocusVariationId ?? null;
 
   const label = _label
     ? _label

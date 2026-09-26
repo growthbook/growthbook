@@ -4,9 +4,7 @@ import {
   ComponentProps,
   ReactNode,
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { getEqualWeights } from "shared/experiments";
@@ -81,8 +79,6 @@ export interface Props {
     typeof SortableManagedVariationRow
   >["constantContext"];
   autoFocusVariationId?: string | null;
-  // Appends a variation once on mount and focuses its Name field.
-  autoAddVariationOnMount?: boolean;
   /** JSON only: a sparse patch onto the feature default. */
   sparse?: boolean;
   /** The first variation's value is the feature default, never a patch. */
@@ -112,7 +108,6 @@ export default function ExperimentManagedFeatureVariationEditor({
   feature,
   constantContext,
   autoFocusVariationId,
-  autoAddVariationOnMount,
   sparse,
   controlIsDefault = false,
 }: Props) {
@@ -184,21 +179,7 @@ export default function ExperimentManagedFeatureVariationEditor({
     isEqualWeights,
   ]);
 
-  const [autoAddedVariationId, setAutoAddedVariationId] = useState<
-    string | null
-  >(null);
-  const didAutoAddRef = useRef(false);
-  useEffect(() => {
-    if (!autoAddVariationOnMount || didAutoAddRef.current) return;
-    didAutoAddRef.current = true;
-    const newId = addVariation();
-    if (newId !== null) {
-      setAutoAddedVariationId(newId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoAddVariationOnMount]);
-
-  const focusVariationId = autoAddedVariationId ?? autoFocusVariationId ?? null;
+  const focusVariationId = autoFocusVariationId ?? null;
 
   const label =
     _label ??

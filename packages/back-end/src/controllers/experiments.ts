@@ -9,7 +9,6 @@ import {
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
-  isManagedByExperiment,
   type ManagedFlagKeyPlan,
   type ExperimentLinkageBlocker,
   type LinkedChangesResolution,
@@ -168,7 +167,6 @@ import {
   planManagedFlagKey,
   publishManagedDraft,
   removeManagedFeatureForExperiment,
-  requestReviewForManagedDraft,
 } from "back-end/src/services/managedFeatures";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -194,7 +192,6 @@ import {
   ExperimentUpdateInput,
   planExperimentUpdate,
 } from "back-end/src/services/experimentChanges/planExperimentUpdate";
-import { updateExperimentRuleEnvironments } from "back-end/src/services/experiment-feature";
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
@@ -3687,57 +3684,6 @@ export async function postExperimentChanges(
     eventAudit: res.locals.eventAudit,
   });
   res.status(200).json({ status: 200, ...result });
-}
-
-export async function postExperimentLinkedFeatureEnvironments(
-  req: AuthRequest<
-    {
-      allEnvironments: boolean;
-      environments?: string[];
-      targetVersion?: number;
-    },
-    { id: string; featureId: string }
-  >,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
-) {
-  const context = getContextFromReq(req);
-  const { id, featureId } = req.params;
-  const { allEnvironments, environments = [], targetVersion } = req.body;
-
-  const experiment = await getExperimentById(context, id);
-  if (!experiment) {
-    throw new NotFoundError("Experiment not found");
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
-    context.permissions.throwPermissionError();
-  }
-
-  const feature = await getFeature(context, featureId);
-  if (!feature) {
-    throw new NotFoundError("Feature not found");
-  }
-
-  const { version } = await updateExperimentRuleEnvironments({
-    context,
-    experiment,
-    feature,
-    allEnvironments,
-    environments,
-    targetVersion,
-    eventAudit: res.locals.eventAudit,
-  });
-
-  if (isManagedByExperiment(feature, experiment.id)) {
-    await requestReviewForManagedDraft({
-      context,
-      feature,
-      version,
-      eventAudit: res.locals.eventAudit,
-    });
-  }
-
-  res.status(200).json({ status: 200, version });
 }
 
 export async function deleteExperimentLinkedFeature(

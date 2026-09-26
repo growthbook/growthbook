@@ -4,14 +4,17 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
   LinkedFeatureInfo,
+  Variation,
 } from "shared/types/experiment";
 import {
+  getEqualWeights,
   getLatestPhaseVariations,
   hasAttributeCondition,
   hasTargetingConfigured,
 } from "shared/experiments";
 import {
   filterEnvironmentsByExperiment,
+  generateVariationId,
   getImplementationType,
   isManagedByExperiment,
 } from "shared/util";
@@ -49,6 +52,9 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import {
   EnvironmentStateChips,
   getEnvironmentStates,
+  scopeFromStates,
+  stageEnvironmentInputs,
+  statesFromInputs,
 } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import {
   environmentStatesDiffer,
@@ -56,6 +62,7 @@ import {
 } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
 import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 import {
   PercentField,
   PercentSlider,
@@ -65,7 +72,7 @@ import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOpt
 import { attributeOptionLabelFormatter } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import {
-  EDITS_BLOCKED_REASON,
+  FlagEnvironmentsDraft,
   useRegisterExperimentEdit,
 } from "./ExperimentEdits";
 import useExperimentEditing from "./useExperimentEditing";
@@ -77,12 +84,17 @@ export interface Props {
   phaseIndex?: number | null;
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
-  editTraffic?: ((variationId?: string) => void) | null;
   editNamespace?: (() => void) | null;
-  addVariation?: (() => void) | null;
+  /** Offers the + that appends a variation and evens out the split. */
+  canAddVariation?: boolean;
+  /** Stages a new set of variations for the page's Save. */
+  stageVariations?: (variations: Variation[]) => void;
+  /** Environment scopes staged per flag. */
+  flagEnvironments?: FlagEnvironmentsDraft;
   /** Opens the values editor; offered per variation while no flag exists yet. */
   addVariationValues?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
+  setEditKeyIndex?: (index: number) => void;
   /** The sole linked Feature Flag, whose environments and draft the header describes. */
   servedValueFeature?: LinkedFeatureInfo | null;
   /** Every linked Feature Flag, one value row each under the variations. */
@@ -242,11 +254,13 @@ export default function TrafficAllocationFunnel({
   phaseIndex = null,
   experiment,
   editTargeting,
-  editTraffic,
   editNamespace,
-  addVariation,
+  canAddVariation = false,
+  stageVariations,
+  flagEnvironments,
   addVariationValues,
   setEditVariationIndex,
+  setEditKeyIndex,
   servedValueFeature,
   linkedFeatures = [],
   canEditFlagValues = false,
@@ -290,9 +304,52 @@ export default function TrafficAllocationFunnel({
 
   const [editingSplit, setEditingSplit] = useState<number | null>(null);
 
-  // The traffic modal writes as it saves, which would race whatever the page
-  // is still holding.
-  const trafficBlocked = staged ? EDITS_BLOCKED_REASON : null;
+  // Staged like any other edit; either way the split is made even again.
+  const stageVariationList = (variations: Variation[]) => {
+    stageVariations?.(variations);
+    // Targeting writes the phase's variations too, so it must carry them.
+    stagePatch({
+      variations: variations.map(({ id }) => ({ id, status: "active" })),
+      variationWeights: getEqualWeights(variations.length, 4),
+    });
+  };
+  const removeVariation = (index: number) =>
+    stageVariationList(
+      getLatestPhaseVariations(experiment)
+        .filter((_, i) => i !== index)
+        .map(({ id, key, name, description, screenshots }) => ({
+          id,
+          key,
+          name,
+          description,
+          screenshots,
+        })),
+    );
+  const addVariation = () => {
+    const current = getLatestPhaseVariations(experiment);
+    const variations = [
+      ...current.map(({ id, key, name, description, screenshots }) => ({
+        id,
+        key,
+        name,
+        description,
+        screenshots,
+      })),
+      {
+        id: generateVariationId(),
+        key: String(current.length),
+        name: `Variation ${current.length}`,
+        description: "",
+        screenshots: [],
+      },
+    ];
+    stageVariationList(variations);
+    track("Added Variations", {
+      source: "setup-tab",
+      numVariationsAdded: 1,
+      totalVariations: variations.length,
+    });
+  };
 
   const storedPhase =
     experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
@@ -371,8 +428,24 @@ export default function TrafficAllocationFunnel({
         : undefined,
     };
   })();
+  const stagedScope = servedValueFeature
+    ? (flagEnvironments?.value[servedValueFeature.feature.id] ?? null)
+    : null;
   const environmentStates = getEnvironmentStates(
-    envStateSource || { environmentStates: {} },
+    stagedScope && servedValueFeature
+      ? {
+          environmentStates: statesFromInputs(
+            stageEnvironmentInputs(
+              (preferDraft
+                ? servedValueFeature.pendingDraft?.environmentInputs
+                : servedValueFeature.liveEnvironmentInputs) ??
+                servedValueFeature.environmentInputs ??
+                {},
+              stagedScope,
+            ),
+          ),
+        }
+      : envStateSource || { environmentStates: {} },
     {
       // A draft experiment publishes its flag when it starts.
       future:
@@ -431,12 +504,25 @@ export default function TrafficAllocationFunnel({
 
   return (
     <Frame style={{ backgroundColor: "var(--gray-a2)", border: "none" }}>
-      {editEnvironments && servedValueFeature && (
+      {editEnvironments && servedValueFeature && flagEnvironments && (
         <EditExperimentEnvironmentsModal
           experiment={experiment}
           info={servedValueFeature}
+          scope={
+            stagedScope ??
+            scopeFromStates(
+              Object.fromEntries(
+                environmentStates.map((e) => [e.env, e.state]),
+              ),
+              allowedEnvironments.map((e) => e.id),
+            )
+          }
+          showFlag={!managedFeature}
           close={() => setEditEnvironments(false)}
-          mutate={() => mutate?.()}
+          apply={(scope) => {
+            flagEnvironments.set(servedValueFeature.feature.id, scope);
+            setEditEnvironments(false);
+          }}
         />
       )}
       <Flex justify="end" align="center" mb="4">
@@ -511,7 +597,7 @@ export default function TrafficAllocationFunnel({
 
           {environmentStates.length > 0 ? (
             <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
-              {environmentsAreDraft && (
+              {(environmentsAreDraft || stagedScope) && (
                 <UnpublishedDot
                   tooltip={
                     draftDetail.name
@@ -525,7 +611,7 @@ export default function TrafficAllocationFunnel({
                 Environments:
               </Text>
               <EnvironmentStateChips states={environmentStates} />
-              {canEditEnvironments ? (
+              {canEditEnvironments && flagEnvironments ? (
                 <IconButton
                   variant="ghost"
                   color="violet"
@@ -742,19 +828,27 @@ export default function TrafficAllocationFunnel({
                   ? (index) => setEditVariationIndex(index)
                   : undefined
               }
-              onEditTraffic={
+              onEditKey={
+                canEditExperiment && !isRunning && setEditKeyIndex
+                  ? setEditKeyIndex
+                  : undefined
+              }
+              onRemoveVariation={
                 canEditExperiment &&
                 !isRunning &&
-                editTraffic &&
-                !trafficBlocked
-                  ? editTraffic
+                stageVariations &&
+                targetingDraft &&
+                experiment.status === "draft" &&
+                numVariations > 2
+                  ? removeVariation
                   : undefined
               }
               onAddVariation={
                 canEditExperiment &&
                 !isRunning &&
-                addVariation &&
-                !trafficBlocked
+                canAddVariation &&
+                stageVariations &&
+                targetingDraft
                   ? addVariation
                   : undefined
               }
@@ -768,6 +862,7 @@ export default function TrafficAllocationFunnel({
             />
             <FlagValueRows
               experiment={experiment}
+              flagEnvironments={flagEnvironments}
               linkedFeatures={linkedFeatures}
               canEdit={canEditFlagValues}
               onAddFlag={addFeatureFlag}

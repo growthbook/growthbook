@@ -32,7 +32,7 @@ const org = {
   url: "",
   dateCreated: new Date(),
   members: [],
-  settings: { environments: [{ id: "production" }] },
+  settings: { environments: [{ id: "production" }, { id: "staging" }] },
 } as unknown as OrganizationInterface;
 
 const EXP = "exp_changes";
@@ -184,6 +184,29 @@ describe("applyExperimentChanges", () => {
     expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
     expect(result.experiment.hypothesis).toBe("new");
     expect(await revisionRules(2)).toEqual(arms("a", "new"));
+  });
+
+  it("re-scopes the rule's environments with the values, switching on what it enters", async () => {
+    await seed({ withDraft: true });
+    await run({
+      flagValues: [
+        {
+          featureId: FLAG,
+          variations: arms("a", "draft"),
+          environments: { allEnvironments: false, environments: ["staging"] },
+          revision: { version: 2, dateUpdated: LOADED },
+        },
+      ],
+    });
+    const draft = await collection("featurerevisions").findOne({
+      featureId: FLAG,
+      version: 2,
+    });
+    expect(draft?.rules?.[0]).toMatchObject({
+      allEnvironments: false,
+      environments: ["staging"],
+    });
+    expect(draft?.environmentsEnabled).toEqual({ staging: true });
   });
 
   it("starts a new draft when the values were loaded from live", async () => {

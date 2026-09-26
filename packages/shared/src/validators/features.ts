@@ -2171,6 +2171,16 @@ export type GetFeatureStaleResponse = z.infer<
 
 export type FeatureStaleEntry = GetFeatureStaleResponse["features"][string];
 
+export const experimentRuleEnvironments = z
+  .object({
+    allEnvironments: z.boolean(),
+    environments: z.array(z.string()),
+  })
+  .strict();
+export type ExperimentRuleEnvironments = z.infer<
+  typeof experimentRuleEnvironments
+>;
+
 export const experimentChangesFields = experimentAnalysisSettingsDraft
   .extend({
     name: z.string().min(1),
@@ -2203,6 +2213,8 @@ export const experimentChangesBody = z
             valueType: z.enum(featureValueType).optional(),
             // JSON only. Omitted leaves the rule's sparse flag as it is.
             sparse: z.boolean().optional(),
+            // The rule's environment scope. Omitted leaves it as it is.
+            environments: experimentRuleEnvironments.optional(),
             // The revision the values were loaded from: the live version starts
             // a new draft (dateUpdated unused), a draft version writes into it.
             revision: z

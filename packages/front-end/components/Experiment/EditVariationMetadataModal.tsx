@@ -1,9 +1,11 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  Variation,
+} from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -16,7 +18,8 @@ interface Props {
   experiment: ExperimentInterfaceStringDates;
   variationIndex: number;
   close: () => void;
-  mutate: () => void;
+  // Hands the edited variations to the page, which saves them with the rest.
+  stage: (variations: Variation[]) => void;
   source?: string;
 }
 
@@ -24,10 +27,9 @@ const EditVariationMetadataModal: FC<Props> = ({
   experiment,
   variationIndex,
   close,
-  mutate,
+  stage,
   source,
 }) => {
-  const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment).map((v) => ({
     id: v.id,
     key: v.key,
@@ -43,8 +45,8 @@ const EditVariationMetadataModal: FC<Props> = ({
       description: variation?.description ?? "",
     },
   });
-  // Uploads write straight through; order and removals are staged here and
-  // saved with the rest of the form.
+  // Uploads write straight through; order and removals are staged with the
+  // rest of the variation.
   const [screenshots, setScreenshots] = useState(variation?.screenshots ?? []);
 
   if (!variation) return null;
@@ -53,7 +55,7 @@ const EditVariationMetadataModal: FC<Props> = ({
     <ModalStandard
       trackingEventModalType="edit-variation-metadata"
       trackingEventModalSource={source}
-      header="Edit Variation Metadata"
+      header="Edit Variation"
       open={true}
       close={close}
       size="lg"
@@ -69,18 +71,10 @@ const EditVariationMetadataModal: FC<Props> = ({
             : v,
         );
 
-        // Last write wins on the whole variations array, so a screenshot added
-        // elsewhere while this modal was open is dropped. Deliberately not
-        // guarded: this is one person editing one variation's metadata, and a
-        // merge here would cost more than the race is worth.
-        await apiCall(`/experiment/${experiment.id}`, {
-          method: "POST",
-          body: JSON.stringify({ variations: updatedVariations }),
-        });
-        mutate();
+        stage(updatedVariations);
         track("edited-variation-metadata");
       })}
-      cta="Save"
+      cta="Apply"
     >
       <Flex direction="row" gap="3" align="start">
         <FieldAlignedVariationNumber number={variationIndex} />

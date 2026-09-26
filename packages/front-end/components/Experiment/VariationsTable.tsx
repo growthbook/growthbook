@@ -150,7 +150,8 @@ interface Props {
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
   onAddVariation?: () => void;
-  onEditTraffic?: (variationId?: string) => void;
+  onRemoveVariation?: (variationIndex: number) => void;
+  onEditKey?: (variationIndex: number) => void;
   // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
   /** Offered on each card while a values experiment has no flag yet. */
@@ -229,7 +230,8 @@ export function VariationBox({
   shareUid,
   shareType = "experiment",
   onEditMetadata,
-  onEditTraffic,
+  onRemoveVariation,
+  onEditKey,
   capWidth = false,
   onAddValue,
 }: {
@@ -251,7 +253,8 @@ export function VariationBox({
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
-  onEditTraffic?: (variationId?: string) => void;
+  onRemoveVariation?: (variationIndex: number) => void;
+  onEditKey?: (variationIndex: number) => void;
   capWidth?: boolean;
   /** Offered on each card while a values experiment has no flag yet. */
   onAddValue?: () => void;
@@ -291,20 +294,20 @@ export function VariationBox({
             </Box>
             {/* Radix ghost buttons carry a negative margin. */}
             <Flex align="center" gap="1" flexShrink="0" mr="-1">
-              {canEdit && onEditTraffic ? (
+              {canEdit && onEditMetadata ? (
                 <IconButton
                   variant="ghost"
                   size="1"
                   color="violet"
                   radius="medium"
                   style={{ margin: 0 }}
-                  onClick={() => onEditTraffic(v.id)}
+                  onClick={() => onEditMetadata(i)}
                   aria-label="Edit variation"
                 >
                   <PiPencilSimple size="14" />
                 </IconButton>
               ) : null}
-              {canEdit && onEditMetadata ? (
+              {canEdit && (onRemoveVariation || onEditKey) ? (
                 <DropdownMenu
                   trigger={
                     <IconButton
@@ -314,6 +317,7 @@ export function VariationBox({
                       size="2"
                       highContrast
                       style={{ margin: 0 }}
+                      aria-label={`${v.name} actions`}
                     >
                       <BsThreeDotsVertical size={16} />
                     </IconButton>
@@ -321,9 +325,19 @@ export function VariationBox({
                   menuPlacement="end"
                   variant="soft"
                 >
-                  <DropdownMenuItem onClick={() => onEditMetadata(i)}>
-                    Edit metadata
-                  </DropdownMenuItem>
+                  {onEditKey ? (
+                    <DropdownMenuItem onClick={() => onEditKey(i)}>
+                      Change variation ID
+                    </DropdownMenuItem>
+                  ) : null}
+                  {onRemoveVariation ? (
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => onRemoveVariation(i)}
+                    >
+                      Remove variation
+                    </DropdownMenuItem>
+                  ) : null}
                 </DropdownMenu>
               ) : null}
             </Flex>
@@ -420,7 +434,8 @@ const VariationsTable: FC<Props> = ({
   shareType = "experiment",
   onEditMetadata,
   onAddVariation,
-  onEditTraffic,
+  onRemoveVariation,
+  onEditKey,
   centered = false,
   onAddValue,
 }) => {
@@ -492,7 +507,8 @@ const VariationsTable: FC<Props> = ({
               shareUid={shareUid}
               shareType={shareType}
               onEditMetadata={onEditMetadata}
-              onEditTraffic={onEditTraffic}
+              onRemoveVariation={onRemoveVariation}
+              onEditKey={onEditKey}
               onAddValue={onAddValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage

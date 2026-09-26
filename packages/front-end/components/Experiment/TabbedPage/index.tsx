@@ -103,7 +103,7 @@ export interface Props {
   /** Targeting confirmed in a modal but not yet written. */
   targetingDraft?: TargetingDraft;
   editTraffic?: ((variationId?: string) => void) | null;
-  addVariation?: (() => void) | null;
+  canAddVariation?: boolean;
   addVariationValues?: (() => void) | null;
   editNamespace?: (() => void) | null;
   editMetrics?: (() => void) | null;
@@ -139,7 +139,7 @@ function TabbedPageContents({
   editTargeting,
   targetingDraft,
   editTraffic,
-  addVariation,
+  canAddVariation,
   addVariationValues,
   editNamespace,
   newPhase,
@@ -802,7 +802,7 @@ function TabbedPageContents({
                 analysisSettingsOpen={analysisSettingsOpen}
                 setAnalysisSettingsOpen={setAnalysisSettingsOpen}
                 editTraffic={editTraffic}
-                addVariation={addVariation}
+                canAddVariation={canAddVariation}
                 addVariationValues={addVariationValues}
                 editNamespace={editNamespace}
                 linkedFeatures={linkedFeatures}

@@ -3,6 +3,7 @@ import {
   LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
 } from "shared/types/experiment";
+import type { ExperimentRuleEnvironments } from "shared/validators";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { Fragment, useState } from "react";
 import {
@@ -72,6 +73,59 @@ export function getEnvironmentStates(
     isActive: state === "active",
     tooltip: environmentStateTooltip(state, future),
   }));
+}
+
+const inScope = (scope: ExperimentRuleEnvironments, env: string) =>
+  scope.allEnvironments || scope.environments.includes(env);
+
+/** What the rule's settings become under a staged scope: entering switches the environment on. */
+export function stageEnvironmentInputs(
+  inputs: Record<string, LinkedFeatureEnvInputs>,
+  scope: ExperimentRuleEnvironments | null,
+): Record<string, LinkedFeatureEnvInputs> {
+  if (!scope) return inputs;
+  return Object.fromEntries(
+    Object.entries(inputs).map(([env, input]) => [
+      env,
+      inScope(scope, env)
+        ? {
+            flagEnabled: true,
+            rule: input.rule === "missing" ? "on" : input.rule,
+          }
+        : { ...input, rule: "missing" },
+    ]),
+  );
+}
+
+/** The states those settings add up to. */
+export function statesFromInputs(
+  inputs: Record<string, LinkedFeatureEnvInputs>,
+): Record<string, LinkedFeatureEnvState> {
+  return Object.fromEntries(
+    Object.entries(inputs).map(([env, { flagEnabled, rule }]) => [
+      env,
+      rule === "missing"
+        ? "missing"
+        : !flagEnabled
+          ? "disabled-env"
+          : rule === "on"
+            ? "active"
+            : "disabled-rule",
+    ]),
+  );
+}
+
+/** A scope as the environments modal edits it. */
+export function scopeFromStates(
+  states: Record<string, LinkedFeatureEnvState>,
+  orgEnvironments: string[],
+): ExperimentRuleEnvironments {
+  const covered = Object.entries(states)
+    .filter(([, state]) => state !== "missing")
+    .map(([env]) => env);
+  return orgEnvironments.every((e) => covered.includes(e))
+    ? { allEnvironments: true, environments: [] }
+    : { allEnvironments: false, environments: covered };
 }
 
 export const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {

@@ -46,7 +46,6 @@ export interface Props {
   mutate: () => void;
   safeToEdit: boolean;
   focusVariationId?: string | null;
-  addVariationOnOpen?: boolean;
 }
 
 // A fork of `EditTrafficModal` for flag-only experiments.
@@ -57,7 +56,6 @@ export default function ExperimentManagedTrafficModal({
   mutate,
   safeToEdit,
   focusVariationId,
-  addVariationOnOpen,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const managedFeature =
@@ -109,7 +107,6 @@ export default function ExperimentManagedTrafficModal({
         mutate={mutate}
         safeToEdit={safeToEdit}
         focusVariationId={focusVariationId}
-        addVariationOnOpen={addVariationOnOpen}
       />
     );
   }
@@ -122,7 +119,6 @@ export default function ExperimentManagedTrafficModal({
       canAdopt={canAdopt}
       safeToEdit={safeToEdit}
       focusVariationId={focusVariationId}
-      addVariationOnOpen={addVariationOnOpen}
     />
   );
 }
@@ -134,7 +130,6 @@ function ManagedTrafficForm({
   canAdopt,
   safeToEdit,
   focusVariationId,
-  addVariationOnOpen,
 }: {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
@@ -144,7 +139,6 @@ function ManagedTrafficForm({
   // False once running against a live rule: only names and descriptions change.
   safeToEdit: boolean;
   focusVariationId?: string | null;
-  addVariationOnOpen?: boolean;
 }) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -334,7 +328,6 @@ function ManagedTrafficForm({
     },
     showPreview: true,
     autoFocusVariationId: focusVariationId,
-    autoAddVariationOnMount: addVariationOnOpen,
   };
 
   const submit = form.handleSubmit(async (value) => {

@@ -12,6 +12,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type {
   ExperimentChangesBody,
   ExperimentChangesFields,
+  ExperimentRuleEnvironments,
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
 
@@ -225,4 +226,10 @@ export const EDITS_BLOCKED_REASON =
 export function useEditsBlockedReason(): string | null {
   const ctx = useContext(ExperimentEditsContext);
   return ctx?.dirty ? EDITS_BLOCKED_REASON : null;
+}
+
+/** Environment scopes staged per Feature Flag, saved with that flag's values. */
+export interface FlagEnvironmentsDraft {
+  value: Record<string, ExperimentRuleEnvironments>;
+  set: (featureId: string, scope: ExperimentRuleEnvironments | null) => void;
 }

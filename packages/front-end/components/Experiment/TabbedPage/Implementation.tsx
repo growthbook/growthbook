@@ -2,10 +2,11 @@ import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
+  Variation,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import {
@@ -19,6 +20,7 @@ import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
+import EditVariationKeyModal from "@/components/Experiment/EditVariationKeyModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import TrafficAllocationFunnel, {
   TargetingDraft,
@@ -38,6 +40,11 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import HoldoutEnvironments from "./HoldoutEnvironments";
+import {
+  experimentFieldChanges,
+  FlagEnvironmentsDraft,
+  useRegisterExperimentEdit,
+} from "./ExperimentEdits";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -52,7 +59,7 @@ export interface Props {
   analysisSettingsOpen?: boolean;
   setAnalysisSettingsOpen?: (open: boolean) => void;
   editTraffic?: ((variationId?: string) => void) | null;
-  addVariation?: (() => void) | null;
+  canAddVariation?: boolean;
   addVariationValues?: (() => void) | null;
   editNamespace?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
@@ -77,7 +84,7 @@ export default function Implementation({
   analysisSettingsOpen,
   setAnalysisSettingsOpen,
   editTraffic,
-  addVariation,
+  canAddVariation,
   addVariationValues,
   editNamespace,
   setFeatureModal,
@@ -93,8 +100,47 @@ export default function Implementation({
   const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
     null,
   );
+  const [editKeyIndex, setEditKeyIndex] = useState<number | null>(null);
   const phases = experiment.phases || [];
   const { apiCall } = useAuth();
+
+  // Variation changes wait for the page's Save, like targeting; everything
+  // that shows the variations reads them from here meanwhile.
+  const [variationsDraft, setVariationsDraft] = useState<Variation[] | null>(
+    null,
+  );
+  const stagedExperiment = useMemo(
+    () => withStagedVariations(experiment, variationsDraft),
+    [experiment, variationsDraft],
+  );
+  const [environmentScopes, setEnvironmentScopes] = useState<
+    FlagEnvironmentsDraft["value"]
+  >({});
+  const flagEnvironments: FlagEnvironmentsDraft = useMemo(
+    () => ({
+      value: environmentScopes,
+      set: (featureId, scope) =>
+        setEnvironmentScopes((prev) => {
+          const next = { ...prev };
+          if (scope) next[featureId] = scope;
+          else delete next[featureId];
+          return next;
+        }),
+    }),
+    [environmentScopes],
+  );
+  useRegisterExperimentEdit("variations", !!variationsDraft, {
+    changes: () =>
+      experimentFieldChanges(experiment, {
+        variations: variationsDraft ?? experiment.variations,
+        // The split the page shows, so both writes agree on the count.
+        variationWeights:
+          targetingDraft?.value?.variationWeights ??
+          phases[phases.length - 1]?.variationWeights,
+      }),
+    onSaved: () => setVariationsDraft(null),
+    discard: () => setVariationsDraft(null),
+  });
 
   // Only a pending scheduled START should lock down editing (the experiment is
   // about to launch). A scheduled STOP (an end date on a running experiment)
@@ -203,11 +249,20 @@ export default function Implementation({
       )}
       {editMetadataIndex !== null && canEditExperiment && (
         <EditVariationMetadataModal
-          experiment={experiment}
+          experiment={stagedExperiment}
           variationIndex={editMetadataIndex}
           close={() => setEditMetadataIndex(null)}
-          mutate={mutate}
+          stage={setVariationsDraft}
           source="implementation-tab"
+        />
+      )}
+      {editKeyIndex !== null && canEditExperiment && (
+        <EditVariationKeyModal
+          experiment={stagedExperiment}
+          variationIndex={editKeyIndex}
+          analysisOnly={implementationType === "none"}
+          close={() => setEditKeyIndex(null)}
+          stage={setVariationsDraft}
         />
       )}
       <Separator size="4" my="2" />
@@ -217,17 +272,20 @@ export default function Implementation({
         </Heading>
         {showTrafficFunnel ? (
           <TrafficAllocationFunnel
-            experiment={experiment}
-            editTraffic={pendingScheduledStart ? null : editTraffic}
+            experiment={stagedExperiment}
+            stageVariations={setVariationsDraft}
+            flagEnvironments={flagEnvironments}
             editTargeting={pendingScheduledStart ? null : editTargeting}
             targetingDraft={targetingDraft}
             editNamespace={pendingScheduledStart ? null : editNamespace}
-            addVariation={pendingScheduledStart ? null : addVariation}
+            canAddVariation={!pendingScheduledStart && !!canAddVariation}
             addVariationValues={
               canAdoptManagedFlag && !pendingScheduledStart
                 ? addVariationValues
                 : null
             }
+            setEditVariationIndex={setEditMetadataIndex}
+            setEditKeyIndex={setEditKeyIndex}
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}
             mutate={mutate}
@@ -409,4 +467,19 @@ export default function Implementation({
       </div>
     </>
   );
+}
+
+function withStagedVariations(
+  experiment: ExperimentInterfaceStringDates,
+  variations: Variation[] | null,
+): ExperimentInterfaceStringDates {
+  if (!variations) return experiment;
+  const phases = [...experiment.phases];
+  if (phases.length) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      variations: variations.map((v) => ({ id: v.id, status: "active" })),
+    };
+  }
+  return { ...experiment, variations, phases };
 }

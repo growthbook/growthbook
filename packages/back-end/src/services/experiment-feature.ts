@@ -25,6 +25,7 @@ import {
   ExperimentInterface,
   ExperimentRefRule,
   ExperimentRefVariation,
+  ExperimentRuleEnvironments,
   FeatureValueType,
   FeatureInterface,
   FeatureRule,
@@ -66,6 +67,7 @@ import {
 } from "back-end/src/api/features/validations";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   assertCanAutoPublish,
@@ -346,6 +348,8 @@ export type ExperimentLinkedFeatureValueUpdate = {
   sparse?: boolean;
   /** Managed flags only. */
   valueType?: FeatureValueType;
+  /** Re-scopes the rule; omitted leaves its environments as they are. */
+  environments?: ExperimentRuleEnvironments;
   revisionOptions: ExperimentFeatureValueRevisionOptions;
 };
 
@@ -433,6 +437,7 @@ export async function updateExperimentRefVariations({
   matchingRules,
   updatedVariationValues,
   sparse,
+  ruleUpdates,
   user,
   guardDateUpdated = false,
 }: {
@@ -442,6 +447,8 @@ export async function updateExperimentRefVariations({
   matchingRules: MatchingRule[];
   updatedVariationValues: ExperimentRefVariation[];
   sparse?: boolean;
+  // Other rule fields written with the values, e.g. its environment scope.
+  ruleUpdates?: Partial<ExperimentRefRule>;
   user: EventUser;
   guardDateUpdated?: boolean;
 }): Promise<FeatureRevisionInterface> {
@@ -477,6 +484,7 @@ export async function updateExperimentRefVariations({
       environmentId: m.environmentId,
     })),
     {
+      ...ruleUpdates,
       variations: updatedVariationValues,
       ...(sparse !== undefined && { sparse }),
     },
@@ -491,6 +499,18 @@ export async function updateExperimentRefVariations({
   }
 
   return updatedRevision;
+}
+
+function sameRuleEnvironments(
+  rule: Pick<ExperimentRefRule, "allEnvironments" | "environments">,
+  scope: ExperimentRuleEnvironments,
+): boolean {
+  if (!!rule.allEnvironments !== scope.allEnvironments) return false;
+  if (scope.allEnvironments) return true;
+  return isEqual(
+    [...(rule.environments ?? [])].sort(),
+    [...scope.environments].sort(),
+  );
 }
 
 export async function validateExperimentFeatureUpdates({
@@ -552,7 +572,9 @@ export async function validateExperimentFeatureUpdates({
       if (m.rule.type !== "experiment-ref") return false;
       return (
         !isEqual(m.rule.variations, updatedVariationValues) ||
-        (entry.sparse !== undefined && entry.sparse !== !!m.rule.sparse)
+        (entry.sparse !== undefined && entry.sparse !== !!m.rule.sparse) ||
+        (!!entry.environments &&
+          !sameRuleEnvironments(m.rule, entry.environments))
       );
     });
 
@@ -1141,7 +1163,65 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   return { published, failed };
 }
 
-// Enablement follows one way: entering the footprint switches on, leaving only loses the rule.
+/**
+ * What re-scoping an experiment's rule changes on a revision: the rule's own
+ * environment fields, and the flag environments it switches on. Enablement
+ * follows one way: entering the footprint switches on, leaving only loses the
+ * rule.
+ */
+export function planExperimentRuleEnvironments({
+  feature,
+  revision,
+  experimentId,
+  orgEnvironments,
+  scope,
+}: {
+  feature: FeatureInterface;
+  revision: Pick<FeatureRevisionInterface, "rules" | "environmentsEnabled">;
+  experimentId: string;
+  orgEnvironments: string[];
+  scope: ExperimentRuleEnvironments;
+}): {
+  scopedEnvironments: string[];
+  ruleUpdate: Partial<ExperimentRefRule>;
+  environmentsEnabled: Record<string, boolean> | null;
+} {
+  const scopedEnvironments = scope.allEnvironments
+    ? orgEnvironments
+    : scope.environments.filter((e) => orgEnvironments.includes(e));
+  const hasRule = (revision.rules ?? []).some(
+    (rule) =>
+      rule.type === "experiment-ref" && rule.experimentId === experimentId,
+  );
+  if (!hasRule) {
+    throw new BadRequestError(
+      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed; set variation values first to recreate it.`,
+    );
+  }
+  const baseEnvEnabled: Record<string, boolean> = {
+    ...Object.fromEntries(
+      orgEnvironments.map((e) => [
+        e,
+        feature.environmentSettings?.[e]?.enabled ?? false,
+      ]),
+    ),
+    ...(revision.environmentsEnabled ?? {}),
+  };
+  const toggles = Object.fromEntries(
+    scopedEnvironments.filter((e) => !baseEnvEnabled[e]).map((e) => [e, true]),
+  );
+  return {
+    scopedEnvironments,
+    // Strips any stale environments[], as linking does.
+    ruleUpdate: scope.allEnvironments
+      ? { allEnvironments: true, environments: undefined }
+      : { allEnvironments: false, environments: scopedEnvironments },
+    environmentsEnabled: Object.keys(toggles).length
+      ? { ...(revision.environmentsEnabled ?? {}), ...toggles }
+      : null,
+  };
+}
+
 export async function updateExperimentRuleEnvironments({
   context,
   experiment,
@@ -1166,55 +1246,29 @@ export async function updateExperimentRuleEnvironments({
     context.permissions.throwPermissionError();
   }
 
-  const scopedEnvironments = allEnvironments
-    ? environments
-    : selected.filter((e) => environments.includes(e));
-
   const revision =
     targetVersion !== undefined
       ? await getDraftRevision(context, feature, targetVersion)
       : ((await getActiveDraft(context, feature)) ??
         (await getDraftRevision(context, feature, feature.version)));
 
-  let matched = false;
-  const nextRules = cloneDeep(revision.rules ?? []).map((rule) => {
-    if (rule.type !== "experiment-ref" || rule.experimentId !== experiment.id) {
-      return rule;
-    }
-    matched = true;
-    // Strips any stale environments[], as linking does.
-    return allEnvironments
-      ? { ...omit(rule, ["environments"]), allEnvironments: true }
-      : { ...rule, allEnvironments: false, environments: scopedEnvironments };
-  });
-
-  if (!matched) {
-    throw new Error(
-      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed; set variation values first to recreate it.`,
-    );
-  }
-
-  const baseEnvEnabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      environments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
+  const { scopedEnvironments, ruleUpdate, environmentsEnabled } =
+    planExperimentRuleEnvironments({
+      feature,
+      revision,
+      experimentId: experiment.id,
+      orgEnvironments: environments,
+      scope: { allEnvironments, environments: selected },
+    });
+  const nextRules = cloneDeep(revision.rules ?? []).map((rule) =>
+    rule.type === "experiment-ref" && rule.experimentId === experiment.id
+      ? { ...omit(rule, ["environments"]), ...ruleUpdate }
+      : rule,
+  );
+  const changes: Partial<FeatureRevisionInterface> = {
+    rules: nextRules,
+    ...(environmentsEnabled && { environmentsEnabled }),
   };
-  const envToggles: Record<string, boolean> = {};
-  for (const envId of scopedEnvironments) {
-    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
-  }
-
-  const changes: Partial<FeatureRevisionInterface> = { rules: nextRules };
-  if (Object.keys(envToggles).length > 0) {
-    changes.environmentsEnabled = {
-      ...(revision.environmentsEnabled ?? {}),
-      ...envToggles,
-    };
-  }
 
   const updated = await updateRevision(context, feature, revision, changes, {
     user: eventAudit,

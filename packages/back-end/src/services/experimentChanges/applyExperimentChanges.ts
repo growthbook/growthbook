@@ -20,6 +20,7 @@ import {
   prevalidateRevisionUpdate,
   restoreRevisionSnapshot,
   RevisionSnapshot,
+  updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   getDraftRevision,
@@ -28,6 +29,7 @@ import {
 import {
   ExperimentFeatureUpdatePlan,
   ExperimentLinkedFeatureValueUpdate,
+  planExperimentRuleEnvironments,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
@@ -64,6 +66,8 @@ export type ExperimentChangesResult = {
 type FlagValuesPlan = ExperimentFeatureUpdatePlan & {
   update: ExperimentLinkedFeatureValueUpdate;
   managed: boolean;
+  // The rule's environment re-scope, when the save carries one.
+  scope: ReturnType<typeof planExperimentRuleEnvironments> | null;
 };
 
 type Compensation = {
@@ -186,6 +190,7 @@ async function planFlagValues(
       variations: entry.variations,
       ...(entry.valueType && { valueType: entry.valueType }),
       ...(entry.sparse !== undefined && { sparse: entry.sparse }),
+      ...(entry.environments && { environments: entry.environments }),
       revisionOptions: startsDraft
         ? { forceNewDraft: true }
         : { targetVersion: loaded.version },
@@ -241,9 +246,19 @@ async function planFlagValues(
     const rules = [
       ...new Map(matchingRules.map(({ rule }) => [rule.id, rule])).values(),
     ];
+    const scope = update.environments
+      ? planExperimentRuleEnvironments({
+          feature,
+          revision: base,
+          experimentId: experiment.id,
+          orgEnvironments: context.environments,
+          scope: update.environments,
+        })
+      : null;
     const ruleUpdate = {
       variations: update.variations,
       ...(update.sparse !== undefined && { sparse: update.sparse }),
+      ...scope?.ruleUpdate,
     };
     const projected = applyPartialFeatureRuleUpdatesToRevision(
       base,
@@ -263,10 +278,15 @@ async function planFlagValues(
       context,
       feature,
       existingRevision ?? { ...base, status: "draft" },
-      { rules: projected.rules ?? [] },
+      {
+        rules: projected.rules ?? [],
+        ...(scope?.environmentsEnabled && {
+          environmentsEnabled: scope.environmentsEnabled,
+        }),
+      },
     );
 
-    result.push({ ...plan, update, managed });
+    result.push({ ...plan, update, managed, scope });
   }
   return result;
 }
@@ -286,7 +306,8 @@ async function writeFlagValues({
   eventAudit: EventUser;
   compensations: Compensation[];
 }): Promise<{ featureId: string; version: number }> {
-  const { feature, existingRevision, matchingRules, update, managed } = plan;
+  const { feature, existingRevision, matchingRules, update, managed, scope } =
+    plan;
 
   let revision: FeatureRevisionInterface;
   let compensation: Compensation;
@@ -336,10 +357,30 @@ async function writeFlagValues({
     matchingRules,
     updatedVariationValues: update.variations,
     sparse: update.sparse,
+    ruleUpdates: scope?.ruleUpdate,
     user: eventAudit,
     guardDateUpdated: true,
   });
   compensation.writtenDateUpdated = revision.dateUpdated;
+
+  // The rule's new footprint switches its environments on, one way.
+  if (scope?.environmentsEnabled) {
+    revision =
+      (await updateRevision(
+        context,
+        feature,
+        revision,
+        { environmentsEnabled: scope.environmentsEnabled },
+        {
+          user: eventAudit,
+          action: "update experiment environments",
+          subject: `to ${scope.scopedEnvironments.join(", ") || "no environments"}`,
+          value: JSON.stringify(update.environments),
+        },
+        { guardDateUpdated: true },
+      )) ?? revision;
+    compensation.writtenDateUpdated = revision.dateUpdated;
+  }
 
   let version = revision.version;
   if (managed) {

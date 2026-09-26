@@ -30,6 +30,9 @@ import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/
 import {
   EnvironmentInputsPopover,
   getEnvironmentStates,
+  scopeFromStates,
+  stageEnvironmentInputs,
+  statesFromInputs,
 } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import { useAuth } from "@/services/auth";
@@ -59,7 +62,10 @@ import {
   VALUE_TYPE_LABELS,
 } from "@/components/Features/valueTypes";
 import cornerStyles from "@/components/Features/CornerActions.module.scss";
-import { useRegisterExperimentEdit } from "./ExperimentEdits";
+import {
+  FlagEnvironmentsDraft,
+  useRegisterExperimentEdit,
+} from "./ExperimentEdits";
 import FlagValuesModal from "./FlagValuesModal";
 import {
   getDuplicateVariationIds,
@@ -116,6 +122,8 @@ export interface Props {
   mutate: () => void;
   /** Links another Feature Flag, offered under the last one. */
   onAddFlag?: (() => void) | null;
+  /** Environment scopes staged per flag. */
+  flagEnvironments?: FlagEnvironmentsDraft;
 }
 
 /** One row per linked Feature Flag, a cell per variation, under the variation cards. */
@@ -126,6 +134,7 @@ export default function FlagValueRows({
   showLive = false,
   mutate,
   onAddFlag,
+  flagEnvironments,
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const cols = Math.min(variations.length, 3);
@@ -157,6 +166,7 @@ export default function FlagValueRows({
           canEdit={canEdit}
           showLive={showLive}
           mutate={mutate}
+          flagEnvironments={flagEnvironments}
         />
       ))}
       {linkedFlags.length ? (
@@ -170,6 +180,7 @@ export default function FlagValueRows({
           canEdit={canEdit}
           showLive={showLive}
           mutate={mutate}
+          flagEnvironments={flagEnvironments}
         />
       ))}
       {onAddFlag ? (
@@ -189,12 +200,14 @@ function FlagValueRow({
   canEdit,
   showLive,
   mutate,
+  flagEnvironments,
 }: {
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
   canEdit: boolean;
   showLive: boolean;
   mutate: () => void;
+  flagEnvironments?: FlagEnvironmentsDraft;
 }) {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
@@ -225,6 +238,12 @@ function FlagValueRow({
     : feature.defaultValue;
 
   const [staged, setStaged] = useState<Staged | null>(null);
+  // Environments are staged above the row: the funnel's header edits them too.
+  const stagedScope = flagEnvironments?.value[feature.id] ?? null;
+  const clearStaged = () => {
+    setStaged(null);
+    flagEnvironments?.set(feature.id, null);
+  };
   // The variation to focus when the values editor opens; undefined = closed.
   const [editingValues, setEditingValues] = useState<string | null>();
   const storedValue = (variationId: string) =>
@@ -318,12 +337,13 @@ function FlagValueRow({
   );
 
   const dirty =
-    !!staged &&
-    (valueType !== storedType ||
-      sparse !== storedSparse ||
-      Object.entries(staged.values).some(
-        ([id, value]) => value !== storedValue(id),
-      ));
+    !!stagedScope ||
+    (!!staged &&
+      (valueType !== storedType ||
+        sparse !== storedSparse ||
+        Object.entries(staged.values).some(
+          ([id, value]) => value !== storedValue(id),
+        )));
 
   // Like the values modal: repair loose values in place, then ask for a
   // second save, so nothing lands that the user hasn't seen.
@@ -351,6 +371,7 @@ function FlagValueRow({
           variations: checkedValues(),
           ...(valueType !== storedType && { valueType }),
           ...(sparse !== storedSparse && { sparse }),
+          ...(stagedScope && { environments: stagedScope }),
           // Writes into the draft the values came from; off live, starts one.
           revision: fromDraft
             ? {
@@ -361,8 +382,8 @@ function FlagValueRow({
         },
       ],
     }),
-    onSaved: () => setStaged(null),
-    discard: () => setStaged(null),
+    onSaved: clearStaged,
+    discard: clearStaged,
   });
 
   // Like the revision dropdown: a titled draft keeps its number in front.
@@ -571,13 +592,20 @@ function FlagValueRow({
     });
   }
 
+  const storedInputs = fromDraft
+    ? pendingDraft.environmentInputs
+    : (info.liveEnvironmentInputs ?? info.environmentInputs);
+  const environmentInputs =
+    storedInputs && stageEnvironmentInputs(storedInputs, stagedScope);
   const environmentStates = getEnvironmentStates(
-    fromDraft
-      ? pendingDraft
-      : {
-          environmentStates:
-            info.liveEnvironmentStates ?? info.environmentStates,
-        },
+    stagedScope && environmentInputs
+      ? { environmentStates: statesFromInputs(environmentInputs) }
+      : fromDraft
+        ? pendingDraft
+        : {
+            environmentStates:
+              info.liveEnvironmentStates ?? info.environmentStates,
+          },
     {
       future:
         experiment.status !== "running"
@@ -587,9 +615,6 @@ function FlagValueRow({
             : false,
     },
   );
-  const environmentInputs = fromDraft
-    ? pendingDraft.environmentInputs
-    : (info.liveEnvironmentInputs ?? info.environmentInputs);
   // What the draft moves, against live; before live has the rule, against the
   // flag's own toggles with no rule.
   const liveInput = (env: string) =>
@@ -599,7 +624,9 @@ function FlagValueRow({
     };
   const changedInputs = (env: string) => {
     const input = environmentInputs?.[env];
-    if (!fromDraft || !input) return { flag: false, rule: false };
+    if ((!fromDraft && !stagedScope) || !input) {
+      return { flag: false, rule: false };
+    }
     const live = liveInput(env);
     return {
       flag: input.flagEnabled !== live.flagEnabled,
@@ -615,9 +642,11 @@ function FlagValueRow({
   // Only a change the draft makes needs saying when it lands.
   const environmentsTiming = !environmentsChanged
     ? null
-    : launches
-      ? `From ${draftLabel}. Takes effect when it's published, or when the experiment starts.`
-      : `From ${draftLabel}. Takes effect when it's published.`;
+    : `${fromDraft ? `From ${draftLabel}. ` : ""}${
+        launches
+          ? "Takes effect when it's published, or when the experiment starts."
+          : "Takes effect when it's published."
+      }`;
 
   // JSON is too big to edit in a cell, so it opens the values editor.
   const isJson = valueType === "json";
@@ -698,8 +727,21 @@ function FlagValueRow({
           <EditExperimentEnvironmentsModal
             experiment={experiment}
             info={info}
+            scope={
+              stagedScope ??
+              scopeFromStates(
+                Object.fromEntries(
+                  environmentStates.map((e) => [e.env, e.state]),
+                ),
+                environmentStates.map((e) => e.env),
+              )
+            }
+            showFlag={false}
             close={() => setEditEnvironments(false)}
-            mutate={mutate}
+            apply={(scope) => {
+              flagEnvironments?.set(feature.id, scope);
+              setEditEnvironments(false);
+            }}
           />
         ) : null}
         {managed ? null : (
