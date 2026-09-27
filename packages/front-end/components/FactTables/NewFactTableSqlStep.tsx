@@ -21,7 +21,11 @@ import {
 } from "shared/types/integrations";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ago } from "shared/dates";
-import { DetectedFactTableColumn } from "shared/types/fact-table";
+import {
+  DetectedFactTableColumn,
+  RowFilter,
+  RowFilterTestResults,
+} from "shared/types/fact-table";
 import {
   isManagedWarehouseUnavailable,
   isProjectListValidForProject,
@@ -30,7 +34,11 @@ import {
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import { getColumnMappingError } from "@/services/factTables";
+import {
+  getColumnMappingError,
+  isGA4EventsTable,
+  PickerColumnSelection,
+} from "@/services/factTables";
 import {
   getSchemaBrowserTables,
   SchemaBrowserTable,
@@ -46,6 +54,13 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
+import { RowFilterEditorRows } from "@/components/FactTables/RowFilterFields";
+import { RowFilterSampleRowsModal } from "@/components/FactTables/SampleRowsModal";
+import {
+  FilterColumnSource,
+  isRowFilterComplete,
+} from "@/components/FactTables/rowFilterUtils";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import BuildInformationSchemaCard from "@/components/SchemaBrowser/BuildInformationSchemaCard";
@@ -60,10 +75,11 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
-const SAMPLE_ROW_LIMIT = 20;
+export const SAMPLE_ROW_LIMIT = 20;
 
 export type FactTableSqlMode = "table" | "sql";
 
@@ -281,6 +297,13 @@ export default function NewFactTableSqlStep({
   onSelectTable,
   tableColumnsError,
   columnError,
+  rowFilters,
+  setRowFilters,
+  columnSource,
+  testRowFilters,
+  rowFilterError,
+  columnSelection,
+  setColumnSelection,
 }: {
   datasourceId: string;
   setDatasourceId: (id: string) => void;
@@ -296,6 +319,14 @@ export default function NewFactTableSqlStep({
   onSelectTable: (table: SchemaBrowserTable) => void;
   tableColumnsError: string | null;
   columnError: string | null;
+  rowFilters: RowFilter[];
+  setRowFilters: (rowFilters: RowFilter[]) => void;
+  // Null until the selected table's columns load
+  columnSource: FilterColumnSource | null;
+  testRowFilters: (rowFilters: RowFilter[]) => Promise<RowFilterTestResults>;
+  rowFilterError: string | null;
+  columnSelection: PickerColumnSelection;
+  setColumnSelection: (selection: PickerColumnSelection) => void;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById, datasources, project } = useDefinitions();
@@ -304,6 +335,7 @@ export default function NewFactTableSqlStep({
   const [testQueryResults, setTestQueryResults] =
     useState<TestQueryResults | null>(null);
   const [testingQuery, setTestingQuery] = useState(false);
+  const [sampleRowsOpen, setSampleRowsOpen] = useState(false);
   const [formatError, setFormatError] = useState<string | null>(null);
   const {
     autoCompletions,
@@ -542,7 +574,7 @@ export default function NewFactTableSqlStep({
             </Button>
           }
         >
-          You are in the simple table mode.
+          Need joins or complex logic?
         </Callout>
         {datasourceSelect("Data Source")}
         <TablePicker
@@ -557,11 +589,96 @@ export default function NewFactTableSqlStep({
             {tableColumnsError}
           </Callout>
         ) : null}
-        {/* Holds the button's space so picking a table doesn't resize the modal */}
-        {!columnError ? (
-          <Box style={{ visibility: selectedTable ? "visible" : "hidden" }}>
-            {testButton("Preview rows")}
-          </Box>
+        {/* Holds the fields' space so picking a table doesn't resize the modal */}
+        <Flex
+          direction="column"
+          gap="4"
+          style={{ visibility: selectedTable ? "visible" : "hidden" }}
+        >
+          <Flex direction="column" gap="2">
+            <Text weight="semibold">Selected columns</Text>
+            {selectedTable && isGA4EventsTable(selectedTable) ? (
+              <Callout status="info" size="sm">
+                GA4 events table detected. Common columns were selected
+                automatically.
+              </Callout>
+            ) : (
+              <>
+                <Select
+                  aria-label="Selected columns"
+                  value={columnSelection.mode}
+                  setValue={(mode) =>
+                    setColumnSelection({
+                      mode: mode as PickerColumnSelection["mode"],
+                      columns: [],
+                    })
+                  }
+                  mb="0"
+                >
+                  <SelectItem value="all">All (SELECT *)</SelectItem>
+                  <SelectItem value="exclude">
+                    Exclude specific columns
+                  </SelectItem>
+                  <SelectItem value="include">
+                    Include specific columns
+                  </SelectItem>
+                </Select>
+                {columnSelection.mode !== "all" ? (
+                  <MultiSelectField
+                    value={columnSelection.columns}
+                    onChange={(columns) =>
+                      setColumnSelection({ ...columnSelection, columns })
+                    }
+                    options={columnSource?.columns ?? []}
+                    placeholder={
+                      columnSelection.mode === "include"
+                        ? "Columns to include..."
+                        : "Columns to exclude..."
+                    }
+                    sort={false}
+                    disabled={!columnSource}
+                    autoFocus
+                  />
+                ) : null}
+              </>
+            )}
+          </Flex>
+          <Flex direction="column" gap="2">
+            <Text weight="semibold">Filters</Text>
+            {columnSource ? (
+              <RowFilterEditorRows
+                value={rowFilters}
+                setValue={setRowFilters}
+                columnSource={columnSource}
+                dateInputWidth={260}
+              />
+            ) : null}
+            <RowFilterActions
+              disabled={!columnSource}
+              onAdd={(filter) => setRowFilters([...rowFilters, filter])}
+              onViewSampleRows={
+                canRunQueries ? () => setSampleRowsOpen(true) : undefined
+              }
+              canViewSampleRows={
+                !!columnSource && rowFilters.every(isRowFilterComplete)
+              }
+            />
+          </Flex>
+        </Flex>
+        {sampleRowsOpen && selectedTable ? (
+          <RowFilterSampleRowsModal
+            title={`${selectedTable.schemaName}.${selectedTable.tableName}`}
+            columnSource={columnSource}
+            testRowFilters={testRowFilters}
+            rowFilters={rowFilters}
+            setRowFilters={setRowFilters}
+            close={() => setSampleRowsOpen(false)}
+          />
+        ) : null}
+        {rowFilterError ? (
+          <Callout status="error" size="sm">
+            {rowFilterError}
+          </Callout>
         ) : null}
         {resultsTable ? (
           <Flex direction="column" style={{ maxHeight: 300 }}>

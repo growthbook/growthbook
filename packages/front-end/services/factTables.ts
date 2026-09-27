@@ -4,6 +4,8 @@ import {
 } from "shared/types/datasource";
 import { DetectedFactTableColumn } from "shared/types/fact-table";
 import { Column } from "shared/types/integrations";
+import { SqlIdentifierQuote } from "shared/types/sql";
+import { quoteIdentifier } from "shared/sql";
 import { Permissions } from "shared/permissions";
 import { mapDatabaseTypeToEnum } from "shared/enterprise";
 import { SchemaBrowserTable } from "@/services/schemaBrowserTables";
@@ -102,7 +104,7 @@ WHERE
   ${shardFilter(true)}`;
 }
 
-const isGA4EventsTable = (table: SchemaBrowserTable) =>
+export const isGA4EventsTable = (table: SchemaBrowserTable) =>
   !!table.shards &&
   table.tableName === "events_*" &&
   table.schemaName.startsWith("analytics_");
@@ -110,16 +112,43 @@ const isGA4EventsTable = (table: SchemaBrowserTable) =>
 export function getPickerTableError(
   table: SchemaBrowserTable,
   columns: Column[],
+  // From getPickerColumns
+  selected: string[] | null = null,
 ): string | null {
   // GA4's query builds its own timestamp and identifier columns
   if (isGA4EventsTable(table)) return null;
+  const detected = columns.map((c) => ({
+    column: c.columnName,
+    datatype: mapDatabaseTypeToEnum(c.dataType),
+  }));
+  const tableError = getColumnMappingError(detected, true);
+  // An empty selection is unfinished, not wrong
+  if (tableError || !selected?.length) return tableError;
   return getColumnMappingError(
-    columns.map((c) => ({
-      column: c.columnName,
-      datatype: mapDatabaseTypeToEnum(c.dataType),
-    })),
-    true,
-  );
+    detected.filter((c) => selected.includes(c.column)),
+  )
+    ? "Selected columns must include a timestamp column and a separate identifier column."
+    : null;
+}
+
+export type PickerColumnSelection = {
+  mode: "all" | "include" | "exclude";
+  columns: string[];
+};
+
+// Null selects every column
+export function getPickerColumns(
+  selection: PickerColumnSelection,
+  tableColumns: string[],
+): string[] | null {
+  if (selection.mode === "include") return selection.columns;
+  if (selection.mode === "exclude" && selection.columns.length) {
+    // ponytail: SELECT * EXCEPT isn't portable, so this lists the rest and
+    // columns added to the table later are left out. Use the dialect's
+    // EXCEPT/EXCLUDE where it has one if that matters.
+    return tableColumns.filter((c) => !selection.columns.includes(c));
+  }
+  return null;
 }
 
 // String partitions (Hive-style `dt`) can be any format; only dates are safe
@@ -131,13 +160,33 @@ export function getPartitionFilterColumn(columns: Column[]): string {
   );
 }
 
+const SIMPLE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 // Pruning filters only, lower bound only: metric queries bound the timestamp
 export function getPickerTableSql(
   table: SchemaBrowserTable,
-  partitionColumn = "",
-  datasourceType?: DataSourceType,
+  {
+    partitionColumn = "",
+    datasourceType,
+    identifierQuote = '"',
+    columns = null,
+    rowFilterWhere = "",
+  }: {
+    partitionColumn?: string;
+    datasourceType?: DataSourceType;
+    identifierQuote?: SqlIdentifierQuote;
+    // From getPickerColumns
+    columns?: string[] | null;
+    // Compiled row filters, already joined with AND
+    rowFilterWhere?: string;
+  } = {},
 ): string {
-  if (isGA4EventsTable(table)) return getGA4EventsSql(table.path);
+  // Hand-written, so it picks its own columns. Its WHERE reads the raw export
+  // columns, which are the ones the filters offer.
+  if (isGA4EventsTable(table)) {
+    const sql = getGA4EventsSql(table.path);
+    return rowFilterWhere ? `${sql}\n  AND ${rowFilterWhere}` : sql;
+  }
 
   const where = table.shards ? [shardFilter(table.hasIntraday)] : [];
   if (partitionColumn) {
@@ -146,8 +195,13 @@ export function getPickerTableSql(
     const literal = datasourceType === "athena" ? `DATE ${start}` : start;
     where.push(`${partitionColumn} >= ${literal}`);
   }
+  if (rowFilterWhere) where.push(rowFilterWhere);
 
-  const select = `SELECT * FROM ${table.path}`;
+  const quote = (c: string) =>
+    SIMPLE_IDENTIFIER.test(c) ? c : quoteIdentifier(c, identifierQuote);
+  const select = columns?.length
+    ? `SELECT\n  ${columns.map(quote).join(",\n  ")}\nFROM ${table.path}`
+    : `SELECT * FROM ${table.path}`;
   return where.length
     ? `${select}\nWHERE\n  ${where.join("\n  AND ")}`
     : select;

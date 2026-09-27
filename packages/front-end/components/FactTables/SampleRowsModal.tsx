@@ -13,15 +13,17 @@ import { TestQueryResultsTable } from "@/components/Settings/DisplayTestQueryRes
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import { factTableToColumnSource, isRowFilterComplete } from "./rowFilterUtils";
+import {
+  factTableToColumnSource,
+  FilterColumnSource,
+  isRowFilterComplete,
+} from "./rowFilterUtils";
 import { RowFilterEditorRows } from "./RowFilterFields";
 import { RowFilterActions } from "./RowFilterActions";
 
 export function SampleRowsModal({
   factTableId,
-  rowFilters,
-  setRowFilters,
-  close,
+  ...props
 }: {
   factTableId: string;
   rowFilters: RowFilter[];
@@ -34,7 +36,45 @@ export function SampleRowsModal({
     () => (factTable ? factTableToColumnSource(factTable) : null),
     [factTable],
   );
+  const testRowFilters = useCallback(
+    async (rowFilters: RowFilter[]) =>
+      (
+        await apiCall<{ result: RowFilterTestResults }>(
+          `/fact-tables/${factTableId}/test-row-filters`,
+          {
+            method: "POST",
+            body: JSON.stringify({ rowFilters }),
+          },
+        )
+      ).result,
+    [apiCall, factTableId],
+  );
 
+  return (
+    <RowFilterSampleRowsModal
+      {...props}
+      title={factTable?.name ?? factTableId}
+      columnSource={columnSource}
+      testRowFilters={testRowFilters}
+    />
+  );
+}
+
+export function RowFilterSampleRowsModal({
+  title,
+  columnSource,
+  testRowFilters,
+  rowFilters,
+  setRowFilters,
+  close,
+}: {
+  title: string;
+  columnSource: FilterColumnSource | null;
+  testRowFilters: (rowFilters: RowFilter[]) => Promise<RowFilterTestResults>;
+  rowFilters: RowFilter[];
+  setRowFilters: (value: RowFilter[]) => void;
+  close: () => void;
+}) {
   const [draft, setDraft] = useState<RowFilter[]>(rowFilters);
   const [queried, setQueried] = useState<RowFilter[]>(rowFilters);
   const [result, setResult] = useState<RowFilterTestResults | null>(null);
@@ -53,21 +93,15 @@ export function SampleRowsModal({
       setLoading(true);
       setQueried(filters);
       try {
-        const res = await apiCall<{ result: RowFilterTestResults }>(
-          `/fact-tables/${factTableId}/test-row-filters`,
-          {
-            method: "POST",
-            body: JSON.stringify({ rowFilters: filters }),
-          },
-        );
-        if (!cancelledRef.current) setResult(res.result);
+        const res = await testRowFilters(filters);
+        if (!cancelledRef.current) setResult(res);
       } catch (e) {
         if (!cancelledRef.current)
           setResult({ sql: "", where: "", error: e.message });
       }
       if (!cancelledRef.current) setLoading(false);
     },
-    [apiCall, factTableId],
+    [testRowFilters],
   );
 
   useEffect(() => {
@@ -90,7 +124,7 @@ export function SampleRowsModal({
       dismissible={!hasUnsavedChanges}
     >
       <Modal.Header>
-        <Modal.Title>{factTable?.name ?? factTableId}</Modal.Title>
+        <Modal.Title>{title}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Frame mb="3" py="4" px="4" height="100%">

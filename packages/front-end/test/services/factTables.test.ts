@@ -4,6 +4,7 @@ import {
   getColumnMappingError,
   getDefaultTimestampColumn,
   getPartitionFilterColumn,
+  getPickerColumns,
   getPickerTableError,
   getPickerTableName,
   getPickerTableSql,
@@ -115,15 +116,23 @@ describe("getPickerTableSql", () => {
   });
 
   it("adds only a lower bound on the partition column", () => {
-    expect(getPickerTableSql(tracks, "_PARTITIONTIME", "bigquery")).toBe(
+    expect(
+      getPickerTableSql(tracks, {
+        partitionColumn: "_PARTITIONTIME",
+        datasourceType: "bigquery",
+      }),
+    ).toBe(
       `SELECT * FROM \`proj.segment.tracks\`\nWHERE\n  _PARTITIONTIME >= ${start}`,
     );
   });
 
   it("uses a DATE literal for Athena", () => {
-    expect(getPickerTableSql(tracks, "event_date", "athena")).toContain(
-      `event_date >= DATE ${start}`,
-    );
+    expect(
+      getPickerTableSql(tracks, {
+        partitionColumn: "event_date",
+        datasourceType: "athena",
+      }),
+    ).toContain(`event_date >= DATE ${start}`);
   });
 
   it("keeps the intraday OR grouped when adding the partition filter", () => {
@@ -131,9 +140,60 @@ describe("getPickerTableSql", () => {
       schema("marts", "events_20240101", "events_intraday_20240102"),
       true,
     );
-    expect(getPickerTableSql(events, "ts", "bigquery")).toMatch(
+    expect(getPickerTableSql(events, { partitionColumn: "ts" })).toMatch(
       /WHERE\n {2}\(\(_TABLE_SUFFIX .*\) OR \(_TABLE_SUFFIX .*'intraday_.*\)\)\n {2}AND ts >= /,
     );
+  });
+
+  it("appends row filters after the pruning filters", () => {
+    expect(getPickerTableSql(tracks, { rowFilterWhere: "(x = 1)" })).toBe(
+      "SELECT * FROM `proj.segment.tracks`\nWHERE\n  (x = 1)",
+    );
+    expect(
+      getPickerTableSql(tracks, {
+        partitionColumn: "_PARTITIONTIME",
+        rowFilterWhere: "(x = 1)",
+      }),
+    ).toMatch(/_PARTITIONTIME >= .*\n {2}AND \(x = 1\)$/);
+  });
+
+  it("lists selected columns, quoting only the ones that need it", () => {
+    expect(
+      getPickerTableSql(tracks, {
+        columns: ["user_id", "Order Date"],
+        identifierQuote: "`",
+      }),
+    ).toBe("SELECT\n  user_id,\n  `Order Date`\nFROM `proj.segment.tracks`");
+  });
+
+  it("filters GA4's hand-written query but keeps its columns", () => {
+    const [events] = getSchemaBrowserTables(GA4, true);
+    const sql = getPickerTableSql(events, {
+      columns: ["x"],
+      rowFilterWhere: "(x = 1)",
+    });
+    expect(sql).toMatch(/^SELECT\n {2}TIMESTAMP_MICROS/);
+    expect(sql).toMatch(/_TABLE_SUFFIX .*\n {2}AND \(x = 1\)$/);
+  });
+});
+
+describe("getPickerColumns", () => {
+  const all = ["a", "b", "c"];
+
+  it("selects everything unless a column is included or excluded", () => {
+    expect(getPickerColumns({ mode: "all", columns: [] }, all)).toBeNull();
+    expect(getPickerColumns({ mode: "exclude", columns: [] }, all)).toBeNull();
+    expect(getPickerColumns({ mode: "include", columns: [] }, all)).toEqual([]);
+  });
+
+  it("keeps included columns in picked order and the rest when excluding", () => {
+    expect(
+      getPickerColumns({ mode: "include", columns: ["c", "a"] }, all),
+    ).toEqual(["c", "a"]);
+    expect(getPickerColumns({ mode: "exclude", columns: ["b"] }, all)).toEqual([
+      "a",
+      "c",
+    ]);
   });
 });
 
@@ -164,6 +224,15 @@ describe("getPickerTableError", () => {
         col("ts", "SOME_CUSTOM_TYPE"),
       ]),
     ).toBeNull();
+  });
+
+  it("checks the selected columns once the table itself is usable", () => {
+    const columns = [col("user_id", "STRING"), col("ts", "TIMESTAMP")];
+    expect(getPickerTableError(tracks, columns, ["user_id"])).toMatch(
+      /^Selected columns must include/,
+    );
+    expect(getPickerTableError(tracks, columns, ["ts", "user_id"])).toBeNull();
+    expect(getPickerTableError(tracks, columns, [])).toBeNull();
   });
 
   it("skips the check for GA4, whose query builds its own columns", () => {
