@@ -218,7 +218,6 @@ export default function CollapsiblePanelLayout({
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
             borderLeft: expanded ? "1px solid var(--gray-a5)" : "none",
-            overflow: "hidden",
             transition: resizing
               ? "none"
               : `width ${SLIDE_MS}ms ease, margin-left ${SLIDE_MS}ms ease`,
@@ -241,19 +240,23 @@ export default function CollapsiblePanelLayout({
               }}
             ></Box>
           ) : null}
-          {/* Holds its width while the panel slides, so the contents do not
-              reflow on the way in or out. */}
-          <Box
-            height="100%"
-            style={{
-              overflowY: "auto",
-              width: `${panelWidth}px`,
-              // A column, so a panel that wants to fill the height can.
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {panel}
+          {/* Clips the contents mid-slide; the handle sits outside it so it
+              can straddle the border. */}
+          <Box height="100%" style={{ overflow: "hidden" }}>
+            {/* Holds its width while the panel slides, so the contents do not
+                reflow on the way in or out. */}
+            <Box
+              height="100%"
+              style={{
+                overflowY: "auto",
+                width: `${panelWidth}px`,
+                // A column, so a panel that wants to fill the height can.
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              {panel}
+            </Box>
           </Box>
         </Box>
       ) : null}

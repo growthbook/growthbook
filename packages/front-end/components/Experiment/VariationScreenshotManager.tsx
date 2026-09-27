@@ -14,9 +14,7 @@ import {
   arrayMove,
   rectSortingStrategy,
   SortableContext,
-  useSortable,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import {
   ExperimentInterfaceStringDates,
   Screenshot,
@@ -28,6 +26,7 @@ import Tooltip from "@/ui/Tooltip";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 // The same placeholder treatment the variation card uses, hover states included.
 import placeholderStyles from "@/components/Experiment/VariationsTable.module.scss";
+import useSortableItem from "@/hooks/useSortableItem";
 import styles from "./VariationScreenshotManager.module.scss";
 
 // Square, so a row of thumbnails reads as a grid rather than a filmstrip.
@@ -45,14 +44,9 @@ function ScreenshotTile({
   onDelete: () => void;
   onOpen: () => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: screenshot.path });
+  const { setNodeRef, style, isDragging, handle } = useSortableItem(
+    screenshot.path,
+  );
 
   return (
     <Box
@@ -60,10 +54,7 @@ function ScreenshotTile({
       position="relative"
       className={styles.tile}
       style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        // Above the tiles it is dragged across, which paint later in DOM order.
-        zIndex: isDragging ? 1 : undefined,
+        ...style,
         opacity: isDragging ? 0.5 : undefined,
         cursor: "grab",
         aspectRatio: TILE_ASPECT,
@@ -73,8 +64,7 @@ function ScreenshotTile({
         background: "var(--black-a1)",
       }}
       onClick={onOpen}
-      {...attributes}
-      {...listeners}
+      {...handle}
     >
       <AuthorizedImage
         imageCache={imageCache}

@@ -152,6 +152,7 @@ interface Props {
   onAddVariation?: () => void;
   onRemoveVariation?: (variationIndex: number) => void;
   onEditKey?: (variationIndex: number) => void;
+  onReorder?: () => void;
   // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
   /** Offered on each card while a values experiment has no flag yet. */
@@ -232,6 +233,7 @@ export function VariationBox({
   onEditMetadata,
   onRemoveVariation,
   onEditKey,
+  onReorder,
   capWidth = false,
   onAddValue,
 }: {
@@ -255,6 +257,7 @@ export function VariationBox({
   onEditMetadata?: (variationIndex: number) => void;
   onRemoveVariation?: (variationIndex: number) => void;
   onEditKey?: (variationIndex: number) => void;
+  onReorder?: () => void;
   capWidth?: boolean;
   /** Offered on each card while a values experiment has no flag yet. */
   onAddValue?: () => void;
@@ -307,7 +310,7 @@ export function VariationBox({
                   <PiPencilSimple size="14" />
                 </IconButton>
               ) : null}
-              {canEdit && (onRemoveVariation || onEditKey) ? (
+              {canEdit && (onRemoveVariation || onEditKey || onReorder) ? (
                 <DropdownMenu
                   trigger={
                     <IconButton
@@ -325,6 +328,11 @@ export function VariationBox({
                   menuPlacement="end"
                   variant="soft"
                 >
+                  {onReorder ? (
+                    <DropdownMenuItem onClick={onReorder}>
+                      Reorder variations
+                    </DropdownMenuItem>
+                  ) : null}
                   {onEditKey ? (
                     <DropdownMenuItem onClick={() => onEditKey(i)}>
                       Change variation ID
@@ -436,6 +444,7 @@ const VariationsTable: FC<Props> = ({
   onAddVariation,
   onRemoveVariation,
   onEditKey,
+  onReorder,
   centered = false,
   onAddValue,
 }) => {
@@ -509,6 +518,7 @@ const VariationsTable: FC<Props> = ({
               onEditMetadata={onEditMetadata}
               onRemoveVariation={onRemoveVariation}
               onEditKey={onEditKey}
+              onReorder={onReorder}
               onAddValue={onAddValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage

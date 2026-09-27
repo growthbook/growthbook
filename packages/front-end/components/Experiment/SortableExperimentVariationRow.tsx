@@ -1,6 +1,4 @@
 import { forwardRef, useEffect, useState } from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { FaArrowsAlt } from "react-icons/fa";
 import {
   ExperimentValue,
@@ -23,6 +21,7 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import useSortableItem from "@/hooks/useSortableItem";
 
 export type SortableVariation = ExperimentValue & {
   id: string;
@@ -236,20 +235,14 @@ export const ExperimentVariationRow = forwardRef<
 ExperimentVariationRow.displayName = "ExperimentVariationRow";
 
 export function SortableExperimentVariationRow(props: SortableProps) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: props.variation.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const { setNodeRef, style, handle } = useSortableItem(props.variation.id);
 
   return (
     <ExperimentVariationRow
       {...props}
       ref={setNodeRef}
       style={style}
-      handle={{ ...attributes, ...listeners }}
+      handle={handle}
     />
   );
 }

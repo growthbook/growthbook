@@ -3,8 +3,6 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -113,6 +111,7 @@ import {
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
+import useSortableItem from "@/hooks/useSortableItem";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 
@@ -1982,22 +1981,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 );
 
 export function SortableRule(props: SortableProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, active } =
-    useSortable({ id: props.rule.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: active?.id === props.rule.id ? 0.3 : 1,
-    margin: -1,
-  };
+  const { setNodeRef, style, isDragging, handle } = useSortableItem(
+    props.rule.id,
+  );
 
   return (
     <Rule
       {...props}
       ref={setNodeRef}
-      style={style}
-      handle={{ ...attributes, ...listeners }}
+      style={{ ...style, opacity: isDragging ? 0.3 : 1, margin: -1 }}
+      handle={handle}
     />
   );
 }

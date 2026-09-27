@@ -1,6 +1,4 @@
 import { ComponentProps, forwardRef, useEffect, useState } from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { RiDraggable } from "react-icons/ri";
 import { PiCaretDown, PiCaretUp, PiInfo, PiPencilSimple } from "react-icons/pi";
@@ -29,6 +27,7 @@ import {
 } from "@/ui/DropdownMenu";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import Text from "@/ui/Text";
+import useSortableItem from "@/hooks/useSortableItem";
 import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 
 // One column template for the header and every row; 32px is size="md"'s control height.
@@ -504,21 +503,17 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
 ManagedVariationRow.displayName = "ManagedVariationRow";
 
 export function SortableManagedVariationRow(props: SortableProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, active } =
-    useSortable({ id: props.variation.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const { setNodeRef, style, isDragging, handle } = useSortableItem(
+    props.variation.id,
+  );
 
   return (
     <ManagedVariationRow
       {...props}
       ref={setNodeRef}
       style={style}
-      dragging={active?.id === props?.variation?.id}
-      handle={{ ...attributes, ...listeners }}
+      dragging={isDragging}
+      handle={handle}
     />
   );
 }

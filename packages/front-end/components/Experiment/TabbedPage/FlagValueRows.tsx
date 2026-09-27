@@ -1,5 +1,11 @@
 import clsx from "clsx";
-import { ReactNode, useMemo, useState } from "react";
+import {
+  forwardRef,
+  HTMLAttributes,
+  ReactNode,
+  useMemo,
+  useState,
+} from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -89,23 +95,23 @@ const MANAGED_STRING_ACTIONS: ActionsOverlay = {
   withConstantButton: true,
 };
 
-// A slim, underlined menu trigger: the current choice and a caret.
-function CaretTrigger({
-  children,
-  color,
-}: {
-  children: ReactNode;
-  color?: "dark";
-}) {
+// A slim, underlined menu trigger: the current choice and a caret. A menu or
+// tooltip hands its trigger handlers and a ref, so they land on the span.
+const CaretTrigger = forwardRef<
+  HTMLSpanElement,
+  HTMLAttributes<HTMLSpanElement> & { color?: "dark" }
+>(function CaretTrigger({ children, color, ...props }, ref) {
   return (
-    <Link color={color}>
-      <Flex align="center" gap="1">
-        <Text size="sm">{children}</Text>
-        <PiCaretDownFill size={10} />
-      </Flex>
-    </Link>
+    <span ref={ref} {...props}>
+      <Link color={color}>
+        <Flex align="center" gap="1">
+          <Text size="sm">{children}</Text>
+          <PiCaretDownFill size={10} />
+        </Flex>
+      </Link>
+    </span>
   );
-}
+});
 
 type Staged = {
   values: Record<string, string>;
@@ -436,9 +442,7 @@ function FlagValueRow({
       <DropdownMenu
         trigger={
           <Tooltip content={targetTooltip} enabled={!!targetTooltip}>
-            <span>
-              <CaretTrigger>{targetLabel}</CaretTrigger>
-            </span>
+            <CaretTrigger>{targetLabel}</CaretTrigger>
           </Tooltip>
         }
         menuPlacement="end"

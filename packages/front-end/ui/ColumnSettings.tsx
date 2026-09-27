@@ -11,15 +11,14 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { Flex } from "@radix-ui/themes";
 import { PiDotsSixVertical } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import useSortableItem from "@/hooks/useSortableItem";
 
 export interface ManagedColumn {
   id: string;
@@ -37,14 +36,7 @@ function SortableColumnRow({
   column: ManagedColumn;
   onToggle: (visible: boolean) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: column.id });
+  const { setNodeRef, style, isDragging, handle } = useSortableItem(column.id);
 
   return (
     <Flex
@@ -54,8 +46,7 @@ function SortableColumnRow({
       py="2"
       px="2"
       style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
+        ...style,
         opacity: isDragging ? 0.9 : 1,
         border: "1px solid var(--gray-a5)",
         borderRadius: "var(--radius-3)",
@@ -64,8 +55,7 @@ function SortableColumnRow({
       }}
     >
       <span
-        {...attributes}
-        {...listeners}
+        {...handle}
         aria-label={`Drag to reorder ${column.label}`}
         style={{ cursor: "grab", display: "flex", color: "var(--gray-8)" }}
       >

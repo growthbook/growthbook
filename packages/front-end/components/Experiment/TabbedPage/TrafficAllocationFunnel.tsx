@@ -49,6 +49,7 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
 import {
   EnvironmentStateChips,
   getEnvironmentStates,
@@ -305,14 +306,18 @@ export default function TrafficAllocationFunnel({
   const [editingSplit, setEditingSplit] = useState<number | null>(null);
 
   // Staged like any other edit; either way the split is made even again.
-  const stageVariationList = (variations: Variation[]) => {
+  const stageVariationList = (
+    variations: Variation[],
+    weights = getEqualWeights(variations.length, 4),
+  ) => {
     stageVariations?.(variations);
     // Targeting writes the phase's variations too, so it must carry them.
     stagePatch({
       variations: variations.map(({ id }) => ({ id, status: "active" })),
-      variationWeights: getEqualWeights(variations.length, 4),
+      variationWeights: weights,
     });
   };
+  const [reordering, setReordering] = useState(false);
   const removeVariation = (index: number) =>
     stageVariationList(
       getLatestPhaseVariations(experiment)
@@ -814,6 +819,15 @@ export default function TrafficAllocationFunnel({
               />
             ) : null}
 
+            {reordering ? (
+              <ReorderVariationsModal
+                experiment={experiment}
+                weights={variationWeights}
+                close={() => setReordering(false)}
+                stage={stageVariationList}
+              />
+            ) : null}
+
             <VariationsTable
               experiment={experiment}
               canEditExperiment={canEditExperiment}
@@ -841,6 +855,16 @@ export default function TrafficAllocationFunnel({
                 experiment.status === "draft" &&
                 numVariations > 2
                   ? removeVariation
+                  : undefined
+              }
+              // Bucketing follows the order, so it is fixed once it starts.
+              onReorder={
+                canEditExperiment &&
+                !isRunning &&
+                stageVariations &&
+                targetingDraft &&
+                experiment.status === "draft"
+                  ? () => setReordering(true)
                   : undefined
               }
               onAddVariation={

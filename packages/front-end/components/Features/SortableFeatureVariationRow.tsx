@@ -1,6 +1,4 @@
 import { forwardRef, useEffect, useState } from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { RiDraggable } from "react-icons/ri";
@@ -26,6 +24,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
+import useSortableItem from "@/hooks/useSortableItem";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 
@@ -368,21 +367,17 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
 VariationRow.displayName = "VariationRow";
 
 export function SortableFeatureVariationRow(props: SortableProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, active } =
-    useSortable({ id: props.variation.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const { setNodeRef, style, isDragging, handle } = useSortableItem(
+    props.variation.id,
+  );
 
   return (
     <VariationRow
       {...props}
       ref={setNodeRef}
       style={style}
-      dragging={active?.id === props?.variation?.id}
-      handle={{ ...attributes, ...listeners }}
+      dragging={isDragging}
+      handle={handle}
     />
   );
 }
