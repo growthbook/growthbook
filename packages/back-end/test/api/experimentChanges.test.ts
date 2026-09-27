@@ -378,4 +378,70 @@ describe("applyExperimentChanges", () => {
       message: expect.stringContaining(`${FLAG} (draft v2)`),
     });
   });
+
+  it("creates a Values experiment's missing flag with the values it was sent", async () => {
+    const date = new Date("2026-01-01T00:00:00Z");
+    await collection("experiments").insertOne({
+      id: "exp_flagless",
+      organization: ORG_ID,
+      project: "",
+      trackingKey: "flagless-values",
+      name: "flagless",
+      type: "standard",
+      implementationType: "values",
+      hypothesis: "",
+      description: "",
+      status: "draft",
+      archived: false,
+      variations: ["v0", "v1"].map((id, i) => ({
+        id,
+        key: String(i),
+        name: id,
+        description: "",
+        screenshots: [],
+      })),
+      phases: [
+        {
+          name: "Main",
+          dateStarted: date,
+          coverage: 1,
+          variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "v0", status: "active" },
+            { id: "v1", status: "active" },
+          ],
+        },
+      ],
+      linkedFeatures: [],
+      dateCreated: date,
+      dateUpdated: date,
+    });
+    const experiment = await getExperimentById(context, "exp_flagless");
+    if (!experiment) throw new Error("missing experiment");
+
+    const result = await applyExperimentChanges({
+      context,
+      experiment,
+      body: {
+        managedFlag: { valueType: "string", variations: arms("x", "y") },
+      },
+      audit: async () => undefined,
+      eventAudit: { type: "api_key", apiKey: "key" },
+    });
+
+    const flag = await collection("features").findOne({
+      organization: ORG_ID,
+      "managedBy.experimentId": "exp_flagless",
+    });
+    expect(flag?.id).toBe("flagless-values");
+    expect(result.experiment.linkedFeatures).toEqual(["flagless-values"]);
+    const draft = await collection("featurerevisions").findOne({
+      featureId: "flagless-values",
+      status: "draft",
+    });
+    expect(
+      draft?.rules?.find((r: { type: string }) => r.type === "experiment-ref")
+        ?.variations,
+    ).toEqual(arms("x", "y"));
+  });
 });

@@ -46,6 +46,7 @@ import {
   assertManagedFlagCanMove,
   getManagedFeatureForExperiment,
   moveManagedFlagWithExperiment,
+  assertManagedFlagKeyFormat,
   releaseManagedFlagForImplementationChange,
 } from "back-end/src/services/managedFeatures";
 import {
@@ -195,6 +196,13 @@ export async function planExperimentUpdate(
         );
       }
       if (managed) releaseManagedFlagFor = data.implementationType;
+      // Switching to Values creates the flag once the update lands.
+      if (data.implementationType === "values" && !managed) {
+        assertManagedFlagKeyFormat(context, {
+          trackingKey: data.trackingKey ?? experiment.trackingKey,
+          id: experiment.id,
+        });
+      }
     }
   }
 

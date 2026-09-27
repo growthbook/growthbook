@@ -6,6 +6,7 @@ import {
 import { ImplementationType } from "shared/validators";
 import {
   getImplementationType,
+  isManagedByExperiment,
   SELECTABLE_IMPLEMENTATION_TYPES,
 } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -18,6 +19,30 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
+
+/**
+ * Why the implementation type can't change right now, or null when it can. The
+ * change flow handles the managed flag itself; anything else linked blocks it.
+ */
+export function implementationTypeLockedReason(
+  experiment: ExperimentInterfaceStringDates,
+  linkedFeatures: LinkedFeatureInfo[],
+): string | null {
+  if (experiment.status !== "draft") {
+    return "The type can't be changed after the experiment starts.";
+  }
+  const managed = linkedFeatures.some((f) =>
+    isManagedByExperiment(f.feature, experiment.id),
+  );
+  const otherLinkages =
+    linkedFeatures.length -
+    (managed ? 1 : 0) +
+    (experiment.hasVisualChangesets ? 1 : 0) +
+    (experiment.hasURLRedirects ? 1 : 0);
+  return otherLinkages > 0
+    ? "Remove the linked Feature Flags, Visual Editor changes and URL Redirects first."
+    : null;
+}
 
 export default function ChangeImplementationTypeModal({
   experiment,

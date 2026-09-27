@@ -162,7 +162,9 @@ import {
 import {
   adoptManagedFlagForExperiment,
   clearManagedMarkersForExperiment,
+  assertManagedFlagKeyFormat,
   createManagedFlagForNewExperiment,
+  ensureManagedFlagForExperiment,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
   managedFlagAdoptionBlocker,
@@ -1431,6 +1433,18 @@ export async function postExperiments(
     }
 
     await assertExperimentKeyFormat(context, obj.trackingKey, obj.datasource);
+    // A Values experiment is created with its flag; an unnamed one takes its
+    // key from the name, which the create itself checks.
+    if (
+      obj.trackingKey &&
+      experimentType !== "holdout" &&
+      getImplementationType(obj) === "values"
+    ) {
+      assertManagedFlagKeyFormat(context, {
+        trackingKey: obj.trackingKey,
+        id: "",
+      });
+    }
 
     // Make sure tracking key is unique
     if (
@@ -1558,7 +1572,7 @@ export async function postExperiments(
       type: "experiments",
     });
 
-    // A duplicate gets its own flag.
+    // A Values experiment gets its own flag; a duplicate's copies its source's.
     const originalExperiment = req.query.originalId
       ? await getExperimentById(context, req.query.originalId)
       : null;
@@ -1566,12 +1580,16 @@ export async function postExperiments(
       ? await getManagedFeatureForExperiment(context, originalExperiment)
       : null;
 
-    if (sourceManaged) {
+    if (
+      sourceManaged ||
+      (experiment.type !== "holdout" &&
+        getImplementationType(experiment) === "values")
+    ) {
       try {
         await createManagedFlagForNewExperiment({
           context,
           experiment,
-          sourceExperiment: originalExperiment,
+          sourceExperiment: sourceManaged ? originalExperiment : null,
           eventAudit: res.locals.eventAudit,
           audit: req.audit,
         });
@@ -1635,10 +1653,16 @@ export async function postExperiment(
   }
 
   const plan = await planExperimentUpdate(context, experiment, req.body);
-  const updated = await applyExperimentUpdatePlan({
+  // Switching to Values creates the flag straight away.
+  const updated = await ensureManagedFlagForExperiment({
     context,
-    experiment,
-    plan,
+    experiment: await applyExperimentUpdatePlan({
+      context,
+      experiment,
+      plan,
+      audit: req.audit,
+    }),
+    eventAudit: res.locals.eventAudit,
     audit: req.audit,
   });
 

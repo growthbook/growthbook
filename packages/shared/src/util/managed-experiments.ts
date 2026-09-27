@@ -140,6 +140,17 @@ export function managedFeatureKeyCandidate({
   return attempt === 0 ? base : `${base}-${attempt + 1}`;
 }
 
+/** Why the org's Feature Flag key format rejects `featureId`, or null when it passes. */
+export function featureKeyFormatError(
+  featureId: string,
+  regexValidator: string | null | undefined,
+): string | null {
+  if (!regexValidator || new RegExp(regexValidator).test(featureId)) {
+    return null;
+  }
+  return `Your organization requires Feature Flag keys to match ${regexValidator}`;
+}
+
 /** Creation collects no values, so each variation starts with a type-appropriate seed. */
 export function seedManagedVariationValues(
   variations: { id: string; key?: string }[],

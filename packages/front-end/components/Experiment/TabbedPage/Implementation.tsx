@@ -60,7 +60,6 @@ export interface Props {
   setAnalysisSettingsOpen?: (open: boolean) => void;
   editTraffic?: ((variationId?: string) => void) | null;
   canAddVariation?: boolean;
-  addVariationValues?: (() => void) | null;
   editNamespace?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
@@ -85,7 +84,6 @@ export default function Implementation({
   setAnalysisSettingsOpen,
   editTraffic,
   canAddVariation,
-  addVariationValues,
   editNamespace,
   setFeatureModal,
   setVisualEditorModal,
@@ -176,8 +174,8 @@ export default function Implementation({
   const managedMode = isManaged;
   const implementationType = getImplementationType(experiment);
 
-  // Keyed on the resolved implementation count, so a flag deleted out of band
-  // leaves adoption offered rather than stuck.
+  // Values experiments get their flag on create. One that lacks it still shows
+  // its values, and saving them creates the flag.
   const canAdoptManagedFlag =
     !isManaged &&
     implementationType === "values" &&
@@ -200,7 +198,14 @@ export default function Implementation({
 
   // Nothing left for the panel to say: the values are in the rows under the
   // variations, and managed mode hides the add affordances.
-  const managedSoleImplementation = isManaged && !!soleLinkedFeature;
+  // The value rows above already show every flag, managed or linked, so the
+  // box below is only for redirects, visual changes and choosing a type.
+  const flagsShownAbove =
+    isManaged ||
+    implementationType === "values" ||
+    (linkedFeatures.length > 0 &&
+      !experiment.hasVisualChangesets &&
+      !experiment.hasURLRedirects);
 
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
@@ -279,11 +284,7 @@ export default function Implementation({
             targetingDraft={targetingDraft}
             editNamespace={pendingScheduledStart ? null : editNamespace}
             canAddVariation={!pendingScheduledStart && !!canAddVariation}
-            addVariationValues={
-              canAdoptManagedFlag && !pendingScheduledStart
-                ? addVariationValues
-                : null
-            }
+            pendingManagedFlag={canAdoptManagedFlag && !pendingScheduledStart}
             setEditVariationIndex={setEditMetadataIndex}
             setEditKeyIndex={setEditKeyIndex}
             canEditExperiment={canEditExperiment}
@@ -313,10 +314,8 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
-        (hasLinkedChanges ||
-          canAddLinkedChanges ||
-          managedSoleImplementation ||
-          implementationType === "values") ? (
+        !flagsShownAbove &&
+        (hasLinkedChanges || canAddLinkedChanges) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -332,11 +331,6 @@ export default function Implementation({
             setUrlRedirectModal={setUrlRedirectModal}
             canEditExperiment={canEditExperiment}
             managedMode={managedMode}
-            onAddValues={
-              canAdoptManagedFlag && !pendingScheduledStart
-                ? (addVariationValues ?? undefined)
-                : undefined
-            }
           />
         ) : null}
 

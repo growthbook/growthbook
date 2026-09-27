@@ -9,12 +9,10 @@ import {
   PiCameraLight,
   PiCameraPlusLight,
   PiPencilSimple,
-  PiPlus,
   PiPlusCircle,
 } from "react-icons/pi";
 import clsx from "clsx";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import Link from "@/ui/Link";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
@@ -155,8 +153,6 @@ interface Props {
   onReorder?: () => void;
   // When true, the grid is centered and capped at 3 columns.
   centered?: boolean;
-  /** Offered on each card while a values experiment has no flag yet. */
-  onAddValue?: () => void;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -235,7 +231,6 @@ export function VariationBox({
   onEditKey,
   onReorder,
   capWidth = false,
-  onAddValue,
 }: {
   i: number;
   v: Variation;
@@ -259,8 +254,6 @@ export function VariationBox({
   onEditKey?: (variationIndex: number) => void;
   onReorder?: () => void;
   capWidth?: boolean;
-  /** Offered on each card while a values experiment has no flag yet. */
-  onAddValue?: () => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -415,14 +408,6 @@ export function VariationBox({
               </Flex>
             )}
           </Flex>
-          {onAddValue && !isPublic ? (
-            <Box mt="2">
-              <Link onClick={onAddValue} weight="medium">
-                <PiPlus style={{ marginRight: "var(--space-1)" }} />
-                Add value
-              </Link>
-            </Box>
-          ) : null}
         </Box>
       </Flex>
     </Box>
@@ -446,7 +431,6 @@ const VariationsTable: FC<Props> = ({
   onEditKey,
   onReorder,
   centered = false,
-  onAddValue,
 }) => {
   const variations = getLatestPhaseVariations(experiment);
   const phases = experiment.phases || [];
@@ -519,7 +503,6 @@ const VariationsTable: FC<Props> = ({
               onRemoveVariation={onRemoveVariation}
               onEditKey={onEditKey}
               onReorder={onReorder}
-              onAddValue={onAddValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage
               }

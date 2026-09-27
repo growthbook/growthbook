@@ -15,7 +15,6 @@ import {
 import {
   filterEnvironmentsByExperiment,
   generateVariationId,
-  getImplementationType,
   isManagedByExperiment,
 } from "shared/util";
 import {
@@ -50,6 +49,8 @@ import Frame from "@/ui/Frame";
 import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
 import {
   EnvironmentStateChips,
   getEnvironmentStates,
@@ -88,12 +89,12 @@ export interface Props {
   editNamespace?: (() => void) | null;
   /** Offers the + that appends a variation and evens out the split. */
   canAddVariation?: boolean;
+  /** A Values experiment without its flag: its values are edited here and create it on save. */
+  pendingManagedFlag?: boolean;
   /** Stages a new set of variations for the page's Save. */
   stageVariations?: (variations: Variation[]) => void;
   /** Environment scopes staged per flag. */
   flagEnvironments?: FlagEnvironmentsDraft;
-  /** Opens the values editor; offered per variation while no flag exists yet. */
-  addVariationValues?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
   setEditKeyIndex?: (index: number) => void;
   /** The sole linked Feature Flag, whose environments and draft the header describes. */
@@ -257,9 +258,9 @@ export default function TrafficAllocationFunnel({
   editTargeting,
   editNamespace,
   canAddVariation = false,
+  pendingManagedFlag = false,
   stageVariations,
   flagEnvironments,
-  addVariationValues,
   setEditVariationIndex,
   setEditKeyIndex,
   servedValueFeature,
@@ -876,18 +877,12 @@ export default function TrafficAllocationFunnel({
                   ? addVariation
                   : undefined
               }
-              onAddValue={
-                addVariationValues &&
-                !linkedFeatures.length &&
-                getImplementationType(experiment) === "values"
-                  ? addVariationValues
-                  : undefined
-              }
             />
             <FlagValueRows
               experiment={experiment}
               flagEnvironments={flagEnvironments}
               linkedFeatures={linkedFeatures}
+              pendingManagedFlag={pendingManagedFlag}
               canEdit={canEditFlagValues}
               onAddFlag={addFeatureFlag}
               mutate={() => mutate?.()}
@@ -925,33 +920,48 @@ function AssignmentAttribute({
     hashAttribute,
   );
 
+  const { getDatasourceById } = useDefinitions();
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+
   return (
-    <SetupFieldRow
-      label={`Assignment attribute${fallbackAttribute ? "s" : ""}`}
-      content={editInline ? "control" : "text"}
-      labelAlign="center"
-      fieldMaxWidth="100px"
-      tooltip="Hashed with the tracking key to decide which variation each user gets."
-    >
+    <>
+      <SetupFieldRow
+        label={`Assignment attribute${fallbackAttribute ? "s" : ""}`}
+        content={editInline ? "control" : "text"}
+        labelAlign="center"
+        fieldMaxWidth="100px"
+        tooltip="Hashed with the tracking key to decide which variation each user gets."
+      >
+        {editInline ? (
+          <SelectField
+            size="md"
+            value={hashAttribute}
+            options={attributeOptions}
+            sort={false}
+            formatOptionLabel={formatAttributeOption}
+            onChange={(v) => stagePatch({ hashAttribute: v })}
+          />
+        ) : (
+          <Box>
+            <AttributeBadge attributeId={hashAttribute} />
+            {fallbackAttribute ? (
+              <>
+                , <AttributeBadge attributeId={fallbackAttribute} />
+              </>
+            ) : null}
+          </Box>
+        )}
+      </SetupFieldRow>
       {editInline ? (
-        <SelectField
-          size="md"
-          value={hashAttribute}
-          options={attributeOptions}
-          sort={false}
-          formatOptionLabel={formatAttributeOption}
-          onChange={(v) => stagePatch({ hashAttribute: v })}
+        <LinkHashAttributeCallout
+          experimentId={experiment.id}
+          datasource={datasource}
+          hashAttribute={hashAttribute}
+          source="Experiment Setup"
         />
-      ) : (
-        <Box>
-          <AttributeBadge attributeId={hashAttribute} />
-          {fallbackAttribute ? (
-            <>
-              , <AttributeBadge attributeId={fallbackAttribute} />
-            </>
-          ) : null}
-        </Box>
-      )}
-    </SetupFieldRow>
+      ) : null}
+    </>
   );
 }

@@ -38,6 +38,7 @@ import {
   discardManagedDraftIfNoop,
   requestReviewForManagedDraft,
   stageManagedFeatureFields,
+  ensureManagedFlagForExperiment,
 } from "back-end/src/services/managedFeatures";
 import {
   assertValidRuleWrite,
@@ -484,7 +485,16 @@ export async function applyExperimentChanges({
     }
 
     if (!experimentPlan || !Object.keys(experimentPlan.changes).length) {
-      return { experiment, flags };
+      return {
+        experiment: await healManagedFlag({
+          context,
+          experiment,
+          values: body.managedFlag,
+          eventAudit,
+          audit,
+        }),
+        flags,
+      };
     }
 
     const fresh = await getExperimentById(context, experiment.id);
@@ -524,5 +534,32 @@ export async function applyExperimentChanges({
     plan: experimentPlan,
     audit,
   });
-  return { experiment: written.updated, flags };
+  return {
+    experiment: await healManagedFlag({
+      context,
+      experiment: written.updated,
+      values: body.managedFlag,
+      eventAudit,
+      audit,
+    }),
+    flags,
+  };
+}
+
+// A Values experiment missing its flag gets one on its next save, with the
+// values the page sent or seeded ones. Seeding wasn't asked for and the rest
+// has already landed, so only a seeding failure is logged rather than thrown.
+async function healManagedFlag(
+  args: Parameters<typeof ensureManagedFlagForExperiment>[0],
+): Promise<ExperimentInterface> {
+  try {
+    return await ensureManagedFlagForExperiment(args);
+  } catch (e) {
+    if (args.values) throw e;
+    logger.warn(
+      { err: e, experimentId: args.experiment.id },
+      "Could not create the missing managed Feature Flag",
+    );
+    return args.experiment;
+  }
 }

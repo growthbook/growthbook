@@ -21,7 +21,6 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import ExperimentManagedTrafficModal from "@/components/Experiment/ExperimentManagedTrafficModal";
 import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
@@ -46,10 +45,6 @@ const ExperimentPage = (): ReactElement => {
   // here beside the modal and written by the setup tab's save bar.
   const [targetingDraft, setTargetingDraft] =
     useState<ExperimentTargetingData | null>(null);
-  const [trafficModalOpen, setTrafficModalOpen] = useState(false);
-  const [trafficFocusVariation, setTrafficFocusVariation] = useState<
-    string | null
-  >(null);
   const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
@@ -135,18 +130,6 @@ const ExperimentPage = (): ReactElement => {
     : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
-    : null;
-  const editTraffic = canRunExperiment
-    ? (variationId?: string) => {
-        setTrafficFocusVariation(variationId ?? null);
-        setTrafficModalOpen(true);
-      }
-    : null;
-  const addVariationValues = canRunExperiment
-    ? () => {
-        setTrafficFocusVariation(null);
-        setTrafficModalOpen(true);
-      }
     : null;
   const editNamespace = canRunExperiment
     ? () => setNamespaceModalOpen(true)
@@ -235,19 +218,6 @@ const ExperimentPage = (): ReactElement => {
           // source="eid"
         />
       )}
-      {trafficModalOpen && (
-        <ExperimentManagedTrafficModal
-          close={() => {
-            setTrafficModalOpen(false);
-            setTrafficFocusVariation(null);
-          }}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          safeToEdit={safeToEdit}
-          focusVariationId={trafficFocusVariation}
-        />
-      )}
       {namespaceModalOpen && (
         <EditNamespaceModal
           close={() => setNamespaceModalOpen(false)}
@@ -294,9 +264,7 @@ const ExperimentPage = (): ReactElement => {
           envs={envs}
           editTargeting={editTargeting}
           targetingDraft={{ value: targetingDraft, set: setTargetingDraft }}
-          editTraffic={editTraffic}
           canAddVariation={canRunExperiment}
-          addVariationValues={addVariationValues}
           editNamespace={editNamespace}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}

@@ -6,6 +6,8 @@ import {
   managedByExperimentId,
   isManagedByExperiment,
   checkIfRevisionNeedsReview,
+  featureKeyFormatError,
+  getImplementationType,
   managedFeatureKeyCandidate,
   mergeResultHasChanges,
   seedManagedVariationValues,
@@ -261,10 +263,7 @@ export async function planManagedFlagKey({
   const derivedIdAvailable = !(await featureIdExists(context, derivedId));
 
   const regexValidator = context.org.settings?.featureRegexValidator;
-  const regexError =
-    regexValidator && !new RegExp(regexValidator).test(derivedId)
-      ? `Your organization requires Feature Flag keys to match ${regexValidator}`
-      : null;
+  const regexError = featureKeyFormatError(derivedId, regexValidator);
 
   let suggestedPair: ManagedFlagKeyPlan["suggestedPair"] = null;
   if (!derivedIdAvailable) {
@@ -274,9 +273,7 @@ export async function planManagedFlagKey({
         experimentId: experiment.id,
         attempt,
       });
-      if (regexValidator && !new RegExp(regexValidator).test(candidate)) {
-        continue;
-      }
+      if (featureKeyFormatError(candidate, regexValidator)) continue;
       if (await featureIdExists(context, candidate)) continue;
       const keyOwner = await getExperimentByTrackingKey(context, candidate);
       if (keyOwner && keyOwner.id !== experiment.id) continue;
@@ -575,17 +572,25 @@ export async function requestReviewForManagedDraft({
   );
 }
 
-// Copies the source's type and values; seeds fresh ones when the source can't be read.
+export type ManagedFlagValues = {
+  valueType: FeatureValueType;
+  variations: { variationId: string; value: string }[];
+  sparse?: boolean;
+};
+
+// Uses the values given, else copies the source's, else seeds fresh ones.
 export async function createManagedFlagForNewExperiment({
   context,
   experiment,
   sourceExperiment,
+  values,
   eventAudit,
   audit,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   sourceExperiment: ExperimentInterface | null;
+  values?: ManagedFlagValues;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<void> {
@@ -613,12 +618,72 @@ export async function createManagedFlagForNewExperiment({
       audit,
     });
 
-  await create(copied ?? seeded);
+  await create(
+    values ? { ...values, sparse: values.sparse ?? false } : (copied ?? seeded),
+  );
   await updateExperiment({
     context,
     experiment,
     changes: { implementationType: "values" },
   });
+}
+
+/**
+ * Refuses up front when the flag a Values experiment creates would break the
+ * org's Feature Flag key format, before anything is written.
+ */
+export function assertManagedFlagKeyFormat(
+  context: ReqContext | ApiReqContext,
+  { trackingKey, id }: Pick<ExperimentInterface, "trackingKey" | "id">,
+): void {
+  const featureId = managedFeatureKeyCandidate({
+    trackingKey,
+    experimentId: id,
+  });
+  if (!featureId) return;
+  const error = featureKeyFormatError(
+    featureId,
+    context.org.settings?.featureRegexValidator,
+  );
+  if (error) {
+    throw new BadRequestError(
+      `This experiment's Feature Flag would be named "${featureId}". ${error}. Change the Experiment Key.`,
+    );
+  }
+}
+
+/** A Values experiment owns its flag from the start; creates it for one that lacks it. */
+export async function ensureManagedFlagForExperiment({
+  context,
+  experiment,
+  values,
+  eventAudit,
+  audit,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  /** What the user entered; seeded when omitted. */
+  values?: ManagedFlagValues;
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+}): Promise<ExperimentInterface> {
+  if (
+    experiment.type === "holdout" ||
+    getImplementationType(experiment) !== "values" ||
+    (await getManagedFeatureForExperiment(context, experiment)) ||
+    (await managedFlagAdoptionBlocker(context, experiment))
+  ) {
+    return experiment;
+  }
+  await createManagedFlagForNewExperiment({
+    context,
+    experiment,
+    sourceExperiment: null,
+    values,
+    eventAudit,
+    audit,
+  });
+  return (await getExperimentById(context, experiment.id)) ?? experiment;
 }
 
 export type ManagedFlagState = z.infer<typeof apiExperimentVariationValues>;

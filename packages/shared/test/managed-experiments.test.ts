@@ -1,5 +1,6 @@
 import {
   copyManagedVariationValues,
+  featureKeyFormatError,
   getManagedValueProblems,
   hasStartReadyManagedFlag,
   isManagedByExperiment,
@@ -9,6 +10,19 @@ import {
   requireFreshBaseForPublish,
   seedManagedVariationValues,
 } from "../src/util/managed-experiments";
+
+describe("featureKeyFormatError", () => {
+  it("passes any key when the org sets no format", () => {
+    expect(featureKeyFormatError("anything goes", undefined)).toBeNull();
+  });
+
+  it("names the format a key fails, and passes one that matches", () => {
+    expect(featureKeyFormatError("checkout-v2", "^team_")).toBe(
+      "Your organization requires Feature Flag keys to match ^team_",
+    );
+    expect(featureKeyFormatError("team_checkout", "^team_")).toBeNull();
+  });
+});
 
 describe("managedFeatureKeyCandidate", () => {
   const experimentId = "exp_abc123";

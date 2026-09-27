@@ -32,7 +32,7 @@ export interface Props {
   panel: "about" | "details";
   /** The quick-edit button for one field's row, where that field is editable. */
   fieldAction?: (
-    field: "project" | "trackingKey" | "owner" | "tags",
+    field: "project" | "trackingKey" | "owner" | "tags" | "implementationType",
   ) => ReactNode;
 }
 
@@ -88,6 +88,8 @@ export default function ProjectTagBar({
             size="sm"
             stacked
             label="Implementation"
+            actionPlacement="value"
+            action={fieldAction?.("implementationType")}
             value={
               implementationType
                 ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header

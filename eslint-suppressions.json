@@ -405,11 +405,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/SortableExperimentVariationRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Experiment/StopExperimentForm.tsx": {
     "no-restricted-syntax": {
       "count": 3

@@ -15,6 +15,8 @@ import type {
   ExperimentRuleEnvironments,
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import useUnsavedChangesGuard from "@/hooks/useUnsavedChangesGuard";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 
 type PendingEdit = {
   /** Puts the field back to what is stored. */
@@ -151,6 +153,13 @@ export function ExperimentEditsProvider({
     setError(null);
   }, []);
 
+  // Discards before leaving: a route change started with edits still staged
+  // doesn't complete until they're saved or discarded.
+  const navigationGuard = useUnsavedChangesGuard(
+    dirtyIds.length > 0,
+    discardAll,
+  );
+
   const value = useMemo(
     () => ({
       dirty: dirtyIds.length > 0,
@@ -166,6 +175,16 @@ export function ExperimentEditsProvider({
   return (
     <ExperimentEditsContext.Provider value={value}>
       {children}
+      {navigationGuard.pendingHref ? (
+        <ConfirmDialog
+          title="Leave without saving?"
+          content="You have unsaved changes to this experiment. Leaving this page discards them."
+          yesText="Leave page"
+          noText="Keep editing"
+          onConfirm={navigationGuard.confirmNavigation}
+          onCancel={navigationGuard.cancelNavigation}
+        />
+      ) : null}
     </ExperimentEditsContext.Provider>
   );
 }

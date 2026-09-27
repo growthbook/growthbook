@@ -1,6 +1,10 @@
 import { ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
+import { isManagedByExperiment } from "shared/util";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import DiscussionThread from "@/components/DiscussionThread";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -18,6 +22,9 @@ import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import DescriptionField from "@/components/Experiment/TabbedPage/DescriptionField";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import ChangeImplementationTypeModal, {
+  implementationTypeLockedReason,
+} from "@/components/Experiment/ChangeImplementationTypeModal";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import ExpandableBlock from "./ExpandableBlock";
 import ExperimentHealthBadges from "./ExperimentHealthBadges";
@@ -25,7 +32,7 @@ import ExperimentHealthBadges from "./ExperimentHealthBadges";
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
-  isManaged?: boolean;
+  linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
   disableEditing?: boolean;
 }
@@ -34,11 +41,17 @@ export interface Props {
 export default function ExperimentDetailsPanel({
   experiment,
   holdout,
-  isManaged,
+  linkedFeatures,
   mutate,
   disableEditing,
 }: Props) {
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
+  const [changingType, setChangingType] = useState(false);
+  const managedFeature =
+    linkedFeatures.find((f) =>
+      isManagedByExperiment(f.feature, experiment.id),
+    ) ?? null;
+  const isManaged = !!managedFeature;
   // Another editing surface cannot open over the page's own unsaved edits, so
   // the controls that would open one say why instead.
   const editsBlocked = useEditsBlockedReason();
@@ -78,6 +91,12 @@ export default function ExperimentDetailsPanel({
   // changes while nothing is serving it.
   const fieldAction = (field: QuickField) => {
     if (field === "trackingKey" && experiment.status !== "draft") return null;
+    if (field === "implementationType") {
+      if (implementationTypeLockedReason(experiment, linkedFeatures)) {
+        return null;
+      }
+      return pencil(QUICK_FIELD_LABELS[field], () => setChangingType(true));
+    }
     return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
   };
   const isHoldout = experiment.type === "holdout";
@@ -111,6 +130,14 @@ export default function ExperimentDetailsPanel({
 
   return (
     <>
+      {changingType ? (
+        <ChangeImplementationTypeModal
+          experiment={experiment}
+          managedFeature={managedFeature}
+          close={() => setChangingType(false)}
+          mutate={mutate}
+        />
+      ) : null}
       {showEditInfoModal && !isHoldout ? (
         <EditExperimentInfoModal
           experiment={experiment}
@@ -213,9 +240,15 @@ export default function ExperimentDetailsPanel({
   );
 }
 
-type QuickField = "project" | "trackingKey" | "owner" | "tags";
+type QuickField =
+  | "project"
+  | "trackingKey"
+  | "owner"
+  | "tags"
+  | "implementationType";
 
 const QUICK_FIELD_LABELS: Record<QuickField, string> = {
+  implementationType: "Edit implementation",
   project: "Edit project",
   trackingKey: "Edit experiment key",
   owner: "Edit owner",

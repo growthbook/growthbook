@@ -2238,6 +2238,16 @@ export const experimentChangesBody = z
           .strict(),
       )
       .optional(),
+    // Values for the experiment's own Feature Flag when it has none yet; the
+    // save creates the flag with them.
+    managedFlag: z
+      .object({
+        valueType: z.enum(featureValueType),
+        variations: z.array(experimentRefVariation),
+        sparse: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export type ExperimentChangesBody = z.infer<typeof experimentChangesBody>;

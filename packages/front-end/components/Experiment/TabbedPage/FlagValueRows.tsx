@@ -11,13 +11,15 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { FeatureValueType } from "shared/types/feature";
+import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import {
   castFeatureValue,
   getConfigSubtree,
   getFeatureBaseConfigKey,
   isManagedByExperiment,
+  managedFeatureKeyCandidate,
   parsePlainJSONObject,
+  seedManagedVariationValues,
 } from "shared/util";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -130,7 +132,40 @@ export interface Props {
   onAddFlag?: (() => void) | null;
   /** Environment scopes staged per flag. */
   flagEnvironments?: FlagEnvironmentsDraft;
+  /** A Values experiment without its flag: the values edit as usual and create it on save. */
+  pendingManagedFlag?: boolean;
 }
+
+// Stands in for the flag a Values experiment creates on save, so its values
+// edit like the real one's. Only what the row reads is filled in.
+function pendingManagedFlagInfo(
+  experiment: ExperimentInterfaceStringDates,
+): LinkedFeatureInfo {
+  const feature = {
+    id: managedFeatureKeyCandidate({
+      trackingKey: experiment.trackingKey,
+      experimentId: experiment.id,
+    }),
+    project: experiment.project ?? "",
+    valueType: "string",
+    defaultValue: "",
+    version: 0,
+    environmentSettings: {},
+    managedBy: { type: "experiment", experimentId: experiment.id },
+  } as FeatureInterface;
+  return {
+    feature,
+    state: "draft",
+    values: seedManagedVariationValues(getLatestPhaseVariations(experiment)),
+    valuesFrom: "",
+    inconsistentValues: false,
+    rulesAbove: false,
+    environmentStates: {},
+  };
+}
+
+/** Where the pre-launch checklist sends you to fill in values. */
+export const FLAG_VALUES_ID = "experiment-flag-values";
 
 /** One row per linked Feature Flag, a cell per variation, under the variation cards. */
 export default function FlagValueRows({
@@ -141,21 +176,31 @@ export default function FlagValueRows({
   mutate,
   onAddFlag,
   flagEnvironments,
+  pendingManagedFlag = false,
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const cols = Math.min(variations.length, 3);
-
-  if (!linkedFeatures.length || !variations.length) return null;
-
-  const managedFlags = linkedFeatures.filter((info) =>
-    isManagedByExperiment(info.feature, experiment.id),
+  const pendingInfo = useMemo(
+    () => (pendingManagedFlag ? pendingManagedFlagInfo(experiment) : null),
+    [pendingManagedFlag, experiment],
   );
+
+  if ((!linkedFeatures.length && !pendingInfo) || !variations.length) {
+    return null;
+  }
+
+  const managedFlags = pendingInfo
+    ? [pendingInfo]
+    : linkedFeatures.filter((info) =>
+        isManagedByExperiment(info.feature, experiment.id),
+      );
   const linkedFlags = linkedFeatures.filter(
     (info) => !managedFlags.includes(info),
   );
 
   return (
     <Flex
+      id={FLAG_VALUES_ID}
       direction="column"
       gap="4"
       mt="4"
@@ -169,6 +214,7 @@ export default function FlagValueRows({
           key={info.feature.id}
           experiment={experiment}
           info={info}
+          pending={info === pendingInfo}
           canEdit={canEdit}
           showLive={showLive}
           mutate={mutate}
@@ -207,9 +253,12 @@ function FlagValueRow({
   showLive,
   mutate,
   flagEnvironments,
+  pending = false,
 }: {
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
+  /** Not created yet: saving the values creates it. */
+  pending?: boolean;
   canEdit: boolean;
   showLive: boolean;
   mutate: () => void;
@@ -370,24 +419,33 @@ function FlagValueRow({
   };
 
   useRegisterExperimentEdit(`flag:${feature.id}`, dirty, {
-    changes: () => ({
-      flagValues: [
-        {
-          featureId: feature.id,
-          variations: checkedValues(),
-          ...(valueType !== storedType && { valueType }),
-          ...(sparse !== storedSparse && { sparse }),
-          ...(stagedScope && { environments: stagedScope }),
-          // Writes into the draft the values came from; off live, starts one.
-          revision: fromDraft
-            ? {
-                version: pendingDraft.version,
-                dateUpdated: pendingDraft.dateUpdated,
-              }
-            : { version: feature.version, dateUpdated: null },
-        },
-      ],
-    }),
+    changes: () =>
+      pending
+        ? {
+            managedFlag: {
+              valueType,
+              variations: checkedValues(),
+              ...(sparse && { sparse }),
+            },
+          }
+        : {
+            flagValues: [
+              {
+                featureId: feature.id,
+                variations: checkedValues(),
+                ...(valueType !== storedType && { valueType }),
+                ...(sparse !== storedSparse && { sparse }),
+                ...(stagedScope && { environments: stagedScope }),
+                // Writes into the draft the values came from; off live, starts one.
+                revision: fromDraft
+                  ? {
+                      version: pendingDraft.version,
+                      dateUpdated: pendingDraft.dateUpdated,
+                    }
+                  : { version: feature.version, dateUpdated: null },
+              },
+            ],
+          },
     onSaved: clearStaged,
     discard: clearStaged,
   });

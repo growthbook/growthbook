@@ -10,12 +10,9 @@ import { getImplementationType, isManagedByExperiment } from "shared/util";
 import { Flex, IconButton, type AvatarProps } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiInfo } from "react-icons/pi";
-import ConfirmDialog from "@/ui/ConfirmDialog";
-import { ManagedFlagName } from "@/components/Experiment/ManagedFlagName";
-import { useAuth } from "@/services/auth";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { getEnabledEnvironments, useEnvironments } from "@/services/features";
-import ChangeImplementationTypeModal from "@/components/Experiment/ChangeImplementationTypeModal";
+import ChangeImplementationTypeModal, {
+  implementationTypeLockedReason,
+} from "@/components/Experiment/ChangeImplementationTypeModal";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -25,7 +22,6 @@ import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
-import Button from "@/ui/Button";
 import { RedirectLinkedChanges } from "./RedirectLinkedChanges";
 import AddLinkedChangeButton from "./AddLinkedChangeButton";
 import {
@@ -51,7 +47,6 @@ export default function LinkedChanges({
   setUrlRedirectModal,
   canEditExperiment,
   managedMode,
-  onAddValues,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -69,12 +64,7 @@ export default function LinkedChanges({
   canEditExperiment?: boolean;
   /** Withholds the add-a-change surfaces. */
   managedMode?: boolean;
-  /** Creates the managed flag for a "values" experiment that has none yet. */
-  onAddValues?: () => void;
 }) {
-  const { apiCall } = useAuth();
-  const permissionsUtil = usePermissionsUtil();
-  const allEnvironments = useEnvironments();
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
 
@@ -83,14 +73,10 @@ export default function LinkedChanges({
     linkedFeatures.find((f) =>
       isManagedByExperiment(f.feature, experiment.id),
     ) ?? null;
-  // The change flow handles the managed flag itself; anything else blocks it.
-  const otherLinkages = numLinkedChanges - (managedFeature ? 1 : 0);
-  const changeTypeLockedReason =
-    experiment.status !== "draft"
-      ? "The type can't be changed after the experiment starts."
-      : otherLinkages > 0
-        ? "Remove the linked Feature Flags, Visual Editor changes and URL Redirects first."
-        : null;
+  const changeTypeLockedReason = implementationTypeLockedReason(
+    experiment,
+    linkedFeatures,
+  );
 
   const effectiveType = managedFeature
     ? "values"
@@ -115,22 +101,6 @@ export default function LinkedChanges({
     canEditExperiment &&
     !experiment.archived &&
     !emptyStateOffersType;
-
-  const canEject =
-    !!managedFeature &&
-    !!canEditExperiment &&
-    permissionsUtil.canPublishFeature(
-      managedFeature.feature,
-      getEnabledEnvironments(managedFeature.feature, allEnvironments),
-    );
-  const [ejectConfirm, setEjectConfirm] = useState(false);
-  const eject = async () => {
-    await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
-      method: "POST",
-    });
-    setEjectConfirm(false);
-    mutate?.();
-  };
 
   const publicLinkedChangeSummary: { id: LinkedChange; count: number }[] = [
     { id: "feature-flag", count: linkedFeatures.length },
@@ -181,24 +151,10 @@ export default function LinkedChanges({
               >
                 Change implementation type
               </DropdownMenuItem>
-              {canEject && (
-                <DropdownMenuItem onClick={() => setEjectConfirm(true)}>
-                  Convert to unmanaged Feature Flag
-                </DropdownMenuItem>
-              )}
             </DropdownMenu>
           )}
         </Flex>
       </Flex>
-      {ejectConfirm && (
-        <ConfirmDialog
-          title="Convert to unmanaged Feature Flag?"
-          content="This experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here. This cannot be undone."
-          yesText="Convert"
-          onConfirm={eject}
-          onCancel={() => setEjectConfirm(false)}
-        />
-      )}
       {changingType && mutate && (
         <ChangeImplementationTypeModal
           experiment={experiment}
@@ -207,22 +163,7 @@ export default function LinkedChanges({
           mutate={mutate}
         />
       )}
-      {valuesMode && !isPublic ? (
-        managedFeature ? (
-          <ManagedFlagName featureId={managedFeature.feature.id} />
-        ) : (
-          <Flex justify="between" align="center" gap="4">
-            <Text color="text-mid">
-              No Feature Flag yet. Adding values creates one.
-            </Text>
-            {onAddValues && (
-              <Button variant="ghost" onClick={onAddValues}>
-                Add values
-              </Button>
-            )}
-          </Flex>
-        )
-      ) : isPublic ? (
+      {isPublic ? (
         <Flex direction="column" gap="3" mx="1" mb="2" mt="4">
           {publicLinkedChangeSummary
             .filter(({ count }) => count > 0)

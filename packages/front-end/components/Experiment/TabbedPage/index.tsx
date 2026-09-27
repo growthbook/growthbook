@@ -4,7 +4,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { isDefined, isManagedByExperiment } from "shared/util";
+import { isDefined } from "shared/util";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -72,6 +72,7 @@ import { TargetingDraft } from "./TrafficAllocationFunnel";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
+import { FLAG_VALUES_ID } from "./FlagValueRows";
 
 const experimentTabs = [
   "overview",
@@ -104,7 +105,6 @@ export interface Props {
   targetingDraft?: TargetingDraft;
   editTraffic?: ((variationId?: string) => void) | null;
   canAddVariation?: boolean;
-  addVariationValues?: (() => void) | null;
   editNamespace?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
@@ -140,7 +140,6 @@ function TabbedPageContents({
   targetingDraft,
   editTraffic,
   canAddVariation,
-  addVariationValues,
   editNamespace,
   newPhase,
   editPhases,
@@ -546,7 +545,7 @@ function TabbedPageContents({
       openManagedApproval={
         managedFlagWithDraft ? () => setManagedApprovalOpen(true) : undefined
       }
-      editVariationValues={editTraffic ? () => editTraffic() : undefined}
+      editVariationValues={() => setTabAndScroll("overview", FLAG_VALUES_ID)}
       envs={envs}
     >
       {compareModal && (
@@ -665,9 +664,7 @@ function TabbedPageContents({
                 holdout={holdout}
                 mutate={mutate}
                 disableEditing={viewingOldPhase}
-                isManaged={linkedFeatures.some((f) =>
-                  isManagedByExperiment(f.feature, experiment.id),
-                )}
+                linkedFeatures={linkedFeatures}
               />
             ) : null
           }
@@ -803,7 +800,6 @@ function TabbedPageContents({
                 setAnalysisSettingsOpen={setAnalysisSettingsOpen}
                 editTraffic={editTraffic}
                 canAddVariation={canAddVariation}
-                addVariationValues={addVariationValues}
                 editNamespace={editNamespace}
                 linkedFeatures={linkedFeatures}
                 envs={envs}
