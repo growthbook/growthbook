@@ -37,7 +37,12 @@ export function renderCustomFieldValue(
     case "url":
       if (stringValue !== "") {
         return (
-          <Link href={stringValue} target="_blank" rel="noreferrer">
+          <Link
+            href={stringValue}
+            target="_blank"
+            rel="noreferrer"
+            style={{ overflowWrap: "anywhere" }}
+          >
             {stringValue}
           </Link>
         );
