@@ -76,6 +76,8 @@ import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
 export const SAMPLE_ROW_LIMIT = 20;
+// Warn when a selected table has too many columns
+const MANY_COLUMNS = 50;
 
 export type FactTableSqlMode = "table" | "sql";
 
@@ -351,6 +353,7 @@ export default function NewFactTableSqlStep({
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
+  const columnCount = columnSource?.columns.length ?? 0;
 
   const validDatasources = datasources
     .filter((d) => isProjectListValidForProject(d.projects, project))
@@ -612,6 +615,12 @@ export default function NewFactTableSqlStep({
                   </SelectItem>
                   <SelectItem value="specific">Specific columns</SelectItem>
                 </Select>
+                {!selectedColumns && columnCount > MANY_COLUMNS ? (
+                  <Callout status="info" size="sm">
+                    For the best experience, only select the specific columns
+                    that you need.
+                  </Callout>
+                ) : null}
                 {selectedColumns ? (
                   <MultiSelectField
                     value={selectedColumns}
